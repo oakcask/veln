@@ -93,6 +93,7 @@ pub struct EffectOperationDecl {
 pub struct PublicAliasDecl {
     pub kind: PublicAliasKind,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub target: Vec<String>,
     pub span: SourceSpan,
 }
@@ -108,6 +109,7 @@ pub enum PublicAliasKind {
 pub struct TypeDecl {
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub params: Vec<String>,
     pub variants: Vec<TypeVariantDecl>,
     pub span: SourceSpan,
@@ -118,6 +120,7 @@ pub struct TypeDecl {
 pub struct TypeVariantDecl {
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub field_delimiter: Option<TypeVariantFieldDelimiter>,
     pub fields: Vec<TypeVariantField>,
     pub span: SourceSpan,
@@ -217,6 +220,7 @@ pub struct FunctionDecl {
     pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub name_span: Option<SourceSpan>,
     pub effect_binder: Option<EffectBinder>,
     pub params: Vec<Param>,
     pub return_binding: Option<ResultBinding>,
@@ -251,6 +255,7 @@ pub enum Visibility {
 #[derive(Clone, Debug)]
 pub struct Param {
     pub name: String,
+    pub name_span: SourceSpan,
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
     pub is_variadic: bool,

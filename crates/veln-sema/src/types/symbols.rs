@@ -341,8 +341,12 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
         .types
         .iter()
         .filter_map(|ty| {
+            let name = ty.name.clone()?;
+            if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+                return None;
+            }
             Some(NamedSymbol {
-                name: ty.name.clone()?,
+                name,
                 module_name: ty.module_name.clone(),
                 visibility: ty.visibility,
             })
@@ -354,8 +358,12 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
             .iter()
             .filter(|alias| alias.kind == PublicAliasKind::Type)
             .filter_map(|alias| {
+                let name = alias.name.clone()?;
+                if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+                    return None;
+                }
                 Some(NamedSymbol {
-                    name: alias.name.clone()?,
+                    name,
                     module_name: alias.module_name.clone(),
                     visibility: Visibility::Public,
                 })

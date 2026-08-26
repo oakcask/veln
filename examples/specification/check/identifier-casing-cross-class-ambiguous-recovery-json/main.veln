@@ -1,0 +1,11 @@
+fn main() -> Int
+  Bad(1)
+end
+
+type item
+  Bad(Int)
+end
+
+fn Bad(value: Int) -> Int
+  value
+end

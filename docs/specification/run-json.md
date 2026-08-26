@@ -16,6 +16,18 @@ update-when: The `veln run --json` output schema, runtime failure details, resul
 - `error`: `null` for passed runs, or a structured result, runtime, or runner
   error
 
+If analysis reports parse, source, semantic, lowering, or run-entry effect
+diagnostics before the backend starts, `veln run --json` emits the shared
+diagnostic envelope used by diagnostic commands. The envelope uses
+`schema_version: 1`, `status: "error"`, `diagnostics`, and `summary`, and stderr
+is empty. The identifier-casing `*-json` run cases under
+`examples/specification/run/` check this pre-execution diagnostic boundary for
+reachable source declarations, aliases, type and constructor references,
+handler bindings, handler annotations, handler clause expressions, and import
+recovery isolation. The identifier-casing owned-constructor ambiguous recovery
+cases also check that same-owner constructor recovery ambiguity keeps the
+shared diagnostic envelope and does not emit a recovered `name.invalid_case`.
+
 Runtime contract failures use `error.kind: "contract"`. The error details use
 `kind: "contract"` and `phase: "runtime"` and include:
 

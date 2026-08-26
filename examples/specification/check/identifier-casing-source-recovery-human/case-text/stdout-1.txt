@@ -1,0 +1,12 @@
+main.veln:1:6: error[name.invalid_case]: type name `item` must start with an ASCII uppercase letter
+main.veln:2:3: error[name.invalid_case]: constructor name `value` must start with an ASCII uppercase letter
+main.veln:3:3: error[name.invalid_case]: constructor name `_Payload` must start with an ASCII uppercase letter
+main.veln:6:4: error[name.invalid_case]: function name `Build` must start with an ASCII lowercase letter
+main.veln:6:10: error[name.invalid_case]: binding name `Input` must start with an ASCII lowercase letter
+main.veln:6:25: error[name.invalid_case]: binding name `Output` must start with an ASCII lowercase letter
+main.veln:7:7: error[name.invalid_case]: binding name `Local` must start with an ASCII lowercase letter
+main.veln:11:6: error[name.invalid_case]: function name `Verify` must start with an ASCII lowercase letter
+main.veln:15:8: error[name.invalid_case]: function name `Exported` must start with an ASCII lowercase letter
+main.veln:16:10: error[name.invalid_case]: type name `exported` must start with an ASCII uppercase letter
+main.veln:15:1: error[name.unresolved]: unresolved function alias target `Build`
+main.veln:16:1: error[name.unresolved]: unresolved type alias target `item`

@@ -765,6 +765,7 @@ fn merge_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {
         codecs: Vec::new(),
         types: Vec::new(),
         functions: Vec::new(),
+        invalid_names: Vec::new(),
     };
     for module in modules {
         merged.uses.extend(module.uses);
@@ -775,6 +776,7 @@ fn merge_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {
         merged.codecs.extend(module.codecs);
         merged.types.extend(module.types);
         merged.functions.extend(module.functions);
+        merged.invalid_names.extend(module.invalid_names);
     }
     merged
 }

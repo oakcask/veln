@@ -16,11 +16,11 @@ use veln_syntax::{
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
     CodecImplementationKind, Contract, ContractKind, DictEntry, EffectDecl, EffectOperationDecl,
-    Expr, ExprKind, Function, FunctionKind, HandlerDecl, HandlerOperationClauseDecl, MatchArm,
-    ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
-    PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl,
-    TypeVariantField, UseDecl, UseOrigin, Visibility,
+    Expr, ExprKind, Function, FunctionKind, HandlerDecl, HandlerOperationClauseDecl, InvalidName,
+    MatchArm, ModuleHeader, NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField,
+    PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl,
+    SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
+    TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -67,19 +67,23 @@ impl AstBuilder {
         let mut codecs = Vec::new();
         let mut functions = Vec::new();
         let mut aliases = Vec::new();
+        let mut invalid_names = Vec::new();
 
         for item in &tree.items {
             match item {
                 SyntaxItem::Function(function) => {
+                    collect_invalid_function_names(function, &mut invalid_names);
                     functions.push(self.lower_function(function, module_name.clone()));
                 }
                 SyntaxItem::Effect(effect) => {
                     effects.push(self.lower_effect_decl(effect, module_name.clone()));
                 }
                 SyntaxItem::Handler(handler) => {
+                    collect_invalid_handler_names(handler, &mut invalid_names);
                     handlers.push(self.lower_handler_decl(handler, module_name.clone()));
                 }
                 SyntaxItem::Type(type_decl) => {
+                    collect_invalid_type_names(type_decl, &mut invalid_names);
                     types.push(self.lower_type_decl(type_decl, module_name.clone()));
                 }
                 SyntaxItem::Schema(schema) => {
@@ -89,6 +93,7 @@ impl AstBuilder {
                     codecs.push(self.lower_codec_decl(codec, module_name.clone()));
                 }
                 SyntaxItem::PublicAlias(alias) => {
+                    collect_invalid_alias_name(alias, &mut invalid_names);
                     aliases.push(self.lower_public_alias(alias, module_name.clone()));
                 }
             }
@@ -104,7 +109,288 @@ impl AstBuilder {
             schemas,
             codecs,
             functions,
+            invalid_names,
         }
+    }
+}
+
+fn collect_invalid_alias_name(alias: &SyntaxPublicAlias, invalid: &mut Vec<InvalidName>) {
+    let class = match alias.kind {
+        SyntaxPublicAliasKind::Function => NameClass::Function,
+        SyntaxPublicAliasKind::Type => NameClass::Type,
+        SyntaxPublicAliasKind::Schema => return,
+    };
+    push_invalid_name(
+        invalid,
+        alias.name.as_deref(),
+        alias.name_span.as_ref(),
+        class,
+        NameOccurrence::Declaration,
+        None,
+    );
+}
+
+fn collect_invalid_type_names(type_decl: &SyntaxTypeDecl, invalid: &mut Vec<InvalidName>) {
+    push_invalid_name(
+        invalid,
+        type_decl.name.as_deref(),
+        type_decl.name_span.as_ref(),
+        NameClass::Type,
+        NameOccurrence::Declaration,
+        None,
+    );
+    for variant in &type_decl.variants {
+        push_invalid_name(
+            invalid,
+            variant.name.as_deref(),
+            variant.name_span.as_ref(),
+            NameClass::Constructor,
+            NameOccurrence::Declaration,
+            None,
+        );
+    }
+}
+
+fn collect_invalid_function_names(function: &SyntaxFunction, invalid: &mut Vec<InvalidName>) {
+    let enclosing = Some(function.span.clone());
+    push_invalid_name(
+        invalid,
+        function.name.as_deref(),
+        function.name_span.as_ref(),
+        NameClass::Function,
+        NameOccurrence::Declaration,
+        enclosing.clone(),
+    );
+    for param in &function.params {
+        push_invalid_name(
+            invalid,
+            Some(&param.name),
+            Some(&param.name_span),
+            NameClass::ValueBinding,
+            NameOccurrence::Binding,
+            enclosing.clone(),
+        );
+    }
+    if let Some(binding) = &function.return_binding {
+        push_invalid_name(
+            invalid,
+            Some(&binding.name),
+            Some(&binding.span),
+            NameClass::ValueBinding,
+            NameOccurrence::Binding,
+            enclosing.clone(),
+        );
+    }
+    for line in &function.body {
+        match line {
+            SyntaxBodyLine::Let { pattern, expr, .. } => {
+                collect_invalid_pattern_names(pattern, invalid, enclosing.clone());
+                collect_invalid_expr_names(expr, invalid, enclosing.clone());
+            }
+            SyntaxBodyLine::Expr { expr, .. } => {
+                collect_invalid_expr_names(expr, invalid, enclosing.clone());
+            }
+        }
+    }
+}
+
+fn collect_invalid_handler_names(handler: &SyntaxHandlerDecl, invalid: &mut Vec<InvalidName>) {
+    for param in &handler.params {
+        push_invalid_name(
+            invalid,
+            Some(&param.name),
+            Some(&param.name_span),
+            NameClass::ValueBinding,
+            NameOccurrence::Binding,
+            None,
+        );
+    }
+    for clause in &handler.operation_clauses {
+        for param in &clause.params {
+            push_invalid_name(
+                invalid,
+                Some(&param.name),
+                Some(&param.name_span),
+                NameClass::ValueBinding,
+                NameOccurrence::Binding,
+                None,
+            );
+        }
+        collect_invalid_expr_names(&clause.body, invalid, None);
+    }
+}
+
+fn collect_invalid_pattern_names(
+    pattern: &SyntaxPattern,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    match &pattern.kind {
+        SyntaxPatternKind::Binding(name) => push_invalid_name(
+            invalid,
+            Some(name),
+            Some(&pattern.span),
+            NameClass::ValueBinding,
+            NameOccurrence::PatternHead,
+            enclosing,
+        ),
+        SyntaxPatternKind::Record(fields) => {
+            for field in fields {
+                collect_invalid_pattern_names(&field.pattern, invalid, enclosing.clone());
+            }
+        }
+        SyntaxPatternKind::Constructor { name, args } => {
+            if let [name] = name.as_slice()
+                && args.is_empty()
+            {
+                push_invalid_name(
+                    invalid,
+                    Some(name),
+                    Some(&pattern.span),
+                    NameClass::ValueBinding,
+                    NameOccurrence::PatternHead,
+                    enclosing.clone(),
+                );
+            }
+            for arg in args {
+                collect_invalid_pattern_names(arg, invalid, enclosing.clone());
+            }
+        }
+        SyntaxPatternKind::Wildcard
+        | SyntaxPatternKind::StringLiteral(_)
+        | SyntaxPatternKind::IntLiteral(_)
+        | SyntaxPatternKind::FloatLiteral(_)
+        | SyntaxPatternKind::BoolLiteral(_)
+        | SyntaxPatternKind::Unit => {}
+    }
+}
+
+fn collect_invalid_expr_names(
+    expr: &SyntaxExpr,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    match &expr.kind {
+        SyntaxExprKind::Hole {
+            satisfy: Some(clause),
+            ..
+        } => push_invalid_name(
+            invalid,
+            clause.candidate.as_deref(),
+            clause.candidate_span.as_ref(),
+            NameClass::ValueBinding,
+            NameOccurrence::Binding,
+            enclosing,
+        ),
+        SyntaxExprKind::TypeApply { callee, .. }
+        | SyntaxExprKind::FieldAccess { base: callee, .. }
+        | SyntaxExprKind::Try(callee)
+        | SyntaxExprKind::Prefix { expr: callee, .. } => {
+            collect_invalid_expr_names(callee, invalid, enclosing);
+        }
+        SyntaxExprKind::Call { callee, args } => {
+            collect_invalid_expr_names(callee, invalid, enclosing.clone());
+            for arg in args {
+                collect_invalid_expr_names(arg, invalid, enclosing.clone());
+            }
+        }
+        SyntaxExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_invalid_expr_names(arg, invalid, enclosing.clone());
+            }
+        }
+        SyntaxExprKind::Handle { body, args, .. } => {
+            collect_invalid_expr_names(body, invalid, enclosing.clone());
+            for arg in args {
+                collect_invalid_expr_names(arg, invalid, enclosing.clone());
+            }
+        }
+        SyntaxExprKind::SchemaDecode { input, base, .. } => {
+            collect_invalid_expr_names(input, invalid, enclosing.clone());
+            collect_invalid_expr_names(base, invalid, enclosing);
+        }
+        SyntaxExprKind::SchemaEncode { value, .. } => {
+            collect_invalid_expr_names(value, invalid, enclosing);
+        }
+        SyntaxExprKind::Record(fields) => {
+            for field in fields {
+                collect_invalid_expr_names(&field.expr, invalid, enclosing.clone());
+            }
+        }
+        SyntaxExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_invalid_expr_names(&entry.key, invalid, enclosing.clone());
+                collect_invalid_expr_names(&entry.value, invalid, enclosing.clone());
+            }
+        }
+        SyntaxExprKind::List(items) => {
+            for item in items {
+                collect_invalid_expr_names(item, invalid, enclosing.clone());
+            }
+        }
+        SyntaxExprKind::Match { scrutinee, arms } => {
+            collect_invalid_expr_names(scrutinee, invalid, enclosing.clone());
+            for arm in arms {
+                collect_invalid_pattern_names(&arm.pattern, invalid, enclosing.clone());
+                collect_invalid_expr_names(&arm.expr, invalid, enclosing.clone());
+            }
+        }
+        SyntaxExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_invalid_expr_names(condition, invalid, enclosing.clone());
+            collect_invalid_expr_names(then_branch, invalid, enclosing.clone());
+            for branch in else_if_branches {
+                collect_invalid_expr_names(&branch.condition, invalid, enclosing.clone());
+                collect_invalid_expr_names(&branch.expr, invalid, enclosing.clone());
+            }
+            collect_invalid_expr_names(else_branch, invalid, enclosing);
+        }
+        SyntaxExprKind::Binary { left, right, .. } => {
+            collect_invalid_expr_names(left, invalid, enclosing.clone());
+            collect_invalid_expr_names(right, invalid, enclosing);
+        }
+        SyntaxExprKind::Missing
+        | SyntaxExprKind::Hole { .. }
+        | SyntaxExprKind::NamePath(_)
+        | SyntaxExprKind::StringLiteral(_)
+        | SyntaxExprKind::IntLiteral(_)
+        | SyntaxExprKind::FloatLiteral(_)
+        | SyntaxExprKind::BoolLiteral(_)
+        | SyntaxExprKind::Unit => {}
+    }
+}
+
+fn push_invalid_name(
+    invalid: &mut Vec<InvalidName>,
+    name: Option<&str>,
+    span: Option<&SourceSpan>,
+    class: NameClass,
+    occurrence: NameOccurrence,
+    enclosing_function_span: Option<SourceSpan>,
+) {
+    let (Some(name), Some(span)) = (name, span) else {
+        return;
+    };
+    let valid = match class {
+        NameClass::Type | NameClass::Constructor => {
+            name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+        }
+        NameClass::Function | NameClass::ValueBinding => {
+            name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+        }
+    };
+    if !valid {
+        invalid.push(InvalidName {
+            name: name.to_string(),
+            class,
+            occurrence,
+            span: span.clone(),
+            enclosing_function_span,
+        });
     }
 }
 

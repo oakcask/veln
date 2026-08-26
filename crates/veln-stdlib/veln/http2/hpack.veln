@@ -650,7 +650,7 @@ end
 fn header_block_failure(failure: HeaderBlockCodecFailure) -> HeaderBlockDecodeFailure
 	match failure
 		HeaderBlockCodecUnsupportedRepresentation(first_octet) => UnsupportedHeaderRepresentation(first_octet)
-		HeaderBlockCodecMisplacedTableSizeUpdate => MisplacedTableSizeUpdate
+		http2::hpack::header_list_decoder::HeaderBlockCodecFailure::HeaderBlockCodecMisplacedTableSizeUpdate => MisplacedTableSizeUpdate
 		HeaderBlockCodecIndexedFailure(indexed) => HeaderBlockIndexedFailure(indexed_decode_failure(indexed))
 		HeaderBlockCodecLiteralFailure(literal) => HeaderBlockLiteralFailure(literal_decode_failure(literal))
 		HeaderBlockCodecTableSizeUpdateFailure(update) => HeaderBlockTableSizeUpdateFailure(table_size_update_failure(update))

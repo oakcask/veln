@@ -1,0 +1,1 @@
+main.veln:5:4: error[name.invalid_case]: function name `Bad` must start with an ASCII lowercase letter

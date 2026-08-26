@@ -58,6 +58,14 @@ A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
 binding.
 
+Invalid source-written type, constructor, function, public alias, and value
+binding names are quarantined from normal lookup and artifacts. A use may
+recover through one same-source invalid declaration or binding only when no
+valid candidate wins, the use role is compatible with the invalid name class,
+and the call arity is compatible for callable recovery. Cross-class recovery
+collisions select no recovery record and preserve the ordinary unresolved or
+ambiguous fact.
+
 Current duplicate checks reject:
 
 - duplicate import paths within the same source module

@@ -445,7 +445,7 @@ fn trailer_active_state(state: CoreConnectionState, stream_id: Int, headers: Hea
 	else
 		match http2::core::stream_state::find_entry(http2::core::connection_state::streams(state), stream_id)
 			Some(entry) => match http2::core::stream_state::entry_lifecycle(entry)
-				CoreStreamHalfClosedLocal => "response-trailers"
+				http2::core::stream_state::CoreStreamLifecycle::CoreStreamHalfClosedLocal => "response-trailers"
 				_ => "request-trailers"
 			end
 			None => "request-trailers"

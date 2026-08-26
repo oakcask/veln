@@ -600,6 +600,7 @@ mod tests {
             codecs: Vec::new(),
             types: Vec::new(),
             functions: Vec::new(),
+            invalid_names: Vec::new(),
         };
         let project = Project {
             root: PathBuf::new(),
@@ -653,6 +654,7 @@ mod tests {
             codecs: Vec::new(),
             types: Vec::new(),
             functions: Vec::new(),
+            invalid_names: Vec::new(),
         };
         let project = Project {
             root: PathBuf::new(),
@@ -1016,6 +1018,7 @@ mod tests {
         let mut schemas = Vec::new();
         let mut codecs = Vec::new();
         let mut functions = Vec::new();
+        let mut invalid_names = Vec::new();
         for source in &sources {
             let parsed = parse(source);
             assert!(
@@ -1039,6 +1042,7 @@ mod tests {
             schemas.extend(lowered.schemas);
             codecs.extend(lowered.codecs);
             functions.extend(lowered.functions);
+            invalid_names.extend(lowered.invalid_names);
         }
         (
             Project {
@@ -1056,6 +1060,7 @@ mod tests {
                 schemas,
                 codecs,
                 functions,
+                invalid_names,
             },
         )
     }

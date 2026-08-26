@@ -393,6 +393,7 @@ pub(crate) fn embedded_standard_surface_module() -> SurfaceModule {
         schemas: Vec::new(),
         codecs: Vec::new(),
         functions: Vec::new(),
+        invalid_names: Vec::new(),
     };
     let mut modules = veln_stdlib::package_bundle()
         .files
@@ -440,6 +441,7 @@ fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModu
     merged.schemas.extend(module.schemas);
     merged.codecs.extend(module.codecs);
     merged.functions.extend(module.functions);
+    merged.invalid_names.extend(module.invalid_names);
 }
 
 fn collect_standard_names<T: StandardDeclaration>(decls: &[T], names: &mut BTreeSet<String>) {
@@ -656,6 +658,7 @@ fn filter_module_declarations(
             .filter(|decl| keep(*decl))
             .cloned()
             .collect(),
+        invalid_names: module.invalid_names.clone(),
     }
 }
 
@@ -670,6 +673,10 @@ fn is_standard_module_name(module_name: Option<&str>) -> bool {
     module_name.is_some_and(|module_name| module_name.starts_with("std::"))
 }
 
+fn valid_value_binding_name(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+}
+
 pub(crate) fn ordinary_function_signatures(
     module: &SurfaceModule,
     effects: &[EffectSignature],
@@ -682,6 +689,9 @@ pub(crate) fn ordinary_function_signatures(
         .filter(|function| function.kind == FunctionKind::Function)
         .filter_map(|function| {
             let name = function.name.clone()?;
+            if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+                return None;
+            }
             let (params, variadic) = function_signature_params(function);
             let params = params
                 .into_iter()
@@ -1334,6 +1344,7 @@ fn insert_handler_effect_dependencies(
         .params
         .iter()
         .enumerate()
+        .filter(|(_, param)| valid_value_binding_name(&param.name))
         .map(|(index, param)| {
             Binding::new(
                 param.name.clone(),
@@ -1347,6 +1358,7 @@ fn insert_handler_effect_dependencies(
             clause
                 .params
                 .iter()
+                .filter(|param| valid_value_binding_name(&param.name))
                 .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
         );
         let expr_context = ExprEffectContext {
@@ -1405,6 +1417,7 @@ fn collect_private_handler_effects(
             .params
             .iter()
             .enumerate()
+            .filter(|(_, param)| valid_value_binding_name(&param.name))
             .map(|(index, param)| {
                 Binding::new(
                     param.name.clone(),
@@ -1412,16 +1425,26 @@ fn collect_private_handler_effects(
                 )
             })
             .collect::<Vec<_>>();
-        bindings.extend(clause.params.iter().enumerate().map(|(index, param)| {
-            Binding::new(
-                param.name.clone(),
-                operation
-                    .params
-                    .get(index)
-                    .cloned()
-                    .unwrap_or(Type::Unknown),
-            )
-        }));
+        bindings.extend(
+            clause
+                .params
+                .iter()
+                .enumerate()
+                .filter_map(|(index, param)| {
+                    if valid_value_binding_name(&param.name) {
+                        Some(Binding::new(
+                            param.name.clone(),
+                            operation
+                                .params
+                                .get(index)
+                                .cloned()
+                                .unwrap_or(Type::Unknown),
+                        ))
+                    } else {
+                        None
+                    }
+                }),
+        );
         let expr_context = ExprEffectContext {
             uses: &context.module.uses,
             current_module: handler.module_name.as_deref(),
@@ -1448,6 +1471,7 @@ fn collect_function_body_effects(
     let mut bindings = function
         .params
         .iter()
+        .filter(|param| valid_value_binding_name(&param.name))
         .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
         .collect::<Vec<_>>();
     let function_key = (
@@ -1510,6 +1534,7 @@ fn function_effect_dependencies(
     let mut bindings = function
         .params
         .iter()
+        .filter(|param| valid_value_binding_name(&param.name))
         .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
         .collect::<Vec<_>>();
     for line in &function.body {

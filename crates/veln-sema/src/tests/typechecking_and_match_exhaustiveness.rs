@@ -2042,6 +2042,7 @@ fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
         codecs: Vec::new(),
         types: first.types.into_iter().chain(second.types).collect(),
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2123,6 +2124,7 @@ fn imported_source_adt_constructor_resolves_through_module_and_type_paths() {
         codecs: Vec::new(),
         types: types.types,
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2174,6 +2176,7 @@ fn public_type_alias_reexports_imported_constructors() {
         codecs: Vec::new(),
         types: implementation.types,
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -2209,6 +2212,7 @@ fn private_source_adt_constructor_is_hidden_from_importing_module() {
         codecs: Vec::new(),
         types: shapes.types,
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2255,6 +2259,7 @@ fn private_source_adt_constructor_pattern_does_not_satisfy_imported_exhaustivene
         codecs: Vec::new(),
         types: shapes.types,
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2338,6 +2343,7 @@ fn matching_companion_resolves_qualified_private_source_adt_type_and_constructor
         codecs: Vec::new(),
         types: target.types,
         functions: companion.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2383,6 +2389,7 @@ fn matching_companion_resolves_private_constructor_of_public_target_adt() {
         codecs: Vec::new(),
         types: target.types,
         functions: companion.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2417,6 +2424,7 @@ fn companion_private_source_adt_access_requires_import_and_qualified_path() {
         codecs: Vec::new(),
         types: target.types,
         functions: companion.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2455,6 +2463,7 @@ fn non_matching_companion_cannot_resolve_private_source_adt_constructor() {
         codecs: Vec::new(),
         types: target.types,
         functions: companion.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2493,6 +2502,7 @@ fn integration_test_module_cannot_resolve_private_source_adt_constructor() {
         codecs: Vec::new(),
         types: target.types,
         functions: integration.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2547,6 +2557,7 @@ fn matching_companion_private_source_adt_access_is_not_transitive() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2596,6 +2607,7 @@ fn companion_private_source_adt_use_does_not_change_target_diagnostics() {
         codecs: Vec::new(),
         types: target.types.clone(),
         functions: target.functions.clone(),
+        invalid_names: Vec::new(),
     };
     let with_companion = SurfaceModule {
         module: companion.module,
@@ -2611,6 +2623,7 @@ fn companion_private_source_adt_use_does_not_change_target_diagnostics() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let without_diagnostics = analyze_surface_module(&without_companion);

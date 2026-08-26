@@ -6,6 +6,9 @@ mod facts;
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
+    function_recovery_signatures: Vec<FunctionSignature>,
+    function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
+    constructor_recoveries: BTreeMap<ConstructorRecoveryKey, usize>,
     codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
@@ -90,6 +93,37 @@ impl TypeEnvironment {
         Self {
             functions,
             functions_by_name,
+            function_recovery_signatures: self
+                .function_recovery_signatures
+                .iter()
+                .filter(|signature| {
+                    signature
+                        .module_name
+                        .as_ref()
+                        .is_none_or(|module| module_names.contains(module))
+                })
+                .cloned()
+                .collect(),
+            function_recoveries: self
+                .function_recoveries
+                .iter()
+                .filter(|(key, _)| {
+                    key.module_name
+                        .as_ref()
+                        .is_none_or(|module| module_names.contains(module))
+                })
+                .map(|(key, count)| (key.clone(), *count))
+                .collect(),
+            constructor_recoveries: self
+                .constructor_recoveries
+                .iter()
+                .filter(|(key, _)| {
+                    key.module_name
+                        .as_ref()
+                        .is_none_or(|module| module_names.contains(module))
+                })
+                .map(|(key, count)| (key.clone(), *count))
+                .collect(),
             codec_calls: selected_standard_facts(&self.codec_calls, module_names, |signature| {
                 signature.module_name.as_deref()
             }),
@@ -144,6 +178,90 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions_named(name).next()
+    }
+
+    pub(crate) fn local_function_value_recovery(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        if self.local_value_recovery_candidate_count(name, current_module) != 1 {
+            return None;
+        }
+        let mut matches = self
+            .function_recovery_signatures
+            .iter()
+            .filter(|signature| {
+                signature.module_name.as_deref() == current_module && signature.name == name
+            });
+        let first = matches.next()?;
+        matches.next().is_none().then_some(first)
+    }
+
+    pub(crate) fn local_value_recovery_candidate_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> usize {
+        self.local_function_value_recovery_count(name, current_module)
+            + self.local_constructor_recovery_count(name, current_module, None)
+    }
+
+    fn local_function_value_recovery_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> usize {
+        self.function_recovery_signatures
+            .iter()
+            .filter(|signature| {
+                signature.module_name.as_deref() == current_module && signature.name == name
+            })
+            .count()
+    }
+
+    pub(crate) fn local_call_recovery_candidate_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        arg_count: usize,
+    ) -> usize {
+        self.local_function_call_recovery_count(name, current_module, arg_count)
+            + self.local_constructor_recovery_count(name, current_module, Some(arg_count))
+    }
+
+    fn local_function_call_recovery_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        arg_count: usize,
+    ) -> usize {
+        self.function_recoveries
+            .iter()
+            .filter(|(key, _)| {
+                key.module_name.as_deref() == current_module
+                    && key.name.as_str() == name
+                    && key.accepts_arg_count(arg_count)
+            })
+            .map(|(_, count)| *count)
+            .sum::<usize>()
+    }
+
+    fn local_constructor_recovery_count(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> usize {
+        self.constructor_recoveries
+            .iter()
+            .filter(|(key, _)| {
+                key.module_name.as_deref() == current_module
+                    && key.name.as_str() == name
+                    && arg_count.is_none_or(|count| key.field_count == count)
+            })
+            .map(|(_, count)| *count)
+            .sum::<usize>()
     }
 
     pub(crate) fn canonicalize_type_annotation(
@@ -686,4 +804,29 @@ impl TypeEnvironment {
             _ => Vec::new(),
         }
     }
+}
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub(crate) struct FunctionRecoveryKey {
+    module_name: Option<String>,
+    name: String,
+    fixed_arg_count: usize,
+    has_variadic: bool,
+}
+
+impl FunctionRecoveryKey {
+    fn accepts_arg_count(&self, arg_count: usize) -> bool {
+        if self.has_variadic {
+            arg_count >= self.fixed_arg_count
+        } else {
+            arg_count == self.fixed_arg_count
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ConstructorRecoveryKey {
+    module_name: Option<String>,
+    name: String,
+    field_count: usize,
 }

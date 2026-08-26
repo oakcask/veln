@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+source_errors = "expected"
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"

@@ -34,10 +34,19 @@ fn json_string_field_is(value: &JsonValue, field: &str, expected: &str) -> bool 
     )
 }
 
+fn valid_value_binding_name(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+}
+
+fn invalid_value_binding_name(name: &str) -> bool {
+    !valid_value_binding_name(name)
+}
+
 pub(in crate::analysis) struct FunctionChecker<'a> {
     pub(super) function: &'a Function,
     pub(super) environment: &'a TypeEnvironment,
     pub(super) bindings: Vec<Binding>,
+    invalid_binding_recoveries: Vec<InvalidBindingRecovery>,
     omitted_local_bindings: Vec<OmittedLocalBinding>,
     pub(super) local_names: BTreeMap<String, (String, SourceSpan)>,
     pub(super) inferred_effects: Vec<EffectUse>,
@@ -51,6 +60,11 @@ pub(in crate::analysis) struct PatternBinding {
     ty: Type,
     node_id: NodeId,
     span: SourceSpan,
+}
+
+struct InvalidBindingRecovery {
+    name: String,
+    ty: Type,
 }
 
 struct OmittedLocalBinding {
@@ -171,6 +185,7 @@ impl<'a> FunctionChecker<'a> {
             function,
             environment,
             bindings: Vec::new(),
+            invalid_binding_recoveries: Vec::new(),
             omitted_local_bindings: Vec::new(),
             local_names: BTreeMap::new(),
             inferred_effects: Vec::new(),
@@ -243,7 +258,7 @@ impl<'a> FunctionChecker<'a> {
         let binding_type = expected
             .as_ref()
             .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
-        let pattern_bindings = self.pattern_bindings(pattern, &binding_type);
+        let pattern_bindings = self.let_pattern_bindings(pattern, &binding_type);
         let pattern_has_diagnostic = self.diagnostics.len() != pattern_diagnostic_count;
         for binding in pattern_bindings {
             self.bind_let_pattern(
@@ -264,6 +279,10 @@ impl<'a> FunctionChecker<'a> {
         deferred_initializer_diagnostic: Option<usize>,
         pattern_has_diagnostic: bool,
     ) {
+        if !valid_value_binding_name(&binding.name) {
+            self.push_invalid_binding_recovery(binding);
+            return;
+        }
         if !self.declare_local_name(
             &binding.name,
             binding.node_id.display("pattern"),
@@ -608,15 +627,6 @@ impl<'a> FunctionChecker<'a> {
             });
 
         self.check_variadic_parameter_shape(param, variadic_count, private_omitted_parameter);
-        if !self.declare_local_name(
-            &param.name,
-            param.node_id.display("param"),
-            param.span.clone(),
-            "parameter",
-        ) {
-            return;
-        }
-
         let binding_type = signature
             .and_then(|signature| signature.params.get(index).cloned())
             .or(inferred_private_param.filter(|ty| !type_contains_unknown(ty)))
@@ -629,8 +639,13 @@ impl<'a> FunctionChecker<'a> {
                     }
                 })
             });
-        self.bindings
-            .push(Binding::new(param.name.clone(), binding_type));
+        self.admit_value_binding(
+            &param.name,
+            binding_type,
+            param.node_id.display("param"),
+            param.span.clone(),
+            "parameter",
+        );
     }
 
     fn check_variadic_parameter_shape(
@@ -805,6 +820,44 @@ impl<'a> FunctionChecker<'a> {
                 .insert(name.to_string(), (node_id, span.clone()));
             true
         }
+    }
+
+    pub(super) fn admit_value_binding(
+        &mut self,
+        name: &str,
+        ty: Type,
+        node_id: String,
+        span: SourceSpan,
+        declaration_kind: &'static str,
+    ) {
+        if invalid_value_binding_name(name) {
+            self.invalid_binding_recoveries
+                .push(InvalidBindingRecovery {
+                    name: name.to_string(),
+                    ty,
+                });
+            return;
+        }
+        if !self.declare_local_name(name, node_id, span, declaration_kind) {
+            return;
+        }
+        self.bindings.push(Binding::new(name.to_string(), ty));
+    }
+
+    pub(super) fn admit_value_binding_without_duplicate_diagnostic(
+        &mut self,
+        name: &str,
+        ty: Type,
+    ) {
+        if invalid_value_binding_name(name) {
+            self.invalid_binding_recoveries
+                .push(InvalidBindingRecovery {
+                    name: name.to_string(),
+                    ty,
+                });
+            return;
+        }
+        self.bindings.push(Binding::new(name.to_string(), ty));
     }
 
     pub(super) fn check_contracts(&mut self) {
@@ -1338,7 +1391,9 @@ impl<'a> FunctionChecker<'a> {
                         .function
                         .return_binding
                         .as_ref()
-                        .is_some_and(|binding| binding.name == name)
+                        .is_some_and(|binding| {
+                            binding.name == name && valid_value_binding_name(&binding.name)
+                        })
                 {
                     return Some(JsonValue::object([
                         ("name", JsonValue::string(name)),
@@ -1362,6 +1417,7 @@ impl<'a> FunctionChecker<'a> {
         let mut bindings = self.bindings.clone();
         if kind == ContractKind::Ensure
             && let Some(result_binding) = &self.function.return_binding
+            && valid_value_binding_name(&result_binding.name)
         {
             bindings.push(Binding::new(
                 result_binding.name.clone(),
@@ -1935,13 +1991,29 @@ impl<'a> FunctionChecker<'a> {
                                 Type::Unknown
                             }
                             FunctionLookup::Missing => {
-                                self.push_unresolved_name(
-                                    expr.node_id,
-                                    expr.span.clone(),
+                                if let Some(function) =
+                                    self.environment.local_function_value_recovery(
+                                        name,
+                                        self.function.module_name.as_deref(),
+                                    )
+                                {
+                                    function.ty()
+                                } else if self.environment.local_value_recovery_candidate_count(
                                     name,
-                                    "value",
-                                );
-                                Type::Unknown
+                                    self.function.module_name.as_deref(),
+                                ) + self.invalid_local_binding_recovery_count(name)
+                                    == 1
+                                {
+                                    Type::Unknown
+                                } else {
+                                    self.push_unresolved_name(
+                                        expr.node_id,
+                                        expr.span.clone(),
+                                        name,
+                                        "value",
+                                    );
+                                    Type::Unknown
+                                }
                             }
                         }
                     }
@@ -2331,8 +2403,24 @@ impl<'a> FunctionChecker<'a> {
         if let Some((segments, type_args)) = callee_name_path_and_type_args(callee)
             && !known_concurrency_type_arg_overflow(segments, type_args)
         {
-            let symbol = segments.join("::");
-            self.push_unresolved_name(callee.node_id, callee.span.clone(), &symbol, "call_target");
+            let recovered = matches!(segments, [name] if self
+            .environment
+                .local_call_recovery_candidate_count(
+                    name,
+                    self.function.module_name.as_deref(),
+                    args.len(),
+                )
+                + self.invalid_local_callable_recovery_count(name)
+                == 1);
+            if !recovered {
+                let symbol = segments.join("::");
+                self.push_unresolved_name(
+                    callee.node_id,
+                    callee.span.clone(),
+                    &symbol,
+                    "call_target",
+                );
+            }
         }
         for arg in args {
             self.infer_expr(arg, None);
@@ -2451,6 +2539,30 @@ impl<'a> FunctionChecker<'a> {
                 FunctionLookup::Found(function)
                     if function.module_name.as_deref() == self.function.module_name.as_deref()
             )
+    }
+
+    fn invalid_local_binding_recovery_count(&self, name: &str) -> usize {
+        self.invalid_binding_recoveries
+            .iter()
+            .filter(|recovery| recovery.name == name)
+            .count()
+    }
+
+    fn invalid_local_callable_recovery_count(&self, name: &str) -> usize {
+        self.invalid_binding_recoveries
+            .iter()
+            .filter(|recovery| {
+                recovery.name == name && matches!(recovery.ty, Type::Function { .. })
+            })
+            .count()
+    }
+
+    fn push_invalid_binding_recovery(&mut self, binding: PatternBinding) {
+        self.invalid_binding_recoveries
+            .push(InvalidBindingRecovery {
+                name: binding.name,
+                ty: binding.ty,
+            });
     }
 
     fn bare_prelude_import_is_ambiguous(&self, name: &str) -> bool {
@@ -2710,9 +2822,14 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or(Type::Unknown);
         for arm in arms {
             let saved_bindings = self.bindings.len();
+            let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
             let saved_names = self.local_names.clone();
             let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
             for binding in pattern_bindings {
+                if !valid_value_binding_name(&binding.name) {
+                    self.push_invalid_binding_recovery(binding);
+                    continue;
+                }
                 if !self.declare_local_name(
                     &binding.name,
                     binding.node_id.display("pattern"),
@@ -2746,6 +2863,8 @@ impl<'a> FunctionChecker<'a> {
             }
 
             self.bindings.truncate(saved_bindings);
+            self.invalid_binding_recoveries
+                .truncate(saved_invalid_binding_recoveries);
             self.local_names = saved_names;
         }
 
@@ -2893,6 +3012,23 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
+        self.pattern_bindings_with_recovery(pattern, scrutinee_type, false)
+    }
+
+    fn let_pattern_bindings(
+        &mut self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+    ) -> Vec<PatternBinding> {
+        self.pattern_bindings_with_recovery(pattern, scrutinee_type, true)
+    }
+
+    fn pattern_bindings_with_recovery(
+        &mut self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        recover_unknown_bare_constructor: bool,
+    ) -> Vec<PatternBinding> {
         match &pattern.kind {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
@@ -2906,10 +3042,26 @@ impl<'a> FunctionChecker<'a> {
                 node_id: pattern.node_id,
                 span: pattern.span.clone(),
             }],
-            PatternKind::Record(fields) => {
-                self.record_pattern_bindings(pattern, fields, scrutinee_type)
-            }
+            PatternKind::Record(fields) => self.record_pattern_bindings(
+                pattern,
+                fields,
+                scrutinee_type,
+                recover_unknown_bare_constructor,
+            ),
             PatternKind::Constructor { name, args } => {
+                if recover_unknown_bare_constructor
+                    && let [binding] = name.as_slice()
+                    && args.is_empty()
+                    && invalid_value_binding_name(binding)
+                    && !self.constructor_pattern_resolves(name)
+                {
+                    return vec![PatternBinding {
+                        name: binding.clone(),
+                        ty: scrutinee_type.clone(),
+                        node_id: pattern.node_id,
+                        span: pattern.span.clone(),
+                    }];
+                }
                 self.constructor_pattern_bindings(pattern, name, args, scrutinee_type)
             }
         }
@@ -2920,6 +3072,7 @@ impl<'a> FunctionChecker<'a> {
         pattern: &Pattern,
         fields: &[PatternField],
         scrutinee_type: &Type,
+        recover_unknown_bare_constructor: bool,
     ) -> Vec<PatternBinding> {
         let mut bindings = Vec::new();
         let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
@@ -2941,9 +3094,24 @@ impl<'a> FunctionChecker<'a> {
                 );
             }
             let field_type = self.record_pattern_field_type(pattern, field, scrutinee_type);
-            bindings.extend(self.pattern_bindings(&field.pattern, &field_type));
+            bindings.extend(self.pattern_bindings_with_recovery(
+                &field.pattern,
+                &field_type,
+                recover_unknown_bare_constructor,
+            ));
         }
         bindings
+    }
+
+    fn constructor_pattern_resolves(&self, name: &[String]) -> bool {
+        matches!(
+            self.environment.adts.constructor(
+                name,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ),
+            ConstructorLookup::Found(_) | ConstructorLookup::Ambiguous
+        )
     }
 
     fn record_pattern_field_type(

@@ -1,0 +1,17 @@
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+not_contains = ["name.invalid_case"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 0

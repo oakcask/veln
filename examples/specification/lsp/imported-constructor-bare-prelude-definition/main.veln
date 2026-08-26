@@ -1,5 +1,5 @@
 use model
 
 pub fn main() -> Token
-  byte(1)
+  Wrap(1)
 end

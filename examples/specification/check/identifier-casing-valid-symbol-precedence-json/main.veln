@@ -1,0 +1,11 @@
+type Bad
+  Bad
+end
+
+fn main() -> Bad
+  Bad
+end
+
+fn Bad() -> Bad
+  Bad
+end

@@ -146,6 +146,46 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 
 ## Diagnostic Routes
 
+- Source identifier casing diagnostics, accepted-name absence checks,
+  valid-symbol precedence, and ambiguous recovery refusal:
+  `../../examples/specification/check/identifier-casing-source-recovery-json/`,
+  `../../examples/specification/check/identifier-casing-binding-positions-json/`,
+  `../../examples/specification/check/identifier-casing-owned-constructor-recovery-json/`,
+  `../../examples/specification/check/identifier-casing-owned-constructor-recovery-human/`,
+  `../../examples/specification/check/identifier-casing-function-value-recovery-json/`,
+  `../../examples/specification/check/identifier-casing-function-value-recovery-human/`,
+  `../../examples/specification/check/identifier-casing-underscore-recovery-json/`,
+  `../../examples/specification/check/identifier-casing-import-recovery-isolation-json/`,
+  `../../examples/specification/check/identifier-casing-public-alias-recovery-isolation-json/`,
+  `../../examples/specification/check/identifier-casing-accepted-names-json/`,
+  `../../examples/specification/check/identifier-casing-valid-symbol-precedence-json/`,
+  `../../examples/specification/check/identifier-casing-handler-binding-quarantine-json/`,
+  `../../examples/specification/check/identifier-casing-cross-class-ambiguous-recovery-json/`,
+  and
+  `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
+- Source identifier casing run reachability, recovery, import isolation,
+  same-owner constructor ambiguity, handler annotations, handler clause
+  expressions, and non-name record fields:
+  `../../examples/specification/run/identifier-casing-reachable-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-constructor-call-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-invalid-alias-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-expression-type-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-type-alias-json/`,
+  `../../examples/specification/run/identifier-casing-unreachable-peer/`,
+  `../../examples/specification/run/identifier-casing-owned-nullary-constructor-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-owned-payload-constructor-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-function-value-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-import-recovery-isolation-json/`,
+  `../../examples/specification/run/identifier-casing-qualified-type-import-isolation-json/`,
+  `../../examples/specification/run/identifier-casing-valid-function-value-precedence-json/`,
+  `../../examples/specification/run/identifier-casing-cross-class-ambiguous-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-human/`,
+  `../../examples/specification/run/identifier-casing-same-name-recovery-arity-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-handler-annotation-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-handler-bindings-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`,
+  and `../../examples/specification/run/identifier-casing-record-field-reachability/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and

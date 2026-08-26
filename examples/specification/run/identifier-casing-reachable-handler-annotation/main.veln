@@ -1,0 +1,27 @@
+effect Ask
+  value() -> Int
+end
+
+type item
+  value
+end
+
+type other
+  other_value
+end
+
+fn body() -> Int effects [Ask]
+  perform Ask::value()
+end
+
+handler ask(seed: item) handles Ask
+  value() => 1
+end
+
+handler unreachable(seed: other) handles Ask
+  value() => 2
+end
+
+fn main() -> Int
+  handle body() with ask(value)
+end

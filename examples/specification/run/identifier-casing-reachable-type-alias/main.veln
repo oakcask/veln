@@ -1,0 +1,16 @@
+fn main() -> Int
+  let callback = helper
+  1
+end
+
+fn helper(input: item) -> Int
+  1
+end
+
+type Item
+  Value
+end
+
+pub type item = Item
+
+pub type other = Item

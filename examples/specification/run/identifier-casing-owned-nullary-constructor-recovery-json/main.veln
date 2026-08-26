@@ -1,0 +1,7 @@
+type item
+  Value
+end
+
+fn main() -> item
+  Value
+end

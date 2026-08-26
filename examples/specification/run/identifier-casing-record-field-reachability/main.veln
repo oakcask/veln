@@ -1,0 +1,7 @@
+fn main() -> {item: Int}
+  {item: 1}
+end
+
+type item
+  value
+end

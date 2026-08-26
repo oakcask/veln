@@ -1,0 +1,28 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["line\":9"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 4

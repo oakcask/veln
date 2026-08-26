@@ -523,6 +523,7 @@ fn resolves_qualified_calls_through_import_aliases() {
         codecs: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -576,6 +577,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
         codecs: Vec::new(),
         types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -632,6 +634,7 @@ fn resolves_unqualified_public_function_imports() {
         codecs: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -685,6 +688,7 @@ fn resolves_unqualified_imported_function_values() {
         codecs: Vec::new(),
         types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -744,6 +748,7 @@ fn local_functions_shadow_unqualified_function_imports() {
         codecs: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -795,6 +800,7 @@ fn ambiguous_unqualified_public_function_imports_are_rejected() {
             .chain(left.functions)
             .chain(right.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -857,6 +863,7 @@ fn private_functions_are_hidden_from_unqualified_imports() {
         codecs: Vec::new(),
         types: Vec::new(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -905,6 +912,7 @@ fn matching_companion_resolves_qualified_private_function_imports() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -951,6 +959,7 @@ fn matching_companion_cannot_bind_qualified_private_function_values() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -1002,6 +1011,7 @@ fn non_matching_companion_cannot_resolve_qualified_private_function_imports() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -1049,6 +1059,7 @@ fn integration_test_module_cannot_resolve_qualified_private_function_imports() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -1111,6 +1122,7 @@ fn matching_companion_private_function_access_is_not_transitive() {
             .chain(target.functions)
             .chain(support.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -1154,6 +1166,7 @@ fn companion_call_does_not_complete_target_private_inference() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -1197,6 +1210,7 @@ fn companion_call_does_not_change_target_private_inference_diagnostics() {
         codecs: Vec::new(),
         types: Vec::new(),
         functions: target.functions.clone(),
+        invalid_names: Vec::new(),
     };
     let with_companion = SurfaceModule {
         module: companion.module,
@@ -1212,6 +1226,7 @@ fn companion_call_does_not_change_target_private_inference_diagnostics() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let without_diagnostics = analyze_surface_module(&without_companion);
@@ -1285,6 +1300,7 @@ fn companion_observes_established_private_signature_and_effects() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -1336,6 +1352,7 @@ fn companion_call_does_not_change_established_target_signature_or_effects() {
         codecs: Vec::new(),
         types: Vec::new(),
         functions: target.functions.clone(),
+        invalid_names: Vec::new(),
     };
     let with_companion = SurfaceModule {
         module: companion.module,
@@ -1351,6 +1368,7 @@ fn companion_call_does_not_change_established_target_signature_or_effects() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered_without = lower_checked_surface_module(&without_companion);
@@ -1449,6 +1467,7 @@ fn companion_local_function_effects_do_not_share_target_private_name() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -1507,6 +1526,7 @@ fn public_function_alias_reexports_imported_target() {
             .into_iter()
             .chain(implementation.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -1565,6 +1585,7 @@ fn companion_function_alias_cannot_reexport_private_target_function() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);

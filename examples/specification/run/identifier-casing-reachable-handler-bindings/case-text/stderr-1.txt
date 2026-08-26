@@ -1,0 +1,2 @@
+main.veln:9:13: error[name.invalid_case]: binding name `Context` must start with an ASCII lowercase letter
+main.veln:10:9: error[name.invalid_case]: binding name `Result` must start with an ASCII lowercase letter

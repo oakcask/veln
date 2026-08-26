@@ -1,0 +1,7 @@
+effect Ask
+  value(input: Int) -> Int
+end
+
+handler ask(Context: Int) handles Ask
+  value(Result) => _missing
+end

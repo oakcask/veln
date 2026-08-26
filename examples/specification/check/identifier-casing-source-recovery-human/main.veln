@@ -1,0 +1,16 @@
+type item
+  value
+  _Payload(Int)
+end
+
+fn Build(Input: Int) -> Output: Int
+  let Local = Input
+  Local
+end
+
+test Verify() -> ()
+  ()
+end
+
+pub fn Exported = Build
+pub type exported = item

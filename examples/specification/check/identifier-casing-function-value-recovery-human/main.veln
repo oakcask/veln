@@ -1,0 +1,8 @@
+fn Bad(input: Int) -> Int
+  input
+end
+
+fn main() -> Int
+  let callable = Bad
+  callable(1)
+end

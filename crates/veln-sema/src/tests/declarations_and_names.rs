@@ -375,6 +375,7 @@ fn matching_companion_resolves_qualified_private_target_effects() {
         schemas: Vec::new(),
         codecs: Vec::new(),
         functions: companion.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -426,6 +427,7 @@ fn wrong_companion_handler_effect_reports_target_mismatch() {
         schemas: Vec::new(),
         codecs: Vec::new(),
         functions: companion.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -485,6 +487,7 @@ fn wrong_companion_private_target_effect_reports_target_mismatch() {
             .into_iter()
             .chain(other.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -559,6 +562,7 @@ fn matching_companion_handles_with_private_target_handler() {
             .into_iter()
             .chain(target.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -623,6 +627,7 @@ fn wrong_companion_private_target_handler_reports_target_mismatch() {
             .into_iter()
             .chain(other.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2176,6 +2181,7 @@ fn public_schema_aliases_reject_unresolved_private_and_wrong_kind_targets() {
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: wire.functions,
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2357,6 +2363,7 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
         schemas,
         codecs: Vec::new(),
         functions: Vec::new(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2637,6 +2644,7 @@ fn repeat_payload_schema_references_report_resolution_diagnostics() {
         schemas,
         codecs: Vec::new(),
         functions: Vec::new(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -2787,6 +2795,7 @@ fn duplicate_use_aliases_are_scoped_to_declaring_module() {
         schemas: Vec::new(),
         codecs: Vec::new(),
         functions: [first.functions, second.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);

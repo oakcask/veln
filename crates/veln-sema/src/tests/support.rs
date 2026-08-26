@@ -73,6 +73,7 @@ pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
         codecs: Vec::new(),
         types: Vec::new(),
         functions: Vec::new(),
+        invalid_names: Vec::new(),
     };
     for source in sources {
         let module = lower_surface_ast(&parse(&source).tree);
@@ -84,6 +85,7 @@ pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
         merged.codecs.extend(module.codecs);
         merged.types.extend(module.types);
         merged.functions.extend(module.functions);
+        merged.invalid_names.extend(module.invalid_names);
     }
     merged
 }

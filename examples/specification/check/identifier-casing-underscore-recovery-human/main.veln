@@ -1,0 +1,4 @@
+fn _build(_input: Int) -> _output: Int
+  let _local = _input
+  _local
+end

@@ -1,0 +1,11 @@
+fn main() -> Int
+  Bad(1)
+end
+
+fn Bad(value: Int) -> Int
+  value
+end
+
+fn Bad(left: Int, right: Int) -> Int
+  left + right
+end

@@ -1,0 +1,16 @@
+effect Ask
+  value(input: Int) -> Int
+end
+
+handler ask(Offset: Int) handles Ask
+  value(Answer) => Answer + Offset
+end
+
+fn classify(input: Int) -> Int
+  let Local = input
+  input
+end
+
+fn choose(limit: Int) -> Int
+  _value satisfy Candidate => Candidate <= limit
+end

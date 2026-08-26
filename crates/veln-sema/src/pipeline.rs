@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
-use veln_ast::{FunctionKind, SurfaceModule, Visibility};
+use veln_ast::{FunctionKind, InvalidName, NameClass, NameOccurrence, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
-use veln_diagnostics::{Diagnostic, Severity};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
@@ -108,6 +108,7 @@ fn analyze_surface_module_with_environment(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
+    diagnostics.extend(check_invalid_name_casing(module, environment));
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
     diagnostics.extend(check_duplicate_effect_names(module));
@@ -141,6 +142,90 @@ fn analyze_surface_module_with_environment(
     }
 
     diagnostics
+}
+
+fn check_invalid_name_casing(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    module
+        .invalid_names
+        .iter()
+        .filter(|invalid| !invalid_name_is_valid_constructor_pattern(invalid, module, environment))
+        .map(invalid_name_diagnostic)
+        .collect()
+}
+
+fn invalid_name_is_valid_constructor_pattern(
+    invalid: &InvalidName,
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> bool {
+    if invalid.class != NameClass::ValueBinding || invalid.occurrence != NameOccurrence::PatternHead
+    {
+        return false;
+    }
+    let current_module = invalid.enclosing_function_span.as_ref().and_then(|span| {
+        module
+            .functions
+            .iter()
+            .find(|function| &function.span == span)
+            .and_then(|function| function.module_name.as_deref())
+    });
+    matches!(
+        environment.adts.constructor(
+            std::slice::from_ref(&invalid.name),
+            current_module,
+            &environment.uses,
+        ),
+        crate::adt::ConstructorLookup::Found(_) | crate::adt::ConstructorLookup::Ambiguous
+    )
+}
+
+fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
+    let subject = match invalid.class {
+        NameClass::Type => "type name",
+        NameClass::Constructor => "constructor name",
+        NameClass::Function => "function name",
+        NameClass::ValueBinding => "binding name",
+    };
+    let required_letter = match invalid.class {
+        NameClass::Type | NameClass::Constructor => "uppercase",
+        NameClass::Function | NameClass::ValueBinding => "lowercase",
+    };
+    let observed_initial = invalid.name.as_bytes().first().map_or("other", |initial| {
+        if initial.is_ascii_uppercase() {
+            "ascii_uppercase"
+        } else if initial.is_ascii_lowercase() {
+            "ascii_lowercase"
+        } else if *initial == b'_' {
+            "underscore"
+        } else {
+            "other"
+        }
+    });
+    Diagnostic::new(
+        "name.invalid_case",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "{subject} `{}` must start with an ASCII {required_letter} letter",
+            invalid.name
+        ),
+        Some(invalid.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("origin", JsonValue::string("source")),
+            ("occurrence", JsonValue::string(invalid.occurrence.as_str())),
+            ("name", JsonValue::string(invalid.name.clone())),
+            ("name_class", JsonValue::string(invalid.class.as_str())),
+            (
+                "required_initial",
+                JsonValue::string(invalid.class.required_initial()),
+            ),
+            ("observed_initial", JsonValue::string(observed_initial)),
+        ]),
+    )
 }
 
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {

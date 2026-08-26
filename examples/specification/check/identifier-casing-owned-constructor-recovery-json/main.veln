@@ -1,0 +1,8 @@
+type item
+  Value
+  Payload(Int)
+end
+
+fn main() -> item
+  Value
+end

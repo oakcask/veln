@@ -1,0 +1,10 @@
+fn Bad() -> Int
+  1
+end
+
+type item
+  Value
+end
+
+pub fn exposed = Bad
+pub type Exposed = item

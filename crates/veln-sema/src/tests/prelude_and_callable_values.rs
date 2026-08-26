@@ -2001,6 +2001,7 @@ fn generated_format_neutral_schema_decode_helpers_accept_public_imported_source_
         schemas: app.schemas,
         codecs: Vec::new(),
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -2351,6 +2352,7 @@ fn generated_format_neutral_schema_encode_helpers_accept_public_imported_source_
         schemas: app.schemas,
         codecs: Vec::new(),
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -2858,6 +2860,7 @@ fn explicit_schema_decode_expression_resolves_qualified_public_schema_path() {
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -2932,6 +2935,7 @@ fn explicit_schema_operations_resolve_public_schema_alias_to_target_schema() {
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -3070,6 +3074,7 @@ fn explicit_schema_decode_expression_reports_unresolved_private_and_wrong_kind_s
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -3188,6 +3193,7 @@ fn matching_companion_resolves_private_target_schema_operations_and_composition(
             .collect(),
         codecs: Vec::new(),
         functions: companion.functions,
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -3295,6 +3301,7 @@ fn companion_private_target_schema_access_preserves_boundaries() {
             schemas: target.schemas.into_iter().chain(support.schemas).collect(),
             codecs: Vec::new(),
             functions: companion.functions,
+            invalid_names: Vec::new(),
         };
 
         let lowered = lower_checked_surface_module(&module);
@@ -3746,6 +3753,7 @@ fn generated_schema_helpers_resolve_bounded_repeated_imported_nested_schema_fiel
         schemas: [app.schemas, wire.schemas].concat(),
         codecs: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -9731,6 +9739,7 @@ fn generated_schema_decode_helpers_keep_imported_dispatch_schema_metadata() {
         schemas: [app.schemas, wire.schemas].concat(),
         codecs: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -9821,6 +9830,7 @@ fn generated_schema_encode_helpers_keep_imported_dispatch_schema_metadata() {
         schemas: [app.schemas, wire.schemas].concat(),
         codecs: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -11138,6 +11148,7 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -11220,6 +11231,7 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -11298,6 +11310,7 @@ fn imported_public_derived_codec_decode_resolves_through_qualified_module_path()
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -11359,6 +11372,7 @@ fn imported_public_derived_codec_encode_resolves_through_qualified_module_path()
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: app.functions,
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -11428,6 +11442,7 @@ fn imported_codec_private_implementation_items_do_not_resolve_as_calls() {
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -11480,6 +11495,7 @@ fn imported_codec_decode_does_not_resolve_as_bare_call() {
         schemas: wire.schemas,
         codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -12089,6 +12105,7 @@ fn imported_public_function_conflicts_with_implicit_prelude_bare_call() {
             .into_iter()
             .chain(measure.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);
@@ -13405,6 +13422,7 @@ fn imported_declared_helpers_infer_private_callback_parameters() {
         codecs: Vec::new(),
         types: [app.types, helpers.types].concat(),
         functions: [app.functions, helpers.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -13485,6 +13503,7 @@ fn public_alias_effectful_declared_helpers_infer_private_callback_parameters() {
             .into_iter()
             .chain(implementation.functions)
             .collect(),
+        invalid_names: Vec::new(),
     };
 
     let lowered = lower_checked_surface_module(&module);
@@ -13541,6 +13560,7 @@ fn imported_effectful_declared_helpers_report_callback_mismatches() {
         codecs: Vec::new(),
         types: [app.types, helpers.types].concat(),
         functions: [app.functions, helpers.functions].concat(),
+        invalid_names: Vec::new(),
     };
 
     let diagnostics = analyze_surface_module(&module);

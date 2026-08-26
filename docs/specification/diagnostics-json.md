@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented diagnostics JSON behavior or executable diagnostic evidence changes.
+update-when: The `veln check --json` diagnostic schema, human diagnostic alignment, stable diagnostic detail fields, or executable diagnostic evidence changes.
 ---
 
 # Check JSON And Diagnostics
@@ -23,6 +23,11 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
 - Companion source diagnostics distinguish missing targets from chained
   companions and expose `details.companion_path` plus
   `details.target_path`.
+- Source identifier casing diagnostics use `name.invalid_case` with stable
+  `details.phase`, `origin`, `occurrence`, `name`, `name_class`,
+  `required_initial`, and `observed_initial` fields. The checked
+  `identifier-casing-*-json` cases define exact spans, detail values, and
+  non-cascading recovery behavior.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -65,6 +70,23 @@ Malformed binary and hexadecimal integer coverage is executable in
 human-output case. The `parse.integer_literal` details retain the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
 related notes expose the accepted digit set or prefix where useful.
+
+Invalid source identifier casing coverage is executable in the checked
+`identifier-casing-source-recovery-json`,
+`identifier-casing-binding-positions-json`,
+`identifier-casing-underscore-recovery-json`,
+`identifier-casing-import-recovery-isolation-json`,
+`identifier-casing-public-alias-recovery-isolation-json`,
+`identifier-casing-accepted-names-json`,
+`identifier-casing-valid-symbol-precedence-json`, and
+`identifier-casing-ambiguous-recovery-json` and
+`identifier-casing-cross-class-ambiguous-recovery-json` cases. The checked
+`identifier-casing-handler-binding-quarantine-json` case also fixes that
+invalid handler bindings do not appear in `hole.unfilled`
+`details.local_bindings` or hole repair candidate queries. Current source name-class
+behavior is specified by [names-effects.md](names-effects.md). Selected-entry
+`run --json` diagnostic-envelope evidence for source identifier casing is
+routed by [run-json.md](run-json.md).
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,

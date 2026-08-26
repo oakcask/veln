@@ -1,0 +1,14 @@
+use helper
+
+fn main() -> Int
+  let callback = consume
+  1
+end
+
+fn consume(input: helper::item) -> Int
+  1
+end
+
+type item
+  Value
+end

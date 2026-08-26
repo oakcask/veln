@@ -1,0 +1,15 @@
+effect Ask
+  value(input: Int) -> Int
+end
+
+fn body() -> Int effects [Ask]
+  perform Ask::value(1)
+end
+
+handler ask(Context: Int) handles Ask
+  value(Result) => Context + Result
+end
+
+fn main() -> Int
+  handle body() with ask(1)
+end

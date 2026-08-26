@@ -1,0 +1,11 @@
+fn main() -> item
+  value
+end
+
+type item
+  value
+end
+
+type other
+  other_value
+end

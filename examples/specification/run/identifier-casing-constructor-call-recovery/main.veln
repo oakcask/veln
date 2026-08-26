@@ -1,0 +1,11 @@
+fn main() -> item
+  value(1)
+end
+
+type item
+  value(Int)
+end
+
+type other
+  value
+end

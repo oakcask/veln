@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented name resolution, effect behavior, or executable names/effects evidence changes.
+update-when: The Veln name resolution contract, effect checking contract, compiler-known call surface, or executable names/effects evidence changes.
 ---
 
 # Names And Effects
@@ -10,6 +10,98 @@ This is the routing page for implemented name resolution, effect checking, and
 compiler-known calls.
 
 ## Read First
+
+- Source ADT type and constructor names start with an ASCII uppercase letter.
+  Function, test, public function-alias, parameter, result, local `let`, pattern,
+  handler parameter, operation-clause parameter, and hole `satisfy` binding
+  names start with an ASCII lowercase letter. Public type-alias names follow the
+  type rule. A violation reports `name.invalid_case` at the exact written token
+  and prevents checked-core and typed-IR output. An underscore-led token is
+  retained for recovery in these positions; standalone `_` remains a wildcard
+  or discard. The checked `identifier-casing-source-recovery-json` and
+  `identifier-casing-source-recovery-human` cases define exact JSON and human
+  diagnostics for the declaration rows and the function parameter, return
+  binding, and local `let` binding rows. The checked
+  `identifier-casing-binding-positions-json` and
+  `identifier-casing-binding-positions-human` cases define exact diagnostics
+  for handler parameters, operation-clause parameters, pattern-head bindings,
+  and hole `satisfy` bindings. The checked
+  `identifier-casing-underscore-recovery-human` and
+  `identifier-casing-underscore-recovery-json` cases define underscore-led
+  parser recovery without missing-name cascades. Invalid value bindings are
+  kept out of normal local lookup and repair candidates; a unique compatible
+  same-function or same-source recovery record suppresses derivative failures
+  caused only by quarantine while still excluding the invalid declaration or
+  binding from artifacts. The checked
+  `identifier-casing-owned-constructor-recovery-human`,
+  `identifier-casing-owned-constructor-recovery-json`,
+  `identifier-casing-function-value-recovery-human`, and
+  `identifier-casing-function-value-recovery-json` cases fix owned-constructor
+  and function-value recovery in `check`. The checked
+  `identifier-casing-handler-binding-quarantine-json` case fixes that invalid
+  handler parameter and operation-clause bindings are not visible to hole
+  repair candidate queries. The
+  run cases
+  `identifier-casing-reachable-recovery`,
+  `identifier-casing-reachable-recovery-json`,
+  `identifier-casing-constructor-call-recovery`,
+  `identifier-casing-constructor-call-recovery-json`,
+  `identifier-casing-reachable-invalid-alias`,
+  `identifier-casing-reachable-invalid-alias-json`,
+  `identifier-casing-reachable-expression-type`,
+  `identifier-casing-reachable-expression-type-json`,
+  `identifier-casing-reachable-type-alias`,
+  `identifier-casing-reachable-type-alias-json`,
+  `identifier-casing-unreachable-peer`,
+  `identifier-casing-owned-nullary-constructor-recovery`,
+  `identifier-casing-owned-nullary-constructor-recovery-json`,
+  `identifier-casing-owned-payload-constructor-recovery`,
+  `identifier-casing-owned-payload-constructor-recovery-json`,
+  `identifier-casing-owned-constructor-unreachable`,
+  `identifier-casing-constructor-sibling-unreachable`,
+  `identifier-casing-constructor-sibling-unreachable-json`,
+  `identifier-casing-function-value-recovery`, and
+  `identifier-casing-function-value-recovery-json` define selected-entry
+  reachability for invalid functions, constructor calls, public aliases,
+  expression-only constructor/type references, owned valid constructors of
+  invalid types, same-type constructor siblings, function-value recovery, and
+  the rule that reachable local value spellings, record fields, and type
+  references do not make unrelated invalid declarations reachable. The
+  `identifier-casing-reachable-handler-bindings` and
+  `identifier-casing-reachable-handler-bindings-json`,
+  `identifier-casing-reachable-handler-annotation`,
+  `identifier-casing-reachable-handler-annotation-json`,
+  `identifier-casing-reachable-handler-clauses`, and
+  `identifier-casing-reachable-handler-clauses-json` run cases define
+  reachable handler parameter, operation-clause parameter, handler annotation,
+  and handler clause-expression selection.
+  The checked `identifier-casing-import-recovery-isolation-json`,
+  `identifier-casing-public-alias-recovery-isolation-json`,
+  `identifier-casing-accepted-names-json`,
+  `identifier-casing-valid-symbol-precedence-json`, and
+  `identifier-casing-ambiguous-recovery-json` and
+  `identifier-casing-cross-class-ambiguous-recovery-json` cases and the run
+  `identifier-casing-import-recovery-isolation-json`,
+  `identifier-casing-qualified-type-import-isolation-json`,
+  `identifier-casing-valid-function-value-precedence-json`,
+  `identifier-casing-cross-class-ambiguous-recovery-json`,
+  `identifier-casing-owned-constructor-ambiguous-recovery-json`,
+  `identifier-casing-owned-constructor-ambiguous-recovery-human`,
+  `identifier-casing-same-name-recovery-arity-json`,
+  `identifier-casing-valid-function-precedence-cross-arity-json`, and
+  `identifier-casing-valid-constructor-precedence-cross-arity-json` cases fix
+  that accepted names keep normal behavior, quarantined recovery records do not
+  cross import boundaries, do not satisfy public alias targets, valid symbols
+  win over same-source recovery records in bare function-value references and
+  before call or constructor arity is considered, ambiguous recovery records do
+  not resolve across name classes or when same-owner constructor candidates
+  would emit the same owner diagnostic, same-name recovery peers are selected
+  only when compatible with the call arity, and qualified type paths do not
+  select unrelated same-leaf local recovery records. The
+  `identifier-casing-record-field-reachability` run case
+  fixes that record field labels remain outside this name-class reachability
+  boundary. Workspace snapshot and open-document overlay selection
+  evidence remains outside this source foundation.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
