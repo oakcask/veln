@@ -1,0 +1,11 @@
+type Item
+  good(Int)
+end
+
+fn good() -> Int
+  7
+end
+
+fn main() -> Int
+  good(1)
+end

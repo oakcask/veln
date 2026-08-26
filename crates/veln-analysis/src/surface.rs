@@ -2545,9 +2545,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         arg_count: usize,
         spans: &mut Vec<SourceSpan>,
     ) {
-        if self.has_valid_function(segments, current_module, Some(arg_count))
+        if self.has_valid_function(segments, current_module, None)
             || self.has_valid_function_alias(segments, current_module)
-            || self.has_valid_constructor(segments, current_module, Some(arg_count))
+            || self.has_valid_constructor(segments, current_module, None)
         {
             return;
         }
@@ -3683,7 +3683,7 @@ fn collect_function_name_reference(
         }
         return;
     }
-    if path_has_valid_constructor(segments, arg_count, current_module, uses, types) {
+    if path_has_valid_constructor(segments, None, current_module, uses, types) {
         return;
     }
     let public_or_same_module_access;
@@ -6074,6 +6074,52 @@ mod tests {
             "end\n",
             "fn Bad() -> Item\n",
             "  Bad\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_uses_valid_function_arity_error_before_constructor_recovery() {
+        let module = lower(concat!(
+            "type Item\n",
+            "  good(Int)\n",
+            "end\n",
+            "fn good() -> Int\n",
+            "  7\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  good(1)\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
+    }
+
+    #[test]
+    fn run_entry_uses_valid_constructor_arity_error_before_function_recovery() {
+        let module = lower(concat!(
+            "type Item\n",
+            "  Bad(Int)\n",
+            "end\n",
+            "fn Bad() -> Item\n",
+            "  Bad(1)\n",
+            "end\n",
+            "fn main() -> Item\n",
+            "  Bad()\n",
             "end\n",
         ));
 

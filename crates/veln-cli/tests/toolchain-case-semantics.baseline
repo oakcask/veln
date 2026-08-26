@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"23424e6beccb46e51c6dec18dad735fd2966997e"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1555
+case_count	1557
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -38259,6 +38259,36 @@ field	invocation.repeat	1
 field	requirements.jdk	true
 field	source_errors	"expected"
 case_digest	"b327095660877132921c4c0e13f077a3fa188d8883fe816520f1f92c5deffa3f"
+case	"examples/specification/run/identifier-casing-valid-constructor-precedence-cross-arity-json"
+field	expectations.diagnostics[0].id	"core.constructor_arity_mismatch"
+field	expectations.diagnostics[0].kind	"type"
+field	expectations.diagnostics[1].id	"core.missing_expression"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"c8033e0198d7bfa1023c16c3648a2dee3bfb0ae4974e8ba225a5fda56b978f1e"
+case	"examples/specification/run/identifier-casing-valid-function-precedence-cross-arity-json"
+field	expectations.diagnostics[0].id	"core.call_arity_mismatch"
+field	expectations.diagnostics[0].kind	"type"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"cd8cea6528bae39a23dafaa44f21f1653e6a3c4cc51a15c208e19fb5b32ec52a"
 case	"examples/specification/run/implicit-prelude-imports"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"passed"
@@ -48660,4 +48690,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8f9c9a7ccf99c6567d4c7ff993125bbeaa9bbc2bbf3362d35eca6c844ec59bb1"
+aggregate_digest	"443c13953af39165c8b897d82bfbc61fb5c3ceed8bf2d7de3e48f31cd0cefc8e"

@@ -1,0 +1,15 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["name.invalid_case"]
+equals_file = "case-text/json-assert-equals-1.txt"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "core.call_arity_mismatch"
+kind = "type"

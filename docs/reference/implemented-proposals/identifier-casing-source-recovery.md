@@ -54,13 +54,16 @@ The checked `identifier-casing-import-recovery-isolation-json` and
 `identifier-casing-valid-symbol-precedence-json`,
 `identifier-casing-handler-binding-quarantine-json`, and
 `identifier-casing-ambiguous-recovery-json` cases and the run
-`identifier-casing-import-recovery-isolation-json` and
-`identifier-casing-qualified-type-import-isolation-json` cases cover the import
-and public-alias recovery boundaries, accepted names, valid lookup precedence,
-handler binding quarantine from hole repair candidates, ambiguous recovery
-refusal, and qualified type references. Focused semantic tests cover
-expression-hole preservation, invalid value-binding quarantine from lookup and
-repair candidates, and import isolation.
+`identifier-casing-import-recovery-isolation-json`,
+`identifier-casing-qualified-type-import-isolation-json`,
+`identifier-casing-valid-function-precedence-cross-arity-json`, and
+`identifier-casing-valid-constructor-precedence-cross-arity-json` cases cover
+the import and public-alias recovery boundaries, accepted names, valid lookup
+precedence including cross-arity lowering failures, handler binding quarantine
+from hole repair candidates, ambiguous recovery refusal, and qualified type
+references. Focused semantic tests cover expression-hole preservation, invalid
+value-binding quarantine from lookup and repair candidates, cross-arity valid
+symbol precedence, and import isolation.
 The `identifier-casing-record-field-reachability` case covers the boundary
 that record field labels do not make same-spelled invalid declarations
 reachable.
