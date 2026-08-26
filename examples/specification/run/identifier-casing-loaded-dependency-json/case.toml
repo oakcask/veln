@@ -9,6 +9,10 @@ equals_file = "case-text/json-assert-equals-1.txt"
 [stderr]
 format = "empty"
 
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
 [[diagnostics]]
 id = "name.invalid_case"
 kind = "name"

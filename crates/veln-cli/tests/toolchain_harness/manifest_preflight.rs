@@ -121,8 +121,15 @@ impl<'a> ManifestAssignmentPreflight<'a> {
             Section::McpAssert(index) => {
                 self.mcp_operations[index].record_selector_or_path(self.path, key, value);
             }
-            Section::FileAssert(index) if matches!(key, "equals" | "equals_file") => {
+            Section::FileAssert(index) if matches!(key, "equals" | "equals_file" | "missing") => {
                 self.file_assert_operations[index] += 1;
+                if key == "missing" && !parse_bool(self.path, value) {
+                    manifest_error(
+                        self.path,
+                        value.line(),
+                        "file_assert `missing` must be true when present",
+                    );
+                }
             }
             _ => {}
         }
@@ -163,7 +170,9 @@ impl<'a> ManifestAssignmentPreflight<'a> {
                 manifest_error(
                     self.path,
                     0,
-                    format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
+                    format!(
+                        "file_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
+                    ),
                 );
             }
         }
