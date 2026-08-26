@@ -61,14 +61,17 @@ The checked `identifier-casing-import-recovery-isolation-json` and
 `identifier-casing-qualified-type-import-isolation-json`,
 `identifier-casing-valid-function-value-precedence-json`,
 `identifier-casing-cross-class-ambiguous-recovery-json`,
+`identifier-casing-owned-constructor-ambiguous-recovery-json`,
+`identifier-casing-owned-constructor-ambiguous-recovery-human`,
 `identifier-casing-same-name-recovery-arity-json`,
 `identifier-casing-valid-function-precedence-cross-arity-json`, and
 `identifier-casing-valid-constructor-precedence-cross-arity-json` cases cover
 the import and public-alias recovery boundaries, accepted names, valid lookup
 precedence for bare function-value references and cross-arity lowering
 failures, handler binding quarantine from hole repair candidates, ambiguous
-recovery refusal across name classes, call-arity filtering of same-name
-recovery peers, and qualified type references. Focused semantic tests cover
+recovery refusal across name classes and same-owner constructor candidates,
+call-arity filtering of same-name recovery peers, and qualified type
+references. Focused semantic tests cover
 expression-hole preservation, invalid value-binding quarantine from lookup and
 repair candidates, function-value valid symbol precedence, cross-arity valid
 symbol precedence, cross-class recovery ambiguity, and import isolation.

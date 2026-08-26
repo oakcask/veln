@@ -178,6 +178,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-qualified-type-import-isolation-json/`,
   `../../examples/specification/run/identifier-casing-valid-function-value-precedence-json/`,
   `../../examples/specification/run/identifier-casing-cross-class-ambiguous-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-human/`,
   `../../examples/specification/run/identifier-casing-same-name-recovery-arity-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-annotation-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-bindings-json/`,

@@ -1996,12 +1996,14 @@ mod reachability_counters {
         static FUNCTION_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
         static TARGET_RESOLUTION_SCANS: Cell<usize> = const { Cell::new(0) };
         static MATERIALIZED_FUNCTION_BODIES: Cell<usize> = const { Cell::new(0) };
+        static RECOVERY_SELECTOR_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(super) fn reset() {
         FUNCTION_LOOKUP_SCANS.set(0);
         TARGET_RESOLUTION_SCANS.set(0);
         MATERIALIZED_FUNCTION_BODIES.set(0);
+        RECOVERY_SELECTOR_CANDIDATE_SCANS.set(0);
     }
 
     pub(super) fn record_function_lookup_scan() {
@@ -2016,11 +2018,16 @@ mod reachability_counters {
         MATERIALIZED_FUNCTION_BODIES.set(MATERIALIZED_FUNCTION_BODIES.get() + 1);
     }
 
-    pub(super) fn snapshot() -> (usize, usize, usize) {
+    pub(super) fn record_recovery_selector_candidate_scan() {
+        RECOVERY_SELECTOR_CANDIDATE_SCANS.set(RECOVERY_SELECTOR_CANDIDATE_SCANS.get() + 1);
+    }
+
+    pub(super) fn snapshot() -> (usize, usize, usize, usize) {
         (
             FUNCTION_LOOKUP_SCANS.get(),
             TARGET_RESOLUTION_SCANS.get(),
             MATERIALIZED_FUNCTION_BODIES.get(),
+            RECOVERY_SELECTOR_CANDIDATE_SCANS.get(),
         )
     }
 }
@@ -2307,6 +2314,17 @@ enum ReachableInvalidNameSpan {
     Name(SourceSpan),
 }
 
+#[derive(Clone, Debug)]
+struct ReachableRecoveryCandidate {
+    spans: Vec<ReachableInvalidNameSpan>,
+}
+
+impl ReachableRecoveryCandidate {
+    fn new(spans: Vec<ReachableInvalidNameSpan>) -> Self {
+        Self { spans }
+    }
+}
+
 impl ReachableInvalidNameSpan {
     fn is_declaration(&self, span: &SourceSpan) -> bool {
         matches!(self, Self::Declaration(reachable) if reachable == span)
@@ -2315,23 +2333,102 @@ impl ReachableInvalidNameSpan {
 
 struct ReachableInvalidNameSelector<'a> {
     uses: Vec<&'a UseDecl>,
-    aliases: Vec<&'a veln_ast::PublicAlias>,
     handlers: Vec<&'a veln_ast::HandlerDecl>,
-    types: Vec<&'a veln_ast::TypeDecl>,
-    functions: Vec<&'a Function>,
+    functions_by_name: HashMap<(Option<String>, String), Vec<&'a Function>>,
+    aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,
+    types_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::TypeDecl>>,
+    constructors_by_name: HashMap<
+        (Option<String>, String),
+        Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)>,
+    >,
     invalid_names: Vec<&'a veln_ast::InvalidName>,
     companion_access_targets: HashMap<String, String>,
+}
+
+fn index_functions_by_name<'a>(
+    functions: &[&'a Function],
+) -> HashMap<(Option<String>, String), Vec<&'a Function>> {
+    let mut index = HashMap::<(Option<String>, String), Vec<&'a Function>>::new();
+    for function in functions {
+        if let Some(name) = &function.name {
+            index
+                .entry((function.module_name.clone(), name.clone()))
+                .or_default()
+                .push(*function);
+        }
+    }
+    index
+}
+
+fn index_aliases_by_name<'a>(
+    aliases: &[&'a veln_ast::PublicAlias],
+) -> HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>> {
+    let mut index = HashMap::<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>::new();
+    for alias in aliases {
+        if let Some(name) = &alias.name {
+            index
+                .entry((alias.module_name.clone(), name.clone()))
+                .or_default()
+                .push(*alias);
+        }
+    }
+    index
+}
+
+fn index_types_by_name<'a>(
+    types: &[&'a veln_ast::TypeDecl],
+) -> HashMap<(Option<String>, String), Vec<&'a veln_ast::TypeDecl>> {
+    let mut index = HashMap::<(Option<String>, String), Vec<&'a veln_ast::TypeDecl>>::new();
+    for type_decl in types {
+        if let Some(name) = &type_decl.name {
+            index
+                .entry((type_decl.module_name.clone(), name.clone()))
+                .or_default()
+                .push(*type_decl);
+        }
+    }
+    index
+}
+
+fn index_constructors_by_name<'a>(
+    types: &[&'a veln_ast::TypeDecl],
+) -> HashMap<(Option<String>, String), Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)>>
+{
+    let mut index = HashMap::<
+        (Option<String>, String),
+        Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)>,
+    >::new();
+    for type_decl in types {
+        for variant in &type_decl.variants {
+            if let Some(name) = &variant.name {
+                index
+                    .entry((type_decl.module_name.clone(), name.clone()))
+                    .or_default()
+                    .push((*type_decl, variant));
+            }
+        }
+    }
+    index
 }
 
 impl<'a> ReachableInvalidNameSelector<'a> {
     fn new(inputs: &'a ReachabilityInputs<'_>) -> Self {
         let companion_access_targets = companion_function_access_targets(inputs);
+        let aliases = inputs.aliases().collect::<Vec<_>>();
+        let handlers = inputs.handlers();
+        let types = inputs.types().collect::<Vec<_>>();
+        let functions = inputs.functions().collect::<Vec<_>>();
+        let functions_by_name = index_functions_by_name(&functions);
+        let aliases_by_name = index_aliases_by_name(&aliases);
+        let types_by_name = index_types_by_name(&types);
+        let constructors_by_name = index_constructors_by_name(&types);
         Self {
             uses: inputs.uses(),
-            aliases: inputs.aliases().collect(),
-            handlers: inputs.handlers(),
-            types: inputs.types().collect(),
-            functions: inputs.functions().collect(),
+            handlers,
+            functions_by_name,
+            aliases_by_name,
+            types_by_name,
+            constructors_by_name,
             invalid_names: inputs.invalid_names().collect(),
             companion_access_targets,
         }
@@ -2771,7 +2868,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
         arg_count: Option<usize>,
-    ) -> Vec<Vec<ReachableInvalidNameSpan>> {
+    ) -> Vec<ReachableRecoveryCandidate> {
         self.visible_functions(segments, current_module)
             .into_iter()
             .filter(|function| {
@@ -2780,7 +2877,11 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 }) && arg_count
                     .is_none_or(|count| function_shape(function).accepts_arg_count(count))
             })
-            .map(|function| vec![ReachableInvalidNameSpan::Declaration(function.span.clone())])
+            .map(|function| {
+                ReachableRecoveryCandidate::new(vec![ReachableInvalidNameSpan::Declaration(
+                    function.span.clone(),
+                )])
+            })
             .chain(
                 self.visible_aliases(segments, current_module, PublicAliasKind::Function)
                     .into_iter()
@@ -2789,7 +2890,11 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                             !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
                         })
                     })
-                    .map(|alias| vec![ReachableInvalidNameSpan::Declaration(alias.span.clone())]),
+                    .map(|alias| {
+                        ReachableRecoveryCandidate::new(vec![
+                            ReachableInvalidNameSpan::Declaration(alias.span.clone()),
+                        ])
+                    }),
             )
             .collect()
     }
@@ -2837,7 +2942,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             .filter(|(type_decl, variant)| {
                 Self::constructor_recovery_candidate(type_decl, variant, arg_count)
             })
-            .map(|(type_decl, variant)| self.constructor_recovery_spans(type_decl, variant))
+            .map(|(type_decl, variant)| {
+                ReachableRecoveryCandidate::new(self.constructor_recovery_spans(type_decl, variant))
+            })
             .collect::<Vec<_>>();
         push_unique_constructor_recovery_spans(candidates, spans);
     }
@@ -2847,13 +2954,15 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
         arg_count: Option<usize>,
-    ) -> Vec<Vec<ReachableInvalidNameSpan>> {
+    ) -> Vec<ReachableRecoveryCandidate> {
         self.visible_constructor_variants(segments, current_module)
             .into_iter()
             .filter(|(type_decl, variant)| {
                 Self::constructor_recovery_candidate(type_decl, variant, arg_count)
             })
-            .map(|(type_decl, variant)| self.constructor_recovery_spans(type_decl, variant))
+            .map(|(type_decl, variant)| {
+                ReachableRecoveryCandidate::new(self.constructor_recovery_spans(type_decl, variant))
+            })
             .collect()
     }
 
@@ -2891,13 +3000,20 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
     ) -> Vec<&'a Function> {
         let target = visible_path_target(&self.uses, segments, current_module);
-        let leaf = path_leaf(segments).map(str::to_string);
-        self.functions
-            .iter()
+        let Some(leaf) = path_leaf(segments).map(str::to_string) else {
+            return Vec::new();
+        };
+        self.functions_by_name
+            .get(&(target.clone(), leaf))
+            .into_iter()
+            .flatten()
             .copied()
+            .inspect(|_| {
+                #[cfg(test)]
+                reachability_counters::record_recovery_selector_candidate_scan();
+            })
             .filter(move |function| {
                 function.kind == FunctionKind::Function
-                    && function.name.as_deref() == leaf.as_deref()
                     && declaration_visible(
                         function.module_name.as_deref(),
                         function.visibility,
@@ -2915,13 +3031,20 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         kind: PublicAliasKind,
     ) -> Vec<&'a veln_ast::PublicAlias> {
         let target = visible_path_target(&self.uses, segments, current_module);
-        let leaf = path_leaf(segments).map(str::to_string);
-        self.aliases
-            .iter()
+        let Some(leaf) = path_leaf(segments).map(str::to_string) else {
+            return Vec::new();
+        };
+        self.aliases_by_name
+            .get(&(target.clone(), leaf))
+            .into_iter()
+            .flatten()
             .copied()
+            .inspect(|_| {
+                #[cfg(test)]
+                reachability_counters::record_recovery_selector_candidate_scan();
+            })
             .filter(move |alias| {
                 alias.kind == kind
-                    && alias.name.as_deref() == leaf.as_deref()
                     && declaration_visible(
                         alias.module_name.as_deref(),
                         Visibility::Public,
@@ -2938,18 +3061,25 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
     ) -> Vec<&'a veln_ast::TypeDecl> {
         let target = visible_path_target(&self.uses, segments, current_module);
-        let leaf = path_leaf(segments).map(str::to_string);
-        self.types
-            .iter()
+        let Some(leaf) = path_leaf(segments).map(str::to_string) else {
+            return Vec::new();
+        };
+        self.types_by_name
+            .get(&(target.clone(), leaf))
+            .into_iter()
+            .flatten()
             .copied()
+            .inspect(|_| {
+                #[cfg(test)]
+                reachability_counters::record_recovery_selector_candidate_scan();
+            })
             .filter(move |type_decl| {
-                type_decl.name.as_deref() == leaf.as_deref()
-                    && declaration_visible(
-                        type_decl.module_name.as_deref(),
-                        type_decl.visibility,
-                        target.as_deref(),
-                        current_module,
-                    )
+                declaration_visible(
+                    type_decl.module_name.as_deref(),
+                    type_decl.visibility,
+                    target.as_deref(),
+                    current_module,
+                )
             })
             .collect()
     }
@@ -2960,25 +3090,25 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
     ) -> Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)> {
         let target = visible_path_target(&self.uses, segments, current_module);
-        let leaf = path_leaf(segments).map(str::to_string);
-        self.types
-            .iter()
+        let Some(leaf) = path_leaf(segments).map(str::to_string) else {
+            return Vec::new();
+        };
+        self.constructors_by_name
+            .get(&(target.clone(), leaf))
+            .into_iter()
+            .flatten()
             .copied()
-            .flat_map(move |type_decl| {
-                type_decl.variants.iter().filter_map({
-                    let target = target.clone();
-                    let leaf = leaf.clone();
-                    move |variant| {
-                        (variant.name.as_deref() == leaf.as_deref()
-                            && declaration_visible(
-                                type_decl.module_name.as_deref(),
-                                type_decl.visibility,
-                                target.as_deref(),
-                                current_module,
-                            ))
-                        .then_some((type_decl, variant))
-                    }
-                })
+            .inspect(|_| {
+                #[cfg(test)]
+                reachability_counters::record_recovery_selector_candidate_scan();
+            })
+            .filter(move |(type_decl, _)| {
+                declaration_visible(
+                    type_decl.module_name.as_deref(),
+                    type_decl.visibility,
+                    target.as_deref(),
+                    current_module,
+                )
             })
             .collect()
     }
@@ -3078,15 +3208,13 @@ fn push_unique_reachable_invalid_name_span(
 }
 
 fn push_unique_constructor_recovery_spans(
-    mut candidates: Vec<Vec<ReachableInvalidNameSpan>>,
+    candidates: Vec<ReachableRecoveryCandidate>,
     spans: &mut Vec<ReachableInvalidNameSpan>,
 ) {
-    for candidate in &mut candidates {
-        dedup_reachable_invalid_name_spans(candidate);
-    }
-    candidates.dedup();
     if let [candidate] = candidates.as_slice() {
-        spans.extend(candidate.iter().cloned());
+        let mut candidate_spans = candidate.spans.clone();
+        dedup_reachable_invalid_name_spans(&mut candidate_spans);
+        spans.extend(candidate_spans);
     }
 }
 
@@ -4238,7 +4366,7 @@ mod tests {
 
     #[test]
     fn reachable_resolution_skips_unrelated_annotated_functions() {
-        fn resolution_scans(unrelated_count: usize) -> (usize, usize, usize) {
+        fn resolution_scans(unrelated_count: usize) -> (usize, usize, usize, usize) {
             let mut source = String::from(
                 "pub fn main() -> Int\n  helper()\nend\n\nfn helper() -> Int\n  1\nend\n",
             );
@@ -4260,6 +4388,40 @@ mod tests {
         assert_eq!(
             expanded, base,
             "unrelated annotated functions must not add repeated resolution scans"
+        );
+    }
+
+    #[test]
+    fn reachable_recovery_selection_skips_unrelated_invalid_declarations() {
+        fn recovery_candidate_scans(unrelated_count: usize) -> usize {
+            let mut source = String::from(concat!(
+                "pub fn main() -> Int\n",
+                "  Value\n",
+                "end\n",
+                "\n",
+                "type item\n",
+                "  Value\n",
+                "end\n",
+            ));
+            for index in 0..unrelated_count {
+                source.push_str(&format!("\ntype unrelated_{index}\n  Other_{index}\nend\n"));
+            }
+            let module = lower(&source);
+            reachability_counters::reset();
+            let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+            assert_eq!(
+                reachable.invalid_names.len(),
+                1,
+                "{:#?}",
+                reachable.invalid_names
+            );
+            reachability_counters::snapshot().3
+        }
+
+        assert_eq!(
+            recovery_candidate_scans(128),
+            recovery_candidate_scans(0),
+            "unrelated invalid declarations must not add repeated recovery selector scans"
         );
     }
 
@@ -6207,6 +6369,27 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(invalid_names, vec!["item"]);
+    }
+
+    #[test]
+    fn run_entry_does_not_choose_ambiguous_owned_constructor_recovery_with_same_owner_span() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  Value\n",
+            "end\n",
+            "type item\n",
+            "  Value\n",
+            "  Value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
     }
 
     #[test]

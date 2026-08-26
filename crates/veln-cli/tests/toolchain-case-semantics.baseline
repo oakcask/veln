@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"7220de228b2764878ca45fe1e16f49466c300f61"
+source_git_tree	"de0c8abdc8c8a548d279e5f0a9f2a4250fd17473"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1563
+case_count	1565
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -38062,6 +38062,41 @@ field	invocation.command[4]	"helper.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"c16da489a99572e48cf541c52c51fa554bcc08389273ecea57bf9244eb70c84e"
+case	"examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"0d1a888d89dc6ea1f94b665a1984dbf8d7c8bc30ea7cd641fd6f71c986c77f94"
+case	"examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-json"
+field	expectations.diagnostics[0].id	"name.duplicate"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"duplicate constructor declaration name `Value`"
+field	expectations.diagnostics[1].id	"name.unresolved"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"unresolved value `Value`"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	2
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"61b13238d8a87e979e9e3babea3ba104117368730fb916bfc7fb3271a3aaff2a"
 case	"examples/specification/run/identifier-casing-owned-constructor-unreachable"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -48804,4 +48839,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8e68c2eab62bf9990e6cf52735c861f22b17b55859c17658d5629563f2e77e93"
+aggregate_digest	"ba2b179f4ede9ac74a7590db8dcd37a5421f8564b0b989bb49416c49e6f4cc9f"
