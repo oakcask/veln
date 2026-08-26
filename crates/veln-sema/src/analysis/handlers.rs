@@ -412,31 +412,29 @@ fn clause_body_diagnostics(
     let synthetic = synthetic_clause_function(handler, clause, operation);
     let mut checker = FunctionChecker::new(&synthetic, environment);
     for (index, param) in handler.params.iter().enumerate() {
-        checker.bindings.push(Binding::new(
-            param.name.clone(),
+        checker.admit_value_binding(
+            &param.name,
             signature
                 .params
                 .get(index)
                 .cloned()
                 .unwrap_or(Type::Unknown),
-        ));
-        checker.local_names.insert(
-            param.name.clone(),
-            (param.node_id.display("param"), param.span.clone()),
+            param.node_id.display("param"),
+            param.span.clone(),
+            "handler parameter",
         );
     }
     for (index, param) in clause.params.iter().enumerate() {
-        checker.bindings.push(Binding::new(
-            param.name.clone(),
+        checker.admit_value_binding(
+            &param.name,
             operation
                 .params
                 .get(index)
                 .cloned()
                 .unwrap_or(Type::Unknown),
-        ));
-        checker.local_names.insert(
-            param.name.clone(),
-            (param.node_id.display("param"), param.span.clone()),
+            param.node_id.display("param"),
+            param.span.clone(),
+            "handler operation binding",
         );
     }
     let expected = ExpectedType {

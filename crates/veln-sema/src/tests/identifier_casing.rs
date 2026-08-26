@@ -250,6 +250,45 @@ fn invalid_value_bindings_do_not_enter_repair_candidates() {
 }
 
 #[test]
+fn invalid_handler_bindings_do_not_enter_hole_repair_context() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Ask\n",
+            "  value(input: Int) -> Int\n",
+            "end\n",
+            "handler ask(Context: Int) handles Ask\n",
+            "  value(Result) => _missing\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+    let hole = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "hole.unfilled")
+        .expect("hole diagnostic");
+    let details = hole.details.to_json();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        2,
+        "{diagnostics:#?}"
+    );
+    assert!(!details.contains("\"name\":\"Context\""), "{details}");
+    assert!(!details.contains("\"name\":\"Result\""), "{details}");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn unique_same_source_recovery_suppresses_only_derivative_missing_name() {
     let source = SourceFile::new(
         "main.veln",

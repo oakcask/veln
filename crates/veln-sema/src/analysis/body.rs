@@ -639,24 +639,13 @@ impl<'a> FunctionChecker<'a> {
                     }
                 })
             });
-        if !valid_value_binding_name(&param.name) {
-            self.invalid_binding_recoveries
-                .push(InvalidBindingRecovery {
-                    name: param.name.clone(),
-                    ty: binding_type,
-                });
-            return;
-        }
-        if !self.declare_local_name(
+        self.admit_value_binding(
             &param.name,
+            binding_type,
             param.node_id.display("param"),
             param.span.clone(),
             "parameter",
-        ) {
-            return;
-        }
-        self.bindings
-            .push(Binding::new(param.name.clone(), binding_type));
+        );
     }
 
     fn check_variadic_parameter_shape(
@@ -831,6 +820,28 @@ impl<'a> FunctionChecker<'a> {
                 .insert(name.to_string(), (node_id, span.clone()));
             true
         }
+    }
+
+    pub(super) fn admit_value_binding(
+        &mut self,
+        name: &str,
+        ty: Type,
+        node_id: String,
+        span: SourceSpan,
+        declaration_kind: &'static str,
+    ) {
+        if invalid_value_binding_name(name) {
+            self.invalid_binding_recoveries
+                .push(InvalidBindingRecovery {
+                    name: name.to_string(),
+                    ty,
+                });
+            return;
+        }
+        if !self.declare_local_name(name, node_id, span, declaration_kind) {
+            return;
+        }
+        self.bindings.push(Binding::new(name.to_string(), ty));
     }
 
     pub(super) fn check_contracts(&mut self) {

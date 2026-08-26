@@ -1,0 +1,63 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Context"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "Result"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "hole.unfilled"
+
+[[json_assert]]
+path = "diagnostics.2.details.local_bindings"
+length = 0
+
+[[json_assert]]
+path = "diagnostics.2.details.candidate_queries"
+length = 1
+
+[[json_assert]]
+path = "diagnostics.2.details.candidate_queries.0.candidate_status"
+equals = "query_only"
+
+[[json_assert]]
+path = "diagnostics.2.details.candidate_queries.0.query"
+equals = "fn() -> Int"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "binding name `Context` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "binding name `Result` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "hole.unfilled"
+kind = "hole"
+message = "hole requires a `Int` value"
