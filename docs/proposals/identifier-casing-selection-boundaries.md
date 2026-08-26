@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Identifier casing selection boundaries for test, doc, language services, dependencies, companions, or the implicit prelude change.
+update-when: Identifier casing direct-dependency selection, selected-entry reachability, recovery isolation, or implicit-prelude evidence changes.
 ---
 
 # Identifier Casing Selection Boundaries
@@ -8,8 +8,7 @@ update-when: Identifier casing selection boundaries for test, doc, language serv
 ## Outcome
 
 Extend source identifier casing diagnostics and quarantined recovery across
-the command and source-selection boundaries that are not part of the initial
-`check` and `run` foundation.
+direct-dependency and implicit-prelude boundaries.
 
 This proposal depends on
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
@@ -17,50 +16,61 @@ That foundation is implemented and specified as current behavior.
 
 ## Scope
 
-This proposal retains the remaining selection evidence for loaded or unloaded
-dependencies and the remaining recovery quarantine evidence for dependencies
-and the implicit prelude. The `test`, `doc`, companion recovery, and
-language-service snapshot and overlay rows have executable evidence.
+The Ready slice retains direct-dependency source-selection, selected-entry
+reachability, and recovery-quarantine evidence. Source selection determines
+whether a dependency module participates in command analysis. Selected-entry
+reachability determines which declarations in a loaded module can block
+`run`.
+
+Implicit-prelude recovery isolation remains in this proposal, but it is
+blocked until the direct-dependency slice is executable current behavior. The
+`test`, `doc`, companion recovery, and language-service snapshot and overlay
+boundaries already have executable evidence and are not planned work here.
 
 This proposal does not add module-identity casing, qualified-use casing,
 alias-target leaf casing, rename behavior, or source-less registry validation.
 Those capabilities remain in
 [Identifier Casing](identifier-casing.md).
 
-## Command And Selection Boundary
+## Ready Direct-Dependency Slice
 
-| Consumer state | Required result | Evidence |
-| --- | --- | --- |
-| `test` selects a test whose reachable closure contains an invalid covered name. | Preserve the selected-suite static gate and produce no backend artifact. | Implemented by `examples/specification/test/identifier-casing-selected-static-gate-json/` and `examples/specification/test/identifier-casing-unselected-peer-json/`. |
-| `doc` includes a source with an invalid covered name. | Reject the selected documentation set before publishing generated documentation. | Implemented by `examples/specification/doc/identifier-casing-included-source/`. |
-| `doc` excludes a source or companion with an invalid covered name. | Generate documentation without reporting the excluded casing diagnostic. | Implemented by `examples/specification/doc/identifier-casing-excluded-source/` and `examples/specification/doc/identifier-casing-excluded-companion/`. |
-| A language-service snapshot or open-document overlay contains an invalid covered name inside the selected analysis unit. | Publish the casing diagnostic for that selected unit and keep invalid symbols out of snapshot indexes. | Implemented by `examples/specification/lsp/identifier-casing-snapshot-boundary/`, `examples/specification/lsp/identifier-casing-overlay-boundary/`, and `examples/specification/lsp/identifier-casing-handler-binding-navigation/`. |
-| An invalid covered name exists outside the language-service operation's selected analysis unit. | Preserve the operation's snapshot and overlay boundary; do not report a workspace-global casing diagnostic. | Implemented for workspace snapshot and overlay selection by `examples/specification/lsp/identifier-casing-snapshot-boundary/` and `examples/specification/lsp/identifier-casing-overlay-boundary/`; dependency selection remains open. |
-| A dependency containing an invalid covered name is loaded for a selected consumer. | Report the selected diagnostic and prevent the invalid symbol from entering lookup or an artifact. | Language-service retained dependency definition exclusion is covered by `veln-language-service` tests. Loaded dependency diagnostic and artifact evidence remains open. |
-| A dependency containing an invalid covered name is not loaded for a selected consumer. | Do not report its casing diagnostic or block the consumer. | Unloaded dependency case. |
+### Command And Selection Boundary
 
-## Recovery Boundary
+| Dependency state for `run` | Invalid declaration state | Required result | Planned evidence |
+| --- | --- | --- | --- |
+| The selected consumer imports the dependency module. | The selected entry reaches the invalid covered declaration through the dependency. | Report `name.invalid_case`, keep the invalid declaration out of lookup, and produce no backend artifact. | Loaded-and-reachable dependency JSON case with the diagnostic and static-gate outcome. |
+| The selected consumer imports the dependency module. | The invalid covered declaration is outside the selected-entry reachable closure. | Run the valid reachable closure without reporting the unreachable casing diagnostic. | Loaded-but-unreachable dependency JSON case with successful consumer output and no dependency diagnostic. |
+| The manifest declares the dependency, but the selected consumer does not import its module. | The dependency contains an invalid covered declaration. | Run the consumer without reporting the unselected dependency diagnostic. | Manifest-only unloaded dependency JSON case with successful consumer output and no dependency diagnostic. |
+
+The first two rows preserve the current `run` selected-entry reachability
+contract. The second and third rows are separate requirements. Loading a
+dependency module is not evidence that every declaration in that module is
+reachable.
+
+### Recovery Boundary
+
+| Recovery source | Cross-package use | Required result | Planned evidence |
+| --- | --- | --- | --- |
+| Dependency | Consumer | The dependency recovery record does not resolve the consumer use. | Focused analysis case that requires the ordinary unresolved diagnostic and no reachable invalid dependency record. |
+| Consumer | Dependency | The consumer recovery record does not resolve the dependency use. | Focused analysis case that requires the ordinary unresolved diagnostic and no reachable invalid consumer record. |
+
+## Blocked Implicit-Prelude Slice
 
 | Source state | Required result | Planned evidence |
 | --- | --- | --- |
-| A use crosses a companion boundary. | Do not expose the recovery record to the companion or its target source. | Implemented by `examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`, `examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`, `examples/specification/test/identifier-casing-companion-target-binding-recovery-isolation-json/`, `examples/specification/test/identifier-casing-companion-source-binding-recovery-isolation-json/`, and `veln-analysis` reachable-artifact tests. |
-| A use crosses a dependency boundary. | Do not expose the recovery record across the package boundary. | Loaded dependency diagnostics, lookup, and artifact assertions. |
 | A use crosses the implicit-prelude boundary. | A valid prelude symbol may win normal lookup; an invalid recovery record cannot enter or escape the prelude namespace. | Valid-prelude precedence and invalid-recovery isolation cases. |
-
-## Language-Service Acceptance Evidence
-
-| Covered invalid source name | Selection points | Operations | Evidence |
-| --- | --- | --- | --- |
-| Function declaration in a saved snapshot. | Declaration and same-source call. | Definition, references, rename. | `examples/specification/lsp/identifier-casing-snapshot-boundary/` |
-| Function declaration in an open-document overlay that replaces saved source. | Overlay declaration and same-source call. | Definition. | `examples/specification/lsp/identifier-casing-overlay-boundary/` |
-| Handler context binding in a saved snapshot. | Binding declaration and in-scope clause-body use. | Definition, references, prepare-rename, rename. | `examples/specification/lsp/identifier-casing-handler-binding-navigation/` |
-| Handler operation-clause binding in a saved snapshot. | Binding declaration and in-scope clause-body use. | Definition, references, prepare-rename, rename. | `examples/specification/lsp/identifier-casing-handler-binding-navigation/` |
 
 ## Completion
 
-This proposal is complete when every command, selection, and recovery row
-above has executable evidence. The evidence must show both diagnostic
-selection and artifact exclusion where the row requires both outcomes.
+The direct-dependency slice is complete when every row in its command and
+recovery tables has executable evidence. The loaded-and-reachable case must
+show the diagnostic and absence of a backend artifact. The two non-blocking
+cases must each show successful consumer output and absence of the dependency
+diagnostic.
+
+After the direct-dependency behavior is promoted to the current specification,
+the implicit-prelude slice can move to Ready. This proposal is complete when
+that slice also has executable evidence.
 
 Implementation must promote completed behavior to the smallest matching pages
 under `docs/specification/` and to checked cases under
