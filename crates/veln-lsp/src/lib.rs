@@ -3900,7 +3900,7 @@ mod tests {
     }
 
     #[test]
-    fn imported_constructor_definition_wins_over_bare_prelude_fallback() {
+    fn invalid_imported_constructor_casing_falls_back_to_bare_prelude_function() {
         let mut server = Server::default();
         let project = TempProject::new("imported-constructor-bare-prelude-definition");
         project.write(
@@ -3923,23 +3923,24 @@ mod tests {
         let definition = server.handle_message(&definition_request(&main_uri, 3, 4));
 
         assert_eq!(definition.len(), 1);
-        assert!(definition[0].contains("/model.veln"), "{}", definition[0]);
+        let prelude_uri = extract_string_field(&definition[0], "uri").unwrap();
         assert!(
-            definition[0].contains(
-                r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":10}}"#
-            ),
+            prelude_uri.starts_with("veln-pkg:///std/snapshot/")
+                && prelude_uri.ends_with("/prelude.veln"),
             "{}",
             definition[0]
         );
         assert!(
-            !definition[0].contains("veln-pkg:///std/snapshot/"),
+            definition[0].contains(
+                r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            ),
             "{}",
             definition[0]
         );
     }
 
     #[test]
-    fn reexported_constructor_definition_wins_over_bare_prelude_fallback() {
+    fn invalid_reexported_constructor_casing_does_not_hide_bare_prelude_function() {
         let mut server = Server::default();
         let project = TempProject::new("reexported-constructor-bare-prelude-definition");
         project.write(
@@ -3966,24 +3967,30 @@ mod tests {
         let main_uri = path_to_uri(&project.root.join("main.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
-        for (line, character) in [(3, 4), (7, 10)] {
-            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+        let bare = server.handle_message(&definition_request(&main_uri, 3, 4));
+        assert_eq!(bare.len(), 1);
+        let prelude_uri = extract_string_field(&bare[0], "uri").unwrap();
+        assert!(
+            prelude_uri.starts_with("veln-pkg:///std/snapshot/")
+                && prelude_uri.ends_with("/prelude.veln"),
+            "{}",
+            bare[0]
+        );
+        assert!(
+            bare[0].contains(
+                r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            ),
+            "{}",
+            bare[0]
+        );
 
-            assert_eq!(definition.len(), 1);
-            assert!(definition[0].contains("/model.veln"), "{}", definition[0]);
-            assert!(
-                definition[0].contains(
-                    r#""range":{"start":{"line":1,"character":6},"end":{"line":1,"character":10}}"#
-                ),
-                "{}",
-                definition[0]
-            );
-            assert!(
-                !definition[0].contains("veln-pkg:///std/snapshot/"),
-                "{}",
-                definition[0]
-            );
-        }
+        let qualified = server.handle_message(&definition_request(&main_uri, 7, 10));
+        assert_eq!(qualified.len(), 1);
+        assert!(
+            qualified[0].contains(r#""result":null"#),
+            "{}",
+            qualified[0]
+        );
     }
 
     #[test]
