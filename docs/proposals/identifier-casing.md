@@ -27,9 +27,9 @@ That foundation combines declaration and binding diagnostics with quarantined
 recovery and `check`/`run` reachability. The dependent
 [Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
 proposal then covers `test`, `doc`, language-service selection, dependencies,
-companions, and the implicit prelude. The `test`, `doc`, and language-service
-snapshot and open-document overlay slices are now current behavior. The
-remaining work in this proposal is blocked until the dependency, companion,
+companions, and the implicit prelude. The `test`, `doc`, companion recovery,
+and language-service snapshot and open-document overlay slices are now current
+behavior. The remaining work in this proposal is blocked until the dependency
 and implicit-prelude slices are implemented and promoted to the current
 specification.
 
@@ -47,8 +47,8 @@ The remaining proposal work covers module identities, qualified-use segment
 casing, alias target leaves, rename and recovery navigation, and source-less
 registries. It also depends on
 [Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
-for dependency, companion, and implicit-prelude selection evidence. The
-completed `test`, `doc`, and language-service snapshot and open-document
+for dependency and implicit-prelude selection evidence. The completed `test`,
+`doc`, companion recovery, and language-service snapshot and open-document
 overlay boundaries are specified by
 [Names And Effects](../specification/names-effects.md), by
 [Editor Support](../specification/editor-support.md), and by the checked
@@ -267,10 +267,12 @@ export namespace and cannot propagate a recovery symbol.
 
 [Names And Effects](../specification/names-effects.md) specifies current
 quarantined recovery for source declarations and bindings selected by `check`,
-`run`, LSP single-file diagnostics, and workspace snapshot and open-document
-overlay selection. The remaining proposal defines how that recovery model
-extends to qualified-use roles, module-derived identity failures, dependency
-and companion boundaries, prelude boundaries, and recovery navigation.
+`run`, LSP single-file diagnostics, workspace snapshot and open-document
+overlay selection, and exact companion source and target boundaries. The
+remaining proposal defines how that recovery model extends to qualified-use
+roles, module-derived identity failures, dependency boundaries, prelude
+boundaries, remaining companion cases for invalid module or qualified roles,
+and recovery navigation.
 
 An invalid remaining-scope module segment, qualified segment, alias target, or
 source-less descriptor is not inserted into a normal name class. A use links to
@@ -475,8 +477,8 @@ Rows covered by
 and completed rows in
 [Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
 are no longer planned work. The table below retains only the unimplemented
-identifier-casing remainder and deferred dependency, companion, and
-implicit-prelude selection-boundary evidence.
+identifier-casing remainder and deferred dependency and implicit-prelude
+selection-boundary evidence.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
@@ -488,12 +490,12 @@ implicit-prelude selection-boundary evidence.
 | Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |
 | Import a path whose final segment is also its implicit alias. | An invalid final segment produces one diagnostic owned by that segment, not separate path and alias diagnostics. | Single- and multi-segment import cases. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
-| Resolve uses near invalid declarations in qualified, module-derived, dependency, companion, prelude, navigation, and rename roles not covered by the source foundation. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
-| Cross exact-companion, dependency, and prelude boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
+| Resolve uses near invalid declarations in qualified, module-derived, dependency, prelude, navigation, rename, and remaining companion roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
+| Cross dependency, prelude, or remaining exact-companion module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, target-kind, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request valid, class-changing, conflicting, and invalid-declaration repair renames. | Class-preserving and repair renames return complete linked edits. Class-changing requests return `rename.invalid_case`; predictable collisions return `rename.conflict`; failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service, LSP error-mapping, and planned MCP error-mapping cases. |
 | Register valid and invalid source-less lookup descriptors. | The release-mode registry gate either publishes one complete validated registry or returns `toolchain.invalid_symbol_case`; invalid descriptors never reach lookup, while internal names remain outside the gate. | Generated-table, injected-descriptor, release-mode, atomic-failure, and lookup-isolation tests. |
-| Run each remaining deferred command or service consumer with casing errors inside and outside its selected unit. | Dependency analysis, companions, and the implicit prelude follow the command boundary table and never send an invalid symbol to a backend. | Command fixtures covering loaded and unloaded dependencies, companions, and the implicit prelude. |
+| Run each remaining deferred command or service consumer with casing errors inside and outside its selected unit. | Dependency analysis and the implicit prelude follow the command boundary table and never send an invalid symbol to a backend. | Command fixtures covering loaded and unloaded dependencies and the implicit prelude. |
 | Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |
 | Run the repository source-carrier audit and specification suite after migration. | Every parsed or analyzed repository-owned source follows the contract except dedicated exact-expectation casing fixtures, and unrelated negative fixtures retain their intended diagnostic sets. | Source-carrier audit, specification harness, doctest and documentation gates, and workspace tests. |
 
