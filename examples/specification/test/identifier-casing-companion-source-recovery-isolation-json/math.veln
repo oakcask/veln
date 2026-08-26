@@ -1,0 +1,5 @@
+use math__test_companion
+
+fn main() -> Int
+  math__test_companion::Bad()
+end

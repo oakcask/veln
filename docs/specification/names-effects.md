@@ -78,6 +78,12 @@ compiler-known calls.
   `identifier-casing-selected-static-gate-json` and
   `identifier-casing-unselected-peer-json` test cases define selected-suite
   casing diagnostics and unselected-peer isolation for `veln test --json`. The
+  `identifier-casing-companion-target-recovery-isolation-json`,
+  `identifier-casing-companion-source-recovery-isolation-json`,
+  `identifier-casing-companion-target-binding-recovery-isolation-json`, and
+  `identifier-casing-companion-source-binding-recovery-isolation-json` test
+  cases define that quarantined invalid casing recovery records do not resolve
+  uses between an exact `.test.veln` companion and its target source. The
   `identifier-casing-included-source`,
   `identifier-casing-excluded-source`, and
   `identifier-casing-excluded-companion` doc cases define selected

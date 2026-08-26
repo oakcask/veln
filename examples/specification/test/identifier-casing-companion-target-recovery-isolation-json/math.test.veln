@@ -1,0 +1,6 @@
+use math
+
+test companion_rejects_target_recovery() -> ()
+  let observed = math::Bad()
+  ()
+end

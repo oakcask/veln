@@ -187,10 +187,14 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`,
   and `../../examples/specification/run/identifier-casing-record-field-reachability/`.
 - Source identifier casing selected-suite static gates, unselected test peer
-  isolation, selected documentation-source diagnostics, and excluded
-  documentation-source or companion isolation, plus LSP workspace selection
-  and invalid-symbol navigation exclusion:
+  isolation, exact companion recovery isolation, selected documentation-source
+  diagnostics, and excluded documentation-source or companion isolation, plus
+  LSP workspace selection and invalid-symbol navigation exclusion:
   `../../examples/specification/test/identifier-casing-selected-static-gate-json/`,
+  `../../examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-companion-target-binding-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-companion-source-binding-recovery-isolation-json/`,
   `../../examples/specification/test/identifier-casing-unselected-peer-json/`,
   `../../examples/specification/doc/identifier-casing-included-source/`,
   `../../examples/specification/doc/identifier-casing-excluded-source/`, and

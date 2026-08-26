@@ -397,6 +397,8 @@ mod tests {
     use super::*;
     use crate::surface::reachable_entry_module_with_cache;
 
+    mod reachable_companion_recovery_tests;
+
     #[test]
     fn separated_reachable_lowering_matches_combined_lowering_outputs() {
         let analysis = analyze_project(

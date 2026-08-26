@@ -18,8 +18,8 @@ That foundation is implemented and specified as current behavior.
 ## Scope
 
 This proposal retains the remaining selection evidence for loaded or unloaded
-dependencies and the remaining recovery quarantine evidence for companions,
-dependencies, and the implicit prelude. The `test`, `doc`, and
+dependencies and the remaining recovery quarantine evidence for dependencies
+and the implicit prelude. The `test`, `doc`, companion recovery, and
 language-service snapshot and overlay rows have executable evidence.
 
 This proposal does not add module-identity casing, qualified-use casing,
@@ -43,7 +43,7 @@ Those capabilities remain in
 
 | Source state | Required result | Planned evidence |
 | --- | --- | --- |
-| A use crosses a companion boundary. | Do not expose the recovery record to the companion or its target source. | Companion diagnostics and artifact assertions. |
+| A use crosses a companion boundary. | Do not expose the recovery record to the companion or its target source. | Implemented by `examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`, `examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`, `examples/specification/test/identifier-casing-companion-target-binding-recovery-isolation-json/`, `examples/specification/test/identifier-casing-companion-source-binding-recovery-isolation-json/`, and `veln-analysis` reachable-artifact tests. |
 | A use crosses a dependency boundary. | Do not expose the recovery record across the package boundary. | Loaded dependency diagnostics, lookup, and artifact assertions. |
 | A use crosses the implicit-prelude boundary. | A valid prelude symbol may win normal lookup; an invalid recovery record cannot enter or escape the prelude namespace. | Valid-prelude precedence and invalid-recovery isolation cases. |
 

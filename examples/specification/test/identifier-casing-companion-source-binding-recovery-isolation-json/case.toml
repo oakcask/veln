@@ -1,0 +1,59 @@
+command = ["test", "--json", "math.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "selection.mode"
+equals = "explicit"
+
+[[json_assert]]
+path = "selection.targets.0"
+equals = "math.test.veln"
+
+[[json_assert]]
+path = "selection.targets.1"
+equals = "math.veln"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "binding name `Bad` must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.1.message"
+equals = "unresolved call_target `math__test_companion::Bad`"
+
+[[json_assert]]
+path = "summary.total"
+equals = 0
+
+[[json_assert]]
+path = "summary.blocked"
+equals = 0
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "binding name `Bad` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `math__test_companion::Bad`"
