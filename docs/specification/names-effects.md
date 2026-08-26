@@ -63,8 +63,9 @@ compiler-known calls.
   reachability for invalid functions, constructor calls, public aliases,
   expression-only constructor/type references, owned valid constructors of
   invalid types, function-value recovery, and the rule that reachable local
-  value spellings and type references do not make unrelated invalid
-  declarations reachable. The `identifier-casing-reachable-handler-bindings` and
+  value spellings, record fields, and type references do not make unrelated
+  invalid declarations reachable. The
+  `identifier-casing-reachable-handler-bindings` and
   `identifier-casing-reachable-handler-bindings-json`,
   `identifier-casing-reachable-handler-annotation`,
   `identifier-casing-reachable-handler-annotation-json`,
@@ -83,7 +84,9 @@ compiler-known calls.
   cross import boundaries, do not satisfy public alias targets, valid symbols
   win over same-source recovery records, ambiguous recovery records do not
   resolve, and qualified type paths do not select unrelated same-leaf local
-  recovery records. Workspace snapshot and open-document overlay selection
+  recovery records. The `identifier-casing-record-field-reachability` run case
+  fixes that record field labels remain outside this name-class reachability
+  boundary. Workspace snapshot and open-document overlay selection
   evidence remains outside this source foundation.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package

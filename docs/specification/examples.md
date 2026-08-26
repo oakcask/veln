@@ -162,14 +162,23 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-handler-binding-quarantine-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
-- Source identifier casing run reachability through handler annotations and
-  handler clause expressions:
+- Source identifier casing run reachability, recovery, import isolation,
+  handler annotations, handler clause expressions, and non-name record fields:
+  `../../examples/specification/run/identifier-casing-reachable-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-constructor-call-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-invalid-alias-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-expression-type-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-type-alias-json/`,
+  `../../examples/specification/run/identifier-casing-unreachable-peer/`,
   `../../examples/specification/run/identifier-casing-owned-nullary-constructor-recovery-json/`,
   `../../examples/specification/run/identifier-casing-owned-payload-constructor-recovery-json/`,
   `../../examples/specification/run/identifier-casing-function-value-recovery-json/`,
-  `../../examples/specification/run/identifier-casing-reachable-handler-annotation-json/`
-  and
-  `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`.
+  `../../examples/specification/run/identifier-casing-import-recovery-isolation-json/`,
+  `../../examples/specification/run/identifier-casing-qualified-type-import-isolation-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-handler-annotation-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-handler-bindings-json/`,
+  `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`,
+  and `../../examples/specification/run/identifier-casing-record-field-reachability/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and
