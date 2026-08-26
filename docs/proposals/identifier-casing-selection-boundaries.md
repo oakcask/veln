@@ -18,8 +18,8 @@ That foundation is implemented and specified as current behavior.
 ## Scope
 
 This proposal retains the remaining selection evidence for loaded or unloaded
-dependencies and the remaining recovery quarantine evidence for companions,
-dependencies, and the implicit prelude. The `test`, `doc`, and
+dependencies and the remaining recovery quarantine evidence for dependencies
+and the implicit prelude. The `test`, `doc`, companion recovery, and
 language-service snapshot and overlay rows have executable evidence.
 
 This proposal does not add module-identity casing, qualified-use casing,
