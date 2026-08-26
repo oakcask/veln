@@ -1949,36 +1949,24 @@ impl CaseExpectations {
     fn assert_files_match(&self, context: &CaseRunContext<'_>, project_root: &Path) {
         for assertion in &self.file_assertions {
             let path = project_root.join(&assertion.path);
-            match assertion
-                .operation
-                .as_ref()
-                .expect("file assertion should have operation")
-            {
-                FileAssertionOperation::Equals(expected) => {
-                    let actual = fs::read_to_string(&path).unwrap_or_else(|error| {
-                        panic!(
-                            "{}: failed to read asserted file `{}`: {error}",
-                            context.label(),
-                            assertion.path
-                        )
-                    });
-                    assert_eq!(
-                        actual,
-                        expected.as_str(),
-                        "{}: file `{}` contents mismatch",
-                        context.label(),
-                        assertion.path
-                    );
-                }
-                FileAssertionOperation::Missing => {
-                    assert!(
-                        !path.exists(),
-                        "{}: file_assert expected `{}` to be absent",
-                        context.label(),
-                        assertion.path
-                    );
-                }
-            }
+            let actual = fs::read_to_string(&path).unwrap_or_else(|error| {
+                panic!(
+                    "{}: failed to read asserted file `{}`: {error}",
+                    context.label(),
+                    assertion.path
+                )
+            });
+            assert_eq!(
+                actual,
+                assertion
+                    .equals
+                    .as_ref()
+                    .expect("file assertion should have expected text")
+                    .as_str(),
+                "{}: file `{}` contents mismatch",
+                context.label(),
+                assertion.path
+            );
         }
     }
 }
@@ -2324,14 +2312,8 @@ impl ResultValueAssertion {
 #[derive(Debug)]
 struct FileAssertion {
     path: String,
-    operation: Option<FileAssertionOperation>,
+    equals: Option<String>,
     operation_count: usize,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum FileAssertionOperation {
-    Equals(String),
-    Missing,
 }
 
 impl FileAssertion {
@@ -2343,9 +2325,7 @@ impl FileAssertion {
             manifest_error(
                 path,
                 0,
-                format!(
-                    "file_assert {index} needs exactly one of `equals`, `equals_file`, or `missing = true`"
-                ),
+                format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
             );
         }
     }
@@ -2765,7 +2745,7 @@ impl<'a> ManifestParser<'a> {
     fn parse_file_assert_header(&mut self) -> Section {
         self.file_assertions.push(FileAssertion {
             path: String::new(),
-            operation: None,
+            equals: None,
             operation_count: 0,
         });
         Section::FileAssert(self.file_assertions.len() - 1)
@@ -3367,27 +3347,12 @@ impl<'a> ManifestParser<'a> {
             "path" => self.file_assertions[index].path = parse_string(self.path, value),
             "equals" => {
                 self.file_assertions[index].operation_count += 1;
-                self.file_assertions[index].operation = Some(FileAssertionOperation::Equals(
-                    parse_string(self.path, value),
-                ));
+                self.file_assertions[index].equals = Some(parse_string(self.path, value));
             }
             "equals_file" => {
                 self.file_assertions[index].operation_count += 1;
-                self.file_assertions[index].operation = Some(FileAssertionOperation::Equals(
-                    self.case_text_cache.read(self.path, value),
-                ));
-            }
-            "missing" => {
-                self.file_assertions[index].operation_count += 1;
-                let missing = parse_bool(self.path, value);
-                if !missing {
-                    manifest_error(
-                        self.path,
-                        line_number,
-                        "file_assert `missing` must be true when present",
-                    );
-                }
-                self.file_assertions[index].operation = Some(FileAssertionOperation::Missing);
+                self.file_assertions[index].equals =
+                    Some(self.case_text_cache.read(self.path, value));
             }
             _ => manifest_error(
                 self.path,
@@ -6937,25 +6902,6 @@ missing = true
 }
 
 #[test]
-fn manifest_file_assertions_support_missing_paths() {
-    let manifest = parse_manifest(
-        Path::new("case.toml"),
-        r#"
-command = ["run", "main", "main.veln"]
-exit = 1
-
-[[file_assert]]
-path = ".veln-harness-cache/jvm"
-missing = true
-"#,
-    );
-
-    let assertion = &manifest.expectations.file_assertions[0];
-    assert_eq!(assertion.path, ".veln-harness-cache/jvm");
-    assert_eq!(assertion.operation, Some(FileAssertionOperation::Missing));
-}
-
-#[test]
 fn manifest_value_assertions_keep_operation_and_operand_together() {
     let manifest = parse_manifest(
         Path::new("case.toml"),
@@ -7174,22 +7120,6 @@ equals_file = "case-text/missing-sidecar.txt"
         "result_value_assert 0 `missing` must be true when present",
         "missing-sidecar",
     );
-    assert_manifest_parse_error_without(
-        r#"
-command = ["run", "main", "main.veln"]
-exit = 0
-
-[[file_assert]]
-path = "out.txt"
-missing = false
-
-[[file_assert]]
-path = "other.txt"
-equals_file = "case-text/missing-sidecar.txt"
-"#,
-        "file_assert `missing` must be true when present",
-        "missing-sidecar",
-    );
 }
 
 #[test]
@@ -7238,7 +7168,7 @@ path = "out.txt"
 path = "other.txt"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "file_assert 0 needs exactly one of `equals`, `equals_file`, or `missing = true`",
+        "file_assert 0 needs exactly one of `equals` or `equals_file`",
         "missing-sidecar",
     );
     for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
@@ -7751,39 +7681,8 @@ path = "out.txt"
 equals = "inline"
 equals_file = "case-text/missing-sidecar.txt"
 "#,
-        "file_assert 0 needs exactly one of `equals`, `equals_file`, or `missing = true`",
+        "file_assert 0 needs exactly one of `equals` or `equals_file`",
     );
-}
-
-#[test]
-fn file_assert_missing_rejects_present_path() {
-    let root = test_temp_root("file-assert-missing-present");
-    let case_dir = root.join("examples/specification/check/file-assert-missing-present");
-    fs::create_dir_all(&case_dir).expect("case directory should be created");
-    fs::write(
-        case_dir.join("case.toml"),
-        r#"
-command = ["check", "main.veln"]
-exit = 0
-
-[[file_assert]]
-path = "sentinel"
-missing = true
-"#,
-    )
-    .expect("case manifest should be written");
-    fs::write(case_dir.join("main.veln"), "fn main() -> ()\n\t()\nend\n")
-        .expect("source file should be written");
-    fs::write(case_dir.join("sentinel"), "").expect("present path should be written");
-
-    let panic = std::panic::catch_unwind(|| {
-        run_case(&case_dir);
-    })
-    .expect_err("present path should fail missing file assertion");
-    let message = panic_message(panic);
-    assert!(message.contains("file_assert expected `sentinel` to be absent"));
-
-    fs::remove_dir_all(root).expect("case root should be removed");
 }
 
 #[test]

@@ -38270,8 +38270,6 @@ field	expectations.diagnostics[0].span.column	8
 field	expectations.diagnostics[0].span.file	"foo.veln"
 field	expectations.diagnostics[0].span.line	1
 field	expectations.exit	1
-field	expectations.file_assertions[0].operation	"missing"
-field	expectations.file_assertions[0].path	".veln-harness-cache/jvm"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"run"
@@ -38280,7 +38278,7 @@ field	invocation.command[2]	"main"
 field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
-case_digest	"2cf1afbe7089bcd9cee6ab6e3e9f3763f40bcb212f9fd629084cd04f8be9f475"
+case_digest	"f80f93f16c54f01c8409777f27d964820ab62aa0fc183dcdc3e4530fc93094d2"
 case	"examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -49354,4 +49352,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"85e526c4a44f49e5c2b7286698e6fa446d63cca23020fd7429b8b71cab523f52"
+aggregate_digest	"0014dd79bd1ef5ed5e3837a74a5709ca176cd555b05395ed9fc8b174851a2f69"

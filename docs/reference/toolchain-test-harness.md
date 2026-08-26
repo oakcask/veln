@@ -473,8 +473,7 @@ baseline and current manifests from the shared discovery inventory without
 writing either one. A mismatch reports added or removed cases before reporting
 case-qualified field differences.
 File assertions record their operation in the baseline. `equals` and
-`equals_file` record an `equals` operation plus the expected text, while
-`missing = true` records a `missing` operation without an expected text value.
+`equals_file` record an `equals` operation plus the expected text.
 Run the focused non-mutating check with:
 
 ```sh
