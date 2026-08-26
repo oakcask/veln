@@ -29,6 +29,9 @@ details.
   identity, and summary fields.
 - `run --json`: [run-json.md](run-json.md) for run records, output events,
   failures, and summary shape.
+  If parse, source, semantic, lowering, or run-entry effect diagnostics stop
+  execution before the backend starts, `run --json` uses the shared diagnostic
+  envelope routed by [diagnostics-json.md](diagnostics-json.md).
   Runtime result failures that carry source-visible diagnostic payload values,
   including `RuntimeDiagnostic(..., RuntimeByteDiagnostic(...))`, are specified
   there.
