@@ -3147,6 +3147,11 @@ fn materialize_reachable_functions(
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
+                    node_id: None,
+                }) || reachable.contains(&ReachableFunction {
+                    kind: function.kind,
+                    name: name.clone(),
+                    module_name: function.module_name.clone(),
                     node_id: Some(function.node_id),
                 })
             })
@@ -5490,6 +5495,45 @@ mod tests {
                 (FunctionKind::Function, Some("invoke")),
                 (FunctionKind::Function, Some("ready")),
                 (FunctionKind::Function, Some("risky")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_conservatively_reaches_opaque_function_value_call_targets() {
+        let standard = lower("mod std::prelude\n");
+        let application = lower(concat!(
+            "mod app\n",
+            "fn invoke(job: fn() -> Bool) -> Bool\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool\n",
+            "  true\n",
+            "end\n",
+            "fn risky() -> Bool\n",
+            "  _\n",
+            "end\n",
+            "pub fn main() -> Bool\n",
+            "  invoke(ready)\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module_with_standard_cache(
+            &standard,
+            &application,
+            "main",
+            FunctionKind::Function,
+            &ReachabilityCache::default(),
+        );
+        let functions = reachable_function_names(&reachable);
+
+        assert_eq!(
+            functions,
+            vec![
+                ("app", "invoke"),
+                ("app", "main"),
+                ("app", "ready"),
+                ("app", "risky"),
             ]
         );
     }
