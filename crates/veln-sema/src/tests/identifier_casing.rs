@@ -317,6 +317,187 @@ fn unique_same_source_recovery_suppresses_only_derivative_missing_name() {
 }
 
 #[test]
+fn invalid_type_with_valid_nullary_constructor_suppresses_derivative_missing_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type item\n",
+            "  Value\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  Value\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name `item` must start with an ASCII uppercase letter"
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .adts
+            .descriptors()
+            .iter()
+            .all(|descriptor| descriptor.type_name != "item")
+    );
+}
+
+#[test]
+fn invalid_type_with_valid_payload_constructor_suppresses_derivative_missing_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type item\n",
+            "  Value(Int)\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  Value(1)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name `item` must start with an ASCII uppercase letter"
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_type_annotation_and_valid_constructor_use_leave_only_casing_failure() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type item\n",
+            "  Value\n",
+            "end\n",
+            "fn main() -> item\n",
+            "  Value\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name `item` must start with an ASCII uppercase letter"
+    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_function_value_recovery_flows_through_valid_local_callable() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn Bad(input: Int) -> Int\n",
+            "  input\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  let callable = Bad\n",
+            "  callable(1)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "function name `Bad` must start with an ASCII lowercase letter"
+    }));
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved" && diagnostic.id != "type.local_inference_incomplete"
+        }),
+        "{diagnostics:#?}"
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(environment.function("Bad").is_none());
+    assert!(lower_checked_surface_module(&module).core.is_none());
+}
+
+#[test]
+fn ambiguous_function_value_recovery_preserves_downstream_failures() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn Bad(input: Int) -> Int\n",
+            "  input\n",
+            "end\n",
+            "fn Bad(input: Int) -> Int\n",
+            "  input\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  let callable = Bad\n",
+            "  callable(1)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved value `Bad`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `callable`"
+    }));
+}
+
+#[test]
+fn incompatible_function_value_recovery_preserves_unresolved_flow() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "test Bad() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  let callable = Bad\n",
+            "  callable(1)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved value `Bad`")
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `callable`"
+    }));
+}
+
+#[test]
 fn ambiguous_recovery_does_not_resolve() {
     let source = SourceFile::new(
         "main.veln",

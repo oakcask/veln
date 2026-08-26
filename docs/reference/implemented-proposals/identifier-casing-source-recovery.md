@@ -25,9 +25,21 @@ Current behavior is specified in
 `identifier-casing-reachable-expression-type`,
 `identifier-casing-reachable-expression-type-json`,
 `identifier-casing-reachable-type-alias`,
-`identifier-casing-reachable-type-alias-json`, and
-`identifier-casing-unreachable-peer` cases cover exact diagnostics, parser
-recovery, checked-artifact blocking, and the `check`/`run` selection boundary.
+`identifier-casing-reachable-type-alias-json`,
+`identifier-casing-unreachable-peer`,
+`identifier-casing-owned-constructor-recovery-human`,
+`identifier-casing-owned-constructor-recovery-json`,
+`identifier-casing-owned-nullary-constructor-recovery`,
+`identifier-casing-owned-nullary-constructor-recovery-json`,
+`identifier-casing-owned-payload-constructor-recovery`,
+`identifier-casing-owned-payload-constructor-recovery-json`,
+`identifier-casing-owned-constructor-unreachable`,
+the checked `identifier-casing-function-value-recovery-human` and
+`identifier-casing-function-value-recovery-json` cases, and the run
+`identifier-casing-function-value-recovery` and
+`identifier-casing-function-value-recovery-json` cases cover exact diagnostics,
+parser recovery, checked-artifact blocking, and the `check`/`run` selection
+boundary.
 The `identifier-casing-reachable-handler-bindings` and
 `identifier-casing-reachable-handler-bindings-json`,
 `identifier-casing-reachable-handler-annotation`,

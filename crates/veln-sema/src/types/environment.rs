@@ -6,6 +6,7 @@ mod facts;
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     functions_by_name: HashMap<String, Vec<usize>>,
+    function_recovery_signatures: Vec<FunctionSignature>,
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
     constructor_recoveries: BTreeMap<ConstructorRecoveryKey, usize>,
     codec_calls: Vec<CodecCallSignature>,
@@ -92,6 +93,17 @@ impl TypeEnvironment {
         Self {
             functions,
             functions_by_name,
+            function_recovery_signatures: self
+                .function_recovery_signatures
+                .iter()
+                .filter(|signature| {
+                    signature
+                        .module_name
+                        .as_ref()
+                        .is_none_or(|module| module_names.contains(module))
+                })
+                .cloned()
+                .collect(),
             function_recoveries: self
                 .function_recoveries
                 .iter()
@@ -168,19 +180,19 @@ impl TypeEnvironment {
         self.functions_named(name).next()
     }
 
-    pub(crate) fn has_unique_local_function_value_recovery(
+    pub(crate) fn local_function_value_recovery(
         &self,
         name: &str,
         current_module: Option<&str>,
-    ) -> bool {
-        self.function_recoveries
+    ) -> Option<&FunctionSignature> {
+        let mut matches = self
+            .function_recovery_signatures
             .iter()
-            .filter(|(key, _)| {
-                key.module_name.as_deref() == current_module && key.name.as_str() == name
-            })
-            .map(|(_, count)| *count)
-            .sum::<usize>()
-            == 1
+            .filter(|signature| {
+                signature.module_name.as_deref() == current_module && signature.name == name
+            });
+        let first = matches.next()?;
+        matches.next().is_none().then_some(first)
     }
 
     pub(crate) fn has_unique_local_function_call_recovery(

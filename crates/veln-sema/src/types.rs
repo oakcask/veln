@@ -25,9 +25,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry, EffectDecl, Expr,
-    ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, NameClass, NameOccurrence,
-    PublicAlias, PublicAliasKind, RecordField, SchemaDecl, SchemaField, SurfaceModule, TypeDecl,
-    UseDecl, Visibility, lower_surface_ast_with_module_identity,
+    ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, PublicAlias,
+    PublicAliasKind, RecordField, SchemaDecl, SchemaField, SurfaceModule, TypeDecl, UseDecl,
+    Visibility, lower_surface_ast_with_module_identity,
 };
 use veln_project::classify_companion_source;
 use veln_source::{SourceFile, SourceSpan, TextRange};

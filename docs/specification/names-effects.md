@@ -29,11 +29,18 @@ compiler-known calls.
   `identifier-casing-underscore-recovery-human` and
   `identifier-casing-underscore-recovery-json` cases define underscore-led
   parser recovery without missing-name cascades. Invalid value bindings are
-  kept out of normal local lookup and repair candidates; a unique same-function
-  recovery record suppresses only derivative unresolved-name diagnostics. The
-  checked `identifier-casing-handler-binding-quarantine-json` case fixes that
-  invalid handler parameter and operation-clause bindings are not visible to
-  hole repair candidate queries. The
+  kept out of normal local lookup and repair candidates; a unique compatible
+  same-function or same-source recovery record suppresses derivative failures
+  caused only by quarantine while still excluding the invalid declaration or
+  binding from artifacts. The checked
+  `identifier-casing-owned-constructor-recovery-human`,
+  `identifier-casing-owned-constructor-recovery-json`,
+  `identifier-casing-function-value-recovery-human`, and
+  `identifier-casing-function-value-recovery-json` cases fix owned-constructor
+  and function-value recovery in `check`. The checked
+  `identifier-casing-handler-binding-quarantine-json` case fixes that invalid
+  handler parameter and operation-clause bindings are not visible to hole
+  repair candidate queries. The
   run cases
   `identifier-casing-reachable-recovery`,
   `identifier-casing-reachable-recovery-json`,
@@ -44,12 +51,20 @@ compiler-known calls.
   `identifier-casing-reachable-expression-type`,
   `identifier-casing-reachable-expression-type-json`,
   `identifier-casing-reachable-type-alias`,
-  `identifier-casing-reachable-type-alias-json`, and
-  `identifier-casing-unreachable-peer` define selected-entry reachability for
-  invalid functions, constructor calls, public aliases, expression-only
-  constructor/type references, and the rule that reachable local value
-  spellings and type references do not make unrelated invalid declarations
-  reachable. The `identifier-casing-reachable-handler-bindings` and
+  `identifier-casing-reachable-type-alias-json`,
+  `identifier-casing-unreachable-peer`,
+  `identifier-casing-owned-nullary-constructor-recovery`,
+  `identifier-casing-owned-nullary-constructor-recovery-json`,
+  `identifier-casing-owned-payload-constructor-recovery`,
+  `identifier-casing-owned-payload-constructor-recovery-json`,
+  `identifier-casing-owned-constructor-unreachable`,
+  `identifier-casing-function-value-recovery`, and
+  `identifier-casing-function-value-recovery-json` define selected-entry
+  reachability for invalid functions, constructor calls, public aliases,
+  expression-only constructor/type references, owned valid constructors of
+  invalid types, function-value recovery, and the rule that reachable local
+  value spellings and type references do not make unrelated invalid
+  declarations reachable. The `identifier-casing-reachable-handler-bindings` and
   `identifier-casing-reachable-handler-bindings-json`,
   `identifier-casing-reachable-handler-annotation`,
   `identifier-casing-reachable-handler-annotation-json`,

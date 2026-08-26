@@ -1991,25 +1991,32 @@ impl<'a> FunctionChecker<'a> {
                                 Type::Unknown
                             }
                             FunctionLookup::Missing => {
-                                if !self.environment.has_unique_local_function_value_recovery(
-                                    name,
-                                    self.function.module_name.as_deref(),
-                                ) && !self
+                                if let Some(function) =
+                                    self.environment.local_function_value_recovery(
+                                        name,
+                                        self.function.module_name.as_deref(),
+                                    )
+                                {
+                                    function.ty()
+                                } else if self
                                     .environment
                                     .has_unique_local_constructor_value_recovery(
                                         name,
                                         self.function.module_name.as_deref(),
                                     )
-                                    && !self.has_unique_invalid_local_binding_recovery(name)
                                 {
+                                    Type::Unknown
+                                } else if self.has_unique_invalid_local_binding_recovery(name) {
+                                    Type::Unknown
+                                } else {
                                     self.push_unresolved_name(
                                         expr.node_id,
                                         expr.span.clone(),
                                         name,
                                         "value",
                                     );
+                                    Type::Unknown
                                 }
-                                Type::Unknown
                             }
                         }
                     }

@@ -2685,13 +2685,37 @@ impl<'a> ReachableInvalidNameSelector<'a> {
     ) -> bool {
         self.visible_constructor_variants(segments, current_module)
             .into_iter()
-            .any(|(_, variant)| {
-                variant
+            .any(|(type_decl, variant)| {
+                type_decl
                     .name
                     .as_ref()
                     .is_some_and(|name| name.as_bytes().first().is_some_and(u8::is_ascii_uppercase))
+                    && variant.name.as_ref().is_some_and(|name| {
+                        name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+                    })
                     && arg_count.is_none_or(|count| variant.fields.len() == count)
             })
+    }
+
+    fn constructor_recovery_candidate(
+        type_decl: &veln_ast::TypeDecl,
+        variant: &veln_ast::TypeVariantDecl,
+        arg_count: Option<usize>,
+    ) -> bool {
+        let invalid_type = type_decl
+            .name
+            .as_ref()
+            .is_some_and(|name| !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase));
+        let invalid_constructor = variant
+            .name
+            .as_ref()
+            .is_some_and(|name| !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase));
+        (invalid_type || invalid_constructor)
+            && arg_count.is_none_or(|count| variant.fields.len() == count)
+    }
+
+    fn constructor_recovery_span(type_decl: &veln_ast::TypeDecl) -> SourceSpan {
+        type_decl.span.clone()
     }
 
     fn select_unique_function_recovery(
@@ -2764,12 +2788,10 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let candidates = self
             .visible_constructor_variants(segments, current_module)
             .into_iter()
-            .filter(|(_, variant)| {
-                variant.name.as_ref().is_some_and(|name| {
-                    !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
-                }) && arg_count.is_none_or(|count| variant.fields.len() == count)
+            .filter(|(type_decl, variant)| {
+                Self::constructor_recovery_candidate(type_decl, variant, arg_count)
             })
-            .map(|(type_decl, _)| type_decl.span.clone())
+            .map(|(type_decl, _)| Self::constructor_recovery_span(type_decl))
             .collect::<Vec<_>>();
         push_unique_span(candidates, spans);
     }
@@ -5954,6 +5976,68 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(invalid_names, vec!["item", "value"]);
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_type_for_reachable_valid_nullary_constructor() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  Value\n",
+            "end\n",
+            "type item\n",
+            "  Value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item"]);
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_type_for_reachable_valid_payload_constructor() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  Payload(1)\n",
+            "end\n",
+            "type item\n",
+            "  Payload(Int)\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item"]);
+    }
+
+    #[test]
+    fn run_entry_does_not_reach_unreachable_invalid_type_with_valid_constructor() {
+        let module = lower(concat!(
+            "fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+            "type item\n",
+            "  Value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+        assert!(
+            reachable.invalid_names.is_empty(),
+            "{:#?}",
+            reachable.invalid_names
+        );
     }
 
     #[test]
