@@ -1,0 +1,7 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":{"$workspace_file_uri":"app.veln"},"languageId":"veln","version":1,"text":{"$case_text":"case-text/overlay.txt"}}}},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"app.veln"}},"position":{"line":0,"character":3}}},
+  {"jsonrpc":"2.0","id":3,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

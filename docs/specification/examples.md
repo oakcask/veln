@@ -193,7 +193,10 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/test/identifier-casing-unselected-peer-json/`,
   `../../examples/specification/doc/identifier-casing-included-source/`,
   `../../examples/specification/doc/identifier-casing-excluded-source/`, and
-  `../../examples/specification/doc/identifier-casing-excluded-companion/`.
+  `../../examples/specification/doc/identifier-casing-excluded-companion/`,
+  `../../examples/specification/lsp/identifier-casing-snapshot-boundary/`,
+  and
+  `../../examples/specification/lsp/identifier-casing-overlay-boundary/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and

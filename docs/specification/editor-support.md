@@ -152,6 +152,13 @@ the checked surface module. Parse-clean source invalid-name records are passed
 to that checked surface model, so document-scoped diagnostics include the
 implemented source identifier casing failures specified by
 [names-effects.md](names-effects.md).
+For workspace sources, saved snapshots and open-document overlays publish
+source identifier casing diagnostics for the selected workspace project only.
+An invalid declaration name in the selected snapshot or overlay does not enter
+the LSP navigation symbol set. Definition, references, prepare-rename, and
+rename requests for that invalid declaration return the same empty result shape
+as an unsupported symbol. Invalid casing in an unselected package root does not
+produce a workspace diagnostic for the selected project.
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
@@ -180,6 +187,10 @@ language service. It converts shared locations to LSP URIs and zero-based
 ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
+The executable `identifier-casing-snapshot-boundary` and
+`identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
+diagnostics, invalid declaration exclusion from navigation results, overlay
+replacement of saved source text, and unselected nested package isolation.
 For a workspace symbol, references and rename edits include only workspace
 source locations. Sources loaded only as dependency package snapshots do not
 produce `file:` locations for workspace references or workspace edits, even

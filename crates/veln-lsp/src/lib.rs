@@ -1631,6 +1631,117 @@ mod tests {
     }
 
     #[test]
+    fn selected_snapshot_invalid_casing_publishes_and_excludes_symbol() {
+        let mut server = Server::default();
+        let project = TempProject::new("snapshot-invalid-casing");
+        project.write(
+            "main.veln",
+            concat!(
+                "fn Bad() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "fn caller() -> Int\n",
+                "  Bad()\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+
+        let responses = server.handle_message(&initialize_request(&root_uri));
+
+        let publish = publish_for_uri(&responses, &main_uri);
+        assert!(
+            publish.contains(r#""code":"name.invalid_case""#),
+            "{publish}"
+        );
+        let declaration = server.handle_message(&definition_request(&main_uri, 0, 3));
+        assert!(
+            declaration[0].contains(r#""result":null"#),
+            "{}",
+            declaration[0]
+        );
+        let call = server.handle_message(&definition_request(&main_uri, 5, 2));
+        assert!(call[0].contains(r#""result":null"#), "{}", call[0]);
+        let references = server.handle_message(&references_request(&main_uri, 0, 3));
+        assert!(
+            references[0].contains(r#""result":[]"#),
+            "{}",
+            references[0]
+        );
+        let rename = server.handle_message(&rename_request(&main_uri, 0, 3, "renamed"));
+        assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+    }
+
+    #[test]
+    fn selected_overlay_invalid_casing_replaces_saved_symbol() {
+        let mut server = Server::default();
+        let project = TempProject::new("overlay-invalid-casing");
+        project.write(
+            "main.veln",
+            concat!(
+                "fn good() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "fn caller() -> Int\n",
+                "  good()\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"fn Bad() -> Int\n  1\nend\n\nfn caller() -> Int\n  Bad()\nend\n"}}}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &main_uri);
+        assert!(
+            publish.contains(r#""code":"name.invalid_case""#),
+            "{publish}"
+        );
+        let call = server.handle_message(&definition_request(&main_uri, 5, 2));
+        assert!(call[0].contains(r#""result":null"#), "{}", call[0]);
+    }
+
+    #[test]
+    fn unselected_workspace_invalid_casing_does_not_publish_or_index() {
+        let mut server = Server::default();
+        let selected = TempProject::new("selected-valid-casing-root");
+        let unselected = TempProject::new("unselected-invalid-casing-root");
+        selected.write("main.veln", "fn good() -> Int\n  good()\nend\n");
+        unselected.write("main.veln", "fn Bad() -> Int\n  Bad()\nend\n");
+        let selected_root_uri = path_to_uri(&selected.root);
+        let selected_main_uri = path_to_uri(&selected.root.join("main.veln"));
+        let unselected_main_uri = path_to_uri(&unselected.root.join("main.veln"));
+
+        let responses = server.handle_message(&initialize_request(&selected_root_uri));
+
+        let publish = publish_for_uri(&responses, &selected_main_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+        assert!(
+            responses
+                .iter()
+                .all(|response| !response.contains(&unselected_main_uri)),
+            "{responses:#?}"
+        );
+        let definition = server.handle_message(&definition_request(&selected_main_uri, 1, 2));
+        assert!(
+            definition[0].contains(r#""result":{"uri":"file://"#),
+            "{}",
+            definition[0]
+        );
+        assert!(
+            !definition[0].contains(&escape_json(&unselected_main_uri)),
+            "{}",
+            definition[0]
+        );
+    }
+
+    #[test]
     fn server_does_not_overlay_open_documents_owned_by_nested_manifest() {
         let mut server = Server::default();
         let project = TempProject::new("nested-open-document-overlay-boundary");

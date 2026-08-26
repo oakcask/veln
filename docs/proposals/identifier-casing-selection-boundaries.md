@@ -17,10 +17,10 @@ That foundation is implemented and specified as current behavior.
 
 ## Scope
 
-This proposal adds selection evidence for `test`, `doc`, language-service
-snapshots and overlays, and loaded or unloaded dependencies. It also completes
-the recovery quarantine evidence for companions, dependencies, and the
-implicit prelude.
+This proposal retains the remaining selection evidence for loaded or unloaded
+dependencies and the remaining recovery quarantine evidence for companions,
+dependencies, and the implicit prelude. The `test`, `doc`, and
+language-service snapshot and overlay rows have executable evidence.
 
 This proposal does not add module-identity casing, qualified-use casing,
 alias-target leaf casing, rename behavior, or source-less registry validation.
@@ -34,8 +34,8 @@ Those capabilities remain in
 | `test` selects a test whose reachable closure contains an invalid covered name. | Preserve the selected-suite static gate and produce no backend artifact. | Implemented by `examples/specification/test/identifier-casing-selected-static-gate-json/` and `examples/specification/test/identifier-casing-unselected-peer-json/`. |
 | `doc` includes a source with an invalid covered name. | Reject the selected documentation set before publishing generated documentation. | Implemented by `examples/specification/doc/identifier-casing-included-source/`. |
 | `doc` excludes a source or companion with an invalid covered name. | Generate documentation without reporting the excluded casing diagnostic. | Implemented by `examples/specification/doc/identifier-casing-excluded-source/` and `examples/specification/doc/identifier-casing-excluded-companion/`. |
-| A language-service snapshot or open-document overlay contains an invalid covered name inside the selected analysis unit. | Publish the casing diagnostic for that selected unit and keep invalid symbols out of snapshot indexes. | Snapshot and overlay diagnostic cases. |
-| An invalid covered name exists outside the language-service operation's selected analysis unit. | Preserve the operation's snapshot and overlay boundary; do not report a workspace-global casing diagnostic. | Snapshot and overlay isolation cases. |
+| A language-service snapshot or open-document overlay contains an invalid covered name inside the selected analysis unit. | Publish the casing diagnostic for that selected unit and keep invalid symbols out of snapshot indexes. | Implemented by `examples/specification/lsp/identifier-casing-snapshot-boundary/` and `examples/specification/lsp/identifier-casing-overlay-boundary/`. |
+| An invalid covered name exists outside the language-service operation's selected analysis unit. | Preserve the operation's snapshot and overlay boundary; do not report a workspace-global casing diagnostic. | Implemented for workspace snapshot and overlay selection by `examples/specification/lsp/identifier-casing-snapshot-boundary/` and `examples/specification/lsp/identifier-casing-overlay-boundary/`; dependency selection remains open. |
 | A dependency containing an invalid covered name is loaded for a selected consumer. | Report the selected diagnostic and prevent the invalid symbol from entering lookup or an artifact. | Loaded dependency diagnostic and artifact case. |
 | A dependency containing an invalid covered name is not loaded for a selected consumer. | Do not report its casing diagnostic or block the consumer. | Unloaded dependency case. |
 

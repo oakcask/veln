@@ -437,6 +437,7 @@ version = "0.1.0"
 dependencies = [
  "sha2",
  "veln-analysis",
+ "veln-ast",
  "veln-diagnostics",
  "veln-project",
  "veln-source",

@@ -81,7 +81,11 @@ compiler-known calls.
   `identifier-casing-included-source`,
   `identifier-casing-excluded-source`, and
   `identifier-casing-excluded-companion` doc cases define selected
-  non-companion diagnostics and excluded-source isolation for `veln doc`.
+  non-companion diagnostics and excluded-source isolation for `veln doc`. The
+  `identifier-casing-snapshot-boundary` and
+  `identifier-casing-overlay-boundary` LSP cases define selected workspace
+  snapshot and open-document overlay casing diagnostics, exclusion of invalid
+  declarations from LSP navigation, and unselected package-root isolation.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-accepted-names-json`,
