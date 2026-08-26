@@ -110,6 +110,7 @@ compiler-known calls.
   `identifier-casing-same-name-recovery-arity-json`,
   `identifier-casing-valid-function-precedence-cross-arity-json`,
   `identifier-casing-loaded-dependency-json`,
+  `identifier-casing-loaded-unreachable-dependency-json`,
   `identifier-casing-unloaded-dependency-json`, and
   `identifier-casing-valid-constructor-precedence-cross-arity-json` cases fix
   that accepted names keep normal behavior, quarantined recovery records do not
@@ -122,6 +123,9 @@ compiler-known calls.
   select unrelated same-leaf local recovery records. A selected `run` consumer
   that loads and reaches an invalid direct-dependency declaration reports the
   dependency `name.invalid_case` diagnostic and stops before backend execution.
+  A selected `run` consumer that imports the dependency but reaches only a
+  valid dependency declaration succeeds without reporting the dependency's
+  unreachable invalid declaration.
   A manifest-only dependency that the selected `run` consumer does not import
   is not loaded for that consumer, so its invalid casing diagnostics are not
   reported and do not block the run. The
