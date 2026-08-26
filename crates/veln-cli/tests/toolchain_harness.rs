@@ -22,6 +22,8 @@ use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_project::Project;
 
+#[path = "toolchain_harness/manifest_preflight.rs"]
+mod manifest_preflight;
 #[path = "toolchain_harness/manifest_syntax.rs"]
 mod manifest_syntax;
 #[path = "../toolchain_case_inventory.rs"]
@@ -2619,7 +2621,7 @@ enum Section {
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let statements = manifest_syntax::parse_document(path, text);
-    validate_manifest_assignment_preflight(path, &statements);
+    manifest_preflight::validate(path, &statements);
     let mut parser = ManifestParser::new(path);
     for statement in statements {
         match statement {
@@ -2632,401 +2634,6 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
         }
     }
     parser.finish()
-}
-
-fn validate_manifest_assignment_preflight(path: &Path, statements: &[ManifestStatement<'_>]) {
-    let mut section = Section::Root;
-    let mut seen = BTreeSet::new();
-    let mut root_stdin_operands = 0;
-    let mut json_operations = Vec::<ValueAssertionPreflight>::new();
-    let mut result_value_operations = Vec::<ValueAssertionPreflight>::new();
-    let mut lsp_operations = Vec::<LspAssertionPreflight>::new();
-    let mut mcp_operations = Vec::<McpAssertionPreflight>::new();
-    let mut file_assert_operations = Vec::<usize>::new();
-
-    for statement in statements {
-        match statement {
-            ManifestStatement::Section { name, line } => {
-                section = match name.as_str() {
-                    "[stdout]" => Section::Stdout,
-                    "[stderr]" => Section::Stderr,
-                    "[help]" => Section::Help,
-                    "[requires]" => Section::Requires,
-                    "[skip]" => Section::Skip,
-                    "[env]" => Section::Env,
-                    "[tools]" => Section::Tools,
-                    "[[json_assert]]" => {
-                        json_operations.push(ValueAssertionPreflight::default());
-                        Section::JsonAssert(json_operations.len() - 1)
-                    }
-                    "[[result_value_assert]]" => {
-                        result_value_operations.push(ValueAssertionPreflight::default());
-                        Section::ResultValueAssert(result_value_operations.len() - 1)
-                    }
-                    "[[lsp_assert]]" => {
-                        lsp_operations.push(LspAssertionPreflight::default());
-                        Section::LspAssert(lsp_operations.len() - 1)
-                    }
-                    "[[mcp_assert]]" => {
-                        mcp_operations.push(McpAssertionPreflight::default());
-                        Section::McpAssert(mcp_operations.len() - 1)
-                    }
-                    "[[file_assert]]" => {
-                        file_assert_operations.push(0);
-                        Section::FileAssert(file_assert_operations.len() - 1)
-                    }
-                    "[[diagnostics]]" => Section::Diagnostic(0),
-                    "[diagnostics.span]" => Section::DiagnosticSpan(0),
-                    "[manifest_error]" => Section::ManifestError,
-                    "[[binary_fixture]]" => Section::BinaryFixture(0),
-                    "[[output_chunk_list]]" => Section::OutputChunkList(0),
-                    _ => continue,
-                };
-                if matches!(
-                    section,
-                    Section::Diagnostic(0)
-                        | Section::DiagnosticSpan(0)
-                        | Section::BinaryFixture(0)
-                        | Section::OutputChunkList(0)
-                ) {
-                    seen.clear();
-                } else {
-                    let _ = line;
-                }
-            }
-            ManifestStatement::Assignment { key, line, value } => {
-                let assignment = format!("{section:?}:{key}");
-                if !is_accumulating_manifest_key(section, key) && !seen.insert(assignment) {
-                    manifest_error(path, *line, format!("duplicate key `{key}`"));
-                }
-                match section {
-                    Section::Root
-                        if matches!(*key, "stdin" | "stdin_file" | "stdin_jsonrpc_file") =>
-                    {
-                        root_stdin_operands += 1;
-                    }
-                    Section::JsonAssert(index) => {
-                        json_operations[index].record(path, key, value);
-                    }
-                    Section::ResultValueAssert(index) => {
-                        result_value_operations[index].record(path, key, value);
-                    }
-                    Section::LspAssert(index)
-                        if matches!(
-                            *key,
-                            "equals"
-                                | "equals_file"
-                                | "equals_json_file"
-                                | "contains"
-                                | "length"
-                                | "workspace_file_uri"
-                                | "missing"
-                        ) =>
-                    {
-                        lsp_operations[index].operation.record(path, key, value);
-                    }
-                    Section::McpAssert(index)
-                        if matches!(
-                            *key,
-                            "equals"
-                                | "equals_file"
-                                | "equals_json_file"
-                                | "contains"
-                                | "length"
-                                | "workspace_file_uri"
-                                | "missing"
-                        ) =>
-                    {
-                        mcp_operations[index].operation.record(path, key, value);
-                    }
-                    Section::LspAssert(index) => {
-                        lsp_operations[index].record_selector_or_path(path, key, value);
-                    }
-                    Section::McpAssert(index) => {
-                        mcp_operations[index].record_selector_or_path(path, key, value);
-                    }
-                    Section::FileAssert(index) if matches!(*key, "equals" | "equals_file") => {
-                        file_assert_operations[index] += 1;
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    if root_stdin_operands > 1 {
-        manifest_error(
-            path,
-            0,
-            "root invocation needs at most one of `stdin`, `stdin_file`, or `stdin_jsonrpc_file`",
-        );
-    }
-    for (index, assertion) in json_operations.iter().enumerate() {
-        if assertion.operation.missing_false {
-            manifest_error(
-                path,
-                0,
-                format!("json_assert {index} `missing` must be true when present"),
-            );
-        }
-        if assertion.operation.count != 1 {
-            manifest_error(
-                path,
-                0,
-                format!(
-                    "json_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
-                ),
-            );
-        }
-        assertion.operation.validate_operands(
-            path,
-            &value_assertion_base_context(
-                "json_assert",
-                index,
-                assertion.selected_path.as_deref().unwrap_or(""),
-            ),
-        );
-    }
-    for (index, assertion) in result_value_operations.iter().enumerate() {
-        if assertion.operation.missing_false {
-            manifest_error(
-                path,
-                0,
-                format!("result_value_assert {index} `missing` must be true when present"),
-            );
-        }
-        if assertion.operation.count != 1 {
-            manifest_error(
-                path,
-                0,
-                format!(
-                    "result_value_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
-                ),
-            );
-        }
-        assertion.operation.validate_operands(
-            path,
-            &value_assertion_base_context(
-                "result_value_assert",
-                index,
-                assertion.selected_path.as_deref().unwrap_or(""),
-            ),
-        );
-    }
-    for (index, assertion) in lsp_operations.iter().enumerate() {
-        if assertion.operation.missing_false {
-            manifest_error(
-                path,
-                0,
-                format!("lsp_assert {index} `missing` must be true when present"),
-            );
-        }
-        if assertion.operation.count != 1 {
-            manifest_error(
-                path,
-                0,
-                format!(
-                    "lsp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
-                ),
-            );
-        }
-        assertion.operation.validate_operands(
-            path,
-            &assertion_base_context(
-                "lsp_assert",
-                index,
-                &assertion.selector(),
-                assertion.path.as_deref().unwrap_or(""),
-            ),
-        );
-    }
-    for (index, assertion) in mcp_operations.iter().enumerate() {
-        if assertion.operation.missing_false {
-            manifest_error(
-                path,
-                0,
-                format!("mcp_assert {index} `missing` must be true when present"),
-            );
-        }
-        if assertion.operation.count != 1 {
-            manifest_error(
-                path,
-                0,
-                format!(
-                    "mcp_assert {index} needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
-                ),
-            );
-        }
-        assertion.operation.validate_operands(
-            path,
-            &assertion_base_context(
-                "mcp_assert",
-                index,
-                &assertion.selector(),
-                assertion.path.as_deref().unwrap_or(""),
-            ),
-        );
-    }
-    for (index, count) in file_assert_operations.iter().enumerate() {
-        if *count != 1 {
-            manifest_error(
-                path,
-                0,
-                format!("file_assert {index} needs exactly one of `equals` or `equals_file`"),
-            );
-        }
-    }
-}
-
-#[derive(Default)]
-struct ValueAssertionPreflight {
-    selected_path: Option<String>,
-    operation: AssertionOperationPreflight,
-}
-
-impl ValueAssertionPreflight {
-    fn record(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
-        match key {
-            "path" => self.selected_path = Some(parse_string(path, value)),
-            "equals" | "equals_file" | "equals_json_file" | "contains" | "length"
-            | "workspace_file_uri" | "missing" => self.operation.record(path, key, value),
-            _ => {}
-        }
-    }
-}
-
-#[derive(Default)]
-struct AssertionOperationPreflight {
-    count: usize,
-    missing_false: bool,
-    length: Option<PreflightLengthOperand>,
-    workspace_file_uri: Option<PreflightWorkspaceFileUriOperand>,
-}
-
-impl AssertionOperationPreflight {
-    fn record(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
-        self.count += 1;
-        if key == "missing" && !parse_bool(path, value) {
-            self.missing_false = true;
-        }
-        if key == "length" {
-            self.length = Some(PreflightLengthOperand {
-                line_number: value.line(),
-                raw: value.raw().to_string(),
-            });
-        }
-        if key == "workspace_file_uri" {
-            self.workspace_file_uri = Some(PreflightWorkspaceFileUriOperand {
-                line_number: value.line(),
-                relative: value.is_string().then(|| parse_string(path, value)),
-                string_operand: value.is_string(),
-            });
-        }
-    }
-
-    fn validate_operands(&self, path: &Path, base_context: &str) {
-        if let Some(operand) = &self.length {
-            let context = format!("{base_context} length");
-            parse_nonnegative_usize_raw_with_context(
-                path,
-                operand.line_number,
-                &operand.raw,
-                Some(&context),
-            );
-        }
-        if let Some(operand) = &self.workspace_file_uri {
-            let context = format!("{base_context} workspace_file_uri");
-            if !operand.string_operand {
-                manifest_error(
-                    path,
-                    operand.line_number,
-                    format!("{context}: expected string"),
-                );
-            }
-            let relative = operand
-                .relative
-                .as_deref()
-                .expect("validated workspace_file_uri string operand");
-            validate_workspace_file_uri_operand_with_context(
-                path,
-                operand.line_number,
-                relative,
-                Some(&context),
-            );
-        }
-    }
-}
-
-#[derive(Default)]
-struct LspAssertionPreflight {
-    id: Option<JsonValue>,
-    method: Option<String>,
-    occurrence: Option<usize>,
-    path: Option<String>,
-    operation: AssertionOperationPreflight,
-}
-
-impl LspAssertionPreflight {
-    fn record_selector_or_path(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
-        match key {
-            "id" => self.id = Some(parse_manifest_json_value(path, value)),
-            "method" => self.method = Some(parse_string(path, value)),
-            "occurrence" => self.occurrence = Some(parse_nonnegative_usize(path, value)),
-            "path" => self.path = Some(parse_string(path, value)),
-            _ => {}
-        }
-    }
-
-    fn selector(&self) -> String {
-        if let Some(id) = &self.id {
-            format!("response id {}", id.to_compact_string())
-        } else if let Some(method) = &self.method {
-            format!(
-                "notification method {method:?} occurrence {}",
-                self.occurrence.unwrap_or(0)
-            )
-        } else {
-            "unresolved selector".to_string()
-        }
-    }
-}
-
-#[derive(Default)]
-struct McpAssertionPreflight {
-    id: Option<JsonValue>,
-    path: Option<String>,
-    operation: AssertionOperationPreflight,
-}
-
-impl McpAssertionPreflight {
-    fn record_selector_or_path(&mut self, path: &Path, key: &str, value: &ManifestValue<'_>) {
-        match key {
-            "id" => self.id = Some(parse_manifest_json_value_allow_decimal(path, value)),
-            "path" => self.path = Some(parse_string(path, value)),
-            _ => {}
-        }
-    }
-
-    fn selector(&self) -> String {
-        if let Some(id) = &self.id {
-            format!("response id {}", id.to_compact_string())
-        } else {
-            "unresolved selector".to_string()
-        }
-    }
-}
-
-#[derive(Default)]
-struct PreflightLengthOperand {
-    line_number: usize,
-    raw: String,
-}
-
-#[derive(Default)]
-struct PreflightWorkspaceFileUriOperand {
-    line_number: usize,
-    relative: Option<String>,
-    string_operand: bool,
 }
 
 struct ManifestParser<'a> {
@@ -7564,6 +7171,62 @@ equals_file = "case-text/missing-sidecar.txt"
         "file_assert 0 needs exactly one of `equals` or `equals_file`",
         "missing-sidecar",
     );
+    for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
+        assert_manifest_parse_error_without(
+            &format!(
+                r#"
+command = ["{command}"]
+exit = 0
+
+[[{section}]]
+id = 1
+path = "/result"
+
+[[{section}]]
+id = 2
+path = "/result"
+equals_file = "case-text/missing-sidecar.txt"
+"#
+            ),
+            &format!(
+                "{section} 0 needs exactly one of `equals`, `equals_file`, `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or `missing = true`"
+            ),
+            "missing-sidecar",
+        );
+    }
+}
+
+#[test]
+fn manifest_preflight_uses_later_rpc_context_before_earlier_sidecar_io() {
+    for (command, section) in [("lsp", "lsp_assert"), ("mcp", "mcp_assert")] {
+        let panic = std::panic::catch_unwind(|| {
+            parse_manifest(
+                Path::new("case.toml"),
+                &format!(
+                    r#"
+command = ["{command}"]
+exit = 0
+
+[[json_assert]]
+path = "status"
+equals_file = "case-text/missing-sidecar.txt"
+
+[[{section}]]
+length = "invalid"
+id = 7
+path = "/result/items"
+"#
+                ),
+            )
+        })
+        .expect_err("invalid later RPC operand should fail preflight");
+        let message = panic_message(panic);
+        assert!(message.contains(&format!("{section} 0")), "{message}");
+        assert!(message.contains("response id 7"), "{message}");
+        assert!(message.contains("path `/result/items` length"), "{message}");
+        assert!(message.contains("expected integer"), "{message}");
+        assert!(!message.contains("missing-sidecar"), "{message}");
+    }
 }
 
 #[test]
