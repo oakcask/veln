@@ -29,8 +29,12 @@ Current behavior is specified in
 `identifier-casing-unreachable-peer` cases cover exact diagnostics, parser
 recovery, checked-artifact blocking, and the `check`/`run` selection boundary.
 The `identifier-casing-reachable-handler-bindings` and
-`identifier-casing-reachable-handler-bindings-json` cases cover reachable
-handler binding diagnostics under `run`.
+`identifier-casing-reachable-handler-bindings-json`,
+`identifier-casing-reachable-handler-annotation`,
+`identifier-casing-reachable-handler-annotation-json`,
+`identifier-casing-reachable-handler-clauses`, and
+`identifier-casing-reachable-handler-clauses-json` cases cover reachable
+handler binding, annotation, and clause-expression diagnostics under `run`.
 The checked `identifier-casing-import-recovery-isolation-json` and
 `identifier-casing-public-alias-recovery-isolation-json`,
 `identifier-casing-accepted-names-json`,

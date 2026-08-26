@@ -1,0 +1,20 @@
+command = ["run", "--json", "main", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/json-assert-equals-1.txt"
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "type name `item` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "constructor name `value` must start with an ASCII uppercase letter"

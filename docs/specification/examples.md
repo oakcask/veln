@@ -157,6 +157,11 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-valid-symbol-precedence-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
+- Source identifier casing run reachability through handler annotations and
+  handler clause expressions:
+  `../../examples/specification/run/identifier-casing-reachable-handler-annotation-json/`
+  and
+  `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and

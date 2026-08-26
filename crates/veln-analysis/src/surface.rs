@@ -2233,10 +2233,9 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.handlers)
             .into_iter()
             .filter(|handler| {
-                !declaration_contains_invalid_name(&handler.span, &invalid_names_by_declaration)
-                    || reachable_invalid_name_spans
-                        .iter()
-                        .any(|span| span == &handler.span)
+                reachable_invalid_name_spans
+                    .iter()
+                    .any(|span| span == &handler.span)
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -2592,13 +2591,35 @@ impl<'a> ReachableInvalidNameSelector<'a> {
     }
 
     fn select_handler(
-        &self,
+        &mut self,
         segments: &[String],
         current_module: Option<&str>,
         spans: &mut Vec<SourceSpan>,
     ) {
         if let Some(handler) = self.visible_handler(segments, current_module) {
+            if spans.iter().any(|span| span == &handler.span) {
+                return;
+            }
             spans.push(handler.span.clone());
+            self.collect_handler(handler, spans);
+        }
+    }
+
+    fn collect_handler(&mut self, handler: &veln_ast::HandlerDecl, spans: &mut Vec<SourceSpan>) {
+        let current_module = handler.module_name.as_deref();
+        let mut local_bindings = handler
+            .params
+            .iter()
+            .map(|param| param.name.clone())
+            .collect::<Vec<_>>();
+        for param in &handler.params {
+            self.collect_type_annotation(param.ty.as_deref(), current_module, spans);
+        }
+        for clause in &handler.operation_clauses {
+            let binding_count = local_bindings.len();
+            local_bindings.extend(clause.params.iter().map(|param| param.name.clone()));
+            self.collect_expr(&clause.body, current_module, &local_bindings, spans);
+            local_bindings.truncate(binding_count);
         }
     }
 
@@ -5940,6 +5961,116 @@ mod tests {
             reachable.invalid_names
         );
         assert!(reachable.handlers.is_empty(), "{:#?}", reachable.handlers);
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_type_from_reachable_handler_parameter_annotation() {
+        let module = lower(concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+            "fn body() -> Int effects [Ask]\n",
+            "  perform Ask::value()\n",
+            "end\n",
+            "handler ask(seed: item) handles Ask\n",
+            "  value() => 1\n",
+            "end\n",
+            "handler unreachable(seed: other) handles Ask\n",
+            "  value() => 2\n",
+            "end\n",
+            "type other\n",
+            "  other_value\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  handle body() with ask(value)\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item", "value"]);
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_constructor_from_reachable_handler_clause_expression() {
+        let module = lower(concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+            "fn body() -> Int effects [Ask]\n",
+            "  perform Ask::value()\n",
+            "end\n",
+            "handler ask() handles Ask\n",
+            "  value() => value\n",
+            "end\n",
+            "handler unreachable() handles Ask\n",
+            "  value() => other_value\n",
+            "end\n",
+            "type other\n",
+            "  other_value\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  handle body() with ask()\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item", "value"]);
+    }
+
+    #[test]
+    fn run_entry_keeps_invalid_constructor_from_reachable_handler_match_scrutinee() {
+        let module = lower(concat!(
+            "effect Ask\n",
+            "  value() -> Int\n",
+            "end\n",
+            "type item\n",
+            "  value\n",
+            "end\n",
+            "fn body() -> Int effects [Ask]\n",
+            "  perform Ask::value()\n",
+            "end\n",
+            "handler ask() handles Ask\n",
+            "  value() => match value\n",
+            "    value => 1\n",
+            "  end\n",
+            "end\n",
+            "handler unreachable() handles Ask\n",
+            "  value() => other_value\n",
+            "end\n",
+            "type other\n",
+            "  other_value\n",
+            "end\n",
+            "fn main() -> Int\n",
+            "  handle body() with ask()\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["item", "value"]);
     }
 
     #[test]

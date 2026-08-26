@@ -47,8 +47,13 @@ compiler-known calls.
   constructor/type references, and the rule that reachable local value
   spellings and type references do not make unrelated invalid declarations
   reachable. The `identifier-casing-reachable-handler-bindings` and
-  `identifier-casing-reachable-handler-bindings-json` run cases define
-  reachable handler parameter and operation-clause parameter selection.
+  `identifier-casing-reachable-handler-bindings-json`,
+  `identifier-casing-reachable-handler-annotation`,
+  `identifier-casing-reachable-handler-annotation-json`,
+  `identifier-casing-reachable-handler-clauses`, and
+  `identifier-casing-reachable-handler-clauses-json` run cases define
+  reachable handler parameter, operation-clause parameter, handler annotation,
+  and handler clause-expression selection.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-accepted-names-json`,

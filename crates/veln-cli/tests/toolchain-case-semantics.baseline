@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"03838007ad84dfcca0243974e668ec5a87a59f3c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1539
+case_count	1543
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37908,6 +37908,33 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"a8ac228b2670c5e609b808648556f2915daa9352b34404d68075f55f4d261d3a"
+case	"examples/specification/run/identifier-casing-reachable-handler-annotation"
+field	expectations.exit	1
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"d505a537bf4e200f2cdc4e29b87f5d89c398ca3868986dda03bd0631fdc5a32f"
+case	"examples/specification/run/identifier-casing-reachable-handler-annotation-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"type name `item` must start with an ASCII uppercase letter"
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"constructor name `value` must start with an ASCII uppercase letter"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"a8ac228b2670c5e609b808648556f2915daa9352b34404d68075f55f4d261d3a"
 case	"examples/specification/run/identifier-casing-reachable-handler-bindings"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -37935,6 +37962,33 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"a0b6b77227107f8f9fdb76d39e8361564e7eb63cc8c28f1b7527c0ad86035411"
+case	"examples/specification/run/identifier-casing-reachable-handler-clauses"
+field	expectations.exit	1
+field	expectations.stderr.format	"text"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"d505a537bf4e200f2cdc4e29b87f5d89c398ca3868986dda03bd0631fdc5a32f"
+case	"examples/specification/run/identifier-casing-reachable-handler-clauses-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"type name `item` must start with an ASCII uppercase letter"
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"constructor name `value` must start with an ASCII uppercase letter"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"a8ac228b2670c5e609b808648556f2915daa9352b34404d68075f55f4d261d3a"
 case	"examples/specification/run/identifier-casing-reachable-invalid-alias"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -48430,4 +48484,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"0965ed4fa9c75e109ffc68d28b99c8cd0582c4d2e5ea5f7cabde3a19b369dc0b"
+aggregate_digest	"43e677d6caab3153e8120b8cf051625ed3025d584836f04eb6a97ab2c9f15804"

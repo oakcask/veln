@@ -23,7 +23,8 @@ diagnostic envelope used by diagnostic commands. The envelope uses
 is empty. The identifier-casing `*-json` run cases under
 `examples/specification/run/` check this pre-execution diagnostic boundary for
 reachable source declarations, aliases, type and constructor references,
-handler bindings, and import recovery isolation.
+handler bindings, handler annotations, handler clause expressions, and import
+recovery isolation.
 
 Runtime contract failures use `error.kind: "contract"`. The error details use
 `kind: "contract"` and `phase: "runtime"` and include:
