@@ -124,8 +124,9 @@ The table-driven `manifest_*` tests in `toolchain_harness.rs` are the
 executable evidence for string forms, escapes, folding, quote runs,
 indentation and closing delimiters, physical-newline equivalence, schema
 selected string arrays, field-directed containers, trailing tokens, and exact
-error lines. The checked semantic baseline and the complete harness target
-protect existing single-line case meaning.
+error lines. The checked semantic baseline records every discovered
+`toolchain_cases/` and `examples/specification/` descriptor and protects
+existing single-line case meaning with the complete harness target.
 
 The manifest policy scanner uses the same lexer provenance. It examines every
 TOML string token and every string token inside JSON-valued manifest fields,

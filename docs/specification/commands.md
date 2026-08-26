@@ -43,7 +43,8 @@ requiring the full command reference on the first read.
   access through qualified target imports, companion observation of established
   private target function effects, package export rejection for `.test.veln`
   companions, direct path, vendor, mirror, and already available git dependency
-  source loading for external imports,
+  source loading for external imports, selected dependency source identifier
+  casing diagnostics, unloaded dependency casing isolation,
   parse/semantic diagnostics, checked-core blockers, and check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   [source-surface.md](source-surface.md) for the companion private-function

@@ -124,6 +124,9 @@ compiler-known calls.
   `identifier-casing-loaded-dependency-static-gate-json` and
   `identifier-casing-unloaded-dependency-boundary-json` run cases fix loaded
   dependency diagnostics and unloaded dependency isolation. The
+  `veln-analysis` reachable dependency recovery tests fix that invalid
+  dependency recovery records do not cross the package boundary in either
+  direction. The
   `identifier-casing-record-field-reachability` run case
   fixes that record field labels remain outside this name-class reachability
   boundary. Workspace snapshot and open-document overlay selection is current
