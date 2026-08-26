@@ -1,0 +1,4 @@
+fn helper() -> Int
+  let Bad: fn() -> Int = helper
+  Bad()
+end

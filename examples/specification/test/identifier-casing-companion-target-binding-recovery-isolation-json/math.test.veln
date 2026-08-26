@@ -1,0 +1,7 @@
+use math
+
+test companion_rejects_target_binding_recovery() -> ()
+  let value = math::helper()
+  let observed = math::Bad()
+  ()
+end
