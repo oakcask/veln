@@ -2004,9 +2004,8 @@ impl<'a> FunctionChecker<'a> {
                                         name,
                                         self.function.module_name.as_deref(),
                                     )
+                                    || self.has_unique_invalid_local_binding_recovery(name)
                                 {
-                                    Type::Unknown
-                                } else if self.has_unique_invalid_local_binding_recovery(name) {
                                     Type::Unknown
                                 } else {
                                     self.push_unresolved_name(
