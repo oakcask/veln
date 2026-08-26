@@ -108,7 +108,9 @@ compiler-known calls.
   `identifier-casing-owned-constructor-ambiguous-recovery-json`,
   `identifier-casing-owned-constructor-ambiguous-recovery-human`,
   `identifier-casing-same-name-recovery-arity-json`,
-  `identifier-casing-valid-function-precedence-cross-arity-json`, and
+  `identifier-casing-valid-function-precedence-cross-arity-json`,
+  `identifier-casing-loaded-dependency-json`,
+  `identifier-casing-unloaded-dependency-json`, and
   `identifier-casing-valid-constructor-precedence-cross-arity-json` cases fix
   that accepted names keep normal behavior, quarantined recovery records do not
   cross import boundaries, do not satisfy public alias targets, valid symbols
@@ -117,7 +119,12 @@ compiler-known calls.
   not resolve across name classes or when same-owner constructor candidates
   would emit the same owner diagnostic, same-name recovery peers are selected
   only when compatible with the call arity, and qualified type paths do not
-  select unrelated same-leaf local recovery records. The
+  select unrelated same-leaf local recovery records. A selected `run` consumer
+  that loads and reaches an invalid direct-dependency declaration reports the
+  dependency `name.invalid_case` diagnostic and stops before backend execution.
+  A manifest-only dependency that the selected `run` consumer does not import
+  is not loaded for that consumer, so its invalid casing diagnostics are not
+  reported and do not block the run. The
   `identifier-casing-record-field-reachability` run case
   fixes that record field labels remain outside this name-class reachability
   boundary. Workspace snapshot and open-document overlay selection is current

@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"a781164a5f5004820dd5c42903daa621b9481f06"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1577
+case_count	1579
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -38262,6 +38262,23 @@ field	invocation.command[4]	"helper.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"c16da489a99572e48cf541c52c51fa554bcc08389273ecea57bf9244eb70c84e"
+case	"examples/specification/run/identifier-casing-loaded-dependency-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].span.column	8
+field	expectations.diagnostics[0].span.file	"foo.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"f80f93f16c54f01c8409777f27d964820ab62aa0fc183dcdc3e4530fc93094d2"
 case	"examples/specification/run/identifier-casing-owned-constructor-ambiguous-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -38585,6 +38602,31 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"362a70df3fcbb43d5f34be9bc431b708144acd50dbeff2eb44bd89f2edce831a"
+case	"examples/specification/run/identifier-casing-unloaded-dependency-json"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"passed"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	""
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"stdout"
+field	expectations.json_assertions[2].equals	""
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"stderr"
+field	expectations.json_assertions[3].equals	null
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"error"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.not_contains[1]	"Bad"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"75cbb248c6703ada2aa538c2e8f9bbd401125400383bdf3097567fb4f8cbd710"
 case	"examples/specification/run/identifier-casing-unreachable-peer"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -49310,4 +49352,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b732bb9b614d15269f56d852f2bd6389713916e7db254d4c8125a63791ce062c"
+aggregate_digest	"0014dd79bd1ef5ed5e3837a74a5709ca176cd555b05395ed9fc8b174851a2f69"

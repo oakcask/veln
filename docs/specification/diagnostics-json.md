@@ -90,7 +90,8 @@ invalid handler bindings do not appear in `hole.unfilled`
 `details.local_bindings` or hole repair candidate queries. Current source name-class
 behavior is specified by [names-effects.md](names-effects.md). Selected-entry
 `run --json` diagnostic-envelope evidence for source identifier casing is
-routed by [run-json.md](run-json.md).
+routed by [run-json.md](run-json.md), including direct-dependency selected
+loading and unloaded-manifest isolation.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,

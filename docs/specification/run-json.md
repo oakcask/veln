@@ -24,7 +24,13 @@ is empty. The identifier-casing `*-json` run cases under
 `examples/specification/run/` check this pre-execution diagnostic boundary for
 reachable source declarations, aliases, type and constructor references,
 handler bindings, handler annotations, handler clause expressions, and import
-recovery isolation. The identifier-casing owned-constructor ambiguous recovery
+recovery isolation. The
+`identifier-casing-loaded-dependency-json` case checks the same boundary for a
+selected consumer that imports and reaches an invalid direct-dependency
+declaration. The `identifier-casing-unloaded-dependency-json` case checks that
+an unimported manifest dependency does not report its casing diagnostic and
+does not block a successful consumer run. The identifier-casing
+owned-constructor ambiguous recovery
 cases also check that same-owner constructor recovery ambiguity keeps the
 shared diagnostic envelope and does not emit a recovered `name.invalid_case`.
 

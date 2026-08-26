@@ -2,7 +2,11 @@ use veln_ast::FunctionKind;
 use veln_project::Project;
 use veln_source::SourceFile;
 
-use crate::surface::{load_surface_module, reachable_entry_module};
+use super::super::{DoctestMode, analyze_project_with_captured_dependencies};
+use crate::surface::{
+    CapturedDependencyProject, load_surface_module,
+    load_surface_modules_with_captured_dependencies, reachable_entry_module,
+};
 
 #[test]
 fn companion_test_does_not_materialize_target_function_recovery() {
@@ -188,4 +192,134 @@ fn target_run_does_not_materialize_companion_binding_recovery() {
         "{:#?}",
         reachable.functions
     );
+}
+
+#[test]
+fn dependency_recovery_does_not_materialize_in_consumer() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![SourceFile::new(
+            "main.veln",
+            concat!(
+                "use foo from \"github.com/oakcask/foo\"\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  Bad()\n",
+                "end\n",
+            ),
+        )],
+        manifest: Some(veln_project::parse_manifest_text(
+            "veln.toml",
+            "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
+        )),
+    };
+    let dependency = Project {
+        root: "vendor/foo".into(),
+        files: vec![SourceFile::new(
+            "foo.veln",
+            concat!("pub fn Bad() -> Int\n", "  1\n", "end\n"),
+        )],
+        manifest: Some(veln_project::parse_manifest_text(
+            "vendor/foo/veln.toml",
+            "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
+        )),
+    };
+    let dependencies = [CapturedDependencyProject {
+        package: "github.com/oakcask/foo".to_string(),
+        source: "vendor/foo".to_string(),
+        project: Some(dependency),
+    }];
+    let (loaded, diagnostics) =
+        load_surface_modules_with_captured_dependencies(&project, &dependencies);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let reachable = reachable_entry_module(&loaded.application, "main", FunctionKind::Function);
+
+    assert!(
+        reachable.invalid_names.is_empty(),
+        "{:#?}",
+        reachable.invalid_names
+    );
+    assert!(
+        reachable.functions.iter().all(|function| {
+            function.module_name.as_deref() != Some("github.com/oakcask/foo::foo")
+                || function.name.as_deref() != Some("Bad")
+        }),
+        "{:#?}",
+        reachable.functions
+    );
+
+    let analysis =
+        analyze_project_with_captured_dependencies(project, DoctestMode::Exclude, &dependencies);
+    let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+    assert!(reachable.lowered.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
+    }));
+}
+
+#[test]
+fn consumer_recovery_does_not_materialize_in_dependency() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![SourceFile::new(
+            "main.veln",
+            concat!(
+                "use foo from \"github.com/oakcask/foo\"\n",
+                "\n",
+                "pub fn Bad() -> Int\n",
+                "  1\n",
+                "end\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  foo::entry()\n",
+                "end\n",
+            ),
+        )],
+        manifest: Some(veln_project::parse_manifest_text(
+            "veln.toml",
+            "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
+        )),
+    };
+    let dependency = Project {
+        root: "vendor/foo".into(),
+        files: vec![SourceFile::new(
+            "foo.veln",
+            concat!("pub fn entry() -> Int\n", "  Bad()\n", "end\n",),
+        )],
+        manifest: Some(veln_project::parse_manifest_text(
+            "vendor/foo/veln.toml",
+            "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
+        )),
+    };
+    let dependencies = [CapturedDependencyProject {
+        package: "github.com/oakcask/foo".to_string(),
+        source: "vendor/foo".to_string(),
+        project: Some(dependency),
+    }];
+    let (loaded, diagnostics) =
+        load_surface_modules_with_captured_dependencies(&project, &dependencies);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let reachable = reachable_entry_module(&loaded.application, "main", FunctionKind::Function);
+
+    assert!(
+        reachable.invalid_names.is_empty(),
+        "{:#?}",
+        reachable.invalid_names
+    );
+    assert!(
+        reachable.functions.iter().all(|function| {
+            function.module_name.as_deref() != Some("github.com/oakcask/foo::foo")
+                || function.name.as_deref() != Some("Bad")
+        }),
+        "{:#?}",
+        reachable.functions
+    );
+
+    let analysis =
+        analyze_project_with_captured_dependencies(project, DoctestMode::Exclude, &dependencies);
+    let reachable = analysis.lower_reachable_entry("main", FunctionKind::Function);
+    assert!(reachable.lowered.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved call_target `Bad`"
+    }));
 }
