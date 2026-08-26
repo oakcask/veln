@@ -12,7 +12,8 @@ This page routes implemented JSON output for `veln test --json`.
 
 - The envelope uses schema version `veln-test-json/v0`.
 - The top-level status is `passed`, `failed`, `blocked`, or `error`.
-- Parse and semantic diagnostics block Java compilation and execution.
+- Parse and semantic diagnostics in the selected test analysis set block Java
+  compilation and execution.
 - Targetless discovery includes valid `.test.veln` companions, and explicit
   selection of `X.veln` includes existing `X.test.veln` and `X_test.veln`
   peers. Explicit selection of `X.test.veln` includes `X.veln` in analysis.
@@ -68,6 +69,10 @@ This page routes implemented JSON output for `veln test --json`.
   expected-output mismatches, and captured stdio events:
   [test-json-full.md](test-json-full.md#cases).
 - Static gate behavior: [test-json-full.md](test-json-full.md#static-gate).
+- Source identifier casing static-gate and selected-suite isolation coverage:
+  `../../examples/specification/test/identifier-casing-selected-static-gate-json/`
+  and
+  `../../examples/specification/test/identifier-casing-unselected-peer-json/`.
 - Readable doctest runtime JSON coverage:
   `../../examples/specification/test/doctest-runtime-contract-json/`,
   `../../examples/specification/test/doctest-runtime-contract-blocked-json/`,

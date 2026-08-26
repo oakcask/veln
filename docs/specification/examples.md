@@ -186,6 +186,14 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-reachable-handler-bindings-json/`,
   `../../examples/specification/run/identifier-casing-reachable-handler-clauses-json/`,
   and `../../examples/specification/run/identifier-casing-record-field-reachability/`.
+- Source identifier casing selected-suite static gates, unselected test peer
+  isolation, selected documentation-source diagnostics, and excluded
+  documentation-source or companion isolation:
+  `../../examples/specification/test/identifier-casing-selected-static-gate-json/`,
+  `../../examples/specification/test/identifier-casing-unselected-peer-json/`,
+  `../../examples/specification/doc/identifier-casing-included-source/`,
+  `../../examples/specification/doc/identifier-casing-excluded-source/`, and
+  `../../examples/specification/doc/identifier-casing-excluded-companion/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and
