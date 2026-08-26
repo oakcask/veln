@@ -18,14 +18,17 @@ also states it.
 
 ## Ready
 
-- Identifier-casing selection boundaries for loaded and unloaded dependencies
-  and recovery isolation across dependencies and the implicit prelude:
+- Identifier-casing direct-dependency source selection, selected-entry
+  reachability, and recovery isolation:
   [identifier-casing-selection-boundaries.md](identifier-casing-selection-boundaries.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
+- Identifier-casing recovery isolation across the implicit prelude is blocked
+  until the direct-dependency rows are executable current behavior:
+  [identifier-casing-selection-boundaries.md](identifier-casing-selection-boundaries.md).
 - The complete identifier-casing proposal is blocked by its remaining
   selection-boundary work. Move its remaining implementation scope into Ready
   after that prerequisite is specified as current behavior:
