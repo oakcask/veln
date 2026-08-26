@@ -2233,9 +2233,10 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.handlers)
             .into_iter()
             .filter(|handler| {
-                reachable_invalid_name_spans
-                    .iter()
-                    .any(|span| span == &handler.span)
+                !declaration_contains_invalid_name(&handler.span, &invalid_names_by_declaration)
+                    || reachable_invalid_name_spans
+                        .iter()
+                        .any(|span| span == &handler.span)
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -5450,6 +5451,71 @@ mod tests {
         );
         assert!(
             functions.contains(&(Some("math"), FunctionKind::Function, Some("increment"))),
+            "{functions:#?}"
+        );
+    }
+
+    #[test]
+    fn companion_test_entry_keeps_qualified_private_target_handler() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "math.test.veln",
+                    concat!(
+                        "use math\n",
+                        "test handler_test() -> Int\n",
+                        "  handle math::compute() with math::ask(41)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "math.veln",
+                    concat!(
+                        "effect Ask\n",
+                        "  value() -> Int\n",
+                        "end\n",
+                        "fn provide(offset: Int) -> Int\n",
+                        "  offset + 1\n",
+                        "end\n",
+                        "handler ask(offset: Int) handles Ask\n",
+                        "  value() => provide(offset)\n",
+                        "end\n",
+                        "pub fn compute() -> Int effects [Ask]\n",
+                        "  perform Ask::value()\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "handler_test", FunctionKind::Test);
+        let handlers = reachable
+            .handlers
+            .iter()
+            .map(|handler| (handler.module_name.as_deref(), handler.name.as_deref()))
+            .collect::<Vec<_>>();
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            handlers.contains(&(Some("math"), Some("ask"))),
+            "{handlers:#?}"
+        );
+        assert!(
+            functions.contains(&(Some("math"), FunctionKind::Function, Some("provide"))),
             "{functions:#?}"
         );
     }
