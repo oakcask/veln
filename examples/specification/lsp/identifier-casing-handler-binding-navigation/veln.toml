@@ -1,0 +1,5 @@
+[package]
+name = "identifier-casing-handler-binding-navigation"
+
+[lib]
+exports = ["main.veln"]

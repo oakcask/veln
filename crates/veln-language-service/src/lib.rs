@@ -1068,7 +1068,12 @@ fn invalid_declaration_name_spans(source: &SourceFile) -> Vec<SourceSpan> {
     veln_ast::lower_surface_ast(&parsed.tree)
         .invalid_names
         .into_iter()
-        .filter(|invalid| invalid.occurrence == veln_ast::NameOccurrence::Declaration)
+        .filter(|invalid| {
+            matches!(
+                invalid.occurrence,
+                veln_ast::NameOccurrence::Declaration | veln_ast::NameOccurrence::Binding
+            )
+        })
         .map(|invalid| invalid.span)
         .collect()
 }
@@ -2288,6 +2293,50 @@ mod tests {
     }
 
     #[test]
+    fn invalid_handler_context_binding_is_not_navigable() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n\n",
+                "handler adjust(Callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(value) => Callback(value)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(5, 16), (6, 20)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "invalid handler context binding was navigable at {line}:{column}"
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_handler_operation_clause_binding_is_not_navigable() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n\n",
+                "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(Value) => callback(Value)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(6, 10), (6, 29)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "invalid handler operation binding was navigable at {line}:{column}"
+            );
+        }
+    }
+
+    #[test]
     fn unsupported_positions_have_no_selected_symbol() {
         let sources = vec![source(
             "main.veln",
@@ -2823,6 +2872,17 @@ mod tests {
             );
             assert!(result.is_none(), "accepted {case}");
         }
+    }
+
+    #[test]
+    fn direct_dependency_invalid_function_casing_is_not_navigable() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub fn Bad(value: Int) -> Int\n  value\nend\n")],
+            ["math.veln"],
+        );
+
+        assert!(dependency_query(dependency, "math::Bad(1)").is_none());
     }
 
     #[test]

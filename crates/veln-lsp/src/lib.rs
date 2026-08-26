@@ -3194,6 +3194,67 @@ mod tests {
     }
 
     #[test]
+    fn invalid_handler_bindings_do_not_enter_lsp_navigation() {
+        let mut server = Server::default();
+        let project = TempProject::new("invalid-handler-binding-navigation");
+        project.write(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "  echo(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler adjust(Callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(value) => Callback(value)\n",
+                "  echo(Result) => Callback(Result)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+
+        let responses = server.handle_message(&initialize_request(&root_uri));
+        let publish = publish_for_uri(&responses, &main_uri);
+        assert!(
+            publish.contains(r#""code":"name.invalid_case""#),
+            "{publish}"
+        );
+
+        for (line, character) in [(5, 15), (6, 19), (7, 7), (7, 27)] {
+            let definition = server.handle_message(&definition_request(&main_uri, line, character));
+            assert_eq!(definition.len(), 1);
+            assert!(
+                definition[0].contains(r#""result":null"#),
+                "{}",
+                definition[0]
+            );
+
+            let references = server.handle_message(&references_request(&main_uri, line, character));
+            assert_eq!(references.len(), 1);
+            assert!(
+                references[0].contains(r#""result":[]"#),
+                "{}",
+                references[0]
+            );
+
+            let prepare_rename =
+                server.handle_message(&prepare_rename_request(&main_uri, line, character));
+            assert_eq!(prepare_rename.len(), 1);
+            assert!(
+                prepare_rename[0].contains(r#""result":null"#),
+                "{}",
+                prepare_rename[0]
+            );
+
+            let rename =
+                server.handle_message(&rename_request(&main_uri, line, character, "fixed"));
+            assert_eq!(rename.len(), 1);
+            assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+        }
+    }
+
+    #[test]
     fn companion_private_function_rename_includes_target_function_alias_target() {
         let mut server = Server::default();
         let project = TempProject::new("rename-function-alias-target");
