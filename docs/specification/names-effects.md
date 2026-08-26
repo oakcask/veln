@@ -58,13 +58,15 @@ compiler-known calls.
   `identifier-casing-owned-payload-constructor-recovery`,
   `identifier-casing-owned-payload-constructor-recovery-json`,
   `identifier-casing-owned-constructor-unreachable`,
+  `identifier-casing-constructor-sibling-unreachable`,
+  `identifier-casing-constructor-sibling-unreachable-json`,
   `identifier-casing-function-value-recovery`, and
   `identifier-casing-function-value-recovery-json` define selected-entry
   reachability for invalid functions, constructor calls, public aliases,
   expression-only constructor/type references, owned valid constructors of
-  invalid types, function-value recovery, and the rule that reachable local
-  value spellings, record fields, and type references do not make unrelated
-  invalid declarations reachable. The
+  invalid types, same-type constructor siblings, function-value recovery, and
+  the rule that reachable local value spellings, record fields, and type
+  references do not make unrelated invalid declarations reachable. The
   `identifier-casing-reachable-handler-bindings` and
   `identifier-casing-reachable-handler-bindings-json`,
   `identifier-casing-reachable-handler-annotation`,

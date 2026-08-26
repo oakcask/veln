@@ -34,6 +34,8 @@ Current behavior is specified in
 `identifier-casing-owned-payload-constructor-recovery`,
 `identifier-casing-owned-payload-constructor-recovery-json`,
 `identifier-casing-owned-constructor-unreachable`,
+`identifier-casing-constructor-sibling-unreachable`,
+`identifier-casing-constructor-sibling-unreachable-json`,
 `identifier-casing-record-field-reachability`,
 the checked `identifier-casing-function-value-recovery-human` and
 `identifier-casing-function-value-recovery-json` cases, and the run

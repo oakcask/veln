@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"7220de228b2764878ca45fe1e16f49466c300f61"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1558
+case_count	1560
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -37944,6 +37944,32 @@ field	invocation.command[3]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"expected"
 case_digest	"a8ac228b2670c5e609b808648556f2915daa9352b34404d68075f55f4d261d3a"
+case	"examples/specification/run/identifier-casing-constructor-sibling-unreachable"
+field	expectations.exit	1
+field	expectations.stderr.format	"text"
+field	expectations.stderr.not_contains[0]	"constructor name `other`"
+field	expectations.stdout.format	"empty"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"main"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"a067349e8beff5c886013f0f8c4e52a69f51f94a62094803798a922a5fc87741"
+case	"examples/specification/run/identifier-casing-constructor-sibling-unreachable-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"constructor name `value` must start with an ASCII uppercase letter"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"constructor name `other`"
+field	invocation.command[0]	"run"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main"
+field	invocation.command[3]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"734e305bce77e40428f4d6a5821af305be8f0a97209c25283f1bca9497169fac"
 case	"examples/specification/run/identifier-casing-function-value-recovery"
 field	expectations.exit	1
 field	expectations.stderr.format	"text"
@@ -48702,4 +48728,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"583b89e1e87343cfdce0fe9961681383ddc7fa7ea5cebae791a64ba27efc38bb"
+aggregate_digest	"45838e1d8c8001deaae93820d4a67d21373830eb055e2a832f47bada4f55f9e2"

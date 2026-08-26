@@ -1,0 +1,1 @@
+main.veln:6:3: error[name.invalid_case]: constructor name `value` must start with an ASCII uppercase letter

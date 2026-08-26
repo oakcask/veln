@@ -1903,6 +1903,13 @@ impl<'a> ReachabilityInputs<'a> {
             .chain(self.application.types.iter())
     }
 
+    fn invalid_names(&self) -> impl Iterator<Item = &'a veln_ast::InvalidName> + '_ {
+        self.standard
+            .into_iter()
+            .flat_map(|module| module.invalid_names.iter())
+            .chain(self.application.invalid_names.iter())
+    }
+
     fn codecs(&self) -> impl Iterator<Item = &'a veln_ast::CodecDecl> + '_ {
         self.standard
             .into_iter()
@@ -2208,7 +2215,7 @@ fn module_with_reachable_functions(
     reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
     let functions = materialize_reachable_functions(inputs, reachable);
-    let reachable_invalid_name_spans = reachable_invalid_name_declaration_spans(inputs, &functions);
+    let reachable_invalid_name_spans = reachable_invalid_name_spans(inputs, &functions);
     let invalid_names_by_declaration = inputs.cloned_declarations(|module| &module.invalid_names);
     let invalid_names = inputs
         .cloned_declarations(|module| &module.invalid_names)
@@ -2225,7 +2232,7 @@ fn module_with_reachable_functions(
                 !declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration)
                     || reachable_invalid_name_spans
                         .iter()
-                        .any(|span| span == &alias.span)
+                        .any(|span| span.is_declaration(&alias.span))
             })
             .collect(),
         effects: inputs.cloned_declarations(|module| &module.effects),
@@ -2235,7 +2242,7 @@ fn module_with_reachable_functions(
             .filter(|handler| {
                 reachable_invalid_name_spans
                     .iter()
-                    .any(|span| span == &handler.span)
+                    .any(|span| span.is_declaration(&handler.span))
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -2257,30 +2264,46 @@ fn declaration_contains_invalid_name(
 
 fn invalid_name_is_reachable(
     invalid: &veln_ast::InvalidName,
-    reachable_spans: &[SourceSpan],
+    reachable_spans: &[ReachableInvalidNameSpan],
 ) -> bool {
     if let Some(span) = &invalid.enclosing_function_span {
-        return reachable_spans.iter().any(|reachable| reachable == span);
+        return reachable_spans
+            .iter()
+            .any(|reachable| reachable.is_declaration(span));
     }
-    reachable_spans
-        .iter()
-        .any(|reachable| span_contains(reachable, &invalid.span))
+    reachable_spans.iter().any(|reachable| match reachable {
+        ReachableInvalidNameSpan::Declaration(span) => span_contains(span, &invalid.span),
+        ReachableInvalidNameSpan::Name(span) => span == &invalid.span,
+    })
 }
 
-fn reachable_invalid_name_declaration_spans(
+fn reachable_invalid_name_spans(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
-) -> Vec<SourceSpan> {
+) -> Vec<ReachableInvalidNameSpan> {
     let mut selector = ReachableInvalidNameSelector::new(inputs);
     let mut spans = functions
         .iter()
         .map(|function| function.span.clone())
+        .map(ReachableInvalidNameSpan::Declaration)
         .collect::<Vec<_>>();
     for function in functions {
         selector.collect_function(function, &mut spans);
     }
-    dedup_spans(&mut spans);
+    dedup_reachable_invalid_name_spans(&mut spans);
     spans
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum ReachableInvalidNameSpan {
+    Declaration(SourceSpan),
+    Name(SourceSpan),
+}
+
+impl ReachableInvalidNameSpan {
+    fn is_declaration(&self, span: &SourceSpan) -> bool {
+        matches!(self, Self::Declaration(reachable) if reachable == span)
+    }
 }
 
 struct ReachableInvalidNameSelector<'a> {
@@ -2289,6 +2312,7 @@ struct ReachableInvalidNameSelector<'a> {
     handlers: Vec<&'a veln_ast::HandlerDecl>,
     types: Vec<&'a veln_ast::TypeDecl>,
     functions: Vec<&'a Function>,
+    invalid_names: Vec<&'a veln_ast::InvalidName>,
     companion_access_targets: HashMap<String, String>,
 }
 
@@ -2301,11 +2325,12 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             handlers: inputs.handlers(),
             types: inputs.types().collect(),
             functions: inputs.functions().collect(),
+            invalid_names: inputs.invalid_names().collect(),
             companion_access_targets,
         }
     }
 
-    fn collect_function(&mut self, function: &Function, spans: &mut Vec<SourceSpan>) {
+    fn collect_function(&mut self, function: &Function, spans: &mut Vec<ReachableInvalidNameSpan>) {
         let mut local_bindings = function
             .params
             .iter()
@@ -2360,7 +2385,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &mut self,
         annotation: Option<&str>,
         current_module: Option<&str>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         let Some(annotation) = annotation else {
             return;
@@ -2378,7 +2403,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         expr: &Expr,
         current_module: Option<&str>,
         local_bindings: &[String],
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         match &expr.kind {
             ExprKind::NamePath(segments) => {
@@ -2496,7 +2521,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &mut self,
         pattern: &Pattern,
         current_module: Option<&str>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         match &pattern.kind {
             PatternKind::Binding(_) => {}
@@ -2524,7 +2549,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &self,
         segments: &[String],
         current_module: Option<&str>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if self.has_valid_constructor(segments, current_module, None) {
             return;
@@ -2546,7 +2571,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
         arg_count: usize,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if self.has_valid_function(segments, current_module, None)
             || self.has_valid_function_alias(segments, current_module)
@@ -2569,7 +2594,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &self,
         segments: &[String],
         current_module: Option<&str>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if self.has_valid_type(segments, current_module)
             || self.has_valid_type_alias(segments, current_module)
@@ -2586,7 +2611,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
         arg_count: Option<usize>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if self.has_valid_constructor(segments, current_module, arg_count) {
             return;
@@ -2600,18 +2625,22 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         &mut self,
         segments: &[String],
         current_module: Option<&str>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if let Some(handler) = self.visible_handler(segments, current_module) {
-            if spans.iter().any(|span| span == &handler.span) {
+            if spans.iter().any(|span| span.is_declaration(&handler.span)) {
                 return;
             }
-            spans.push(handler.span.clone());
+            spans.push(ReachableInvalidNameSpan::Declaration(handler.span.clone()));
             self.collect_handler(handler, spans);
         }
     }
 
-    fn collect_handler(&mut self, handler: &veln_ast::HandlerDecl, spans: &mut Vec<SourceSpan>) {
+    fn collect_handler(
+        &mut self,
+        handler: &veln_ast::HandlerDecl,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
         let current_module = handler.module_name.as_deref();
         let mut local_bindings = handler
             .params
@@ -2717,8 +2746,24 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             && arg_count.is_none_or(|count| variant.fields.len() == count)
     }
 
-    fn constructor_recovery_span(type_decl: &veln_ast::TypeDecl) -> SourceSpan {
-        type_decl.span.clone()
+    fn constructor_recovery_spans(
+        &self,
+        type_decl: &veln_ast::TypeDecl,
+        variant: &veln_ast::TypeVariantDecl,
+    ) -> Vec<ReachableInvalidNameSpan> {
+        self.invalid_names
+            .iter()
+            .copied()
+            .filter(|invalid| {
+                (invalid.class == veln_ast::NameClass::Type
+                    && span_contains(&type_decl.span, &invalid.span)
+                    && type_decl.name.as_deref() == Some(invalid.name.as_str()))
+                    || (invalid.class == veln_ast::NameClass::Constructor
+                        && span_contains(&variant.span, &invalid.span)
+                        && variant.name.as_deref() == Some(invalid.name.as_str()))
+            })
+            .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
+            .collect()
     }
 
     fn select_unique_function_recovery(
@@ -2726,7 +2771,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
         arg_count: Option<usize>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         let candidates = self
             .visible_functions(segments, current_module)
@@ -2738,6 +2783,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                     .is_none_or(|count| function_shape(function).accepts_arg_count(count))
             })
             .map(|function| function.span.clone())
+            .map(ReachableInvalidNameSpan::Declaration)
             .chain(
                 self.visible_aliases(segments, current_module, PublicAliasKind::Function)
                     .into_iter()
@@ -2746,17 +2792,17 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                             !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
                         })
                     })
-                    .map(|alias| alias.span.clone()),
+                    .map(|alias| ReachableInvalidNameSpan::Declaration(alias.span.clone())),
             )
             .collect::<Vec<_>>();
-        push_unique_span(candidates, spans);
+        push_unique_reachable_invalid_name_span(candidates, spans);
     }
 
     fn select_unique_type_recovery(
         &self,
         segments: &[String],
         current_module: Option<&str>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         let candidates = self
             .visible_types(segments, current_module)
@@ -2767,6 +2813,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 })
             })
             .map(|type_decl| type_decl.span.clone())
+            .map(ReachableInvalidNameSpan::Declaration)
             .chain(
                 self.visible_aliases(segments, current_module, PublicAliasKind::Type)
                     .into_iter()
@@ -2775,10 +2822,10 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                             !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
                         })
                     })
-                    .map(|alias| alias.span.clone()),
+                    .map(|alias| ReachableInvalidNameSpan::Declaration(alias.span.clone())),
             )
             .collect::<Vec<_>>();
-        push_unique_span(candidates, spans);
+        push_unique_reachable_invalid_name_span(candidates, spans);
     }
 
     fn select_unique_constructor_recovery(
@@ -2786,7 +2833,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
         arg_count: Option<usize>,
-        spans: &mut Vec<SourceSpan>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         let candidates = self
             .visible_constructor_variants(segments, current_module)
@@ -2794,9 +2841,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             .filter(|(type_decl, variant)| {
                 Self::constructor_recovery_candidate(type_decl, variant, arg_count)
             })
-            .map(|(type_decl, _)| Self::constructor_recovery_span(type_decl))
+            .map(|(type_decl, variant)| self.constructor_recovery_spans(type_decl, variant))
             .collect::<Vec<_>>();
-        push_unique_span(candidates, spans);
+        push_unique_constructor_recovery_spans(candidates, spans);
     }
 
     fn visible_functions(
@@ -2981,15 +3028,31 @@ fn declaration_visible(
     }
 }
 
-fn push_unique_span(mut candidates: Vec<SourceSpan>, spans: &mut Vec<SourceSpan>) {
-    dedup_spans(&mut candidates);
+fn push_unique_reachable_invalid_name_span(
+    mut candidates: Vec<ReachableInvalidNameSpan>,
+    spans: &mut Vec<ReachableInvalidNameSpan>,
+) {
+    dedup_reachable_invalid_name_spans(&mut candidates);
     if let [span] = candidates.as_slice() {
         spans.push(span.clone());
     }
 }
 
-fn dedup_spans(spans: &mut Vec<SourceSpan>) {
-    let mut seen = Vec::<SourceSpan>::new();
+fn push_unique_constructor_recovery_spans(
+    mut candidates: Vec<Vec<ReachableInvalidNameSpan>>,
+    spans: &mut Vec<ReachableInvalidNameSpan>,
+) {
+    for candidate in &mut candidates {
+        dedup_reachable_invalid_name_spans(candidate);
+    }
+    candidates.dedup();
+    if let [candidate] = candidates.as_slice() {
+        spans.extend(candidate.iter().cloned());
+    }
+}
+
+fn dedup_reachable_invalid_name_spans(spans: &mut Vec<ReachableInvalidNameSpan>) {
+    let mut seen = Vec::<ReachableInvalidNameSpan>::new();
     spans.retain(|span| {
         if seen.iter().any(|known| known == span) {
             false
@@ -5979,6 +6042,28 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(invalid_names, vec!["item", "value"]);
+    }
+
+    #[test]
+    fn run_entry_keeps_only_selected_invalid_constructor_in_valid_type() {
+        let module = lower(concat!(
+            "fn main() -> Item\n",
+            "  value(1)\n",
+            "end\n",
+            "type Item\n",
+            "  value(Int)\n",
+            "  other(Int)\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let invalid_names = reachable
+            .invalid_names
+            .iter()
+            .map(|invalid| invalid.name.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid_names, vec!["value"]);
     }
 
     #[test]
