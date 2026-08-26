@@ -1,0 +1,21 @@
+name: Validate Conventional Commits syntax
+description: Validate commit subjects or a pull request title against the Conventional Commits policy.
+
+inputs:
+  payload:
+    description: JSON object containing the subject label and subjects to validate.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Write Conventional Commits input
+      shell: sh
+      env:
+        CONVENTIONAL_COMMITS_PAYLOAD: ${{ inputs.payload }}
+      run: |
+        set -eu
+        printf '%s\n' "${CONVENTIONAL_COMMITS_PAYLOAD}" > conventional-commits.json
+    - name: Validate Conventional Commits syntax
+      shell: sh
+      run: conftest test -o github -p conftest/conventional-commits conventional-commits.json

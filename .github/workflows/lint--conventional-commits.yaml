@@ -39,6 +39,10 @@ jobs:
 
   validate:
     needs: collect
-    uses: ./.github/workflows/shared--conventional-commits.yaml
-    with:
-      payload: ${{ needs.collect.outputs.payload }}
+    runs-on: ubuntu-latest
+    container: openpolicyagent/conftest:v0.68.2@sha256:5fd81e332d7e4bc01daf3ef35371800a9a9720a30c0c37a78de0c5fbe4b6d622
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: ./.github/actions/conventional-commits
+        with:
+          payload: ${{ needs.collect.outputs.payload }}
