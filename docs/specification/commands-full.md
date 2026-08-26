@@ -368,9 +368,14 @@ semantically checked, lowered to checked core, then typed IR, then JVM
 classfile artifacts. Ordinary execution does not
 write generated Java source or invoke a Java source compiler. Reachability
 follows imported qualified calls by resolving the alias from selected-file `use`
-declarations to the imported source module. Semantic
-diagnostics in functions unreachable from the selected entry do not block
-`run`.
+declarations to the imported source module. A selected entry that imports and
+reaches an invalid direct-dependency declaration reports the dependency
+diagnostic and blocks backend execution. If the selected entry imports the
+dependency but reaches only valid dependency declarations, unreachable
+dependency diagnostics do not block `run`. A manifest dependency that the
+selected entry does not import is not loaded for that invocation, so its
+diagnostics are not reported. Semantic diagnostics in functions unreachable
+from the selected entry do not block `run`.
 
 `run` and `test` cache generated JVM classfile artifacts by backend content
 below the selected Veln user cache root. On Unix other than macOS, the default
