@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented diagnostics JSON behavior or executable diagnostic evidence changes.
+update-when: The `veln check --json` diagnostic schema, human diagnostic alignment, stable diagnostic detail fields, or executable diagnostic evidence changes.
 ---
 
 # Check JSON And Diagnostics
@@ -75,9 +75,12 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-source-recovery-json`,
 `identifier-casing-binding-positions-json`,
 `identifier-casing-underscore-recovery-json`,
-`identifier-casing-import-recovery-isolation-json`, and
-`identifier-casing-public-alias-recovery-isolation-json` cases. Current source
-name-class behavior is specified by [names-effects.md](names-effects.md).
+`identifier-casing-import-recovery-isolation-json`,
+`identifier-casing-public-alias-recovery-isolation-json`,
+`identifier-casing-accepted-names-json`,
+`identifier-casing-valid-symbol-precedence-json`, and
+`identifier-casing-ambiguous-recovery-json` cases. Current source name-class
+behavior is specified by [names-effects.md](names-effects.md).
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,

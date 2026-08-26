@@ -146,6 +146,17 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 
 ## Diagnostic Routes
 
+- Source identifier casing diagnostics, accepted-name absence checks,
+  valid-symbol precedence, and ambiguous recovery refusal:
+  `../../examples/specification/check/identifier-casing-source-recovery-json/`,
+  `../../examples/specification/check/identifier-casing-binding-positions-json/`,
+  `../../examples/specification/check/identifier-casing-underscore-recovery-json/`,
+  `../../examples/specification/check/identifier-casing-import-recovery-isolation-json/`,
+  `../../examples/specification/check/identifier-casing-public-alias-recovery-isolation-json/`,
+  `../../examples/specification/check/identifier-casing-accepted-names-json/`,
+  `../../examples/specification/check/identifier-casing-valid-symbol-precedence-json/`,
+  and
+  `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and
