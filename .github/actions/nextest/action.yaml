@@ -19,7 +19,7 @@ inputs:
 outputs:
   rust-test-build-cache-key:
     description: Primary key used to update the main Rust test build cache.
-    value: ${{ steps.rust-test-build-cache.outputs.cache-primary-key }}
+    value: ${{ steps.rust-test-build-cache-key.outputs.key }}
 
 runs:
   using: composite
@@ -34,13 +34,19 @@ runs:
       uses: ./.github/actions/cargo-dependencies
       with:
         save-cache: ${{ inputs.save-cache }}
+    - name: Resolve Rust test build cache key
+      id: rust-test-build-cache-key
+      shell: bash
+      env:
+        RUST_TEST_BUILD_CACHE_KEY: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ github.run_id }}
+      run: echo "key=${RUST_TEST_BUILD_CACHE_KEY}" >> "${GITHUB_OUTPUT}"
     - name: Restore and update main Rust test build cache
       if: inputs.save-cache == 'true'
       id: rust-test-build-cache
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ github.run_id }}
+        key: ${{ steps.rust-test-build-cache-key.outputs.key }}
         restore-keys: |
           rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-
           rust-test-build-${{ runner.os }}-
@@ -49,7 +55,7 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
-        key: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ github.run_id }}
+        key: ${{ steps.rust-test-build-cache-key.outputs.key }}
         restore-keys: |
           rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-
           rust-test-build-${{ runner.os }}-
