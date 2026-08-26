@@ -2242,6 +2242,55 @@ mod tests {
     }
 
     #[test]
+    fn runtime_result_failure_diagnostic_prefers_byte_context_over_protocol_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.incomplete_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(3)),
+                ]),
+            ),
+            ("expected_count", JsonValue::Number(4)),
+            ("available_count", JsonValue::Number(1)),
+            ("readiness", JsonValue::string("need_bytes")),
+        ]);
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            ("id", JsonValue::string("http2.protocol.partial_preface")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("pending_count", JsonValue::Number(6)),
+            ("expected_count", JsonValue::Number(24)),
+            ("byte_preview", byte_preview("505249202a20")),
+            ("active_state", JsonValue::string("connection-preface")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_client_connection_preface"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "incomplete input".to_string(),
+            None,
+            Some(byte_diagnostic),
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = runtime_result_failure_diagnostic(&failure)
+            .expect("specific byte context should project before protocol context");
+
+        assert_eq!(diagnostic.id, "codec.incomplete_input");
+        assert_eq!(diagnostic.message, "missing byte at byte offset 3");
+    }
+
+    #[test]
     fn byte_result_failure_diagnostic_projects_field_path_context() {
         let byte_diagnostic = JsonValue::object([
             ("kind", JsonValue::string("byte_diagnostic")),
