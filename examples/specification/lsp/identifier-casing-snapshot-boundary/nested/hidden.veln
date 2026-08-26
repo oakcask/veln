@@ -1,0 +1,3 @@
+fn Bad() -> Int
+  Bad()
+end

@@ -390,6 +390,7 @@ struct IndexedFile {
     companion_target_module: Option<String>,
     uses: BTreeSet<String>,
     external_uses: BTreeSet<(String, String)>,
+    invalid_declaration_names: Vec<SourceSpan>,
     origin: IndexedOrigin,
 }
 
@@ -836,12 +837,14 @@ fn index_workspace_source(source: SourceFile) -> IndexedFile {
         .or_else(|| module_name_from_path(&path))
         .unwrap_or_default();
     let (uses, external_uses) = use_modules(source.text());
+    let invalid_declaration_names = invalid_declaration_name_spans(&source);
     IndexedFile {
         source,
         module,
         companion_target_module,
         uses,
         external_uses,
+        invalid_declaration_names,
         origin: IndexedOrigin::Workspace,
     }
 }
@@ -855,12 +858,14 @@ fn index_dependency_sources(files: &mut Vec<IndexedFile>, dependency: DirectDepe
             .or_else(|| module_name_from_path(source.path()))
             .unwrap_or_default();
         let (uses, external_uses) = use_modules(text);
+        let invalid_declaration_names = invalid_declaration_name_spans(&source_file);
         files.push(IndexedFile {
             source: source_file,
             module,
             companion_target_module: None,
             uses,
             external_uses,
+            invalid_declaration_names,
             origin: IndexedOrigin::Package {
                 identity: dependency.identity.as_str().to_string(),
                 uri: entry.uri().to_string(),
@@ -900,14 +905,14 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             && let Some(name) = next_non_layout_token(&tokens, index)
             && is_identifier(&name.text)
         {
+            let span = file.source.span(name.range);
+            if is_invalid_declaration_name(file, &span) {
+                continue;
+            }
             let public = previous_non_layout_token(&tokens, index)
                 .is_some_and(|previous| previous.kind == TokenKind::Pub);
             let (declaration, package, standard_prelude) = match &file.origin {
-                IndexedOrigin::Workspace => (
-                    workspace_location(file.source.span(name.range)),
-                    None,
-                    false,
-                ),
+                IndexedOrigin::Workspace => (workspace_location(span), None, false),
                 IndexedOrigin::Package {
                     identity,
                     uri,
@@ -920,7 +925,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                     (
                         NavigationLocation {
                             source: NavigationSource::Package { uri: uri.clone() },
-                            span: file.source.span(name.range),
+                            span,
                         },
                         Some(identity.clone()),
                         *standard_library && file.module == "prelude",
@@ -968,6 +973,9 @@ fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
                         || variant.span.clone(),
                         |token| file.source.span(token.range),
                     );
+                if is_invalid_declaration_name(file, &span) {
+                    return None;
+                }
                 let (declaration, package, standard_prelude) = match &file.origin {
                     IndexedOrigin::Workspace => (workspace_location(span), None, false),
                     IndexedOrigin::Package {
@@ -1011,6 +1019,10 @@ fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
         .filter_map(|item| match item {
             SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
                 let name = alias.name.clone()?;
+                let name_span = alias.name_span.as_ref()?;
+                if is_invalid_declaration_name(file, name_span) {
+                    return None;
+                }
                 let target_name = alias.target.last()?.clone();
                 let target_module = match alias.target.as_slice() {
                     [_] => None,
@@ -1048,6 +1060,32 @@ fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
         .collect()
 }
 
+fn invalid_declaration_name_spans(source: &SourceFile) -> Vec<SourceSpan> {
+    let parsed = parse(source);
+    if !parsed.diagnostics.is_empty() {
+        return Vec::new();
+    }
+    veln_ast::lower_surface_ast(&parsed.tree)
+        .invalid_names
+        .into_iter()
+        .filter(|invalid| {
+            matches!(
+                invalid.occurrence,
+                veln_ast::NameOccurrence::Declaration | veln_ast::NameOccurrence::Binding
+            )
+        })
+        .map(|invalid| invalid.span)
+        .collect()
+}
+
+fn is_invalid_declaration_name(file: &IndexedFile, span: &SourceSpan) -> bool {
+    file.invalid_declaration_names.iter().any(|invalid| {
+        invalid.file == span.file
+            && invalid.start.offset == span.start.offset
+            && invalid.end.offset == span.end.offset
+    })
+}
+
 fn handler_operation_clause_symbol(
     file: &IndexedFile,
     tokens: &[Token],
@@ -1060,6 +1098,7 @@ fn handler_operation_clause_symbol(
         .find(|binding| {
             let token_offset = tokens[token_index].range.start;
             binding.name == name
+                && !is_invalid_declaration_name(file, &binding.declaration)
                 && ((selection.start.offset >= binding.declaration.start.offset
                     && selection.start.offset < binding.declaration.end.offset)
                     || (token_offset >= binding.start
@@ -2254,6 +2293,50 @@ mod tests {
     }
 
     #[test]
+    fn invalid_handler_context_binding_is_not_navigable() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n\n",
+                "handler adjust(Callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(value) => Callback(value)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(5, 16), (6, 20)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "invalid handler context binding was navigable at {line}:{column}"
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_handler_operation_clause_binding_is_not_navigable() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "end\n\n",
+                "handler adjust(callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(Value) => callback(Value)\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(6, 10), (6, 29)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "invalid handler operation binding was navigable at {line}:{column}"
+            );
+        }
+    }
+
+    #[test]
     fn unsupported_positions_have_no_selected_symbol() {
         let sources = vec![source(
             "main.veln",
@@ -2510,7 +2593,7 @@ mod tests {
     }
 
     #[test]
-    fn imported_constructor_call_definition_wins_over_bare_prelude_fallback() {
+    fn invalid_imported_constructor_casing_falls_back_to_bare_prelude_function() {
         let standard_library = standard_library_snapshot(
             &[(
                 "prelude.veln",
@@ -2545,12 +2628,23 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
-        assert_location(&result.definition, "model.veln", 2, 7);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert!(matches!(
+            result.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+        assert_eq!(
+            (
+                result.definition.span.start.line,
+                result.definition.span.start.column
+            ),
+            (1, 8)
+        );
     }
 
     #[test]
-    fn reexported_constructor_call_definition_wins_over_bare_prelude_fallback() {
+    fn invalid_reexported_constructor_casing_does_not_hide_bare_prelude_function() {
         let standard_library = standard_library_snapshot(
             &[(
                 "prelude.veln",
@@ -2582,20 +2676,40 @@ mod tests {
         ])
         .with_standard_library(standard_library);
 
-        for (line, column) in [(4, 4), (8, 11)] {
-            let result = navigate(
+        let bare = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 4,
+            },
+        )
+        .unwrap();
+        assert_eq!(bare.selected_symbol.kind, SymbolKind::Function);
+        assert!(matches!(
+            bare.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert_eq!(bare.definition.span.file.as_str(), "prelude.veln");
+        assert_eq!(
+            (
+                bare.definition.span.start.line,
+                bare.definition.span.start.column
+            ),
+            (1, 8)
+        );
+
+        assert!(
+            navigate(
                 &snapshot,
                 SourcePosition {
                     source: SourcePath::new("main.veln"),
-                    line,
-                    column,
+                    line: 8,
+                    column: 11,
                 },
             )
-            .unwrap();
-
-            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
-            assert_location(&result.definition, "model.veln", 2, 7);
-        }
+            .is_none()
+        );
     }
 
     #[test]
@@ -2758,6 +2872,17 @@ mod tests {
             );
             assert!(result.is_none(), "accepted {case}");
         }
+    }
+
+    #[test]
+    fn direct_dependency_invalid_function_casing_is_not_navigable() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub fn Bad(value: Int) -> Int\n  value\nend\n")],
+            ["math.veln"],
+        );
+
+        assert!(dependency_query(dependency, "math::Bad(1)").is_none());
     }
 
     #[test]

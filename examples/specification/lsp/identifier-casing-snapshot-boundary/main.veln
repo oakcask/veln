@@ -1,0 +1,7 @@
+fn Bad() -> Int
+  1
+end
+
+fn caller() -> Int
+  Bad()
+end

@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 sha2.workspace = true
+veln-ast.workspace = true
 veln-analysis.workspace = true
 veln-diagnostics.workspace = true
 veln-project.workspace = true

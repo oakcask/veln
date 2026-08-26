@@ -81,7 +81,14 @@ compiler-known calls.
   `identifier-casing-included-source`,
   `identifier-casing-excluded-source`, and
   `identifier-casing-excluded-companion` doc cases define selected
-  non-companion diagnostics and excluded-source isolation for `veln doc`.
+  non-companion diagnostics and excluded-source isolation for `veln doc`. The
+  `identifier-casing-snapshot-boundary` and
+  `identifier-casing-overlay-boundary` LSP cases define selected workspace
+  snapshot and open-document overlay casing diagnostics, exclusion of invalid
+  declarations from LSP navigation, and unselected package-root isolation.
+  The `identifier-casing-handler-binding-navigation` LSP case defines invalid
+  handler context and operation-clause binding diagnostics and exclusion from
+  definition, references, prepare-rename, and rename.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-accepted-names-json`,
@@ -107,8 +114,9 @@ compiler-known calls.
   select unrelated same-leaf local recovery records. The
   `identifier-casing-record-field-reachability` run case
   fixes that record field labels remain outside this name-class reachability
-  boundary. Workspace snapshot and open-document overlay selection
-  evidence remains outside this source foundation.
+  boundary. Workspace snapshot and open-document overlay selection is current
+  editor-facing behavior specified by [editor-support.md](editor-support.md)
+  and checked by the LSP casing examples.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:

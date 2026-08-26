@@ -1,0 +1,53 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[stdout]
+not_contains = ["nested/hidden.veln"]
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/code"
+equals = "name.invalid_case"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics"
+length = 1
+
+[[lsp_assert]]
+id = 2
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 4
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 5
+path = "/result"
+equals = null
