@@ -154,7 +154,7 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
                 ("veln.toml", ""),
                 (
                     "main.veln",
-                    "type Token\n  byte(Int)\nend\n\nfn main() -> Token\n  byte(1)\nend\n",
+                    "type Token\n  Byte(Int)\nend\n\nfn main() -> Token\n  Byte(1)\nend\n",
                 ),
             ],
             source: "main.veln",
@@ -248,17 +248,17 @@ fn definition_resolves_the_supported_workspace_symbol_set() {
 fn definition_infers_project_and_isolates_other_sources_and_descendant_manifests() {
     let workspace = TempWorkspace::new("definition-scope");
     workspace.write("app/veln.toml", "");
-    workspace.write("app/math.veln", "pub type Token\n  pub byte(Int)\nend\n");
+    workspace.write("app/math.veln", "pub type Token\n  pub Byte(Int)\nend\n");
     workspace.write(
         "app/main.veln",
-        "use math\n\nfn main() -> Token\n  math::byte(1)\nend\n",
+        "use math\n\nfn main() -> Token\n  math::Byte(1)\nend\n",
     );
     workspace.write("loose.veln", "fn main() -> Int\n  helper()\nend\n");
     workspace.write("other.veln", "fn helper() -> Int\n  1\nend\n");
     workspace.write("app/nested/veln.toml", "");
     workspace.write(
         "app/nested/main.veln",
-        "use math\n\nfn main() -> Token\n  math::byte(1)\nend\n",
+        "use math\n\nfn main() -> Token\n  math::Byte(1)\nend\n",
     );
 
     let project = definition_result(&workspace, "app/main.veln", 4, 10);
