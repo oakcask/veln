@@ -79,7 +79,10 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-public-alias-recovery-isolation-json`,
 `identifier-casing-accepted-names-json`,
 `identifier-casing-valid-symbol-precedence-json`, and
-`identifier-casing-ambiguous-recovery-json` cases. Current source name-class
+`identifier-casing-ambiguous-recovery-json` cases. The checked
+`identifier-casing-handler-binding-quarantine-json` case also fixes that
+invalid handler bindings do not appear in `hole.unfilled`
+`details.local_bindings` or hole repair candidate queries. Current source name-class
 behavior is specified by [names-effects.md](names-effects.md). Selected-entry
 `run --json` diagnostic-envelope evidence for source identifier casing is
 routed by [run-json.md](run-json.md).

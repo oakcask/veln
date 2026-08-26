@@ -155,6 +155,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-public-alias-recovery-isolation-json/`,
   `../../examples/specification/check/identifier-casing-accepted-names-json/`,
   `../../examples/specification/check/identifier-casing-valid-symbol-precedence-json/`,
+  `../../examples/specification/check/identifier-casing-handler-binding-quarantine-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability through handler annotations and

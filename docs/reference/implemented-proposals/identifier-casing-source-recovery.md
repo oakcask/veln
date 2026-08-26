@@ -38,14 +38,16 @@ handler binding, annotation, and clause-expression diagnostics under `run`.
 The checked `identifier-casing-import-recovery-isolation-json` and
 `identifier-casing-public-alias-recovery-isolation-json`,
 `identifier-casing-accepted-names-json`,
-`identifier-casing-valid-symbol-precedence-json`, and
+`identifier-casing-valid-symbol-precedence-json`,
+`identifier-casing-handler-binding-quarantine-json`, and
 `identifier-casing-ambiguous-recovery-json` cases and the run
 `identifier-casing-import-recovery-isolation-json` and
 `identifier-casing-qualified-type-import-isolation-json` cases cover the import
 and public-alias recovery boundaries, accepted names, valid lookup precedence,
-ambiguous recovery refusal, and qualified type references. Focused semantic
-tests cover expression-hole preservation, invalid value-binding quarantine from
-lookup and repair candidates, and import isolation.
+handler binding quarantine from hole repair candidates, ambiguous recovery
+refusal, and qualified type references. Focused semantic tests cover
+expression-hole preservation, invalid value-binding quarantine from lookup and
+repair candidates, and import isolation.
 
 ## Outcome
 

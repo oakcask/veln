@@ -31,6 +31,9 @@ compiler-known calls.
   parser recovery without missing-name cascades. Invalid value bindings are
   kept out of normal local lookup and repair candidates; a unique same-function
   recovery record suppresses only derivative unresolved-name diagnostics. The
+  checked `identifier-casing-handler-binding-quarantine-json` case fixes that
+  invalid handler parameter and operation-clause bindings are not visible to
+  hole repair candidate queries. The
   run cases
   `identifier-casing-reachable-recovery`,
   `identifier-casing-reachable-recovery-json`,
