@@ -16,6 +16,11 @@ inputs:
     required: false
     default: "false"
 
+outputs:
+  rust-test-build-cache-key:
+    description: Primary key used to update the main Rust test build cache.
+    value: ${{ steps.rust-test-build-cache.outputs.cache-primary-key }}
+
 runs:
   using: composite
   steps:

@@ -16,6 +16,7 @@ on:
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/plan-nextest-shards.mjs
+      - workflow-scripts/prune-rust-test-build-caches.mjs
   pull_request:
     paths:
       - .github/workflows/test--rust.yaml
@@ -29,6 +30,7 @@ on:
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/plan-nextest-shards.mjs
+      - workflow-scripts/prune-rust-test-build-caches.mjs
 
 permissions:
   actions: read
@@ -61,16 +63,34 @@ jobs:
   seed-cache:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      rust-test-build-cache-key: ${{ steps.seed.outputs.rust-test-build-cache-key }}
     concurrency:
       group: rust-test-main-cache
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Seed Rust test caches
+        id: seed
         uses: ./.github/actions/nextest
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
           save-cache: true
+
+  prune-cache:
+    needs: seed-cache
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Delete obsolete Rust test build caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUST_TEST_BUILD_CACHE_KEY: ${{ needs.seed-cache.outputs.rust-test-build-cache-key }}
+          RUST_TEST_BUILD_CACHE_PREFIX: rust-test-build-${{ runner.os }}-
+        run: node workflow-scripts/prune-rust-test-build-caches.mjs
 
   test:
     name: test shard ${{ matrix.shard }}
