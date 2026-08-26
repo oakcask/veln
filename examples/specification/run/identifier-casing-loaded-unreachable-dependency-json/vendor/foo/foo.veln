@@ -1,0 +1,7 @@
+pub fn Bad() -> Int
+  1
+end
+
+pub fn entry() -> Int
+  1
+end

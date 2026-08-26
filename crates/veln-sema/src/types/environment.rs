@@ -35,6 +35,14 @@ impl TypeEnvironment {
         Self::from_module_with_base(module, None)
     }
 
+    #[cfg(test)]
+    pub(crate) fn from_module_with_base_for_test(
+        module: &SurfaceModule,
+        base: &TypeEnvironment,
+    ) -> Self {
+        Self::from_module_with_base(module, Some(base))
+    }
+
     pub(crate) fn from_module_with_standard(
         module: &SurfaceModule,
         standard: &ReusableStandardEnvironment,

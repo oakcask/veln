@@ -99,8 +99,11 @@ requiring the full command reference on the first read.
   output.
 - `run`: production source discovery excluding `.test.veln` companions,
   rejection of explicitly supplied `.test.veln` run inputs, entry resolution,
-  fixed and variadic entry argument conversion, static gates, direct JVM
-  classfile execution without an ordinary Java source compiler requirement,
+  fixed and variadic entry argument conversion, selected-entry source
+  identifier casing gates for loaded direct dependencies while leaving
+  unloaded manifest dependencies outside the selected unit, static gates,
+  direct JVM classfile execution without an ordinary Java source compiler
+  requirement,
   and reusable JVM class caching below the host user cache or the complete
   absolute `VELN_CACHE_DIR` override, with cache configuration checked only
   after analysis, entry selection, JVM generation, and Java discovery, and

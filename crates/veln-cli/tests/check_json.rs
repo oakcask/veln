@@ -9,6 +9,8 @@ mod doctest;
 mod explain;
 #[path = "check_json/fmt.rs"]
 mod fmt;
+#[path = "check_json/identifier_casing.rs"]
+mod identifier_casing;
 #[path = "check_json/repair.rs"]
 mod repair;
 #[path = "check_json/run.rs"]
