@@ -11,6 +11,14 @@ local_action_paths contains action_path if {
   action_path := trim_prefix(uses, "./")
 }
 
+local_reusable_workflow_paths contains workflow_path if {
+  some job_name
+  job := input.jobs[job_name]
+  uses := object.get(job, "uses", "")
+  startswith(uses, "./.github/workflows/")
+  workflow_path := trim_prefix(uses, "./")
+}
+
 workflow_name_parts(name) := parts if {
   regex.match(`^[^/]+ / [^/]+$`, name)
   parts := split(name, " / ")
@@ -130,6 +138,19 @@ deny contains msg if {
     required_path,
     event_name,
     sprintf("./%s", [action_path]),
+  ])
+}
+
+deny contains msg if {
+  some event_name, event in workflow_trigger
+  paths := object.get(event, "paths", null)
+  paths != null
+  some workflow_path in local_reusable_workflow_paths
+  not workflow_path in paths
+  msg := sprintf("add %q to on.%s.paths because this workflow uses local reusable workflow %q", [
+    workflow_path,
+    event_name,
+    sprintf("./%s", [workflow_path]),
   ])
 }
 
