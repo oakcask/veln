@@ -148,7 +148,10 @@ For documents outside resolved workspace roots, diagnostics remain
 document-scoped and are computed from the in-editor document text. Parse
 diagnostics are reported first. When parsing succeeds, the server lowers the
 document into the surface module model and publishes semantic diagnostics from
-the checked surface module.
+the checked surface module. Parse-clean source invalid-name records are passed
+to that checked surface model, so document-scoped diagnostics include the
+implemented source identifier casing failures specified by
+[names-effects.md](names-effects.md).
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
@@ -431,7 +434,8 @@ Implemented:
   resolved workspace roots, including unopened files, with unsaved open
   document overlays.
 - Document-scoped diagnostic publication for Veln documents outside resolved
-  workspaces or when no workspace identity is initialized.
+  workspaces or when no workspace identity is initialized, including
+  parse-clean source identifier casing failures.
 - Stdio definition responses for public functions in exported direct `path`,
   `vendor`, `mirror`, and locally available direct git dependency sources, and
   `veln/virtualDocument` reads for the returned exact `veln-pkg:` URI.
