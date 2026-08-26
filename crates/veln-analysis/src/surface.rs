@@ -2233,10 +2233,9 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.handlers)
             .into_iter()
             .filter(|handler| {
-                !declaration_contains_invalid_name(&handler.span, &invalid_names_by_declaration)
-                    || reachable_invalid_name_spans
-                        .iter()
-                        .any(|span| span == &handler.span)
+                reachable_invalid_name_spans
+                    .iter()
+                    .any(|span| span == &handler.span)
             })
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
@@ -2290,16 +2289,19 @@ struct ReachableInvalidNameSelector<'a> {
     handlers: Vec<&'a veln_ast::HandlerDecl>,
     types: Vec<&'a veln_ast::TypeDecl>,
     functions: Vec<&'a Function>,
+    companion_access_targets: HashMap<String, String>,
 }
 
 impl<'a> ReachableInvalidNameSelector<'a> {
     fn new(inputs: &'a ReachabilityInputs<'_>) -> Self {
+        let companion_access_targets = companion_function_access_targets(inputs);
         Self {
             uses: inputs.uses(),
             aliases: inputs.aliases().collect(),
             handlers: inputs.handlers(),
             types: inputs.types().collect(),
             functions: inputs.functions().collect(),
+            companion_access_targets,
         }
     }
 
@@ -2878,14 +2880,37 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let target = visible_path_target(&self.uses, segments, current_module);
         self.handlers.iter().copied().find(|handler| {
             handler.name.as_deref() == path_leaf(segments)
-                && declaration_visible(
+                && (declaration_visible(
                     handler.module_name.as_deref(),
                     handler.visibility,
                     target.as_deref(),
                     current_module,
-                )
+                ) || companion_target_handler_visible(
+                    handler,
+                    target.as_deref(),
+                    current_module,
+                    &self.companion_access_targets,
+                ))
         })
     }
+}
+
+fn companion_target_handler_visible(
+    handler: &veln_ast::HandlerDecl,
+    target_module: Option<&str>,
+    current_module: Option<&str>,
+    companion_access_targets: &HashMap<String, String>,
+) -> bool {
+    if handler.visibility == Visibility::Public || target_module != handler.module_name.as_deref() {
+        return false;
+    }
+    current_module.is_some_and(|current_module| {
+        handler.module_name.as_ref().is_some_and(|handler_module| {
+            companion_access_targets
+                .get(current_module)
+                .is_some_and(|allowed_target| allowed_target == handler_module)
+        })
+    })
 }
 
 impl FunctionShape {
