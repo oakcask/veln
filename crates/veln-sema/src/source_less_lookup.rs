@@ -344,6 +344,18 @@ mod tests {
         name_class: SourceLessNameClass::Type,
         arity: 2,
     }];
+    const DUPLICATE_TYPE_SYNTAX: &[BuiltinTypeSyntaxDescriptor] = &[
+        BuiltinTypeSyntaxDescriptor {
+            name: "Result",
+            name_class: SourceLessNameClass::Type,
+            arity: 2,
+        },
+        BuiltinTypeSyntaxDescriptor {
+            name: "Result",
+            name_class: SourceLessNameClass::Type,
+            arity: 1,
+        },
+    ];
 
     fn valid_adt_descriptor() -> AdtDescriptor {
         AdtDescriptor {
@@ -613,6 +625,65 @@ mod tests {
             assert!(
                 result.is_err(),
                 "type parser lookup must not bypass invalid source-less type-syntax publication"
+            );
+        });
+    }
+
+    #[test]
+    fn duplicate_type_syntax_lookup_key_blocks_every_lookup_publication() {
+        let result = build_source_less_lookup_registries(
+            VALID_STANDARD_SYMBOLS,
+            &[],
+            &[],
+            &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            DUPLICATE_TYPE_SYNTAX,
+            vec![valid_adt_descriptor()],
+        );
+        let failure = result.expect_err("duplicate type-syntax key blocks publication");
+        let diagnostic = failure.diagnostic();
+
+        assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+        assert_eq!(failure.provider, "type_syntax");
+        assert_eq!(failure.name, "Result");
+        assert_eq!(failure.name_class, SourceLessNameClass::Type);
+        assert_eq!(failure.required_initial(), "ascii_uppercase");
+        assert_eq!(
+            failure.reason,
+            InvalidStandardSymbolReason::DuplicateLookupKey
+        );
+        assert_eq!(
+            diagnostic.message,
+            "compiler-provided type lookup key `Result` from `type_syntax` is duplicated"
+        );
+        assert_eq!(
+            diagnostic.details.to_json(),
+            "{\"provider\":\"type_syntax\",\"name\":\"Result\",\"name_class\":\"type\",\"required_initial\":\"ascii_uppercase\"}"
+        );
+    }
+
+    #[test]
+    fn duplicate_type_syntax_lookup_key_blocks_production_type_parser_lookup() {
+        let provider_set = SourceLessLookupProviderSet {
+            qualified: VALID_STANDARD_SYMBOLS,
+            compatibility_prelude: &[],
+            self_hosting_prelude: &[],
+            compiler_adapters: &[],
+            standard_module: PRELUDE_MODULE,
+            prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+            builtin_type_syntax: DUPLICATE_TYPE_SYNTAX,
+            builtin_adts: vec![valid_adt_descriptor()],
+        };
+
+        with_source_less_lookup_provider_set_for_test(provider_set, || {
+            let result = std::panic::catch_unwind(|| {
+                crate::type_syntax::parse_type_annotation("Result<Int, String>")
+            });
+
+            assert!(
+                result.is_err(),
+                "type parser lookup must not bypass duplicate type-syntax publication failure"
             );
         });
     }

@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::semantic_model::Type;
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
@@ -20,6 +22,7 @@ impl BuiltinTypeSyntaxRegistry {
     pub(crate) fn from_validated_source_less_descriptors(
         descriptors: &'static [BuiltinTypeSyntaxDescriptor],
     ) -> Result<Self, InvalidStandardSymbolCase> {
+        let mut lookup_keys = BTreeSet::new();
         for descriptor in descriptors {
             if descriptor.name_class != SourceLessNameClass::Type {
                 return Err(InvalidStandardSymbolCase {
@@ -30,6 +33,14 @@ impl BuiltinTypeSyntaxRegistry {
                 });
             }
             validate_source_less_name("type_syntax", descriptor.name, descriptor.name_class)?;
+            if !lookup_keys.insert(descriptor.name) {
+                return Err(InvalidStandardSymbolCase {
+                    provider: "type_syntax",
+                    name: descriptor.name.to_string(),
+                    name_class: SourceLessNameClass::Type,
+                    reason: InvalidStandardSymbolReason::DuplicateLookupKey,
+                });
+            }
         }
         Ok(Self {
             descriptors: descriptors.iter().collect(),
