@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::sync::OnceLock;
 
 use crate::semantic_model::Type;
 use crate::source_less_names::{
@@ -57,6 +58,81 @@ impl BuiltinTypeSyntaxRegistry {
             .find(|descriptor| descriptor.name == name)
             .map(|descriptor| descriptor.arity)
     }
+}
+
+fn with_builtin_type_syntax_registry<R>(
+    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
+) -> Result<R, InvalidStandardSymbolCase> {
+    #[cfg(test)]
+    {
+        let mut lookup = Some(lookup);
+        if let Some(result) = with_test_builtin_type_syntax_registry(|registry| {
+            lookup
+                .take()
+                .expect("builtin type syntax lookup closure is called once")(registry)
+        }) {
+            return result;
+        }
+        let lookup = lookup.expect("builtin type syntax lookup closure has not been called");
+        production_builtin_type_syntax_registry().map(lookup)
+    }
+
+    #[cfg(not(test))]
+    {
+        production_builtin_type_syntax_registry().map(lookup)
+    }
+}
+
+fn production_builtin_type_syntax_registry()
+-> Result<&'static BuiltinTypeSyntaxRegistry, InvalidStandardSymbolCase> {
+    static REGISTRY: OnceLock<Result<BuiltinTypeSyntaxRegistry, InvalidStandardSymbolCase>> =
+        OnceLock::new();
+    REGISTRY
+        .get_or_init(|| {
+            BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(
+                BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+            )
+        })
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS:
+        std::cell::RefCell<Option<&'static [BuiltinTypeSyntaxDescriptor]>> =
+            const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn with_builtin_type_syntax_descriptors_for_test<R>(
+    descriptors: &'static [BuiltinTypeSyntaxDescriptor],
+    test: impl FnOnce() -> R,
+) -> R {
+    use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+
+    TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS.with(|current| {
+        let previous = current.replace(Some(descriptors));
+        let result = catch_unwind(AssertUnwindSafe(test));
+        current.replace(previous);
+        match result {
+            Ok(result) => result,
+            Err(payload) => resume_unwind(payload),
+        }
+    })
+}
+
+#[cfg(test)]
+fn with_test_builtin_type_syntax_registry<R>(
+    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
+) -> Option<Result<R, InvalidStandardSymbolCase>> {
+    TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS.with(|current| {
+        current.borrow().map(|descriptors| {
+            let registry =
+                BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(descriptors)?;
+            Ok(lookup(&registry))
+        })
+    })
 }
 
 pub(crate) const BUILTIN_TYPE_SYNTAX_DESCRIPTORS: &[BuiltinTypeSyntaxDescriptor] = &[
@@ -222,42 +298,34 @@ impl<'a> TypeParser<'a> {
             return Err("expected `->` in function type".to_string());
         }
         let return_type = self.parse_type()?;
-        let effects = if self.eat_keyword("effects") {
-            self.expect('[')?;
-            let mut effects = Vec::new();
-            while !self.at_end() && !self.at(']') {
-                let effect = self.parse_effect_entry()?;
-                if effect.starts_with("...")
-                    && effects
-                        .iter()
-                        .any(|entry: &String| entry.starts_with("..."))
-                {
-                    return Err("function type effect set has more than one row tail".to_string());
-                }
-                effects.push(effect);
-                self.skip_ws();
-                let has_more = self.eat(',');
-                if effects.last().is_some_and(|entry| entry.starts_with("..."))
-                    && has_more
-                    && !self.at(']')
-                {
-                    return Err("effect row tail must be the final effect".to_string());
-                }
-                if !has_more {
-                    break;
-                }
-            }
-            self.expect(']')?;
-            effects
-        } else {
-            Vec::new()
-        };
+        let effects = self.parse_function_effect_set()?;
         Ok(Type::Function {
             params,
             variadic: variadic.map(Box::new),
             return_type: Box::new(return_type),
             effects,
         })
+    }
+
+    fn parse_function_effect_set(&mut self) -> Result<Vec<String>, String> {
+        if !self.eat_keyword("effects") {
+            return Ok(Vec::new());
+        }
+        self.expect('[')?;
+        let mut effects = Vec::new();
+        while !self.at_end() && !self.at(']') {
+            let effect = self.parse_effect_entry()?;
+            reject_duplicate_effect_row_tail(&effects, &effect)?;
+            effects.push(effect);
+            self.skip_ws();
+            let has_more = self.eat(',');
+            reject_non_final_effect_row_tail(&effects, has_more, self.at(']'))?;
+            if !has_more {
+                break;
+            }
+        }
+        self.expect(']')?;
+        Ok(effects)
     }
 
     fn parse_effect_entry(&mut self) -> Result<String, String> {
@@ -278,39 +346,10 @@ impl<'a> TypeParser<'a> {
         self.skip_ws();
         while !self.at_end() && !self.at(')') {
             let is_variadic = self.eat_str("...");
-            let ty = if is_variadic {
-                self.skip_ws();
-                if self.at(')') || self.at(',') {
-                    Type::Unknown
-                } else {
-                    let ty = self
-                        .parse_type()
-                        .map_err(|_| "expected type after variadic marker".to_string())?;
-                    match ty {
-                        Type::Named { name, args } if name == "unknown" && args.is_empty() => {
-                            Type::Unknown
-                        }
-                        ty => ty,
-                    }
-                }
-            } else {
-                self.parse_type()?
-            };
+            let ty = self.parse_function_param_type(is_variadic)?;
             self.skip_ws();
             let has_more = self.eat(',');
-            if is_variadic {
-                if variadic.is_some() {
-                    return Err("function type has more than one variadic parameter".to_string());
-                }
-                if has_more {
-                    return Err(
-                        "variadic function type parameter must be the final parameter".to_string(),
-                    );
-                }
-                variadic = Some(ty);
-            } else {
-                params.push(ty);
-            }
+            push_function_param(&mut params, &mut variadic, is_variadic, has_more, ty)?;
             self.skip_ws();
             if !has_more {
                 break;
@@ -320,6 +359,20 @@ impl<'a> TypeParser<'a> {
             }
         }
         Ok((params, variadic))
+    }
+
+    fn parse_function_param_type(&mut self, is_variadic: bool) -> Result<Type, String> {
+        if !is_variadic {
+            return self.parse_type();
+        }
+        self.skip_ws();
+        if self.at(')') || self.at(',') {
+            return Ok(Type::Unknown);
+        }
+        let ty = self
+            .parse_type()
+            .map_err(|_| "expected type after variadic marker".to_string())?;
+        Ok(normalize_variadic_type(ty))
     }
 
     fn parse_type_list(&mut self, end: char) -> Result<Vec<Type>, String> {
@@ -340,11 +393,8 @@ impl<'a> TypeParser<'a> {
     }
 
     fn validate_named_type(&self, name: String, args: Vec<Type>) -> Result<Type, String> {
-        let expected_arity =
-            crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
-                registry.arity(&name)
-            })
-            .expect("source-less lookup registries are valid");
+        let expected_arity = with_builtin_type_syntax_registry(|registry| registry.arity(&name))
+            .expect("source-less type syntax registry is valid");
         if let Some(expected) = expected_arity
             && args.len() != expected
         {
@@ -447,6 +497,58 @@ impl<'a> TypeParser<'a> {
 
     fn current(&self) -> Option<char> {
         self.text[self.cursor..].chars().next()
+    }
+}
+
+fn normalize_variadic_type(ty: Type) -> Type {
+    match ty {
+        Type::Named { name, args } if name == "unknown" && args.is_empty() => Type::Unknown,
+        ty => ty,
+    }
+}
+
+fn push_function_param(
+    params: &mut Vec<Type>,
+    variadic: &mut Option<Type>,
+    is_variadic: bool,
+    has_more: bool,
+    ty: Type,
+) -> Result<(), String> {
+    if !is_variadic {
+        params.push(ty);
+        return Ok(());
+    }
+    if variadic.is_some() {
+        return Err("function type has more than one variadic parameter".to_string());
+    }
+    if has_more {
+        return Err("variadic function type parameter must be the final parameter".to_string());
+    }
+    *variadic = Some(ty);
+    Ok(())
+}
+
+fn reject_duplicate_effect_row_tail(effects: &[String], effect: &str) -> Result<(), String> {
+    if effect.starts_with("...")
+        && effects
+            .iter()
+            .any(|entry: &String| entry.starts_with("..."))
+    {
+        Err("function type effect set has more than one row tail".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+fn reject_non_final_effect_row_tail(
+    effects: &[String],
+    has_more: bool,
+    at_end: bool,
+) -> Result<(), String> {
+    if effects.last().is_some_and(|entry| entry.starts_with("...")) && has_more && !at_end {
+        Err("effect row tail must be the final effect".to_string())
+    } else {
+        Ok(())
     }
 }
 
