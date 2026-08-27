@@ -54,6 +54,7 @@ pub(crate) struct InvalidStandardSymbolCase {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum InvalidStandardSymbolReason {
     InvalidCase,
+    InvalidLookupClass,
     InvalidLookupKey,
     DuplicateLookupKey,
 }
@@ -75,6 +76,13 @@ impl InvalidStandardSymbolCase {
                 self.name,
                 self.provider,
                 self.name_class.required_initial_description()
+            ),
+            InvalidStandardSymbolReason::InvalidLookupClass => format!(
+                "compiler-provided {} lookup descriptor `{}` from `{}` declares a non-{} name class",
+                self.name_class.as_str(),
+                self.name,
+                self.provider,
+                self.name_class.as_str()
             ),
             InvalidStandardSymbolReason::InvalidLookupKey => format!(
                 "compiler-provided {} `{}` from `{}` has an invalid source lookup key",

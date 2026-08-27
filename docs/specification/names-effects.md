@@ -161,8 +161,11 @@ compiler-known calls.
   Compiler-provided symbols that participate in source lookup carry an
   explicit source-less name class. The source lookup registries validate each
   compiler-provided descriptor's module segments, spelling, and lookup key
-  before publishing lookup state. Qualified runtime lookup keys are the exact
-  module-name and symbol-name pair. One shared construction result owns the
+  before publishing lookup state. Standard-symbol descriptors publish only to
+  function lookup, so the registry rejects any runtime, prelude, or
+  `prelude_builtin` descriptor whose source-less name class is not `function`.
+  Qualified runtime lookup keys are the exact module-name and symbol-name pair.
+  One shared construction result owns the
   standard-symbol and built-in ADT lookup state, so a failure in any
   source-less provider publishes no lookup state from the other providers.
   Prelude lookup keys are the exact source prelude name. Qualified

@@ -1194,6 +1194,14 @@ fn validate_source_lookup_descriptor(
     provider: &'static str,
     descriptor: &StandardSymbolDescriptor,
 ) -> Result<(), InvalidStandardSymbolCase> {
+    if descriptor.name_class != SourceLessNameClass::Function {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: SourceLessNameClass::Function,
+            reason: InvalidStandardSymbolReason::InvalidLookupClass,
+        });
+    }
     if let Some(module) = descriptor.module {
         for segment in module.split("::") {
             validate_source_less_name(provider, segment, SourceLessNameClass::Module)?;

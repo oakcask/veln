@@ -112,8 +112,9 @@ Source-less compiler lookup registry validation failures use
 `toolchain.invalid_symbol_case` with no span. Details expose the descriptor
 `provider`, invalid `name`, `name_class`, and `required_initial`. The failure
 is a toolchain invariant failure with diagnostic kind `toolchain`, not source
-`name.invalid_case`; invalid source lookup keys and duplicate lookup keys use
-the same id and details. Focused `veln-sema` `standard_symbols`, `adt`, and
+`name.invalid_case`; invalid source lookup keys, duplicate lookup keys, and
+standard-symbol class and lookup-namespace mismatches use the same id and
+details. Focused `veln-sema` `standard_symbols`, `adt`, and
 `source_less_lookup` tests pin generated-table validation, injected invalid
 descriptors, duplicate lookup keys, atomic failure, cross-provider
 publication failure, checked lookup, and lookup isolation for runtime,

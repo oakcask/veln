@@ -187,6 +187,37 @@ fn invalid_source_lookup_symbol_name_reports_descriptor_details() {
 }
 
 #[test]
+fn non_function_standard_symbol_class_cannot_publish_to_function_lookup() {
+    const INVALID_ADAPTER: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "byte",
+        name_class: SourceLessNameClass::Type,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let failure =
+        build_standard_symbol_registry(&[], &[], &[], INVALID_ADAPTER).expect_err("case failure");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "byte");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupClass
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup descriptor `byte` from `compiler_adapter` declares a non-function name class"
+    );
+}
+
+#[test]
 fn invalid_descriptor_prevents_partial_lookup_registry() {
     const VALID_QUALIFIED: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
         module: Some("stdio"),

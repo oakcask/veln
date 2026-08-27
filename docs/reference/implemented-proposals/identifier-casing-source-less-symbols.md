@@ -12,7 +12,9 @@ Compiler-provided symbols that participate in source lookup now carry an
 explicit source-less name class. One shared source-less construction result
 validates compiler-provided descriptor module segments, symbol spellings, and
 lookup keys before any standard-symbol or built-in ADT lookup state is
-published.
+published. Standard-symbol descriptors publish to function lookup only.
+Runtime, prelude, and `prelude_builtin` descriptors whose source-less name
+class is not `function` fail validation before lookup state is published.
 
 Invalid compiler-provided descriptors fail registry construction atomically with
 the span-less `toolchain.invalid_symbol_case` internal failure. Details include
@@ -47,11 +49,11 @@ casing diagnostics.
 - Focused executable evidence:
   `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests for
   the generated tables, injected invalid descriptors, duplicate lookup keys,
-  atomic failure, cross-provider publication failure, checked lookup, and
-  lookup isolation. The `adt` and `source_less_lookup` tests also pin that
-  production built-in ADT lookup consumes the published built-in ADT registry
-  from the shared publication result before constructing application registry
-  state.
+  standard-symbol class and lookup-namespace mismatches, atomic failure,
+  cross-provider publication failure, checked lookup, and lookup isolation.
+  The `adt` and `source_less_lookup` tests also pin that production built-in
+  ADT lookup consumes the published built-in ADT registry from the shared
+  publication result before constructing application registry state.
 
 This record completes only the source-less lookup descriptor acceptance row of
 the identifier-casing proposal. Module identity, qualified-use, recovery
