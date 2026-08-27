@@ -774,7 +774,6 @@ pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSy
     validate_adt_lookup_descriptors("adt", &build_builtin_descriptors())
 }
 
-#[cfg(test)]
 fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
     let descriptors = build_builtin_descriptors();
     validate_adt_lookup_descriptors("adt", &descriptors)
