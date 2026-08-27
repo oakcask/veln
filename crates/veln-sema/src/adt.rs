@@ -177,12 +177,7 @@ impl AdtRegistry {
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
         let mut descriptors = base
             .map(|base| base.descriptors.clone())
-            .unwrap_or_else(|| {
-                crate::source_less_lookup::builtin_adt_registry()
-                    .expect("source-less lookup registries are valid")
-                    .descriptors()
-                    .to_vec()
-            });
+            .unwrap_or_else(checked_builtin_descriptors);
         let source_descriptors = module
             .types
             .iter()
