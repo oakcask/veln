@@ -54,39 +54,39 @@ fn compiler_adapter_descriptors_carry_pure_metadata() {
 
 #[test]
 fn source_lookup_registry_accepts_current_generated_tables() {
-    let registry =
-        crate::source_less_lookup::standard_symbol_registry().expect("standard symbol registry");
-
-    assert_eq!(registry.qualified.len(), QUALIFIED_SYMBOLS.len());
-    assert!(
-        registry
-            .qualified
-            .iter()
-            .any(|symbol| { symbol.module == Some("stdio") && symbol.name == "println" })
-    );
-    assert!(
-        registry
-            .prelude
-            .iter()
-            .any(|symbol| symbol.name == "float_add")
-    );
-    assert!(registry.prelude.iter().any(|symbol| symbol.name == "byte"));
-    assert_eq!(
-        registry.compiler_adapters.len(),
-        COMPILER_ADAPTER_SYMBOLS.len()
-    );
-    assert!(
-        registry
-            .compiler_adapters
-            .iter()
-            .any(|symbol| symbol.name == "byte_decode_http2_frame")
-    );
-    assert!(
-        !registry
-            .prelude
-            .iter()
-            .any(|symbol| private_compiler_adapter_name(symbol.name))
-    );
+    crate::source_less_lookup::with_standard_symbol_registry(|registry| {
+        assert_eq!(registry.qualified.len(), QUALIFIED_SYMBOLS.len());
+        assert!(
+            registry
+                .qualified
+                .iter()
+                .any(|symbol| { symbol.module == Some("stdio") && symbol.name == "println" })
+        );
+        assert!(
+            registry
+                .prelude
+                .iter()
+                .any(|symbol| symbol.name == "float_add")
+        );
+        assert!(registry.prelude.iter().any(|symbol| symbol.name == "byte"));
+        assert_eq!(
+            registry.compiler_adapters.len(),
+            COMPILER_ADAPTER_SYMBOLS.len()
+        );
+        assert!(
+            registry
+                .compiler_adapters
+                .iter()
+                .any(|symbol| symbol.name == "byte_decode_http2_frame")
+        );
+        assert!(
+            !registry
+                .prelude
+                .iter()
+                .any(|symbol| private_compiler_adapter_name(symbol.name))
+        );
+    })
+    .expect("standard symbol registry");
 }
 
 #[test]
@@ -101,38 +101,38 @@ fn source_less_provider_inventory_names_every_lookup_route() {
         ),
     ];
 
-    let registry =
-        crate::source_less_lookup::standard_symbol_registry().expect("standard symbol registry");
-
-    for (provider, key, class) in routes {
-        match provider {
-            "runtime" => {
-                let segments = key.split("::").map(str::to_string).collect::<Vec<_>>();
-                assert_eq!(
-                    registry
-                        .qualified_symbol(&segments)
-                        .map(|symbol| symbol.name_class),
-                    Some(class)
-                );
+    crate::source_less_lookup::with_standard_symbol_registry(|registry| {
+        for (provider, key, class) in routes {
+            match provider {
+                "runtime" => {
+                    let segments = key.split("::").map(str::to_string).collect::<Vec<_>>();
+                    assert_eq!(
+                        registry
+                            .qualified_symbol(&segments)
+                            .map(|symbol| symbol.name_class),
+                        Some(class)
+                    );
+                }
+                "prelude" => {
+                    assert_eq!(
+                        registry.prelude_symbol(key).map(|symbol| symbol.name_class),
+                        Some(class)
+                    );
+                }
+                "prelude_builtin" => {
+                    let name = key.strip_prefix("prelude_builtin::").expect("adapter key");
+                    assert_eq!(
+                        registry
+                            .compiler_adapter_symbol(name)
+                            .map(|symbol| symbol.name_class),
+                        Some(class)
+                    );
+                }
+                _ => unreachable!("covered provider route"),
             }
-            "prelude" => {
-                assert_eq!(
-                    registry.prelude_symbol(key).map(|symbol| symbol.name_class),
-                    Some(class)
-                );
-            }
-            "prelude_builtin" => {
-                let name = key.strip_prefix("prelude_builtin::").expect("adapter key");
-                assert_eq!(
-                    registry
-                        .compiler_adapter_symbol(name)
-                        .map(|symbol| symbol.name_class),
-                    Some(class)
-                );
-            }
-            _ => unreachable!("covered provider route"),
         }
-    }
+    })
+    .expect("standard symbol registry");
 }
 
 #[test]

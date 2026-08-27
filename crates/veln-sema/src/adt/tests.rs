@@ -52,25 +52,25 @@ fn constructors_match_qualified_and_unqualified_builtin_names() {
 
 #[test]
 fn production_adt_registry_uses_published_source_less_builtin_adts() {
-    let published = crate::source_less_lookup::builtin_adt_registry()
-        .expect("source-less ADT registry publication");
+    crate::source_less_lookup::with_builtin_adt_registry(|published| {
+        let registry = AdtRegistry::from_module(&empty_module());
+        let option = Type::named("Option", vec![Type::Unknown]);
 
-    let registry = AdtRegistry::from_module(&empty_module());
-    let option = Type::named("Option", vec![Type::Unknown]);
-
-    assert_eq!(
-        registry.descriptors(),
-        published.descriptors(),
-        "production ADT lookup should seed from the shared source-less publication"
-    );
-    assert!(
-        registry.descriptor_for_type(&option).is_some(),
-        "production ADT lookup should consume published built-in descriptors"
-    );
-    assert!(matches!(
-        registry.constructor(&path(&["Option", "Some"]), None, &[]),
-        ConstructorLookup::Found(_)
-    ));
+        assert_eq!(
+            registry.descriptors(),
+            published.descriptors(),
+            "production ADT lookup should seed from the shared source-less publication"
+        );
+        assert!(
+            registry.descriptor_for_type(&option).is_some(),
+            "production ADT lookup should consume published built-in descriptors"
+        );
+        assert!(matches!(
+            registry.constructor(&path(&["Option", "Some"]), None, &[]),
+            ConstructorLookup::Found(_)
+        ));
+    })
+    .expect("source-less ADT registry publication");
 }
 
 #[test]

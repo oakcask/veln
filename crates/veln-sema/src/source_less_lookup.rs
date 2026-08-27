@@ -15,21 +15,45 @@ pub(crate) struct SourceLessLookupRegistries {
 }
 
 pub(crate) fn validate_source_less_lookup_registries() -> Result<(), InvalidStandardSymbolCase> {
-    let registries = source_less_lookup_registries()?;
-    let _ = registries.standard_symbols.prelude_symbol("");
-    let _ = registries.builtin_adts.descriptors().len();
-    Ok(())
+    with_source_less_lookup_registries(|registries| {
+        let _ = registries.standard_symbols.prelude_symbol("");
+        let _ = registries.builtin_adts.descriptors().len();
+    })
 }
 
-#[cfg(test)]
-pub(crate) fn standard_symbol_registry()
--> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase> {
-    Ok(&source_less_lookup_registries()?.standard_symbols)
+pub(crate) fn with_standard_symbol_registry<R>(
+    lookup: impl FnOnce(&StandardSymbolRegistry) -> R,
+) -> Result<R, InvalidStandardSymbolCase> {
+    with_source_less_lookup_registries(|registries| lookup(&registries.standard_symbols))
 }
 
-#[cfg(test)]
-pub(crate) fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
-    Ok(&source_less_lookup_registries()?.builtin_adts)
+pub(crate) fn with_builtin_adt_registry<R>(
+    lookup: impl FnOnce(&AdtRegistry) -> R,
+) -> Result<R, InvalidStandardSymbolCase> {
+    with_source_less_lookup_registries(|registries| lookup(&registries.builtin_adts))
+}
+
+fn with_source_less_lookup_registries<R>(
+    lookup: impl FnOnce(&SourceLessLookupRegistries) -> R,
+) -> Result<R, InvalidStandardSymbolCase> {
+    #[cfg(test)]
+    {
+        let mut lookup = Some(lookup);
+        if let Some(result) = with_test_provider_registries(|registries| {
+            lookup
+                .take()
+                .expect("source-less lookup closure is called once")(registries)
+        }) {
+            return result;
+        }
+        let lookup = lookup.expect("source-less lookup closure has not been called");
+        return source_less_lookup_registries().map(lookup);
+    }
+
+    #[cfg(not(test))]
+    {
+        source_less_lookup_registries().map(lookup)
+    }
 }
 
 fn source_less_lookup_registries()
@@ -67,6 +91,58 @@ pub(crate) fn build_source_less_lookup_registries(
     Ok(SourceLessLookupRegistries {
         standard_symbols,
         builtin_adts,
+    })
+}
+
+#[cfg(test)]
+#[derive(Clone)]
+pub(crate) struct SourceLessLookupProviderSet {
+    pub(crate) qualified: &'static [StandardSymbolDescriptor],
+    pub(crate) compatibility_prelude: &'static [StandardSymbolDescriptor],
+    pub(crate) self_hosting_prelude: &'static [StandardSymbolDescriptor],
+    pub(crate) compiler_adapters: &'static [StandardSymbolDescriptor],
+    pub(crate) builtin_adts: Vec<AdtDescriptor>,
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_PROVIDER_SET: std::cell::RefCell<Option<SourceLessLookupProviderSet>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn with_source_less_lookup_provider_set_for_test<R>(
+    provider_set: SourceLessLookupProviderSet,
+    test: impl FnOnce() -> R,
+) -> R {
+    use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+
+    TEST_PROVIDER_SET.with(|current| {
+        let previous = current.replace(Some(provider_set));
+        let result = catch_unwind(AssertUnwindSafe(test));
+        current.replace(previous);
+        match result {
+            Ok(result) => result,
+            Err(payload) => resume_unwind(payload),
+        }
+    })
+}
+
+#[cfg(test)]
+fn with_test_provider_registries<R>(
+    lookup: impl FnOnce(&SourceLessLookupRegistries) -> R,
+) -> Option<Result<R, InvalidStandardSymbolCase>> {
+    TEST_PROVIDER_SET.with(|current| {
+        current.borrow().clone().map(|provider_set| {
+            let registries = build_source_less_lookup_registries(
+                provider_set.qualified,
+                provider_set.compatibility_prelude,
+                provider_set.self_hosting_prelude,
+                provider_set.compiler_adapters,
+                provider_set.builtin_adts,
+            )?;
+            Ok(lookup(&registries))
+        })
     })
 }
 
@@ -236,6 +312,48 @@ mod tests {
                 .descriptor_for_type(&option)
                 .is_some()
         );
+    }
+
+    #[test]
+    fn invalid_adt_descriptor_blocks_production_standard_symbol_lookup() {
+        let provider_set = SourceLessLookupProviderSet {
+            qualified: VALID_STANDARD_SYMBOLS,
+            compatibility_prelude: &[],
+            self_hosting_prelude: &[],
+            compiler_adapters: &[],
+            builtin_adts: vec![invalid_adt_descriptor()],
+        };
+
+        with_source_less_lookup_provider_set_for_test(provider_set, || {
+            let result = std::panic::catch_unwind(|| {
+                crate::standard_symbols::qualified_symbol(&path("stdio", "print"))
+            });
+
+            assert!(
+                result.is_err(),
+                "production standard-symbol lookup must not publish when ADT validation fails"
+            );
+        });
+    }
+
+    #[test]
+    fn invalid_standard_symbol_descriptor_blocks_production_adt_lookup() {
+        let provider_set = SourceLessLookupProviderSet {
+            qualified: INVALID_STANDARD_SYMBOLS,
+            compatibility_prelude: &[],
+            self_hosting_prelude: &[],
+            compiler_adapters: &[],
+            builtin_adts: vec![valid_adt_descriptor()],
+        };
+
+        with_source_less_lookup_provider_set_for_test(provider_set, || {
+            let result = std::panic::catch_unwind(|| AdtRegistry::from_module(&empty_module()));
+
+            assert!(
+                result.is_err(),
+                "production ADT lookup must not publish when standard-symbol validation fails"
+            );
+        });
     }
 
     #[test]
