@@ -46,6 +46,13 @@ source lookup stay outside the source lookup validation gate. Embedded Veln
 prelude sources remain source-written and continue to use ordinary source
 casing diagnostics.
 
+Type annotation parsing consumes the published built-in type-syntax registry
+when checking built-in constructor arity. A type-syntax descriptor with invalid
+casing or a duplicate lookup key blocks publication before the parser can use
+that state. Qualified `prelude_builtin` helper lookup also consumes the
+published prelude-builtin module key; it does not select compiler-adapter
+descriptors through a registry-external module spelling.
+
 ## Evidence
 
 - Current behavior route:
@@ -53,13 +60,16 @@ casing diagnostics.
 - Focused executable evidence:
   `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests for
   the generated tables, injected invalid descriptors, duplicate lookup keys,
-  standard-symbol class and lookup-namespace mismatches, atomic failure,
-  cross-provider publication failure, checked lookup, production provider
-  inventory, and lookup isolation. The `adt` and `source_less_lookup` tests
-  also pin that production built-in ADT lookup consumes the published built-in
-  ADT registry from the shared publication result before constructing
-  application registry state. The Rust CI release registry test keeps
-  source-less publication validation checked in release builds.
+  standard-symbol class and lookup-namespace mismatches, invalid standard
+  module keys, invalid prelude-builtin module keys, atomic failure,
+  cross-provider publication failure, checked lookup, type-syntax publication
+  consumption, prelude-builtin module-key publication consumption, production
+  provider inventory, and lookup isolation. The `adt` and
+  `source_less_lookup` tests also pin that production built-in ADT lookup
+  consumes the published built-in ADT registry from the shared publication
+  result before constructing application registry state. The Rust CI release
+  registry test keeps source-less publication validation checked in release
+  builds.
 - Public CLI fixtures are not practical for invalid compiler-provided
   descriptor input because that input is not expressible as Veln source or as
   a public command-line option. Serializer and adapter tests consume the
