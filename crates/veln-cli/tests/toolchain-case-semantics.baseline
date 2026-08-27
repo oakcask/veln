@@ -5677,11 +5677,17 @@ case	"examples/specification/check/identifier-casing-implicit-prelude-boundary-j
 field	expectations.diagnostics[0].id	"name.invalid_case"
 field	expectations.diagnostics[0].kind	"name"
 field	expectations.diagnostics[0].message	"type name `bad` must start with an ASCII uppercase letter"
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"constructor name `int_to_string` must start with an ASCII uppercase letter"
+field	expectations.diagnostics[2].id	"type.mismatch"
+field	expectations.diagnostics[2].kind	"type"
+field	expectations.diagnostics[2].message	"expected `Int`, but found `String`"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].equals	3
 field	expectations.json_assertions[1].operation	"equals"
 field	expectations.json_assertions[1].path	"summary.diagnostic_count"
 field	expectations.stderr.format	"empty"
@@ -5694,7 +5700,7 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"8e5223e0e5109fbe615cf8d9730b6f8e3160abc03bf60e5d11977a1ad3341906"
+case_digest	"441feba0beef631418f899fe53bb4b4e0cc8e79aee56b655191a68a73128db3b"
 case	"examples/specification/check/identifier-casing-implicit-prelude-isolation-json"
 field	expectations.diagnostics[0].id	"name.invalid_case"
 field	expectations.diagnostics[0].kind	"name"
@@ -49425,4 +49431,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"52cd0f6ca026f0b1ef839f7e67c460fe09e1d2f97ba030c8d46d1bc706e398b2"
+aggregate_digest	"816bbffe17a6fc695aa8bee306dc6ef8fd4a7dbe1a12f22544245d5ea7557f15"
