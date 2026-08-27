@@ -204,8 +204,11 @@ messages state that the lookup key is duplicated. Focused `veln-sema`
 `standard_symbols`, `adt`, and `source_less_lookup` tests pin the
 generated-table, injected-descriptor, duplicate-key, class-mismatch,
 atomic-failure, cross-provider publication-failure, checked-lookup, and
-lookup-isolation evidence for runtime, prelude, `prelude_builtin`, and
-built-in ADT lookup descriptors.
+lookup-isolation evidence for runtime, prelude, `prelude_builtin`,
+`standard_names`, `type_syntax`, and built-in ADT lookup descriptors. The
+`source_less_lookup` tests also pin that public type-annotation reference
+lookup consumes the shared publication result instead of using independent
+type-syntax state.
 
 ## Current Schema Diagnostic Boundary
 
