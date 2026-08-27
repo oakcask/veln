@@ -53,7 +53,9 @@ casing diagnostics.
   cross-provider publication failure, checked lookup, and lookup isolation.
   The `adt` and `source_less_lookup` tests also pin that production built-in
   ADT lookup consumes the published built-in ADT registry from the shared
-  publication result before constructing application registry state.
+  publication result before constructing application registry state. The Rust
+  CI release registry test keeps source-less publication validation checked in
+  release builds.
 
 This record completes only the source-less lookup descriptor acceptance row of
 the identifier-casing proposal. Module identity, qualified-use, recovery

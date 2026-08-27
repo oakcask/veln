@@ -1,4 +1,18 @@
 use super::*;
+use crate::standard_symbols::{
+    StandardSymbolDescriptor, StandardSymbolKind, StandardSymbolStability,
+};
+
+const INVALID_STANDARD_SYMBOLS: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+    module: Some("Std"),
+    name: "print",
+    name_class: SourceLessNameClass::Function,
+    kind: StandardSymbolKind::Runtime,
+    effects: &[],
+    lowering: Some("runtime.Std.print"),
+    signature: None,
+    stability: StandardSymbolStability::RequiredForSelfHosting,
+}];
 
 fn registry() -> AdtRegistry {
     AdtRegistry::from_parts(
@@ -71,6 +85,26 @@ fn production_adt_registry_uses_published_source_less_builtin_adts() {
         ));
     })
     .expect("source-less ADT registry publication");
+}
+
+#[test]
+fn production_adt_registry_fails_when_standard_symbol_publication_fails() {
+    let provider_set = crate::source_less_lookup::SourceLessLookupProviderSet {
+        qualified: INVALID_STANDARD_SYMBOLS,
+        compatibility_prelude: &[],
+        self_hosting_prelude: &[],
+        compiler_adapters: &[],
+        builtin_adts: raw_builtin_descriptors_for_test(),
+    };
+
+    crate::source_less_lookup::with_source_less_lookup_provider_set_for_test(provider_set, || {
+        let result = std::panic::catch_unwind(|| AdtRegistry::from_module(&empty_module()));
+
+        assert!(
+            result.is_err(),
+            "production ADT lookup must be unavailable when standard-symbol validation fails"
+        );
+    });
 }
 
 #[test]
@@ -228,33 +262,49 @@ fn duplicate_injected_adt_constructor_does_not_publish_lookup_registry() {
 #[test]
 fn inconsistent_builtin_adt_type_class_prevents_registry_publication() {
     let mut descriptors = raw_builtin_descriptors_for_test();
-    descriptors[0].name_class = SourceLessNameClass::Function;
+    descriptors[0].name_class = SourceLessNameClass::Constructor;
 
     let failure = validate_adt_lookup_descriptors("adt", &descriptors)
         .expect_err("ADT type descriptor must declare type class");
+    let diagnostic = failure.diagnostic();
 
     assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
     assert_eq!(failure.provider, "adt");
     assert_eq!(failure.name, "Option");
-    assert_eq!(failure.name_class, SourceLessNameClass::Function);
-    assert_eq!(failure.required_initial(), "ascii_lowercase");
-    assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
+    assert_eq!(failure.name_class, SourceLessNameClass::Type);
+    assert_eq!(failure.required_initial(), "ascii_uppercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupClass
+    );
+    assert_eq!(
+        diagnostic.message,
+        "compiler-provided type lookup descriptor `Option` from `adt` declares a non-type name class"
+    );
 }
 
 #[test]
 fn inconsistent_builtin_adt_constructor_class_prevents_registry_publication() {
     let mut descriptors = raw_builtin_descriptors_for_test();
-    descriptors[0].variants[0].name_class = SourceLessNameClass::Function;
+    descriptors[0].variants[0].name_class = SourceLessNameClass::Type;
 
     let failure = validate_adt_lookup_descriptors("adt", &descriptors)
         .expect_err("ADT constructor descriptor must declare constructor class");
+    let diagnostic = failure.diagnostic();
 
     assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
     assert_eq!(failure.provider, "adt");
     assert_eq!(failure.name, "Some");
-    assert_eq!(failure.name_class, SourceLessNameClass::Function);
-    assert_eq!(failure.required_initial(), "ascii_lowercase");
-    assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
+    assert_eq!(failure.name_class, SourceLessNameClass::Constructor);
+    assert_eq!(failure.required_initial(), "ascii_uppercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupClass
+    );
+    assert_eq!(
+        diagnostic.message,
+        "compiler-provided constructor lookup descriptor `Some` from `adt` declares a non-constructor name class"
+    );
 }
 
 #[test]

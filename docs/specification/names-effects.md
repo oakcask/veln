@@ -182,10 +182,12 @@ compiler-known calls.
   `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests define
   the generated-table, injected-descriptor, duplicate-key, atomic-failure,
   cross-provider publication-failure, checked-lookup, and lookup-isolation
-  evidence for this boundary. `prelude_builtin` lookup consumes validated
-  published registry state. Production built-in ADT lookup seeds application
-  registries from the published built-in ADT registry in the same shared
-  source-less publication result that owns standard-symbol lookup state.
+  evidence for this boundary. The Rust CI release registry test fixes that the
+  same publication validation is maintained in release builds.
+  `prelude_builtin` lookup consumes validated published registry state.
+  Production built-in ADT lookup seeds application registries from the
+  published built-in ADT registry in the same shared source-less publication
+  result that owns standard-symbol lookup state.
   Shared standard-environment initialization validates the registries before
   publishing reusable command or adapter state.
 

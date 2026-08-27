@@ -38,7 +38,8 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   `source_less_lookup` tests define descriptor, atomic-failure,
   cross-provider publication-failure, lookup-key, checked-lookup, and lookup
   isolation behavior for runtime, prelude, `prelude_builtin`, and built-in
-  ADT lookup descriptors.
+  ADT lookup descriptors. The Rust CI release registry test keeps this
+  validation active in release builds.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:

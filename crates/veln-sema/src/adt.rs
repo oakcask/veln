@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    sync::OnceLock,
-};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
@@ -180,10 +177,10 @@ impl AdtRegistry {
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
         let mut descriptors = match base {
             Some(base) => base.descriptors.clone(),
-            None => builtin_adt_registry()
-                .expect("built-in ADT descriptors are valid")
-                .descriptors()
-                .to_vec(),
+            None => crate::source_less_lookup::with_builtin_adt_registry(|registry| {
+                registry.descriptors().to_vec()
+            })
+            .expect("source-less lookup registries are valid"),
         };
         let source_descriptors = module
             .types
@@ -521,16 +518,6 @@ impl AdtRegistry {
                 && use_decl.name == target_module
         })
     }
-}
-
-fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
-    static REGISTRY: OnceLock<Result<AdtRegistry, InvalidStandardSymbolCase>> = OnceLock::new();
-    REGISTRY
-        .get_or_init(|| {
-            AdtRegistry::from_validated_source_less_descriptors(build_builtin_descriptors())
-        })
-        .as_ref()
-        .map_err(Clone::clone)
 }
 
 fn prefer_current_module_constructors<'a>(
@@ -2821,15 +2808,15 @@ pub(crate) fn validate_adt_lookup_descriptors(
                 validate_source_less_name(provider, segment, SourceLessNameClass::Module)?;
             }
         }
-        validate_source_less_name(provider, &descriptor.type_name, descriptor.name_class)?;
         if descriptor.name_class != SourceLessNameClass::Type {
             return Err(InvalidStandardSymbolCase {
                 provider,
                 name: descriptor.type_name.clone(),
-                name_class: descriptor.name_class,
-                reason: InvalidStandardSymbolReason::InvalidCase,
+                name_class: SourceLessNameClass::Type,
+                reason: InvalidStandardSymbolReason::InvalidLookupClass,
             });
         }
+        validate_source_less_name(provider, &descriptor.type_name, descriptor.name_class)?;
         if !type_names.insert((
             descriptor.module_name.as_deref(),
             descriptor.type_name.as_str(),
@@ -2842,15 +2829,15 @@ pub(crate) fn validate_adt_lookup_descriptors(
             });
         }
         for variant in &descriptor.variants {
-            validate_source_less_name(provider, &variant.name, variant.name_class)?;
             if variant.name_class != SourceLessNameClass::Constructor {
                 return Err(InvalidStandardSymbolCase {
                     provider,
                     name: variant.name.clone(),
-                    name_class: variant.name_class,
-                    reason: InvalidStandardSymbolReason::InvalidCase,
+                    name_class: SourceLessNameClass::Constructor,
+                    reason: InvalidStandardSymbolReason::InvalidLookupClass,
                 });
             }
+            validate_source_less_name(provider, &variant.name, variant.name_class)?;
             if !constructor_names.insert((
                 descriptor.module_name.as_deref(),
                 descriptor.type_name.as_str(),

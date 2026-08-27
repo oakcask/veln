@@ -45,7 +45,6 @@ pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSym
         .expect("source-less lookup registries are valid")
 }
 
-#[cfg(test)]
 pub(crate) fn with_builtin_adt_registry<R>(
     lookup: impl FnOnce(&AdtRegistry) -> R,
 ) -> Result<R, InvalidStandardSymbolCase> {
@@ -356,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_standard_symbol_descriptor_blocks_combined_adt_publication() {
+    fn invalid_standard_symbol_descriptor_blocks_production_adt_lookup() {
         let provider_set = SourceLessLookupProviderSet {
             qualified: INVALID_STANDARD_SYMBOLS,
             compatibility_prelude: &[],
@@ -366,11 +365,11 @@ mod tests {
         };
 
         with_source_less_lookup_provider_set_for_test(provider_set, || {
-            let result = with_builtin_adt_registry(|registry| registry.descriptors().len());
+            let result = std::panic::catch_unwind(|| AdtRegistry::from_module(&empty_module()));
 
             assert!(
                 result.is_err(),
-                "combined ADT publication must fail when standard-symbol validation fails"
+                "production ADT lookup must not publish when standard-symbol validation fails"
             );
         });
     }
