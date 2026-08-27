@@ -87,12 +87,6 @@ pub(crate) fn is_reserved_source_less_module(module: &str) -> bool {
     module == standard_module() || module == prelude_builtin_module()
 }
 
-pub(crate) fn with_builtin_type_syntax_registry<R>(
-    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
-) -> Result<R, InvalidStandardSymbolCase> {
-    with_source_less_lookup_registries(|registries| lookup(&registries.builtin_type_syntax))
-}
-
 pub(crate) fn with_builtin_adt_registry<R>(
     lookup: impl FnOnce(&AdtRegistry) -> R,
 ) -> Result<R, InvalidStandardSymbolCase> {
@@ -307,9 +301,18 @@ pub(crate) fn with_source_less_lookup_provider_set_for_test<R>(
 ) -> R {
     use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 
+    let builtin_type_syntax = provider_set.builtin_type_syntax;
+    let lookup_failure = build_source_less_lookup_registries(provider_set.clone()).err();
     TEST_PROVIDER_SET.with(|current| {
         let previous = current.replace(Some(provider_set));
-        let result = catch_unwind(AssertUnwindSafe(test));
+        let result = crate::type_syntax::with_builtin_type_syntax_descriptors_for_test(
+            builtin_type_syntax,
+            || {
+                crate::type_syntax::with_public_type_lookup_failure_for_test(lookup_failure, || {
+                    catch_unwind(AssertUnwindSafe(test))
+                })
+            },
+        );
         current.replace(previous);
         match result {
             Ok(result) => result,

@@ -1,7 +1,6 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::OnceLock};
 
 use crate::semantic_model::Type;
-use crate::source_less_lookup::with_builtin_type_syntax_registry;
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
     validate_source_less_name,
@@ -83,6 +82,105 @@ const fn builtin_type_syntax_descriptor(
     }
 }
 
+fn with_builtin_type_syntax_registry<R>(
+    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
+) -> Result<R, InvalidStandardSymbolCase> {
+    #[cfg(test)]
+    {
+        let mut lookup = Some(lookup);
+        if let Some(result) = with_test_builtin_type_syntax_registry(|registry| {
+            lookup
+                .take()
+                .expect("type syntax registry closure is called once")(registry)
+        }) {
+            return result;
+        }
+        let lookup = lookup.expect("type syntax registry closure has not been called");
+        production_builtin_type_syntax_registry().map(lookup)
+    }
+
+    #[cfg(not(test))]
+    {
+        production_builtin_type_syntax_registry().map(lookup)
+    }
+}
+
+fn production_builtin_type_syntax_registry()
+-> Result<&'static BuiltinTypeSyntaxRegistry, InvalidStandardSymbolCase> {
+    static REGISTRY: OnceLock<Result<BuiltinTypeSyntaxRegistry, InvalidStandardSymbolCase>> =
+        OnceLock::new();
+    REGISTRY
+        .get_or_init(|| {
+            BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(
+                BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+            )
+        })
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS:
+        std::cell::RefCell<Option<&'static [BuiltinTypeSyntaxDescriptor]>> =
+        const { std::cell::RefCell::new(None) };
+    static TEST_PUBLIC_TYPE_LOOKUP_FAILURE:
+        std::cell::RefCell<Option<InvalidStandardSymbolCase>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn with_builtin_type_syntax_descriptors_for_test<R>(
+    descriptors: &'static [BuiltinTypeSyntaxDescriptor],
+    test: impl FnOnce() -> R,
+) -> R {
+    TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS.with(|current| {
+        let previous = current.replace(Some(descriptors));
+        let result = test();
+        current.replace(previous);
+        result
+    })
+}
+
+#[cfg(test)]
+fn with_test_builtin_type_syntax_registry<R>(
+    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
+) -> Option<Result<R, InvalidStandardSymbolCase>> {
+    TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS.with(|current| {
+        current.borrow().map(|descriptors| {
+            let registry =
+                BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(descriptors)?;
+            Ok(lookup(&registry))
+        })
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn with_public_type_lookup_failure_for_test<R>(
+    failure: Option<InvalidStandardSymbolCase>,
+    test: impl FnOnce() -> R,
+) -> R {
+    TEST_PUBLIC_TYPE_LOOKUP_FAILURE.with(|current| {
+        let previous = current.replace(failure);
+        let result = test();
+        current.replace(previous);
+        result
+    })
+}
+
+fn public_type_lookup_preflight() -> Result<(), String> {
+    #[cfg(test)]
+    {
+        TEST_PUBLIC_TYPE_LOOKUP_FAILURE.with(|current| {
+            if let Some(failure) = current.borrow().as_ref() {
+                return Err(failure.diagnostic().message);
+            }
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
 pub fn type_annotation_reference_names(text: &str) -> Result<Vec<String>, String> {
     Ok(type_annotation_reference_paths(text)?
         .into_iter()
@@ -91,6 +189,7 @@ pub fn type_annotation_reference_names(text: &str) -> Result<Vec<String>, String
 }
 
 pub fn type_annotation_reference_paths(text: &str) -> Result<Vec<Vec<String>>, String> {
+    public_type_lookup_preflight()?;
     let ty = parse_type_annotation(text)?;
     let mut paths = Vec::new();
     collect_type_reference_paths(&ty, &mut paths);

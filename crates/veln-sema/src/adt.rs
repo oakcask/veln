@@ -10,6 +10,7 @@ use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
     validate_source_less_name,
 };
+use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_or_unknown;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -3048,7 +3049,7 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
                 | "EncodeStep"
         )
         && descriptor.visibility == Visibility::Public
-        && alias == crate::source_less_lookup::standard_module()
+        && alias == PRELUDE_MODULE
 }
 
 fn import_alias_matches(
