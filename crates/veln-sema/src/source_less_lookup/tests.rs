@@ -446,6 +446,24 @@ fn invalid_prelude_builtin_module_key_blocks_lookup_publication() {
 }
 
 #[test]
+fn invalid_prelude_builtin_module_key_blocks_publication_without_adapters() {
+    let result = build_source_less_lookup_registries(provider_set(
+        VALID_STANDARD_SYMBOLS,
+        &[],
+        PRELUDE_MODULE,
+        "PreludeBuiltin",
+        BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+        vec![valid_adt_descriptor()],
+    ));
+    let failure = result.expect_err("invalid prelude_builtin key blocks publication");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "PreludeBuiltin");
+    assert_eq!(failure.name_class, SourceLessNameClass::Module);
+}
+
+#[test]
 fn prelude_builtin_lookup_consumes_published_module_key() {
     const ADAPTERS: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
         module: None,

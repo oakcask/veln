@@ -163,7 +163,7 @@ jobs:
       - name: Prepare Cargo dependencies
         uses: ./.github/actions/cargo-dependencies
       - name: Verify source-less lookup publication in release mode
-        run: cargo test --locked --release -p veln-sema source_less_lookup::tests::invalid_adt_descriptor_blocks_standard_symbol_publication
+        run: cargo test --locked --release -p veln-sema source_less_lookup::tests::invalid_adt_descriptor_blocks_public_type_annotation_lookup
 
   doc-test:
     runs-on: ubuntu-latest

@@ -93,6 +93,12 @@ pub(crate) fn with_builtin_adt_registry<R>(
     with_source_less_lookup_registries(|registries| lookup(&registries.builtin_adts))
 }
 
+pub(crate) fn with_builtin_type_syntax_registry<R>(
+    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
+) -> Result<R, InvalidStandardSymbolCase> {
+    with_source_less_lookup_registries(|registries| lookup(&registries.builtin_type_syntax))
+}
+
 pub(crate) fn published_builtin_adt_registry() -> Result<AdtRegistry, InvalidStandardSymbolCase> {
     with_builtin_adt_registry(Clone::clone)
 }
@@ -144,6 +150,11 @@ fn source_less_lookup_registries()
 pub(crate) fn build_source_less_lookup_registries(
     provider_set: SourceLessLookupProviderSet,
 ) -> Result<SourceLessLookupRegistries, InvalidStandardSymbolCase> {
+    validate_source_less_name(
+        "compiler_adapter",
+        provider_set.prelude_builtin_module,
+        SourceLessNameClass::Module,
+    )?;
     let standard_symbols = build_standard_symbol_registry_with_modules(
         provider_set.prelude_builtin_module,
         provider_set.qualified,
@@ -301,18 +312,9 @@ pub(crate) fn with_source_less_lookup_provider_set_for_test<R>(
 ) -> R {
     use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 
-    let builtin_type_syntax = provider_set.builtin_type_syntax;
-    let lookup_failure = build_source_less_lookup_registries(provider_set.clone()).err();
     TEST_PROVIDER_SET.with(|current| {
         let previous = current.replace(Some(provider_set));
-        let result = crate::type_syntax::with_builtin_type_syntax_descriptors_for_test(
-            builtin_type_syntax,
-            || {
-                crate::type_syntax::with_public_type_lookup_failure_for_test(lookup_failure, || {
-                    catch_unwind(AssertUnwindSafe(test))
-                })
-            },
-        );
+        let result = catch_unwind(AssertUnwindSafe(test));
         current.replace(previous);
         match result {
             Ok(result) => result,
