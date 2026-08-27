@@ -180,9 +180,10 @@ compiler-known calls.
   the generated-table, injected-descriptor, duplicate-key, atomic-failure,
   cross-provider publication-failure, checked-lookup, and lookup-isolation
   evidence for this boundary. `prelude_builtin` lookup and
-  built-in ADT lookup consume only validated published registry state. Shared
-  standard-environment initialization validates the registries before
-  publishing reusable command or adapter state.
+  built-in ADT lookup consume only validated published registry state; the
+  production built-in ADT registry is the same published registry that
+  descriptor validation accepts. Shared standard-environment initialization
+  validates the registries before publishing reusable command or adapter state.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
