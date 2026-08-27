@@ -7,173 +7,48 @@ description: Use when creating, reorganizing, splitting, merging, or maintaining
 
 ## Goal
 
-Keep documentation discoverable without forcing agents to read long historical or background files. Preserve durable context, but put short routing pages in front of long details.
+Apply the repository documentation policy while keeping task routes short and
+details progressively disclosed.
+
+## Authority
+
+Read
+[documentation-authoring.md](../../../docs/reference/documentation-authoring.md)
+before changing documentation. That document is the normative source for
+classification, metadata, placement, presentation, routing boundaries, and
+specification-writing rules. Do not copy those rules into routing pages or this
+skill.
 
 ## Workflow
 
-1. Start from `docs/README.md` and identify the task the docs should support.
-2. Measure the current shape with file lists, line counts, and headings before moving content.
-3. Classify documents by purpose:
-   - `reference/` for stable requirements, design, architecture, APIs, data formats, CI, and implementation policy.
-   - `proposals/` for planned or incomplete behavior.
-   - `reviews/` for review findings, diagnostics evidence, quality gates, and rationale for plan changes.
-4. Keep top-level and directory README files short. They should answer what to read, when to read it, and what to skip.
-5. Move long details behind index pages instead of deleting or flattening them.
-6. When a normally important file grows long, keep the original expected path as a short index and move the full body to a clearly named sibling such as `*-full.md` or `*-plan.md`.
-7. Update relative links after moves and verify that Markdown links resolve.
-8. If planned behavior, phase scope, diagnostics gates, or quality rationale change, keep the relevant docs aligned with the code change.
-9. Add or update the `role:` and `update-when:` fields in the YAML frontmatter
-   of every Markdown document that the change adds or modifies under `docs/`.
-   Add `authority:` and `status:` only when the metadata rules require them.
-
-## Document Metadata
-
-Every added or modified Markdown document under `docs/` must declare one role:
-
-- `routing`: an index or selection route that does not define behavior.
-- `specification`: current behavior or a current project contract.
-- `proposal`: planned or incomplete behavior.
-- `reference`: stable requirements, policy, rationale, or source support.
-- `review`: bounded findings, diagnostics evidence, or quality-gate results.
-- `implementation-record`: completed proposal history or completion evidence.
-
-Use `authority:` only when the document itself can support a claim:
-
-- A `specification` must use `authority: normative`.
-- A `reference` must use `authority: normative` or `authority: supporting`.
-- A `review` or `implementation-record` may use `authority: supporting`.
-- A `routing` or `proposal` must not declare `authority:`.
-
-Use `status:` only for an exceptional lifecycle state. The allowed states are
-`closed`, `rejected`, and `superseded`. A `specification` cannot declare a
-status. A `routing` document can be `closed` or `superseded`. A `proposal` can
-be `closed`, `rejected`, or `superseded` after it is moved out of
-`docs/proposals/`. A `reference`, `review`, or `implementation-record` can be
-`superseded`. Do not add `status:` for an active proposal, ordinary route, or
-current supporting record. Do not put a `Status:` label in the document body.
-
-```markdown
----
-role: specification
-authority: normative
-update-when: The CLI command output contract or its checked command-output fixtures change.
----
-```
-
-```markdown
----
-role: routing
-update-when: A CLI specification page is added, moved, reclassified, or removed.
----
-```
-
-## Update Triggers
-
-Put YAML frontmatter at the start of the document. Add one single-line
-`update-when:` field. Name an observable project-state change that can make the
-document stale. The change requires a maintainer to check the document and
-update it if needed. Quote the value when YAML punctuation could make it
-ambiguous. Do not use calendar schedules or vague values such as
-`periodically`, `regularly`, `as needed`, `when necessary`, `always`, or `TBD`.
-
-Write the field as a self-contained selector for documentation update. Assume
-an agent receives only the extracted `update-when:` values, without document
-titles or bodies, and must compare them with its current task. The value must
-name the affected project subject and the concrete change that can make the
-document stale. Name relevant contracts, commands, components, schemas,
-artifacts, evidence, or document sets precisely enough to distinguish this
-document from nearby documents.
-
-Do not make the trigger depend on context found only in the document body.
-Avoid context-dependent phrases such as `the documented behavior`, `its
-evidence`, `this record`, or `the routed task` unless the same value first names
-their concrete referent. If an agent must open the document to learn what a
-subject, behavior, route, or evidence phrase means, rewrite the trigger.
-
-```markdown
----
-update-when: The `veln check --json` diagnostic schema or its checked JSON fixtures change.
----
-
-# Command Output
-```
-
-Choose the trigger from the document's purpose:
-
-- Specification: name the public contract and its authoritative executable
-  evidence that can change.
-- Proposal: name the proposed capability and the acceptance evidence, scope,
-  dependencies, or implementation boundary that can change.
-- Reference or decision record: name the decision or reference subject and the
-  authority, replacement, supporting evidence, or decision boundary that can
-  change.
-- Routing page: name the routed document set and the additions, moves,
-  reclassifications, removals, or responsibility changes that can make the route
-  stale.
-- Historical record: name the completed work and update it when it is
-  superseded, its named evidence becomes invalid, or a current specification
-  starts relying on the record as authority.
-
-Use the narrowest sufficient trigger. State multiple related conditions in the
-same field when any one of them requires an update. Do not add a second
-`update-when:` field. Before accepting the field, extract it without the
-document body and confirm that a reader can decide whether a representative
-project task might require the document to be updated. Opening the document may
-confirm whether an already selected candidate needs an update; it must not be
-required to identify the candidate.
-
-## Placement Rules
-
-- `docs/specification/` is the first stop for implemented language behavior.
-- Keep prose specification pages thin: they should route, summarize, and
-  explain executable or mechanically checked evidence when practical.
-- Prefer `examples/specification/`, generated grammar, compiler tests, checked
-  fixtures, or CLI harness cases for behavior that can be expressed
-  mechanically.
-- Use `docs/reference/source-decisions/` for implemented rationale and decision
-  history.
-- Use `docs/reference/implemented-proposals/` for completed proposal history
-  and completion evidence, not current behavior.
-- Use `docs/proposals/` only for `role: proposal` targets that are not fully
-  implemented. The directory README uses `role: routing`. Remove or relocate
-  rejected, superseded, implemented, and otherwise closed proposal pages.
-- Keep implementation gaps, verification evidence, and correction lists in the
-  matching proposal or reference page.
-- When prose and executable evidence disagree, update the implementation,
-  executable evidence, or prose together.
-
-## Index Page Rules
-
-- Index pages should be routing documents, not summaries of everything.
-- Prefer sections like "Read First", "Read When", and "History" over long chronological lists.
-- Put the newest or most actionable document first.
-- Tell agents not to read old reviews unless they are doing history or rationale work.
-- Link to detailed documents with relative paths.
-
-## Split Criteria
-
-Split or add an index when:
-
-- A docs entry point is mostly a flat list of many files.
-- A file mixes current guidance with historical review evidence.
-- Agents would need to read more than one long file before knowing which file matters.
-- A stable path is useful, but the content behind it has become too long for first-pass context.
-
-Do not split when:
-
-- The document is already short and has one clear audience.
-- The split would create a directory with only one trivial file and no routing value.
-- A local heading link is enough for the expected use.
+1. Start from `docs/README.md` and select the route that matches the task.
+2. Read the authoring policy and the README for each affected documentation
+   area.
+3. Inspect the relevant routes and detail boundaries before moving or splitting
+   content.
+4. Classify every added, moved, or substantially changed document under the
+   authoring policy.
+5. Keep routing documents focused on discovery. Move policy, behavior, and
+   detail into the authoritative document selected by the route.
+6. Preserve a commonly expected path as a short route when detail moves behind
+   it.
+7. Add or update required frontmatter for every Markdown document changed under
+   `docs/`.
+8. Update relative links after moves and align affected prose with executable
+   evidence, implementation, proposals, and historical records.
+9. Use `verifiable-specification-writing` when the change creates,
+   substantially revises, or reviews normative behavior.
+10. Run the verification steps and resolve failures before reporting completion.
 
 ## Verification
 
-- Check file layout with `find docs -maxdepth 3 -type f | sort`.
-- Check line counts with `wc -l` for changed index and detail files.
-- Search for stale links with `rg`.
+- Search for stale links after moving or renaming documents.
 - Inspect extracted update selectors with
-  `rg -n '^update-when:' docs -g '*.md'` and check that each value can be
-  matched to a project task without opening its document.
-- Run a Markdown link existence check when files were moved.
+  `rg -n '^update-when:' docs -g '*.md'`.
 - Run `node workflow-scripts/check-doc-frontmatter.mjs` with the changed
-  Markdown paths. CI applies the same check to added, modified, and moved
-  documents.
+  Markdown paths.
+- Run `node workflow-scripts/check-doc-links.mjs` when routes or links change.
+- Confirm that routing pages contain discovery information and point to the
+  smallest current authority.
+- Confirm that the authoring policy, rather than a routing page or skill, owns
+  any new or changed documentation rule.

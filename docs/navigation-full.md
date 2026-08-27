@@ -1,3 +1,8 @@
+---
+role: routing
+update-when: A detailed documentation route is added, moved, reclassified, or no longer points to the smallest current authority.
+---
+
 # Documentation Navigation Full
 
 Use this page after [navigation.md](navigation.md) when the short route is not
@@ -53,6 +58,8 @@ question.
 
 ## Documentation Maintenance
 
+- Documentation structure, metadata, presentation, and specification writing:
+  [reference/documentation-authoring.md](reference/documentation-authoring.md).
 - Entry-page routing, document movement, or status labels:
   the README for the directory whose classification is changing.
 - Source-decision category routing, record placement, or storage audits:

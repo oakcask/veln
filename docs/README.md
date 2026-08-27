@@ -33,29 +33,11 @@ first route is not obvious.
   [specification/mcp.md](specification/mcp.md).
 - Check rationale behind current behavior:
   [specification/source-decisions.md](specification/source-decisions.md).
-- Check source support or documentation maintenance routes:
+- Author or maintain documentation:
+  [reference/documentation-authoring.md](reference/documentation-authoring.md),
+  then the README for the affected directory.
+- Check a documentation route that is not listed here:
   [navigation.md](navigation.md).
-
-## Behavior Specification Rule
-
-When a document specifies behavior, use the most directly verifiable practical
-medium regardless of whether the document lives under `specification/`,
-`proposals/`, or `reference/`. Prefer executable tests, doctests, checked
-fixtures, executable specifications, measurable benchmarks, or structured
-decision and state-transition tables. Use diagrams as derived or supporting
-views when possible. Keep prose for routing, rationale, scope, and constraints
-that cannot reasonably be expressed mechanically.
-
-Specify behavior declaratively as an externally observable contract. Do not
-prescribe internal algorithms, data structures, or operation order unless they
-are required design constraints. When an internal algorithm or ordered
-procedure needs prose explanation, use Simplified Technical English style:
-write short sentences, put one action or condition in each sentence, and use
-consistent terminology.
-
-Planned behavior must identify its acceptance model and intended verification
-without presenting not-yet-running evidence as implemented. Current behavior
-must route to checked evidence when practical.
 
 ## Stop Rule
 
@@ -69,8 +51,8 @@ must route to checked evidence when practical.
 
 - `specification/`: current implemented language behavior, kept as the latest
   specification only.
-- `reference/`: durable rationale, source support, and completed proposal
-  records.
+- `reference/`: durable policy, rationale, source support, and completed
+  proposal records.
 - `proposals/`: planned or accepted targets not fully implemented. Proposal
   pages in this directory declare `role: proposal`.
 

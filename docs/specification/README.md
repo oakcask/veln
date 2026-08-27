@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: A specification route is added, moved, reclassified, or no longer points to current behavior.
+update-when: A specification topic or documentation-authoring route is added, moved, reclassified, or no longer points to current behavior or policy.
 ---
 
 # Language Specification
@@ -14,14 +14,6 @@ tracked in `../proposals/`.
 - [overview.md](overview.md): stability boundary and explicit non-goals.
 - [topic-map.md](topic-map.md): choose the smallest topic page for a source,
   command, JSON, runtime, contract, or hole change.
-- Keep prose thin: prefer executable or mechanically checked specifications for
-  behavior detail, and use prose pages for routing, summary, and explanation.
-- Specify externally observable behavior declaratively. Explain internal
-  algorithms or ordered procedures only when needed, using Simplified
-  Technical English style.
-- Prefer executable or checked specification evidence for behavior changes:
-  `../../examples/specification/`, generated grammar from
-  `source-surface-executable.pl`, compiler tests, or CLI harness cases.
 - Open a short topic page before any matching `*-full.md` detail file.
 
 ## Fast Routes
@@ -51,6 +43,8 @@ tracked in `../proposals/`.
 
 ## Read When
 
+- Authoring or maintaining a specification document:
+  [../reference/documentation-authoring.md](../reference/documentation-authoring.md).
 - Unknown implemented-behavior topic: [topic-map.md](topic-map.md).
 - Source syntax and grammar details: [source-surface.md](source-surface.md),
   [types.md](types.md), and [names-effects.md](names-effects.md).
@@ -78,8 +72,7 @@ tracked in `../proposals/`.
   behavior.
 - Executable or mechanically checked evidence changes in a way that affects the
   behavior described by a prose specification page.
-- A prose page repeats behavior that is now covered by executable evidence; in
-  that case, reduce the prose to a route, summary, or note.
+- Executable evidence begins covering behavior summarized by a prose page.
 - Planned rationale becomes implemented behavior or changes how users should
   read the language.
 - After promoting proposal behavior, update the smallest topic page named by
@@ -90,9 +83,6 @@ tracked in `../proposals/`.
 
 - Use `source-surface.md` for the implemented source grammar before checking
   proposal directories.
-- Do not rely on prose alone for behavior that can be captured in
-  `../../examples/specification/`, `source-surface-executable.pl`, compiler
-  tests, or CLI harness cases.
 - Use command-specific JSON pages only after [json-output.md](json-output.md)
   routes the change.
 - Use `../reference/source-decisions/` or `../proposals/` only after the

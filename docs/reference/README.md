@@ -5,9 +5,10 @@ update-when: A reference document is added, moved, reclassified, or removed.
 
 # Reference
 
-Stable rationale and source-support material lives here. Use
-`../specification/` for current language behavior, then return here only when a
-behavior page needs rationale, source support, or toolchain reference material.
+Stable policy, rationale, and source-support material lives here. Use
+`../specification/` for current language behavior, then return here when work
+needs repository policy, rationale, source support, or toolchain reference
+material.
 
 ## Read First
 
@@ -17,6 +18,8 @@ behavior page needs rationale, source support, or toolchain reference material.
 
 ## Fast Routes
 
+- Documentation structure, metadata, presentation, and specification writing:
+  [documentation-authoring.md](documentation-authoring.md).
 - Implemented behavior: [specification/topic-map.md](../specification/topic-map.md).
 - Legacy grammar route: [grammar.md](grammar.md).
 - Human diagnostics:
