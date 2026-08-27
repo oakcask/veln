@@ -100,6 +100,14 @@ compiler-known calls.
   The `identifier-casing-handler-binding-navigation` LSP case defines invalid
   handler context and operation-clause binding diagnostics and exclusion from
   definition, references, prepare-rename, and rename.
+  The `identifier-casing-rename-boundary` LSP case defines same-class type,
+  constructor, function, and value-binding rename edits and class-changing
+  `rename.invalid_case` rejection. The same LSP case defines that bare nullary
+  constructor expression and pattern uses from source-declared constructors are
+  edited by constructor rename, that same-spelled effect and effect operation
+  names are not selected or edited as type rename targets, that ambiguous bare
+  imported type references have no selected symbol, and that qualified type
+  references preserve their target identity.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-public-alias-targets-json`,

@@ -1,0 +1,38 @@
+use left
+use right
+
+type Item
+  Value(value: Int)
+end
+
+type Status
+  Ready
+  Waiting
+end
+
+effect Choose
+  pick(value: Bool) -> Bool
+end
+
+handler choose() handles Choose
+  pick(value) => value
+end
+
+fn convert(input: Item) -> Item
+  Value(1)
+end
+
+fn current() -> Status
+  Ready
+end
+
+fn observe(input: Status) -> Bool
+  match input
+    Ready => true
+    Waiting => false
+  end
+end
+
+effect Item
+  Item() -> Int
+end

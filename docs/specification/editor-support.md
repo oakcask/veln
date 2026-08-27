@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented editor-facing behavior or its LSP server evidence changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, navigation, formatting, rename, virtual-document, VSCode integration, or executable LSP evidence contract changes.
 ---
 
 # Editor Support
@@ -187,6 +187,30 @@ language service. It converts shared locations to LSP URIs and zero-based
 ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
+For selected workspace type, constructor, function, and value-binding symbols,
+`textDocument/rename` first validates that the requested replacement stays in
+the selected symbol's existing identifier class. Type rename selection covers
+type declarations and syntax-retained type-role references. It does not select
+same-spelled effect names or effect operation names as type symbols. A bare
+type-role reference with multiple visible same-spelled imported type candidates
+has no selected symbol. A qualified type-role reference selects only the
+visible type identity named by its qualifier. Constructor rename edits selected
+constructor declarations, constructor calls, and source-declared bare nullary
+constructor expression and pattern uses in workspace sources. Type and
+constructor replacement names start with an ASCII uppercase letter. Function
+and value-binding replacement names start with an ASCII lowercase letter. A
+class-changing replacement returns JSON-RPC invalid params with code `-32602`.
+The error payload preserves the shared `rename.invalid_case` code and includes
+the selected symbol class, requested name, and required initial class. The
+request returns no workspace edits in that failure response. A rename request
+without a selected supported workspace symbol returns an empty workspace-edit
+`changes` object, and prepare-rename for the same position returns `null`.
+The executable
+`identifier-casing-rename-boundary` LSP example covers same-class edits and
+class-changing failures for the four supported rename classes, plus
+source-declared nullary constructor uses, same-spelled non-type namespace
+exclusion, ambiguous imported type rejection, and qualified type identity
+preservation for type rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

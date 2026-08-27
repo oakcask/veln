@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented name resolution, effect behavior, or executable evidence changes.
+update-when: The Veln name resolution contract, effect checking contract, compiler-known call surface, or executable names/effects evidence changes.
 ---
 
 # Names And Effects
@@ -106,6 +106,14 @@ their derived source module path is listed by the dependency package's
 `[lib].exports`. The import exposes only public declarations and public
 aliases from that exported module; private names remain private even when the
 dependency source is loaded for analysis.
+
+Editor-facing type-role selection uses the same module and import visibility.
+A bare type-role reference selects the same-module source type first. Without
+a same-module type, it selects one visible public imported type only when the
+type identity is unique. If multiple visible imports provide the same type
+leaf, the bare reference has no selected language-service symbol. A qualified
+type-role reference selects only the visible type identity owned by the written
+qualifier.
 
 When `veln.toml` contains manifest export data, `[modules]` is rejected and
 `[lib].exports` is checked as a list of public package-relative source files.
