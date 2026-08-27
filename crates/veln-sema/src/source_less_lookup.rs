@@ -1,11 +1,19 @@
+#[cfg(test)]
+use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use crate::adt::{AdtDescriptor, AdtRegistry, build_builtin_descriptors};
-use crate::source_less_names::InvalidStandardSymbolCase;
+use crate::source_less_names::{
+    InvalidStandardSymbolCase, SourceLessNameClass, validate_source_less_name,
+};
+use crate::standard_names::PRELUDE_MODULE;
 use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
     SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
     build_standard_symbol_registry, private_compiler_adapter_name,
+};
+use crate::type_syntax::{
+    BUILTIN_TYPE_SYNTAX_DESCRIPTORS, validate_builtin_type_syntax_descriptors,
 };
 
 #[derive(Debug)]
@@ -109,11 +117,100 @@ pub(crate) fn build_source_less_lookup_registries(
         self_hosting_prelude,
         compiler_adapters,
     )?;
+    validate_source_less_name(
+        "standard_names",
+        PRELUDE_MODULE,
+        SourceLessNameClass::Module,
+    )?;
+    validate_builtin_type_syntax_descriptors()?;
     let builtin_adts = AdtRegistry::from_validated_source_less_descriptors(builtin_adts)?;
     Ok(SourceLessLookupRegistries {
         standard_symbols,
         builtin_adts,
     })
+}
+
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct SourceLessLookupRoute {
+    pub(crate) provider: &'static str,
+    pub(crate) lookup_key: String,
+    pub(crate) name_class: SourceLessNameClass,
+}
+
+#[cfg(test)]
+pub(crate) fn production_source_less_lookup_routes_for_test()
+-> Result<Vec<SourceLessLookupRoute>, InvalidStandardSymbolCase> {
+    let registries = build_source_less_lookup_registries(
+        QUALIFIED_SYMBOLS,
+        FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
+        SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+        COMPILER_ADAPTER_SYMBOLS,
+        build_builtin_descriptors(),
+    )?;
+    let mut routes = BTreeSet::new();
+
+    for symbol in registries.standard_symbols.qualified_symbols() {
+        if let Some(module) = symbol.module {
+            routes.insert(SourceLessLookupRoute {
+                provider: "runtime",
+                lookup_key: format!("{module}::{}", symbol.name),
+                name_class: symbol.name_class,
+            });
+        }
+    }
+    for symbol in registries.standard_symbols.prelude_symbols() {
+        routes.insert(SourceLessLookupRoute {
+            provider: "prelude",
+            lookup_key: symbol.name.to_string(),
+            name_class: symbol.name_class,
+        });
+    }
+    for symbol in registries.standard_symbols.compiler_adapter_symbols() {
+        routes.insert(SourceLessLookupRoute {
+            provider: "compiler_adapter",
+            lookup_key: format!("prelude_builtin::{}", symbol.name),
+            name_class: symbol.name_class,
+        });
+    }
+    routes.insert(SourceLessLookupRoute {
+        provider: "standard_names",
+        lookup_key: PRELUDE_MODULE.to_string(),
+        name_class: SourceLessNameClass::Module,
+    });
+    for descriptor in BUILTIN_TYPE_SYNTAX_DESCRIPTORS {
+        routes.insert(SourceLessLookupRoute {
+            provider: "type_syntax",
+            lookup_key: descriptor.name.to_string(),
+            name_class: descriptor.name_class,
+        });
+    }
+    for descriptor in registries.builtin_adts.descriptors() {
+        let type_key = match descriptor.module_name.as_deref() {
+            Some(module_name) => format!("{module_name}::{}", descriptor.type_name),
+            None => descriptor.type_name.clone(),
+        };
+        routes.insert(SourceLessLookupRoute {
+            provider: "adt",
+            lookup_key: type_key,
+            name_class: descriptor.name_class,
+        });
+        for variant in &descriptor.variants {
+            let constructor_key = match descriptor.module_name.as_deref() {
+                Some(module_name) => {
+                    format!("{module_name}::{}::{}", descriptor.type_name, variant.name)
+                }
+                None => format!("{}::{}", descriptor.type_name, variant.name),
+            };
+            routes.insert(SourceLessLookupRoute {
+                provider: "adt",
+                lookup_key: constructor_key,
+                name_class: variant.name_class,
+            });
+        }
+    }
+
+    Ok(routes.into_iter().collect())
 }
 
 #[cfg(test)]

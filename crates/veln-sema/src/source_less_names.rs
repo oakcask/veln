@@ -3,7 +3,7 @@ use veln_diagnostics::{
     toolchain_invalid_symbol_case_diagnostic,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum SourceLessNameClass {
     Module,
     Function,

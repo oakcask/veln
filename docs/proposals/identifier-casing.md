@@ -55,8 +55,8 @@ boundaries are specified by
 [Editor Support](../specification/editor-support.md), and by the checked
 examples that those pages name.
 Source-less compiler-provided source lookup descriptors are specified by
-[Names And Effects](../specification/names-effects.md) and covered by focused
-`veln-sema` registry tests. Their completion record is
+[Source-Less Lookup](../specification/source-less-lookup.md) and covered by
+focused `veln-sema` registry tests. Their completion record is
 [Identifier Casing Source-Less Symbols](../reference/implemented-proposals/identifier-casing-source-less-symbols.md).
 
 The LSP single-file diagnostics helper now receives the same parse-clean

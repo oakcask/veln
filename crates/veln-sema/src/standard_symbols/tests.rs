@@ -92,48 +92,54 @@ fn source_lookup_registry_accepts_current_generated_tables() {
 
 #[test]
 fn source_less_provider_inventory_names_every_lookup_route() {
-    let routes = [
-        ("runtime", "stdio::println", SourceLessNameClass::Function),
-        ("prelude", "float_add", SourceLessNameClass::Function),
-        (
-            "prelude_builtin",
-            "prelude_builtin::byte",
-            SourceLessNameClass::Function,
-        ),
-    ];
+    let routes = crate::source_less_lookup::production_source_less_lookup_routes_for_test()
+        .expect("production source-less lookup providers validate");
+    let providers = routes
+        .iter()
+        .map(|route| route.provider)
+        .collect::<BTreeSet<_>>();
 
-    crate::source_less_lookup::with_standard_symbol_registry(|registry| {
-        for (provider, key, class) in routes {
-            match provider {
-                "runtime" => {
-                    let segments = key.split("::").map(str::to_string).collect::<Vec<_>>();
-                    assert_eq!(
-                        registry
-                            .qualified_symbol(&segments)
-                            .map(|symbol| symbol.name_class),
-                        Some(class)
-                    );
-                }
-                "prelude" => {
-                    assert_eq!(
-                        registry.prelude_symbol(key).map(|symbol| symbol.name_class),
-                        Some(class)
-                    );
-                }
-                "prelude_builtin" => {
-                    let name = key.strip_prefix("prelude_builtin::").expect("adapter key");
-                    assert_eq!(
-                        registry
-                            .compiler_adapter_symbol(name)
-                            .map(|symbol| symbol.name_class),
-                        Some(class)
-                    );
-                }
-                _ => unreachable!("covered provider route"),
-            }
-        }
-    })
-    .expect("standard symbol registry");
+    assert_eq!(
+        providers,
+        BTreeSet::from([
+            "adt",
+            "compiler_adapter",
+            "prelude",
+            "runtime",
+            "standard_names",
+            "type_syntax"
+        ])
+    );
+    assert!(routes.iter().any(|route| {
+        route.provider == "runtime"
+            && route.lookup_key == "stdio::println"
+            && route.name_class == SourceLessNameClass::Function
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "prelude"
+            && route.lookup_key == "float_add"
+            && route.name_class == SourceLessNameClass::Function
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "compiler_adapter"
+            && route.lookup_key == "prelude_builtin::byte"
+            && route.name_class == SourceLessNameClass::Function
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "standard_names"
+            && route.lookup_key == "prelude"
+            && route.name_class == SourceLessNameClass::Module
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "type_syntax"
+            && route.lookup_key == "Result"
+            && route.name_class == SourceLessNameClass::Type
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "adt"
+            && route.lookup_key == "Option::Some"
+            && route.name_class == SourceLessNameClass::Constructor
+    }));
 }
 
 #[test]

@@ -29,15 +29,15 @@ details, and their primary message states that the lookup key is duplicated.
 
 Qualified lookup keys are the exact module-name and symbol-name pair. Prelude
 lookup keys are the exact source prelude name. Qualified `prelude_builtin`
-compiler-adapter names and built-in ADT type and constructor descriptors are
+compiler-adapter names, the implicit `prelude` module name, built-in
+type-syntax spellings, and built-in ADT type and constructor descriptors are
 included in this gate. A failure in any one provider publishes no lookup state
 from the other source-less providers. Shared standard-environment
 initialization validates the registries before publishing reusable command or
-adapter state.
-`prelude_builtin` lookup consumes validated published registry state.
-Production built-in ADT lookup seeds application registries from the published
-built-in ADT registry in the same shared source-less publication result that
-owns standard-symbol lookup state.
+adapter state. `prelude_builtin` lookup consumes validated published registry
+state. Production built-in ADT lookup seeds application registries from the
+published built-in ADT registry in the same shared source-less publication
+result that owns standard-symbol lookup state.
 
 Compiler temporaries and bookkeeping-only names that cannot participate in
 source lookup stay outside the source lookup validation gate. Embedded Veln
@@ -47,17 +47,17 @@ casing diagnostics.
 ## Evidence
 
 - Current behavior route:
-  [../../specification/names-effects.md](../../specification/names-effects.md).
+  [../../specification/source-less-lookup.md](../../specification/source-less-lookup.md).
 - Focused executable evidence:
   `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests for
   the generated tables, injected invalid descriptors, duplicate lookup keys,
   standard-symbol class and lookup-namespace mismatches, atomic failure,
-  cross-provider publication failure, checked lookup, and lookup isolation.
-  The `adt` and `source_less_lookup` tests also pin that production built-in
-  ADT lookup consumes the published built-in ADT registry from the shared
-  publication result before constructing application registry state. The Rust
-  CI release registry test keeps source-less publication validation checked in
-  release builds.
+  cross-provider publication failure, checked lookup, production provider
+  inventory, and lookup isolation. The `adt` and `source_less_lookup` tests
+  also pin that production built-in ADT lookup consumes the published built-in
+  ADT registry from the shared publication result before constructing
+  application registry state. The Rust CI release registry test keeps
+  source-less publication validation checked in release builds.
 - Public CLI fixtures are not practical for invalid compiler-provided
   descriptor input because that input is not expressible as Veln source or as
   a public command-line option. Serializer and adapter tests consume the

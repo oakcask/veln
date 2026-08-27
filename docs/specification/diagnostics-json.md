@@ -34,9 +34,10 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   duplicated. Focused `veln-sema` `standard_symbols`, `adt`, and
   `source_less_lookup` tests define descriptor, atomic-failure,
   cross-provider publication-failure, lookup-key, checked-lookup, and lookup
-  isolation behavior for runtime, prelude, `prelude_builtin`, and built-in
-  ADT lookup descriptors. The Rust CI release registry test keeps this
-  validation active in release builds.
+  isolation behavior for runtime, prelude, `prelude_builtin`,
+  `standard_names`, `type_syntax`, and built-in ADT lookup descriptors. The
+  Rust CI release registry test keeps this validation active in release
+  builds.
 - Local inference diagnostic details:
   [diagnostics-json.md#type-inference-diagnostics](diagnostics-json.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -107,8 +108,9 @@ standard-symbol class and lookup-namespace mismatches use the same id and
 details. Focused `veln-sema` `standard_symbols`, `adt`, and
 `source_less_lookup` tests pin generated-table validation, injected invalid
 descriptors, duplicate lookup keys, atomic failure, cross-provider
-publication failure, checked lookup, and lookup isolation for runtime,
-prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
+publication failure, checked lookup, production provider inventory, and lookup
+isolation for runtime, prelude, `prelude_builtin`, `standard_names`,
+`type_syntax`, and built-in ADT lookup descriptors.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
