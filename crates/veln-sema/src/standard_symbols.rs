@@ -1,6 +1,4 @@
 use std::sync::OnceLock;
-
-#[cfg(test)]
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,7 +14,6 @@ pub(crate) enum SourceLessNameClass {
 }
 
 impl SourceLessNameClass {
-    #[cfg(test)]
     fn as_str(self) -> &'static str {
         match self {
             Self::Module => "module",
@@ -24,7 +21,6 @@ impl SourceLessNameClass {
         }
     }
 
-    #[cfg(test)]
     fn required_initial(self) -> &'static str {
         match self {
             Self::Module | Self::Function => "ascii_lowercase",
@@ -61,17 +57,14 @@ pub(crate) struct InvalidStandardSymbolCase {
 }
 
 impl InvalidStandardSymbolCase {
-    #[cfg(test)]
     pub(crate) fn code(&self) -> &'static str {
         "toolchain.invalid_symbol_case"
     }
 
-    #[cfg(test)]
     pub(crate) fn required_initial(&self) -> &'static str {
         self.name_class.required_initial()
     }
 
-    #[cfg(test)]
     pub(crate) fn diagnostic(&self) -> Diagnostic {
         Diagnostic::new(
             self.code(),
@@ -1080,37 +1073,53 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
     }
 }
 
-pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+pub(crate) fn qualified_symbol_checked(
+    segments: &[String],
+) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
     let [module, name] = segments else {
-        return None;
+        return Ok(None);
     };
-    standard_symbol_registry()
-        .ok()?
+    Ok(standard_symbol_registry()?
         .qualified
         .iter()
         .copied()
-        .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name)
+        .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name))
 }
 
-pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+    qualified_symbol_checked(segments).ok().flatten()
+}
+
+pub(crate) fn prelude_symbol_checked(
+    name: &str,
+) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
     if private_compiler_adapter_name(name) {
-        return None;
+        return Ok(None);
     }
-    standard_symbol_registry()
-        .ok()?
+    Ok(standard_symbol_registry()?
         .prelude
         .iter()
         .copied()
-        .find(|symbol| symbol.name == name)
+        .find(|symbol| symbol.name == name))
+}
+
+pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    prelude_symbol_checked(name).ok().flatten()
+}
+
+pub(crate) fn compiler_adapter_symbol_checked(
+    name: &str,
+) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
+    if !private_compiler_adapter_name(name) && standard_symbol_registry().is_err() {
+        standard_symbol_registry()?;
+    }
+    Ok(COMPILER_ADAPTER_SYMBOLS
+        .iter()
+        .find(|symbol| symbol.name == name))
 }
 
 pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    if !private_compiler_adapter_name(name) && standard_symbol_registry().is_err() {
-        return None;
-    }
-    COMPILER_ADAPTER_SYMBOLS
-        .iter()
-        .find(|symbol| symbol.name == name)
+    compiler_adapter_symbol_checked(name).ok().flatten()
 }
 
 fn private_compiler_adapter_name(name: &str) -> bool {
@@ -1150,6 +1159,10 @@ fn standard_symbol_registry() -> Result<&'static StandardSymbolRegistry, Invalid
         })
         .as_ref()
         .map_err(Clone::clone)
+}
+
+pub(crate) fn validate_standard_symbol_registry() -> Result<(), InvalidStandardSymbolCase> {
+    standard_symbol_registry().map(|_| ())
 }
 
 fn build_standard_symbol_registry(

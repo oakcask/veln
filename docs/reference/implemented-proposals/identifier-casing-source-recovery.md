@@ -99,8 +99,9 @@ invalid symbols from checked artifacts.
 The source positions and `name.invalid_case` diagnostic contract are specified
 by [Names And Effects](../../specification/names-effects.md) and its checked
 identifier-casing examples. Module identities, qualified-use casing, alias
-target leaves, rename, and source-less registries remain outside this
-completed slice.
+target leaves, and rename remain outside this completed slice. Source-less
+registry validation is completed separately in
+[Identifier Casing Source-Less Symbols](identifier-casing-source-less-symbols.md).
 
 The function row includes function declarations, test declaration names, and
 public function alias declaration names. The type row includes source ADT type

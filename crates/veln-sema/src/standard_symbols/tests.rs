@@ -154,6 +154,28 @@ fn invalid_descriptor_prevents_partial_lookup_registry() {
 }
 
 #[test]
+fn checked_lookup_reports_invalid_registry_instead_of_lookup_miss() {
+    const INVALID_PRELUDE: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "Float_add",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+    let registry = build_standard_symbol_registry(&[], INVALID_PRELUDE, &[], &[]);
+    let failure = registry.expect_err("invalid public prelude descriptor");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "prelude");
+    assert_eq!(failure.name, "Float_add");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+}
+
+#[test]
 fn private_compiler_adapter_names_stay_outside_source_lookup_gate() {
     const PRIVATE_ADAPTER_WITH_INVALID_MODULE: &[StandardSymbolDescriptor] =
         &[StandardSymbolDescriptor {

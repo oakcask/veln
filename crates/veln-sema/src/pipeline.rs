@@ -15,6 +15,7 @@ use crate::analysis::{
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::schema;
+use crate::standard_symbols::validate_standard_symbol_registry;
 use crate::types::{
     ReusableStandardEnvironment, TypeEnvironment, prepare_current_reusable_standard_environment,
     prepare_reusable_standard_environment,
@@ -28,6 +29,9 @@ pub struct LoweredSurfaceModule {
 }
 
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return vec![failure.diagnostic()];
+    }
     let environment = TypeEnvironment::from_module(module);
     analyze_surface_module_with_environment(module, &environment, true)
 }
@@ -44,6 +48,10 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
 pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        let diagnostics = vec![failure.diagnostic()];
+        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+    }
     let environment = TypeEnvironment::from_module(module);
     check_project_surface_module_with_environment(module, environment)
 }
@@ -52,6 +60,10 @@ pub fn check_project_surface_module_with_standard_environment(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        let diagnostics = vec![failure.diagnostic()];
+        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+    }
     let environment = TypeEnvironment::from_module_with_standard(module, standard);
     check_project_surface_module_with_environment(module, environment)
 }
@@ -61,6 +73,10 @@ pub fn check_project_surface_modules_with_standard_environment(
     selected_standard_module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        let diagnostics = vec![failure.diagnostic()];
+        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+    }
     let environment = TypeEnvironment::from_application_module_with_standard(
         application_module,
         selected_standard_module,
@@ -74,6 +90,10 @@ pub fn check_project_surface_module_with_standard_modules_environment(
     selected_standard_module_names: &BTreeSet<String>,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        let diagnostics = vec![failure.diagnostic()];
+        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+    }
     let environment = TypeEnvironment::from_application_module_with_standard_module_names(
         application_module,
         selected_standard_module_names,
@@ -98,6 +118,10 @@ fn check_project_surface_module_with_environment(
     module: &SurfaceModule,
     environment: TypeEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        let diagnostics = vec![failure.diagnostic()];
+        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
+    }
     let validate_standard_bodies = should_validate_standard_bodies(module);
     let semantic_diagnostics =
         analyze_surface_module_with_environment(module, &environment, validate_standard_bodies);
@@ -115,6 +139,9 @@ fn analyze_surface_module_with_environment(
     environment: &TypeEnvironment,
     validate_standard_bodies: bool,
 ) -> Vec<Diagnostic> {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return vec![failure.diagnostic()];
+    }
     let mut diagnostics = Vec::new();
 
     diagnostics.extend(check_module_declarations(module, environment));
@@ -269,10 +296,16 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
 }
 
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return lowered_internal_failure(vec![failure.diagnostic()]);
+    }
     lower_analyzed_surface_module(module, analyze_surface_module(module))
 }
 
 pub fn lower_project_reachable_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return lowered_internal_failure(vec![failure.diagnostic()]);
+    }
     let environment = TypeEnvironment::from_module(module);
     lower_project_reachable_surface_module_with_environment(module, environment)
 }
@@ -281,6 +314,9 @@ pub fn lower_project_reachable_surface_module_with_standard_environment(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> LoweredSurfaceModule {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return lowered_internal_failure(vec![failure.diagnostic()]);
+    }
     let environment = TypeEnvironment::from_module_with_standard(module, standard);
     lower_project_reachable_surface_module_with_environment(module, environment)
 }
@@ -290,6 +326,9 @@ pub fn lower_project_reachable_surface_modules_with_standard_environment(
     selected_standard_module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> LoweredSurfaceModule {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return lowered_internal_failure(vec![failure.diagnostic()]);
+    }
     let environment = TypeEnvironment::from_application_module_with_standard(
         reachable_module,
         selected_standard_module,
@@ -302,6 +341,9 @@ fn lower_project_reachable_surface_module_with_environment(
     module: &SurfaceModule,
     environment: TypeEnvironment,
 ) -> LoweredSurfaceModule {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return lowered_internal_failure(vec![failure.diagnostic()]);
+    }
     let diagnostics = analyze_surface_module_with_environment(
         module,
         &environment,
@@ -323,8 +365,19 @@ pub fn lower_analyzed_surface_module(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
 ) -> LoweredSurfaceModule {
+    if let Err(failure) = validate_standard_symbol_registry() {
+        return lowered_internal_failure(vec![failure.diagnostic()]);
+    }
     let environment = TypeEnvironment::from_module(module);
     lower_analyzed_surface_module_with_environment(module, diagnostics, &environment, false)
+}
+
+fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModule {
+    LoweredSurfaceModule {
+        diagnostics,
+        core: None,
+        ir: None,
+    }
 }
 
 fn lower_analyzed_surface_module_with_environment(
