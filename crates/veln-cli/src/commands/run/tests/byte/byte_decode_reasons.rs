@@ -33,6 +33,10 @@ fn byte_result_failure_diagnostic_projects_decode_error_reason() {
             "field_path_display",
             JsonValue::string("ManualPacketWire.kind"),
         ),
+        ("local_byte_offset", JsonValue::Number(2)),
+        ("expected_count", JsonValue::Number(4)),
+        ("available_count", JsonValue::Number(1)),
+        ("byte_preview", byte_preview("aa")),
     ]);
     let failure = TestFailure::result_with_details(
         "DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length)".to_string(),
@@ -46,13 +50,25 @@ fn byte_result_failure_diagnostic_projects_decode_error_reason() {
 
     assert_eq!(diagnostic.id, "codec.invalid_input");
     assert_eq!(diagnostic.message, "decode error at byte offset 62");
-    assert_eq!(diagnostic.related.len(), 3);
+    assert_eq!(diagnostic.related.len(), 6);
     assert_eq!(
         diagnostic.related[1].to_json(),
         "{\"message\":\"Decode failure reason: kind value exceeds declared length.\"}"
     );
     assert_eq!(
         diagnostic.related[2].to_json(),
+        "{\"message\":\"Local byte offset: 2.\"}"
+    );
+    assert_eq!(
+        diagnostic.related[3].to_json(),
+        "{\"message\":\"Decoder expected 4 byte(s); 1 byte(s) were available.\"}"
+    );
+    assert_eq!(
+        diagnostic.related[4].to_json(),
+        "{\"message\":\"Nearby bytes: aa (showing 1 of 1 byte(s), complete).\"}"
+    );
+    assert_eq!(
+        diagnostic.related[5].to_json(),
         "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.invalid_input, ByteOffset(62), ManualPacketWire.kind, kind value exceeds declared length).\"}"
     );
 }

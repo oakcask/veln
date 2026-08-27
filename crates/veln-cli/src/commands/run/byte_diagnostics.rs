@@ -416,27 +416,63 @@ fn generic_decode_error_result_failure_diagnostic(
     id: String,
     byte_offset: i64,
 ) -> Diagnostic {
+    let diagnostic = start_decode_reason_diagnostic(
+        byte_diagnostic,
+        byte_entries,
+        &id,
+        format!("decode error at byte offset {byte_offset}"),
+    );
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Decode failure reason")
+}
+
+fn start_decode_reason_diagnostic(
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: &str,
+    message: String,
+) -> Diagnostic {
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
         DiagnosticKind::Runtime,
-        format!("decode error at byte offset {byte_offset}"),
+        message,
         None,
         byte_diagnostic.clone(),
     );
     push_field_path_note(&mut diagnostic, byte_entries);
+    diagnostic
+}
+
+fn finish_decode_reason_diagnostic(
+    mut diagnostic: Diagnostic,
+    failure: &TestFailure,
+    byte_entries: &[(String, JsonValue)],
+    reason_label: &str,
+) -> Diagnostic {
+    push_decode_reason_note(&mut diagnostic, byte_entries, reason_label);
+    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+    push_decode_error_value_note(&mut diagnostic, failure);
+    diagnostic
+}
+
+fn push_decode_reason_note(
+    diagnostic: &mut Diagnostic,
+    byte_entries: &[(String, JsonValue)],
+    reason_label: &str,
+) {
     if let Some(reason) = json_string(byte_entries, "reason") {
         diagnostic
             .related
-            .push(note_json(format!("Decode failure reason: {reason}.")));
+            .push(note_json(format!("{reason_label}: {reason}.")));
     }
-    push_decode_byte_context_notes(&mut diagnostic, byte_entries);
+}
+
+fn push_decode_error_value_note(diagnostic: &mut Diagnostic, failure: &TestFailure) {
     if let Some(value) = result_failure_value(failure) {
         diagnostic
             .related
             .push(note_json(format!("DecodeError value: {value}.")));
     }
-    diagnostic
 }
 
 fn push_field_path_note(diagnostic: &mut Diagnostic, byte_entries: &[(String, JsonValue)]) {

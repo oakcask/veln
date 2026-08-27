@@ -1,49 +1,13 @@
 use super::*;
 
-#[derive(Clone, Copy)]
-enum ByteContextNotes {
-    Include,
-    Omit,
-}
-
-fn start_decode_reason_diagnostic(
-    byte_diagnostic: &JsonValue,
-    byte_entries: &[(String, JsonValue)],
-    id: &str,
-    message: String,
-) -> Diagnostic {
-    let mut diagnostic = Diagnostic::new(
-        id,
-        Severity::Error,
-        DiagnosticKind::Runtime,
-        message,
-        None,
-        byte_diagnostic.clone(),
-    );
-    push_field_path_note(&mut diagnostic, byte_entries);
-    diagnostic
-}
-
-fn finish_decode_reason_diagnostic(
+fn finish_decode_reason_diagnostic_without_byte_context(
     mut diagnostic: Diagnostic,
     failure: &TestFailure,
     byte_entries: &[(String, JsonValue)],
     reason_label: &str,
-    byte_context_notes: ByteContextNotes,
 ) -> Diagnostic {
-    if let Some(reason) = json_string(byte_entries, "reason") {
-        diagnostic
-            .related
-            .push(note_json(format!("{reason_label}: {reason}.")));
-    }
-    if matches!(byte_context_notes, ByteContextNotes::Include) {
-        push_decode_byte_context_notes(&mut diagnostic, byte_entries);
-    }
-    if let Some(value) = result_failure_value(failure) {
-        diagnostic
-            .related
-            .push(note_json(format!("DecodeError value: {value}.")));
-    }
+    push_decode_reason_note(&mut diagnostic, byte_entries, reason_label);
+    push_decode_error_value_note(&mut diagnostic, failure);
     diagnostic
 }
 
@@ -68,13 +32,7 @@ pub(super) fn checksum_mismatch_result_failure_diagnostic(
             "Expected checksum `{expected_checksum}`; actual checksum was `{actual_checksum}`."
         )));
     }
-    finish_decode_reason_diagnostic(
-        diagnostic,
-        failure,
-        byte_entries,
-        "Checksum failure reason",
-        ByteContextNotes::Include,
-    )
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Checksum failure reason")
 }
 
 pub(super) fn length_mismatch_result_failure_diagnostic(
@@ -98,13 +56,7 @@ pub(super) fn length_mismatch_result_failure_diagnostic(
             "Expected length {expected_length}; actual length was {actual_length}."
         )));
     }
-    finish_decode_reason_diagnostic(
-        diagnostic,
-        failure,
-        byte_entries,
-        "Length mismatch reason",
-        ByteContextNotes::Include,
-    )
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Length mismatch reason")
 }
 
 pub(super) fn payload_length_mismatch_result_failure_diagnostic(
@@ -133,7 +85,6 @@ pub(super) fn payload_length_mismatch_result_failure_diagnostic(
         failure,
         byte_entries,
         "Payload length mismatch reason",
-        ByteContextNotes::Include,
     )
 }
 
@@ -158,13 +109,7 @@ pub(super) fn padding_mismatch_result_failure_diagnostic(
             "Expected padding length {expected_padding_length}; actual padding length was {actual_padding_length}."
         )));
     }
-    finish_decode_reason_diagnostic(
-        diagnostic,
-        failure,
-        byte_entries,
-        "Padding mismatch reason",
-        ByteContextNotes::Include,
-    )
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Padding mismatch reason")
 }
 
 pub(super) fn integer_out_of_range_result_failure_diagnostic(
@@ -195,7 +140,6 @@ pub(super) fn integer_out_of_range_result_failure_diagnostic(
         failure,
         byte_entries,
         "Integer conversion reason",
-        ByteContextNotes::Include,
     )
 }
 
@@ -225,7 +169,6 @@ pub(super) fn sequence_mismatch_result_failure_diagnostic(
         failure,
         byte_entries,
         "Sequence mismatch reason",
-        ByteContextNotes::Include,
     )
 }
 
@@ -250,13 +193,7 @@ pub(super) fn tag_mismatch_result_failure_diagnostic(
             "Expected tag `{expected_tag}`; actual tag was `{actual_tag}`."
         )));
     }
-    finish_decode_reason_diagnostic(
-        diagnostic,
-        failure,
-        byte_entries,
-        "Tag mismatch reason",
-        ByteContextNotes::Include,
-    )
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Tag mismatch reason")
 }
 
 pub(super) fn magic_mismatch_result_failure_diagnostic(
@@ -280,13 +217,7 @@ pub(super) fn magic_mismatch_result_failure_diagnostic(
             "Expected magic `{expected_magic}`; actual magic was `{actual_magic}`."
         )));
     }
-    finish_decode_reason_diagnostic(
-        diagnostic,
-        failure,
-        byte_entries,
-        "Magic mismatch reason",
-        ByteContextNotes::Include,
-    )
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Magic mismatch reason")
 }
 
 pub(super) fn version_mismatch_result_failure_diagnostic(
@@ -310,13 +241,7 @@ pub(super) fn version_mismatch_result_failure_diagnostic(
             "Expected version `{expected_version}`; actual version was `{actual_version}`."
         )));
     }
-    finish_decode_reason_diagnostic(
-        diagnostic,
-        failure,
-        byte_entries,
-        "Version mismatch reason",
-        ByteContextNotes::Include,
-    )
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Version mismatch reason")
 }
 
 pub(super) fn unsupported_feature_result_failure_diagnostic(
@@ -342,7 +267,6 @@ pub(super) fn unsupported_feature_result_failure_diagnostic(
         failure,
         byte_entries,
         "Unsupported feature reason",
-        ByteContextNotes::Include,
     )
 }
 
@@ -368,13 +292,7 @@ pub(super) fn trailing_input_result_failure_diagnostic(
             "Consumed {consumed_count} of {available_count} available bytes; {remaining_count} bytes remain."
         )));
     }
-    finish_decode_reason_diagnostic(
-        diagnostic,
-        failure,
-        byte_entries,
-        "Trailing input reason",
-        ByteContextNotes::Include,
-    )
+    finish_decode_reason_diagnostic(diagnostic, failure, byte_entries, "Trailing input reason")
 }
 
 pub(super) fn consumed_count_invalid_result_failure_diagnostic(
@@ -398,11 +316,10 @@ pub(super) fn consumed_count_invalid_result_failure_diagnostic(
             "Decoder consumed {actual_consumed_count} byte(s); supplied view length was {available_count} byte(s)."
         )));
     }
-    finish_decode_reason_diagnostic(
+    finish_decode_reason_diagnostic_without_byte_context(
         diagnostic,
         failure,
         byte_entries,
         "Consumed count reason",
-        ByteContextNotes::Omit,
     )
 }
