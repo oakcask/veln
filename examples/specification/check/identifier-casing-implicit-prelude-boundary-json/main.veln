@@ -1,12 +1,10 @@
 # A same-spelled invalid application constructor recovery record does not hide
-# the valid constructor exported by the implicit standard prelude.
+# the valid function exported by the implicit standard prelude. The return type
+# mismatch is only possible when normal lookup selects the prelude function.
 type bad
-  Chunk(Int)
+  int_to_string(Int)
 end
 
-fn main() -> String
-  match Chunk(byte_chunk([]))
-    Chunk(_) => "prelude"
-    End => "end"
-  end
+fn main() -> Int
+  int_to_string(1)
 end

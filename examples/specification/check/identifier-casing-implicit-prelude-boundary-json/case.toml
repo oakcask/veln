@@ -14,9 +14,19 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 1
+equals = 3
 
 [[diagnostics]]
 id = "name.invalid_case"
 kind = "name"
 message = "type name `bad` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "constructor name `int_to_string` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "type.mismatch"
+kind = "type"
+message = "expected `Int`, but found `String`"

@@ -1,4 +1,6 @@
 use super::*;
+use crate::adt::{AdtPayloadType, ConstructorLookup};
+use crate::semantic_model::Type;
 use crate::types::environment::TypeEnvironment;
 use std::collections::BTreeSet;
 use veln_ast::{UseDecl, lower_surface_ast_with_module_identity};
@@ -254,8 +256,8 @@ fn valid_implicit_prelude_function_precedes_application_recovery_record() {
         "prelude.veln",
         concat!(
             "mod std::prelude\n",
-            "pub fn token(value: Int) -> Int\n",
-            "  value\n",
+            "pub fn token(value: Int) -> String\n",
+            "  \"prelude\"\n",
             "end\n",
         ),
         "std::prelude",
@@ -269,7 +271,7 @@ fn valid_implicit_prelude_function_precedes_application_recovery_record() {
             "type bad\n",
             "  token(Int)\n",
             "end\n",
-            "fn main() -> Int\n",
+            "fn main() -> String\n",
             "  token(1)\n",
             "end\n",
         ),
@@ -277,6 +279,22 @@ fn valid_implicit_prelude_function_precedes_application_recovery_record() {
     );
     let mut selected_standard_module_names = BTreeSet::new();
     selected_standard_module_names.insert("std::prelude".to_string());
+    let environment = TypeEnvironment::from_application_module_with_standard_module_names(
+        &application,
+        &selected_standard_module_names,
+        &reusable,
+    );
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("token", Some("app"), 1),
+        1
+    );
+    let selected = environment
+        .unqualified_function("token", Some("app"))
+        .found()
+        .expect("valid prelude function should be selected");
+    assert_eq!(selected.module_name.as_deref(), Some("std::prelude"));
+    assert_eq!(selected.params, [Type::int()]);
+    assert_eq!(selected.return_type, Type::string());
 
     let (diagnostics, lowered) = check_project_surface_module_with_standard_modules_environment(
         &application,
@@ -329,6 +347,34 @@ fn valid_implicit_prelude_constructor_precedes_application_recovery_record() {
     );
     let mut selected_standard_module_names = BTreeSet::new();
     selected_standard_module_names.insert("std::prelude".to_string());
+    let environment = TypeEnvironment::from_application_module_with_standard_module_names(
+        &application,
+        &selected_standard_module_names,
+        &reusable,
+    );
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Valid", Some("app"), 1),
+        1
+    );
+    let segments = vec!["Valid".to_string()];
+    let selected = match environment
+        .adts
+        .constructor(&segments, Some("app"), &environment.uses)
+    {
+        ConstructorLookup::Found(constructor) => constructor,
+        ConstructorLookup::Ambiguous => panic!("valid prelude constructor was ambiguous"),
+        ConstructorLookup::Missing => panic!("valid prelude constructor was missing"),
+    };
+    assert_eq!(
+        selected.descriptor.module_name.as_deref(),
+        Some("std::prelude")
+    );
+    assert_eq!(selected.descriptor.type_name, "Token");
+    assert_eq!(selected.variant.name, "Valid");
+    assert_eq!(
+        selected.variant.payload_fields[0].ty,
+        AdtPayloadType::Concrete(Type::int())
+    );
 
     let (diagnostics, lowered) = check_project_surface_module_with_standard_modules_environment(
         &application,
