@@ -12,9 +12,9 @@ use crate::standard_symbols::{
     SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
     build_standard_symbol_registry, private_compiler_adapter_name,
 };
-use crate::type_syntax::{
-    BUILTIN_TYPE_SYNTAX_DESCRIPTORS, validate_builtin_type_syntax_descriptors,
-};
+#[cfg(test)]
+use crate::type_syntax::BUILTIN_TYPE_SYNTAX_DESCRIPTORS;
+use crate::type_syntax::validate_builtin_type_syntax_descriptors;
 
 #[derive(Debug)]
 pub(crate) struct SourceLessLookupRegistries {

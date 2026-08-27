@@ -31,14 +31,17 @@ pub(crate) struct StandardSymbolRegistry {
 }
 
 impl StandardSymbolRegistry {
+    #[cfg(test)]
     pub(crate) fn qualified_symbols(&self) -> &[&'static StandardSymbolDescriptor] {
         &self.qualified
     }
 
+    #[cfg(test)]
     pub(crate) fn prelude_symbols(&self) -> &[&'static StandardSymbolDescriptor] {
         &self.prelude
     }
 
+    #[cfg(test)]
     pub(crate) fn compiler_adapter_symbols(&self) -> &[&'static StandardSymbolDescriptor] {
         &self.compiler_adapters
     }
