@@ -28,7 +28,7 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   `required_initial`, and `observed_initial` fields. The checked
   `identifier-casing-*-json` cases define exact spans, detail values, and
   non-cascading recovery behavior.
-- Source-less compiler symbol registry casing failures use span-less
+- Source-less compiler lookup registry casing failures use span-less
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
   `name_class`, and `required_initial` fields and diagnostic kind
   `toolchain`. Focused `veln-sema` `standard_symbols` and `adt` tests define
@@ -103,7 +103,7 @@ behavior is specified by [names-effects.md](names-effects.md). Selected-entry
 routed by [run-json.md](run-json.md), including direct-dependency selected
 loading and unloaded-manifest isolation.
 
-Source-less compiler symbol registry casing failures use
+Source-less compiler lookup registry casing failures use
 `toolchain.invalid_symbol_case` with no span. Details expose the descriptor
 `provider`, invalid `name`, `name_class`, and `required_initial`. The failure
 is a toolchain invariant failure with diagnostic kind `toolchain`, not source

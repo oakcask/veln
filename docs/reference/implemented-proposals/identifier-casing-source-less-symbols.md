@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The source-less compiler symbol casing registry, its failure details, or its focused registry tests change.
+update-when: The source-less compiler lookup registries, their failure details, or their focused registry tests change.
 ---
 
 # Identifier Casing Source-Less Symbols
