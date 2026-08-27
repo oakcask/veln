@@ -34,6 +34,9 @@ pub use pipeline::{
     lower_project_reachable_surface_modules_with_standard_environment,
     prepare_current_reusable_standard_surface_module_environment,
     prepare_reusable_standard_surface_module_environment,
+    try_prepare_current_reusable_standard_surface_module_environment,
+    try_prepare_reusable_standard_surface_module_environment,
+    validate_standard_symbol_registry_diagnostic,
 };
 pub use type_syntax::{type_annotation_reference_names, type_annotation_reference_paths};
 pub use types::ReusableStandardEnvironment;

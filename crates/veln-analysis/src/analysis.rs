@@ -12,7 +12,8 @@ use veln_sema::{
     LoweredSurfaceModule, ReusableStandardEnvironment,
     check_project_surface_module_with_standard_modules_environment,
     lower_project_reachable_surface_modules_with_standard_environment,
-    prepare_current_reusable_standard_surface_module_environment,
+    try_prepare_current_reusable_standard_surface_module_environment,
+    validate_standard_symbol_registry_diagnostic,
 };
 use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
@@ -36,23 +37,30 @@ impl StandardEnvironmentCache {
         }
     }
 
-    fn input_for_standard_modules(&self, module_names: &BTreeSet<String>) -> ReusableStandardInput {
+    fn input_for_standard_modules(
+        &self,
+        module_names: &BTreeSet<String>,
+    ) -> Result<ReusableStandardInput, Diagnostic> {
+        validate_standard_symbol_registry_diagnostic()?;
         let mut inputs = self
             .inputs
             .lock()
             .expect("standard environment cache should not be poisoned");
-        inputs
+        let input = inputs
             .entry(module_names.clone())
             .or_insert_with(|| {
                 let standard_module = load_embedded_standard_surface_module_for_names(module_names);
-                let environment =
-                    prepare_current_reusable_standard_surface_module_environment(&standard_module);
+                let environment = try_prepare_current_reusable_standard_surface_module_environment(
+                    &standard_module,
+                )
+                .expect("validated standard environment");
                 ReusableStandardInput {
                     module: Arc::new(standard_module),
                     environment,
                 }
             })
-            .clone()
+            .clone();
+        Ok(input)
     }
 }
 
@@ -151,7 +159,7 @@ fn analyze_project_with_standard_provider(
     mut project: Project,
     doctest_mode: DoctestMode,
     mut timings: Option<&mut Vec<AnalysisTiming>>,
-    standard_for_module: impl FnOnce(&BTreeSet<String>) -> ReusableStandardInput,
+    standard_for_module: impl FnOnce(&BTreeSet<String>) -> Result<ReusableStandardInput, Diagnostic>,
 ) -> ProjectAnalysis {
     let surface_start = std::time::Instant::now();
     let doctests = match doctest_mode {
@@ -173,7 +181,26 @@ fn analyze_project_with_standard_provider(
     source_diagnostics.extend(parse_diagnostics);
     record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
 
-    let standard = standard_for_module(&loaded.selected_standard_module_names);
+    let standard = match standard_for_module(&loaded.selected_standard_module_names) {
+        Ok(standard) => standard,
+        Err(diagnostic) => {
+            let selected_standard = Arc::new(load_embedded_standard_surface_module_for_names(
+                &loaded.selected_standard_module_names,
+            ));
+            return ProjectAnalysis {
+                project,
+                module: loaded.application,
+                selected_standard,
+                selected_standard_module_names: loaded.selected_standard_module_names,
+                doctest_expectations,
+                source_diagnostics,
+                semantic_diagnostics: Vec::new(),
+                checked: lowered_internal_failure(diagnostic),
+                expected_doctest_failures,
+                reachability_cache: ReachabilityCache::default(),
+            };
+        }
+    };
     let semantic_start = std::time::Instant::now();
     let (semantic_diagnostics, checked) =
         check_project_surface_module_with_standard_modules_environment(
@@ -260,7 +287,26 @@ fn analyze_project_with_captured_dependencies(
         load_surface_modules_with_captured_dependencies(&project, dependencies);
     source_diagnostics.extend(parse_diagnostics);
 
-    let standard = standard_environment_for_modules(&loaded.selected_standard_module_names);
+    let standard = match standard_environment_for_modules(&loaded.selected_standard_module_names) {
+        Ok(standard) => standard,
+        Err(diagnostic) => {
+            let selected_standard = Arc::new(load_embedded_standard_surface_module_for_names(
+                &loaded.selected_standard_module_names,
+            ));
+            return ProjectAnalysis {
+                project,
+                module: loaded.application,
+                selected_standard,
+                selected_standard_module_names: loaded.selected_standard_module_names,
+                doctest_expectations,
+                source_diagnostics,
+                semantic_diagnostics: Vec::new(),
+                checked: lowered_internal_failure(diagnostic),
+                expected_doctest_failures,
+                reachability_cache: ReachabilityCache::default(),
+            };
+        }
+    };
     let (semantic_diagnostics, checked) =
         check_project_surface_module_with_standard_modules_environment(
             &loaded.application,
@@ -339,12 +385,14 @@ impl ProjectAnalysis {
             entry_kind,
             &self.reachability_cache,
         );
-        let standard = standard_environment_for_modules(&self.selected_standard_module_names);
-        let lowered = lower_project_reachable_surface_modules_with_standard_environment(
-            &module,
-            &self.selected_standard,
-            &standard.environment,
-        );
+        let lowered = match standard_environment_for_modules(&self.selected_standard_module_names) {
+            Ok(standard) => lower_project_reachable_surface_modules_with_standard_environment(
+                &module,
+                &self.selected_standard,
+                &standard.environment,
+            ),
+            Err(diagnostic) => lowered_internal_failure(diagnostic),
+        };
         (
             ReachableEntryAnalysis { module, lowered },
             AnalysisTiming {
@@ -359,7 +407,9 @@ impl ProjectAnalysis {
     }
 }
 
-fn standard_environment_for_modules(module_names: &BTreeSet<String>) -> ReusableStandardInput {
+fn standard_environment_for_modules(
+    module_names: &BTreeSet<String>,
+) -> Result<ReusableStandardInput, Diagnostic> {
     STANDARD_ENVIRONMENTS
         .get_or_init(StandardEnvironmentCache::new)
         .input_for_standard_modules(module_names)
@@ -369,23 +419,35 @@ fn standard_environment_for_modules(module_names: &BTreeSet<String>) -> Reusable
 fn standard_environment_with_test_cache(
     cache: &TestStandardEnvironmentCache,
     module_names: &BTreeSet<String>,
-) -> ReusableStandardInput {
+) -> Result<ReusableStandardInput, Diagnostic> {
+    validate_standard_symbol_registry_diagnostic()?;
     let mut inputs = cache
         .inputs
         .lock()
         .expect("test standard environment cache should not be poisoned");
-    inputs
+    let input = inputs
         .entry(module_names.clone())
         .or_insert_with(|| {
             cache.standard_prepares.fetch_add(1, Ordering::SeqCst);
             let module = load_embedded_standard_surface_module_for_names(module_names);
-            let environment = prepare_current_reusable_standard_surface_module_environment(&module);
+            let environment =
+                try_prepare_current_reusable_standard_surface_module_environment(&module)
+                    .expect("validated test standard environment");
             ReusableStandardInput {
                 module: Arc::new(module),
                 environment,
             }
         })
-        .clone()
+        .clone();
+    Ok(input)
+}
+
+fn lowered_internal_failure(diagnostic: Diagnostic) -> LoweredSurfaceModule {
+    LoweredSurfaceModule {
+        diagnostics: vec![diagnostic],
+        core: None,
+        ir: None,
+    }
 }
 
 #[cfg(test)]
@@ -440,6 +502,7 @@ mod tests {
             &ReachabilityCache::default(),
         );
         let standard = standard_environment_for_modules(&analysis.selected_standard_module_names);
+        let standard = standard.expect("standard environment");
         let combined_lowered =
             veln_sema::lower_project_reachable_surface_module_with_standard_environment(
                 &combined_reachable,

@@ -21,6 +21,7 @@ impl Severity {
 pub enum DiagnosticKind {
     Parse,
     Module,
+    Toolchain,
     Name,
     Type,
     Contract,
@@ -36,6 +37,7 @@ impl DiagnosticKind {
         match self {
             Self::Parse => "parse",
             Self::Module => "module",
+            Self::Toolchain => "toolchain",
             Self::Name => "name",
             Self::Type => "type",
             Self::Contract => "contract",
@@ -81,6 +83,7 @@ mod tests {
     fn diagnostic_kind_strings_are_stable() {
         assert_eq!(DiagnosticKind::Parse.as_str(), "parse");
         assert_eq!(DiagnosticKind::Module.as_str(), "module");
+        assert_eq!(DiagnosticKind::Toolchain.as_str(), "toolchain");
         assert_eq!(DiagnosticKind::Name.as_str(), "name");
         assert_eq!(DiagnosticKind::Type.as_str(), "type");
         assert_eq!(DiagnosticKind::Contract.as_str(), "contract");

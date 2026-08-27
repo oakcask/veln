@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::sync::OnceLock;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
@@ -69,7 +70,7 @@ impl InvalidStandardSymbolCase {
         Diagnostic::new(
             self.code(),
             Severity::Error,
-            DiagnosticKind::Name,
+            DiagnosticKind::Toolchain,
             format!(
                 "compiler-provided {} `{}` from `{}` must start with an ASCII lowercase letter",
                 self.name_class.as_str(),
@@ -94,6 +95,25 @@ impl InvalidStandardSymbolCase {
 pub(crate) struct StandardSymbolRegistry {
     qualified: Vec<&'static StandardSymbolDescriptor>,
     prelude: Vec<&'static StandardSymbolDescriptor>,
+}
+
+impl StandardSymbolRegistry {
+    fn qualified_symbol(&self, segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+        let [module, name] = segments else {
+            return None;
+        };
+        self.qualified
+            .iter()
+            .copied()
+            .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name)
+    }
+
+    fn prelude_symbol(&self, name: &str) -> Option<&'static StandardSymbolDescriptor> {
+        self.prelude
+            .iter()
+            .copied()
+            .find(|symbol| symbol.name == name)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1076,18 +1096,11 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
 pub(crate) fn qualified_symbol_checked(
     segments: &[String],
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    let [module, name] = segments else {
-        return Ok(None);
-    };
-    Ok(standard_symbol_registry()?
-        .qualified
-        .iter()
-        .copied()
-        .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name))
+    checked_qualified_symbol_in_registry(standard_symbol_registry(), segments)
 }
 
 pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
-    qualified_symbol_checked(segments).ok().flatten()
+    qualified_symbol_checked(segments).expect("standard symbol registry is valid")
 }
 
 pub(crate) fn prelude_symbol_checked(
@@ -1096,15 +1109,11 @@ pub(crate) fn prelude_symbol_checked(
     if private_compiler_adapter_name(name) {
         return Ok(None);
     }
-    Ok(standard_symbol_registry()?
-        .prelude
-        .iter()
-        .copied()
-        .find(|symbol| symbol.name == name))
+    checked_prelude_symbol_in_registry(standard_symbol_registry(), name)
 }
 
 pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    prelude_symbol_checked(name).ok().flatten()
+    prelude_symbol_checked(name).expect("standard symbol registry is valid")
 }
 
 pub(crate) fn compiler_adapter_symbol_checked(
@@ -1119,7 +1128,21 @@ pub(crate) fn compiler_adapter_symbol_checked(
 }
 
 pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    compiler_adapter_symbol_checked(name).ok().flatten()
+    compiler_adapter_symbol_checked(name).expect("standard symbol registry is valid")
+}
+
+fn checked_qualified_symbol_in_registry(
+    registry: Result<&StandardSymbolRegistry, InvalidStandardSymbolCase>,
+    segments: &[String],
+) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
+    Ok(registry?.qualified_symbol(segments))
+}
+
+fn checked_prelude_symbol_in_registry(
+    registry: Result<&StandardSymbolRegistry, InvalidStandardSymbolCase>,
+    name: &str,
+) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
+    Ok(registry?.prelude_symbol(name))
 }
 
 fn private_compiler_adapter_name(name: &str) -> bool {
@@ -1175,9 +1198,12 @@ fn build_standard_symbol_registry(
         qualified: Vec::new(),
         prelude: Vec::new(),
     };
+    let mut qualified_keys = BTreeSet::new();
+    let mut prelude_keys = BTreeSet::new();
 
     for descriptor in qualified {
         validate_source_lookup_descriptor("runtime", descriptor)?;
+        validate_qualified_lookup_key("runtime", descriptor, &mut qualified_keys)?;
         registry.qualified.push(descriptor);
     }
     for descriptor in compatibility_prelude
@@ -1185,6 +1211,7 @@ fn build_standard_symbol_registry(
         .chain(self_hosting_prelude.iter())
     {
         validate_source_lookup_descriptor("prelude", descriptor)?;
+        validate_prelude_lookup_key("prelude", descriptor, &mut prelude_keys)?;
         registry.prelude.push(descriptor);
     }
     for descriptor in compiler_adapters {
@@ -1192,10 +1219,49 @@ fn build_standard_symbol_registry(
             continue;
         }
         validate_source_lookup_descriptor("compiler_adapter", descriptor)?;
+        validate_prelude_lookup_key("compiler_adapter", descriptor, &mut prelude_keys)?;
         registry.prelude.push(descriptor);
     }
 
     Ok(registry)
+}
+
+fn validate_qualified_lookup_key(
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+    keys: &mut BTreeSet<(&'static str, &'static str)>,
+) -> Result<(), InvalidStandardSymbolCase> {
+    let Some(module) = descriptor.module else {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: SourceLessNameClass::Module,
+        });
+    };
+    if keys.insert((module, descriptor.name)) {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{module}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+        })
+    }
+}
+
+fn validate_prelude_lookup_key(
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+    keys: &mut BTreeSet<&'static str>,
+) -> Result<(), InvalidStandardSymbolCase> {
+    if descriptor.module.is_some() || !keys.insert(descriptor.name) {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: descriptor.name_class,
+        });
+    }
+    Ok(())
 }
 
 fn validate_source_lookup_descriptor(

@@ -108,10 +108,28 @@ pub fn prepare_reusable_standard_surface_module_environment(
     prepare_reusable_standard_environment(module)
 }
 
+pub fn validate_standard_symbol_registry_diagnostic() -> Result<(), Diagnostic> {
+    validate_standard_symbol_registry().map_err(|failure| failure.diagnostic())
+}
+
+pub fn try_prepare_reusable_standard_surface_module_environment(
+    module: &SurfaceModule,
+) -> Result<ReusableStandardEnvironment, Diagnostic> {
+    validate_standard_symbol_registry_diagnostic()?;
+    Ok(prepare_reusable_standard_environment(module))
+}
+
 pub fn prepare_current_reusable_standard_surface_module_environment(
     module: &SurfaceModule,
 ) -> ReusableStandardEnvironment {
     prepare_current_reusable_standard_environment(module)
+}
+
+pub fn try_prepare_current_reusable_standard_surface_module_environment(
+    module: &SurfaceModule,
+) -> Result<ReusableStandardEnvironment, Diagnostic> {
+    validate_standard_symbol_registry_diagnostic()?;
+    Ok(prepare_current_reusable_standard_environment(module))
 }
 
 fn check_project_surface_module_with_environment(

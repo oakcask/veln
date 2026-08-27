@@ -14,11 +14,12 @@ projection is documented in [json-output.md](json-output.md),
 
 `toolchain.invalid_symbol_case` reports a span-less internal failure when a
 source-visible compiler-provided lookup descriptor has casing that is invalid
-for its source-less name class. Details contain `provider`, `name`,
-`name_class`, and `required_initial`. The failure is not converted to source
-`name.invalid_case`. Focused `veln-sema` `standard_symbols` tests pin the
-generated-table, injected-descriptor, atomic-failure, and lookup-isolation
-evidence.
+for its source-less name class or has a duplicate lookup key. Details contain
+`provider`, `name`, `name_class`, and `required_initial`. The diagnostic kind
+is `toolchain`. The failure is not converted to source `name.invalid_case`.
+Focused `veln-sema` `standard_symbols` tests pin the generated-table,
+injected-descriptor, duplicate-key, atomic-failure, checked-lookup, and
+lookup-isolation evidence.
 
 ## Current Schema Diagnostic Boundary
 
