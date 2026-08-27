@@ -762,14 +762,14 @@ pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
 
 #[cfg(test)]
 pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSymbolCase> {
-    crate::source_less_lookup::builtin_adt_registry().map(|_| ())
+    validate_adt_lookup_descriptors("adt", &build_builtin_descriptors())
 }
 
 fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
-    crate::source_less_lookup::builtin_adt_registry()
-        .expect("built-in ADT descriptors are valid")
-        .descriptors()
-        .to_vec()
+    let descriptors = build_builtin_descriptors();
+    validate_adt_lookup_descriptors("adt", &descriptors)
+        .expect("built-in ADT descriptors are valid");
+    descriptors
 }
 
 #[cfg(test)]

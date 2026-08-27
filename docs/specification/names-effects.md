@@ -179,10 +179,11 @@ compiler-known calls.
   `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests define
   the generated-table, injected-descriptor, duplicate-key, atomic-failure,
   cross-provider publication-failure, checked-lookup, and lookup-isolation
-  evidence for this boundary. `prelude_builtin` lookup and
-  built-in ADT lookup consume only validated published registry state; the
-  production built-in ADT registry is the same published registry that
-  descriptor validation accepts. Shared standard-environment initialization
+  evidence for this boundary. `prelude_builtin` lookup consumes validated
+  published registry state. Built-in ADT lookup validates the same descriptor
+  set accepted by source-less publication before constructing production ADT
+  lookup state, while keeping ADT registry ownership independent of the
+  combined source-less publisher. Shared standard-environment initialization
   validates the registries before publishing reusable command or adapter state.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package

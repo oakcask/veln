@@ -27,10 +27,6 @@ pub(crate) fn standard_symbol_registry()
     Ok(&source_less_lookup_registries()?.standard_symbols)
 }
 
-pub(crate) fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
-    Ok(&source_less_lookup_registries()?.builtin_adts)
-}
-
 pub(crate) fn qualified_symbol_checked(
     segments: &[String],
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {

@@ -48,22 +48,15 @@ fn constructors_match_qualified_and_unqualified_builtin_names() {
 }
 
 #[test]
-fn production_adt_registry_uses_shared_source_less_publication() {
-    validate_builtin_adt_descriptors().expect("shared source-less lookup publication");
+fn production_adt_registry_uses_validated_builtin_descriptors() {
+    validate_builtin_adt_descriptors().expect("built-in ADT descriptor validation");
 
     let registry = AdtRegistry::from_module(&empty_module());
     let option = Type::named("Option", vec![Type::Unknown]);
 
-    assert_eq!(
-        crate::source_less_lookup::builtin_adt_registry()
-            .expect("shared built-in ADT registry")
-            .descriptors()
-            .len(),
-        registry.descriptors().len()
-    );
     assert!(
         registry.descriptor_for_type(&option).is_some(),
-        "production ADT lookup should consume the shared built-in ADT registry"
+        "production ADT lookup should consume validated built-in descriptors"
     );
     assert!(matches!(
         registry.constructor(&path(&["Option", "Some"]), None, &[]),
