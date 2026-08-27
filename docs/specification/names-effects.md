@@ -158,6 +158,17 @@ compiler-known calls.
   boundary. Workspace snapshot and open-document overlay selection is current
   editor-facing behavior specified by [editor-support.md](editor-support.md)
   and checked by the LSP casing examples.
+  Compiler-provided symbols that participate in source lookup carry an
+  explicit source-less name class. The source lookup registry validates each
+  source-visible descriptor's module segments and spelling before publishing a
+  registry. Invalid descriptors fail atomically with the span-less
+  `toolchain.invalid_symbol_case` internal failure. The failure details
+  contain `provider`, `name`, `name_class`, and `required_initial`; it is not
+  reported as source `name.invalid_case`. Compiler adapter names that cannot
+  participate in source lookup stay outside this gate. The focused
+  `veln-sema` `standard_symbols` tests define the generated-table,
+  injected-descriptor, atomic-failure, and lookup-isolation evidence for this
+  boundary.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:

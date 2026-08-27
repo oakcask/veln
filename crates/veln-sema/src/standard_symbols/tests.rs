@@ -11,6 +11,7 @@ fn descriptor_table_carries_runtime_effect_metadata() {
     let symbol = qualified_symbol(&path("stdio", "println")).expect("stdio descriptor");
 
     assert_eq!(symbol.kind, StandardSymbolKind::Runtime);
+    assert_eq!(symbol.name_class, SourceLessNameClass::Function);
     assert_eq!(symbol.effects, ["stdio"]);
     assert_eq!(symbol.lowering, Some("runtime.stdio.println"));
     assert_eq!(
@@ -25,6 +26,7 @@ fn descriptor_table_carries_prelude_purity_metadata() {
     let symbol = prelude_symbol("float_add").expect("prelude descriptor");
 
     assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
+    assert_eq!(symbol.name_class, SourceLessNameClass::Function);
     assert!(symbol.effects.is_empty());
     assert_eq!(symbol.lowering, None);
     assert_eq!(symbol.stability, StandardSymbolStability::CompatibilityOnly);
@@ -35,6 +37,7 @@ fn compiler_adapter_descriptors_carry_pure_metadata() {
     for name in COMPILER_ADAPTER_NAMES.iter().copied() {
         let symbol = compiler_adapter_symbol(name).expect("compiler adapter descriptor");
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
+        assert_eq!(symbol.name_class, SourceLessNameClass::Function);
         assert!(symbol.effects.is_empty());
         assert_eq!(symbol.lowering, None);
         if private_compiler_adapter_name(name) {
@@ -43,6 +46,133 @@ fn compiler_adapter_descriptors_carry_pure_metadata() {
             assert_eq!(prelude_symbol(name), Some(symbol));
         }
     }
+}
+
+#[test]
+fn source_lookup_registry_accepts_current_generated_tables() {
+    let registry = standard_symbol_registry().expect("standard symbol registry");
+
+    assert_eq!(registry.qualified.len(), QUALIFIED_SYMBOLS.len());
+    assert!(
+        registry
+            .qualified
+            .iter()
+            .any(|symbol| { symbol.module == Some("stdio") && symbol.name == "println" })
+    );
+    assert!(
+        registry
+            .prelude
+            .iter()
+            .any(|symbol| symbol.name == "float_add")
+    );
+    assert!(registry.prelude.iter().any(|symbol| symbol.name == "byte"));
+    assert!(
+        !registry
+            .prelude
+            .iter()
+            .any(|symbol| private_compiler_adapter_name(symbol.name))
+    );
+}
+
+#[test]
+fn invalid_source_lookup_module_segment_fails_atomically() {
+    const INVALID_QUALIFIED: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: Some("Std"),
+        name: "print",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Runtime,
+        effects: PURE_EFFECTS,
+        lowering: Some("runtime.Std.print"),
+        signature: None,
+        stability: StandardSymbolStability::RequiredForSelfHosting,
+    }];
+
+    let failure =
+        build_standard_symbol_registry(INVALID_QUALIFIED, &[], &[], &[]).expect_err("case failure");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "runtime");
+    assert_eq!(failure.name, "Std");
+    assert_eq!(failure.name_class, SourceLessNameClass::Module);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+}
+
+#[test]
+fn invalid_source_lookup_symbol_name_reports_descriptor_details() {
+    const INVALID_ADAPTER: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "Byte",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let failure =
+        build_standard_symbol_registry(&[], &[], &[], INVALID_ADAPTER).expect_err("case failure");
+    let diagnostic = failure.diagnostic();
+
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "Byte");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(diagnostic.id, "toolchain.invalid_symbol_case");
+    assert!(diagnostic.span.is_none());
+    assert_eq!(
+        diagnostic.details.to_json(),
+        "{\"provider\":\"compiler_adapter\",\"name\":\"Byte\",\"name_class\":\"function\",\"required_initial\":\"ascii_lowercase\"}"
+    );
+}
+
+#[test]
+fn invalid_descriptor_prevents_partial_lookup_registry() {
+    const VALID_QUALIFIED: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: Some("stdio"),
+        name: "print",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Runtime,
+        effects: PURE_EFFECTS,
+        lowering: Some("runtime.stdio.print"),
+        signature: None,
+        stability: StandardSymbolStability::RequiredForSelfHosting,
+    }];
+    const INVALID_PRELUDE: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "Float_add",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let result = build_standard_symbol_registry(VALID_QUALIFIED, INVALID_PRELUDE, &[], &[]);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn private_compiler_adapter_names_stay_outside_source_lookup_gate() {
+    const PRIVATE_ADAPTER_WITH_INVALID_MODULE: &[StandardSymbolDescriptor] =
+        &[StandardSymbolDescriptor {
+            module: Some("Internal"),
+            name: "byte_decode_http2_frame",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        }];
+
+    let registry =
+        build_standard_symbol_registry(&[], &[], &[], PRIVATE_ADAPTER_WITH_INVALID_MODULE)
+            .expect("private adapter does not participate in source lookup");
+
+    assert!(registry.qualified.is_empty());
+    assert!(registry.prelude.is_empty());
 }
 
 #[test]

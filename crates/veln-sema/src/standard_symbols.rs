@@ -1,3 +1,8 @@
+use std::sync::OnceLock;
+
+#[cfg(test)]
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum StandardSymbolKind {
     Runtime,
@@ -5,14 +10,97 @@ pub(crate) enum StandardSymbolKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SourceLessNameClass {
+    Module,
+    Function,
+}
+
+impl SourceLessNameClass {
+    #[cfg(test)]
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Module => "module",
+            Self::Function => "function",
+        }
+    }
+
+    #[cfg(test)]
+    fn required_initial(self) -> &'static str {
+        match self {
+            Self::Module | Self::Function => "ascii_lowercase",
+        }
+    }
+
+    fn accepts(self, name: &str) -> bool {
+        let Some(initial) = name.as_bytes().first() else {
+            return false;
+        };
+        match self {
+            Self::Module | Self::Function => initial.is_ascii_lowercase(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct StandardSymbolDescriptor {
     pub(crate) module: Option<&'static str>,
     pub(crate) name: &'static str,
+    pub(crate) name_class: SourceLessNameClass,
     pub(crate) kind: StandardSymbolKind,
     pub(crate) effects: &'static [&'static str],
     pub(crate) lowering: Option<&'static str>,
     pub(crate) signature: Option<StandardSignature>,
     pub(crate) stability: StandardSymbolStability,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct InvalidStandardSymbolCase {
+    pub(crate) provider: &'static str,
+    pub(crate) name: String,
+    pub(crate) name_class: SourceLessNameClass,
+}
+
+impl InvalidStandardSymbolCase {
+    #[cfg(test)]
+    pub(crate) fn code(&self) -> &'static str {
+        "toolchain.invalid_symbol_case"
+    }
+
+    #[cfg(test)]
+    pub(crate) fn required_initial(&self) -> &'static str {
+        self.name_class.required_initial()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn diagnostic(&self) -> Diagnostic {
+        Diagnostic::new(
+            self.code(),
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!(
+                "compiler-provided {} `{}` from `{}` must start with an ASCII lowercase letter",
+                self.name_class.as_str(),
+                self.name,
+                self.provider
+            ),
+            None,
+            JsonValue::object([
+                ("provider", JsonValue::string(self.provider)),
+                ("name", JsonValue::string(self.name.clone())),
+                ("name_class", JsonValue::string(self.name_class.as_str())),
+                (
+                    "required_initial",
+                    JsonValue::string(self.required_initial()),
+                ),
+            ]),
+        )
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct StandardSymbolRegistry {
+    qualified: Vec<&'static StandardSymbolDescriptor>,
+    prelude: Vec<&'static StandardSymbolDescriptor>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -938,6 +1026,7 @@ const fn runtime_symbol(
     StandardSymbolDescriptor {
         module: Some(module),
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Runtime,
         effects,
         lowering: Some(lowering),
@@ -956,6 +1045,7 @@ const fn runtime_symbol_with_signature(
     StandardSymbolDescriptor {
         module: Some(module),
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Runtime,
         effects,
         lowering: Some(lowering),
@@ -968,6 +1058,7 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
     StandardSymbolDescriptor {
         module: None,
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Prelude,
         effects: PURE_EFFECTS,
         lowering: None,
@@ -980,6 +1071,7 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
     StandardSymbolDescriptor {
         module: None,
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Prelude,
         effects: PURE_EFFECTS,
         lowering: None,
@@ -992,8 +1084,11 @@ pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardS
     let [module, name] = segments else {
         return None;
     };
-    QUALIFIED_SYMBOLS
+    standard_symbol_registry()
+        .ok()?
+        .qualified
         .iter()
+        .copied()
         .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name)
 }
 
@@ -1001,10 +1096,18 @@ pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescri
     if private_compiler_adapter_name(name) {
         return None;
     }
-    prelude_symbols().find(|symbol| symbol.name == name)
+    standard_symbol_registry()
+        .ok()?
+        .prelude
+        .iter()
+        .copied()
+        .find(|symbol| symbol.name == name)
 }
 
 pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    if !private_compiler_adapter_name(name) && standard_symbol_registry().is_err() {
+        return None;
+    }
     COMPILER_ADAPTER_SYMBOLS
         .iter()
         .find(|symbol| symbol.name == name)
@@ -1017,14 +1120,97 @@ fn private_compiler_adapter_name(name: &str) -> bool {
         || name.starts_with("hpack_fixture_")
 }
 
+#[cfg(test)]
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    compatibility_prelude_symbols().chain(COMPILER_ADAPTER_SYMBOLS.iter())
+    standard_symbol_registry()
+        .ok()
+        .into_iter()
+        .flat_map(|registry| registry.prelude.iter().copied())
 }
 
+#[cfg(test)]
 fn compatibility_prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
     FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS
         .iter()
         .chain(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter())
+}
+
+fn standard_symbol_registry() -> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase>
+{
+    static REGISTRY: OnceLock<Result<StandardSymbolRegistry, InvalidStandardSymbolCase>> =
+        OnceLock::new();
+    REGISTRY
+        .get_or_init(|| {
+            build_standard_symbol_registry(
+                QUALIFIED_SYMBOLS,
+                FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
+                SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+                COMPILER_ADAPTER_SYMBOLS,
+            )
+        })
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
+fn build_standard_symbol_registry(
+    qualified: &'static [StandardSymbolDescriptor],
+    compatibility_prelude: &'static [StandardSymbolDescriptor],
+    self_hosting_prelude: &'static [StandardSymbolDescriptor],
+    compiler_adapters: &'static [StandardSymbolDescriptor],
+) -> Result<StandardSymbolRegistry, InvalidStandardSymbolCase> {
+    let mut registry = StandardSymbolRegistry {
+        qualified: Vec::new(),
+        prelude: Vec::new(),
+    };
+
+    for descriptor in qualified {
+        validate_source_lookup_descriptor("runtime", descriptor)?;
+        registry.qualified.push(descriptor);
+    }
+    for descriptor in compatibility_prelude
+        .iter()
+        .chain(self_hosting_prelude.iter())
+    {
+        validate_source_lookup_descriptor("prelude", descriptor)?;
+        registry.prelude.push(descriptor);
+    }
+    for descriptor in compiler_adapters {
+        if private_compiler_adapter_name(descriptor.name) {
+            continue;
+        }
+        validate_source_lookup_descriptor("compiler_adapter", descriptor)?;
+        registry.prelude.push(descriptor);
+    }
+
+    Ok(registry)
+}
+
+fn validate_source_lookup_descriptor(
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+) -> Result<(), InvalidStandardSymbolCase> {
+    if let Some(module) = descriptor.module {
+        for segment in module.split("::") {
+            validate_source_less_name(provider, segment, SourceLessNameClass::Module)?;
+        }
+    }
+    validate_source_less_name(provider, descriptor.name, descriptor.name_class)
+}
+
+fn validate_source_less_name(
+    provider: &'static str,
+    name: &str,
+    name_class: SourceLessNameClass,
+) -> Result<(), InvalidStandardSymbolCase> {
+    if name_class.accepts(name) {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: name.to_string(),
+            name_class,
+        })
+    }
 }
 
 #[cfg(test)]
