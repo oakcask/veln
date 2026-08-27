@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"f7847cebbfcc8c9da59291816db2f3450c869228"
+source_git_tree	"2b3cf7d52376beb44a4aa8885bd24e5b7729272c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1584
@@ -6098,6 +6098,12 @@ field	expectations.diagnostics[4].message	"function name `Verify` must start wit
 field	expectations.diagnostics[5].id	"name.invalid_case"
 field	expectations.diagnostics[5].kind	"name"
 field	expectations.diagnostics[5].message	"type name `exported` must start with an ASCII uppercase letter"
+field	expectations.diagnostics[6].id	"name.invalid_case"
+field	expectations.diagnostics[6].kind	"name"
+field	expectations.diagnostics[6].message	"function alias target `Build` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[7].id	"name.invalid_case"
+field	expectations.diagnostics[7].kind	"name"
+field	expectations.diagnostics[7].message	"type alias target `item` must start with an ASCII uppercase letter"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
@@ -6142,7 +6148,7 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"cc671b443b5bb52f503d0bdf054383886f13f65abe94a96261f089b037ee4803"
+case_digest	"35adec28d5041de4726d9fec312cbed857c1ec5b0210b52e09327eb38dfcadf0"
 case	"examples/specification/check/identifier-casing-underscore-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -49709,4 +49715,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"da4e60ea33bd6880eeab9165ee7300ae33e12e4c7e427dbe1458bea9d355fb73"
+aggregate_digest	"7796dd923a5fccedc4ea7715513a8b7a3f33b9b181201969fad1bfd972ecf204"
