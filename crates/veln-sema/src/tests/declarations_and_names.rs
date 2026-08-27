@@ -2904,21 +2904,9 @@ fn public_alias_target_leaf_casing_reports_before_independent_target_failures() 
     let module = lower_surface_ast(&parsed.tree);
 
     let diagnostics = analyze_surface_module(&module);
-    let alias_diagnostics = diagnostics
-        .iter()
-        .filter(|diagnostic| {
-            diagnostic.id == "name.invalid_case"
-                || diagnostic.id == "name.kind_mismatch"
-                || diagnostic.id == "name.unresolved"
-        })
-        .collect::<Vec<_>>();
-    let observed = alias_diagnostics
-        .iter()
-        .map(|diagnostic| (diagnostic.id.as_str(), diagnostic.message.as_str()))
-        .collect::<Vec<_>>();
 
     assert_eq!(
-        observed,
+        alias_target_observations(&diagnostics),
         vec![
             (
                 "name.invalid_case",
@@ -2959,8 +2947,27 @@ fn public_alias_target_leaf_casing_reports_before_independent_target_failures() 
         ],
         "{diagnostics:#?}"
     );
+    assert_first_alias_target_invalid_case(&diagnostics);
+    assert_invalid_alias_targets_are_quarantined(&module, &diagnostics);
+}
 
-    let invalid = alias_diagnostics[0];
+fn alias_target_observations(diagnostics: &[Diagnostic]) -> Vec<(&str, &str)> {
+    diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                || diagnostic.id == "name.kind_mismatch"
+                || diagnostic.id == "name.unresolved"
+        })
+        .map(|diagnostic| (diagnostic.id.as_str(), diagnostic.message.as_str()))
+        .collect()
+}
+
+fn assert_first_alias_target_invalid_case(diagnostics: &[Diagnostic]) {
+    let invalid = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.invalid_case")
+        .expect("invalid target diagnostic");
     let span = invalid.span.as_ref().expect("invalid target span");
     assert_eq!(
         (span.start.line, span.start.column, span.end.column),
@@ -2972,6 +2979,12 @@ fn public_alias_target_leaf_casing_reports_before_independent_target_failures() 
     assert!(details.contains("\"name_class\":\"function\""));
     assert!(details.contains("\"required_initial\":\"ascii_lowercase\""));
     assert!(details.contains("\"observed_initial\":\"ascii_uppercase\""));
+}
+
+fn assert_invalid_alias_targets_are_quarantined(
+    surface: &SurfaceModule,
+    diagnostics: &[Diagnostic],
+) {
     assert!(
         !diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "name.invalid_case"
@@ -2979,7 +2992,7 @@ fn public_alias_target_leaf_casing_reports_before_independent_target_failures() 
         }),
         "{diagnostics:#?}"
     );
-    let environment = TypeEnvironment::from_module(&module);
+    let environment = TypeEnvironment::from_module(surface);
     assert!(environment.function("wrongKind").is_none());
     assert_eq!(
         environment

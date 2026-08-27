@@ -7,6 +7,7 @@ mod contracts;
 mod diagnostics;
 mod effects;
 mod lowering;
+mod name_recovery;
 mod pipeline;
 mod prelude;
 mod repair_candidates;

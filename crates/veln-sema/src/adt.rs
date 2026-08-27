@@ -4,10 +4,10 @@ use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
 use veln_project::classify_companion_source;
 
+use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_or_unknown;
-use crate::types::public_alias_has_invalid_target_leaf;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {

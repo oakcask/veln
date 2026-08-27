@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{NameClass, PublicAliasKind, SchemaField, SurfaceModule, UseDecl, Visibility};
 use veln_source::SourceSpan;
 
-use super::public_alias_has_invalid_target_leaf;
 use super::schema_types::format_neutral_schema_first_unsupported_encode_field;
 use super::signatures::FunctionSignature;
+use crate::name_recovery::public_alias_has_invalid_target_leaf;
 
 #[derive(Clone)]
 pub(super) struct SchemaSymbolTable {

@@ -8,9 +8,9 @@ use veln_ast::{
 };
 
 use crate::adt::{self, AdtRegistry};
+use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::parse_type_or_unknown;
-use crate::types::public_alias_has_invalid_target_leaf;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
 use crate::types::symbols::imported_use_for_path;
 
