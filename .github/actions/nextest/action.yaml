@@ -5,6 +5,9 @@ inputs:
   nextest-version:
     description: Version of cargo-nextest to install.
     required: true
+  llvm-cov-version:
+    description: Version of cargo-llvm-cov to install.
+    required: true
   shard:
     description: One-based shard number to run.
     required: false
@@ -30,6 +33,12 @@ runs:
       with:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
+    - name: Restore cargo-llvm-cov cache
+      id: cargo-llvm-cov-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ~/.cargo/bin/cargo-llvm-cov
+        key: cargo-llvm-cov-${{ runner.os }}-${{ inputs.llvm-cov-version }}
     - name: Prepare Cargo dependencies
       uses: ./.github/actions/cargo-dependencies
       with:
@@ -38,7 +47,7 @@ runs:
       id: rust-test-build-cache-key
       shell: bash
       env:
-        RUST_TEST_BUILD_CACHE_KEY: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ github.run_id }}
+        RUST_TEST_BUILD_CACHE_KEY: rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.llvm-cov-version }}-${{ github.run_id }}
       run: echo "key=${RUST_TEST_BUILD_CACHE_KEY}" >> "${GITHUB_OUTPUT}"
     - name: Restore and update main Rust test build cache
       if: inputs.save-cache == 'true'
@@ -48,7 +57,7 @@ runs:
         path: target
         key: ${{ steps.rust-test-build-cache-key.outputs.key }}
         restore-keys: |
-          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-
+          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.llvm-cov-version }}-
           rust-test-build-${{ runner.os }}-
     - name: Restore main Rust test build cache
       if: inputs.save-cache != 'true'
@@ -57,33 +66,67 @@ runs:
         path: target
         key: ${{ steps.rust-test-build-cache-key.outputs.key }}
         restore-keys: |
-          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-
+          rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.llvm-cov-version }}-
           rust-test-build-${{ runner.os }}-
     - name: Install cargo-nextest
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
       with:
         tool: cargo-nextest@${{ inputs.nextest-version }}
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
+      with:
+        tool: cargo-llvm-cov@${{ inputs.llvm-cov-version }}
+    - name: Install LLVM coverage tools
+      shell: bash
+      run: rustup component add llvm-tools-preview
     - name: Save cargo-nextest cache
       if: inputs.save-cache == 'true' && steps.cargo-nextest-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.cargo/bin/cargo-nextest
         key: cargo-nextest-${{ runner.os }}-${{ inputs.nextest-version }}
+    - name: Save cargo-llvm-cov cache
+      if: inputs.save-cache == 'true' && steps.cargo-llvm-cov-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ~/.cargo/bin/cargo-llvm-cov
+        key: cargo-llvm-cov-${{ runner.os }}-${{ inputs.llvm-cov-version }}
     - name: Track Rust build artifacts in use
       if: inputs.save-cache == 'true'
       uses: BD103/cargo-sweep@28e53e462f3658c03a16ebd79651d2c168a27d4d # v2.1.2
     - name: Build main Rust test cache
       if: inputs.save-cache == 'true'
       shell: bash
-      run: cargo nextest run --locked --workspace --profile ci --no-run
+      env:
+        CARGO_INCREMENTAL: "0"
+      run: |
+        source <(cargo llvm-cov show-env --sh)
+        cargo nextest run --locked --workspace --profile ci --no-run
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash
-      run: cargo nextest run --locked --workspace --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+      env:
+        CARGO_INCREMENTAL: "0"
+      run: cargo llvm-cov --no-report nextest --locked --workspace --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+    - name: Generate Rust shard coverage report
+      if: inputs.shard != ''
+      shell: bash
+      env:
+        CARGO_INCREMENTAL: "0"
+      run: |
+        mkdir -p target/coverage
+        cargo llvm-cov report --lcov --output-path target/coverage/lcov.info
     - name: Upload nextest JUnit report
       if: always() && inputs.shard != ''
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: nextest-junit-${{ inputs.shard }}
         path: target/nextest/ci/junit.xml
+        if-no-files-found: error
+    - name: Upload Rust shard coverage report
+      if: inputs.shard != ''
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      with:
+        name: nextest-coverage-${{ inputs.shard }}
+        path: target/coverage/lcov.info
         if-no-files-found: error
