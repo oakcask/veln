@@ -28,14 +28,15 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   `required_initial`, and `observed_initial` fields. The checked
   `identifier-casing-*-json` cases define exact spans, detail values, and
   non-cascading recovery behavior.
-- Source-less compiler lookup registry casing failures use span-less
+- Source-less compiler lookup registry validation failures use span-less
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
   `name_class`, and `required_initial` fields and diagnostic kind
-  `toolchain`. Duplicate lookup-key failures use the same id and details, and
-  their human primary message states that the lookup key is duplicated.
-  Focused `veln-sema` `standard_symbols` and `adt` tests define descriptor,
-  atomic-failure, lookup-key, and lookup isolation behavior for runtime,
-  prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
+  `toolchain`. Invalid lookup-key failures use the same id and details as
+  invalid casing failures. Duplicate lookup-key failures also use the same id
+  and details, and their human primary message states that the lookup key is
+  duplicated. Focused `veln-sema` `standard_symbols` and `adt` tests define
+  descriptor, atomic-failure, lookup-key, and lookup isolation behavior for
+  runtime, prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -105,13 +106,14 @@ behavior is specified by [names-effects.md](names-effects.md). Selected-entry
 routed by [run-json.md](run-json.md), including direct-dependency selected
 loading and unloaded-manifest isolation.
 
-Source-less compiler lookup registry casing failures use
+Source-less compiler lookup registry validation failures use
 `toolchain.invalid_symbol_case` with no span. Details expose the descriptor
 `provider`, invalid `name`, `name_class`, and `required_initial`. The failure
 is a toolchain invariant failure with diagnostic kind `toolchain`, not source
-`name.invalid_case`; focused `veln-sema` `standard_symbols` and `adt` tests
-pin generated-table validation, injected invalid descriptors, duplicate lookup
-keys, atomic failure, and lookup isolation for runtime, prelude,
+`name.invalid_case`; invalid source lookup keys and duplicate lookup keys use
+the same id and details. Focused `veln-sema` `standard_symbols` and `adt`
+tests pin generated-table validation, injected invalid descriptors, duplicate
+lookup keys, atomic failure, and lookup isolation for runtime, prelude,
 `prelude_builtin`, and built-in ADT lookup descriptors.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
