@@ -99,7 +99,8 @@ compiler-known calls.
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-accepted-names-json`,
   `identifier-casing-valid-symbol-precedence-json`,
-  `identifier-casing-implicit-prelude-boundary-json`, and
+  `identifier-casing-implicit-prelude-boundary-json`,
+  `identifier-casing-implicit-prelude-isolation-json`, and
   `identifier-casing-ambiguous-recovery-json` and
   `identifier-casing-cross-class-ambiguous-recovery-json` cases and the run
   `identifier-casing-import-recovery-isolation-json`,
@@ -118,8 +119,9 @@ compiler-known calls.
   cross import boundaries, do not satisfy public alias targets, valid symbols
   win over same-source recovery records in bare function-value references and
   before call or constructor arity is considered, valid implicit-prelude
-  symbols win over same-spelled application recovery records, ambiguous
-  recovery records do not resolve across name classes or when same-owner
+  symbols win over same-spelled application recovery records, application
+  recovery records do not resolve qualified implicit-prelude namespace uses,
+  ambiguous recovery records do not resolve across name classes or when same-owner
   constructor candidates would emit the same owner diagnostic, same-name
   recovery peers are selected only when compatible with the call arity, and
   qualified type paths do not select unrelated same-leaf local recovery

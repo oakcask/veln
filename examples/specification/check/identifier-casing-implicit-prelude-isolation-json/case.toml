@@ -1,0 +1,27 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["name.ambiguous", "core.missing_expression"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `prelude::Bad`"

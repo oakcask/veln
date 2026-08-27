@@ -61,7 +61,7 @@ reachable.
 
 | Source state | Required result | Evidence |
 | --- | --- | --- |
-| A use crosses the implicit-prelude boundary. | A valid prelude symbol may win normal lookup; an invalid recovery record cannot enter or escape the prelude namespace. | Focused semantic tests cover both recovery-isolation directions and valid-prelude precedence. The checked `identifier-casing-implicit-prelude-boundary-json` case covers the user-visible valid-prelude constructor boundary. |
+| A function or constructor use crosses the implicit-prelude boundary. | A valid prelude symbol may win normal lookup; an invalid recovery record cannot enter or escape the prelude namespace. | Focused semantic tests cover application-to-prelude and prelude-to-application function and constructor recovery isolation, ordinary unresolved diagnostics after isolation, and valid-prelude function and constructor precedence. The checked `identifier-casing-implicit-prelude-boundary-json` case covers the user-visible valid-prelude constructor boundary. The checked `identifier-casing-implicit-prelude-isolation-json` case covers the user-visible qualified-prelude unresolved boundary. |
 
 ## Completion
 
