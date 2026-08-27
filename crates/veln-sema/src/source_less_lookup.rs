@@ -25,6 +25,10 @@ pub(crate) fn standard_symbol_registry()
     Ok(&source_less_lookup_registries()?.standard_symbols)
 }
 
+pub(crate) fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
+    Ok(&source_less_lookup_registries()?.builtin_adts)
+}
+
 pub(crate) fn qualified_symbol_checked(
     segments: &[String],
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
@@ -98,7 +102,7 @@ pub(crate) fn build_source_less_lookup_registries(
 
 #[cfg(test)]
 mod tests {
-    use veln_ast::Visibility;
+    use veln_ast::{SurfaceModule, Visibility};
 
     use super::*;
     use crate::adt::{AdtDescriptor, AdtVariantDescriptor, AdtVariantKind};
@@ -155,6 +159,21 @@ mod tests {
         let mut descriptor = valid_adt_descriptor();
         descriptor.variants[0].name = "boxed".to_string();
         descriptor
+    }
+
+    fn empty_module() -> SurfaceModule {
+        SurfaceModule {
+            module: None,
+            uses: Vec::new(),
+            aliases: Vec::new(),
+            effects: Vec::new(),
+            handlers: Vec::new(),
+            types: Vec::new(),
+            schemas: Vec::new(),
+            codecs: Vec::new(),
+            functions: Vec::new(),
+            invalid_names: Vec::new(),
+        }
     }
 
     #[test]
@@ -247,5 +266,30 @@ mod tests {
                 .descriptor_for_type(&option)
                 .is_some()
         );
+    }
+
+    #[test]
+    fn published_adt_registry_seeds_application_lookup() {
+        let registries = build_source_less_lookup_registries(
+            VALID_STANDARD_SYMBOLS,
+            &[],
+            &[],
+            &[],
+            vec![valid_adt_descriptor()],
+        )
+        .expect("all providers validate");
+
+        let application_adts =
+            AdtRegistry::from_module_with_base(&empty_module(), Some(&registries.builtin_adts));
+        let boxed = crate::semantic_model::Type::named("Boxed", Vec::new());
+
+        assert!(
+            application_adts.descriptor_for_type(&boxed).is_some(),
+            "application ADT lookup should consume the published source-less ADT state"
+        );
+        assert!(matches!(
+            application_adts.constructor(&path("Boxed", "Boxed"), None, &[]),
+            crate::adt::ConstructorLookup::Found(_)
+        ));
     }
 }

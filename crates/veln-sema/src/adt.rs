@@ -177,7 +177,12 @@ impl AdtRegistry {
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
         let mut descriptors = base
             .map(|base| base.descriptors.clone())
-            .unwrap_or_else(checked_builtin_descriptors);
+            .unwrap_or_else(|| {
+                crate::source_less_lookup::builtin_adt_registry()
+                    .expect("source-less lookup registry is valid")
+                    .descriptors()
+                    .to_vec()
+            });
         let source_descriptors = module
             .types
             .iter()
@@ -774,16 +779,9 @@ pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSy
     validate_adt_lookup_descriptors("adt", &build_builtin_descriptors())
 }
 
-fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
-    let descriptors = build_builtin_descriptors();
-    validate_adt_lookup_descriptors("adt", &descriptors)
-        .expect("built-in ADT descriptors are valid");
-    descriptors
-}
-
 #[cfg(test)]
-fn builtin_descriptors() -> Vec<AdtDescriptor> {
-    checked_builtin_descriptors()
+fn raw_builtin_descriptors_for_test() -> Vec<AdtDescriptor> {
+    build_builtin_descriptors()
 }
 
 pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {

@@ -1,7 +1,10 @@
 use super::*;
 
 fn registry() -> AdtRegistry {
-    AdtRegistry::from_parts(builtin_descriptors(), std::collections::BTreeMap::new())
+    AdtRegistry::from_parts(
+        raw_builtin_descriptors_for_test(),
+        std::collections::BTreeMap::new(),
+    )
 }
 
 fn path(parts: &[&str]) -> Vec<String> {
@@ -48,15 +51,21 @@ fn constructors_match_qualified_and_unqualified_builtin_names() {
 }
 
 #[test]
-fn production_adt_registry_uses_validated_builtin_descriptors() {
-    validate_builtin_adt_descriptors().expect("built-in ADT descriptor validation");
+fn production_adt_registry_uses_published_source_less_builtin_adts() {
+    let published = crate::source_less_lookup::builtin_adt_registry()
+        .expect("source-less ADT registry publication");
 
     let registry = AdtRegistry::from_module(&empty_module());
     let option = Type::named("Option", vec![Type::Unknown]);
 
+    assert_eq!(
+        registry.descriptors(),
+        published.descriptors(),
+        "production ADT lookup should seed from the shared source-less publication"
+    );
     assert!(
         registry.descriptor_for_type(&option).is_some(),
-        "production ADT lookup should consume validated built-in descriptors"
+        "production ADT lookup should consume published built-in descriptors"
     );
     assert!(matches!(
         registry.constructor(&path(&["Option", "Some"]), None, &[]),
@@ -86,7 +95,7 @@ fn source_less_provider_inventory_names_builtin_adt_lookup_routes() {
 
 #[test]
 fn invalid_builtin_adt_type_name_reports_descriptor_details() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     descriptors[0].type_name = "option".to_string();
 
     let failure =
@@ -108,7 +117,7 @@ fn invalid_builtin_adt_type_name_reports_descriptor_details() {
 
 #[test]
 fn invalid_builtin_adt_constructor_name_prevents_registry_publication() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     descriptors[0].variants[0].name = "some".to_string();
 
     let failure = validate_adt_lookup_descriptors("adt", &descriptors)
@@ -124,7 +133,7 @@ fn invalid_builtin_adt_constructor_name_prevents_registry_publication() {
 
 #[test]
 fn duplicate_builtin_adt_type_key_reports_lookup_key_failure() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     let duplicate = descriptors[0].clone();
     descriptors.push(duplicate);
 
@@ -153,7 +162,7 @@ fn duplicate_builtin_adt_type_key_reports_lookup_key_failure() {
 
 #[test]
 fn duplicate_builtin_adt_constructor_key_reports_lookup_key_failure() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     let duplicate = descriptors[0].variants[0].clone();
     descriptors[0].variants.push(duplicate);
 
@@ -182,7 +191,7 @@ fn duplicate_builtin_adt_constructor_key_reports_lookup_key_failure() {
 
 #[test]
 fn invalid_injected_adt_descriptor_does_not_publish_lookup_registry() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     descriptors[0].variants[0].name = "some".to_string();
 
     let failure =
@@ -198,7 +207,7 @@ fn invalid_injected_adt_descriptor_does_not_publish_lookup_registry() {
 
 #[test]
 fn duplicate_injected_adt_constructor_does_not_publish_lookup_registry() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     let duplicate = descriptors[0].variants[0].clone();
     descriptors[0].variants.push(duplicate);
 
@@ -218,7 +227,7 @@ fn duplicate_injected_adt_constructor_does_not_publish_lookup_registry() {
 
 #[test]
 fn inconsistent_builtin_adt_type_class_prevents_registry_publication() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     descriptors[0].name_class = SourceLessNameClass::Function;
 
     let failure = validate_adt_lookup_descriptors("adt", &descriptors)
@@ -234,7 +243,7 @@ fn inconsistent_builtin_adt_type_class_prevents_registry_publication() {
 
 #[test]
 fn inconsistent_builtin_adt_constructor_class_prevents_registry_publication() {
-    let mut descriptors = builtin_descriptors();
+    let mut descriptors = raw_builtin_descriptors_for_test();
     descriptors[0].variants[0].name_class = SourceLessNameClass::Function;
 
     let failure = validate_adt_lookup_descriptors("adt", &descriptors)
@@ -251,7 +260,7 @@ fn inconsistent_builtin_adt_constructor_class_prevents_registry_publication() {
 #[test]
 fn constructor_lookup_skips_unrelated_adt_variants() {
     fn candidate_scans(unrelated_count: usize) -> usize {
-        let mut descriptors = builtin_descriptors();
+        let mut descriptors = raw_builtin_descriptors_for_test();
         let template = descriptors[0].clone();
         for index in 0..unrelated_count {
             let mut descriptor = template.clone();
