@@ -27,12 +27,14 @@ command and adapter outputs keep the failure separate from source name
 diagnostics. Duplicate lookup-key failures keep the same diagnostic id and
 details, and their primary message states that the lookup key is duplicated.
 
-Qualified lookup keys are the exact module-name and symbol-name pair. Prelude
-lookup keys are the exact source prelude name. Qualified `prelude_builtin`
-compiler-adapter names, the implicit `prelude` module name, built-in
-type-syntax spellings, and built-in ADT type and constructor descriptors are
-included in this gate. A failure in any one provider publishes no lookup state
-from the other source-less providers. Shared standard-environment
+Qualified runtime lookup keys are the exact module-name and symbol-name pair.
+Prelude lookup keys are the exact source prelude name. Compiler-adapter
+failures report the `compiler_adapter` provider and use `prelude_builtin::name`
+lookup keys. The implicit `prelude` module name reports the `standard_names`
+provider, built-in type spellings report the `type_syntax` provider, and
+built-in ADT type and constructor descriptors report the `adt` provider. A
+failure in any one provider publishes no lookup state from the other
+source-less providers. Shared standard-environment
 initialization validates the registries before publishing reusable command or
 adapter state. `prelude_builtin` lookup consumes validated published registry
 state. Production built-in ADT lookup seeds application registries from the
