@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented editor-facing behavior or its LSP server evidence changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, navigation, formatting, rename, virtual-document, VSCode integration, or executable LSP evidence contract changes.
 ---
 
 # Editor Support
@@ -202,7 +202,10 @@ and value-binding replacement names start with an ASCII lowercase letter. A
 class-changing replacement returns JSON-RPC invalid params with code `-32602`.
 The error payload preserves the shared `rename.invalid_case` code and includes
 the selected symbol class, requested name, and required initial class. The
-request returns no workspace edits in that failure response. The executable
+request returns no workspace edits in that failure response. A rename request
+without a selected supported workspace symbol returns an empty workspace-edit
+`changes` object, and prepare-rename for the same position returns `null`.
+The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
 class-changing failures for the four supported rename classes, plus
 source-declared nullary constructor uses, same-spelled non-type namespace

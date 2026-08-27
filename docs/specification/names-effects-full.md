@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The documented name resolution, effect behavior, or executable evidence changes.
+update-when: The Veln name resolution contract, effect checking contract, compiler-known call surface, or executable names/effects evidence changes.
 ---
 
 # Names And Effects
