@@ -39,7 +39,7 @@ use crate::repair_candidates::{
 use crate::semantic_model::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type,
 };
-use crate::source_less_lookup::prelude_symbol;
+use crate::standard_symbols::prelude_symbol;
 use crate::type_relations::is_assignable;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::{

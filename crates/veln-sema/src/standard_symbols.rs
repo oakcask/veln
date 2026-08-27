@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::sync::OnceLock;
 
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
@@ -60,6 +61,23 @@ impl StandardSymbolRegistry {
             .copied()
             .find(|symbol| symbol.name == name)
     }
+}
+
+fn standard_symbol_registry() -> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase>
+{
+    static REGISTRY: OnceLock<Result<StandardSymbolRegistry, InvalidStandardSymbolCase>> =
+        OnceLock::new();
+    REGISTRY
+        .get_or_init(|| {
+            build_standard_symbol_registry(
+                QUALIFIED_SYMBOLS,
+                FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
+                SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+                COMPILER_ADAPTER_SYMBOLS,
+            )
+        })
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1200,6 +1218,27 @@ fn validate_source_lookup_descriptor(
         }
     }
     validate_source_less_name(provider, descriptor.name, descriptor.name_class)
+}
+
+pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+    standard_symbol_registry()
+        .expect("standard symbol registry is valid")
+        .qualified_symbol(segments)
+}
+
+pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    if private_compiler_adapter_name(name) {
+        return None;
+    }
+    standard_symbol_registry()
+        .expect("standard symbol registry is valid")
+        .prelude_symbol(name)
+}
+
+pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    standard_symbol_registry()
+        .expect("standard symbol registry is valid")
+        .compiler_adapter_symbol(name)
 }
 
 #[cfg(test)]

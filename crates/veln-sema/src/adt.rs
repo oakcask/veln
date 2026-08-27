@@ -178,7 +178,7 @@ impl AdtRegistry {
         let mut descriptors = base
             .map(|base| base.descriptors.clone())
             .unwrap_or_else(|| {
-                crate::source_less_lookup::builtin_adt_registry()
+                Self::from_validated_source_less_descriptors(build_builtin_descriptors())
                     .expect("source-less lookup registry is valid")
                     .descriptors()
                     .to_vec()
