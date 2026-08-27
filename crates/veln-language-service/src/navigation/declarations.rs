@@ -19,7 +19,7 @@ fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
         && left.declaration == right.declaration
 }
 
-fn index_workspace_source(source: SourceFile) -> IndexedFile {
+fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations) {
     let path = source.path().as_str().to_string();
     let companion_target_module = classify_companion_source(&path)
         .and_then(|companion| module_name_from_path(&companion.target_path));
@@ -27,19 +27,28 @@ fn index_workspace_source(source: SourceFile) -> IndexedFile {
         .or_else(|| module_name_from_path(&path))
         .unwrap_or_default();
     let (uses, external_uses) = use_modules(source.text());
-    let invalid_declaration_names = invalid_declaration_name_spans(&source);
-    IndexedFile {
+    let parsed = parse(&source);
+    let invalid_declaration_names = invalid_declaration_name_spans(&parsed);
+    let tokens = lex(&source).tokens;
+    let file = IndexedFile {
         source,
+        tokens,
         module,
         companion_target_module,
         uses,
         external_uses,
         invalid_declaration_names,
         origin: IndexedOrigin::Workspace,
-    }
+    };
+    let declarations = file_declarations(&file, &parsed.tree);
+    (file, declarations)
 }
 
-fn index_dependency_sources(files: &mut Vec<IndexedFile>, dependency: DirectDependencySnapshot) {
+fn index_dependency_sources(
+    files: &mut Vec<IndexedFile>,
+    declarations: &mut FileDeclarations,
+    dependency: DirectDependencySnapshot,
+) {
     for (source, entry) in dependency.indexed_sources() {
         let text = std::str::from_utf8(source.bytes())
             .expect("captured package source text is valid UTF-8");
@@ -48,9 +57,12 @@ fn index_dependency_sources(files: &mut Vec<IndexedFile>, dependency: DirectDepe
             .or_else(|| module_name_from_path(source.path()))
             .unwrap_or_default();
         let (uses, external_uses) = use_modules(text);
-        let invalid_declaration_names = invalid_declaration_name_spans(&source_file);
-        files.push(IndexedFile {
+        let parsed = parse(&source_file);
+        let invalid_declaration_names = invalid_declaration_name_spans(&parsed);
+        let tokens = lex(&source_file).tokens;
+        let file = IndexedFile {
             source: source_file,
+            tokens,
             module,
             companion_target_module: None,
             uses,
@@ -62,7 +74,27 @@ fn index_dependency_sources(files: &mut Vec<IndexedFile>, dependency: DirectDepe
                 exported: dependency.exported_sources.contains(source.path()),
                 standard_library: dependency.standard_library,
             },
-        });
+        };
+        declarations.extend(file_declarations(&file, &parsed.tree));
+        files.push(file);
+    }
+}
+
+impl FileDeclarations {
+    fn extend(&mut self, other: Self) {
+        self.functions.extend(other.functions);
+        self.types.extend(other.types);
+        self.constructors.extend(other.constructors);
+        self.type_aliases.extend(other.type_aliases);
+    }
+}
+
+fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclarations {
+    FileDeclarations {
+        functions: function_declarations(file),
+        types: type_declarations(file, syntax),
+        constructors: constructor_declarations(file, syntax),
+        type_aliases: type_alias_declarations(file, syntax),
     }
 }
 
@@ -89,17 +121,17 @@ fn type_alias_targets_constructor(alias: &TypeAliasSymbol, symbol: &ConstructorS
 
 fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     let mut functions = Vec::new();
-    let tokens = lex(&file.source).tokens;
+    let tokens = &file.tokens;
     for (index, token) in tokens.iter().enumerate() {
         if token.kind == TokenKind::Fn
-            && let Some(name) = next_non_layout_token(&tokens, index)
+            && let Some(name) = next_non_layout_token(tokens, index)
             && is_identifier(&name.text)
         {
             let span = file.source.span(name.range);
             if is_invalid_declaration_name(file, &span) {
                 continue;
             }
-            let public = previous_non_layout_token(&tokens, index)
+            let public = previous_non_layout_token(tokens, index)
                 .is_some_and(|previous| previous.kind == TokenKind::Pub);
             let (declaration, package, standard_prelude) = match &file.origin {
                 IndexedOrigin::Workspace => (workspace_location(span), None, false),
@@ -135,9 +167,8 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     functions
 }
 
-fn type_declarations(file: &IndexedFile) -> Vec<TypeSymbol> {
-    parse(&file.source)
-        .tree
+fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol> {
+    syntax
         .items
         .iter()
         .filter_map(|item| match item {
@@ -181,11 +212,9 @@ fn type_declarations(file: &IndexedFile) -> Vec<TypeSymbol> {
         .collect()
 }
 
-fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
-    let tokens = lex(&file.source).tokens;
-    let tokens = tokens.as_slice();
-    parse(&file.source)
-        .tree
+fn constructor_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<ConstructorSymbol> {
+    let tokens = file.tokens.as_slice();
+    syntax
         .items
         .iter()
         .filter_map(|item| match item {
@@ -268,9 +297,8 @@ fn constructor_navigation_origin(
     }
 }
 
-fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
-    parse(&file.source)
-        .tree
+fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeAliasSymbol> {
+    syntax
         .items
         .iter()
         .filter_map(|item| match item {
@@ -317,8 +345,7 @@ fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
         .collect()
 }
 
-fn invalid_declaration_name_spans(source: &SourceFile) -> Vec<SourceSpan> {
-    let parsed = parse(source);
+fn invalid_declaration_name_spans(parsed: &ParseOutput) -> Vec<SourceSpan> {
     if !parsed.diagnostics.is_empty() {
         return Vec::new();
     }
@@ -342,4 +369,3 @@ fn is_invalid_declaration_name(file: &IndexedFile, span: &SourceSpan) -> bool {
             && invalid.end.offset == span.end.offset
     })
 }
-

@@ -295,12 +295,21 @@ enum LocalSymbolKind {
 #[derive(Debug)]
 struct IndexedFile {
     source: SourceFile,
+    tokens: Vec<Token>,
     module: String,
     companion_target_module: Option<String>,
     uses: BTreeSet<String>,
     external_uses: BTreeSet<(String, String)>,
     invalid_declaration_names: Vec<SourceSpan>,
     origin: IndexedOrigin,
+}
+
+#[derive(Default)]
+struct FileDeclarations {
+    functions: Vec<FunctionSymbol>,
+    types: Vec<TypeSymbol>,
+    constructors: Vec<ConstructorSymbol>,
+    type_aliases: Vec<TypeAliasSymbol>,
 }
 
 #[derive(Debug)]
