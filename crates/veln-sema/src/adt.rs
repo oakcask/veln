@@ -4,6 +4,7 @@ use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
 use veln_project::classify_companion_source;
 
+use crate::builtin_type_syntax::{BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxRegistry};
 use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::semantic_model::Type;
 use crate::source_less_names::{
@@ -11,7 +12,7 @@ use crate::source_less_names::{
     validate_source_less_name,
 };
 use crate::standard_names::PRELUDE_MODULE;
-use crate::type_syntax::parse_type_or_unknown;
+use crate::type_annotation_parser::parse_type_annotation_with_arity;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
@@ -2923,12 +2924,24 @@ fn payload_descriptor_type(text: &str, decl: &TypeDecl) -> AdtPayloadType {
     if let Some(index) = decl.params.iter().position(|param| param == text) {
         return AdtPayloadType::TypeParameter(index);
     }
-    let ty = parse_type_or_unknown(Some(text));
+    let ty = parse_adt_payload_type_or_unknown(text);
     if is_self_type(&ty, decl) {
         AdtPayloadType::SelfType
     } else {
         AdtPayloadType::Concrete(type_parameters_to_placeholders(ty, &decl.params))
     }
+}
+
+fn parse_adt_payload_type_or_unknown(text: &str) -> Type {
+    parse_type_annotation_with_arity(text, &adt_builtin_type_arity).unwrap_or(Type::Unknown)
+}
+
+fn adt_builtin_type_arity(name: &str) -> Result<Option<usize>, String> {
+    BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(
+        BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+    )
+    .map(|registry| registry.arity(name))
+    .map_err(|failure| failure.diagnostic().message)
 }
 
 fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {

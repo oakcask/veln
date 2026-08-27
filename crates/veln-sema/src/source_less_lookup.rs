@@ -3,6 +3,9 @@ use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use crate::adt::{AdtDescriptor, AdtRegistry, build_builtin_descriptors};
+use crate::builtin_type_syntax::{
+    BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxDescriptor, BuiltinTypeSyntaxRegistry,
+};
 use crate::source_less_names::{
     InvalidStandardSymbolCase, SourceLessNameClass, validate_source_less_name,
 };
@@ -11,9 +14,6 @@ use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
     SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
     build_standard_symbol_registry_with_modules, private_compiler_adapter_name,
-};
-use crate::type_syntax::{
-    BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxDescriptor, BuiltinTypeSyntaxRegistry,
 };
 
 pub(crate) const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";

@@ -3,6 +3,7 @@
 mod adt;
 mod adt_source_less;
 mod analysis;
+mod builtin_type_syntax;
 mod call_resolution;
 mod contracts;
 mod diagnostics;
@@ -20,6 +21,7 @@ mod standard_names;
 mod standard_symbols;
 #[cfg(test)]
 mod tests;
+mod type_annotation_parser;
 mod type_lowering;
 mod type_relations;
 mod type_syntax;
