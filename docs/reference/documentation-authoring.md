@@ -133,8 +133,7 @@ Split or add a routing index when:
 - one document contains multiple subjects that readers update independently;
 - one file mixes current guidance with historical evidence;
 - readers must open more than one long file before identifying the relevant
-  content;
-- a stable path is useful but its content is too long for first-pass reading.
+  content.
 
 Choose boundaries by subject and ownership, not by a target line count. Do not
 split a focused document merely to make it shorter. Do not create a trivial
