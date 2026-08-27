@@ -912,6 +912,75 @@ fn rename_accepts_same_class_replacements_for_cased_symbols() {
 }
 
 #[test]
+fn constructor_rename_keeps_cross_file_reference_at_declaration_offset() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-constructor-cross-file-offset");
+    project.write("f.veln", "pub type Flag\n  pub Done\nend\n");
+    project.write("main.veln", "use f\n\nfn a()-> X\n  Done\nend\n");
+    let root_uri = path_to_uri(&project.root);
+    let flag_uri = path_to_uri(&project.root.join("f.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let rename = server.handle_message(&rename_request(&flag_uri, 1, 6, "Ready"));
+
+    assert_eq!(rename.len(), 1);
+    assert_eq!(rename[0].matches(r#""newText":"Ready""#).count(), 2);
+    assert!(rename[0].contains("f.veln"), "{}", rename[0]);
+    assert!(rename[0].contains("main.veln"), "{}", rename[0]);
+    assert!(
+        rename[0].contains(r#""line":3,"character":2"#),
+        "{}",
+        rename[0]
+    );
+}
+
+#[test]
+fn constructor_rename_covers_bare_nullary_expression_and_pattern() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-nullary-constructor-forms");
+    project.write(
+        "main.veln",
+        concat!(
+            "type Status\n",
+            "  Ready\n",
+            "  Waiting\n",
+            "end\n\n",
+            "fn ready() -> Status\n",
+            "  Ready\n",
+            "end\n\n",
+            "fn observe(status: Status) -> Bool\n",
+            "  match status\n",
+            "    Ready => true\n",
+            "    Waiting => false\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let rename = server.handle_message(&rename_request(&main_uri, 1, 2, "Created"));
+
+    assert_eq!(rename.len(), 1);
+    assert_eq!(rename[0].matches(r#""newText":"Created""#).count(), 3);
+    assert!(
+        rename[0].contains(r#""line":6,"character":2"#),
+        "{}",
+        rename[0]
+    );
+    assert!(
+        rename[0].contains(r#""line":11,"character":4"#),
+        "{}",
+        rename[0]
+    );
+    assert!(
+        !rename[0].contains(r#""line":12,"character":4"#),
+        "{}",
+        rename[0]
+    );
+}
+
+#[test]
 fn rename_rejects_class_changing_replacements_for_cased_symbols() {
     let mut server = Server::default();
     let project = TempProject::new("rename-cased-symbol-invalid-case");

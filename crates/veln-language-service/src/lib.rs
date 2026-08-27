@@ -1072,8 +1072,8 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && token.range.start != symbol.declaration.span.start.offset
-                            && is_call_target_token(&tokens, *index)
+                            && !same_span(&file.source.span(token.range), &symbol.declaration.span)
+                            && is_constructor_reference_token(&tokens, *index)
                             && self
                                 .constructor_symbol_for_call(file, &tokens, *index, &token.text)
                                 .is_some_and(|candidate| same_constructor(&candidate, symbol))
@@ -1104,6 +1104,12 @@ fn same_constructor(left: &ConstructorSymbol, right: &ConstructorSymbol) -> bool
         && left.type_name == right.type_name
         && left.name == right.name
         && left.declaration == right.declaration
+}
+
+fn same_span(left: &SourceSpan, right: &SourceSpan) -> bool {
+    left.file == right.file
+        && left.start.offset == right.start.offset
+        && left.end.offset == right.end.offset
 }
 
 fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
@@ -2456,6 +2462,61 @@ fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
     next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
+fn is_constructor_reference_token(tokens: &[Token], index: usize) -> bool {
+    is_call_target_token(tokens, index)
+        || is_bare_nullary_constructor_expression(tokens, index)
+        || is_bare_nullary_constructor_pattern(tokens, index)
+}
+
+fn is_bare_nullary_constructor_expression(tokens: &[Token], index: usize) -> bool {
+    let token = &tokens[index];
+    token
+        .text
+        .chars()
+        .next()
+        .is_some_and(|initial| initial.is_ascii_uppercase())
+        && !is_type_position_token(tokens, index)
+        && !is_function_declaration_name(tokens, index)
+        && !is_type_declaration_name(tokens, index)
+        && !is_constructor_declaration_name(tokens, index)
+        && !is_parameter_name(tokens, index)
+        && !is_local_binding_name(tokens, index)
+        && !is_field_name(tokens, index)
+        && !is_handler_operation_clause_operation_name(tokens, index)
+}
+
+fn is_bare_nullary_constructor_pattern(tokens: &[Token], index: usize) -> bool {
+    let token = &tokens[index];
+    token
+        .text
+        .chars()
+        .next()
+        .is_some_and(|initial| initial.is_ascii_uppercase())
+        && is_match_arm_pattern_binding_name(tokens, index)
+        && previous_non_layout_token(tokens, index)
+            .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| !matches!(next.kind, TokenKind::DoubleColon | TokenKind::Colon))
+}
+
+fn is_type_declaration_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|previous| previous.kind == TokenKind::Type)
+}
+
+fn is_constructor_declaration_name(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && inside_top_level_block(tokens, index, TokenKind::Type)
+        && line_tokens_before(tokens, index)
+            .iter()
+            .all(|token| matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+}
+
+fn is_type_position_token(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|previous| matches!(previous.kind, TokenKind::Colon | TokenKind::Arrow))
+}
+
 fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
     is_call_target_token(tokens, index)
         && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
@@ -2997,6 +3058,60 @@ mod tests {
             RenameNameClass::Constructor,
             "entry",
             RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
+    fn constructor_references_keep_cross_file_reference_at_declaration_offset() {
+        let result = query(
+            vec![
+                source("f.veln", "pub type Flag\n  pub Done\nend\n"),
+                source("main.veln", "use f\n\nfn a()-> X\n  Done\nend\n"),
+            ],
+            "f.veln",
+            2,
+            7,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(
+            result.definition.span.start.offset,
+            result.references[0].start.offset
+        );
+        assert_eq!(locations(&result.references), [("main.veln", 4, 3)]);
+    }
+
+    #[test]
+    fn constructor_references_cover_bare_nullary_expression_and_pattern() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Status\n",
+                    "  Ready\n",
+                    "  Waiting\n",
+                    "end\n\n",
+                    "fn ready() -> Status\n",
+                    "  Ready\n",
+                    "end\n\n",
+                    "fn observe(status: Status) -> Bool\n",
+                    "  match status\n",
+                    "    Ready => true\n",
+                    "    Waiting => false\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            2,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 7, 3), ("main.veln", 12, 5)]
         );
     }
 
