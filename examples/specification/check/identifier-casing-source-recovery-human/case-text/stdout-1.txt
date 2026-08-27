@@ -7,6 +7,8 @@ main.veln:6:25: error[name.invalid_case]: binding name `Output` must start with 
 main.veln:7:7: error[name.invalid_case]: binding name `Local` must start with an ASCII lowercase letter
 main.veln:11:6: error[name.invalid_case]: function name `Verify` must start with an ASCII lowercase letter
 main.veln:15:8: error[name.invalid_case]: function name `Exported` must start with an ASCII lowercase letter
+main.veln:15:19: error[name.invalid_case]: function alias target `Build` must start with an ASCII lowercase letter
 main.veln:16:10: error[name.invalid_case]: type name `exported` must start with an ASCII uppercase letter
+main.veln:16:21: error[name.invalid_case]: type alias target `item` must start with an ASCII uppercase letter
 main.veln:15:1: error[name.unresolved]: unresolved function alias target `Build`
 main.veln:16:1: error[name.unresolved]: unresolved type alias target `item`
