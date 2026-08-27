@@ -1,0 +1,6 @@
+type Document
+  pub Text(String)
+end
+fn parse() -> Int
+  1
+end

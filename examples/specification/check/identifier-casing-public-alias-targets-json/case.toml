@@ -1,4 +1,4 @@
-command = ["check", "--json", "api.veln"]
+command = ["check", "--json", "api.veln", "impl.veln"]
 exit = 1
 
 [stdout]
@@ -18,7 +18,7 @@ equals = "name.invalid_case"
 
 [[json_assert]]
 path = "diagnostics.0.span.start.line"
-equals = 7
+equals = 9
 
 [[json_assert]]
 path = "diagnostics.0.span.start.column"
@@ -56,11 +56,72 @@ equals = "ascii_lowercase"
 path = "diagnostics.0.details.observed_initial"
 equals = "ascii_uppercase"
 
+[[json_assert]]
+path = "diagnostics.5.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.5.span.start.line"
+equals = 16
+
+[[json_assert]]
+path = "diagnostics.5.span.start.column"
+equals = 41
+
+[[json_assert]]
+path = "diagnostics.5.span.end.column"
+equals = 49
+
+[[json_assert]]
+path = "diagnostics.5.details.occurrence"
+equals = "alias_target"
+
+[[json_assert]]
+path = "diagnostics.5.details.name"
+equals = "Document"
+
+[[json_assert]]
+path = "diagnostics.5.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.6.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.6.span.start.line"
+equals = 17
+
+[[json_assert]]
+path = "diagnostics.6.span.start.column"
+equals = 37
+
+[[json_assert]]
+path = "diagnostics.6.span.end.column"
+equals = 42
+
+[[json_assert]]
+path = "diagnostics.6.details.occurrence"
+equals = "alias_target"
+
+[[json_assert]]
+path = "diagnostics.6.details.name"
+equals = "parse"
+
+[[json_assert]]
+path = "diagnostics.6.details.name_class"
+equals = "type"
+
 [[diagnostics]]
 id = "name.invalid_case"
 severity = "error"
 kind = "name"
 message = "function alias target `Document` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "api.veln"
+line = 9
+column = 21
 
 [[diagnostics]]
 id = "name.invalid_case"
@@ -68,11 +129,21 @@ severity = "error"
 kind = "name"
 message = "type alias target `parse` must start with an ASCII uppercase letter"
 
+[diagnostics.span]
+file = "api.veln"
+line = 10
+column = 22
+
 [[diagnostics]]
 id = "name.invalid_case"
 severity = "error"
 kind = "name"
 message = "function alias target `Missing` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "api.veln"
+line = 11
+column = 18
 
 [[diagnostics]]
 id = "name.invalid_case"
@@ -80,11 +151,65 @@ severity = "error"
 kind = "name"
 message = "type alias target `missing_type` must start with an ASCII uppercase letter"
 
+[diagnostics.span]
+file = "api.veln"
+line = 12
+column = 24
+
 [[diagnostics]]
 id = "name.invalid_case"
 severity = "error"
 kind = "name"
 message = "type alias target `wrong_kind` must start with an ASCII uppercase letter"
+
+[diagnostics.span]
+file = "api.veln"
+line = 14
+column = 37
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "function alias target `Document` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "api.veln"
+line = 16
+column = 41
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type alias target `parse` must start with an ASCII uppercase letter"
+
+[diagnostics.span]
+file = "api.veln"
+line = 17
+column = 37
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "function alias target `Missing` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "api.veln"
+line = 18
+column = 43
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type alias target `missing_type` must start with an ASCII uppercase letter"
+
+[diagnostics.span]
+file = "api.veln"
+line = 19
+column = 39
 
 [[diagnostics]]
 id = "name.kind_mismatch"
@@ -127,3 +252,27 @@ id = "name.unresolved"
 severity = "error"
 kind = "name"
 message = "unresolved schema alias target `WrongKind`"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `impl::Document` is a type, not a function"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `impl::parse` is a function, not a type"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved function alias target `impl::Missing`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type alias target `impl::missing_type`"

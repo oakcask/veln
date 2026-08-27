@@ -1,3 +1,5 @@
+use impl
+
 type Document
   pub Text(String)
 end
@@ -11,3 +13,7 @@ pub type MissingType = missing_type
 pub schema Packet = schema_impl::packet
 pub type FunctionAliasExportProbe = wrong_kind
 pub schema TypeAliasExportProbe = WrongKind
+pub fn qualified_wrong_function = impl::Document
+pub type QualifiedWrongType = impl::parse
+pub fn qualified_missing_function = impl::Missing
+pub type QualifiedMissingType = impl::missing_type
