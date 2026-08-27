@@ -110,7 +110,11 @@ Unicode-scalar ranges, related notes, and structured details, plus summary
 counts and analysis metadata. The metadata uses `mode: "project"` with
 `project_wide: true` for selected manifest-project analysis, and
 `mode: "single_file"` with `project_wide: false` and `source` for anonymous
-single-file analysis.
+single-file analysis. MCP diagnostic conversion preserves the common
+diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
+including span-less `toolchain.invalid_symbol_case` entries with diagnostic
+kind `toolchain` and details for `provider`, `name`, `name_class`, and
+`required_initial`.
 
 ## Saved Workspace Definitions
 
