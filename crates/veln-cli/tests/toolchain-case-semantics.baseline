@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"890a00f66e8d8e1ed9c20135bb74917616bbfcd8"
+source_git_tree	"f7847cebbfcc8c9da59291816db2f3450c869228"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1581
+case_count	1582
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5695,6 +5695,30 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"8e5223e0e5109fbe615cf8d9730b6f8e3160abc03bf60e5d11977a1ad3341906"
+case	"examples/specification/check/identifier-casing-implicit-prelude-isolation-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[1].id	"name.unresolved"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"unresolved call_target `prelude::Bad`"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	2
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.ambiguous"
+field	expectations.stdout.not_contains[1]	"core.missing_expression"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"aabdb2af28a343ef3c75703962c4dc27a1eae60b62744ce70db943857d3fe37a"
 case	"examples/specification/check/identifier-casing-import-recovery-isolation-json"
 field	expectations.diagnostics[0].id	"name.invalid_case"
 field	expectations.diagnostics[0].kind	"name"
@@ -49401,4 +49425,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a895461716689ea5387826de943317a0080535a1469bd4bd79af365f20230067"
+aggregate_digest	"52cd0f6ca026f0b1ef839f7e67c460fe09e1d2f97ba030c8d46d1bc706e398b2"
