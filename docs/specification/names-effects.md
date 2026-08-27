@@ -119,7 +119,9 @@ compiler-known calls.
   cross import boundaries, do not satisfy public alias targets, valid symbols
   win over same-source recovery records in bare function-value references and
   before call or constructor arity is considered, valid implicit-prelude
-  symbols win over same-spelled application recovery records, application
+  functions and constructors win over same-spelled application recovery
+  records before recovery candidates are considered for the selected call or
+  constructor path, application
   recovery records do not resolve qualified implicit-prelude namespace uses,
   ambiguous recovery records do not resolve across name classes or when same-owner
   constructor candidates would emit the same owner diagnostic, same-name
