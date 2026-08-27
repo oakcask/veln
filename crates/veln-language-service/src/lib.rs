@@ -1668,16 +1668,16 @@ fn type_reference_spans(
             SyntaxItem::Function(function) => {
                 spans.extend(type_references_in_params(
                     source,
-                    &tokens,
+                    tokens,
                     name,
                     &function.params,
                 ));
                 if let Some(span) = &function.return_type_span {
-                    spans.extend(type_reference_tokens_in_span(source, &tokens, name, span));
+                    spans.extend(type_reference_tokens_in_span(source, tokens, name, span));
                 }
                 spans.extend(type_references_in_body_lines(
                     source,
-                    &tokens,
+                    tokens,
                     name,
                     &function.body,
                 ));
@@ -1685,7 +1685,7 @@ fn type_reference_spans(
             SyntaxItem::Handler(handler) => {
                 spans.extend(type_references_in_params(
                     source,
-                    &tokens,
+                    tokens,
                     name,
                     &handler.params,
                 ));
@@ -1694,13 +1694,13 @@ fn type_reference_spans(
                 for operation in &effect.operations {
                     spans.extend(type_references_in_params(
                         source,
-                        &tokens,
+                        tokens,
                         name,
                         &operation.params,
                     ));
                     spans.extend(type_references_after_token_in_span(
                         source,
-                        &tokens,
+                        tokens,
                         name,
                         &operation.span,
                         TokenKind::Arrow,
@@ -1712,7 +1712,7 @@ fn type_reference_spans(
                     for field in &variant.fields {
                         spans.extend(type_references_in_variant_field(
                             source,
-                            &tokens,
+                            tokens,
                             name,
                             &field.span,
                         ));
@@ -1721,9 +1721,10 @@ fn type_reference_spans(
             }
             SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
                 spans.extend(
-                    alias.target_spans.iter().flat_map(|span| {
-                        type_reference_tokens_in_span(source, &tokens, name, span)
-                    }),
+                    alias
+                        .target_spans
+                        .iter()
+                        .flat_map(|span| type_reference_tokens_in_span(source, tokens, name, span)),
                 );
             }
             _ => {}
