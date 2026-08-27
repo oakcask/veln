@@ -13,3 +13,7 @@ end
 fn convert(input: Item) -> Item
   Value(1)
 end
+
+effect Item
+  Item() -> Int
+end

@@ -189,15 +189,18 @@ Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
 For selected workspace type, constructor, function, and value-binding symbols,
 `textDocument/rename` first validates that the requested replacement stays in
-the selected symbol's existing identifier class. Type and constructor
-replacement names start with an ASCII uppercase letter. Function and
-value-binding replacement names start with an ASCII lowercase letter. A
+the selected symbol's existing identifier class. Type rename selection covers
+type declarations and syntax-retained type-role references. It does not select
+same-spelled effect names or effect operation names as type symbols. Type and
+constructor replacement names start with an ASCII uppercase letter. Function
+and value-binding replacement names start with an ASCII lowercase letter. A
 class-changing replacement returns JSON-RPC invalid params with code `-32602`.
 The error payload preserves the shared `rename.invalid_case` code and includes
 the selected symbol class, requested name, and required initial class. The
 request returns no workspace edits in that failure response. The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
-class-changing failures for the four supported rename classes.
+class-changing failures for the four supported rename classes, plus
+same-spelled non-type namespace exclusion from type rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

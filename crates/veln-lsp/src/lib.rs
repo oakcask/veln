@@ -2165,6 +2165,72 @@ mod tests {
     }
 
     #[test]
+    fn rename_excludes_same_named_non_type_namespace_tokens() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-cased-symbol-namespace-boundary");
+        project.write(
+            "main.veln",
+            concat!(
+                "type Item\n",
+                "  Value(value: Int)\n",
+                "end\n\n",
+                "schema Item\n",
+                "  format binary\n",
+                "  value: UInt8\n",
+                "end\n\n",
+                "effect Item\n",
+                "  Item() -> Int\n",
+                "end\n\n",
+                "fn main(input: Item) -> Item\n",
+                "  input\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        for (line, character) in [(4, 7), (9, 7), (10, 2)] {
+            let prepare_rename =
+                server.handle_message(&prepare_rename_request(&main_uri, line, character));
+            assert_eq!(prepare_rename.len(), 1);
+            assert!(
+                prepare_rename[0].contains(r#""result":null"#),
+                "{}",
+                prepare_rename[0]
+            );
+
+            let rename =
+                server.handle_message(&rename_request(&main_uri, line, character, "Entry"));
+            assert_eq!(rename.len(), 1);
+            assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+            assert!(
+                !rename[0].contains(r#""rename.invalid_case""#),
+                "{}",
+                rename[0]
+            );
+        }
+
+        let type_rename = server.handle_message(&rename_request(&main_uri, 13, 15, "Entry"));
+        assert_eq!(type_rename[0].matches(r#""newText":"Entry""#).count(), 3);
+        assert!(
+            !type_rename[0].contains(r#""line":4,"character":7"#),
+            "{}",
+            type_rename[0]
+        );
+        assert!(
+            !type_rename[0].contains(r#""line":9,"character":7"#),
+            "{}",
+            type_rename[0]
+        );
+        assert!(
+            !type_rename[0].contains(r#""line":10,"character":2"#),
+            "{}",
+            type_rename[0]
+        );
+    }
+
+    #[test]
     fn companion_private_function_rename_preserves_target_symbol_identity() {
         let mut server = Server::default();
         let project = TempProject::new("rename-target-identity");

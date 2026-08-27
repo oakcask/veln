@@ -12,6 +12,10 @@ contains = [
   "\"newText\":\"adapt\"",
   "\"newText\":\"input\"",
 ]
+not_contains = [
+  "\"line\":16,\"character\":7",
+  "\"line\":17,\"character\":2",
+]
 
 [[lsp_assert]]
 id = 6
@@ -82,3 +86,23 @@ equals = "Input"
 id = 9
 path = "/error/data/details/required_initial"
 equals = "ascii_lowercase"
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 11
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes"
+equals = {}

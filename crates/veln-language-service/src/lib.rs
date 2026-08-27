@@ -22,7 +22,9 @@ use veln_project::{
     classify_companion_source,
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
-use veln_syntax::{PublicAliasKind, SyntaxItem, Token, TokenKind, Visibility, lex, parse};
+use veln_syntax::{
+    BodyLine, PublicAliasKind, SyntaxItem, Token, TokenKind, Visibility, lex, parse,
+};
 
 #[derive(Clone, Debug)]
 pub struct EffectiveProjectSnapshot {
@@ -626,11 +628,7 @@ impl SymbolIndex {
         }
 
         if !is_call_target_token(tokens, token_index) {
-            if name
-                .chars()
-                .next()
-                .is_some_and(|initial| initial.is_ascii_uppercase())
-            {
+            if is_type_reference_token(&file.source, name, selection) {
                 return self
                     .visible_type_for_reference(file, name)
                     .map(Symbol::Type);
@@ -1598,28 +1596,233 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
 }
 
 fn type_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
+    type_reference_spans(source, name)
+}
+
+fn type_reference_spans(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
     let tokens = lex(source).tokens;
+    let parsed = parse(source);
+    let mut spans = Vec::new();
+    for item in &parsed.tree.items {
+        match item {
+            SyntaxItem::Function(function) => {
+                spans.extend(type_references_in_params(
+                    source,
+                    &tokens,
+                    name,
+                    &function.params,
+                ));
+                if let Some(span) = &function.return_type_span {
+                    spans.extend(type_reference_tokens_in_span(source, &tokens, name, span));
+                }
+                spans.extend(type_references_in_body_lines(
+                    source,
+                    &tokens,
+                    name,
+                    &function.body,
+                ));
+            }
+            SyntaxItem::Handler(handler) => {
+                spans.extend(type_references_in_params(
+                    source,
+                    &tokens,
+                    name,
+                    &handler.params,
+                ));
+            }
+            SyntaxItem::Effect(effect) => {
+                for operation in &effect.operations {
+                    spans.extend(type_references_in_params(
+                        source,
+                        &tokens,
+                        name,
+                        &operation.params,
+                    ));
+                    spans.extend(type_references_after_token_in_span(
+                        source,
+                        &tokens,
+                        name,
+                        &operation.span,
+                        TokenKind::Arrow,
+                    ));
+                }
+            }
+            SyntaxItem::Type(type_decl) => {
+                for variant in &type_decl.variants {
+                    for field in &variant.fields {
+                        spans.extend(type_references_in_variant_field(
+                            source,
+                            &tokens,
+                            name,
+                            &field.span,
+                        ));
+                    }
+                }
+            }
+            SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
+                spans.extend(
+                    alias.target_spans.iter().flat_map(|span| {
+                        type_reference_tokens_in_span(source, &tokens, name, span)
+                    }),
+                );
+            }
+            _ => {}
+        }
+    }
+    sort_locations(&mut spans);
+    spans
+}
+
+fn is_type_reference_token(source: &SourceFile, name: &str, selection: &SourceSpan) -> bool {
+    type_reference_spans(source, name).into_iter().any(|span| {
+        span.file == selection.file
+            && span.start.offset == selection.start.offset
+            && span.end.offset == selection.end.offset
+    })
+}
+
+fn type_references_in_params(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    params: &[veln_syntax::Param],
+) -> Vec<SourceSpan> {
+    params
+        .iter()
+        .filter_map(|param| param.ty_span.as_ref())
+        .flat_map(|span| type_reference_tokens_in_span(source, tokens, name, span))
+        .collect()
+}
+
+fn type_references_in_body_lines(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    body: &[BodyLine],
+) -> Vec<SourceSpan> {
+    body.iter()
+        .flat_map(|line| match line {
+            BodyLine::Let {
+                annotation: Some(_),
+                span,
+                ..
+            } => type_references_after_token_until_token_in_span(
+                source,
+                tokens,
+                name,
+                span,
+                TokenKind::Colon,
+                TokenKind::Equal,
+            ),
+            _ => Vec::new(),
+        })
+        .collect()
+}
+
+fn type_references_in_variant_field(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    field_span: &SourceSpan,
+) -> Vec<SourceSpan> {
+    let colon_offset = tokens
+        .iter()
+        .find(|token| {
+            token.kind == TokenKind::Colon
+                && token.range.start >= field_span.start.offset
+                && token.range.end <= field_span.end.offset
+        })
+        .map(|token| token.range.end)
+        .unwrap_or(field_span.start.offset);
     tokens
         .iter()
-        .enumerate()
-        .filter(|(index, token)| {
-            token.kind == TokenKind::Ident
-                && token.text == name
-                && token
-                    .text
-                    .chars()
-                    .next()
-                    .is_some_and(|initial| initial.is_ascii_uppercase())
-                && !is_type_declaration_name(&tokens, *index)
-                && !is_function_declaration_name(&tokens, *index)
-                && !is_parameter_name(&tokens, *index)
-                && !is_local_binding_name(&tokens, *index)
-                && !is_field_name(&tokens, *index)
-                && !is_call_target_token(&tokens, *index)
-                && !is_handler_operation_clause_operation_name(&tokens, *index)
+        .filter(|token| {
+            token.range.start >= colon_offset
+                && token.range.end <= field_span.end.offset
+                && is_type_reference_token_text(token, name)
         })
-        .map(|(_, token)| source.span(token.range))
+        .map(|token| source.span(token.range))
         .collect()
+}
+
+fn type_references_after_token_in_span(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    span: &SourceSpan,
+    start_kind: TokenKind,
+) -> Vec<SourceSpan> {
+    let start_offset = tokens
+        .iter()
+        .find(|token| {
+            token.kind == start_kind
+                && token.range.start >= span.start.offset
+                && token.range.end <= span.end.offset
+        })
+        .map(|token| token.range.end)
+        .unwrap_or(span.end.offset);
+    type_reference_tokens_in_range(source, tokens, name, start_offset, span.end.offset)
+}
+
+fn type_references_after_token_until_token_in_span(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    span: &SourceSpan,
+    start_kind: TokenKind,
+    end_kind: TokenKind,
+) -> Vec<SourceSpan> {
+    let Some(start_index) = tokens.iter().position(|token| {
+        token.kind == start_kind
+            && token.range.start >= span.start.offset
+            && token.range.end <= span.end.offset
+    }) else {
+        return Vec::new();
+    };
+    let start_offset = tokens[start_index].range.end;
+    let end_offset = tokens[start_index + 1..]
+        .iter()
+        .find(|token| token.kind == end_kind && token.range.end <= span.end.offset)
+        .map(|token| token.range.start)
+        .unwrap_or(span.end.offset);
+    type_reference_tokens_in_range(source, tokens, name, start_offset, end_offset)
+}
+
+fn type_reference_tokens_in_span(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    span: &SourceSpan,
+) -> Vec<SourceSpan> {
+    type_reference_tokens_in_range(source, tokens, name, span.start.offset, span.end.offset)
+}
+
+fn type_reference_tokens_in_range(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    start_offset: usize,
+    end_offset: usize,
+) -> Vec<SourceSpan> {
+    tokens
+        .iter()
+        .filter(|token| {
+            token.range.start >= start_offset
+                && token.range.end <= end_offset
+                && is_type_reference_token_text(token, name)
+        })
+        .map(|token| source.span(token.range))
+        .collect()
+}
+
+fn is_type_reference_token_text(token: &Token, name: &str) -> bool {
+    token.kind == TokenKind::Ident
+        && token.text == name
+        && token
+            .text
+            .chars()
+            .next()
+            .is_some_and(|initial| initial.is_ascii_uppercase())
 }
 
 fn local_binding_shadows_call_target(tokens: &[Token], index: usize, name: &str) -> bool {
@@ -2074,11 +2277,6 @@ fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope
 fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index)
         .is_some_and(|previous| matches!(previous.kind, TokenKind::Fn | TokenKind::Test))
-}
-
-fn is_type_declaration_name(tokens: &[Token], index: usize) -> bool {
-    previous_non_layout_token(tokens, index)
-        .is_some_and(|previous| previous.kind == TokenKind::Type)
 }
 
 fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
@@ -2572,6 +2770,82 @@ mod tests {
             RenameNameClass::Type,
             "entry",
             RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
+    fn type_selection_excludes_same_named_non_type_namespace_tokens() {
+        let source_text = concat!(
+            "type Item\n",
+            "  Value(value: Int)\n",
+            "end\n\n",
+            "schema Item\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "end\n\n",
+            "effect Item\n",
+            "  Item() -> Int\n",
+            "end\n\n",
+            "fn main(input: Item) -> Item\n",
+            "  input\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", source_text)];
+
+        for (line, column) in [(5, 8), (10, 8), (11, 4)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "{line}:{column} selected a type symbol"
+            );
+        }
+
+        let result = query(sources, "main.veln", 14, 16).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 14, 16), ("main.veln", 14, 25)]
+        );
+    }
+
+    #[test]
+    fn type_references_cover_syntax_retained_type_roles() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  Value(value: Int)\n",
+                    "end\n\n",
+                    "type Box\n",
+                    "  Wrap(Item)\n",
+                    "end\n\n",
+                    "pub type Exported = Item\n\n",
+                    "effect Choose\n",
+                    "  pick(value: Bool) -> Item\n",
+                    "end\n\n",
+                    "fn main(input: Item) -> Item\n",
+                    "  let current: Item = input\n",
+                    "  current\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            1,
+            6,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 6, 8),
+                ("main.veln", 9, 21),
+                ("main.veln", 12, 24),
+                ("main.veln", 15, 16),
+                ("main.veln", 15, 25),
+                ("main.veln", 16, 16),
+            ]
         );
     }
 
