@@ -1,12 +1,16 @@
-# Runtime Diagnostic HTTP/2 Invalid Frame-Kind Helper Payload
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Runtime Diagnostic HTTP/2 Invalid Frame-Kind Helper Payload
 
 This record preserves the completed HTTP/2 invalid frame-kind standard helper
 runtime diagnostic payload slice from the runtime diagnostic payload proposal.
 Current behavior is specified by `../../specification/run-json.md`,
 `../../specification/execution.md`,
-`../../specification/names-effects-full.md`, and the checked executable cases
+`../../specification/names-effects.md`, and the checked executable cases
 under `../../../examples/specification/run/`.
 
 ## Completed Behavior
@@ -40,5 +44,5 @@ outside this slice.
   keep the existing public human and JSON command protocol facts stable.
 - `../../specification/run-json.md`,
   `../../specification/execution.md`, and
-  `../../specification/names-effects-full.md` summarize the implemented
+  `../../specification/names-effects.md` summarize the implemented
   behavior and route readers to executable evidence.

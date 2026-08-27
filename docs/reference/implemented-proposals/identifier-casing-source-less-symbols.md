@@ -58,6 +58,12 @@ casing diagnostics.
   publication result before constructing application registry state. The Rust
   CI release registry test keeps source-less publication validation checked in
   release builds.
+- Public CLI fixtures are not practical for invalid compiler-provided
+  descriptor input because that input is not expressible as Veln source or as
+  a public command-line option. Serializer and adapter tests consume the
+  shared `toolchain.invalid_symbol_case` diagnostic constructor, while
+  `veln-sema` registry tests inject invalid descriptors at the publication
+  gate.
 
 This record completes only the source-less lookup descriptor acceptance row of
 the identifier-casing proposal. Module identity, qualified-use, recovery

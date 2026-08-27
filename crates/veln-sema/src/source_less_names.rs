@@ -1,4 +1,7 @@
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{
+    Diagnostic, ToolchainSymbolNameClass, ToolchainSymbolNameFailureReason,
+    toolchain_invalid_symbol_case_diagnostic,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SourceLessNameClass {
@@ -9,26 +12,12 @@ pub(crate) enum SourceLessNameClass {
 }
 
 impl SourceLessNameClass {
-    fn as_str(self) -> &'static str {
+    fn toolchain_class(self) -> ToolchainSymbolNameClass {
         match self {
-            Self::Module => "module",
-            Self::Function => "function",
-            Self::Type => "type",
-            Self::Constructor => "constructor",
-        }
-    }
-
-    fn required_initial(self) -> &'static str {
-        match self {
-            Self::Module | Self::Function => "ascii_lowercase",
-            Self::Type | Self::Constructor => "ascii_uppercase",
-        }
-    }
-
-    fn required_initial_description(self) -> &'static str {
-        match self {
-            Self::Module | Self::Function => "ASCII lowercase",
-            Self::Type | Self::Constructor => "ASCII uppercase",
+            Self::Module => ToolchainSymbolNameClass::Module,
+            Self::Function => ToolchainSymbolNameClass::Function,
+            Self::Type => ToolchainSymbolNameClass::Type,
+            Self::Constructor => ToolchainSymbolNameClass::Constructor,
         }
     }
 
@@ -60,59 +49,37 @@ pub(crate) enum InvalidStandardSymbolReason {
 }
 
 impl InvalidStandardSymbolCase {
+    #[cfg(test)]
     pub(crate) fn code(&self) -> &'static str {
         "toolchain.invalid_symbol_case"
     }
 
+    #[cfg(test)]
     pub(crate) fn required_initial(&self) -> &'static str {
-        self.name_class.required_initial()
+        match self.name_class {
+            SourceLessNameClass::Module | SourceLessNameClass::Function => "ascii_lowercase",
+            SourceLessNameClass::Type | SourceLessNameClass::Constructor => "ascii_uppercase",
+        }
     }
 
     pub(crate) fn diagnostic(&self) -> Diagnostic {
-        let message = match self.reason {
-            InvalidStandardSymbolReason::InvalidCase => format!(
-                "compiler-provided {} `{}` from `{}` must start with an {} letter",
-                self.name_class.as_str(),
-                self.name,
-                self.provider,
-                self.name_class.required_initial_description()
-            ),
-            InvalidStandardSymbolReason::InvalidLookupClass => format!(
-                "compiler-provided {} lookup descriptor `{}` from `{}` declares a non-{} name class",
-                self.name_class.as_str(),
-                self.name,
-                self.provider,
-                self.name_class.as_str()
-            ),
-            InvalidStandardSymbolReason::InvalidLookupKey => format!(
-                "compiler-provided {} `{}` from `{}` has an invalid source lookup key",
-                self.name_class.as_str(),
-                self.name,
-                self.provider
-            ),
-            InvalidStandardSymbolReason::DuplicateLookupKey => format!(
-                "compiler-provided {} lookup key `{}` from `{}` is duplicated",
-                self.name_class.as_str(),
-                self.name,
-                self.provider
-            ),
-        };
-        Diagnostic::new(
-            self.code(),
-            Severity::Error,
-            DiagnosticKind::Toolchain,
-            message,
-            None,
-            JsonValue::object([
-                ("provider", JsonValue::string(self.provider)),
-                ("name", JsonValue::string(self.name.clone())),
-                ("name_class", JsonValue::string(self.name_class.as_str())),
-                (
-                    "required_initial",
-                    JsonValue::string(self.required_initial()),
-                ),
-            ]),
+        toolchain_invalid_symbol_case_diagnostic(
+            self.provider,
+            self.name.clone(),
+            self.name_class.toolchain_class(),
+            self.reason.toolchain_reason(),
         )
+    }
+}
+
+impl InvalidStandardSymbolReason {
+    fn toolchain_reason(self) -> ToolchainSymbolNameFailureReason {
+        match self {
+            Self::InvalidCase => ToolchainSymbolNameFailureReason::InvalidCase,
+            Self::InvalidLookupClass => ToolchainSymbolNameFailureReason::InvalidLookupClass,
+            Self::InvalidLookupKey => ToolchainSymbolNameFailureReason::InvalidLookupKey,
+            Self::DuplicateLookupKey => ToolchainSymbolNameFailureReason::DuplicateLookupKey,
+        }
     }
 }
 

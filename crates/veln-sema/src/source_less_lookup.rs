@@ -390,7 +390,7 @@ mod tests {
         .expect("all providers validate");
 
         let application_adts =
-            AdtRegistry::from_module_with_base(&empty_module(), Some(&registries.builtin_adts));
+            AdtRegistry::from_module_with_base(&empty_module(), &registries.builtin_adts);
         let boxed = crate::semantic_model::Type::named("Boxed", Vec::new());
 
         assert!(

@@ -1,13 +1,17 @@
-# Runtime Diagnostic HTTP/2 Data Flow Content-Length Payloads
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Runtime Diagnostic HTTP/2 Data Flow Content-Length Payloads
 
 This record preserves the completed HTTP/2 DATA padding, flow-control window,
 and content-length mismatch runtime diagnostic payload slice from the runtime
 diagnostic payload proposal. Current behavior is specified by
 `../../specification/run-json.md`, `../../specification/commands.md`,
 `../../specification/execution.md`, `../../specification/test-json.md`,
-`../../specification/names-effects-full.md`, and the checked executable cases
+`../../specification/names-effects.md`, and the checked executable cases
 under `../../../examples/specification/run/`.
 
 ## Completed Behavior
@@ -48,5 +52,5 @@ diagnostic payload migration continues.
   check source-visible content-length mismatch projection.
 - `../../specification/run-json.md`, `../../specification/commands.md`,
   `../../specification/execution.md`, `../../specification/test-json.md`, and
-  `../../specification/names-effects-full.md` summarize the implemented
+  `../../specification/names-effects.md` summarize the implemented
   behavior and route readers to executable evidence.

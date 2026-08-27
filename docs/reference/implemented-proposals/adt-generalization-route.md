@@ -1,6 +1,10 @@
-# ADT Generalization Route
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# ADT Generalization Route
 
 This page records the completed ADT generalization follow-up route. Current
 behavior is specified under `../../specification/` and covered by
@@ -56,7 +60,7 @@ the disambiguation boundary.
   and qualified constructor paths.
 - `docs/specification/types-full.md` defines ADT finite-domain exhaustiveness
   and missing-case display.
-- `docs/specification/names-effects-full.md` defines the prelude helper set.
+- `docs/specification/names-effects.md` defines the prelude helper set.
 
 ## Deferred Work
 

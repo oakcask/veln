@@ -1,6 +1,10 @@
-# Self-Hosting Standard Library
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Self-Hosting Standard Library
 
 This page records the completed source-backed prelude helper migration. Use
 the specification pages for current helper signatures and value semantics.
@@ -12,7 +16,7 @@ The later package migration superseded descriptor source metadata; see
 - Current prelude helper behavior and standard-package boundary:
   [../../specification/names-effects.md](../../specification/names-effects.md),
   then
-  [../../specification/names-effects-full.md#standard-package-boundary](../../specification/names-effects-full.md#standard-package-boundary)
+  [../../specification/names-effects.md#standard-package-boundary](../../specification/names-effects.md#standard-package-boundary)
   when exact helper details matter.
 - Current source syntax available to embedded library sources:
   [../../specification/source-surface.md](../../specification/source-surface.md).

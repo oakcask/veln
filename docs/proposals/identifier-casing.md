@@ -83,7 +83,7 @@ called as a constructor but cannot use the same bare spelling as a constructor
 pattern. Existing navigation cases also contain a lowercase `byte` variant
 that can collide with a same-spelled function or callable binding.
 
-[Names And Effects](../specification/names-effects-full.md#name-resolution)
+[Names And Effects](../specification/names-effects.md#name-resolution)
 specifies current value shadowing. [Types](../specification/types-full.md)
 specifies source ADTs and constructor resolution. The short
 [Names And Effects](../specification/names-effects.md) route names the checked

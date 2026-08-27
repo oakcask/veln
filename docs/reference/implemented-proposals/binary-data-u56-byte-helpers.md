@@ -1,11 +1,15 @@
-# Binary Data u56 Byte Helpers
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Binary Data u56 Byte Helpers
 
 This record preserves the completed source-visible seven-byte unsigned integer
 helper slice from the binary data standard library proposal. Current behavior
 is specified by `../../specification/names-effects.md`,
-`../../specification/names-effects-full.md`, and
+`../../specification/names-effects.md`, and
 `../../specification/execution.md`.
 
 ## Completed Behavior

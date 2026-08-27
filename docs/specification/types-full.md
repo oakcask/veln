@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The Veln type annotation, type inference, assignment compatibility, operator typing, or executable type evidence changes.
+---
+
 # Types
 
 This file specifies implemented type annotations, inference, assignment
@@ -60,7 +66,7 @@ matching and inspection by ordinary source.
 The constructor layout of the other byte vocabulary types is not a public
 source contract; programs construct and inspect those values through the
 prelude helpers in
-[names-effects-full.md#helper-signatures](names-effects-full.md#helper-signatures).
+[names-effects.md#helper-signatures](names-effects.md#helper-signatures).
 
 In a function or test return annotation, a returned function type may carry its
 own effect list before the enclosing declaration's effect list. For example,

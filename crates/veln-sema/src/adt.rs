@@ -155,7 +155,9 @@ impl AdtRegistry {
     }
 
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
-        Self::from_module_with_base(module, None)
+        let builtin_adts = crate::source_less_lookup::published_builtin_adt_registry()
+            .expect("source-less lookup registries are valid");
+        Self::from_module_with_base(module, &builtin_adts)
     }
 
     #[cfg(test)]
@@ -174,15 +176,8 @@ impl AdtRegistry {
         Ok(Self::from_parts(descriptors, Default::default()))
     }
 
-    pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
-        let mut descriptors = match base {
-            Some(base) => base.descriptors.clone(),
-            None => {
-                Self::from_validated_source_less_descriptors(build_builtin_descriptors())
-                    .expect("built-in ADT descriptors are valid")
-                    .descriptors
-            }
-        };
+    pub(crate) fn from_module_with_base(module: &SurfaceModule, base: &Self) -> Self {
+        let mut descriptors = base.descriptors.clone();
         let source_descriptors = module
             .types
             .iter()
@@ -210,9 +205,7 @@ impl AdtRegistry {
         let aliases = type_alias_descriptors(module, &source_descriptors);
         descriptors.extend(aliases);
         descriptors.extend(source_descriptors);
-        let mut companion_targets = base
-            .map(|base| base.companion_access_targets.clone())
-            .unwrap_or_default();
+        let mut companion_targets = base.companion_access_targets.clone();
         companion_targets.extend(companion_access_targets(module));
         Self::from_parts(descriptors, companion_targets)
     }

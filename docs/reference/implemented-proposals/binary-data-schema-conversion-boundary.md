@@ -1,11 +1,15 @@
-# Binary Data Schema Conversion Boundary
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Binary Data Schema Conversion Boundary
 
 This record preserves the completed schema-facing byte conversion boundary
 slice from the binary data standard-library proposal. Current behavior is
 specified by `../../specification/names-effects.md`,
-`../../specification/names-effects-full.md`, and the checked executable cases
+`../../specification/names-effects.md`, and the checked executable cases
 under `../../../examples/specification/run/`.
 
 ## Completed Behavior
@@ -36,5 +40,5 @@ behavior.
   checks the failed schema payload view conversion path and the structured
   byte-range diagnostic fields.
 - `../../specification/names-effects.md` and
-  `../../specification/names-effects-full.md` summarize the source-visible
+  `../../specification/names-effects.md` summarize the source-visible
   helper boundary.

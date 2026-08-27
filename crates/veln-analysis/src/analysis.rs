@@ -454,7 +454,7 @@ fn lowered_internal_failure(diagnostic: Diagnostic) -> LoweredSurfaceModule {
 
 #[cfg(test)]
 mod tests {
-    use veln_diagnostics::{DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
+    use veln_diagnostics::diagnostic_to_json;
     use veln_project::Project;
     use veln_source::SourceFile;
 
@@ -561,18 +561,11 @@ mod tests {
     }
 
     fn invalid_standard_symbol_case_diagnostic() -> veln_diagnostics::Diagnostic {
-        veln_diagnostics::Diagnostic::new(
-            "toolchain.invalid_symbol_case",
-            Severity::Error,
-            DiagnosticKind::Toolchain,
-            "compiler-provided function `BadAdapter` from `compiler_adapter` must start with an ASCII lowercase letter",
-            None,
-            JsonValue::object([
-                ("provider", JsonValue::string("compiler_adapter")),
-                ("name", JsonValue::string("BadAdapter")),
-                ("name_class", JsonValue::string("function")),
-                ("required_initial", JsonValue::string("ascii_lowercase")),
-            ]),
+        veln_diagnostics::toolchain_invalid_symbol_case_diagnostic(
+            "compiler_adapter",
+            "BadAdapter",
+            veln_diagnostics::ToolchainSymbolNameClass::Function,
+            veln_diagnostics::ToolchainSymbolNameFailureReason::InvalidCase,
         )
     }
 

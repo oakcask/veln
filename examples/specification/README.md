@@ -1,3 +1,9 @@
+---
+role: reference
+authority: supporting
+update-when: The document content, evidence links, or current specification authority changes.
+---
+
 # Specification Examples
 
 These examples are executable language fixtures. Each case is ordinary Veln
@@ -67,9 +73,5 @@ against the built `veln` binary.
   cache reuse, backend-specific limits, host tool setup, or other implementation
   details, except for narrowly named compatibility or diagnostic migration
   fixtures.
-- Do not add CLI cases for compiler descriptor invariants that require
-  injecting invalid toolchain-provided symbols. Keep those invariants in the
-  owning crate tests, and route prose specification pages to that executable
-  evidence.
 - Put backend invariants in backend crate tests, and put low-level CLI edge
   cases in CLI toolchain cases.

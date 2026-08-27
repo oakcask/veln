@@ -66,25 +66,33 @@ fn constructors_match_qualified_and_unqualified_builtin_names() {
 
 #[test]
 fn production_adt_registry_uses_published_source_less_builtin_adts() {
-    crate::source_less_lookup::with_builtin_adt_registry(|published| {
-        let registry = AdtRegistry::from_module(&empty_module());
-        let option = Type::named("Option", vec![Type::Unknown]);
+    let mut builtin_adts = raw_builtin_descriptors_for_test();
+    let mut sentinel = builtin_adts[0].clone();
+    sentinel.type_name = "RegistrySentinel".to_string();
+    sentinel.variants[0].name = "RegistrySentinel".to_string();
+    sentinel.variants[0].coverage_case = "RegistrySentinel".to_string();
+    builtin_adts.push(sentinel);
+    let provider_set = crate::source_less_lookup::SourceLessLookupProviderSet {
+        qualified: &[],
+        compatibility_prelude: &[],
+        self_hosting_prelude: &[],
+        compiler_adapters: &[],
+        builtin_adts,
+    };
 
-        assert_eq!(
-            registry.descriptors(),
-            published.descriptors(),
-            "production ADT lookup should seed from the shared source-less publication"
-        );
+    crate::source_less_lookup::with_source_less_lookup_provider_set_for_test(provider_set, || {
+        let registry = AdtRegistry::from_module(&empty_module());
+        let sentinel = Type::named("RegistrySentinel", vec![Type::Unknown]);
+
         assert!(
-            registry.descriptor_for_type(&option).is_some(),
-            "production ADT lookup should consume published built-in descriptors"
+            registry.descriptor_for_type(&sentinel).is_some(),
+            "production ADT lookup should consume injected published built-in descriptors"
         );
         assert!(matches!(
-            registry.constructor(&path(&["Option", "Some"]), None, &[]),
+            registry.constructor(&path(&["RegistrySentinel", "RegistrySentinel"]), None, &[]),
             ConstructorLookup::Found(_)
         ));
-    })
-    .expect("source-less ADT registry publication");
+    });
 }
 
 #[test]

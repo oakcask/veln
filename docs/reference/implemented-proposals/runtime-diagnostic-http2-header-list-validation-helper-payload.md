@@ -1,13 +1,17 @@
-# Runtime Diagnostic HTTP/2 Header-List Validation Helper Payload
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Runtime Diagnostic HTTP/2 Header-List Validation Helper Payload
 
 This record preserves the completed HTTP/2 request and response header-list
 validation standard helper runtime diagnostic payload slice from the runtime
 diagnostic payload proposal. Current behavior is specified by
 `../../specification/run-json.md`, `../../specification/commands.md`,
 `../../specification/execution.md`,
-`../../specification/names-effects-full.md`, and the checked executable cases
+`../../specification/names-effects.md`, and the checked executable cases
 under `../../../examples/specification/run/`.
 
 ## Completed Behavior
@@ -49,5 +53,5 @@ outside this slice.
   output stable.
 - `../../specification/run-json.md`, `../../specification/commands.md`,
   `../../specification/execution.md`, and
-  `../../specification/names-effects-full.md` summarize the implemented
+  `../../specification/names-effects.md` summarize the implemented
   behavior and route readers to executable evidence.

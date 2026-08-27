@@ -1,11 +1,15 @@
-# HTTP/2 HPACK Table Size Policy
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# HTTP/2 HPACK Table Size Policy
 
 This record preserves the completed local receive-limit policy slice for HPACK
 dynamic table-size updates in the HTTP/2 sans-I/O protocol-core proposal.
 Current behavior is specified by `../../specification/execution.md`,
-`../../specification/run-json.md`, `../../specification/names-effects-full.md`,
+`../../specification/run-json.md`, `../../specification/names-effects.md`,
 and the checked executable cases under
 `../../../examples/specification/run/`.
 
