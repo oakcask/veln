@@ -43,9 +43,6 @@ env:
   CARGO_INCREMENTAL: "1"
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
   NEXTEST_VERSION: "0.9.140"
-  # renovate: datasource=github-releases depName=taiki-e/cargo-llvm-cov
-  LLVM_COV_VERSION: "0.9.0"
-  LCOV_VERSION: "2.0-4ubuntu2"
   # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
   NEXTEST_TARGET_SECONDS: "90"
   NEXTEST_FALLBACK_SHARDS: "4"
@@ -80,7 +77,6 @@ jobs:
         uses: ./.github/actions/nextest
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
-          llvm-cov-version: ${{ env.LLVM_COV_VERSION }}
           save-cache: true
 
   prune-cache:
@@ -112,49 +108,8 @@ jobs:
         uses: ./.github/actions/nextest
         with:
           nextest-version: ${{ env.NEXTEST_VERSION }}
-          llvm-cov-version: ${{ env.LLVM_COV_VERSION }}
           shard: ${{ matrix.shard }}
           shard-count: ${{ needs.plan-test-shards.outputs.shard_count }}
-
-  coverage:
-    name: merge Rust test coverage
-    needs: test
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Download Rust shard coverage reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: nextest-coverage-*
-          path: target/coverage-shards
-      - name: Install LCOV and merge every Rust coverage shard
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends "lcov=${LCOV_VERSION}"
-          mkdir -p target/coverage
-          lcov --branch-coverage \
-            --add-tracefile 'target/coverage-shards/*/lcov.info' \
-            --output-file target/coverage/lcov.info
-      - name: Generate browsable Rust coverage report
-        run: |
-          genhtml target/coverage/lcov.info \
-            --output-directory target/coverage/html \
-            --prefix "${GITHUB_WORKSPACE}" \
-            --title "Veln Rust test coverage" \
-            --legend
-      - name: Upload merged Rust coverage reports
-        id: upload-coverage
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: rust-coverage
-          path: |
-            target/coverage/lcov.info
-            target/coverage/html
-          if-no-files-found: error
-      - name: Link browsable Rust coverage report
-        env:
-          COVERAGE_ARTIFACT_URL: ${{ steps.upload-coverage.outputs.artifact-url }}
-        run: echo "Download [rust-coverage](${COVERAGE_ARTIFACT_URL}), extract it, and open html/index.html to inspect covered and missed lines." >> "${GITHUB_STEP_SUMMARY}"
 
   release-registry-test:
     runs-on: ubuntu-latest
