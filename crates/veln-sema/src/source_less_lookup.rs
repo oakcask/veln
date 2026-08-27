@@ -5,7 +5,7 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
     SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
-    build_standard_symbol_registry, private_compiler_adapter_name,
+    build_standard_symbol_registry,
 };
 
 #[derive(Debug)]
@@ -16,50 +16,20 @@ pub(crate) struct SourceLessLookupRegistries {
 
 pub(crate) fn validate_source_less_lookup_registries() -> Result<(), InvalidStandardSymbolCase> {
     let registries = source_less_lookup_registries()?;
+    let _ = registries.standard_symbols.prelude_symbol("");
     let _ = registries.builtin_adts.descriptors().len();
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) fn standard_symbol_registry()
 -> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase> {
     Ok(&source_less_lookup_registries()?.standard_symbols)
 }
 
+#[cfg(test)]
 pub(crate) fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
     Ok(&source_less_lookup_registries()?.builtin_adts)
-}
-
-pub(crate) fn qualified_symbol_checked(
-    segments: &[String],
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    Ok(standard_symbol_registry()?.qualified_symbol(segments))
-}
-
-pub(crate) fn prelude_symbol_checked(
-    name: &str,
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    if private_compiler_adapter_name(name) {
-        return Ok(None);
-    }
-    Ok(standard_symbol_registry()?.prelude_symbol(name))
-}
-
-pub(crate) fn compiler_adapter_symbol_checked(
-    name: &str,
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    Ok(standard_symbol_registry()?.compiler_adapter_symbol(name))
-}
-
-pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
-    qualified_symbol_checked(segments).expect("standard symbol registry is valid")
-}
-
-pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    prelude_symbol_checked(name).expect("standard symbol registry is valid")
-}
-
-pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    compiler_adapter_symbol_checked(name).expect("source-less lookup registry is valid")
 }
 
 fn source_less_lookup_registries()

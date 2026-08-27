@@ -1,7 +1,6 @@
 use std::collections::BTreeSet;
 
 use super::*;
-use crate::source_less_lookup::{compiler_adapter_symbol, prelude_symbol, qualified_symbol};
 
 fn path(module: &str, name: &str) -> Vec<String> {
     vec![module.to_string(), name.to_string()]
