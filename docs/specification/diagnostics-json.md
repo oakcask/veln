@@ -29,9 +29,10 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
   `name_class`, and `required_initial` fields and diagnostic kind
   `toolchain`. Invalid lookup-key failures use the same id and details as
-  invalid casing failures. Duplicate lookup-key failures also use the same id
-  and details, and their human primary message states that the lookup key is
-  duplicated. Focused `veln-sema` `standard_symbols`, `adt`, and
+  invalid casing failures, and their human primary message states that the
+  source lookup key is invalid. Duplicate lookup-key failures also use the
+  same id and details, and their human primary message states that the lookup
+  key is duplicated. Focused `veln-sema` `standard_symbols`, `adt`, and
   `source_less_lookup` tests define descriptor, atomic-failure,
   cross-provider publication-failure, lookup-key, checked-lookup, and lookup
   isolation behavior for runtime, prelude, `prelude_builtin`,
@@ -199,8 +200,9 @@ function lookup namespace. Details contain `provider`, `name`, `name_class`,
 and `required_initial`. The diagnostic kind is `toolchain`. The failure is not
 converted to source `name.invalid_case`. Invalid lookup-key failures,
 duplicate lookup-key failures, and standard-symbol class and lookup-namespace
-mismatches use the same stable detail fields. Duplicate-key human primary
-messages state that the lookup key is duplicated. Focused `veln-sema`
+mismatches use the same stable detail fields. Invalid-key human primary
+messages state that the source lookup key is invalid. Duplicate-key human
+primary messages state that the lookup key is duplicated. Focused `veln-sema`
 `standard_symbols`, `adt`, and `source_less_lookup` tests pin the
 generated-table, injected-descriptor, duplicate-key, class-mismatch,
 atomic-failure, cross-provider publication-failure, checked-lookup, and

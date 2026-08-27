@@ -24,10 +24,15 @@ Diagnostic-producing command and adapter entry points stop before normal
 semantic lookup, while production lookup helpers remain unavailable when the
 shared registry fails validation. The diagnostic kind is `toolchain`, so
 command and adapter outputs keep the failure separate from source name
-diagnostics. Duplicate lookup-key failures keep the same diagnostic id and
-details, and their primary message states that the lookup key is duplicated.
+diagnostics. Invalid lookup-key failures and duplicate lookup-key failures keep
+the same diagnostic id and details. Invalid lookup-key primary messages state
+that the source lookup key is invalid. Duplicate lookup-key primary messages
+state that the lookup key is duplicated.
 
 Qualified runtime lookup keys are the exact module-name and symbol-name pair.
+Runtime descriptor modules are single source lookup segments; a runtime module
+string that would publish a three-or-more-segment source lookup key fails
+publication as an invalid lookup key.
 Prelude lookup keys are the exact source prelude name. Compiler-adapter
 failures report the `compiler_adapter` provider and use `prelude_builtin::name`
 lookup keys. The implicit `prelude` module name reports the `standard_names`
@@ -37,9 +42,10 @@ failure in any one provider publishes no lookup state from the other
 source-less providers. Shared standard-environment
 initialization validates the registries before publishing reusable command or
 adapter state. `prelude_builtin` lookup consumes validated published registry
-state. Production built-in ADT lookup seeds application registries from the
-published built-in ADT registry in the same shared source-less publication
-result that owns standard-symbol lookup state.
+state, and the prelude-builtin module key is validated even when there are no
+compiler-adapter descriptors to publish. Production built-in ADT lookup seeds
+application registries from the published built-in ADT registry in the same
+shared source-less publication result that owns standard-symbol lookup state.
 
 Compiler temporaries and bookkeeping-only names that cannot participate in
 source lookup stay outside the source lookup validation gate. Embedded Veln
@@ -63,9 +69,10 @@ through a registry-external module spelling.
   [../../specification/source-less-lookup.md](../../specification/source-less-lookup.md).
 - Focused executable evidence:
   `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests for
-  the generated tables, injected invalid descriptors, duplicate lookup keys,
-  standard-symbol class and lookup-namespace mismatches, invalid standard
-  module keys, invalid prelude-builtin module keys, atomic failure,
+  the generated tables, injected invalid descriptors, invalid lookup keys,
+  duplicate lookup keys, standard-symbol class and lookup-namespace
+  mismatches, invalid standard module keys, invalid prelude-builtin module
+  keys, atomic failure,
   cross-provider publication failure, checked lookup, type-syntax publication
   consumption, prelude-builtin module-key publication consumption, production
   provider inventory, and lookup isolation. The `adt` and

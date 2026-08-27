@@ -10,15 +10,31 @@ This page specifies compiler-provided symbols that can participate in source loo
 
 ## Source-Less Lookup Registry
 
-Every compiler-provided symbol that participates in source lookup has an explicit source-less name class. Runtime, prelude, compiler-adapter, implicit standard-name module, built-in type-syntax, and built-in ADT descriptors validate their module segments, spelling, declared name class, and lookup key before lookup state is published.
+Every compiler-provided symbol that participates in source lookup has an
+explicit source-less name class. Runtime, prelude, compiler-adapter, implicit
+standard-name module, built-in type-syntax, and built-in ADT descriptors
+validate their module segments, spelling, declared name class, and lookup key
+before lookup state is published.
 
-Registry construction is atomic in release and test builds. Valid input publishes one complete immutable source-less lookup registry set. If any provider descriptor is invalid, the shared publication result fails with span-less `toolchain.invalid_symbol_case`, and no lookup state from the other source-less providers is published.
+Registry construction is atomic in release and test builds. Valid input
+publishes one complete immutable source-less lookup registry set. If any
+provider descriptor is invalid, the shared publication result fails with
+span-less `toolchain.invalid_symbol_case`, and no lookup state from the other
+source-less providers is published.
 
-The failure details contain `provider`, `name`, `name_class`, and `required_initial`. The diagnostic kind is `toolchain`; source-less descriptor failures do not produce source `name.invalid_case` diagnostics. Invalid source lookup keys, duplicate lookup keys, and descriptor class mismatches use the same id and detail fields.
+The failure details contain `provider`, `name`, `name_class`, and
+`required_initial`. The diagnostic kind is `toolchain`; source-less descriptor
+failures do not produce source `name.invalid_case` diagnostics. Invalid source
+lookup keys, duplicate lookup keys, and descriptor class mismatches use the
+same id and detail fields. Invalid lookup-key messages state that the source
+lookup key is invalid. Duplicate lookup-key messages state that the lookup key
+is duplicated.
 
 Source-less providers expose these lookup keys. Runtime descriptor modules are
 single source lookup segments; a runtime descriptor whose module string would
 produce a three-or-more-segment key fails publication as an invalid lookup key.
+The prelude-builtin module key is validated even when there are no compiler
+adapter descriptors to publish.
 
 | Provider detail | Lookup key |
 | --- | --- |
@@ -39,4 +55,10 @@ helpers and internal type annotation parsing check built-in type constructor
 arity through the published built-in type-syntax registry. Built-in ADT lookup
 seeds application registry state from the published built-in ADT registry.
 
-Focused `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests are the executable evidence for generated-table validation, injected invalid descriptors, release-mode validation, atomic failure, cross-provider publication failure, checked lookup, provider inventory, and lookup isolation. Public source fixtures cannot inject compiler descriptors, so this contract is verified by focused Rust tests rather than examples under `examples/specification/`.
+Focused `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests
+are the executable evidence for generated-table validation, injected invalid
+descriptors, invalid lookup keys, release-mode validation, atomic failure,
+cross-provider publication failure, checked lookup, provider inventory, and
+lookup isolation. Public source fixtures cannot inject compiler descriptors,
+so this contract is verified by focused Rust tests rather than examples under
+`examples/specification/`.
