@@ -8,6 +8,21 @@ fn path(parts: &[&str]) -> Vec<String> {
     parts.iter().map(|part| (*part).to_string()).collect()
 }
 
+fn empty_module() -> SurfaceModule {
+    SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    }
+}
+
 #[test]
 fn constructors_match_qualified_and_unqualified_builtin_names() {
     let registry = registry();
@@ -30,6 +45,30 @@ fn constructors_match_qualified_and_unqualified_builtin_names() {
     assert_eq!(nil.variant.name, "Nil");
     assert_eq!(nil.variant.coverage_case, "Nil");
     assert!(nil.variant.payload_fields.is_empty());
+}
+
+#[test]
+fn production_adt_registry_uses_shared_source_less_publication() {
+    validate_builtin_adt_descriptors().expect("shared source-less lookup publication");
+
+    let registry = AdtRegistry::from_module(&empty_module());
+    let option = Type::named("Option", vec![Type::Unknown]);
+
+    assert_eq!(
+        crate::source_less_lookup::builtin_adt_registry()
+            .expect("shared built-in ADT registry")
+            .descriptors()
+            .len(),
+        registry.descriptors().len()
+    );
+    assert!(
+        registry.descriptor_for_type(&option).is_some(),
+        "production ADT lookup should consume the shared built-in ADT registry"
+    );
+    assert!(matches!(
+        registry.constructor(&path(&["Option", "Some"]), None, &[]),
+        ConstructorLookup::Found(_)
+    ));
 }
 
 #[test]

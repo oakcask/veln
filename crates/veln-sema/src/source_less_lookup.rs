@@ -1,6 +1,8 @@
 use std::sync::OnceLock;
 
-use crate::adt::{AdtDescriptor, build_builtin_descriptors, validate_adt_lookup_descriptors};
+use crate::adt::{
+    AdtDescriptor, AdtRegistry, build_builtin_descriptors, validate_adt_lookup_descriptors,
+};
 use crate::source_less_names::InvalidStandardSymbolCase;
 use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
@@ -11,18 +13,22 @@ use crate::standard_symbols::{
 #[derive(Debug)]
 pub(crate) struct SourceLessLookupRegistries {
     standard_symbols: StandardSymbolRegistry,
-    builtin_adts: Vec<AdtDescriptor>,
+    builtin_adts: AdtRegistry,
 }
 
 pub(crate) fn validate_source_less_lookup_registries() -> Result<(), InvalidStandardSymbolCase> {
     let registries = source_less_lookup_registries()?;
-    let _ = registries.builtin_adts.len();
+    let _ = registries.builtin_adts.descriptors().len();
     Ok(())
 }
 
 pub(crate) fn standard_symbol_registry()
 -> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase> {
     Ok(&source_less_lookup_registries()?.standard_symbols)
+}
+
+pub(crate) fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
+    Ok(&source_less_lookup_registries()?.builtin_adts)
 }
 
 pub(crate) fn qualified_symbol_checked(
@@ -90,6 +96,7 @@ pub(crate) fn build_source_less_lookup_registries(
         compiler_adapters,
     )?;
     validate_adt_lookup_descriptors("adt", &builtin_adts)?;
+    let builtin_adts = AdtRegistry::from_parts(builtin_adts, Default::default());
     Ok(SourceLessLookupRegistries {
         standard_symbols,
         builtin_adts,
@@ -173,6 +180,22 @@ mod tests {
     }
 
     #[test]
+    fn invalid_adt_descriptor_blocks_every_lookup_publication() {
+        let result = build_source_less_lookup_registries(
+            VALID_STANDARD_SYMBOLS,
+            &[],
+            &[],
+            &[],
+            vec![invalid_adt_descriptor()],
+        );
+
+        assert!(
+            result.is_err(),
+            "valid runtime symbols must not publish when ADT lookup validation fails"
+        );
+    }
+
+    #[test]
     fn invalid_standard_symbol_descriptor_blocks_adt_publication() {
         let result = build_source_less_lookup_registries(
             INVALID_STANDARD_SYMBOLS,
@@ -187,6 +210,22 @@ mod tests {
         assert_eq!(failure.name, "Std");
         assert_eq!(failure.name_class, SourceLessNameClass::Module);
         assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
+    }
+
+    #[test]
+    fn invalid_standard_symbol_descriptor_blocks_every_lookup_publication() {
+        let result = build_source_less_lookup_registries(
+            INVALID_STANDARD_SYMBOLS,
+            &[],
+            &[],
+            &[],
+            vec![valid_adt_descriptor()],
+        );
+
+        assert!(
+            result.is_err(),
+            "valid built-in ADTs must not publish when standard symbol validation fails"
+        );
     }
 
     #[test]
@@ -206,6 +245,12 @@ mod tests {
                 .qualified_symbol(&path("stdio", "print"))
                 .is_some()
         );
-        assert_eq!(registries.builtin_adts[0].type_name, "Boxed");
+        let option = crate::semantic_model::Type::named("Boxed", Vec::new());
+        assert!(
+            registries
+                .builtin_adts
+                .descriptor_for_type(&option)
+                .is_some()
+        );
     }
 }
