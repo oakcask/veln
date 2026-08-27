@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"9b93ee42e53d94ab7c88416145b1b763b0cdf838"
+source_git_tree	"aead1da51884875df9cffea7eec590fb86f81108"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1585
@@ -11192,6 +11192,14 @@ field	expectations.lsp_assertions[17].equals	{}
 field	expectations.lsp_assertions[17].id	13
 field	expectations.lsp_assertions[17].operation	"equals"
 field	expectations.lsp_assertions[17].path	"/result/changes"
+field	expectations.lsp_assertions[18].equals	null
+field	expectations.lsp_assertions[18].id	14
+field	expectations.lsp_assertions[18].operation	"equals"
+field	expectations.lsp_assertions[18].path	"/result"
+field	expectations.lsp_assertions[19].equals	{}
+field	expectations.lsp_assertions[19].id	15
+field	expectations.lsp_assertions[19].operation	"equals"
+field	expectations.lsp_assertions[19].path	"/result/changes"
 field	expectations.lsp_assertions[1].equals	"rename.invalid_case"
 field	expectations.lsp_assertions[1].id	6
 field	expectations.lsp_assertions[1].operation	"equals"
@@ -11233,14 +11241,18 @@ field	expectations.stdout.contains[0]	"\"newText\":\"Entry\""
 field	expectations.stdout.contains[1]	"\"newText\":\"Created\""
 field	expectations.stdout.contains[2]	"\"newText\":\"adapt\""
 field	expectations.stdout.contains[3]	"\"newText\":\"input\""
-field	expectations.stdout.not_contains[0]	"\"line\":16,\"character\":7"
-field	expectations.stdout.not_contains[1]	"\"line\":17,\"character\":2"
+field	expectations.stdout.contains[4]	"\"newText\":\"RightEntry\""
+field	expectations.stdout.contains[5]	"right.veln"
+field	expectations.stdout.not_contains[0]	"\"line\":19,\"character\":7"
+field	expectations.stdout.not_contains[1]	"\"line\":20,\"character\":2"
+field	expectations.stdout.not_contains[2]	"\"line\":3,\"character\":20"
+field	expectations.stdout.not_contains[3]	"left.veln\":[{\"range\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2870,"sha256":"b4c5acf7eca90dc0e9c06812eb1d603e0cec61d82fa9b5a74f41a4af98673a56"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3559,"sha256":"eea84284355cae995884cfdeca79fa64f7836ec37715d8a4134f22af04b55692"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"b31a20cdafad403f41fff6e9623363f3bfeb6744b34e70677d1bc39664c66366"
+case_digest	"1682504895efd342f605e7429c18ab0c0bd4290b51ded627eccf7a24d578338d"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -49802,4 +49814,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"7453355e191363830d02371182aa3e5547316b18666365ddc2b0a2e53cfd8332"
+aggregate_digest	"4ba3aa1693d0b7af37722fda5d6e95121b95b4c2adb5ef9ae08a3f3a06c8bd27"
