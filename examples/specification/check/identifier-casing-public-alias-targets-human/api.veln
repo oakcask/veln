@@ -1,0 +1,11 @@
+type Document
+  pub Text(String)
+end
+fn parse() -> Int
+  1
+end
+pub fn wrong_kind = Document
+pub type WrongKind = parse
+pub fn missing = Missing
+pub type MissingType = missing_type
+pub schema Packet = schema_impl::packet

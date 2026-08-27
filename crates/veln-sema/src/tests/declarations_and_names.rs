@@ -2880,6 +2880,116 @@ fn public_alias_rejects_unresolved_targets() {
 }
 
 #[test]
+fn public_alias_target_leaf_casing_reports_before_independent_target_failures() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "type Document\n",
+            "  pub Text(String)\n",
+            "end\n",
+            "fn parse() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn wrongKind = Document\n",
+            "pub type WrongKind = parse\n",
+            "pub fn missing = Missing\n",
+            "pub type MissingType = missing_type\n",
+            "pub schema Packet = schema_impl::packet\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+    let alias_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                || diagnostic.id == "name.kind_mismatch"
+                || diagnostic.id == "name.unresolved"
+        })
+        .collect::<Vec<_>>();
+    let observed = alias_diagnostics
+        .iter()
+        .map(|diagnostic| (diagnostic.id.as_str(), diagnostic.message.as_str()))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        observed,
+        vec![
+            (
+                "name.invalid_case",
+                "function alias target `Document` must start with an ASCII lowercase letter"
+            ),
+            (
+                "name.invalid_case",
+                "type alias target `parse` must start with an ASCII uppercase letter"
+            ),
+            (
+                "name.invalid_case",
+                "function alias target `Missing` must start with an ASCII lowercase letter"
+            ),
+            (
+                "name.invalid_case",
+                "type alias target `missing_type` must start with an ASCII uppercase letter"
+            ),
+            (
+                "name.kind_mismatch",
+                "public alias target `Document` is a type, not a function"
+            ),
+            (
+                "name.kind_mismatch",
+                "public alias target `parse` is a function, not a type"
+            ),
+            (
+                "name.unresolved",
+                "unresolved function alias target `Missing`"
+            ),
+            (
+                "name.unresolved",
+                "unresolved type alias target `missing_type`"
+            ),
+            (
+                "name.unresolved",
+                "unresolved schema alias target `schema_impl::packet`"
+            ),
+        ],
+        "{diagnostics:#?}"
+    );
+
+    let invalid = alias_diagnostics[0];
+    let span = invalid.span.as_ref().expect("invalid target span");
+    assert_eq!(
+        (span.start.line, span.start.column, span.end.column),
+        (8, 20, 28)
+    );
+    let details = invalid.details.to_json();
+    assert!(details.contains("\"occurrence\":\"alias_target\""));
+    assert!(details.contains("\"name\":\"Document\""));
+    assert!(details.contains("\"name_class\":\"function\""));
+    assert!(details.contains("\"required_initial\":\"ascii_lowercase\""));
+    assert!(details.contains("\"observed_initial\":\"ascii_uppercase\""));
+    assert!(
+        !diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                && diagnostic.message.contains("schema alias target")
+        }),
+        "{diagnostics:#?}"
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    assert!(environment.function("wrongKind").is_none());
+    assert!(
+        environment
+            .adts
+            .descriptors()
+            .iter()
+            .all(|descriptor| descriptor.type_name != "WrongKind")
+    );
+}
+
+#[test]
 fn public_alias_names_share_member_namespaces() {
     let source = SourceFile::new(
         "api.veln",

@@ -63,6 +63,14 @@ fn surface_wire_round_trip_preserves_expression_families() {
             "  end\n",
             "end\n",
         ),
+        concat!(
+            "fn parse() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn Exposed = api::Parse\n",
+            "pub type Alias = api::_item\n",
+            "pub schema Packet = api::packet\n",
+        ),
     ];
 
     for source in sources {
@@ -72,6 +80,53 @@ fn surface_wire_round_trip_preserves_expression_families() {
 
         assert_eq!(encode_surface_module(&decoded), encoded);
     }
+}
+
+#[test]
+fn lowers_public_alias_target_leaf_spans_and_invalid_case_occurrences() {
+    let module = lower_source(concat!(
+        "fn parse() -> Int\n",
+        "  1\n",
+        "end\n",
+        "pub fn exposed = api::Parse\n",
+        "pub type Exposed = api::_item\n",
+        "pub schema Packet = api::packet\n",
+    ));
+
+    assert_eq!(module.aliases.len(), 3);
+    assert_eq!(module.aliases[0].target, ["api", "Parse"]);
+    assert_eq!(module.aliases[0].target_spans[1].start.column, 23);
+    assert_eq!(module.aliases[0].target_spans[1].end.column, 28);
+    assert_eq!(module.aliases[1].target, ["api", "_item"]);
+    assert_eq!(module.aliases[1].target_spans[1].start.column, 25);
+    assert_eq!(module.aliases[1].target_spans[1].end.column, 30);
+    assert_eq!(module.aliases[2].target, ["api", "packet"]);
+    assert_eq!(module.aliases[2].target_spans[1].start.column, 26);
+    assert_eq!(module.aliases[2].target_spans[1].end.column, 32);
+
+    let invalid = module
+        .invalid_names
+        .iter()
+        .filter(|name| name.occurrence == NameOccurrence::AliasTarget)
+        .collect::<Vec<_>>();
+    assert_eq!(invalid.len(), 2, "{:#?}", module.invalid_names);
+    assert_eq!(invalid[0].name, "Parse");
+    assert_eq!(invalid[0].class, NameClass::Function);
+    assert_eq!(invalid[0].span.start.column, 23);
+    assert_eq!(invalid[1].name, "_item");
+    assert_eq!(invalid[1].class, NameClass::Type);
+    assert_eq!(invalid[1].span.start.column, 25);
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    assert_eq!(
+        decoded.aliases[0].target_spans[1],
+        module.aliases[0].target_spans[1]
+    );
+    assert_eq!(
+        decoded.invalid_names[0].occurrence,
+        module.invalid_names[0].occurrence
+    );
 }
 
 fn expr_line(function: &Function, index: usize) -> &Expr {

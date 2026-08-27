@@ -157,6 +157,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-underscore-recovery-json/`,
   `../../examples/specification/check/identifier-casing-import-recovery-isolation-json/`,
   `../../examples/specification/check/identifier-casing-public-alias-recovery-isolation-json/`,
+  `../../examples/specification/check/identifier-casing-public-alias-targets-json/`,
+  `../../examples/specification/check/identifier-casing-public-alias-targets-human/`,
   `../../examples/specification/check/identifier-casing-accepted-names-json/`,
   `../../examples/specification/check/identifier-casing-valid-symbol-precedence-json/`,
   `../../examples/specification/check/identifier-casing-implicit-prelude-boundary-json/`,

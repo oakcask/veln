@@ -525,28 +525,35 @@ impl<'a> Parser<'a> {
         };
         let (name, name_span) = self.expect_covered_name("public_alias", "public member name");
         self.expect(TokenKind::Equal, "public_alias", vec!["="]);
-        let target = self.parse_member_alias_target();
+        let (target, target_spans) = self.parse_member_alias_target();
         let end = self.expect_newline("public_alias").range;
         PublicAliasDecl {
             kind,
             name,
             name_span,
             target,
+            target_spans,
             span: self.source.span(start.cover(end)),
         }
     }
 
-    fn parse_member_alias_target(&mut self) -> Vec<String> {
+    fn parse_member_alias_target(&mut self) -> (Vec<String>, Vec<SourceSpan>) {
         let mut segments = Vec::new();
-        if let Some(segment) = self.expect_ident("public_alias", "member path") {
+        let mut spans = Vec::new();
+        if let (Some(segment), Some(span)) = self.expect_covered_name("public_alias", "member path")
+        {
             segments.push(segment);
+            spans.push(span);
         }
         while self.eat(TokenKind::DoubleColon).is_some() {
-            if let Some(segment) = self.expect_ident("public_alias", "member path segment") {
+            if let (Some(segment), Some(span)) =
+                self.expect_covered_name("public_alias", "member path segment")
+            {
                 segments.push(segment);
+                spans.push(span);
             }
         }
-        segments
+        (segments, spans)
     }
 
     fn parse_type_decl(&mut self) -> TypeDecl {

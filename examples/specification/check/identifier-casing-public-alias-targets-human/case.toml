@@ -1,0 +1,10 @@
+command = ["check", "api.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+equals_file = "case-text/stdout-1.txt"
+
+[stderr]
+format = "empty"
+

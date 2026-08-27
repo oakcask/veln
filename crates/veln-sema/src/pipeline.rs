@@ -220,6 +220,15 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
         NameClass::Function => "function name",
         NameClass::ValueBinding => "binding name",
     };
+    let subject = if invalid.occurrence == NameOccurrence::AliasTarget {
+        match invalid.class {
+            NameClass::Type => "type alias target",
+            NameClass::Function => "function alias target",
+            NameClass::Constructor | NameClass::ValueBinding => subject,
+        }
+    } else {
+        subject
+    };
     let required_letter = match invalid.class {
         NameClass::Type | NameClass::Constructor => "uppercase",
         NameClass::Function | NameClass::ValueBinding => "lowercase",

@@ -1,0 +1,105 @@
+command = ["check", "--json", "api.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 29
+
+[[json_assert]]
+path = "diagnostics.0.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "alias_target"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Document"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "function alias target `Document` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type alias target `parse` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "function alias target `Missing` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type alias target `missing_type` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `Document` is a type, not a function"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `parse` is a function, not a type"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved function alias target `Missing`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type alias target `missing_type`"
