@@ -85,13 +85,13 @@ and their primary message states that the lookup key is duplicated. The
 diagnostic kind is `toolchain`. A failure in any source-less provider
 publishes no lookup state from the other source-less providers.
 `prelude_builtin` lookup consumes validated published registry state.
-Production built-in ADT lookup seeds its registry from the same shared
-source-less publication result that owns standard-symbol lookup state. Shared
-standard-environment initialization validates the registries before publishing
-reusable command or adapter state. Compiler temporaries and bookkeeping-only
-names that cannot participate in source lookup stay outside this registry
-gate. Embedded Veln prelude sources remain source-written and continue to use
-ordinary source casing diagnostics.
+Production built-in ADT lookup seeds application registries from the published
+built-in ADT registry in the same shared source-less publication result that
+owns standard-symbol lookup state. Shared standard-environment initialization
+validates the registries before publishing reusable command or adapter state.
+Compiler temporaries and bookkeeping-only names that cannot participate in
+source lookup stay outside this registry gate. Embedded Veln prelude sources
+remain source-written and continue to use ordinary source casing diagnostics.
 
 Current duplicate checks reject:
 
