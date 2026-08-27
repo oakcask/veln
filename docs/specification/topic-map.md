@@ -6,8 +6,8 @@ update-when: A specification topic route is added, moved, renamed, or no longer 
 # Language Topic Map
 
 Use this page when you know the kind of behavior being changed but not the
-smallest specification page to read. Start with the short page; open the matching
-`*-full.md` file only when the short page names the detail you need.
+smallest specification page to read. Choose the narrowest subject route and
+stop when its authoritative page answers the task.
 
 ## Source Surface
 

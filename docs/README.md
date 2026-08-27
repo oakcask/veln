@@ -6,9 +6,9 @@ update-when: A documentation route is added, moved, reclassified, or no longer a
 # Veln Design Notes
 
 This directory routes durable design notes for the experimental Veln
-implementation. Start here, open one route, and avoid full records until a
-short page points to them. Use [navigation.md](navigation.md) only when the
-first route is not obvious.
+implementation. Start here, open one route, and stop at the smallest page that
+answers the task. Use [navigation.md](navigation.md) only when the first route
+is not obvious.
 
 ## Read First
 
@@ -42,8 +42,8 @@ first route is not obvious.
 ## Stop Rule
 
 - Stop at the first short page that answers the task.
-- Open `*-full.md` files and `result-*.md` records only when a short route
-  names the relevant detail.
+- Open detail or `result-*.md` records only when a route names the relevant
+  subject.
 - Return here instead of scanning sibling directories when the route turns out
   to be proposal or reference work.
 

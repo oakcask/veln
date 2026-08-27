@@ -104,17 +104,39 @@ stopping behavior.
 - Link with relative paths.
 - Do not route ordinary task work through old reviews or historical records.
 
-Keep a commonly expected path as a short route when its details grow too long.
-Move the detail to a clearly named sibling such as `*-full.md` or `*-plan.md`.
-Split or add an index when:
+Keep each non-routing document small enough that a reader can use one subject,
+contract, or maintenance responsibility without loading unrelated material.
+When a document covers several independently useful subjects, split those
+subjects into clearly named pages and add or update the nearest directory README
+to route among them. Add another directory level when it gives several related
+pages a meaningful shared scope and keeps unrelated routes out of the parent
+index. Let the parent index route to that directory README instead of listing
+every descendant page.
+
+Do not create or retain a summary page and a `*-full.md` counterpart that
+describe the same scope at different lengths. That structure makes readers
+compare two accounts and makes maintainers update the same facts twice. When a
+documentation change updates either member of an existing same-scope pair,
+retire the pair in the same change:
+
+- If the content has one subject and authority, merge it into one document and
+  delete the other file.
+- If the content has independently useful subjects, move them into focused
+  pages under the nearest meaningful hierarchy and delete both paired files.
+- Update every internal link to the remaining document or focused pages. Do not
+  retain an old path as a routing or compatibility document; link verification
+  must identify internal references that still require migration.
+
+Split or add a routing index when:
 
 - an entry point is mostly a flat list of many files;
+- one document contains multiple subjects that readers update independently;
 - one file mixes current guidance with historical evidence;
 - readers must open more than one long file before identifying the relevant
-  content;
-- a stable path is useful but its content is too long for first-pass reading.
+  content.
 
-Do not split a short document with one clear audience. Do not create a trivial
+Choose boundaries by subject and ownership, not by a target line count. Do not
+split a focused document merely to make it shorter. Do not create a trivial
 one-file directory when a heading link provides the needed route.
 
 ## Presenting Information
@@ -211,6 +233,10 @@ A documentation change is ready when:
 - every changed or moved relative link resolves;
 - routing documents point to the smallest current authority without copying
   its rules;
+- a change that updates either member of a same-scope summary/detail pair
+  removes that pair and updates its internal links;
+- split documents have subject-based boundaries and do not duplicate one
+  authority;
 - normative claims have observable acceptance conditions;
 - prose and executable or mechanically checked evidence agree;
 - planned evidence is not presented as implemented;

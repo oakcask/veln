@@ -14,7 +14,7 @@ tracked in `../proposals/`.
 - [overview.md](overview.md): stability boundary and explicit non-goals.
 - [topic-map.md](topic-map.md): choose the smallest topic page for a source,
   command, JSON, runtime, contract, or hole change.
-- Open a short topic page before any matching `*-full.md` detail file.
+- Follow a topic route only as far as the focused page needed for the task.
 
 ## Fast Routes
 
@@ -87,5 +87,5 @@ tracked in `../proposals/`.
   routes the change.
 - Use `../reference/source-decisions/` or `../proposals/` only after the
   current behavior page does not answer the question.
-- Do not open full detail files until the matching short topic page points to a
-  section that matters.
+- Do not open broader detail records until the matching topic route points to a
+  subject that matters.

@@ -34,8 +34,7 @@ routes below are not enough.
 
 - Use [reference/documentation-authoring.md](reference/documentation-authoring.md)
   for placement rules and directory README files for task routes.
-- A `*-full.md` file is a detail record. Open it only through the short page
-  that names the relevant section.
+- Open a detail record only through the route that names its relevant subject.
 
 ## Skip Unless Needed
 
@@ -43,5 +42,5 @@ routes below are not enough.
   already matches the task.
 - Do not open [navigation-full.md](navigation-full.md) before choosing one short
   route above.
-- Do not open `*-full.md` files before a short route page names the relevant
-  section.
+- Do not open broad detail records before a route page names the relevant
+  subject.
