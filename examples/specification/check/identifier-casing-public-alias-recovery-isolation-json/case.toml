@@ -12,6 +12,94 @@ format = "empty"
 path = "status"
 equals = "error"
 
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.2.span.start.line"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.2.span.start.column"
+equals = 18
+
+[[json_assert]]
+path = "diagnostics.2.span.end.column"
+equals = 21
+
+[[json_assert]]
+path = "diagnostics.2.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.2.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.2.details.occurrence"
+equals = "alias_target"
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "Bad"
+
+[[json_assert]]
+path = "diagnostics.2.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.2.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.2.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.3.span.start.line"
+equals = 10
+
+[[json_assert]]
+path = "diagnostics.3.span.start.column"
+equals = 20
+
+[[json_assert]]
+path = "diagnostics.3.span.end.column"
+equals = 24
+
+[[json_assert]]
+path = "diagnostics.3.details.phase"
+equals = "name"
+
+[[json_assert]]
+path = "diagnostics.3.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.3.details.occurrence"
+equals = "alias_target"
+
+[[json_assert]]
+path = "diagnostics.3.details.name"
+equals = "item"
+
+[[json_assert]]
+path = "diagnostics.3.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.3.details.required_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.3.details.observed_initial"
+equals = "ascii_lowercase"
+
 [[diagnostics]]
 id = "name.invalid_case"
 kind = "name"
@@ -21,6 +109,16 @@ message = "function name `Bad` must start with an ASCII lowercase letter"
 id = "name.invalid_case"
 kind = "name"
 message = "type name `item` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function alias target `Bad` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "type alias target `item` must start with an ASCII uppercase letter"
 
 [[diagnostics]]
 id = "name.unresolved"
