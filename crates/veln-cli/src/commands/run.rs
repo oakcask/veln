@@ -1944,6 +1944,79 @@ mod tests {
     }
 
     #[test]
+    fn byte_result_failure_diagnostic_projects_consumed_count_invalid_reason() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.consumed_count_invalid")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(21)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("ManualPacketWire")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("count")),
+                    ]),
+                ]),
+            ),
+            ("available_count", JsonValue::Number(3)),
+            ("actual_consumed_count", JsonValue::Number(5)),
+            (
+                "reason",
+                JsonValue::string("decoder consumed beyond the supplied view"),
+            ),
+            ("local_byte_offset", JsonValue::Number(2)),
+            ("expected_count", JsonValue::Number(4)),
+            ("byte_preview", byte_preview("aabbcc")),
+            (
+                "field_path_display",
+                JsonValue::string("ignored.fallback.path"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "DecodeErrorWithReason(codec.consumed_count_invalid, ByteOffset(21), ManualPacketWire.count, available_count=3; actual_consumed_count=5; reason=decoder consumed beyond the supplied view)".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.consumed_count_invalid");
+        assert_eq!(
+            diagnostic.message,
+            "invalid decoded consumed count at byte offset 21"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert_eq!(
+            diagnostic.related[0].to_json(),
+            "{\"message\":\"Field path: schema `ManualPacketWire` / field `count`.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[1].to_json(),
+            "{\"message\":\"Decoder consumed 5 byte(s); supplied view length was 3 byte(s).\"}"
+        );
+        assert_eq!(
+            diagnostic.related[2].to_json(),
+            "{\"message\":\"Consumed count reason: decoder consumed beyond the supplied view.\"}"
+        );
+        assert_eq!(
+            diagnostic.related[3].to_json(),
+            "{\"message\":\"DecodeError value: DecodeErrorWithReason(codec.consumed_count_invalid, ByteOffset(21), ManualPacketWire.count, available_count=3; actual_consumed_count=5; reason=decoder consumed beyond the supplied view).\"}"
+        );
+    }
+
+    #[test]
     fn byte_result_failure_diagnostic_projects_decode_error_byte_context() {
         let byte_diagnostic = JsonValue::object([
             ("kind", JsonValue::string("byte_diagnostic")),
