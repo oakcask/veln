@@ -7,8 +7,9 @@ use veln_syntax::parse;
 
 use crate::adt;
 use crate::semantic_model::Type;
+use crate::source_less_lookup::{compiler_adapter_symbol, prelude_symbol};
 pub(crate) use crate::standard_names::PRELUDE_MODULE;
-use crate::standard_symbols::{StandardSymbolDescriptor, compiler_adapter_symbol, prelude_symbol};
+use crate::standard_symbols::StandardSymbolDescriptor;
 use crate::type_lowering::core_type;
 use crate::type_syntax::parse_type_or_unknown;
 

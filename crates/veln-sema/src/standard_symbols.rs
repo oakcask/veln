@@ -1210,30 +1210,6 @@ fn validate_source_lookup_descriptor(
     validate_source_less_name(provider, descriptor.name, descriptor.name_class)
 }
 
-pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
-    crate::source_less_lookup::with_standard_symbol_registry(|registry| {
-        registry.qualified_symbol(segments)
-    })
-    .expect("source-less lookup registries are valid")
-}
-
-pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    if private_compiler_adapter_name(name) {
-        return None;
-    }
-    crate::source_less_lookup::with_standard_symbol_registry(|registry| {
-        registry.prelude_symbol(name)
-    })
-    .expect("source-less lookup registries are valid")
-}
-
-pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    crate::source_less_lookup::with_standard_symbol_registry(|registry| {
-        registry.compiler_adapter_symbol(name)
-    })
-    .expect("source-less lookup registries are valid")
-}
-
 #[cfg(test)]
 pub(crate) fn compiler_adapter_symbols() -> &'static [StandardSymbolDescriptor] {
     COMPILER_ADAPTER_SYMBOLS

@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    sync::OnceLock,
+};
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
@@ -177,10 +180,10 @@ impl AdtRegistry {
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
         let mut descriptors = match base {
             Some(base) => base.descriptors.clone(),
-            None => crate::source_less_lookup::with_builtin_adt_registry(|registry| {
-                registry.descriptors().to_vec()
-            })
-            .expect("source-less lookup registries are valid"),
+            None => builtin_adt_registry()
+                .expect("built-in ADT descriptors are valid")
+                .descriptors()
+                .to_vec(),
         };
         let source_descriptors = module
             .types
@@ -518,6 +521,16 @@ impl AdtRegistry {
                 && use_decl.name == target_module
         })
     }
+}
+
+fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
+    static REGISTRY: OnceLock<Result<AdtRegistry, InvalidStandardSymbolCase>> = OnceLock::new();
+    REGISTRY
+        .get_or_init(|| {
+            AdtRegistry::from_validated_source_less_descriptors(build_builtin_descriptors())
+        })
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 fn prefer_current_module_constructors<'a>(

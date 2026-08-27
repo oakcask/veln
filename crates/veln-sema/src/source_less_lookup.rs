@@ -5,7 +5,7 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
     SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
-    build_standard_symbol_registry,
+    build_standard_symbol_registry, private_compiler_adapter_name,
 };
 
 #[derive(Debug)]
@@ -27,6 +27,25 @@ pub(crate) fn with_standard_symbol_registry<R>(
     with_source_less_lookup_registries(|registries| lookup(&registries.standard_symbols))
 }
 
+pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+    with_standard_symbol_registry(|registry| registry.qualified_symbol(segments))
+        .expect("source-less lookup registries are valid")
+}
+
+pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    if private_compiler_adapter_name(name) {
+        return None;
+    }
+    with_standard_symbol_registry(|registry| registry.prelude_symbol(name))
+        .expect("source-less lookup registries are valid")
+}
+
+pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    with_standard_symbol_registry(|registry| registry.compiler_adapter_symbol(name))
+        .expect("source-less lookup registries are valid")
+}
+
+#[cfg(test)]
 pub(crate) fn with_builtin_adt_registry<R>(
     lookup: impl FnOnce(&AdtRegistry) -> R,
 ) -> Result<R, InvalidStandardSymbolCase> {
@@ -47,7 +66,7 @@ fn with_source_less_lookup_registries<R>(
             return result;
         }
         let lookup = lookup.expect("source-less lookup closure has not been called");
-        return source_less_lookup_registries().map(lookup);
+        source_less_lookup_registries().map(lookup)
     }
 
     #[cfg(not(test))]
@@ -326,7 +345,7 @@ mod tests {
 
         with_source_less_lookup_provider_set_for_test(provider_set, || {
             let result = std::panic::catch_unwind(|| {
-                crate::standard_symbols::qualified_symbol(&path("stdio", "print"))
+                crate::source_less_lookup::qualified_symbol(&path("stdio", "print"))
             });
 
             assert!(
@@ -337,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_standard_symbol_descriptor_blocks_production_adt_lookup() {
+    fn invalid_standard_symbol_descriptor_blocks_combined_adt_publication() {
         let provider_set = SourceLessLookupProviderSet {
             qualified: INVALID_STANDARD_SYMBOLS,
             compatibility_prelude: &[],
@@ -347,11 +366,11 @@ mod tests {
         };
 
         with_source_less_lookup_provider_set_for_test(provider_set, || {
-            let result = std::panic::catch_unwind(|| AdtRegistry::from_module(&empty_module()));
+            let result = with_builtin_adt_registry(|registry| registry.descriptors().len());
 
             assert!(
                 result.is_err(),
-                "production ADT lookup must not publish when standard-symbol validation fails"
+                "combined ADT publication must fail when standard-symbol validation fails"
             );
         });
     }
