@@ -1042,6 +1042,75 @@ fn rename_excludes_same_named_non_type_namespace_tokens() {
 }
 
 #[test]
+fn type_rename_requires_unique_visible_type_identity() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-type-semantic-identity");
+    project.write("left.veln", "pub type Item\n  Left\nend\n");
+    project.write("right.veln", "pub type Item\n  Right\nend\n");
+    project.write(
+        "main.veln",
+        concat!(
+            "use left\n",
+            "use right\n",
+            "\n",
+            "fn bare(value: Item) -> Item\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn left_value(value: left::Item) -> left::Item\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn right_value(value: right::Item) -> right::Item\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let ambiguous_prepare = server.handle_message(&prepare_rename_request(&main_uri, 3, 15));
+    let ambiguous_rename = server.handle_message(&rename_request(&main_uri, 3, 15, "Entry"));
+    let qualified_rename = server.handle_message(&rename_request(&main_uri, 11, 29, "RightEntry"));
+
+    assert_eq!(ambiguous_prepare.len(), 1);
+    assert!(
+        ambiguous_prepare[0].contains(r#""result":null"#),
+        "{}",
+        ambiguous_prepare[0]
+    );
+    assert_eq!(ambiguous_rename.len(), 1);
+    assert!(
+        ambiguous_rename[0].contains(r#""changes":{}"#),
+        "{}",
+        ambiguous_rename[0]
+    );
+    assert_eq!(qualified_rename.len(), 1);
+    assert_eq!(
+        qualified_rename[0]
+            .matches(r#""newText":"RightEntry""#)
+            .count(),
+        3
+    );
+    assert!(
+        qualified_rename[0].contains("right.veln"),
+        "{}",
+        qualified_rename[0]
+    );
+    assert!(
+        !qualified_rename[0].contains("left.veln"),
+        "{}",
+        qualified_rename[0]
+    );
+    assert!(
+        !qualified_rename[0].contains(r#""line":3,"character":15"#),
+        "{}",
+        qualified_rename[0]
+    );
+}
+
+#[test]
 fn companion_private_function_rename_preserves_target_symbol_identity() {
     let mut server = Server::default();
     let project = TempProject::new("rename-target-identity");

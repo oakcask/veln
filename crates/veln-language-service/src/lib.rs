@@ -631,7 +631,7 @@ impl SymbolIndex {
         if !is_call_target_token(tokens, token_index) {
             if is_type_reference_token(&file.source, name, selection) {
                 return self
-                    .visible_type_for_reference(file, name)
+                    .visible_type_for_reference(file, tokens, token_index, name)
                     .map(Symbol::Type);
             }
             return None;
@@ -685,25 +685,62 @@ impl SymbolIndex {
             .cloned()
     }
 
-    fn visible_type_for_reference(&self, file: &IndexedFile, name: &str) -> Option<TypeSymbol> {
-        self.types
-            .iter()
-            .find(|symbol| {
-                symbol.name == name
-                    && match &symbol.package {
-                        Some(package) => {
-                            symbol.public
-                                && file
-                                    .external_uses
-                                    .contains(&(symbol.module.clone(), package.clone()))
-                        }
-                        None => {
-                            symbol.module == file.module
-                                || (symbol.public && file.uses.contains(&symbol.module))
-                        }
-                    }
-            })
-            .cloned()
+    fn visible_type_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            return self.visible_type_for_qualified_reference(file, &qualifier, name);
+        }
+        self.visible_type_for_bare_reference(file, name)
+    }
+
+    fn visible_type_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        if let Some(symbol) = self.types.iter().find(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        }) {
+            return Some(symbol.clone());
+        }
+
+        let mut candidates = self.types.iter().filter(|symbol| {
+            symbol.name == name
+                && symbol.public
+                && match &symbol.package {
+                    Some(package) => file
+                        .external_uses
+                        .contains(&(symbol.module.clone(), package.clone())),
+                    None => symbol.module != file.module && file.uses.contains(&symbol.module),
+                }
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn visible_type_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        let mut candidates = self.types.iter().filter(|symbol| {
+            symbol.name == name
+                && symbol.module == qualifier
+                && match &symbol.package {
+                    Some(package) => file
+                        .external_uses
+                        .contains(&(symbol.module.clone(), package.clone())),
+                    None => symbol.module == file.module || file.uses.contains(&symbol.module),
+                }
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
     }
 
     fn symbol_for_bare_call(
@@ -1010,11 +1047,13 @@ impl SymbolIndex {
             .iter()
             .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
             .flat_map(|file| {
-                type_references(&file.source, &symbol.name)
+                let tokens = lex(&file.source).tokens;
+                type_reference_spans(&file.source, &tokens, &symbol.name)
                     .into_iter()
-                    .filter(|_| {
-                        self.visible_type_for_reference(file, &symbol.name)
+                    .filter_map(|(token_index, span)| {
+                        self.visible_type_for_reference(file, &tokens, token_index, &symbol.name)
                             .is_some_and(|candidate| same_type(&candidate, symbol))
+                            .then_some(span)
                     })
                     .collect::<Vec<_>>()
             })
@@ -1617,12 +1656,11 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
         .collect()
 }
 
-fn type_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
-    type_reference_spans(source, name)
-}
-
-fn type_reference_spans(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
-    let tokens = lex(source).tokens;
+fn type_reference_spans(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+) -> Vec<(usize, SourceSpan)> {
     let parsed = parse(source);
     let mut spans = Vec::new();
     for item in &parsed.tree.items {
@@ -1691,16 +1729,35 @@ fn type_reference_spans(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
             _ => {}
         }
     }
-    sort_locations(&mut spans);
+    sort_type_reference_locations(&mut spans);
     spans
 }
 
+fn sort_type_reference_locations(locations: &mut Vec<(usize, SourceSpan)>) {
+    locations.sort_by(|left, right| {
+        left.1
+            .file
+            .as_str()
+            .cmp(right.1.file.as_str())
+            .then(left.1.start.offset.cmp(&right.1.start.offset))
+            .then(left.1.end.offset.cmp(&right.1.end.offset))
+    });
+    locations.dedup_by(|left, right| {
+        left.1.file == right.1.file
+            && left.1.start.offset == right.1.start.offset
+            && left.1.end.offset == right.1.end.offset
+    });
+}
+
 fn is_type_reference_token(source: &SourceFile, name: &str, selection: &SourceSpan) -> bool {
-    type_reference_spans(source, name).into_iter().any(|span| {
-        span.file == selection.file
-            && span.start.offset == selection.start.offset
-            && span.end.offset == selection.end.offset
-    })
+    let tokens = lex(source).tokens;
+    type_reference_spans(source, &tokens, name)
+        .into_iter()
+        .any(|(_, span)| {
+            span.file == selection.file
+                && span.start.offset == selection.start.offset
+                && span.end.offset == selection.end.offset
+        })
 }
 
 fn type_references_in_params(
@@ -1708,7 +1765,7 @@ fn type_references_in_params(
     tokens: &[Token],
     name: &str,
     params: &[veln_syntax::Param],
-) -> Vec<SourceSpan> {
+) -> Vec<(usize, SourceSpan)> {
     params
         .iter()
         .filter_map(|param| param.ty_span.as_ref())
@@ -1721,7 +1778,7 @@ fn type_references_in_body_lines(
     tokens: &[Token],
     name: &str,
     body: &[BodyLine],
-) -> Vec<SourceSpan> {
+) -> Vec<(usize, SourceSpan)> {
     body.iter()
         .flat_map(|line| match line {
             BodyLine::Let {
@@ -1746,7 +1803,7 @@ fn type_references_in_variant_field(
     tokens: &[Token],
     name: &str,
     field_span: &SourceSpan,
-) -> Vec<SourceSpan> {
+) -> Vec<(usize, SourceSpan)> {
     let colon_offset = tokens
         .iter()
         .find(|token| {
@@ -1758,12 +1815,13 @@ fn type_references_in_variant_field(
         .unwrap_or(field_span.start.offset);
     tokens
         .iter()
+        .enumerate()
         .filter(|token| {
-            token.range.start >= colon_offset
-                && token.range.end <= field_span.end.offset
-                && is_type_reference_token_text(token, name)
+            token.1.range.start >= colon_offset
+                && token.1.range.end <= field_span.end.offset
+                && is_type_reference_token_text(token.1, name)
         })
-        .map(|token| source.span(token.range))
+        .map(|(index, token)| (index, source.span(token.range)))
         .collect()
 }
 
@@ -1773,7 +1831,7 @@ fn type_references_after_token_in_span(
     name: &str,
     span: &SourceSpan,
     start_kind: TokenKind,
-) -> Vec<SourceSpan> {
+) -> Vec<(usize, SourceSpan)> {
     let start_offset = tokens
         .iter()
         .find(|token| {
@@ -1793,7 +1851,7 @@ fn type_references_after_token_until_token_in_span(
     span: &SourceSpan,
     start_kind: TokenKind,
     end_kind: TokenKind,
-) -> Vec<SourceSpan> {
+) -> Vec<(usize, SourceSpan)> {
     let Some(start_index) = tokens.iter().position(|token| {
         token.kind == start_kind
             && token.range.start >= span.start.offset
@@ -1815,7 +1873,7 @@ fn type_reference_tokens_in_span(
     tokens: &[Token],
     name: &str,
     span: &SourceSpan,
-) -> Vec<SourceSpan> {
+) -> Vec<(usize, SourceSpan)> {
     type_reference_tokens_in_range(source, tokens, name, span.start.offset, span.end.offset)
 }
 
@@ -1825,15 +1883,16 @@ fn type_reference_tokens_in_range(
     name: &str,
     start_offset: usize,
     end_offset: usize,
-) -> Vec<SourceSpan> {
+) -> Vec<(usize, SourceSpan)> {
     tokens
         .iter()
-        .filter(|token| {
+        .enumerate()
+        .filter(|(_, token)| {
             token.range.start >= start_offset
                 && token.range.end <= end_offset
                 && is_type_reference_token_text(token, name)
         })
-        .map(|token| source.span(token.range))
+        .map(|(index, token)| (index, source.span(token.range)))
         .collect()
 }
 
@@ -2826,6 +2885,52 @@ mod tests {
         assert_eq!(
             locations(&result.references),
             [("main.veln", 14, 16), ("main.veln", 14, 25)]
+        );
+    }
+
+    #[test]
+    fn type_selection_requires_unique_visible_type_identity() {
+        let sources = vec![
+            source("left.veln", "pub type Item\n  Left\nend\n"),
+            source("right.veln", "pub type Item\n  Right\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n",
+                    "\n",
+                    "fn bare(value: Item) -> Item\n",
+                    "  value\n",
+                    "end\n",
+                    "\n",
+                    "fn left_value(value: left::Item) -> left::Item\n",
+                    "  value\n",
+                    "end\n",
+                    "\n",
+                    "fn right_value(value: right::Item) -> right::Item\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        assert!(query(sources.clone(), "main.veln", 4, 16).is_none());
+        assert!(query(sources.clone(), "main.veln", 4, 25).is_none());
+
+        let left_result = query(sources.clone(), "main.veln", 8, 28).unwrap();
+        assert_eq!(left_result.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&left_result.definition, "left.veln", 1, 10);
+        assert_eq!(
+            locations(&left_result.references),
+            [("main.veln", 8, 28), ("main.veln", 8, 43)]
+        );
+
+        let right_result = query(sources, "main.veln", 12, 30).unwrap();
+        assert_eq!(right_result.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&right_result.definition, "right.veln", 1, 10);
+        assert_eq!(
+            locations(&right_result.references),
+            [("main.veln", 12, 30), ("main.veln", 12, 46)]
         );
     }
 

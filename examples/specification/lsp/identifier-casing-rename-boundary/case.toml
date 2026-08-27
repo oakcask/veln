@@ -11,10 +11,14 @@ contains = [
   "\"newText\":\"Created\"",
   "\"newText\":\"adapt\"",
   "\"newText\":\"input\"",
+  "\"newText\":\"RightEntry\"",
+  "right.veln",
 ]
 not_contains = [
-  "\"line\":16,\"character\":7",
-  "\"line\":17,\"character\":2",
+  "\"line\":19,\"character\":7",
+  "\"line\":20,\"character\":2",
+  "\"line\":3,\"character\":20",
+  "left.veln\":[{\"range\"",
 ]
 
 [[lsp_assert]]
@@ -104,5 +108,15 @@ equals = null
 
 [[lsp_assert]]
 id = 13
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 15
 path = "/result/changes"
 equals = {}

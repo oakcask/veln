@@ -1,3 +1,6 @@
+use left
+use right
+
 type Item
   Value(value: Int)
 end
