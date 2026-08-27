@@ -31,6 +31,17 @@ const INVALID_STANDARD_SYMBOLS: &[StandardSymbolDescriptor] = &[StandardSymbolDe
     stability: StandardSymbolStability::RequiredForSelfHosting,
 }];
 
+const UNCONSUMABLE_STANDARD_SYMBOL_KEY: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+    module: Some("foo::bar"),
+    name: "print",
+    name_class: SourceLessNameClass::Function,
+    kind: StandardSymbolKind::Runtime,
+    effects: &[],
+    lowering: Some("runtime.foo.bar.print"),
+    signature: None,
+    stability: StandardSymbolStability::RequiredForSelfHosting,
+}];
+
 const INVALID_TYPE_SYNTAX: &[BuiltinTypeSyntaxDescriptor] = &[BuiltinTypeSyntaxDescriptor {
     name: "result",
     name_class: SourceLessNameClass::Type,
@@ -108,6 +119,58 @@ fn provider_set(
         builtin_type_syntax,
         builtin_adts,
     }
+}
+
+#[test]
+fn unconsumable_standard_symbol_key_blocks_lookup_publication() {
+    let result = build_source_less_lookup_registries(provider_set(
+        UNCONSUMABLE_STANDARD_SYMBOL_KEY,
+        &[],
+        PRELUDE_MODULE,
+        PRELUDE_BUILTIN_MODULE,
+        BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+        vec![valid_adt_descriptor()],
+    ));
+    let failure = result.expect_err("unconsumable runtime key blocks publication");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "runtime");
+    assert_eq!(failure.name, "foo::bar::print");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupKey
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function `foo::bar::print` from `runtime` has an invalid source lookup key"
+    );
+}
+
+#[test]
+fn unconsumable_standard_symbol_key_blocks_production_lookup() {
+    let provider_set = SourceLessLookupProviderSet {
+        qualified: UNCONSUMABLE_STANDARD_SYMBOL_KEY,
+        compatibility_prelude: &[],
+        self_hosting_prelude: &[],
+        compiler_adapters: &[],
+        standard_module: PRELUDE_MODULE,
+        prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+        builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+        builtin_adts: vec![valid_adt_descriptor()],
+    };
+
+    with_source_less_lookup_provider_set_for_test(provider_set, || {
+        let result = std::panic::catch_unwind(|| {
+            crate::source_less_lookup::qualified_symbol(&path("foo", "bar"))
+        });
+
+        assert!(
+            result.is_err(),
+            "production standard-symbol lookup must not publish unconsumable keys"
+        );
+    });
 }
 
 #[test]

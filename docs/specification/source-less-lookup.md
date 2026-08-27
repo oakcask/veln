@@ -16,7 +16,9 @@ Registry construction is atomic in release and test builds. Valid input publishe
 
 The failure details contain `provider`, `name`, `name_class`, and `required_initial`. The diagnostic kind is `toolchain`; source-less descriptor failures do not produce source `name.invalid_case` diagnostics. Invalid source lookup keys, duplicate lookup keys, and descriptor class mismatches use the same id and detail fields.
 
-Source-less providers expose these lookup keys:
+Source-less providers expose these lookup keys. Runtime descriptor modules are
+single source lookup segments; a runtime descriptor whose module string would
+produce a three-or-more-segment key fails publication as an invalid lookup key.
 
 | Provider detail | Lookup key |
 | --- | --- |

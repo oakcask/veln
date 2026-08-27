@@ -1159,6 +1159,14 @@ fn validate_qualified_lookup_key(
             reason: InvalidStandardSymbolReason::InvalidLookupKey,
         });
     };
+    if module.contains("::") {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{module}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        });
+    }
     if keys.insert((module, descriptor.name)) {
         Ok(())
     } else {
