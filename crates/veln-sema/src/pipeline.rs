@@ -5,6 +5,7 @@ use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
+use crate::adt::validate_builtin_adt_descriptors;
 use crate::analysis::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
@@ -15,7 +16,7 @@ use crate::analysis::{
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::schema;
-use crate::standard_symbols::validate_standard_symbol_registry;
+use crate::standard_symbols::{InvalidStandardSymbolCase, validate_standard_symbol_registry};
 use crate::types::{
     ReusableStandardEnvironment, TypeEnvironment, prepare_current_reusable_standard_environment,
     prepare_reusable_standard_environment,
@@ -29,7 +30,7 @@ pub struct LoweredSurfaceModule {
 }
 
 pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return vec![failure.diagnostic()];
     }
     let environment = TypeEnvironment::from_module(module);
@@ -48,7 +49,7 @@ pub(crate) fn analyze_surface_module_with_base_for_test(
 pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         let diagnostics = vec![failure.diagnostic()];
         return (diagnostics.clone(), lowered_internal_failure(diagnostics));
     }
@@ -60,7 +61,7 @@ pub fn check_project_surface_module_with_standard_environment(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         let diagnostics = vec![failure.diagnostic()];
         return (diagnostics.clone(), lowered_internal_failure(diagnostics));
     }
@@ -73,7 +74,7 @@ pub fn check_project_surface_modules_with_standard_environment(
     selected_standard_module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         let diagnostics = vec![failure.diagnostic()];
         return (diagnostics.clone(), lowered_internal_failure(diagnostics));
     }
@@ -90,7 +91,7 @@ pub fn check_project_surface_module_with_standard_modules_environment(
     selected_standard_module_names: &BTreeSet<String>,
     standard: &ReusableStandardEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         let diagnostics = vec![failure.diagnostic()];
         return (diagnostics.clone(), lowered_internal_failure(diagnostics));
     }
@@ -105,11 +106,17 @@ pub fn check_project_surface_module_with_standard_modules_environment(
 pub fn prepare_reusable_standard_surface_module_environment(
     module: &SurfaceModule,
 ) -> ReusableStandardEnvironment {
+    validate_source_less_lookup_registries().expect("source-less lookup registries are valid");
     prepare_reusable_standard_environment(module)
 }
 
 pub fn validate_standard_symbol_registry_diagnostic() -> Result<(), Box<Diagnostic>> {
-    validate_standard_symbol_registry().map_err(|failure| Box::new(failure.diagnostic()))
+    validate_source_less_lookup_registries().map_err(|failure| Box::new(failure.diagnostic()))
+}
+
+fn validate_source_less_lookup_registries() -> Result<(), InvalidStandardSymbolCase> {
+    validate_standard_symbol_registry()?;
+    validate_builtin_adt_descriptors()
 }
 
 pub fn try_prepare_reusable_standard_surface_module_environment(
@@ -122,6 +129,7 @@ pub fn try_prepare_reusable_standard_surface_module_environment(
 pub fn prepare_current_reusable_standard_surface_module_environment(
     module: &SurfaceModule,
 ) -> ReusableStandardEnvironment {
+    validate_source_less_lookup_registries().expect("source-less lookup registries are valid");
     prepare_current_reusable_standard_environment(module)
 }
 
@@ -136,7 +144,7 @@ fn check_project_surface_module_with_environment(
     module: &SurfaceModule,
     environment: TypeEnvironment,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         let diagnostics = vec![failure.diagnostic()];
         return (diagnostics.clone(), lowered_internal_failure(diagnostics));
     }
@@ -157,7 +165,7 @@ fn analyze_surface_module_with_environment(
     environment: &TypeEnvironment,
     validate_standard_bodies: bool,
 ) -> Vec<Diagnostic> {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return vec![failure.diagnostic()];
     }
     let mut diagnostics = Vec::new();
@@ -314,14 +322,14 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
 }
 
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
     lower_analyzed_surface_module(module, analyze_surface_module(module))
 }
 
 pub fn lower_project_reachable_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
     let environment = TypeEnvironment::from_module(module);
@@ -332,7 +340,7 @@ pub fn lower_project_reachable_surface_module_with_standard_environment(
     module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
     let environment = TypeEnvironment::from_module_with_standard(module, standard);
@@ -344,7 +352,7 @@ pub fn lower_project_reachable_surface_modules_with_standard_environment(
     selected_standard_module: &SurfaceModule,
     standard: &ReusableStandardEnvironment,
 ) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
     let environment = TypeEnvironment::from_application_module_with_standard(
@@ -359,7 +367,7 @@ fn lower_project_reachable_surface_module_with_environment(
     module: &SurfaceModule,
     environment: TypeEnvironment,
 ) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
     let diagnostics = analyze_surface_module_with_environment(
@@ -383,7 +391,7 @@ pub fn lower_analyzed_surface_module(
     module: &SurfaceModule,
     diagnostics: Vec<Diagnostic>,
 ) -> LoweredSurfaceModule {
-    if let Err(failure) = validate_standard_symbol_registry() {
+    if let Err(failure) = validate_source_less_lookup_registries() {
         return lowered_internal_failure(vec![failure.diagnostic()]);
     }
     let environment = TypeEnvironment::from_module(module);

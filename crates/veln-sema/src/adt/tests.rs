@@ -11,6 +11,8 @@ fn path(parts: &[&str]) -> Vec<String> {
 #[test]
 fn constructors_match_qualified_and_unqualified_builtin_names() {
     let registry = registry();
+    validate_builtin_adt_descriptors().expect("built-in ADT descriptors are valid");
+
     let ConstructorLookup::Found(some) = registry.constructor(&path(&["Some"]), None, &[]) else {
         panic!("Some should resolve");
     };
@@ -28,6 +30,42 @@ fn constructors_match_qualified_and_unqualified_builtin_names() {
     assert_eq!(nil.variant.name, "Nil");
     assert_eq!(nil.variant.coverage_case, "Nil");
     assert!(nil.variant.payload_fields.is_empty());
+}
+
+#[test]
+fn invalid_builtin_adt_type_name_reports_descriptor_details() {
+    let mut descriptors = builtin_descriptors();
+    descriptors[0].type_name = "option".to_string();
+
+    let failure =
+        validate_adt_lookup_descriptors("adt", &descriptors).expect_err("invalid ADT type name");
+    let diagnostic = failure.diagnostic();
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "option");
+    assert_eq!(failure.name_class, SourceLessNameClass::Type);
+    assert_eq!(failure.required_initial(), "ascii_uppercase");
+    assert_eq!(diagnostic.span, None);
+    assert_eq!(
+        diagnostic.details.to_json(),
+        "{\"provider\":\"adt\",\"name\":\"option\",\"name_class\":\"type\",\"required_initial\":\"ascii_uppercase\"}"
+    );
+}
+
+#[test]
+fn invalid_builtin_adt_constructor_name_prevents_registry_publication() {
+    let mut descriptors = builtin_descriptors();
+    descriptors[0].variants[0].name = "some".to_string();
+
+    let failure = validate_adt_lookup_descriptors("adt", &descriptors)
+        .expect_err("invalid ADT constructor name");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "some");
+    assert_eq!(failure.name_class, SourceLessNameClass::Constructor);
+    assert_eq!(failure.required_initial(), "ascii_uppercase");
 }
 
 #[test]

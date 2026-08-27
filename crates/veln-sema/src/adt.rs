@@ -7,6 +7,9 @@ use veln_project::classify_companion_source;
 use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
+use crate::standard_symbols::{
+    InvalidStandardSymbolCase, SourceLessNameClass, validate_source_less_name,
+};
 use crate::type_syntax::parse_type_or_unknown;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -155,7 +158,7 @@ impl AdtRegistry {
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
         let mut descriptors = base
             .map(|base| base.descriptors.clone())
-            .unwrap_or_else(builtin_descriptors);
+            .unwrap_or_else(checked_builtin_descriptors);
         let source_descriptors = module
             .types
             .iter()
@@ -747,7 +750,24 @@ pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
     core_named_part(ty, "List", 1)
 }
 
+pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSymbolCase> {
+    let descriptors = build_builtin_descriptors();
+    validate_adt_lookup_descriptors("adt", &descriptors)
+}
+
+fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
+    let descriptors = build_builtin_descriptors();
+    validate_adt_lookup_descriptors("adt", &descriptors)
+        .expect("built-in ADT descriptors are valid");
+    descriptors
+}
+
+#[cfg(test)]
 fn builtin_descriptors() -> Vec<AdtDescriptor> {
+    checked_builtin_descriptors()
+}
+
+fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
     let mut descriptors = vec![
         AdtDescriptor {
             type_name: "Option".to_string(),
@@ -2662,6 +2682,47 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
         visibility: Visibility::Public,
     });
     descriptors
+}
+
+fn validate_adt_lookup_descriptors(
+    provider: &'static str,
+    descriptors: &[AdtDescriptor],
+) -> Result<(), InvalidStandardSymbolCase> {
+    let mut type_names = BTreeSet::new();
+    let mut constructor_names = BTreeSet::new();
+    for descriptor in descriptors {
+        if let Some(module_name) = &descriptor.module_name {
+            for segment in module_name.split("::") {
+                validate_source_less_name(provider, segment, SourceLessNameClass::Module)?;
+            }
+        }
+        validate_source_less_name(provider, &descriptor.type_name, SourceLessNameClass::Type)?;
+        if !type_names.insert((
+            descriptor.module_name.as_deref(),
+            descriptor.type_name.as_str(),
+        )) {
+            return Err(InvalidStandardSymbolCase {
+                provider,
+                name: descriptor.type_name.clone(),
+                name_class: SourceLessNameClass::Type,
+            });
+        }
+        for variant in &descriptor.variants {
+            validate_source_less_name(provider, &variant.name, SourceLessNameClass::Constructor)?;
+            if !constructor_names.insert((
+                descriptor.module_name.as_deref(),
+                descriptor.type_name.as_str(),
+                variant.name.as_str(),
+            )) {
+                return Err(InvalidStandardSymbolCase {
+                    provider,
+                    name: variant.name.clone(),
+                    name_class: SourceLessNameClass::Constructor,
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {

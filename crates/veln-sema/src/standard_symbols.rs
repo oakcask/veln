@@ -12,6 +12,8 @@ pub(crate) enum StandardSymbolKind {
 pub(crate) enum SourceLessNameClass {
     Module,
     Function,
+    Type,
+    Constructor,
 }
 
 impl SourceLessNameClass {
@@ -19,12 +21,22 @@ impl SourceLessNameClass {
         match self {
             Self::Module => "module",
             Self::Function => "function",
+            Self::Type => "type",
+            Self::Constructor => "constructor",
         }
     }
 
     fn required_initial(self) -> &'static str {
         match self {
             Self::Module | Self::Function => "ascii_lowercase",
+            Self::Type | Self::Constructor => "ascii_uppercase",
+        }
+    }
+
+    fn required_initial_description(self) -> &'static str {
+        match self {
+            Self::Module | Self::Function => "ASCII lowercase",
+            Self::Type | Self::Constructor => "ASCII uppercase",
         }
     }
 
@@ -34,6 +46,7 @@ impl SourceLessNameClass {
         };
         match self {
             Self::Module | Self::Function => initial.is_ascii_lowercase(),
+            Self::Type | Self::Constructor => initial.is_ascii_uppercase(),
         }
     }
 }
@@ -72,10 +85,11 @@ impl InvalidStandardSymbolCase {
             Severity::Error,
             DiagnosticKind::Toolchain,
             format!(
-                "compiler-provided {} `{}` from `{}` must start with an ASCII lowercase letter",
+                "compiler-provided {} `{}` from `{}` must start with an {} letter",
                 self.name_class.as_str(),
                 self.name,
-                self.provider
+                self.provider,
+                self.name_class.required_initial_description()
             ),
             None,
             JsonValue::object([
@@ -1119,9 +1133,7 @@ pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescri
 pub(crate) fn compiler_adapter_symbol_checked(
     name: &str,
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    if !private_compiler_adapter_name(name) && standard_symbol_registry().is_err() {
-        standard_symbol_registry()?;
-    }
+    standard_symbol_registry()?;
     Ok(COMPILER_ADAPTER_SYMBOLS
         .iter()
         .find(|symbol| symbol.name == name))
@@ -1215,12 +1227,11 @@ fn build_standard_symbol_registry(
         registry.prelude.push(descriptor);
     }
     for descriptor in compiler_adapters {
-        if private_compiler_adapter_name(descriptor.name) {
-            continue;
-        }
         validate_source_lookup_descriptor("compiler_adapter", descriptor)?;
-        validate_prelude_lookup_key("compiler_adapter", descriptor, &mut prelude_keys)?;
-        registry.prelude.push(descriptor);
+        if !private_compiler_adapter_name(descriptor.name) {
+            validate_prelude_lookup_key("compiler_adapter", descriptor, &mut prelude_keys)?;
+            registry.prelude.push(descriptor);
+        }
     }
 
     Ok(registry)
@@ -1276,7 +1287,7 @@ fn validate_source_lookup_descriptor(
     validate_source_less_name(provider, descriptor.name, descriptor.name_class)
 }
 
-fn validate_source_less_name(
+pub(crate) fn validate_source_less_name(
     provider: &'static str,
     name: &str,
     name_class: SourceLessNameClass,

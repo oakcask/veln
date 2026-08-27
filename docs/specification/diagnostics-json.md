@@ -31,8 +31,9 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
 - Source-less compiler symbol registry casing failures use span-less
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
   `name_class`, and `required_initial` fields and diagnostic kind
-  `toolchain`. Focused `veln-sema` `standard_symbols` tests define descriptor,
-  atomic-failure, lookup-key, and lookup isolation behavior.
+  `toolchain`. Focused `veln-sema` `standard_symbols` and `adt` tests define
+  descriptor, atomic-failure, lookup-key, and lookup isolation behavior for
+  runtime, prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -106,9 +107,10 @@ Source-less compiler symbol registry casing failures use
 `toolchain.invalid_symbol_case` with no span. Details expose the descriptor
 `provider`, invalid `name`, `name_class`, and `required_initial`. The failure
 is a toolchain invariant failure with diagnostic kind `toolchain`, not source
-`name.invalid_case`; focused `veln-sema` `standard_symbols` tests pin
-generated-table validation, injected invalid descriptors, duplicate lookup
-keys, atomic failure, and lookup isolation.
+`name.invalid_case`; focused `veln-sema` `standard_symbols` and `adt` tests
+pin generated-table validation, injected invalid descriptors, duplicate lookup
+keys, atomic failure, and lookup isolation for runtime, prelude,
+`prelude_builtin`, and built-in ADT lookup descriptors.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,

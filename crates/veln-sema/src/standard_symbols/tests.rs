@@ -41,6 +41,10 @@ fn compiler_adapter_descriptors_carry_pure_metadata() {
         assert!(symbol.effects.is_empty());
         assert_eq!(symbol.lowering, None);
         if private_compiler_adapter_name(name) {
+            assert!(
+                compiler_adapter_symbol(name).is_some(),
+                "prelude_builtin descriptor {name} should stay source-resolvable"
+            );
             assert_eq!(prelude_symbol(name), None);
         } else {
             assert_eq!(prelude_symbol(name), Some(symbol));
@@ -258,7 +262,7 @@ fn duplicate_prelude_lookup_key_fails_atomically() {
 }
 
 #[test]
-fn private_compiler_adapter_names_stay_outside_source_lookup_gate() {
+fn prelude_builtin_compiler_adapter_names_are_validated_but_not_bare_prelude() {
     const PRIVATE_ADAPTER_WITH_INVALID_MODULE: &[StandardSymbolDescriptor] =
         &[StandardSymbolDescriptor {
             module: Some("Internal"),
@@ -271,12 +275,15 @@ fn private_compiler_adapter_names_stay_outside_source_lookup_gate() {
             stability: StandardSymbolStability::CompatibilityOnly,
         }];
 
-    let registry =
+    let failure =
         build_standard_symbol_registry(&[], &[], &[], PRIVATE_ADAPTER_WITH_INVALID_MODULE)
-            .expect("private adapter does not participate in source lookup");
+            .expect_err("prelude_builtin adapter participates in source lookup");
 
-    assert!(registry.qualified.is_empty());
-    assert!(registry.prelude.is_empty());
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "Internal");
+    assert_eq!(failure.name_class, SourceLessNameClass::Module);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
 }
 
 #[test]

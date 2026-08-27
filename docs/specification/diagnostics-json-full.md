@@ -13,13 +13,14 @@ projection is documented in [json-output.md](json-output.md),
 ## Toolchain Invariant Diagnostics
 
 `toolchain.invalid_symbol_case` reports a span-less internal failure when a
-source-visible compiler-provided lookup descriptor has casing that is invalid
-for its source-less name class or has a duplicate lookup key. Details contain
+compiler-provided source lookup descriptor has casing that is invalid for its
+source-less name class or has a duplicate lookup key. Details contain
 `provider`, `name`, `name_class`, and `required_initial`. The diagnostic kind
 is `toolchain`. The failure is not converted to source `name.invalid_case`.
-Focused `veln-sema` `standard_symbols` tests pin the generated-table,
-injected-descriptor, duplicate-key, atomic-failure, checked-lookup, and
-lookup-isolation evidence.
+Focused `veln-sema` `standard_symbols` and `adt` tests pin the
+generated-table, injected-descriptor, duplicate-key, atomic-failure,
+checked-lookup, and lookup-isolation evidence for runtime, prelude,
+`prelude_builtin`, and built-in ADT lookup descriptors.
 
 ## Current Schema Diagnostic Boundary
 

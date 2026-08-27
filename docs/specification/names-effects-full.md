@@ -71,17 +71,19 @@ symbol for a function call or constructor path, and does not enter
 prelude-qualified lookup.
 
 Compiler-provided symbols that participate in source lookup carry an explicit
-source-less name class. The source lookup registry validates each
-source-visible descriptor's module segments, symbol spelling, and lookup key
-before it publishes the immutable registry used by lookup. Qualified lookup
-keys are the exact module-name and symbol-name pair. Prelude lookup keys are
-the exact source prelude name. Invalid descriptors and duplicate lookup keys
-fail atomically with span-less `toolchain.invalid_symbol_case`; no partial
-registry is available, and the failure is not reported as source
-`name.invalid_case`. The diagnostic kind is `toolchain`. Compiler adapter
-names that cannot participate in source lookup stay outside this registry
-gate. Embedded Veln prelude sources remain source-written and continue to use
-ordinary source casing diagnostics.
+source-less name class. The source lookup registries validate each
+compiler-provided descriptor's module segments, symbol spelling, and lookup
+key before they publish lookup state. Qualified runtime lookup keys are the
+exact module-name and symbol-name pair. Prelude lookup keys are the exact
+source prelude name. Qualified `prelude_builtin` compiler-adapter names and
+built-in ADT type and constructor descriptors are included in this gate.
+Invalid descriptors and duplicate lookup keys fail atomically with span-less
+`toolchain.invalid_symbol_case`; no partial registry is available, and the
+failure is not reported as source `name.invalid_case`. The diagnostic kind is
+`toolchain`. Compiler temporaries and bookkeeping-only names that cannot
+participate in source lookup stay outside this registry gate. Embedded Veln
+prelude sources remain source-written and continue to use ordinary source
+casing diagnostics.
 
 Current duplicate checks reject:
 
