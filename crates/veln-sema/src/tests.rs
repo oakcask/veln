@@ -12,6 +12,7 @@ mod contract_static_boolean_proofs;
 mod declarations_and_names;
 mod effect_rows;
 mod identifier_casing;
+mod identifier_casing_selection_boundaries;
 mod local_inference_callback_expected_types;
 mod lowering_and_pattern_semantics;
 mod prelude_and_callable_values;
