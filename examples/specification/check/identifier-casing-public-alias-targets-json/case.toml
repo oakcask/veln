@@ -81,6 +81,12 @@ kind = "name"
 message = "type alias target `missing_type` must start with an ASCII uppercase letter"
 
 [[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "type alias target `wrong_kind` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
 id = "name.kind_mismatch"
 severity = "error"
 kind = "name"
@@ -103,3 +109,21 @@ id = "name.unresolved"
 severity = "error"
 kind = "name"
 message = "unresolved type alias target `missing_type`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved schema alias target `schema_impl::packet`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type alias target `wrong_kind`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved schema alias target `WrongKind`"

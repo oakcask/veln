@@ -1,7 +1,8 @@
 use super::*;
 use crate::types::environment::TypeEnvironment;
 use crate::types::private_inference::private_inference_counters;
-use crate::types::signatures::HandlerPathResolution;
+use crate::types::signatures::{HandlerPathResolution, SchemaReferenceErrorKind};
+use veln_ast::{InvalidName, NameClass, NameOccurrence};
 
 #[test]
 fn public_function_requires_explicit_type_boundary() {
@@ -2980,12 +2981,57 @@ fn public_alias_target_leaf_casing_reports_before_independent_target_failures() 
     );
     let environment = TypeEnvironment::from_module(&module);
     assert!(environment.function("wrongKind").is_none());
+    assert_eq!(
+        environment
+            .schema_reference_error(&["WrongKind".to_string()], Some("spec.api"))
+            .kind,
+        SchemaReferenceErrorKind::Unresolved
+    );
     assert!(
         environment
             .adts
             .descriptors()
             .iter()
             .all(|descriptor| descriptor.type_name != "WrongKind")
+    );
+}
+
+#[test]
+fn public_schema_alias_with_invalid_target_leaf_does_not_enter_schema_namespace() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  byte: UInt8\n",
+            "end\n",
+            "pub schema Alias = Packet\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    let target_span = module.aliases[0].target_spans[0].clone();
+    module.invalid_names.push(InvalidName {
+        name: "Packet".to_string(),
+        class: NameClass::Function,
+        occurrence: NameOccurrence::AliasTarget,
+        span: target_span,
+        enclosing_function_span: None,
+    });
+
+    let environment = TypeEnvironment::from_module(&module);
+
+    assert!(
+        environment
+            .schema_decode_step_signature(&["Packet".to_string()], Some("spec.api"))
+            .is_some()
+    );
+    assert!(
+        environment
+            .schema_decode_step_signature(&["Alias".to_string()], Some("spec.api"))
+            .is_none()
     );
 }
 

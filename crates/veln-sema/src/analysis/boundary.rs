@@ -21,6 +21,7 @@ use crate::schema::reserved_layout::{
     schema_payload_has_generalized_reserved_byte_prefix, supported_encode_reserved_bits,
 };
 use crate::standard_names::PRELUDE_MODULE;
+use crate::types::public_alias_has_invalid_target_leaf;
 use crate::types::schema_types::{
     binary_schema_anonymous_record_decode_type,
     format_neutral_schema_encode_field_is_source_adt_candidate,
@@ -36,7 +37,9 @@ use crate::types::schema_types::{
 };
 use crate::types::signatures::UserEffectPathResolution;
 use std::collections::{BTreeMap, BTreeSet};
-use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
+use veln_ast::{
+    NameClass, PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl,
+};
 use veln_literals::parse_integer_literal;
 use veln_project::classify_companion_source;
 
@@ -894,7 +897,9 @@ fn codec_schema_wrong_kind(
         return Some("codec");
     }
     if let Some(alias) = module.aliases.iter().find(|alias| {
-        alias.name.as_deref() == Some(name) && alias.module_name.as_deref() == module_name
+        alias.name.as_deref() == Some(name)
+            && alias.module_name.as_deref() == module_name
+            && !public_alias_has_invalid_target_leaf(module, alias, None)
     }) {
         return match alias.kind {
             PublicAliasKind::Function => Some("function"),
@@ -1690,6 +1695,7 @@ fn schema_field_has_ordinary_type_target(
         alias.kind == PublicAliasKind::Type
             && alias.name.as_deref() == Some(name)
             && alias.module_name.as_deref() == module_name
+            && !public_alias_has_invalid_target_leaf(module, alias, Some(NameClass::Type))
     })
 }
 

@@ -25,9 +25,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry, EffectDecl, Expr,
-    ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, PublicAlias,
-    PublicAliasKind, RecordField, SchemaDecl, SchemaField, SurfaceModule, TypeDecl, UseDecl,
-    Visibility, lower_surface_ast_with_module_identity,
+    ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, NameClass, NameOccurrence,
+    PublicAlias, PublicAliasKind, RecordField, SchemaDecl, SchemaField, SurfaceModule, TypeDecl,
+    UseDecl, Visibility, lower_surface_ast_with_module_identity,
 };
 use veln_project::classify_companion_source;
 use veln_source::{SourceFile, SourceSpan, TextRange};
@@ -675,6 +675,20 @@ fn is_standard_module_name(module_name: Option<&str>) -> bool {
 
 fn valid_value_binding_name(name: &str) -> bool {
     name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+}
+
+pub(crate) fn public_alias_has_invalid_target_leaf(
+    module: &SurfaceModule,
+    alias: &PublicAlias,
+    class: Option<NameClass>,
+) -> bool {
+    module.invalid_names.iter().any(|invalid| {
+        invalid.occurrence == NameOccurrence::AliasTarget
+            && class.is_none_or(|class| invalid.class == class)
+            && invalid.span.file == alias.span.file
+            && alias.span.start.offset <= invalid.span.start.offset
+            && invalid.span.end.offset <= alias.span.end.offset
+    })
 }
 
 pub(crate) fn ordinary_function_signatures(

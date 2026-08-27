@@ -10,6 +10,7 @@ use veln_ast::{
 use crate::adt::{self, AdtRegistry};
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::parse_type_or_unknown;
+use crate::types::public_alias_has_invalid_target_leaf;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
 use crate::types::symbols::imported_use_for_path;
 
@@ -3232,6 +3233,13 @@ pub(crate) fn function_alias_signatures(
         .filter_map(|alias| {
             let name = alias.name.clone()?;
             if !name.as_bytes().first().is_some_and(u8::is_ascii_lowercase) {
+                return None;
+            }
+            if public_alias_has_invalid_target_leaf(
+                module,
+                alias,
+                Some(veln_ast::NameClass::Function),
+            ) {
                 return None;
             }
             let target = function_signature_path(

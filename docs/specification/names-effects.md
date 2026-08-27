@@ -123,8 +123,10 @@ compiler-known calls.
   `identifier-casing-unloaded-dependency-json`, and
   `identifier-casing-valid-constructor-precedence-cross-arity-json` cases fix
   that accepted names keep normal behavior, quarantined recovery records do not
-  cross import boundaries, do not satisfy public alias targets, valid symbols
-  win over same-source recovery records in bare function-value references and
+  cross import boundaries, do not satisfy public alias targets, public aliases
+  with invalidly cased function or type target leaves do not enter the normal
+  function or type export namespace, valid symbols win over same-source
+  recovery records in bare function-value references and
   before call or constructor arity is considered, valid implicit-prelude
   functions and constructors win over same-spelled application recovery
   records before recovery candidates are considered for the selected call or

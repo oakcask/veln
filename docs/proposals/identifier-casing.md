@@ -45,9 +45,12 @@ casing, rename and recovery navigation, and source-less registries. The
 completed public alias target-leaf casing boundary is specified by
 [Names And Effects](../specification/names-effects.md) and checked by the
 `identifier-casing-public-alias-targets-json` and
-`identifier-casing-public-alias-targets-human` examples. The completed `test`,
-`doc`, companion recovery, direct-dependency, implicit-prelude, and
-language-service snapshot and open-document overlay boundaries are specified by
+`identifier-casing-public-alias-targets-human` examples. Its completion record
+is
+[Identifier Casing Public Alias Targets](../reference/implemented-proposals/identifier-casing-public-alias-targets.md).
+The completed `test`, `doc`, companion recovery, direct-dependency,
+implicit-prelude, and language-service snapshot and open-document overlay
+boundaries are specified by
 [Names And Effects](../specification/names-effects.md), by
 [Editor Support](../specification/editor-support.md), and by the checked
 examples that those pages name.

@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use veln_ast::{PublicAliasKind, SchemaField, SurfaceModule, UseDecl, Visibility};
+use veln_ast::{NameClass, PublicAliasKind, SchemaField, SurfaceModule, UseDecl, Visibility};
 use veln_source::SourceSpan;
 
+use super::public_alias_has_invalid_target_leaf;
 use super::schema_types::format_neutral_schema_first_unsupported_encode_field;
 use super::signatures::FunctionSignature;
 
@@ -76,6 +77,7 @@ impl SchemaSymbolTable {
             .aliases
             .iter()
             .filter(|alias| alias.kind == PublicAliasKind::Schema)
+            .filter(|alias| !public_alias_has_invalid_target_leaf(module, alias, None))
             .filter_map(|alias| {
                 Some(SchemaAliasSymbol {
                     name: alias.name.clone()?,
@@ -357,6 +359,9 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
             .aliases
             .iter()
             .filter(|alias| alias.kind == PublicAliasKind::Type)
+            .filter(|alias| {
+                !public_alias_has_invalid_target_leaf(module, alias, Some(NameClass::Type))
+            })
             .filter_map(|alias| {
                 let name = alias.name.clone()?;
                 if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {

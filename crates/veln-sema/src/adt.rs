@@ -7,6 +7,7 @@ use veln_project::classify_companion_source;
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_or_unknown;
+use crate::types::public_alias_has_invalid_target_leaf;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
@@ -534,6 +535,10 @@ fn type_alias_descriptors(
         .filter_map(|alias| {
             let name = alias.name.clone()?;
             if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+                return None;
+            }
+            if public_alias_has_invalid_target_leaf(module, alias, Some(veln_ast::NameClass::Type))
+            {
                 return None;
             }
             let target = descriptor_for_alias_target(

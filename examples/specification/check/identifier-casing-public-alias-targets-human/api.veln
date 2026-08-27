@@ -9,3 +9,5 @@ pub type WrongKind = parse
 pub fn missing = Missing
 pub type MissingType = missing_type
 pub schema Packet = schema_impl::packet
+pub type FunctionAliasExportProbe = wrong_kind
+pub schema TypeAliasExportProbe = WrongKind

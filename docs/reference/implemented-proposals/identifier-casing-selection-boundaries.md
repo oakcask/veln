@@ -31,8 +31,10 @@ companion recovery, direct-dependency, and language-service snapshot and
 overlay boundaries also have executable evidence and are not planned work here.
 
 This proposal does not add module-identity casing, qualified-use casing,
-alias-target leaf casing, rename behavior, or source-less registry validation.
-Those capabilities remain in
+rename behavior, or source-less registry validation. Public alias target-leaf
+casing is completed separately in
+[Identifier Casing Public Alias Targets](identifier-casing-public-alias-targets.md).
+The other capabilities remain in
 [Identifier Casing](../../proposals/identifier-casing.md).
 
 ## Implemented Direct-Dependency Slice
@@ -68,5 +70,5 @@ reachable.
 This proposal is complete. Current behavior lives in
 [Names And Effects](../../specification/names-effects.md) and checked cases
 under `examples/specification/`. Completion does not claim completion of
-module-identity casing, qualified-use casing, alias-target leaf casing, rename
-behavior, or source-less registry validation.
+module-identity casing, qualified-use casing, rename behavior, or source-less
+registry validation.
