@@ -11,7 +11,7 @@ use super::repair_reasoning::*;
 use super::*;
 use crate::effects::prelude_effect_origin;
 use crate::schema::primitives::lowercase_schema_primitive;
-use crate::standard_symbols::qualified_symbol;
+use crate::source_less_lookup::qualified_symbol;
 use crate::types::signatures::{
     FunctionSignature, SchemaReferenceErrorKind, UserEffectPathResolution,
 };

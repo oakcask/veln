@@ -1,10 +1,11 @@
 use std::sync::OnceLock;
 
 use crate::adt::{AdtDescriptor, build_builtin_descriptors, validate_adt_lookup_descriptors};
+use crate::source_less_names::InvalidStandardSymbolCase;
 use crate::standard_symbols::{
-    COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, InvalidStandardSymbolCase,
-    QUALIFIED_SYMBOLS, SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor,
-    StandardSymbolRegistry, build_standard_symbol_registry,
+    COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
+    SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
+    build_standard_symbol_registry, private_compiler_adapter_name,
 };
 
 #[derive(Debug)]
@@ -14,17 +15,14 @@ pub(crate) struct SourceLessLookupRegistries {
 }
 
 pub(crate) fn validate_source_less_lookup_registries() -> Result<(), InvalidStandardSymbolCase> {
-    source_less_lookup_registries().map(|_| ())
+    let registries = source_less_lookup_registries()?;
+    let _ = registries.builtin_adts.len();
+    Ok(())
 }
 
 pub(crate) fn standard_symbol_registry()
 -> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase> {
     Ok(&source_less_lookup_registries()?.standard_symbols)
-}
-
-pub(crate) fn builtin_adt_descriptors()
--> Result<&'static [AdtDescriptor], InvalidStandardSymbolCase> {
-    Ok(&source_less_lookup_registries()?.builtin_adts)
 }
 
 pub(crate) fn qualified_symbol_checked(
@@ -36,6 +34,9 @@ pub(crate) fn qualified_symbol_checked(
 pub(crate) fn prelude_symbol_checked(
     name: &str,
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
+    if private_compiler_adapter_name(name) {
+        return Ok(None);
+    }
     Ok(standard_symbol_registry()?.prelude_symbol(name))
 }
 
@@ -43,6 +44,18 @@ pub(crate) fn compiler_adapter_symbol_checked(
     name: &str,
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
     Ok(standard_symbol_registry()?.compiler_adapter_symbol(name))
+}
+
+pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+    qualified_symbol_checked(segments).expect("standard symbol registry is valid")
+}
+
+pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    prelude_symbol_checked(name).expect("standard symbol registry is valid")
+}
+
+pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    compiler_adapter_symbol_checked(name).expect("source-less lookup registry is valid")
 }
 
 fn source_less_lookup_registries()
@@ -89,10 +102,8 @@ mod tests {
 
     use super::*;
     use crate::adt::{AdtDescriptor, AdtVariantDescriptor, AdtVariantKind};
-    use crate::standard_symbols::{
-        InvalidStandardSymbolReason, SourceLessNameClass, StandardSymbolKind,
-        StandardSymbolStability,
-    };
+    use crate::source_less_names::{InvalidStandardSymbolReason, SourceLessNameClass};
+    use crate::standard_symbols::{StandardSymbolKind, StandardSymbolStability};
 
     fn path(module: &str, name: &str) -> Vec<String> {
         vec![module.to_string(), name.to_string()]

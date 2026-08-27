@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    sync::OnceLock,
+};
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
@@ -6,11 +9,11 @@ use veln_project::classify_companion_source;
 
 use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::semantic_model::Type;
-use crate::standard_names::PRELUDE_MODULE;
-use crate::standard_symbols::{
+use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
     validate_source_less_name,
 };
+use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_or_unknown;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -762,13 +765,27 @@ pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
 
 #[cfg(test)]
 pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSymbolCase> {
-    crate::source_less_lookup::builtin_adt_descriptors().map(|_| ())
+    validated_builtin_descriptors().map(|_| ())
 }
 
 fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
-    crate::source_less_lookup::builtin_adt_descriptors()
+    validated_builtin_descriptors()
         .expect("built-in ADT descriptors are valid")
         .to_vec()
+}
+
+fn validated_builtin_descriptors() -> Result<&'static [AdtDescriptor], InvalidStandardSymbolCase> {
+    static BUILTIN_ADTS: OnceLock<Result<Vec<AdtDescriptor>, InvalidStandardSymbolCase>> =
+        OnceLock::new();
+    BUILTIN_ADTS
+        .get_or_init(|| {
+            let descriptors = build_builtin_descriptors();
+            validate_adt_lookup_descriptors("adt", &descriptors)?;
+            Ok(descriptors)
+        })
+        .as_ref()
+        .map(Vec::as_slice)
+        .map_err(Clone::clone)
 }
 
 #[cfg(test)]

@@ -1,53 +1,14 @@
 use std::collections::BTreeSet;
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+
+use crate::source_less_names::{
+    InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
+    validate_source_less_name,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum StandardSymbolKind {
     Runtime,
     Prelude,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum SourceLessNameClass {
-    Module,
-    Function,
-    Type,
-    Constructor,
-}
-
-impl SourceLessNameClass {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Module => "module",
-            Self::Function => "function",
-            Self::Type => "type",
-            Self::Constructor => "constructor",
-        }
-    }
-
-    fn required_initial(self) -> &'static str {
-        match self {
-            Self::Module | Self::Function => "ascii_lowercase",
-            Self::Type | Self::Constructor => "ascii_uppercase",
-        }
-    }
-
-    fn required_initial_description(self) -> &'static str {
-        match self {
-            Self::Module | Self::Function => "ASCII lowercase",
-            Self::Type | Self::Constructor => "ASCII uppercase",
-        }
-    }
-
-    fn accepts(self, name: &str) -> bool {
-        let Some(initial) = name.as_bytes().first() else {
-            return false;
-        };
-        match self {
-            Self::Module | Self::Function => initial.is_ascii_lowercase(),
-            Self::Type | Self::Constructor => initial.is_ascii_uppercase(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,71 +21,6 @@ pub(crate) struct StandardSymbolDescriptor {
     pub(crate) lowering: Option<&'static str>,
     pub(crate) signature: Option<StandardSignature>,
     pub(crate) stability: StandardSymbolStability,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct InvalidStandardSymbolCase {
-    pub(crate) provider: &'static str,
-    pub(crate) name: String,
-    pub(crate) name_class: SourceLessNameClass,
-    pub(crate) reason: InvalidStandardSymbolReason,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum InvalidStandardSymbolReason {
-    InvalidCase,
-    InvalidLookupKey,
-    DuplicateLookupKey,
-}
-
-impl InvalidStandardSymbolCase {
-    pub(crate) fn code(&self) -> &'static str {
-        "toolchain.invalid_symbol_case"
-    }
-
-    pub(crate) fn required_initial(&self) -> &'static str {
-        self.name_class.required_initial()
-    }
-
-    pub(crate) fn diagnostic(&self) -> Diagnostic {
-        let message = match self.reason {
-            InvalidStandardSymbolReason::InvalidCase => format!(
-                "compiler-provided {} `{}` from `{}` must start with an {} letter",
-                self.name_class.as_str(),
-                self.name,
-                self.provider,
-                self.name_class.required_initial_description()
-            ),
-            InvalidStandardSymbolReason::InvalidLookupKey => format!(
-                "compiler-provided {} `{}` from `{}` has an invalid source lookup key",
-                self.name_class.as_str(),
-                self.name,
-                self.provider
-            ),
-            InvalidStandardSymbolReason::DuplicateLookupKey => format!(
-                "compiler-provided {} lookup key `{}` from `{}` is duplicated",
-                self.name_class.as_str(),
-                self.name,
-                self.provider
-            ),
-        };
-        Diagnostic::new(
-            self.code(),
-            Severity::Error,
-            DiagnosticKind::Toolchain,
-            message,
-            None,
-            JsonValue::object([
-                ("provider", JsonValue::string(self.provider)),
-                ("name", JsonValue::string(self.name.clone())),
-                ("name_class", JsonValue::string(self.name_class.as_str())),
-                (
-                    "required_initial",
-                    JsonValue::string(self.required_initial()),
-                ),
-            ]),
-        )
-    }
 }
 
 #[derive(Debug)]
@@ -1144,40 +1040,7 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
     }
 }
 
-pub(crate) fn qualified_symbol_checked(
-    segments: &[String],
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    crate::source_less_lookup::qualified_symbol_checked(segments)
-}
-
-pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
-    qualified_symbol_checked(segments).expect("standard symbol registry is valid")
-}
-
-pub(crate) fn prelude_symbol_checked(
-    name: &str,
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    if private_compiler_adapter_name(name) {
-        return Ok(None);
-    }
-    crate::source_less_lookup::prelude_symbol_checked(name)
-}
-
-pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    prelude_symbol_checked(name).expect("standard symbol registry is valid")
-}
-
-pub(crate) fn compiler_adapter_symbol_checked(
-    name: &str,
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    crate::source_less_lookup::compiler_adapter_symbol_checked(name)
-}
-
-pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    compiler_adapter_symbol_checked(name).expect("source-less lookup registry is valid")
-}
-
-fn private_compiler_adapter_name(name: &str) -> bool {
+pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
     name == "byte_decode_http2_frame"
         || name.starts_with("http2_protocol_")
         || name.starts_with("http2_peer_limit_")
@@ -1186,10 +1049,15 @@ fn private_compiler_adapter_name(name: &str) -> bool {
 
 #[cfg(test)]
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    crate::source_less_lookup::standard_symbol_registry()
-        .ok()
-        .into_iter()
-        .flat_map(|registry| registry.prelude.iter().copied())
+    build_standard_symbol_registry(
+        QUALIFIED_SYMBOLS,
+        FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
+        SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+        COMPILER_ADAPTER_SYMBOLS,
+    )
+    .expect("standard symbol registry")
+    .prelude
+    .into_iter()
 }
 
 #[cfg(test)]
@@ -1332,23 +1200,6 @@ fn validate_source_lookup_descriptor(
         }
     }
     validate_source_less_name(provider, descriptor.name, descriptor.name_class)
-}
-
-pub(crate) fn validate_source_less_name(
-    provider: &'static str,
-    name: &str,
-    name_class: SourceLessNameClass,
-) -> Result<(), InvalidStandardSymbolCase> {
-    if name_class.accepts(name) {
-        Ok(())
-    } else {
-        Err(InvalidStandardSymbolCase {
-            provider,
-            name: name.to_string(),
-            name_class,
-            reason: InvalidStandardSymbolReason::InvalidCase,
-        })
-    }
 }
 
 #[cfg(test)]
