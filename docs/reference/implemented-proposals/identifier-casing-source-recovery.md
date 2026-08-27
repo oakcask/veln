@@ -148,13 +148,13 @@ a requirement for a particular data structure.
 
 ## Selection Boundary Follow-Up
 
-[Identifier Casing Selection Boundaries](../../proposals/identifier-casing-selection-boundaries.md)
-owns the remaining implicit-prelude evidence. The later `test`, `doc`,
-language-service snapshot and overlay, companion, and loaded and unloaded
-direct-dependency boundaries now have current specification coverage in
+[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
+completed the implicit-prelude, `test`, `doc`, language-service snapshot and
+overlay, companion, and loaded and unloaded direct-dependency boundaries. The
+current specification coverage lives in
 [Names And Effects](../../specification/names-effects.md) and
-[Editor Support](../../specification/editor-support.md). They depend on this
-foundation but are not part of this slice's completion rule.
+[Editor Support](../../specification/editor-support.md). Those boundaries
+depend on this foundation but are not part of this slice's completion rule.
 
 ## Completion
 

@@ -159,6 +159,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-public-alias-recovery-isolation-json/`,
   `../../examples/specification/check/identifier-casing-accepted-names-json/`,
   `../../examples/specification/check/identifier-casing-valid-symbol-precedence-json/`,
+  `../../examples/specification/check/identifier-casing-implicit-prelude-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-implicit-prelude-isolation-json/`,
   `../../examples/specification/check/identifier-casing-handler-binding-quarantine-json/`,
   `../../examples/specification/check/identifier-casing-cross-class-ambiguous-recovery-json/`,
   and

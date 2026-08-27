@@ -1,0 +1,10 @@
+# A same-spelled invalid application constructor recovery record does not hide
+# the valid function exported by the implicit standard prelude. The return type
+# mismatch is only possible when normal lookup selects the prelude function.
+type bad
+  int_to_string(Int)
+end
+
+fn main() -> Int
+  int_to_string(1)
+end

@@ -1,0 +1,9 @@
+# An invalid application recovery record must not resolve a qualified
+# implicit-prelude namespace use.
+fn Bad() -> Int
+  1
+end
+
+fn main() -> Int
+  prelude::Bad()
+end

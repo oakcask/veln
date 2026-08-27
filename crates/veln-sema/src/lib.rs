@@ -21,6 +21,8 @@ mod type_relations;
 mod type_syntax;
 mod types;
 
+#[cfg(test)]
+pub(crate) use pipeline::analyze_surface_module_with_base_for_test;
 pub use pipeline::{
     LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,
     check_project_surface_module_with_standard_environment,

@@ -36,6 +36,8 @@ under `../../specification/` and its executable example routes.
 
 - Recovery-aware source identifier casing:
   [identifier-casing-source-recovery.md](identifier-casing-source-recovery.md).
+- Identifier casing selection boundaries:
+  [identifier-casing-selection-boundaries.md](identifier-casing-selection-boundaries.md).
 - Common JSON assertion operation parity:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Schema declaration composition surface:

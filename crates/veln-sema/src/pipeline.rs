@@ -32,6 +32,15 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
     analyze_surface_module_with_environment(module, &environment, true)
 }
 
+#[cfg(test)]
+pub(crate) fn analyze_surface_module_with_base_for_test(
+    module: &SurfaceModule,
+    base: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let environment = TypeEnvironment::from_module_with_base_for_test(module, base);
+    analyze_surface_module_with_environment(module, &environment, true)
+}
+
 pub fn check_project_surface_module(
     module: &SurfaceModule,
 ) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
@@ -108,6 +117,29 @@ fn analyze_surface_module_with_environment(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
+    diagnostics.extend(check_module_declarations(module, environment));
+
+    for function in &module.functions {
+        if !validate_standard_bodies
+            && function
+                .module_name
+                .as_deref()
+                .is_some_and(|module| module.starts_with("std::"))
+        {
+            continue;
+        }
+        diagnostics.extend(check_function_declaration_and_body(function, environment));
+    }
+
+    diagnostics
+}
+
+fn check_module_declarations(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
     diagnostics.extend(check_invalid_name_casing(module, environment));
     diagnostics.extend(check_duplicate_function_names(module));
     diagnostics.extend(check_duplicate_type_names(module));
@@ -122,24 +154,23 @@ fn analyze_surface_module_with_environment(
     diagnostics.extend(check_schema_type_references(module));
     diagnostics.extend(check_handler_declarations(module, environment));
 
-    for function in &module.functions {
-        if !validate_standard_bodies
-            && function
-                .module_name
-                .as_deref()
-                .is_some_and(|module| module.starts_with("std::"))
-        {
-            continue;
-        }
-        diagnostics.extend(check_declared_effect_labels(function, environment));
-        if function.visibility == Visibility::Public {
-            diagnostics.extend(check_public_function_boundary(function));
-        }
-        if function.kind == FunctionKind::Test {
-            diagnostics.extend(check_test_declaration_boundary(function));
-        }
-        diagnostics.extend(check_function_body(function, environment));
+    diagnostics
+}
+
+fn check_function_declaration_and_body(
+    function: &veln_ast::Function,
+    environment: &TypeEnvironment,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    diagnostics.extend(check_declared_effect_labels(function, environment));
+    if function.visibility == Visibility::Public {
+        diagnostics.extend(check_public_function_boundary(function));
     }
+    if function.kind == FunctionKind::Test {
+        diagnostics.extend(check_test_declaration_boundary(function));
+    }
+    diagnostics.extend(check_function_body(function, environment));
 
     diagnostics
 }

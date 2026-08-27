@@ -18,17 +18,13 @@ also states it.
 
 ## Ready
 
-- Identifier-casing recovery isolation across the implicit prelude:
-  [identifier-casing-selection-boundaries.md](identifier-casing-selection-boundaries.md).
+- Remaining identifier-casing surfaces:
+  [identifier-casing.md](identifier-casing.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
 ## Blocked
 
-- The complete identifier-casing proposal is blocked by its remaining
-  selection-boundary work. Move its remaining implementation scope into Ready
-  after that prerequisite is specified as current behavior:
-  [identifier-casing.md](identifier-casing.md).
 - The agent-language-services umbrella is a planning inventory. Its next saved
   workspace function-reference slice is blocked by identifier casing. Move
   that implementation target into the Ready section after that dependency

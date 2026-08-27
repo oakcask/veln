@@ -65,6 +65,10 @@ valid candidate wins, the use role is compatible with the invalid name class,
 and the call arity is compatible for callable recovery. Cross-class recovery
 collisions select no recovery record and preserve the ordinary unresolved or
 ambiguous fact.
+Valid implicit standard prelude symbols remain normal lookup candidates. A
+same-spelled application recovery record does not shadow the valid prelude
+symbol for a function call or constructor path, and does not enter
+prelude-qualified lookup.
 
 Current duplicate checks reject:
 
