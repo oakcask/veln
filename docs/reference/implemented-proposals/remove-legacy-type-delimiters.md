@@ -104,7 +104,7 @@ Out of scope:
   [../../specification/source-surface-full.md](../../specification/source-surface-full.md).
 - Type annotation behavior:
   [../../specification/types.md](../../specification/types.md) and
-  [../../specification/types-full.md](../../specification/types-full.md).
+  [../../specification/types.md](../../specification/types.md).
 - Diagnostic JSON and repair boundaries:
   [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md),
   [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md),

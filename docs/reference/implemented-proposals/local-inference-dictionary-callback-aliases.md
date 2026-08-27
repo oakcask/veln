@@ -1,11 +1,16 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # Local Inference Dictionary Callback Aliases
 
-Status: implemented
 
 This record keeps the completed dictionary callback helper alias slice for the
 local inference proposal. Current behavior is specified in
 `../../specification/types.md#read-first`,
-`../../specification/types-full.md#inference`, and executable examples under
+`../../specification/types.md#inference`, and executable examples under
 `../../../examples/specification/check/`.
 
 ## Completed Behavior

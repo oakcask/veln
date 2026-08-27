@@ -1,6 +1,11 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # User-Defined ADT Follow-Ups
 
-Status: implemented
 
 This record closes the source-declared ADT follow-up list. Current behavior is
 specified under `../../specification/` and covered by
@@ -45,7 +50,7 @@ source-like metadata. They are not source prelude module declarations.
 - `docs/specification/source-surface-full.md` defines constructor visibility,
   payload field visibility, qualified constructor paths, and compiler-owned
   `List` constructor behavior.
-- `docs/specification/types-full.md` defines source-declared ADT finite-domain
+- `docs/specification/types.md` defines source-declared ADT finite-domain
   exhaustiveness, hidden-constructor catch-all behavior, and missing-case
   display.
 

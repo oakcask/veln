@@ -1,6 +1,11 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # Local Inference Hole Expected-Type Flow
 
-Status: implemented
 
 This record keeps the completed typed-hole expected-type flow slice after the
 behavior moved into the specification and executable examples. It is
@@ -11,7 +16,7 @@ historical evidence, not the source for current behavior.
 - Current type inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Current hole diagnostic rules:
   [../../specification/holes.md](../../specification/holes.md).
 - Current JSON detail catalog:

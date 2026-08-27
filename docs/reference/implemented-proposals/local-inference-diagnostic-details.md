@@ -17,7 +17,7 @@ historical evidence, not the source for current behavior.
 - Current type inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Checked diagnostic examples:
   `../../../examples/specification/check/local-let-inference-diagnostics/`,
   `../../../examples/specification/check/private-helper-inference-diagnostics/`,

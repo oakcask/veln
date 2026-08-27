@@ -84,7 +84,7 @@ pattern. Existing navigation cases also contain a lowercase `byte` variant
 that can collide with a same-spelled function or callable binding.
 
 [Names And Effects](../specification/names-effects.md#name-resolution)
-specifies current value shadowing. [Types](../specification/types-full.md)
+specifies current value shadowing. [Types](../specification/types.md)
 specifies source ADTs and constructor resolution. The short
 [Names And Effects](../specification/names-effects.md) route names the checked
 casing evidence for the implemented source foundation; this proposal retains

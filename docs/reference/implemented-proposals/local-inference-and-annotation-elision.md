@@ -1,6 +1,11 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # Local Inference And Annotation Elision
 
-Status: implemented
 
 ## Outcome
 
@@ -11,7 +16,7 @@ helper paths. Public signatures remain explicit and unconstrained or ambiguous
 local facts still require annotations.
 
 Current behavior and diagnostic boundaries are specified under
-`../../specification/types.md`, `../../specification/types-full.md`, and
+`../../specification/types.md`, `../../specification/types.md`, and
 `../../specification/diagnostics-json.md`.
 
 ## Evidence

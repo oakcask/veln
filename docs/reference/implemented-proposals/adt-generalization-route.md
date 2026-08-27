@@ -58,7 +58,7 @@ the disambiguation boundary.
   source-declared ADT missing-case diagnostics.
 - `docs/specification/source-surface-full.md` defines constructor visibility
   and qualified constructor paths.
-- `docs/specification/types-full.md` defines ADT finite-domain exhaustiveness
+- `docs/specification/types.md` defines ADT finite-domain exhaustiveness
   and missing-case display.
 - `docs/specification/names-effects.md` defines the prelude helper set.
 

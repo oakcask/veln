@@ -15,7 +15,7 @@ historical evidence, not the source for current behavior.
 - Current type annotation and inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Current JSON diagnostic shape:
   [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md).
 - Checked example coverage:

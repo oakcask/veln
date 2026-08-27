@@ -1,6 +1,11 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # Local Inference Variadic Callback Parameter
 
-Status: implemented
 
 This record keeps the completed variadic declared-helper callback parameter
 inference slice after the behavior moved into the specification and executable
@@ -11,7 +16,7 @@ examples. It is historical evidence, not the source for current behavior.
 - Current type inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Successful same-module coverage:
   `declared-helper-variadic-callback-inference`.
 - Successful imported-helper coverage:
