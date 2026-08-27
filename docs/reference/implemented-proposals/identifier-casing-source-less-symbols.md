@@ -31,9 +31,8 @@ from the other source-less providers. Shared standard-environment
 initialization validates the registries before publishing reusable command or
 adapter state.
 `prelude_builtin` lookup consumes validated published registry state.
-Built-in ADT lookup validates the same descriptor set accepted by source-less
-publication before constructing production ADT lookup state, while keeping ADT
-registry ownership independent of the combined source-less publisher.
+Production built-in ADT lookup seeds its registry from the same shared
+source-less publication result that owns standard-symbol lookup state.
 
 Compiler temporaries and bookkeeping-only names that cannot participate in
 source lookup stay outside the source lookup validation gate. Embedded Veln
@@ -49,7 +48,8 @@ casing diagnostics.
   the generated tables, injected invalid descriptors, duplicate lookup keys,
   atomic failure, cross-provider publication failure, checked lookup, and
   lookup isolation. The `adt` tests also pin that production built-in ADT
-  lookup validates built-in descriptors before constructing registry state.
+  lookup consumes validated built-in descriptors from the shared publication
+  result before constructing application registry state.
 
 This record completes only the source-less lookup descriptor acceptance row of
 the identifier-casing proposal. Module identity, qualified-use, recovery

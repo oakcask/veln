@@ -27,6 +27,7 @@ pub(crate) enum AdtVariantKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdtDescriptor {
     pub(crate) type_name: String,
+    pub(crate) name_class: SourceLessNameClass,
     pub(crate) module_name: Option<String>,
     pub(crate) type_parameters: Vec<String>,
     pub(crate) variants: Vec<AdtVariantDescriptor>,
@@ -38,6 +39,7 @@ pub(crate) struct AdtDescriptor {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdtVariantDescriptor {
     pub(crate) name: String,
+    pub(crate) name_class: SourceLessNameClass,
     pub(crate) kind: AdtVariantKind,
     pub(crate) payload_fields: Vec<AdtPayloadField>,
     pub(crate) coverage_case: String,
@@ -106,7 +108,7 @@ mod constructor_lookup_counters {
 }
 
 impl AdtRegistry {
-    pub(crate) fn from_parts(
+    fn from_parts(
         descriptors: Vec<AdtDescriptor>,
         companion_access_targets: BTreeMap<String, String>,
     ) -> Self {
@@ -157,7 +159,7 @@ impl AdtRegistry {
     }
 
     #[cfg(test)]
-    fn from_validated_parts(
+    pub(crate) fn from_validated_parts_for_test(
         descriptors: Vec<AdtDescriptor>,
         companion_access_targets: BTreeMap<String, String>,
     ) -> Result<Self, InvalidStandardSymbolCase> {
@@ -165,10 +167,22 @@ impl AdtRegistry {
         Ok(Self::from_parts(descriptors, companion_access_targets))
     }
 
+    pub(crate) fn from_validated_source_less_descriptors(
+        descriptors: Vec<AdtDescriptor>,
+    ) -> Result<Self, InvalidStandardSymbolCase> {
+        validate_adt_lookup_descriptors("adt", &descriptors)?;
+        Ok(Self::from_parts(descriptors, Default::default()))
+    }
+
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
         let mut descriptors = base
             .map(|base| base.descriptors.clone())
-            .unwrap_or_else(checked_builtin_descriptors);
+            .unwrap_or_else(|| {
+                crate::source_less_lookup::builtin_adt_registry()
+                    .expect("source-less lookup registries are valid")
+                    .descriptors()
+                    .to_vec()
+            });
         let source_descriptors = module
             .types
             .iter()
@@ -765,6 +779,7 @@ pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSy
     validate_adt_lookup_descriptors("adt", &build_builtin_descriptors())
 }
 
+#[cfg(test)]
 fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
     let descriptors = build_builtin_descriptors();
     validate_adt_lookup_descriptors("adt", &descriptors)
@@ -781,11 +796,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
     let mut descriptors = vec![
         AdtDescriptor {
             type_name: "Option".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: vec!["T".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Some".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::OptionSome,
                     payload_fields: vec![AdtPayloadField {
                         name: "value".to_string(),
@@ -796,6 +813,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "None".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::OptionNone,
                     payload_fields: Vec::new(),
                     coverage_case: "None".to_string(),
@@ -808,11 +826,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "Result".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: vec!["T".to_string(), "E".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Ok".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::ResultOk,
                     payload_fields: vec![AdtPayloadField {
                         name: "value".to_string(),
@@ -823,6 +843,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "Err".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::ResultErr,
                     payload_fields: vec![AdtPayloadField {
                         name: "error".to_string(),
@@ -841,11 +862,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "List".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: vec!["A".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Nil".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::ListNil,
                     payload_fields: Vec::new(),
                     coverage_case: "Nil".to_string(),
@@ -853,6 +876,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "Cons".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::ListCons,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -874,11 +898,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "StreamInput".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Chunk".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "bytes".to_string(),
@@ -889,6 +915,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "End".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "End".to_string(),
@@ -901,11 +928,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "StreamAdapterAction".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "SendBytes".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "bytes".to_string(),
@@ -916,6 +945,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "EndStream".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "EndStream".to_string(),
@@ -923,6 +953,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "Ignore".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "Ignore".to_string(),
@@ -935,11 +966,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "AcceptOutcome".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "AcceptStream".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "stream".to_string(),
@@ -950,6 +983,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "AcceptEnd".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "AcceptEnd".to_string(),
@@ -957,6 +991,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "AcceptDeadlineExpired".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "AcceptDeadlineExpired".to_string(),
@@ -964,6 +999,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "AcceptCancelled".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "AcceptCancelled".to_string(),
@@ -976,11 +1012,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "StreamReadOutcome".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "ReadChunk".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "bytes".to_string(),
@@ -991,6 +1029,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "ReadEnd".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "ReadEnd".to_string(),
@@ -998,6 +1037,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "ReadDeadlineExpired".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "ReadDeadlineExpired".to_string(),
@@ -1005,6 +1045,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "ReadCancelled".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "ReadCancelled".to_string(),
@@ -1017,11 +1058,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "StreamWriteOutcome".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "WriteCompleted".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "WriteCompleted".to_string(),
@@ -1029,6 +1072,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "WriteDeadlineExpired".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "WriteDeadlineExpired".to_string(),
@@ -1036,6 +1080,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "WriteCancelled".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "WriteCancelled".to_string(),
@@ -1048,11 +1093,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "DecodeError".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "DecodeError".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1073,6 +1120,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "DecodeErrorWithReason".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1102,11 +1150,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "DecodeReadiness".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "NeedBytes".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "count".to_string(),
@@ -1117,6 +1167,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "NeedEnd".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "NeedEnd".to_string(),
@@ -1129,11 +1180,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "DecodeStep".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: vec!["T".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Decoded".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1150,6 +1203,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "NeedMore".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "readiness".to_string(),
@@ -1160,6 +1214,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "Invalid".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "error".to_string(),
@@ -1175,11 +1230,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "SchemaDispatchPayload".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: vec!["T".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Known".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "value".to_string(),
@@ -1190,6 +1247,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "Unknown".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1211,10 +1269,12 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "EncodeError".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![AdtVariantDescriptor {
                 name: "EncodeError".to_string(),
+                name_class: SourceLessNameClass::Constructor,
                 kind: AdtVariantKind::Source,
                 payload_fields: vec![
                     AdtPayloadField {
@@ -1239,10 +1299,12 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "RuntimeDiagnostic".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![AdtVariantDescriptor {
                 name: "RuntimeDiagnostic".to_string(),
+                name_class: SourceLessNameClass::Constructor,
                 kind: AdtVariantKind::Source,
                 payload_fields: vec![
                     AdtPayloadField {
@@ -1270,11 +1332,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "RuntimeDiagnosticDetail".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "RuntimeByteDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1308,6 +1372,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeValueDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1327,6 +1392,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHpackFixtureDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1359,6 +1425,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHpackFixtureDynamicIndexDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1399,6 +1466,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHpackFixtureDynamicNameDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1439,6 +1507,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHpackFixtureTableSizeUpdateDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1487,6 +1556,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolClosedWithPendingDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1531,6 +1601,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolPartialPrefaceDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1563,6 +1634,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1603,6 +1675,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1644,6 +1717,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolContinuationExpectedDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1693,6 +1767,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1729,6 +1804,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1769,6 +1845,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1806,6 +1883,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitFrameSizeDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1842,6 +1920,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitHeaderListSizeDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1882,6 +1961,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitHeaderTableSizeDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1922,6 +2002,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitConcurrentStreamsDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -1967,6 +2048,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitSettingsValueDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2007,6 +2089,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidPayloadLengthDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2048,6 +2131,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidDataPaddingDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2085,6 +2169,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2PeerLimitFlowControlWindowDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2126,6 +2211,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolContentLengthMismatchDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2167,6 +2253,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidRequestHeaderListDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2212,6 +2299,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidResponseHeaderListDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2257,6 +2345,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolInvalidWindowUpdateIncrementDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2298,6 +2387,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolUnexpectedSettingsAckDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2323,6 +2413,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolSettingsNotAllowedForEndpointDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2364,6 +2455,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolPriorityDependencyDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2397,6 +2489,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeHttp2ProtocolStreamAfterGoawayDiagnostic".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2438,10 +2531,12 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "RuntimeDiagnosticFieldPathSegment".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![AdtVariantDescriptor {
                 name: "RuntimeDiagnosticFieldPathSegment".to_string(),
+                name_class: SourceLessNameClass::Constructor,
                 kind: AdtVariantKind::Source,
                 payload_fields: vec![
                     AdtPayloadField {
@@ -2462,11 +2557,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "RuntimeByteDiagnosticFacts".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "RuntimeByteCountFacts".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2487,6 +2584,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeByteRangeFacts".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2503,6 +2601,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeByteFixedValueFacts".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2519,6 +2618,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "RuntimeByteReasonFacts".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "reason".to_string(),
@@ -2534,11 +2634,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "RuntimeBytePreview".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![
                 AdtVariantDescriptor {
                     name: "RuntimeBytePreview".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2563,6 +2665,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "NoRuntimeBytePreview".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: Vec::new(),
                     coverage_case: "NoRuntimeBytePreview".to_string(),
@@ -2575,11 +2678,13 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtDescriptor {
             type_name: "EncodeStep".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: vec!["TState".to_string()],
             variants: vec![
                 AdtVariantDescriptor {
                     name: "Encoded".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "chunks".to_string(),
@@ -2593,6 +2698,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "Partial".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![
                         AdtPayloadField {
@@ -2616,6 +2722,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
                 },
                 AdtVariantDescriptor {
                     name: "Invalid".to_string(),
+                    name_class: SourceLessNameClass::Constructor,
                     kind: AdtVariantKind::Source,
                     payload_fields: vec![AdtPayloadField {
                         name: "error".to_string(),
@@ -2653,6 +2760,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
     detail.variants.extend([
         AdtVariantDescriptor {
             name: "RuntimeHttp2Diagnostic".to_string(),
+            name_class: SourceLessNameClass::Constructor,
             kind: AdtVariantKind::Source,
             payload_fields: vec![AdtPayloadField {
                 name: "detail".to_string(),
@@ -2663,6 +2771,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
         },
         AdtVariantDescriptor {
             name: "RuntimeHttp2HpackDiagnostic".to_string(),
+            name_class: SourceLessNameClass::Constructor,
             kind: AdtVariantKind::Source,
             payload_fields: vec![AdtPayloadField {
                 name: "detail".to_string(),
@@ -2675,6 +2784,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
     descriptors.insert(detail_index, detail);
     descriptors.push(AdtDescriptor {
         type_name: "Http2DiagnosticDetail".to_string(),
+        name_class: SourceLessNameClass::Type,
         module_name: None,
         type_parameters: Vec::new(),
         variants: http2_variants,
@@ -2684,6 +2794,7 @@ pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
     });
     descriptors.push(AdtDescriptor {
         type_name: "HpackDiagnosticDetail".to_string(),
+        name_class: SourceLessNameClass::Type,
         module_name: None,
         type_parameters: Vec::new(),
         variants: hpack_variants,
@@ -2706,7 +2817,15 @@ pub(crate) fn validate_adt_lookup_descriptors(
                 validate_source_less_name(provider, segment, SourceLessNameClass::Module)?;
             }
         }
-        validate_source_less_name(provider, &descriptor.type_name, SourceLessNameClass::Type)?;
+        validate_source_less_name(provider, &descriptor.type_name, descriptor.name_class)?;
+        if descriptor.name_class != SourceLessNameClass::Type {
+            return Err(InvalidStandardSymbolCase {
+                provider,
+                name: descriptor.type_name.clone(),
+                name_class: descriptor.name_class,
+                reason: InvalidStandardSymbolReason::InvalidCase,
+            });
+        }
         if !type_names.insert((
             descriptor.module_name.as_deref(),
             descriptor.type_name.as_str(),
@@ -2719,7 +2838,15 @@ pub(crate) fn validate_adt_lookup_descriptors(
             });
         }
         for variant in &descriptor.variants {
-            validate_source_less_name(provider, &variant.name, SourceLessNameClass::Constructor)?;
+            validate_source_less_name(provider, &variant.name, variant.name_class)?;
+            if variant.name_class != SourceLessNameClass::Constructor {
+                return Err(InvalidStandardSymbolCase {
+                    provider,
+                    name: variant.name.clone(),
+                    name_class: variant.name_class,
+                    reason: InvalidStandardSymbolReason::InvalidCase,
+                });
+            }
             if !constructor_names.insert((
                 descriptor.module_name.as_deref(),
                 descriptor.type_name.as_str(),
@@ -2787,6 +2914,7 @@ fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
             };
             Some(AdtVariantDescriptor {
                 name,
+                name_class: SourceLessNameClass::Constructor,
                 kind: AdtVariantKind::Source,
                 payload_fields,
                 coverage_case,
@@ -2802,6 +2930,7 @@ fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
         .collect::<Vec<_>>();
     Some(AdtDescriptor {
         type_name: name.clone(),
+        name_class: SourceLessNameClass::Type,
         module_name: decl.module_name.clone(),
         type_parameters: decl.params.clone(),
         variants,

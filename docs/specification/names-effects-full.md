@@ -85,9 +85,8 @@ and their primary message states that the lookup key is duplicated. The
 diagnostic kind is `toolchain`. A failure in any source-less provider
 publishes no lookup state from the other source-less providers.
 `prelude_builtin` lookup consumes validated published registry state.
-Built-in ADT lookup validates the same descriptor set accepted by source-less
-publication before constructing production ADT lookup state, while keeping ADT
-registry ownership independent of the combined source-less publisher. Shared
+Production built-in ADT lookup seeds its registry from the same shared
+source-less publication result that owns standard-symbol lookup state. Shared
 standard-environment initialization validates the registries before publishing
 reusable command or adapter state. Compiler temporaries and bookkeeping-only
 names that cannot participate in source lookup stay outside this registry

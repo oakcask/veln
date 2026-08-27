@@ -185,8 +185,9 @@ fn invalid_injected_adt_descriptor_does_not_publish_lookup_registry() {
     let mut descriptors = builtin_descriptors();
     descriptors[0].variants[0].name = "some".to_string();
 
-    let failure = AdtRegistry::from_validated_parts(descriptors, std::collections::BTreeMap::new())
-        .expect_err("invalid injected ADT descriptor");
+    let failure =
+        AdtRegistry::from_validated_parts_for_test(descriptors, std::collections::BTreeMap::new())
+            .expect_err("invalid injected ADT descriptor");
 
     assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
     assert_eq!(failure.provider, "adt");
@@ -201,8 +202,9 @@ fn duplicate_injected_adt_constructor_does_not_publish_lookup_registry() {
     let duplicate = descriptors[0].variants[0].clone();
     descriptors[0].variants.push(duplicate);
 
-    let failure = AdtRegistry::from_validated_parts(descriptors, std::collections::BTreeMap::new())
-        .expect_err("duplicate injected ADT constructor");
+    let failure =
+        AdtRegistry::from_validated_parts_for_test(descriptors, std::collections::BTreeMap::new())
+            .expect_err("duplicate injected ADT constructor");
 
     assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
     assert_eq!(failure.provider, "adt");
@@ -212,6 +214,38 @@ fn duplicate_injected_adt_constructor_does_not_publish_lookup_registry() {
         failure.reason,
         InvalidStandardSymbolReason::DuplicateLookupKey
     );
+}
+
+#[test]
+fn inconsistent_builtin_adt_type_class_prevents_registry_publication() {
+    let mut descriptors = builtin_descriptors();
+    descriptors[0].name_class = SourceLessNameClass::Function;
+
+    let failure = validate_adt_lookup_descriptors("adt", &descriptors)
+        .expect_err("ADT type descriptor must declare type class");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "Option");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
+}
+
+#[test]
+fn inconsistent_builtin_adt_constructor_class_prevents_registry_publication() {
+    let mut descriptors = builtin_descriptors();
+    descriptors[0].variants[0].name_class = SourceLessNameClass::Function;
+
+    let failure = validate_adt_lookup_descriptors("adt", &descriptors)
+        .expect_err("ADT constructor descriptor must declare constructor class");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "Some");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
 }
 
 #[test]

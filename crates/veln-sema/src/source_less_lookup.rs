@@ -1,8 +1,6 @@
 use std::sync::OnceLock;
 
-use crate::adt::{
-    AdtDescriptor, AdtRegistry, build_builtin_descriptors, validate_adt_lookup_descriptors,
-};
+use crate::adt::{AdtDescriptor, AdtRegistry, build_builtin_descriptors};
 use crate::source_less_names::InvalidStandardSymbolCase;
 use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
@@ -25,6 +23,10 @@ pub(crate) fn validate_source_less_lookup_registries() -> Result<(), InvalidStan
 pub(crate) fn standard_symbol_registry()
 -> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase> {
     Ok(&source_less_lookup_registries()?.standard_symbols)
+}
+
+pub(crate) fn builtin_adt_registry() -> Result<&'static AdtRegistry, InvalidStandardSymbolCase> {
+    Ok(&source_less_lookup_registries()?.builtin_adts)
 }
 
 pub(crate) fn qualified_symbol_checked(
@@ -91,8 +93,7 @@ pub(crate) fn build_source_less_lookup_registries(
         self_hosting_prelude,
         compiler_adapters,
     )?;
-    validate_adt_lookup_descriptors("adt", &builtin_adts)?;
-    let builtin_adts = AdtRegistry::from_parts(builtin_adts, Default::default());
+    let builtin_adts = AdtRegistry::from_validated_source_less_descriptors(builtin_adts)?;
     Ok(SourceLessLookupRegistries {
         standard_symbols,
         builtin_adts,
@@ -137,10 +138,12 @@ mod tests {
     fn valid_adt_descriptor() -> AdtDescriptor {
         AdtDescriptor {
             type_name: "Boxed".to_string(),
+            name_class: SourceLessNameClass::Type,
             module_name: None,
             type_parameters: Vec::new(),
             variants: vec![AdtVariantDescriptor {
                 name: "Boxed".to_string(),
+                name_class: SourceLessNameClass::Constructor,
                 kind: AdtVariantKind::Source,
                 payload_fields: Vec::new(),
                 coverage_case: "Boxed(_)".to_string(),
