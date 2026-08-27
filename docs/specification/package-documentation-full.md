@@ -173,48 +173,78 @@ identifiers or re-resolve by spelling.
 
 The `veln-language-service` package-documentation unit tests are the
 authoritative executable evidence. `cargo test -p veln-language-service`
-checks public metadata allowlisting, exported-module and public-declaration
-selection, private and non-exported exclusion, contracts, constructor
-projection, constructor documentation, constructor doctests, constructor
-documentation references, and constructor-location lookup, visible doctest and
-expected-output publication, generated doctest static analysis for expression,
-declaration, mixed declaration-statement, and public-package-API doctests,
-parse-only `veln fail` doctest handling, ignored doctest expected-output
-adjacency, duplicate expected-output rejection, ambiguous expected-output
-stream metadata rejection through the shared doctest extractor, hidden setup
-gate exclusion, hidden setup and ADR-lite publication exclusion, effect row
-binder signatures, deterministic bytes, digest and URI stability, package byte
-changes, generator-contract changes, renderer-only stability when bytes are
-unchanged, declaration URI lookup from package declaration spans and package
-navigation name-token spans, rejection of workspace and different-snapshot
-locations, private documentation-reference exclusion, private doctest
-exclusion, ADR-lite
-doctest and documentation-reference exclusion, parse gate failure with
-canonical package source URI, manifest gate failure,
-test source export rejection, manifest package-name mismatch failure, manifest
-missing-package-name failure, manifest snapshot-byte mismatch failure,
-same-capture manifest reparse protection against mutable parsed fields,
-same-capture manifest diagnostic location stability, normalized export
-metadata, export gate failure, resolved
-documentation-reference projection, qualified documentation-reference import
-failure, public schema alias
-documentation-reference resolution, documentation-reference gate failure,
-doctest gate failure with original doc comment location remapping, duplicate
-semantic identity failure, declaration
-identifier collision failure, status-only failure results, `PackageIdentity`
-validation at the catalog API boundary, crate-root import coverage for public
-package documentation API types including expected-output records,
-fixed-width identifier digest and path-derived module identifier
-transcripts, and virtual-source resolution after package documentation
-failure. The tests also read fixtures under `examples/specification/doc/` to
-observe the catalog success path, manifest-gate failure path, nested
-declaration doctest success path with a nested expression block and public
-member alias, ADR-lite doctest exclusion from successful catalog generation,
-declaration doctest static-gate failure path,
-doctest output metadata gate failure path,
-integration-test source exclusion from successful catalog projection, and
-schema-reference import-gate failure path through executable specification
-inputs.
+checks the following behavior:
+
+- Catalog selection and projection:
+  - public metadata allowlisting;
+  - exported-module and public-declaration selection;
+  - private and non-exported exclusion;
+  - contracts;
+  - constructor projection, documentation, doctests, documentation references,
+    and location lookup;
+  - visible doctest and expected-output publication;
+  - private documentation-reference and doctest exclusion;
+  - ADR-lite doctest and documentation-reference exclusion;
+  - normalized export metadata;
+  - resolved documentation-reference projection;
+  - public schema alias documentation-reference resolution.
+- Doctest analysis and metadata:
+  - generated static analysis for expression, declaration, mixed
+    declaration-statement, and public-package-API doctests;
+  - parse-only `veln fail` doctest handling;
+  - ignored doctest expected-output adjacency;
+  - duplicate expected-output rejection;
+  - ambiguous expected-output stream metadata rejection through the shared
+    doctest extractor;
+  - hidden setup gate exclusion;
+  - hidden setup and ADR-lite publication exclusion;
+  - effect row binder signatures;
+  - doctest gate failure with original doc comment location remapping.
+- Identity and deterministic output:
+  - deterministic bytes;
+  - digest and URI stability;
+  - package byte changes;
+  - generator-contract changes;
+  - renderer-only stability when bytes are unchanged;
+  - duplicate semantic identity failure;
+  - declaration identifier collision failure;
+  - fixed-width identifier digest and path-derived module identifier
+    transcripts.
+- Location lookup:
+  - declaration URI lookup from package declaration spans and package
+    navigation name-token spans;
+  - rejection of workspace and different-snapshot locations.
+- Generation gates and failures:
+  - parse gate failure with the canonical package source URI;
+  - manifest gate failure;
+  - test source export rejection;
+  - manifest package-name mismatch failure;
+  - manifest missing-package-name failure;
+  - manifest snapshot-byte mismatch failure;
+  - same-capture manifest reparse protection against mutable parsed fields;
+  - same-capture manifest diagnostic location stability;
+  - export gate failure;
+  - qualified documentation-reference import failure;
+  - documentation-reference gate failure;
+  - status-only failure results;
+  - virtual-source resolution after package documentation failure.
+- Public API boundary:
+  - `PackageIdentity` validation at the catalog API boundary;
+  - crate-root import coverage for public package documentation API types,
+    including expected-output records.
+
+The tests also read fixtures under `examples/specification/doc/` to observe:
+
+- the catalog success path;
+- the manifest-gate failure path;
+- the nested declaration doctest success path with a nested expression block
+  and public member alias;
+- ADR-lite doctest exclusion from successful catalog generation;
+- the declaration doctest static-gate failure path;
+- the doctest output metadata gate failure path;
+- integration-test source exclusion from successful catalog projection;
+- the schema-reference import-gate failure path through executable
+  specification inputs.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a

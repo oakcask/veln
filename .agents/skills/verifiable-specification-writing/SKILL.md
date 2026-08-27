@@ -7,156 +7,49 @@ description: Use when creating, substantially revising, or reviewing documentati
 
 ## Goal
 
-Make normative claims precise, reviewable, and resistant to drift by putting
-behavior in the strongest practical verification medium. Keep natural-language
-text subordinate to primary evidence when the claim can be expressed
-mechanically or structurally.
+Turn normative claims into precise, reviewable contracts backed by the strongest
+practical evidence.
 
-Specify behavior declaratively as an externally observable contract. State
-inputs, outcomes, failures, visible state transitions, and invariants without
-prescribing internal control flow, data structures, or operation order unless
-those details are required constraints.
+## Authority
 
-Apply this rule by content, not directory. A reference or design page that
-defines behavior is in scope. Pure routing, rationale, history, bibliography,
-and explanation are not normative unless they also make behavioral claims.
+Read
+[documentation-authoring.md](../../../docs/reference/documentation-authoring.md),
+especially `Behavior Specifications`, before writing or reviewing normative
+content. That document owns the specification-writing rules. This skill defines
+the procedure for applying them.
 
 ## Workflow
 
-1. Validate the proposed requirement before making it normative. Identify the
-   user, product, interoperability, safety, or maintenance outcome at risk.
-   Treat a review finding, hypothetical bypass, rejected implementation, or
-   one-time migration concern as evidence to assess, not as a requirement by
-   itself. Prefer removing or simplifying a suspect requirement when that
-   resolves the underlying risk.
-2. Identify each normative claim and the external observation that would prove
-   or disprove it. Separate internal design explanation, rationale, scope, and
-   non-goals from those claims.
-3. Identify an authority independent of the implementation being checked.
-   Do not treat constants copied among prose, a validator, and its tests as
-   independent confirmation of their meaning or correctness.
-4. Choose the strongest practical primary medium using the selection guide
-   below. Prefer an existing repository harness or artifact format.
-5. Write or update the primary artifact before expanding prose when practical.
-6. Cover success, boundary, failure, and state-preservation behavior that is
-   material to the claim. Do not rely on one happy-path example to specify a
-   general rule.
-7. Route nearby prose to the primary artifact. Summarize its meaning without
-   duplicating all of its cases as a second source of truth.
-8. Record how the artifact is checked locally or by CI. If it is not checked,
+1. Identify the user, product, interoperability, safety, or maintenance outcome
+   that justifies each proposed requirement.
+2. Separate normative claims from rationale, scope, non-goals, historical
+   evidence, and implementation guidance.
+3. State the external observation that would prove or disprove each normative
+   claim.
+4. Identify an authority independent of the implementation being checked.
+5. Select the strongest practical verification medium using the authoring
+   policy and an existing repository harness or artifact format.
+6. Write or update the primary artifact before expanding prose when practical.
+7. Cover material success, boundary, failure, and state-preservation outcomes.
+8. Route nearby prose to the primary artifact without duplicating its cases as
+   another source of truth.
+9. Record how the artifact is checked locally or by CI. If it is not checked,
    label its authority accurately and state what will verify it.
-9. If only prose is practical, state the reason briefly and make the prose
-   falsifiable with explicit inputs, outcomes, boundaries, or invariants.
+10. If only prose is practical, state why and make the claim falsifiable with
+    explicit inputs, outcomes, boundaries, or invariants.
 
-## Declarative Boundary
+## Review Procedure
 
-- Describe what users, callers, tools, or interoperating systems can observe.
-- State inputs, outcomes, failures, invariants, and externally visible state
-  transitions.
-- Do not turn the current implementation algorithm into a normative
-  requirement.
-- Do not make document layout, paragraph order, test organization, workflow
-  step names, or a particular change path normative unless an external
-  compatibility or safety constraint depends on that exact structure.
-- Include an internal algorithm, data structure, or operation order only when
-  it is needed to explain the design or when compatibility, safety,
-  performance, or another explicit constraint makes it significant.
-- Mark internal explanations as rationale or implementation guidance unless
-  they are intentionally normative.
-- Explain why an internal detail is normative when the specification must
-  constrain it.
-
-## Medium Selection
-
-- API examples and documented source behavior: use executable doctests when
-  the harness supports the behavior.
-- Input, output, diagnostics, commands, or serialization: use table-driven
-  tests, checked fixtures, CLI cases, or executable examples.
-- Grammar, schemas, and source surfaces: use executable grammar, schemas, and
-  accepted and rejected fixtures.
-- Stateful or protocol behavior: use a transition table with current state,
-  event, guard, next state, outputs, and failures. Map material rows to tests.
-- Rule combinations: use decision tables or truth tables and cover the rows
-  mechanically where practical.
-- Performance claims: use benchmarks with a named workload, metric, comparison
-  method, and noise policy. Do not use a benchmark to specify functional
-  behavior or claim a stable threshold on an uncontrolled runner.
-- Multi-step overviews: use a flowchart as a supporting view. Prefer deriving
-  it from the same model as tests; otherwise name the transition table, tests,
-  or executable model as authoritative.
-- Rationale, scope, non-goals, provenance, and genuinely non-mechanical
-  constraints: use concise prose.
-
-## Simplified Technical English Style
-
-When an internal algorithm or ordered procedure needs prose explanation, use
-Simplified Technical English style. Do not claim formal conformance to a
-controlled-language standard.
-
-- Use one action or condition per sentence.
-- Use short sentences with an explicit subject and verb.
-- Use the same term for the same concept. Do not introduce stylistic synonyms.
-- Define abbreviations and specialized terms before using them.
-- Prefer active voice when the actor is relevant.
-- Put a condition before the action that depends on it.
-- Use numbered steps when order is significant.
-- Use one imperative action per procedural step.
-- State the expected result when it is not obvious.
-- Avoid ambiguous pronouns, nested conditions, idioms, and informal metaphors.
-
-## Planned and Current Behavior
-
-For planned behavior, provide a structured acceptance model and map it to the
-tests, fixtures, doctests, benchmarks, or executable specification that will
-verify implementation. Do not imply that planned evidence is already running
-or passing.
-
-Do not invent exact versions, digests, compatibility values, or expected
-outputs merely to make a planned contract finite. If no authoritative artifact
-or observation can establish a value yet, specify the evidence that must
-produce it or keep the work explicitly incomplete.
-
-For current behavior, add or update checked evidence when practical. Keep
-planned examples out of current specification routes until implementation and
-verification agree.
-
-## Authority and Drift
-
-- Name the authoritative artifact when prose, tables, diagrams, generated
-  pages, and tests describe the same behavior.
-- Require semantic independence where evidence is claimed to corroborate an
-  authority. Copies of the same expected values can detect drift, but they
-  cannot establish that the values are valid.
-- Prefer generating secondary views from the authoritative artifact.
-- Update all affected representations together when generation is impractical.
-- Treat disagreement as a defect; do not resolve it by silently declaring the
-  least verifiable representation authoritative.
-- Do not add a diagram merely to satisfy this guardrail. Use it only when it
-  makes control flow or state relationships materially clearer.
-
-## Review Checklist
-
-- Every normative claim has an observable acceptance condition.
-- Every new normative claim addresses a durable risk rather than merely
-  preserving the shape of one review, rejected attempt, or migration diff.
-- The strength and maintenance cost of the requirement are proportional to the
-  consequence of violation; deletion or simplification was considered first.
-- The chosen medium is more directly verifiable than practical alternatives.
-- State tables include failures and unchanged-state outcomes where relevant.
-- Benchmarks identify workload, metric, comparison, and noise handling.
-- Prose routes to or explains primary evidence instead of duplicating it.
-- Normative text describes externally observable behavior rather than an
-  accidental implementation strategy.
-- Any normative internal constraint explains why the detail must be
-  constrained.
-- One-time transition evidence has an explicit retirement path and is not
-  presented as a permanent product contract.
-- Evidence described as independent does not derive its authority from the
-  implementation, generator, validator, or copied constants it checks.
-- Internal algorithm and procedure sections are distinguishable from
-  behavioral requirements.
-- Algorithm and procedure prose follows Simplified Technical English style.
-- Planned evidence is not presented as implemented or passing.
-- Verification commands or CI routes are discoverable.
-- Any prose-only exception explains why stronger representation is not
-  practical.
+- Compare every normative claim with the acceptance condition and authority
+  identified for it.
+- Check that planned evidence is not described as implemented or passing.
+- Check that prose describes observable behavior rather than an incidental
+  implementation strategy.
+- Check that stateful rules cover failures and unchanged-state outcomes.
+- Check that performance claims name their workload, metric, comparison, and
+  noise handling.
+- Check that repeated values are not presented as independent corroboration
+  when they derive from the same source.
+- Check that prose, executable evidence, generated views, and implementation do
+  not disagree.
+- Confirm that verification commands or CI routes are discoverable.

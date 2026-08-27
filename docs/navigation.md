@@ -1,3 +1,8 @@
+---
+role: routing
+update-when: A documentation route is added, moved, reclassified, or no longer points to the smallest current authority.
+---
+
 # Documentation Navigation
 
 Use this page after [README.md](README.md) when the first route is not obvious.
@@ -10,8 +15,6 @@ routes below are not enough.
 - Current behavior: [specification/README.md](specification/README.md).
 - Planned or accepted proposal work: [proposals/README.md](proposals/README.md).
 - Rationale routes: [specification/source-decisions.md](specification/source-decisions.md).
-- Status, placement, and promotion boundaries:
-  [navigation-full.md#documentation-maintenance](navigation-full.md#documentation-maintenance).
 
 ## Choose One Route
 
@@ -25,12 +28,12 @@ routes below are not enough.
 - Reviews, bibliography, or rationale:
   [navigation-full.md#history-and-evidence](navigation-full.md#history-and-evidence).
 - Documentation maintenance:
-  [navigation-full.md#documentation-maintenance](navigation-full.md#documentation-maintenance).
+  [reference/documentation-authoring.md](reference/documentation-authoring.md).
 
 ## Boundary Rules
 
-- Use the specification, proposal, and reference README files for placement
-  rules.
+- Use [reference/documentation-authoring.md](reference/documentation-authoring.md)
+  for placement rules and directory README files for task routes.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 

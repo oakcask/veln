@@ -17,13 +17,7 @@
   `$proposal-implementation-audit` to promote implemented behavior into
   `docs/specification/` and `examples/specification/`, and to remove completed
   work from `docs/proposals/`.
-* When adding, moving, or reclassifying documentation, use
-  `$docs-progressive-disclosure` to keep documentation routes short and role,
-  authority, and lifecycle boundaries consistent.
-* Every added or changed Markdown document under `docs/` must declare its
-  `role:` and one concrete `update-when:` trigger in YAML frontmatter. Declare
-  `authority:` and exceptional `status:` only where the role permits them. Use
-  `$docs-progressive-disclosure` to classify and validate the metadata.
+* When adding or changing documentation, use `$docs-progressive-disclosure`.
 * When creating or substantially revising any document that specifies
   behavior, including proposals, design notes, and reference material, use
   `$verifiable-specification-writing`.
