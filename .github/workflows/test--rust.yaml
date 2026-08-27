@@ -47,6 +47,7 @@ env:
   NEXTEST_VERSION: "0.9.140"
   # renovate: datasource=github-releases depName=taiki-e/cargo-llvm-cov
   LLVM_COV_VERSION: "0.9.0"
+  LCOV_VERSION: "2.0-4ubuntu2"
   # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
   NEXTEST_TARGET_SECONDS: "90"
   NEXTEST_FALLBACK_SHARDS: "4"
@@ -120,7 +121,7 @@ jobs:
   coverage:
     name: merge Rust test coverage
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Download Rust shard coverage reports
@@ -130,12 +131,30 @@ jobs:
           path: target/coverage-shards
       - name: Merge Rust shard coverage reports
         run: node workflow-scripts/merge-lcov.mjs target/coverage-shards target/coverage/lcov.info
-      - name: Upload merged Rust coverage report
+      - name: Install LCOV HTML renderer
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends "lcov=${LCOV_VERSION}"
+      - name: Generate browsable Rust coverage report
+        run: |
+          genhtml target/coverage/lcov.info \
+            --output-directory target/coverage/html \
+            --prefix "${GITHUB_WORKSPACE}" \
+            --title "Veln Rust test coverage" \
+            --legend
+      - name: Upload merged Rust coverage reports
+        id: upload-coverage
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: rust-coverage
-          path: target/coverage/lcov.info
+          path: |
+            target/coverage/lcov.info
+            target/coverage/html
           if-no-files-found: error
+      - name: Link browsable Rust coverage report
+        env:
+          COVERAGE_ARTIFACT_URL: ${{ steps.upload-coverage.outputs.artifact-url }}
+        run: echo "Download [rust-coverage](${COVERAGE_ARTIFACT_URL}), extract it, and open html/index.html to inspect covered and missed lines." >> "${GITHUB_STEP_SUMMARY}"
 
   doc-test:
     runs-on: ubuntu-latest
