@@ -82,7 +82,8 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-companion-target-binding-recovery-isolation-json`,
 `identifier-casing-companion-source-binding-recovery-isolation-json`,
 `identifier-casing-accepted-names-json`,
-`identifier-casing-valid-symbol-precedence-json`, and
+`identifier-casing-valid-symbol-precedence-json`,
+`identifier-casing-implicit-prelude-boundary-json`, and
 `identifier-casing-ambiguous-recovery-json` and
 `identifier-casing-cross-class-ambiguous-recovery-json` cases. The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
