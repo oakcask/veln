@@ -196,8 +196,8 @@ The implemented source foundation quarantines invalid source declarations and
 bindings for `check`, `run`, and LSP single-file diagnostics. The remaining
 rules in this section are proposal scope where they require module identity
 validation, qualified-use segment validation, alias target-leaf validation,
-navigation, rename, source-less registries, or the deferred command and
-language-service selection boundary.
+navigation, rename, source-less registries, or the deferred language-service
+selection boundary.
 
 For sources without casing diagnostics, ordinary expression calls and
 constructor patterns use these candidate classes. Dedicated schema, effect,
@@ -265,9 +265,8 @@ quarantined recovery for source declarations and bindings selected by `check`,
 `run`, LSP single-file diagnostics, workspace snapshot and open-document
 overlay selection, and exact companion source and target boundaries. The
 remaining proposal defines how that recovery model extends to qualified-use
-roles, module-derived identity failures, the implicit-prelude boundary,
-remaining companion cases for invalid module or qualified roles, and recovery
-navigation.
+roles, module-derived identity failures, remaining companion cases for invalid
+module or qualified roles, and recovery navigation.
 
 An invalid remaining-scope module segment, qualified segment, alias target, or
 source-less descriptor is not inserted into a normal name class. A use links to
@@ -411,13 +410,12 @@ Casing uses the selection and reachability boundary already defined by each
 command. It does not add a workspace-global gate. The `check` and `run`
 boundaries for current source-written declaration and binding casing, including
 loaded and unloaded direct dependencies, are specified by
-[Names And Effects](../specification/names-effects.md). The remaining proposal
-table covers the command and service boundary that still needs executable
-evidence.
-
-| Consumer | Unit affected by a casing diagnostic | Required outcome |
-| --- | --- | --- |
-| Implicit prelude | Prelude sources and aliases actually used by the selected consumer. | A valid prelude symbol can satisfy normal lookup; an invalid prelude recovery record cannot enter or escape prelude lookup. |
+[Names And Effects](../specification/names-effects.md). The implicit-prelude
+selection boundary is complete and recorded in
+[Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md).
+The remaining proposal scope is limited to module identity, qualified-use,
+alias-target, source-less registry, and deferred language-service consumers
+listed in the acceptance model.
 
 No backend receives a remaining-scope module identity, alias target, registry
 entry, or recovery record with an invalid case. The planned command fixtures
@@ -492,7 +490,7 @@ identifier-casing remainder.
 | Combine casing with structural, reserved-name, duplicate, ambiguity, target-kind, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request valid, class-changing, conflicting, and invalid-declaration repair renames. | Class-preserving and repair renames return complete linked edits. Class-changing requests return `rename.invalid_case`; predictable collisions return `rename.conflict`; failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service, LSP error-mapping, and planned MCP error-mapping cases. |
 | Register valid and invalid source-less lookup descriptors. | The release-mode registry gate either publishes one complete validated registry or returns `toolchain.invalid_symbol_case`; invalid descriptors never reach lookup, while internal names remain outside the gate. | Generated-table, injected-descriptor, release-mode, atomic-failure, and lookup-isolation tests. |
-| Run each remaining deferred command or service consumer with casing errors inside and outside its selected unit. | The implicit prelude follows the command boundary table and never sends an invalid symbol to a backend. | Command fixtures covering the implicit prelude. |
+| Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module, qualified, alias-target, or source-less recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module, qualified, alias-target, source-less registry, definition, references, prepare-rename, and rename surfaces. |
 | Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |
 | Run the repository source-carrier audit and specification suite after migration. | Every parsed or analyzed repository-owned source follows the contract except dedicated exact-expectation casing fixtures, and unrelated negative fixtures retain their intended diagnostic sets. | Source-carrier audit, specification harness, doctest and documentation gates, and workspace tests. |
 
