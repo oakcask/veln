@@ -60,8 +60,8 @@ material.
 
 ## Skip Unless Needed
 
-- Do not open `*-full.md` files before a short route page names the needed
-  section.
+- Do not open broad detail records before a route page names the needed
+  subject.
 - Do not scan individual source-decision records before a topic route points to
   one.
 - Do not use proposal text as current behavior when `../specification/` has a

@@ -70,7 +70,7 @@ question.
 ## Reading Order
 
 - Current behavior work: `specification/README.md` first, then the
-  topic-specific short page, then the matching `*-full.md` file only if named.
+  smallest topic-specific page named by its route.
 - Implementation target work: start from `proposals/README.md`, open the
   proposal page that matches the task, then compare it with the matching
   specification page for promotion checks.
@@ -98,8 +98,7 @@ question.
   unfinished proposal text in `proposals/`.
 - A completed proposal record can explain why work happened, but it is not a
   route for changing the language specification.
-- A `*-full.md` file is a detail record. Open it only through the short page
-  that names the relevant section.
+- Open a detail record only through the route that names its relevant subject.
 - A `result-*.md` source-decision file is a record. Open it through
   [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md)
   for task work or
@@ -110,7 +109,7 @@ question.
 
 - Do not use this page when one of the top-level README's read-first links
   already matches the task.
-- Do not open `*-full.md` files before a short route page names the relevant
-  section.
+- Do not open broad detail records before a route page names the relevant
+  subject.
 - Do not read bibliography details before a rationale or claim route needs
   source support.

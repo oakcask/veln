@@ -58,5 +58,5 @@ details.
   source discovery, entry selection, or exit behavior.
 - Use [diagnostics-json.md](diagnostics-json.md) before a broader command page
   when only diagnostic fields or related notes change.
-- Use the `*-full.md` files only after the short JSON page points to the
-  relevant section.
+- Open broader command records only after the focused JSON page points to the
+  relevant subject.
