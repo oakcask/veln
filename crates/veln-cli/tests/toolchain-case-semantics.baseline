@@ -11242,17 +11242,21 @@ field	expectations.stdout.contains[1]	"\"newText\":\"Created\""
 field	expectations.stdout.contains[2]	"\"newText\":\"adapt\""
 field	expectations.stdout.contains[3]	"\"newText\":\"input\""
 field	expectations.stdout.contains[4]	"\"newText\":\"RightEntry\""
-field	expectations.stdout.contains[5]	"right.veln"
-field	expectations.stdout.not_contains[0]	"\"line\":19,\"character\":7"
-field	expectations.stdout.not_contains[1]	"\"line\":20,\"character\":2"
+field	expectations.stdout.contains[5]	"\"newText\":\"Available\""
+field	expectations.stdout.contains[6]	"\"line\":8,\"character\":2"
+field	expectations.stdout.contains[7]	"\"line\":25,\"character\":2"
+field	expectations.stdout.contains[8]	"\"line\":30,\"character\":4"
+field	expectations.stdout.contains[9]	"right.veln"
+field	expectations.stdout.not_contains[0]	"\"line\":35,\"character\":7"
+field	expectations.stdout.not_contains[1]	"\"line\":36,\"character\":2"
 field	expectations.stdout.not_contains[2]	"\"line\":3,\"character\":20"
 field	expectations.stdout.not_contains[3]	"left.veln\":[{\"range\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3559,"sha256":"eea84284355cae995884cfdeca79fa64f7836ec37715d8a4134f22af04b55692"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3783,"sha256":"ebf2a9dad2353e8ac22888bf902a8aacf2cf0d0d4a55abd3b2730836765f8e42"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"1682504895efd342f605e7429c18ab0c0bd4290b51ded627eccf7a24d578338d"
+case_digest	"f87e9fc15d40bbfdb253da6ae9d060290918851e31c4c2515ef5580fdc6a3072"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -49814,4 +49818,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"4ba3aa1693d0b7af37722fda5d6e95121b95b4c2adb5ef9ae08a3f3a06c8bd27"
+aggregate_digest	"d4f027a338a4f184413ffcd1b60f8543120f1a02dfd297fd652f76d72e04231b"
