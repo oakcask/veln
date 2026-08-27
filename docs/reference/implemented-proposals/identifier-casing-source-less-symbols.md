@@ -19,11 +19,13 @@ class is not `function` fail validation before lookup state is published.
 Invalid compiler-provided descriptors fail registry construction atomically with
 the span-less `toolchain.invalid_symbol_case` internal failure. Details include
 `provider`, `name`, `name_class`, and `required_initial`. Invalid descriptors
-or duplicate lookup keys do not produce source `name.invalid_case` diagnostics
-and do not reach lookup. The diagnostic kind is `toolchain`, so command and
-adapter outputs keep the failure separate from source name diagnostics.
-Duplicate lookup-key failures keep the same diagnostic id and details, and
-their primary message states that the lookup key is duplicated.
+or duplicate lookup keys do not produce source `name.invalid_case` diagnostics.
+Diagnostic-producing command and adapter entry points stop before normal
+semantic lookup, while production lookup helpers remain unavailable when the
+shared registry fails validation. The diagnostic kind is `toolchain`, so
+command and adapter outputs keep the failure separate from source name
+diagnostics. Duplicate lookup-key failures keep the same diagnostic id and
+details, and their primary message states that the lookup key is duplicated.
 
 Qualified lookup keys are the exact module-name and symbol-name pair. Prelude
 lookup keys are the exact source prelude name. Qualified `prelude_builtin`
