@@ -77,6 +77,8 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-underscore-recovery-json`,
 `identifier-casing-import-recovery-isolation-json`,
 `identifier-casing-public-alias-recovery-isolation-json`,
+`identifier-casing-public-alias-targets-json`,
+`identifier-casing-public-alias-targets-human`,
 `identifier-casing-companion-target-recovery-isolation-json`,
 `identifier-casing-companion-source-recovery-isolation-json`,
 `identifier-casing-companion-target-binding-recovery-isolation-json`,

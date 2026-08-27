@@ -15,8 +15,13 @@ compiler-known calls.
   Function, test, public function-alias, parameter, result, local `let`, pattern,
   handler parameter, operation-clause parameter, and hole `satisfy` binding
   names start with an ASCII lowercase letter. Public type-alias names follow the
-  type rule. A violation reports `name.invalid_case` at the exact written token
-  and prevents checked-core and typed-IR output. An underscore-led token is
+  type rule. A public function-alias target leaf starts with an ASCII lowercase
+  letter. A public type-alias target leaf starts with an ASCII uppercase
+  letter. Public schema-alias targets are casing-neutral. A violation reports
+  `name.invalid_case` at the exact written token and prevents checked-core and
+  typed-IR output. Alias target diagnostics use `occurrence: alias_target`,
+  the exact target leaf spelling, the fixed `function` or `type` name class,
+  and the required and observed initial classes. An underscore-led token is
   retained for recovery in these positions; standalone `_` remains a wildcard
   or discard. The checked `identifier-casing-source-recovery-json` and
   `identifier-casing-source-recovery-human` cases define exact JSON and human
@@ -97,6 +102,8 @@ compiler-known calls.
   definition, references, prepare-rename, and rename.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
+  `identifier-casing-public-alias-targets-json`,
+  `identifier-casing-public-alias-targets-human`,
   `identifier-casing-accepted-names-json`,
   `identifier-casing-valid-symbol-precedence-json`,
   `identifier-casing-implicit-prelude-boundary-json`,
@@ -116,8 +123,10 @@ compiler-known calls.
   `identifier-casing-unloaded-dependency-json`, and
   `identifier-casing-valid-constructor-precedence-cross-arity-json` cases fix
   that accepted names keep normal behavior, quarantined recovery records do not
-  cross import boundaries, do not satisfy public alias targets, valid symbols
-  win over same-source recovery records in bare function-value references and
+  cross import boundaries, do not satisfy public alias targets, public aliases
+  with invalidly cased function or type target leaves do not enter the normal
+  function or type export namespace, valid symbols win over same-source
+  recovery records in bare function-value references and
   before call or constructor arity is considered, valid implicit-prelude
   functions and constructors win over same-spelled application recovery
   records before recovery candidates are considered for the selected call or

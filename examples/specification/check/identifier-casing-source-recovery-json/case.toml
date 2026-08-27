@@ -85,3 +85,13 @@ message = "function name `Verify` must start with an ASCII lowercase letter"
 id = "name.invalid_case"
 kind = "name"
 message = "type name `exported` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "function alias target `Build` must start with an ASCII lowercase letter"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "type alias target `item` must start with an ASCII uppercase letter"

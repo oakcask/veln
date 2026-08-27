@@ -62,6 +62,7 @@ pub enum NameOccurrence {
     Declaration,
     Binding,
     PatternHead,
+    AliasTarget,
 }
 
 impl NameOccurrence {
@@ -70,6 +71,7 @@ impl NameOccurrence {
             Self::Declaration => "declaration",
             Self::Binding => "binding",
             Self::PatternHead => "pattern_head",
+            Self::AliasTarget => "alias_target",
         }
     }
 }
@@ -155,6 +157,7 @@ pub struct PublicAlias {
     pub kind: PublicAliasKind,
     pub name: Option<String>,
     pub target: Vec<String>,
+    pub target_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 

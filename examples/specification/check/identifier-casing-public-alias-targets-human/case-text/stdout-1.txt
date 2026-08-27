@@ -1,0 +1,20 @@
+api.veln:9:21: error[name.invalid_case]: function alias target `Document` must start with an ASCII lowercase letter
+api.veln:10:22: error[name.invalid_case]: type alias target `parse` must start with an ASCII uppercase letter
+api.veln:11:18: error[name.invalid_case]: function alias target `Missing` must start with an ASCII lowercase letter
+api.veln:12:24: error[name.invalid_case]: type alias target `missing_type` must start with an ASCII uppercase letter
+api.veln:14:37: error[name.invalid_case]: type alias target `wrong_kind` must start with an ASCII uppercase letter
+api.veln:16:41: error[name.invalid_case]: function alias target `Document` must start with an ASCII lowercase letter
+api.veln:17:37: error[name.invalid_case]: type alias target `parse` must start with an ASCII uppercase letter
+api.veln:18:43: error[name.invalid_case]: function alias target `Missing` must start with an ASCII lowercase letter
+api.veln:19:39: error[name.invalid_case]: type alias target `missing_type` must start with an ASCII uppercase letter
+api.veln:9:1: error[name.kind_mismatch]: public alias target `Document` is a type, not a function
+api.veln:10:1: error[name.kind_mismatch]: public alias target `parse` is a function, not a type
+api.veln:11:1: error[name.unresolved]: unresolved function alias target `Missing`
+api.veln:12:1: error[name.unresolved]: unresolved type alias target `missing_type`
+api.veln:13:1: error[name.unresolved]: unresolved schema alias target `schema_impl::packet`
+api.veln:14:1: error[name.unresolved]: unresolved type alias target `wrong_kind`
+api.veln:15:1: error[name.unresolved]: unresolved schema alias target `WrongKind`
+api.veln:16:1: error[name.kind_mismatch]: public alias target `impl::Document` is a type, not a function
+api.veln:17:1: error[name.kind_mismatch]: public alias target `impl::parse` is a function, not a type
+api.veln:18:1: error[name.unresolved]: unresolved function alias target `impl::Missing`
+api.veln:19:1: error[name.unresolved]: unresolved type alias target `impl::missing_type`

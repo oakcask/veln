@@ -617,18 +617,27 @@ fn parses_public_member_aliases() {
     assert_eq!(function_alias.kind, PublicAliasKind::Function);
     assert_eq!(function_alias.name.as_deref(), Some("parse"));
     assert_eq!(function_alias.target, vec!["impl", "parse"]);
+    assert_eq!(function_alias.target_spans.len(), 2);
+    assert_eq!(function_alias.target_spans[1].start.column, 22);
+    assert_eq!(function_alias.target_spans[1].end.column, 27);
     let SyntaxItem::PublicAlias(type_alias) = &output.tree.items[1] else {
         panic!("expected type alias");
     };
     assert_eq!(type_alias.kind, PublicAliasKind::Type);
     assert_eq!(type_alias.name.as_deref(), Some("Document"));
     assert_eq!(type_alias.target, vec!["impl", "Document"]);
+    assert_eq!(type_alias.target_spans.len(), 2);
+    assert_eq!(type_alias.target_spans[1].start.column, 27);
+    assert_eq!(type_alias.target_spans[1].end.column, 35);
     let SyntaxItem::PublicAlias(schema_alias) = &output.tree.items[2] else {
         panic!("expected schema alias");
     };
     assert_eq!(schema_alias.kind, PublicAliasKind::Schema);
     assert_eq!(schema_alias.name.as_deref(), Some("Packet"));
     assert_eq!(schema_alias.target, vec!["impl", "Packet"]);
+    assert_eq!(schema_alias.target_spans.len(), 2);
+    assert_eq!(schema_alias.target_spans[1].start.column, 27);
+    assert_eq!(schema_alias.target_spans[1].end.column, 33);
     assert_eq!(
         format_tree(&output.tree),
         concat!(

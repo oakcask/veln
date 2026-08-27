@@ -116,6 +116,7 @@ impl Writer {
             NameOccurrence::Declaration => 0,
             NameOccurrence::Binding => 1,
             NameOccurrence::PatternHead => 2,
+            NameOccurrence::AliasTarget => 3,
         });
         self.span(&value.span);
         self.option(&value.enclosing_function_span, Self::span);
@@ -151,6 +152,7 @@ impl Writer {
         self.public_alias_kind(value.kind);
         self.option(&value.name, |writer, value| writer.string(value));
         self.vec(&value.target, |writer, value| writer.string(value));
+        self.vec(&value.target_spans, Self::span);
         self.span(&value.span);
     }
 
@@ -857,6 +859,7 @@ impl<'a> Reader<'a> {
             0 => NameOccurrence::Declaration,
             1 => NameOccurrence::Binding,
             2 => NameOccurrence::PatternHead,
+            3 => NameOccurrence::AliasTarget,
             value => return Err(format!("invalid name occurrence tag {value}")),
         };
         Ok(InvalidName {
@@ -904,6 +907,7 @@ impl<'a> Reader<'a> {
             kind: self.public_alias_kind()?,
             name: self.option(Self::string)?,
             target: self.vec(Self::string)?,
+            target_spans: self.vec(Self::span)?,
             span: self.span()?,
         })
     }

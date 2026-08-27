@@ -128,6 +128,14 @@ fn collect_invalid_alias_name(alias: &SyntaxPublicAlias, invalid: &mut Vec<Inval
         NameOccurrence::Declaration,
         None,
     );
+    push_invalid_name(
+        invalid,
+        alias.target.last().map(String::as_str),
+        alias.target_spans.last(),
+        class,
+        NameOccurrence::AliasTarget,
+        None,
+    );
 }
 
 fn collect_invalid_type_names(type_decl: &SyntaxTypeDecl, invalid: &mut Vec<InvalidName>) {
@@ -494,6 +502,7 @@ impl AstBuilder {
             },
             name: alias.name.clone(),
             target: alias.target.clone(),
+            target_spans: alias.target_spans.clone(),
             span: alias.span.clone(),
         }
     }

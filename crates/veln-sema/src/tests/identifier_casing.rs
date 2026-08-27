@@ -49,7 +49,9 @@ fn covered_source_names_report_exact_casing_contract_details() {
         ("_bound", "value_binding", "pattern_head", 8, 5, 11),
         ("Verify", "function", "declaration", 11, 6, 12),
         ("Exported", "function", "declaration", 14, 8, 16),
+        ("Build", "function", "alias_target", 14, 19, 24),
         ("exported", "type", "declaration", 15, 10, 18),
+        ("item", "type", "alias_target", 15, 21, 25),
     ];
     assert_eq!(diagnostics.len(), expected.len(), "{diagnostics:#?}");
     for (diagnostic, (name, class, occurrence, line, start, end)) in

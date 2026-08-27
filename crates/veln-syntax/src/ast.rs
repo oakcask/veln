@@ -95,6 +95,7 @@ pub struct PublicAliasDecl {
     pub name: Option<String>,
     pub name_span: Option<SourceSpan>,
     pub target: Vec<String>,
+    pub target_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 

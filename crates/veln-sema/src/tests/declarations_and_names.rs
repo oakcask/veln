@@ -1,7 +1,8 @@
 use super::*;
 use crate::types::environment::TypeEnvironment;
 use crate::types::private_inference::private_inference_counters;
-use crate::types::signatures::HandlerPathResolution;
+use crate::types::signatures::{HandlerPathResolution, SchemaReferenceErrorKind};
+use veln_ast::{InvalidName, NameClass, NameOccurrence};
 
 #[test]
 fn public_function_requires_explicit_type_boundary() {
@@ -2877,6 +2878,174 @@ fn public_alias_rejects_unresolved_targets() {
         diagnostic.id == "name.unresolved"
             && diagnostic.message == "unresolved type alias target `impl::Document`"
     }));
+}
+
+#[test]
+fn public_alias_target_leaf_casing_reports_before_independent_target_failures() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "type Document\n",
+            "  pub Text(String)\n",
+            "end\n",
+            "fn parse() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn wrongKind = Document\n",
+            "pub type WrongKind = parse\n",
+            "pub fn missing = Missing\n",
+            "pub type MissingType = missing_type\n",
+            "pub schema Packet = schema_impl::packet\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        alias_target_observations(&diagnostics),
+        vec![
+            (
+                "name.invalid_case",
+                "function alias target `Document` must start with an ASCII lowercase letter"
+            ),
+            (
+                "name.invalid_case",
+                "type alias target `parse` must start with an ASCII uppercase letter"
+            ),
+            (
+                "name.invalid_case",
+                "function alias target `Missing` must start with an ASCII lowercase letter"
+            ),
+            (
+                "name.invalid_case",
+                "type alias target `missing_type` must start with an ASCII uppercase letter"
+            ),
+            (
+                "name.kind_mismatch",
+                "public alias target `Document` is a type, not a function"
+            ),
+            (
+                "name.kind_mismatch",
+                "public alias target `parse` is a function, not a type"
+            ),
+            (
+                "name.unresolved",
+                "unresolved function alias target `Missing`"
+            ),
+            (
+                "name.unresolved",
+                "unresolved type alias target `missing_type`"
+            ),
+            (
+                "name.unresolved",
+                "unresolved schema alias target `schema_impl::packet`"
+            ),
+        ],
+        "{diagnostics:#?}"
+    );
+    assert_first_alias_target_invalid_case(&diagnostics);
+    assert_invalid_alias_targets_are_quarantined(&module, &diagnostics);
+}
+
+fn alias_target_observations(diagnostics: &[Diagnostic]) -> Vec<(&str, &str)> {
+    diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                || diagnostic.id == "name.kind_mismatch"
+                || diagnostic.id == "name.unresolved"
+        })
+        .map(|diagnostic| (diagnostic.id.as_str(), diagnostic.message.as_str()))
+        .collect()
+}
+
+fn assert_first_alias_target_invalid_case(diagnostics: &[Diagnostic]) {
+    let invalid = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "name.invalid_case")
+        .expect("invalid target diagnostic");
+    let span = invalid.span.as_ref().expect("invalid target span");
+    assert_eq!(
+        (span.start.line, span.start.column, span.end.column),
+        (8, 20, 28)
+    );
+    let details = invalid.details.to_json();
+    assert!(details.contains("\"occurrence\":\"alias_target\""));
+    assert!(details.contains("\"name\":\"Document\""));
+    assert!(details.contains("\"name_class\":\"function\""));
+    assert!(details.contains("\"required_initial\":\"ascii_lowercase\""));
+    assert!(details.contains("\"observed_initial\":\"ascii_uppercase\""));
+}
+
+fn assert_invalid_alias_targets_are_quarantined(
+    surface: &SurfaceModule,
+    diagnostics: &[Diagnostic],
+) {
+    assert!(
+        !diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                && diagnostic.message.contains("schema alias target")
+        }),
+        "{diagnostics:#?}"
+    );
+    let environment = TypeEnvironment::from_module(surface);
+    assert!(environment.function("wrongKind").is_none());
+    assert_eq!(
+        environment
+            .schema_reference_error(&["WrongKind".to_string()], Some("spec.api"))
+            .kind,
+        SchemaReferenceErrorKind::Unresolved
+    );
+    assert!(
+        environment
+            .adts
+            .descriptors()
+            .iter()
+            .all(|descriptor| descriptor.type_name != "WrongKind")
+    );
+}
+
+#[test]
+fn public_schema_alias_with_invalid_target_leaf_does_not_enter_schema_namespace() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  byte: UInt8\n",
+            "end\n",
+            "pub schema Alias = Packet\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    let target_span = module.aliases[0].target_spans[0].clone();
+    module.invalid_names.push(InvalidName {
+        name: "Packet".to_string(),
+        class: NameClass::Function,
+        occurrence: NameOccurrence::AliasTarget,
+        span: target_span,
+        enclosing_function_span: None,
+    });
+
+    let environment = TypeEnvironment::from_module(&module);
+
+    assert!(
+        environment
+            .schema_decode_step_signature(&["Packet".to_string()], Some("spec.api"))
+            .is_some()
+    );
+    assert!(
+        environment
+            .schema_decode_step_signature(&["Alias".to_string()], Some("spec.api"))
+            .is_none()
+    );
 }
 
 #[test]

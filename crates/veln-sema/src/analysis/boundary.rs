@@ -1,5 +1,6 @@
 use super::*;
 use crate::adt::AdtRegistry;
+use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
@@ -36,7 +37,9 @@ use crate::types::schema_types::{
 };
 use crate::types::signatures::UserEffectPathResolution;
 use std::collections::{BTreeMap, BTreeSet};
-use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
+use veln_ast::{
+    NameClass, PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl,
+};
 use veln_literals::parse_integer_literal;
 use veln_project::classify_companion_source;
 
@@ -894,7 +897,9 @@ fn codec_schema_wrong_kind(
         return Some("codec");
     }
     if let Some(alias) = module.aliases.iter().find(|alias| {
-        alias.name.as_deref() == Some(name) && alias.module_name.as_deref() == module_name
+        alias.name.as_deref() == Some(name)
+            && alias.module_name.as_deref() == module_name
+            && !public_alias_has_invalid_target_leaf(module, alias, None)
     }) {
         return match alias.kind {
             PublicAliasKind::Function => Some("function"),
@@ -913,28 +918,16 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
             continue;
         }
         match alias.kind {
-            PublicAliasKind::Function => {
-                if function_target(module, &alias.target, alias.module_name.as_deref()).is_none()
-                    && type_target(module, &alias.target, alias.module_name.as_deref()).is_some()
-                {
-                    diagnostics.push(alias_kind_mismatch_diagnostic(alias, "function", "type"));
-                } else if function_target(module, &alias.target, alias.module_name.as_deref())
-                    .is_none()
-                {
-                    diagnostics.push(unresolved_alias_diagnostic(alias, "function"));
-                }
-            }
-            PublicAliasKind::Type => {
-                if type_target(module, &alias.target, alias.module_name.as_deref()).is_none()
-                    && function_target(module, &alias.target, alias.module_name.as_deref())
-                        .is_some()
-                {
-                    diagnostics.push(alias_kind_mismatch_diagnostic(alias, "type", "function"));
-                } else if type_target(module, &alias.target, alias.module_name.as_deref()).is_none()
-                {
-                    diagnostics.push(unresolved_alias_diagnostic(alias, "type"));
-                }
-            }
+            PublicAliasKind::Function => diagnostics.extend(check_function_alias_target(
+                module,
+                alias,
+                alias.module_name.as_deref(),
+            )),
+            PublicAliasKind::Type => diagnostics.extend(check_type_alias_target(
+                module,
+                alias,
+                alias.module_name.as_deref(),
+            )),
             PublicAliasKind::Schema => {
                 match resolve_schema_alias_check_reference(
                     module,
@@ -966,6 +959,34 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
         }
     }
     diagnostics
+}
+
+fn check_function_alias_target(
+    module: &SurfaceModule,
+    alias: &veln_ast::PublicAlias,
+    module_name: Option<&str>,
+) -> Option<Diagnostic> {
+    if function_target(module, &alias.target, module_name).is_some() {
+        None
+    } else if type_target(module, &alias.target, module_name).is_some() {
+        Some(alias_kind_mismatch_diagnostic(alias, "function", "type"))
+    } else {
+        Some(unresolved_alias_diagnostic(alias, "function"))
+    }
+}
+
+fn check_type_alias_target(
+    module: &SurfaceModule,
+    alias: &veln_ast::PublicAlias,
+    module_name: Option<&str>,
+) -> Option<Diagnostic> {
+    if type_target(module, &alias.target, module_name).is_some() {
+        None
+    } else if function_target(module, &alias.target, module_name).is_some() {
+        Some(alias_kind_mismatch_diagnostic(alias, "type", "function"))
+    } else {
+        Some(unresolved_alias_diagnostic(alias, "type"))
+    }
 }
 
 fn resolve_schema_alias_check_reference(
@@ -1690,6 +1711,7 @@ fn schema_field_has_ordinary_type_target(
         alias.kind == PublicAliasKind::Type
             && alias.name.as_deref() == Some(name)
             && alias.module_name.as_deref() == module_name
+            && !public_alias_has_invalid_target_leaf(module, alias, Some(NameClass::Type))
     })
 }
 
