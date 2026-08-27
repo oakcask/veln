@@ -54,7 +54,8 @@ fn compiler_adapter_descriptors_carry_pure_metadata() {
 
 #[test]
 fn source_lookup_registry_accepts_current_generated_tables() {
-    let registry = standard_symbol_registry().expect("standard symbol registry");
+    let registry =
+        crate::source_less_lookup::standard_symbol_registry().expect("standard symbol registry");
 
     assert_eq!(registry.qualified.len(), QUALIFIED_SYMBOLS.len());
     assert!(
@@ -100,7 +101,8 @@ fn source_less_provider_inventory_names_every_lookup_route() {
         ),
     ];
 
-    let registry = standard_symbol_registry().expect("standard symbol registry");
+    let registry =
+        crate::source_less_lookup::standard_symbol_registry().expect("standard symbol registry");
 
     for (provider, key, class) in routes {
         match provider {
@@ -210,42 +212,6 @@ fn invalid_descriptor_prevents_partial_lookup_registry() {
     let result = build_standard_symbol_registry(VALID_QUALIFIED, INVALID_PRELUDE, &[], &[]);
 
     assert!(result.is_err());
-}
-
-#[test]
-fn checked_lookup_reports_invalid_registry_instead_of_lookup_miss() {
-    let invalid_registry = Err(InvalidStandardSymbolCase {
-        provider: "prelude",
-        name: "Float_add".to_string(),
-        name_class: SourceLessNameClass::Function,
-        reason: InvalidStandardSymbolReason::InvalidCase,
-    });
-    let lookup = checked_prelude_symbol_in_registry(invalid_registry, "missing_name");
-    let failure = lookup.expect_err("invalid registry blocks lookup");
-
-    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
-    assert_eq!(failure.provider, "prelude");
-    assert_eq!(failure.name, "Float_add");
-    assert_eq!(failure.name_class, SourceLessNameClass::Function);
-    assert_eq!(failure.required_initial(), "ascii_lowercase");
-}
-
-#[test]
-fn checked_qualified_lookup_reports_invalid_registry_instead_of_lookup_miss() {
-    let invalid_registry = Err(InvalidStandardSymbolCase {
-        provider: "runtime",
-        name: "Std".to_string(),
-        name_class: SourceLessNameClass::Module,
-        reason: InvalidStandardSymbolReason::InvalidCase,
-    });
-    let lookup = checked_qualified_symbol_in_registry(invalid_registry, &path("stdio", "println"));
-    let failure = lookup.expect_err("invalid registry blocks qualified lookup");
-
-    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
-    assert_eq!(failure.provider, "runtime");
-    assert_eq!(failure.name, "Std");
-    assert_eq!(failure.name_class, SourceLessNameClass::Module);
-    assert_eq!(failure.required_initial(), "ascii_lowercase");
 }
 
 #[test]
@@ -375,10 +341,6 @@ fn duplicate_prelude_builtin_lookup_key_fails_atomically() {
         failure.diagnostic().message,
         "compiler-provided function lookup key `prelude_builtin::byte_decode_http2_frame` from `compiler_adapter` is duplicated"
     );
-    assert!(
-        checked_compiler_adapter_symbol_in_registry(Err(failure), "byte_decode_http2_frame")
-            .is_err()
-    );
 }
 
 #[test]
@@ -404,26 +366,6 @@ fn prelude_builtin_compiler_adapter_names_are_validated_but_not_bare_prelude() {
     assert_eq!(failure.name, "Internal");
     assert_eq!(failure.name_class, SourceLessNameClass::Module);
     assert_eq!(failure.required_initial(), "ascii_lowercase");
-}
-
-#[test]
-fn checked_prelude_builtin_lookup_reports_invalid_registry_instead_of_table_match() {
-    let invalid_registry = Err(InvalidStandardSymbolCase {
-        provider: "compiler_adapter",
-        name: "prelude_builtin::byte_decode_http2_frame".to_string(),
-        name_class: SourceLessNameClass::Function,
-        reason: InvalidStandardSymbolReason::DuplicateLookupKey,
-    });
-    let lookup =
-        checked_compiler_adapter_symbol_in_registry(invalid_registry, "byte_decode_http2_frame");
-    let failure = lookup.expect_err("invalid registry blocks prelude_builtin lookup");
-
-    assert_eq!(failure.provider, "compiler_adapter");
-    assert_eq!(failure.name, "prelude_builtin::byte_decode_http2_frame");
-    assert_eq!(
-        failure.reason,
-        InvalidStandardSymbolReason::DuplicateLookupKey
-    );
 }
 
 #[test]

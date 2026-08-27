@@ -5,7 +5,6 @@ use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
-use crate::adt::validate_builtin_adt_descriptors;
 use crate::analysis::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
     check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
@@ -16,7 +15,7 @@ use crate::analysis::{
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::schema;
-use crate::standard_symbols::{InvalidStandardSymbolCase, validate_standard_symbol_registry};
+use crate::source_less_lookup::validate_source_less_lookup_registries;
 use crate::types::{
     ReusableStandardEnvironment, TypeEnvironment, prepare_current_reusable_standard_environment,
     prepare_reusable_standard_environment,
@@ -112,11 +111,6 @@ pub fn prepare_reusable_standard_surface_module_environment(
 
 pub fn validate_standard_symbol_registry_diagnostic() -> Result<(), Box<Diagnostic>> {
     validate_source_less_lookup_registries().map_err(|failure| Box::new(failure.diagnostic()))
-}
-
-fn validate_source_less_lookup_registries() -> Result<(), InvalidStandardSymbolCase> {
-    validate_standard_symbol_registry()?;
-    validate_builtin_adt_descriptors()
 }
 
 pub fn try_prepare_reusable_standard_surface_module_environment(

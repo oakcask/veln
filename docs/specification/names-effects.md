@@ -162,20 +162,24 @@ compiler-known calls.
   explicit source-less name class. The source lookup registries validate each
   compiler-provided descriptor's module segments, spelling, and lookup key
   before publishing lookup state. Qualified runtime lookup keys are the exact
-  module-name and symbol-name pair. Prelude lookup keys are the exact source
-  prelude name. Qualified `prelude_builtin` compiler-adapter names and
-  built-in ADT type and constructor descriptors are included in this gate.
-  Invalid descriptors or duplicate lookup keys fail atomically with the
-  span-less `toolchain.invalid_symbol_case` internal failure. The failure
-  details contain `provider`, `name`, `name_class`, and `required_initial`; it
-  has diagnostic kind `toolchain` and is not reported as source
+  module-name and symbol-name pair. One shared construction result owns the
+  standard-symbol and built-in ADT lookup state, so a failure in any
+  source-less provider publishes no lookup state from the other providers.
+  Prelude lookup keys are the exact source prelude name. Qualified
+  `prelude_builtin` compiler-adapter names and built-in ADT type and
+  constructor descriptors are included in this gate. Invalid descriptors or
+  duplicate lookup keys fail atomically with the span-less
+  `toolchain.invalid_symbol_case` internal failure. The failure details
+  contain `provider`, `name`, `name_class`, and `required_initial`; it has
+  diagnostic kind `toolchain` and is not reported as source
   `name.invalid_case`. Duplicate lookup-key failures keep the same diagnostic
   id and details but their primary message states that the lookup key is
   duplicated. Compiler temporaries and bookkeeping-only names that cannot
   participate in source lookup stay outside this gate. The focused
-  `veln-sema` `standard_symbols` and `adt` tests define the generated-table,
-  injected-descriptor, duplicate-key, atomic-failure, checked-lookup, and
-  lookup-isolation evidence for this boundary. `prelude_builtin` lookup and
+  `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests define
+  the generated-table, injected-descriptor, duplicate-key, atomic-failure,
+  cross-provider publication-failure, checked-lookup, and lookup-isolation
+  evidence for this boundary. `prelude_builtin` lookup and
   built-in ADT lookup consume only validated published registry state. Shared
   standard-environment initialization validates the registries before
   publishing reusable command or adapter state.

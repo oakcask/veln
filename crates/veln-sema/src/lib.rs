@@ -13,6 +13,7 @@ mod prelude;
 mod repair_candidates;
 mod schema;
 mod semantic_model;
+mod source_less_lookup;
 mod standard_names;
 mod standard_symbols;
 #[cfg(test)]

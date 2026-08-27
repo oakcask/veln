@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use std::sync::OnceLock;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -136,7 +135,10 @@ pub(crate) struct StandardSymbolRegistry {
 }
 
 impl StandardSymbolRegistry {
-    fn qualified_symbol(&self, segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+    pub(crate) fn qualified_symbol(
+        &self,
+        segments: &[String],
+    ) -> Option<&'static StandardSymbolDescriptor> {
         let [module, name] = segments else {
             return None;
         };
@@ -146,14 +148,17 @@ impl StandardSymbolRegistry {
             .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name)
     }
 
-    fn prelude_symbol(&self, name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    pub(crate) fn prelude_symbol(&self, name: &str) -> Option<&'static StandardSymbolDescriptor> {
         self.prelude
             .iter()
             .copied()
             .find(|symbol| symbol.name == name)
     }
 
-    fn compiler_adapter_symbol(&self, name: &str) -> Option<&'static StandardSymbolDescriptor> {
+    pub(crate) fn compiler_adapter_symbol(
+        &self,
+        name: &str,
+    ) -> Option<&'static StandardSymbolDescriptor> {
         self.compiler_adapters
             .iter()
             .copied()
@@ -300,13 +305,13 @@ macro_rules! compiler_adapter_symbol_set {
     ($($name:literal),+ $(,)?) => {
         #[cfg(test)]
         const COMPILER_ADAPTER_NAMES: &[&str] = &[$($name),+];
-        const COMPILER_ADAPTER_SYMBOLS: &[StandardSymbolDescriptor] = &[
+        pub(crate) const COMPILER_ADAPTER_SYMBOLS: &[StandardSymbolDescriptor] = &[
             $(source_prelude_symbol_descriptor($name)),+
         ];
     };
 }
 
-const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
+pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("stdio", "print", STDIO_EFFECTS, "runtime.stdio.print"),
     runtime_symbol("stdio", "println", STDIO_EFFECTS, "runtime.stdio.println"),
     runtime_symbol("stdio", "eprint", STDIO_EFFECTS, "runtime.stdio.eprint"),
@@ -918,7 +923,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
 ];
 
-const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_negate"),
     prelude_symbol_descriptor("float_add"),
     prelude_symbol_descriptor("float_subtract"),
@@ -930,7 +935,7 @@ const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_greater_equal"),
 ];
 
-const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
+pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
     "byte",
@@ -1142,7 +1147,7 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
 pub(crate) fn qualified_symbol_checked(
     segments: &[String],
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    checked_qualified_symbol_in_registry(standard_symbol_registry(), segments)
+    crate::source_less_lookup::qualified_symbol_checked(segments)
 }
 
 pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
@@ -1155,7 +1160,7 @@ pub(crate) fn prelude_symbol_checked(
     if private_compiler_adapter_name(name) {
         return Ok(None);
     }
-    checked_prelude_symbol_in_registry(standard_symbol_registry(), name)
+    crate::source_less_lookup::prelude_symbol_checked(name)
 }
 
 pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
@@ -1165,32 +1170,11 @@ pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescri
 pub(crate) fn compiler_adapter_symbol_checked(
     name: &str,
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    checked_compiler_adapter_symbol_in_registry(standard_symbol_registry(), name)
+    crate::source_less_lookup::compiler_adapter_symbol_checked(name)
 }
 
 pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    compiler_adapter_symbol_checked(name).expect("standard symbol registry is valid")
-}
-
-fn checked_qualified_symbol_in_registry(
-    registry: Result<&StandardSymbolRegistry, InvalidStandardSymbolCase>,
-    segments: &[String],
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    Ok(registry?.qualified_symbol(segments))
-}
-
-fn checked_prelude_symbol_in_registry(
-    registry: Result<&StandardSymbolRegistry, InvalidStandardSymbolCase>,
-    name: &str,
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    Ok(registry?.prelude_symbol(name))
-}
-
-fn checked_compiler_adapter_symbol_in_registry(
-    registry: Result<&StandardSymbolRegistry, InvalidStandardSymbolCase>,
-    name: &str,
-) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    Ok(registry?.compiler_adapter_symbol(name))
+    compiler_adapter_symbol_checked(name).expect("source-less lookup registry is valid")
 }
 
 fn private_compiler_adapter_name(name: &str) -> bool {
@@ -1202,7 +1186,7 @@ fn private_compiler_adapter_name(name: &str) -> bool {
 
 #[cfg(test)]
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    standard_symbol_registry()
+    crate::source_less_lookup::standard_symbol_registry()
         .ok()
         .into_iter()
         .flat_map(|registry| registry.prelude.iter().copied())
@@ -1215,28 +1199,7 @@ fn compatibility_prelude_symbols() -> impl Iterator<Item = &'static StandardSymb
         .chain(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter())
 }
 
-fn standard_symbol_registry() -> Result<&'static StandardSymbolRegistry, InvalidStandardSymbolCase>
-{
-    static REGISTRY: OnceLock<Result<StandardSymbolRegistry, InvalidStandardSymbolCase>> =
-        OnceLock::new();
-    REGISTRY
-        .get_or_init(|| {
-            build_standard_symbol_registry(
-                QUALIFIED_SYMBOLS,
-                FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
-                SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
-                COMPILER_ADAPTER_SYMBOLS,
-            )
-        })
-        .as_ref()
-        .map_err(Clone::clone)
-}
-
-pub(crate) fn validate_standard_symbol_registry() -> Result<(), InvalidStandardSymbolCase> {
-    standard_symbol_registry().map(|_| ())
-}
-
-fn build_standard_symbol_registry(
+pub(crate) fn build_standard_symbol_registry(
     qualified: &'static [StandardSymbolDescriptor],
     compatibility_prelude: &'static [StandardSymbolDescriptor],
     self_hosting_prelude: &'static [StandardSymbolDescriptor],

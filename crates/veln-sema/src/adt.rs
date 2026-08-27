@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::sync::OnceLock;
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
@@ -761,28 +760,15 @@ pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
     core_named_part(ty, "List", 1)
 }
 
+#[cfg(test)]
 pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSymbolCase> {
-    validated_builtin_descriptors().map(|_| ())
+    crate::source_less_lookup::builtin_adt_descriptors().map(|_| ())
 }
 
 fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
-    validated_builtin_descriptors()
+    crate::source_less_lookup::builtin_adt_descriptors()
         .expect("built-in ADT descriptors are valid")
-        .clone()
-}
-
-fn validated_builtin_descriptors() -> Result<&'static Vec<AdtDescriptor>, InvalidStandardSymbolCase>
-{
-    static DESCRIPTORS: OnceLock<Result<Vec<AdtDescriptor>, InvalidStandardSymbolCase>> =
-        OnceLock::new();
-    DESCRIPTORS
-        .get_or_init(|| {
-            let descriptors = build_builtin_descriptors();
-            validate_adt_lookup_descriptors("adt", &descriptors)?;
-            Ok(descriptors)
-        })
-        .as_ref()
-        .map_err(Clone::clone)
+        .to_vec()
 }
 
 #[cfg(test)]
@@ -790,7 +776,7 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
     checked_builtin_descriptors()
 }
 
-fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
+pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
     let mut descriptors = vec![
         AdtDescriptor {
             type_name: "Option".to_string(),
@@ -2707,7 +2693,7 @@ fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
     descriptors
 }
 
-fn validate_adt_lookup_descriptors(
+pub(crate) fn validate_adt_lookup_descriptors(
     provider: &'static str,
     descriptors: &[AdtDescriptor],
 ) -> Result<(), InvalidStandardSymbolCase> {

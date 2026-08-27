@@ -9,9 +9,10 @@ update-when: The source-less compiler lookup registries, their failure details, 
 ## Completed Boundary
 
 Compiler-provided symbols that participate in source lookup now carry an
-explicit source-less name class. The checked source lookup registries validate
-compiler-provided descriptor module segments, symbol spellings, and lookup
-keys before they publish lookup state.
+explicit source-less name class. One shared source-less construction result
+validates compiler-provided descriptor module segments, symbol spellings, and
+lookup keys before any standard-symbol or built-in ADT lookup state is
+published.
 
 Invalid compiler-provided descriptors fail registry construction atomically with
 the span-less `toolchain.invalid_symbol_case` internal failure. Details include
@@ -25,8 +26,10 @@ their primary message states that the lookup key is duplicated.
 Qualified lookup keys are the exact module-name and symbol-name pair. Prelude
 lookup keys are the exact source prelude name. Qualified `prelude_builtin`
 compiler-adapter names and built-in ADT type and constructor descriptors are
-included in this gate. Shared standard-environment initialization validates
-the registries before publishing reusable command or adapter state.
+included in this gate. A failure in any one provider publishes no lookup state
+from the other source-less providers. Shared standard-environment
+initialization validates the registries before publishing reusable command or
+adapter state.
 `prelude_builtin` lookup and built-in ADT lookup consume only validated
 published registry state.
 
@@ -40,9 +43,10 @@ casing diagnostics.
 - Current behavior route:
   [../../specification/names-effects.md](../../specification/names-effects.md).
 - Focused executable evidence:
-  `veln-sema` `standard_symbols` and `adt` tests for the generated tables,
-  injected invalid descriptors, duplicate lookup keys, atomic failure, checked
-  lookup, and lookup isolation.
+  `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests for
+  the generated tables, injected invalid descriptors, duplicate lookup keys,
+  atomic failure, cross-provider publication failure, checked lookup, and
+  lookup isolation.
 
 This record completes only the source-less lookup descriptor acceptance row of
 the identifier-casing proposal. Module identity, qualified-use, recovery
