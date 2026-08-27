@@ -24,8 +24,9 @@ skill.
 1. Start from `docs/README.md` and select the route that matches the task.
 2. Read the authoring policy and the README for each affected documentation
    area.
-3. Inspect the relevant routes, subject boundaries, and maintenance ownership
-   before moving or splitting content.
+3. Inspect the relevant routes, subject boundaries, maintenance ownership, and
+   same-stem `foo.md` / `foo-full.md` pairs before moving, merging, or splitting
+   content.
 4. Classify every added, moved, or substantially changed document under the
    authoring policy.
 5. Keep routing documents focused on discovery. Move policy, behavior, and
@@ -33,10 +34,12 @@ skill.
 6. Split a broad document into focused, subject-named pages. Add or update the
    nearest directory README to route to each page, and introduce a meaningful
    subdirectory when several related pages need their own scope.
-7. Do not create a summary/`*-full.md` pair for the same authority. When
-   reorganizing an existing pair, do not preserve both pages as authorities.
-   Make a commonly expected stable path a routing-only document instead of a
-   second summary.
+7. Do not create a summary/`*-full.md` pair for the same authority. If the
+   change updates either member of an existing same-scope pair, retire the pair
+   in the same change. Merge a single subject into one document. For multiple
+   subjects, create focused pages under a meaningful hierarchy. Delete the
+   superseded paired files and update their links; do not leave routing-only
+   compatibility files.
 8. Add or update required frontmatter for every Markdown document changed under
    `docs/`.
 9. Update relative links after moves and align affected prose with executable
@@ -55,7 +58,8 @@ skill.
 - Run `node workflow-scripts/check-doc-links.mjs` when routes or links change.
 - Confirm that routing pages contain discovery information and point to the
   smallest current authority.
-- Confirm that newly split or reorganized pages have subject-based boundaries
-  and do not leave a short/full pair duplicating one authority.
+- Confirm that the change leaves no updated same-scope short/full pair, that
+  merged or split content has one authority per subject, and that no internal
+  link requires a deleted compatibility path.
 - Confirm that the authoring policy, rather than a routing page or skill, owns
   any new or changed documentation rule.
