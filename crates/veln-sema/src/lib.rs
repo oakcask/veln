@@ -1,6 +1,7 @@
 //! Name, type, effect, contract, and hole analysis.
 
 mod adt;
+mod adt_source_less;
 mod analysis;
 mod call_resolution;
 mod contracts;

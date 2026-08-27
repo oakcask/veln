@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::sync::OnceLock;
 
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
@@ -60,6 +61,23 @@ impl StandardSymbolRegistry {
             .copied()
             .find(|symbol| symbol.name == name)
     }
+}
+
+pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
+    static REGISTRY: OnceLock<Result<StandardSymbolRegistry, InvalidStandardSymbolCase>> =
+        OnceLock::new();
+    REGISTRY
+        .get_or_init(|| {
+            build_standard_symbol_registry(
+                QUALIFIED_SYMBOLS,
+                FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
+                SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+                COMPILER_ADAPTER_SYMBOLS,
+            )
+        })
+        .as_ref()
+        .expect("standard symbol registry is valid")
+        .qualified_symbol(segments)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
