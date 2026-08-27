@@ -20,10 +20,11 @@ lookup key. Details contain `provider`, `name`, `name_class`, and
 converted to source `name.invalid_case`. Invalid lookup-key failures and
 duplicate lookup-key failures use the same stable detail fields. Duplicate-key
 human primary messages state that the lookup key is duplicated. Focused
-`veln-sema` `standard_symbols` and `adt` tests pin the generated-table,
-injected-descriptor, duplicate-key, atomic-failure, checked-lookup, and
-lookup-isolation evidence for runtime, prelude, `prelude_builtin`, and
-built-in ADT lookup descriptors.
+`veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests pin the
+generated-table, injected-descriptor, duplicate-key, atomic-failure,
+cross-provider publication-failure, checked-lookup, and lookup-isolation
+evidence for runtime, prelude, `prelude_builtin`, and built-in ADT lookup
+descriptors.
 
 ## Current Schema Diagnostic Boundary
 

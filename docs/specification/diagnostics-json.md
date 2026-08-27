@@ -34,9 +34,11 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   `toolchain`. Invalid lookup-key failures use the same id and details as
   invalid casing failures. Duplicate lookup-key failures also use the same id
   and details, and their human primary message states that the lookup key is
-  duplicated. Focused `veln-sema` `standard_symbols` and `adt` tests define
-  descriptor, atomic-failure, lookup-key, and lookup isolation behavior for
-  runtime, prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
+  duplicated. Focused `veln-sema` `standard_symbols`, `adt`, and
+  `source_less_lookup` tests define descriptor, atomic-failure,
+  cross-provider publication-failure, lookup-key, checked-lookup, and lookup
+  isolation behavior for runtime, prelude, `prelude_builtin`, and built-in
+  ADT lookup descriptors.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -111,10 +113,11 @@ Source-less compiler lookup registry validation failures use
 `provider`, invalid `name`, `name_class`, and `required_initial`. The failure
 is a toolchain invariant failure with diagnostic kind `toolchain`, not source
 `name.invalid_case`; invalid source lookup keys and duplicate lookup keys use
-the same id and details. Focused `veln-sema` `standard_symbols` and `adt`
-tests pin generated-table validation, injected invalid descriptors, duplicate
-lookup keys, atomic failure, and lookup isolation for runtime, prelude,
-`prelude_builtin`, and built-in ADT lookup descriptors.
+the same id and details. Focused `veln-sema` `standard_symbols`, `adt`, and
+`source_less_lookup` tests pin generated-table validation, injected invalid
+descriptors, duplicate lookup keys, atomic failure, cross-provider
+publication failure, checked lookup, and lookup isolation for runtime,
+prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,

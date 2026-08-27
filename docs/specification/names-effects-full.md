@@ -77,16 +77,19 @@ key before they publish lookup state. Qualified runtime lookup keys are the
 exact module-name and symbol-name pair. Prelude lookup keys are the exact
 source prelude name. Qualified `prelude_builtin` compiler-adapter names and
 built-in ADT type and constructor descriptors are included in this gate.
-Invalid descriptors and duplicate lookup keys fail atomically with span-less
-`toolchain.invalid_symbol_case`; no partial registry is available, and the
-failure is not reported as source `name.invalid_case`. Duplicate lookup-key
-failures keep the same diagnostic id and stable details, and their primary
-message states that the lookup key is duplicated. The diagnostic kind is
-`toolchain`. `prelude_builtin` lookup and built-in ADT lookup consume only
-validated published registry state. Compiler temporaries and bookkeeping-only
-names that cannot participate in source lookup stay outside this registry
-gate. Embedded Veln prelude sources remain source-written and continue to use
-ordinary source casing diagnostics.
+Invalid descriptors, invalid lookup keys, and duplicate lookup keys fail
+atomically with span-less `toolchain.invalid_symbol_case`; no partial registry
+is available, and the failure is not reported as source `name.invalid_case`.
+Duplicate lookup-key failures keep the same diagnostic id and stable details,
+and their primary message states that the lookup key is duplicated. The
+diagnostic kind is `toolchain`. A failure in any source-less provider
+publishes no lookup state from the other source-less providers.
+`prelude_builtin` lookup and built-in ADT lookup consume only validated
+published registry state. Shared standard-environment initialization validates
+the registries before publishing reusable command or adapter state. Compiler
+temporaries and bookkeeping-only names that cannot participate in source
+lookup stay outside this registry gate. Embedded Veln prelude sources remain
+source-written and continue to use ordinary source casing diagnostics.
 
 Current duplicate checks reject:
 
