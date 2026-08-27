@@ -7,8 +7,9 @@ use veln_syntax::parse;
 
 use crate::adt;
 use crate::semantic_model::Type;
-use crate::source_less_lookup::{compiler_adapter_symbol, prelude_builtin_module, prelude_symbol};
-pub(crate) use crate::standard_names::PRELUDE_MODULE;
+use crate::source_less_lookup::{
+    compiler_adapter_symbol, prelude_builtin_module, prelude_symbol, standard_module,
+};
 use crate::standard_symbols::StandardSymbolDescriptor;
 use crate::type_lowering::core_type;
 use crate::type_syntax::parse_type_or_unknown;
@@ -75,7 +76,7 @@ pub(crate) fn qualified_prelude_signature_with_input(
     let [module, name] = segments else {
         return None;
     };
-    if module != PRELUDE_MODULE {
+    if module != standard_module() {
         return None;
     }
     let (params, return_type) = prelude_signature_with_input(name, expected, input)?;
@@ -1661,7 +1662,7 @@ pub(crate) fn qualified_core_prelude_signature(
     let [module, name] = segments else {
         return None;
     };
-    if module != PRELUDE_MODULE {
+    if module != standard_module() {
         return None;
     }
     core_prelude_signature(name, expected)

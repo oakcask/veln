@@ -28,10 +28,13 @@ Source-less providers expose these lookup keys:
 | Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some` |
 
 Normal lookup consumers use the published source-less registry state. Qualified
-`prelude_builtin::name` helper lookup compares the qualifier against the
-published prelude-builtin module key before selecting a compiler-adapter
-descriptor. Type annotation parsing checks built-in type constructor arity
-through the published built-in type-syntax registry. Built-in ADT lookup seeds
-application registry state from the published built-in ADT registry.
+`prelude::name` helper lookup compares the qualifier against the published
+standard module key before selecting a prelude descriptor or classifying a
+prelude effect helper. Qualified `prelude_builtin::name` helper lookup
+compares the qualifier against the published prelude-builtin module key before
+selecting a compiler-adapter descriptor. Public type-annotation reference
+helpers and internal type annotation parsing check built-in type constructor
+arity through the published built-in type-syntax registry. Built-in ADT lookup
+seeds application registry state from the published built-in ADT registry.
 
 Focused `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests are the executable evidence for generated-table validation, injected invalid descriptors, release-mode validation, atomic failure, cross-provider publication failure, checked lookup, provider inventory, and lookup isolation. Public source fixtures cannot inject compiler descriptors, so this contract is verified by focused Rust tests rather than examples under `examples/specification/`.

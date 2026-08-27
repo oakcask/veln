@@ -2488,7 +2488,9 @@ fn private_prelude_constraint_name<'a>(
         {
             Some(name)
         }
-        [module, name] if module == "prelude" || module == "prelude_builtin" => Some(name),
+        [module, name] if crate::source_less_lookup::is_reserved_source_less_module(module) => {
+            Some(name)
+        }
         _ => None,
     }
 }

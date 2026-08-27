@@ -758,19 +758,19 @@ pub(crate) fn prelude_effects(segments: &[String]) -> Option<&'static [&'static 
             Some(NET_TIME_CONCURRENCY_EFFECTS)
         }
         [module, name]
-            if (module == "prelude" || module == "prelude_builtin")
+            if crate::source_less_lookup::is_reserved_source_less_module(module)
                 && name == "stream_adapter_drain_actions" =>
         {
             Some(NET_CONCURRENCY_EFFECTS)
         }
         [module, name]
-            if (module == "prelude" || module == "prelude_builtin")
+            if crate::source_less_lookup::is_reserved_source_less_module(module)
                 && name == "stream_adapter_accept_loop" =>
         {
             Some(NET_CONCURRENCY_EFFECTS)
         }
         [module, name]
-            if (module == "prelude" || module == "prelude_builtin")
+            if crate::source_less_lookup::is_reserved_source_less_module(module)
                 && name == "stream_adapter_drain_actions_until_cancellable" =>
         {
             Some(NET_TIME_CONCURRENCY_EFFECTS)

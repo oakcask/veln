@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
-use std::sync::OnceLock;
 
 use crate::semantic_model::Type;
+use crate::source_less_lookup::with_builtin_type_syntax_registry;
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
     validate_source_less_name,
@@ -58,81 +58,6 @@ impl BuiltinTypeSyntaxRegistry {
             .find(|descriptor| descriptor.name == name)
             .map(|descriptor| descriptor.arity)
     }
-}
-
-fn with_builtin_type_syntax_registry<R>(
-    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
-) -> Result<R, InvalidStandardSymbolCase> {
-    #[cfg(test)]
-    {
-        let mut lookup = Some(lookup);
-        if let Some(result) = with_test_builtin_type_syntax_registry(|registry| {
-            lookup
-                .take()
-                .expect("builtin type syntax lookup closure is called once")(registry)
-        }) {
-            return result;
-        }
-        let lookup = lookup.expect("builtin type syntax lookup closure has not been called");
-        production_builtin_type_syntax_registry().map(lookup)
-    }
-
-    #[cfg(not(test))]
-    {
-        production_builtin_type_syntax_registry().map(lookup)
-    }
-}
-
-fn production_builtin_type_syntax_registry()
--> Result<&'static BuiltinTypeSyntaxRegistry, InvalidStandardSymbolCase> {
-    static REGISTRY: OnceLock<Result<BuiltinTypeSyntaxRegistry, InvalidStandardSymbolCase>> =
-        OnceLock::new();
-    REGISTRY
-        .get_or_init(|| {
-            BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(
-                BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
-            )
-        })
-        .as_ref()
-        .map_err(Clone::clone)
-}
-
-#[cfg(test)]
-thread_local! {
-    static TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS:
-        std::cell::RefCell<Option<&'static [BuiltinTypeSyntaxDescriptor]>> =
-            const { std::cell::RefCell::new(None) };
-}
-
-#[cfg(test)]
-pub(crate) fn with_builtin_type_syntax_descriptors_for_test<R>(
-    descriptors: &'static [BuiltinTypeSyntaxDescriptor],
-    test: impl FnOnce() -> R,
-) -> R {
-    use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
-
-    TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS.with(|current| {
-        let previous = current.replace(Some(descriptors));
-        let result = catch_unwind(AssertUnwindSafe(test));
-        current.replace(previous);
-        match result {
-            Ok(result) => result,
-            Err(payload) => resume_unwind(payload),
-        }
-    })
-}
-
-#[cfg(test)]
-fn with_test_builtin_type_syntax_registry<R>(
-    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
-) -> Option<Result<R, InvalidStandardSymbolCase>> {
-    TEST_BUILTIN_TYPE_SYNTAX_DESCRIPTORS.with(|current| {
-        current.borrow().map(|descriptors| {
-            let registry =
-                BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(descriptors)?;
-            Ok(lookup(&registry))
-        })
-    })
 }
 
 pub(crate) const BUILTIN_TYPE_SYNTAX_DESCRIPTORS: &[BuiltinTypeSyntaxDescriptor] = &[
@@ -394,7 +319,7 @@ impl<'a> TypeParser<'a> {
 
     fn validate_named_type(&self, name: String, args: Vec<Type>) -> Result<Type, String> {
         let expected_arity = with_builtin_type_syntax_registry(|registry| registry.arity(&name))
-            .expect("source-less type syntax registry is valid");
+            .map_err(|failure| failure.diagnostic().message)?;
         if let Some(expected) = expected_arity
             && args.len() != expected
         {

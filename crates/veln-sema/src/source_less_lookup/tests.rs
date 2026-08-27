@@ -316,13 +316,38 @@ fn invalid_type_syntax_descriptor_blocks_production_type_parser_lookup() {
     };
 
     with_source_less_lookup_provider_set_for_test(provider_set, || {
-        let result = std::panic::catch_unwind(|| {
-            crate::type_syntax::parse_type_annotation("Result<Int, String>")
-        });
+        let result = crate::type_syntax::type_annotation_reference_paths("Result<Int, String>");
 
         assert!(
-            result.is_err(),
-            "type parser lookup must not bypass invalid source-less type-syntax publication"
+            result
+                .expect_err("invalid type-syntax descriptor blocks public type lookup")
+                .contains("compiler-provided type `result` from `type_syntax` must start"),
+            "public type lookup must preserve the source-less registry failure boundary"
+        );
+    });
+}
+
+#[test]
+fn invalid_adt_descriptor_blocks_public_type_annotation_lookup() {
+    let provider_set = SourceLessLookupProviderSet {
+        qualified: VALID_STANDARD_SYMBOLS,
+        compatibility_prelude: &[],
+        self_hosting_prelude: &[],
+        compiler_adapters: &[],
+        standard_module: PRELUDE_MODULE,
+        prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+        builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+        builtin_adts: vec![invalid_adt_descriptor()],
+    };
+
+    with_source_less_lookup_provider_set_for_test(provider_set, || {
+        let result = crate::type_syntax::type_annotation_reference_paths("Result<Int, String>");
+
+        assert!(
+            result
+                .expect_err("invalid ADT descriptor blocks public type lookup")
+                .contains("compiler-provided constructor `boxed` from `adt` must start"),
+            "public type lookup must not publish type-syntax state when ADT validation fails"
         );
     });
 }
@@ -373,13 +398,15 @@ fn duplicate_type_syntax_lookup_key_blocks_production_type_parser_lookup() {
     };
 
     with_source_less_lookup_provider_set_for_test(provider_set, || {
-        let result = std::panic::catch_unwind(|| {
-            crate::type_syntax::parse_type_annotation("Result<Int, String>")
-        });
+        let result = crate::type_syntax::type_annotation_reference_paths("Result<Int, String>");
 
         assert!(
-            result.is_err(),
-            "type parser lookup must not bypass duplicate type-syntax publication failure"
+            result
+                .expect_err("duplicate type-syntax descriptor blocks public type lookup")
+                .contains(
+                    "compiler-provided type lookup key `Result` from `type_syntax` is duplicated"
+                ),
+            "public type lookup must preserve duplicate type-syntax publication failure"
         );
     });
 }
@@ -459,6 +486,115 @@ fn prelude_builtin_lookup_consumes_published_module_key() {
             )
             .is_some(),
             "lookup should consume the published prelude_builtin key"
+        );
+    });
+}
+
+#[test]
+fn prelude_lookup_consumes_published_standard_module_key() {
+    const PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "byte",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: &[],
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+    let provider_set = SourceLessLookupProviderSet {
+        qualified: &[],
+        compatibility_prelude: PRELUDE_SYMBOLS,
+        self_hosting_prelude: &[],
+        compiler_adapters: &[],
+        standard_module: "stdlib",
+        prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+        builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+        builtin_adts: vec![valid_adt_descriptor()],
+    };
+
+    with_source_less_lookup_provider_set_for_test(provider_set, || {
+        assert!(
+            crate::prelude::qualified_prelude_signature_with_input(
+                &path("prelude", "byte"),
+                None,
+                None,
+            )
+            .is_none(),
+            "lookup must not use a registry-external prelude key"
+        );
+        assert!(
+            crate::prelude::qualified_prelude_signature_with_input(
+                &path("stdlib", "byte"),
+                None,
+                None,
+            )
+            .is_some(),
+            "lookup should consume the published prelude key"
+        );
+    });
+}
+
+#[test]
+fn core_prelude_lookup_consumes_published_standard_module_key() {
+    const PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "byte",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: &[],
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+    let provider_set = SourceLessLookupProviderSet {
+        qualified: &[],
+        compatibility_prelude: PRELUDE_SYMBOLS,
+        self_hosting_prelude: &[],
+        compiler_adapters: &[],
+        standard_module: "stdlib",
+        prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+        builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+        builtin_adts: vec![valid_adt_descriptor()],
+    };
+
+    with_source_less_lookup_provider_set_for_test(provider_set, || {
+        assert!(
+            crate::prelude::qualified_core_prelude_signature(&path("prelude", "byte"), None)
+                .is_none(),
+            "core lookup must not use a registry-external prelude key"
+        );
+        assert!(
+            crate::prelude::qualified_core_prelude_signature(&path("stdlib", "byte"), None)
+                .is_some(),
+            "core lookup should consume the published prelude key"
+        );
+    });
+}
+
+#[test]
+fn prelude_effect_lookup_consumes_published_standard_module_key() {
+    let provider_set = SourceLessLookupProviderSet {
+        qualified: &[],
+        compatibility_prelude: &[],
+        self_hosting_prelude: &[],
+        compiler_adapters: &[],
+        standard_module: "stdlib",
+        prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+        builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+        builtin_adts: vec![valid_adt_descriptor()],
+    };
+
+    with_source_less_lookup_provider_set_for_test(provider_set, || {
+        assert!(
+            crate::effects::prelude_effects(&path("prelude", "stream_adapter_accept_loop"))
+                .is_none(),
+            "effect lookup must not use a registry-external prelude key"
+        );
+        assert_eq!(
+            crate::effects::prelude_effects(&path("stdlib", "stream_adapter_accept_loop")),
+            Some(&["net", "concurrency"][..]),
+            "effect lookup should consume the published prelude key"
         );
     });
 }

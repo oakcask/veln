@@ -46,12 +46,16 @@ source lookup stay outside the source lookup validation gate. Embedded Veln
 prelude sources remain source-written and continue to use ordinary source
 casing diagnostics.
 
-Type annotation parsing consumes the published built-in type-syntax registry
-when checking built-in constructor arity. A type-syntax descriptor with invalid
-casing or a duplicate lookup key blocks publication before the parser can use
-that state. Qualified `prelude_builtin` helper lookup also consumes the
-published prelude-builtin module key; it does not select compiler-adapter
-descriptors through a registry-external module spelling.
+Type annotation parsing and public type-annotation reference helpers consume
+the published built-in type-syntax registry when checking built-in constructor
+arity. A failure in another source-less provider, such as a built-in ADT
+descriptor failure, blocks publication before those helpers can use
+type-syntax state. A type-syntax descriptor with invalid casing or a duplicate
+lookup key also blocks publication before the parser can use that state.
+Qualified `prelude` helper lookup consumes the published standard module key,
+and qualified `prelude_builtin` helper lookup consumes the published
+prelude-builtin module key. Neither helper selects source-less descriptors
+through a registry-external module spelling.
 
 ## Evidence
 
@@ -67,9 +71,13 @@ descriptors through a registry-external module spelling.
   provider inventory, and lookup isolation. The `adt` and
   `source_less_lookup` tests also pin that production built-in ADT lookup
   consumes the published built-in ADT registry from the shared publication
-  result before constructing application registry state. The Rust CI release
-  registry test keeps source-less publication validation checked in release
-  builds.
+  result before constructing application registry state. The
+  `source_less_lookup` tests pin cross-provider failure between built-in ADT
+  and public type-annotation reference lookup, and they pin published module
+  key consumption for standard `prelude` helper lookup, core prelude helper
+  lookup, prelude effect lookup, and `prelude_builtin` qualified helper
+  lookup. The Rust CI release registry test keeps source-less publication
+  validation checked in release builds.
 - Public CLI fixtures are not practical for invalid compiler-provided
   descriptor input because that input is not expressible as Veln source or as
   a public command-line option. Serializer and adapter tests consume the
