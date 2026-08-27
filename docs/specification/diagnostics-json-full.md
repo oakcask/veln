@@ -10,6 +10,16 @@ Use [diagnostics-json.md](diagnostics-json.md) first. Command-specific JSON
 projection is documented in [json-output.md](json-output.md),
 [run-json.md](run-json.md), and [test-json.md](test-json.md).
 
+## Toolchain Invariant Diagnostics
+
+`toolchain.invalid_symbol_case` reports a span-less internal failure when a
+source-visible compiler-provided lookup descriptor has casing that is invalid
+for its source-less name class. Details contain `provider`, `name`,
+`name_class`, and `required_initial`. The failure is not converted to source
+`name.invalid_case`. Focused `veln-sema` `standard_symbols` tests pin the
+generated-table, injected-descriptor, atomic-failure, and lookup-isolation
+evidence.
+
 ## Current Schema Diagnostic Boundary
 
 Schema diagnostics cover parse rejection, primitive kind checks, field

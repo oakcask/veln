@@ -28,6 +28,11 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   `required_initial`, and `observed_initial` fields. The checked
   `identifier-casing-*-json` cases define exact spans, detail values, and
   non-cascading recovery behavior.
+- Source-less compiler symbol registry casing failures use span-less
+  `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
+  `name_class`, and `required_initial` fields. Focused `veln-sema`
+  `standard_symbols` tests define descriptor, atomic-failure, and lookup
+  isolation behavior.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -96,6 +101,13 @@ behavior is specified by [names-effects.md](names-effects.md). Selected-entry
 `run --json` diagnostic-envelope evidence for source identifier casing is
 routed by [run-json.md](run-json.md), including direct-dependency selected
 loading and unloaded-manifest isolation.
+
+Source-less compiler symbol registry casing failures use
+`toolchain.invalid_symbol_case` with no span. Details expose the descriptor
+`provider`, invalid `name`, `name_class`, and `required_initial`. The failure
+is a toolchain invariant failure, not source `name.invalid_case`; focused
+`veln-sema` `standard_symbols` tests pin generated-table validation, injected
+invalid descriptors, atomic failure, and lookup isolation.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,

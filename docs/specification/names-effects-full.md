@@ -70,6 +70,16 @@ same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
 prelude-qualified lookup.
 
+Compiler-provided symbols that participate in source lookup carry an explicit
+source-less name class. The source lookup registry validates each
+source-visible descriptor's module segments and symbol spelling before it
+publishes the immutable registry used by lookup. Invalid descriptors fail
+atomically with span-less `toolchain.invalid_symbol_case`; no partial registry
+is available, and the failure is not reported as source `name.invalid_case`.
+Compiler adapter names that cannot participate in source lookup stay outside
+this registry gate. Embedded Veln prelude sources remain source-written and
+continue to use ordinary source casing diagnostics.
+
 Current duplicate checks reject:
 
 - duplicate import paths within the same source module
