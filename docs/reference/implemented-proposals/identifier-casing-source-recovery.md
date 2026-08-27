@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: Recovery-aware source identifier casing is superseded or its named executable evidence becomes invalid.
+update-when: Recovery-aware source identifier casing evidence, sibling identifier-casing completion boundaries, or current specification authority for this record changes.
 ---
 
 # Recovery-Aware Source Identifier Casing

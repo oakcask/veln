@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: Identifier casing selection-boundary evidence is superseded, invalidated, or used as current specification authority.
+update-when: Identifier casing selection-boundary evidence, sibling identifier-casing completion boundaries, or current specification authority for this record changes.
 ---
 
 # Identifier Casing Selection Boundaries

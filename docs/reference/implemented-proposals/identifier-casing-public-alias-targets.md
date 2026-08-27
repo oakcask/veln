@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: Public alias target-leaf identifier casing evidence is superseded, invalidated, or used as current specification authority.
+update-when: Public alias target-leaf identifier casing evidence, sibling identifier-casing completion boundaries, or current specification authority for this record changes.
 ---
 
 # Identifier Casing Public Alias Targets
