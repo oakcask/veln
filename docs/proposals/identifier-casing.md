@@ -63,8 +63,10 @@ casing diagnostics and invalid-symbol index exclusion are also current
 language-service behavior. LSP rename now rejects class-changing replacements
 for selected valid workspace type, constructor, function, and value-binding
 symbols as specified by [Editor Support](../specification/editor-support.md)
-and checked by the `identifier-casing-rename-boundary` example. This proposal
-still owns recovery navigation, repair rename, rename conflict prediction, MCP
+and checked by the `identifier-casing-rename-boundary` example. That current
+boundary includes rejection of ambiguous bare imported type-role references
+and qualified type identity preservation for type rename. This proposal still
+owns recovery navigation, repair rename, rename conflict prediction, MCP
 rename mapping, and rename evidence for the remaining casing surfaces until
 those rows are implemented.
 
@@ -340,7 +342,9 @@ diagnostics.
 Current LSP rename validates selected valid workspace type, constructor,
 function, and value-binding symbols before it produces edits. That implemented
 behavior is specified by [Editor Support](../specification/editor-support.md).
-The remaining rename proposal covers repair rename through quarantined
+For type-role references, the current boundary rejects ambiguous bare imported
+type selections and preserves qualified type identity before returning rename
+edits. The remaining rename proposal covers repair rename through quarantined
 invalid-name recovery records, predictable conflict rejection, source-path
 module rename exclusion, MCP error mapping, and the deferred module,
 qualified-use, and source-less registry surfaces.
