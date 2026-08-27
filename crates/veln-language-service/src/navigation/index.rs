@@ -4,18 +4,21 @@ impl SymbolIndex {
         dependencies: Vec<DirectDependencySnapshot>,
         standard_library: Option<DirectDependencySnapshot>,
     ) -> Self {
-        let mut files = sources
-            .into_iter()
-            .map(index_workspace_source)
-            .collect::<Vec<_>>();
+        let mut files = Vec::new();
+        let mut declarations = FileDeclarations::default();
+        for source in sources {
+            let (file, file_declarations) = index_workspace_source(source);
+            declarations.extend(file_declarations);
+            files.push(file);
+        }
         for dependency in dependencies.into_iter().chain(standard_library) {
-            index_dependency_sources(&mut files, dependency);
+            index_dependency_sources(&mut files, &mut declarations, dependency);
         }
         Self {
-            functions: files.iter().flat_map(function_declarations).collect(),
-            types: files.iter().flat_map(type_declarations).collect(),
-            constructors: files.iter().flat_map(constructor_declarations).collect(),
-            type_aliases: files.iter().flat_map(type_alias_declarations).collect(),
+            functions: declarations.functions,
+            types: declarations.types,
+            constructors: declarations.constructors,
+            type_aliases: declarations.type_aliases,
             files,
         }
     }
@@ -30,15 +33,15 @@ impl SymbolIndex {
             .iter()
             .find(|file| file.source.path().as_str() == source_path)?;
         let offset = offset_for_position(file.source.text(), position)?;
-        let tokens = lex(&file.source).tokens;
-        let (token_index, token) = identifier_token_at(&tokens, offset)?;
+        let tokens = &file.tokens;
+        let (token_index, token) = identifier_token_at(tokens, offset)?;
         let selection = file.source.span(token.range);
         let name = file
             .source
             .text()
             .get(selection.start.offset..selection.end.offset)?
             .to_string();
-        let symbol = self.symbol_for_selection(file, &tokens, token_index, &name, &selection)?;
+        let symbol = self.symbol_for_selection(file, tokens, token_index, &name, &selection)?;
         Some(SymbolRequest {
             index: self,
             symbol,
