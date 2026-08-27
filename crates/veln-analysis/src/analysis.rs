@@ -452,7 +452,7 @@ fn lowered_internal_failure(diagnostic: Diagnostic) -> LoweredSurfaceModule {
 
 #[cfg(test)]
 mod tests {
-    use veln_diagnostics::diagnostic_to_json;
+    use veln_diagnostics::{DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
     use veln_project::Project;
     use veln_source::SourceFile;
 
@@ -460,6 +460,36 @@ mod tests {
     use crate::surface::reachable_entry_module_with_cache;
 
     mod reachable_companion_recovery_tests;
+
+    #[test]
+    fn invalid_standard_registry_failure_surfaces_as_checked_internal_failure() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new("main.veln", clean_source())],
+            manifest: None,
+        };
+
+        let analysis =
+            analyze_project_with_standard_provider(project, DoctestMode::Exclude, None, |_| {
+                Err(invalid_standard_symbol_case_diagnostic())
+            });
+
+        assert!(analysis.source_diagnostics().is_empty());
+        assert!(analysis.semantic_diagnostics().is_empty());
+        assert_eq!(
+            diagnostic_json(&analysis.checked_diagnostics()),
+            vec![concat!(
+                "{\"id\":\"toolchain.invalid_symbol_case\",",
+                "\"severity\":\"error\",\"kind\":\"toolchain\",",
+                "\"message\":\"compiler-provided function `BadAdapter` from `compiler_adapter` ",
+                "must start with an ASCII lowercase letter\",",
+                "\"span\":null,",
+                "\"details\":{\"provider\":\"compiler_adapter\",\"name\":\"BadAdapter\",",
+                "\"name_class\":\"function\",\"required_initial\":\"ascii_lowercase\"},",
+                "\"related\":[]}"
+            )]
+        );
+    }
 
     #[test]
     fn separated_reachable_lowering_matches_combined_lowering_outputs() {
@@ -526,6 +556,26 @@ mod tests {
             .iter()
             .map(|diagnostic| diagnostic_to_json(diagnostic).to_json())
             .collect()
+    }
+
+    fn invalid_standard_symbol_case_diagnostic() -> veln_diagnostics::Diagnostic {
+        veln_diagnostics::Diagnostic::new(
+            "toolchain.invalid_symbol_case",
+            Severity::Error,
+            DiagnosticKind::Toolchain,
+            "compiler-provided function `BadAdapter` from `compiler_adapter` must start with an ASCII lowercase letter",
+            None,
+            JsonValue::object([
+                ("provider", JsonValue::string("compiler_adapter")),
+                ("name", JsonValue::string("BadAdapter")),
+                ("name_class", JsonValue::string("function")),
+                ("required_initial", JsonValue::string("ascii_lowercase")),
+            ]),
+        )
+    }
+
+    fn clean_source() -> &'static str {
+        "pub fn main() -> Int\n  1\nend\n"
     }
 
     fn reachable_function_names(module: &SurfaceModule) -> Vec<(&str, &str)> {
