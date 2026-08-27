@@ -7,7 +7,7 @@ use crate::builtin_type_syntax::{
     BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxDescriptor, BuiltinTypeSyntaxRegistry,
 };
 use crate::source_less_names::{
-    InvalidStandardSymbolCase, SourceLessNameClass, validate_source_less_name,
+    InvalidStandardSymbolCase, SourceLessNameClass, validate_source_less_lookup_segment,
 };
 use crate::standard_names::PRELUDE_MODULE;
 use crate::standard_symbols::{
@@ -150,7 +150,7 @@ fn source_less_lookup_registries()
 pub(crate) fn build_source_less_lookup_registries(
     provider_set: SourceLessLookupProviderSet,
 ) -> Result<SourceLessLookupRegistries, InvalidStandardSymbolCase> {
-    validate_source_less_name(
+    validate_source_less_lookup_segment(
         "compiler_adapter",
         provider_set.prelude_builtin_module,
         SourceLessNameClass::Module,
@@ -162,7 +162,7 @@ pub(crate) fn build_source_less_lookup_registries(
         provider_set.self_hosting_prelude,
         provider_set.compiler_adapters,
     )?;
-    validate_source_less_name(
+    validate_source_less_lookup_segment(
         "standard_names",
         provider_set.standard_module,
         SourceLessNameClass::Module,

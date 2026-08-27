@@ -9,7 +9,7 @@ use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::semantic_model::Type;
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
-    validate_source_less_name,
+    validate_source_less_lookup_segment,
 };
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_annotation_parser::parse_type_annotation_with_arity;
@@ -2794,7 +2794,11 @@ pub(crate) fn validate_adt_lookup_descriptors(
     for descriptor in descriptors {
         if let Some(module_name) = &descriptor.module_name {
             for segment in module_name.split("::") {
-                validate_source_less_name(provider, segment, SourceLessNameClass::Module)?;
+                validate_source_less_lookup_segment(
+                    provider,
+                    segment,
+                    SourceLessNameClass::Module,
+                )?;
             }
         }
         if descriptor.name_class != SourceLessNameClass::Type {
@@ -2805,7 +2809,11 @@ pub(crate) fn validate_adt_lookup_descriptors(
                 reason: InvalidStandardSymbolReason::InvalidLookupClass,
             });
         }
-        validate_source_less_name(provider, &descriptor.type_name, descriptor.name_class)?;
+        validate_source_less_lookup_segment(
+            provider,
+            &descriptor.type_name,
+            descriptor.name_class,
+        )?;
         if !type_names.insert((
             descriptor.module_name.as_deref(),
             descriptor.type_name.as_str(),
@@ -2826,7 +2834,7 @@ pub(crate) fn validate_adt_lookup_descriptors(
                     reason: InvalidStandardSymbolReason::InvalidLookupClass,
                 });
             }
-            validate_source_less_name(provider, &variant.name, variant.name_class)?;
+            validate_source_less_lookup_segment(provider, &variant.name, variant.name_class)?;
             if !constructor_names.insert((
                 descriptor.module_name.as_deref(),
                 descriptor.type_name.as_str(),

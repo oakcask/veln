@@ -99,3 +99,69 @@ pub(crate) fn validate_source_less_name(
         })
     }
 }
+
+pub(crate) fn validate_source_less_lookup_segment(
+    provider: &'static str,
+    name: &str,
+    name_class: SourceLessNameClass,
+) -> Result<(), InvalidStandardSymbolCase> {
+    validate_source_less_name(provider, name, name_class)?;
+    if source_lookup_segment_is_consumable(name) {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: name.to_string(),
+            name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        })
+    }
+}
+
+fn source_lookup_segment_is_consumable(name: &str) -> bool {
+    !is_source_keyword(name)
+        && name
+            .as_bytes()
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+}
+
+fn is_source_keyword(name: &str) -> bool {
+    matches!(
+        name,
+        "pub"
+            | "fn"
+            | "type"
+            | "schema"
+            | "codec"
+            | "for"
+            | "decode"
+            | "encode"
+            | "derive"
+            | "with"
+            | "format"
+            | "where"
+            | "test"
+            | "effect"
+            | "effects"
+            | "perform"
+            | "handler"
+            | "handles"
+            | "handle"
+            | "let"
+            | "end"
+            | "require"
+            | "ensure"
+            | "invariant"
+            | "mod"
+            | "use"
+            | "from"
+            | "at"
+            | "match"
+            | "if"
+            | "else"
+            | "or"
+            | "and"
+            | "not"
+    )
+}

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
-    validate_source_less_name,
+    validate_source_less_lookup_segment,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,7 +31,11 @@ impl BuiltinTypeSyntaxRegistry {
                     reason: InvalidStandardSymbolReason::InvalidLookupClass,
                 });
             }
-            validate_source_less_name("type_syntax", descriptor.name, descriptor.name_class)?;
+            validate_source_less_lookup_segment(
+                "type_syntax",
+                descriptor.name,
+                descriptor.name_class,
+            )?;
             if !lookup_keys.insert(descriptor.name) {
                 return Err(InvalidStandardSymbolCase {
                     provider: "type_syntax",

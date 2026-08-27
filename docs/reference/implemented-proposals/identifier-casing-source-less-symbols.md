@@ -15,6 +15,10 @@ lookup keys before any standard-symbol or built-in ADT lookup state is
 published. Standard-symbol descriptors publish to function lookup only.
 Runtime, prelude, and `prelude_builtin` descriptors whose source-less name
 class is not `function` fail validation before lookup state is published.
+Every source-less descriptor module segment and leaf name must be one source
+lookup identifier segment: the initial byte must satisfy the declared name
+class, remaining bytes must be ASCII letters, ASCII digits, or `_`, and the
+complete segment must not be a source keyword.
 
 Invalid compiler-provided descriptors fail registry construction atomically with
 the span-less `toolchain.invalid_symbol_case` internal failure. Details include
@@ -32,7 +36,10 @@ state that the lookup key is duplicated.
 Qualified runtime lookup keys are the exact module-name and symbol-name pair.
 Runtime descriptor modules are single source lookup segments; a runtime module
 string that would publish a three-or-more-segment source lookup key fails
-publication as an invalid lookup key.
+publication as an invalid lookup key. Prelude, compiler-adapter, built-in
+type-syntax, built-in ADT type, and built-in ADT constructor leaves containing
+`::`, `-`, or any other spelling that source lookup cannot produce as one
+identifier segment also fail publication as invalid lookup keys.
 Prelude lookup keys are the exact source prelude name. Compiler-adapter
 failures report the `compiler_adapter` provider and use `prelude_builtin::name`
 lookup keys. The implicit `prelude` module name reports the `standard_names`
@@ -75,7 +82,10 @@ through a registry-external module spelling.
   keys, atomic failure,
   cross-provider publication failure, checked lookup, type-syntax publication
   consumption, prelude-builtin module-key publication consumption, production
-  provider inventory, and lookup isolation. The `adt` and
+  provider inventory, and lookup isolation. Injected descriptor tests cover
+  qualified separators and other non-identifier characters in runtime, prelude
+  or compiler-adapter, built-in type-syntax, built-in ADT type, and built-in
+  ADT constructor leaves. The `adt` and
   `source_less_lookup` tests also pin that production built-in ADT lookup
   consumes the published built-in ADT registry from the shared publication
   result before constructing application registry state. The

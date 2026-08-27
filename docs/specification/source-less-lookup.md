@@ -16,6 +16,15 @@ standard-name module, built-in type-syntax, and built-in ADT descriptors
 validate their module segments, spelling, declared name class, and lookup key
 before lookup state is published.
 
+Each source-less descriptor module segment and descriptor leaf name must be
+one source lookup identifier segment. The first byte must satisfy the declared
+name class: module and function segments start with an ASCII lowercase letter,
+and type and constructor segments start with an ASCII uppercase letter.
+Remaining bytes must be ASCII letters, ASCII digits, or `_`, and the complete
+segment must not be a source keyword. A descriptor leaf containing `::`, `-`,
+or any other byte that source lookup cannot produce as part of one identifier
+segment is an invalid source lookup key.
+
 Registry construction is atomic in release and test builds. Valid input
 publishes one complete immutable source-less lookup registry set. If any
 provider descriptor is invalid, the shared publication result fails with
@@ -33,8 +42,10 @@ is duplicated.
 Source-less providers expose these lookup keys. Runtime descriptor modules are
 single source lookup segments; a runtime descriptor whose module string would
 produce a three-or-more-segment key fails publication as an invalid lookup key.
-The prelude-builtin module key is validated even when there are no compiler
-adapter descriptors to publish.
+Prelude, compiler-adapter, built-in type-syntax, built-in ADT type, and
+built-in ADT constructor leaves must each be one source lookup identifier
+segment. The prelude-builtin module key is validated even when there are no
+compiler adapter descriptors to publish.
 
 | Provider detail | Lookup key |
 | --- | --- |
@@ -59,6 +70,9 @@ Focused `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests
 are the executable evidence for generated-table validation, injected invalid
 descriptors, invalid lookup keys, release-mode validation, atomic failure,
 cross-provider publication failure, checked lookup, provider inventory, and
-lookup isolation. Public source fixtures cannot inject compiler descriptors,
-so this contract is verified by focused Rust tests rather than examples under
+lookup isolation. The injected-descriptor cases cover qualified separators and
+other non-identifier characters in runtime, prelude or compiler-adapter,
+built-in type-syntax, built-in ADT type, and built-in ADT constructor leaves.
+Public source fixtures cannot inject compiler descriptors, so this contract is
+verified by focused Rust tests rather than examples under
 `examples/specification/`.

@@ -16,8 +16,7 @@ helper paths. Public signatures remain explicit and unconstrained or ambiguous
 local facts still require annotations.
 
 Current behavior and diagnostic boundaries are specified under
-`../../specification/types.md`, `../../specification/types.md`, and
-`../../specification/diagnostics-json.md`.
+`../../specification/types.md` and `../../specification/diagnostics-json.md`.
 
 ## Evidence
 

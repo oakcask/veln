@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
-    validate_source_less_name,
+    validate_source_less_lookup_segment,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1209,7 +1209,7 @@ fn validate_prelude_builtin_lookup_key(
     descriptor: &StandardSymbolDescriptor,
     keys: &mut BTreeSet<(&'static str, &'static str)>,
 ) -> Result<(), InvalidStandardSymbolCase> {
-    validate_source_less_name(
+    validate_source_less_lookup_segment(
         provider,
         prelude_builtin_module,
         SourceLessNameClass::Module,
@@ -1247,10 +1247,10 @@ fn validate_source_lookup_descriptor(
     }
     if let Some(module) = descriptor.module {
         for segment in module.split("::") {
-            validate_source_less_name(provider, segment, SourceLessNameClass::Module)?;
+            validate_source_less_lookup_segment(provider, segment, SourceLessNameClass::Module)?;
         }
     }
-    validate_source_less_name(provider, descriptor.name, descriptor.name_class)
+    validate_source_less_lookup_segment(provider, descriptor.name, descriptor.name_class)
 }
 
 #[cfg(test)]
