@@ -196,7 +196,8 @@ const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
     StandardType::Named("Deadline"),
     StandardType::Named("CancelToken"),
 ];
-const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
+#[cfg(test)]
+pub(crate) const DEFAULT_PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
 #[cfg(test)]
 const STANDARD_PACKAGE_PRIVATE_HELPERS: &[&str] = &[
     "vec_map_step",
@@ -1082,7 +1083,24 @@ fn compatibility_prelude_symbols() -> impl Iterator<Item = &'static StandardSymb
         .chain(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter())
 }
 
+#[cfg(test)]
 pub(crate) fn build_standard_symbol_registry(
+    qualified: &'static [StandardSymbolDescriptor],
+    compatibility_prelude: &'static [StandardSymbolDescriptor],
+    self_hosting_prelude: &'static [StandardSymbolDescriptor],
+    compiler_adapters: &'static [StandardSymbolDescriptor],
+) -> Result<StandardSymbolRegistry, InvalidStandardSymbolCase> {
+    build_standard_symbol_registry_with_modules(
+        DEFAULT_PRELUDE_BUILTIN_MODULE,
+        qualified,
+        compatibility_prelude,
+        self_hosting_prelude,
+        compiler_adapters,
+    )
+}
+
+pub(crate) fn build_standard_symbol_registry_with_modules(
+    prelude_builtin_module: &'static str,
     qualified: &'static [StandardSymbolDescriptor],
     compatibility_prelude: &'static [StandardSymbolDescriptor],
     self_hosting_prelude: &'static [StandardSymbolDescriptor],
@@ -1113,6 +1131,7 @@ pub(crate) fn build_standard_symbol_registry(
     for descriptor in compiler_adapters {
         validate_source_lookup_descriptor("compiler_adapter", descriptor)?;
         validate_prelude_builtin_lookup_key(
+            prelude_builtin_module,
             "compiler_adapter",
             descriptor,
             &mut compiler_adapter_keys,
@@ -1177,27 +1196,28 @@ fn validate_prelude_lookup_key(
 }
 
 fn validate_prelude_builtin_lookup_key(
+    prelude_builtin_module: &'static str,
     provider: &'static str,
     descriptor: &StandardSymbolDescriptor,
     keys: &mut BTreeSet<(&'static str, &'static str)>,
 ) -> Result<(), InvalidStandardSymbolCase> {
     validate_source_less_name(
         provider,
-        PRELUDE_BUILTIN_MODULE,
+        prelude_builtin_module,
         SourceLessNameClass::Module,
     )?;
     if descriptor.module.is_some() {
         return Err(InvalidStandardSymbolCase {
             provider,
-            name: format!("{PRELUDE_BUILTIN_MODULE}::{}", descriptor.name),
+            name: format!("{prelude_builtin_module}::{}", descriptor.name),
             name_class: descriptor.name_class,
             reason: InvalidStandardSymbolReason::InvalidLookupKey,
         });
     }
-    if !keys.insert((PRELUDE_BUILTIN_MODULE, descriptor.name)) {
+    if !keys.insert((prelude_builtin_module, descriptor.name)) {
         return Err(InvalidStandardSymbolCase {
             provider,
-            name: format!("{PRELUDE_BUILTIN_MODULE}::{}", descriptor.name),
+            name: format!("{prelude_builtin_module}::{}", descriptor.name),
             name_class: descriptor.name_class,
             reason: InvalidStandardSymbolReason::DuplicateLookupKey,
         });

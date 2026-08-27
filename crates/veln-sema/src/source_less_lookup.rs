@@ -10,21 +10,29 @@ use crate::standard_names::PRELUDE_MODULE;
 use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
     SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
-    build_standard_symbol_registry, private_compiler_adapter_name,
+    build_standard_symbol_registry_with_modules, private_compiler_adapter_name,
 };
-#[cfg(test)]
-use crate::type_syntax::BUILTIN_TYPE_SYNTAX_DESCRIPTORS;
-use crate::type_syntax::validate_builtin_type_syntax_descriptors;
+use crate::type_syntax::{
+    BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxDescriptor, BuiltinTypeSyntaxRegistry,
+};
+
+pub(crate) const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
 
 #[derive(Debug)]
 pub(crate) struct SourceLessLookupRegistries {
+    standard_module: &'static str,
+    prelude_builtin_module: &'static str,
     standard_symbols: StandardSymbolRegistry,
+    builtin_type_syntax: BuiltinTypeSyntaxRegistry,
     builtin_adts: AdtRegistry,
 }
 
 pub(crate) fn validate_source_less_lookup_registries() -> Result<(), InvalidStandardSymbolCase> {
     with_source_less_lookup_registries(|registries| {
+        let _ = registries.standard_module;
+        let _ = registries.prelude_builtin_module;
         let _ = registries.standard_symbols.prelude_symbol("");
+        let _ = registries.builtin_type_syntax.descriptors().len();
         let _ = registries.builtin_adts.descriptors().len();
     })
 }
@@ -51,6 +59,17 @@ pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescri
 pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
     with_standard_symbol_registry(|registry| registry.compiler_adapter_symbol(name))
         .expect("source-less lookup registries are valid")
+}
+
+pub(crate) fn prelude_builtin_module() -> &'static str {
+    with_source_less_lookup_registries(|registries| registries.prelude_builtin_module)
+        .expect("source-less lookup registries are valid")
+}
+
+pub(crate) fn with_builtin_type_syntax_registry<R>(
+    lookup: impl FnOnce(&BuiltinTypeSyntaxRegistry) -> R,
+) -> Result<R, InvalidStandardSymbolCase> {
+    with_source_less_lookup_registries(|registries| lookup(&registries.builtin_type_syntax))
 }
 
 pub(crate) fn with_builtin_adt_registry<R>(
@@ -97,6 +116,9 @@ fn source_less_lookup_registries()
                 FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
                 SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
                 COMPILER_ADAPTER_SYMBOLS,
+                PRELUDE_MODULE,
+                PRELUDE_BUILTIN_MODULE,
+                BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
                 build_builtin_descriptors(),
             )
         })
@@ -109,9 +131,13 @@ pub(crate) fn build_source_less_lookup_registries(
     compatibility_prelude: &'static [StandardSymbolDescriptor],
     self_hosting_prelude: &'static [StandardSymbolDescriptor],
     compiler_adapters: &'static [StandardSymbolDescriptor],
+    standard_module: &'static str,
+    prelude_builtin_module: &'static str,
+    builtin_type_syntax: &'static [BuiltinTypeSyntaxDescriptor],
     builtin_adts: Vec<AdtDescriptor>,
 ) -> Result<SourceLessLookupRegistries, InvalidStandardSymbolCase> {
-    let standard_symbols = build_standard_symbol_registry(
+    let standard_symbols = build_standard_symbol_registry_with_modules(
+        prelude_builtin_module,
         qualified,
         compatibility_prelude,
         self_hosting_prelude,
@@ -119,13 +145,17 @@ pub(crate) fn build_source_less_lookup_registries(
     )?;
     validate_source_less_name(
         "standard_names",
-        PRELUDE_MODULE,
+        standard_module,
         SourceLessNameClass::Module,
     )?;
-    validate_builtin_type_syntax_descriptors()?;
+    let builtin_type_syntax =
+        BuiltinTypeSyntaxRegistry::from_validated_source_less_descriptors(builtin_type_syntax)?;
     let builtin_adts = AdtRegistry::from_validated_source_less_descriptors(builtin_adts)?;
     Ok(SourceLessLookupRegistries {
+        standard_module,
+        prelude_builtin_module,
         standard_symbols,
+        builtin_type_syntax,
         builtin_adts,
     })
 }
@@ -146,6 +176,9 @@ pub(crate) fn production_source_less_lookup_routes_for_test()
         FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
         SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
         COMPILER_ADAPTER_SYMBOLS,
+        PRELUDE_MODULE,
+        PRELUDE_BUILTIN_MODULE,
+        BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
         build_builtin_descriptors(),
     )?;
     let mut routes = BTreeSet::new();
@@ -175,10 +208,10 @@ pub(crate) fn production_source_less_lookup_routes_for_test()
     }
     routes.insert(SourceLessLookupRoute {
         provider: "standard_names",
-        lookup_key: PRELUDE_MODULE.to_string(),
+        lookup_key: registries.standard_module.to_string(),
         name_class: SourceLessNameClass::Module,
     });
-    for descriptor in BUILTIN_TYPE_SYNTAX_DESCRIPTORS {
+    for descriptor in registries.builtin_type_syntax.descriptors() {
         routes.insert(SourceLessLookupRoute {
             provider: "type_syntax",
             lookup_key: descriptor.name.to_string(),
@@ -220,6 +253,9 @@ pub(crate) struct SourceLessLookupProviderSet {
     pub(crate) compatibility_prelude: &'static [StandardSymbolDescriptor],
     pub(crate) self_hosting_prelude: &'static [StandardSymbolDescriptor],
     pub(crate) compiler_adapters: &'static [StandardSymbolDescriptor],
+    pub(crate) standard_module: &'static str,
+    pub(crate) prelude_builtin_module: &'static str,
+    pub(crate) builtin_type_syntax: &'static [BuiltinTypeSyntaxDescriptor],
     pub(crate) builtin_adts: Vec<AdtDescriptor>,
 }
 
@@ -258,6 +294,9 @@ fn with_test_provider_registries<R>(
                 provider_set.compatibility_prelude,
                 provider_set.self_hosting_prelude,
                 provider_set.compiler_adapters,
+                provider_set.standard_module,
+                provider_set.prelude_builtin_module,
+                provider_set.builtin_type_syntax,
                 provider_set.builtin_adts,
             )?;
             Ok(lookup(&registries))
@@ -298,6 +337,12 @@ mod tests {
         lowering: Some("runtime.Std.print"),
         signature: None,
         stability: StandardSymbolStability::RequiredForSelfHosting,
+    }];
+
+    const INVALID_TYPE_SYNTAX: &[BuiltinTypeSyntaxDescriptor] = &[BuiltinTypeSyntaxDescriptor {
+        name: "result",
+        name_class: SourceLessNameClass::Type,
+        arity: 2,
     }];
 
     fn valid_adt_descriptor() -> AdtDescriptor {
@@ -348,6 +393,9 @@ mod tests {
             &[],
             &[],
             &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             vec![invalid_adt_descriptor()],
         );
         let failure = result.expect_err("invalid ADT blocks all source-less lookup");
@@ -365,6 +413,9 @@ mod tests {
             &[],
             &[],
             &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             vec![invalid_adt_descriptor()],
         );
 
@@ -381,6 +432,9 @@ mod tests {
             &[],
             &[],
             &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             vec![valid_adt_descriptor()],
         );
         let failure = result.expect_err("invalid standard symbol blocks all source-less lookup");
@@ -398,6 +452,9 @@ mod tests {
             &[],
             &[],
             &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             vec![valid_adt_descriptor()],
         );
 
@@ -414,6 +471,9 @@ mod tests {
             &[],
             &[],
             &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             vec![valid_adt_descriptor()],
         )
         .expect("all providers validate");
@@ -424,6 +484,9 @@ mod tests {
                 .qualified_symbol(&path("stdio", "print"))
                 .is_some()
         );
+        assert_eq!(registries.standard_module, "prelude");
+        assert_eq!(registries.prelude_builtin_module, "prelude_builtin");
+        assert_eq!(registries.builtin_type_syntax.arity("Result"), Some(2));
         let option = crate::semantic_model::Type::named("Boxed", Vec::new());
         assert!(
             registries
@@ -440,6 +503,9 @@ mod tests {
             compatibility_prelude: &[],
             self_hosting_prelude: &[],
             compiler_adapters: &[],
+            standard_module: PRELUDE_MODULE,
+            prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+            builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             builtin_adts: vec![invalid_adt_descriptor()],
         };
 
@@ -462,6 +528,9 @@ mod tests {
             compatibility_prelude: &[],
             self_hosting_prelude: &[],
             compiler_adapters: &[],
+            standard_module: PRELUDE_MODULE,
+            prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+            builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             builtin_adts: vec![valid_adt_descriptor()],
         };
 
@@ -482,6 +551,9 @@ mod tests {
             &[],
             &[],
             &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
             vec![valid_adt_descriptor()],
         )
         .expect("all providers validate");
@@ -498,5 +570,133 @@ mod tests {
             application_adts.constructor(&path("Boxed", "Boxed"), None, &[]),
             crate::adt::ConstructorLookup::Found(_)
         ));
+    }
+
+    #[test]
+    fn invalid_type_syntax_descriptor_blocks_every_lookup_publication() {
+        let result = build_source_less_lookup_registries(
+            VALID_STANDARD_SYMBOLS,
+            &[],
+            &[],
+            &[],
+            PRELUDE_MODULE,
+            PRELUDE_BUILTIN_MODULE,
+            INVALID_TYPE_SYNTAX,
+            vec![valid_adt_descriptor()],
+        );
+        let failure = result.expect_err("invalid type-syntax descriptor blocks publication");
+
+        assert_eq!(failure.provider, "type_syntax");
+        assert_eq!(failure.name, "result");
+        assert_eq!(failure.name_class, SourceLessNameClass::Type);
+        assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
+    }
+
+    #[test]
+    fn invalid_type_syntax_descriptor_blocks_production_type_parser_lookup() {
+        let provider_set = SourceLessLookupProviderSet {
+            qualified: VALID_STANDARD_SYMBOLS,
+            compatibility_prelude: &[],
+            self_hosting_prelude: &[],
+            compiler_adapters: &[],
+            standard_module: PRELUDE_MODULE,
+            prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
+            builtin_type_syntax: INVALID_TYPE_SYNTAX,
+            builtin_adts: vec![valid_adt_descriptor()],
+        };
+
+        with_source_less_lookup_provider_set_for_test(provider_set, || {
+            let result = std::panic::catch_unwind(|| {
+                crate::type_syntax::parse_type_annotation("Result<Int, String>")
+            });
+
+            assert!(
+                result.is_err(),
+                "type parser lookup must not bypass invalid source-less type-syntax publication"
+            );
+        });
+    }
+
+    #[test]
+    fn invalid_standard_module_key_blocks_registry_publication() {
+        let result = build_source_less_lookup_registries(
+            VALID_STANDARD_SYMBOLS,
+            &[],
+            &[],
+            &[],
+            "Prelude",
+            PRELUDE_BUILTIN_MODULE,
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+            vec![valid_adt_descriptor()],
+        );
+        let failure = result.expect_err("invalid standard module key blocks publication");
+
+        assert_eq!(failure.provider, "standard_names");
+        assert_eq!(failure.name, "Prelude");
+        assert_eq!(failure.name_class, SourceLessNameClass::Module);
+    }
+
+    #[test]
+    fn invalid_prelude_builtin_module_key_blocks_lookup_publication() {
+        let result = build_source_less_lookup_registries(
+            VALID_STANDARD_SYMBOLS,
+            &[],
+            &[],
+            VALID_STANDARD_SYMBOLS,
+            PRELUDE_MODULE,
+            "PreludeBuiltin",
+            BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+            vec![valid_adt_descriptor()],
+        );
+        let failure = result.expect_err("invalid prelude_builtin key blocks publication");
+
+        assert_eq!(failure.provider, "compiler_adapter");
+        assert_eq!(failure.name, "PreludeBuiltin");
+        assert_eq!(failure.name_class, SourceLessNameClass::Module);
+    }
+
+    #[test]
+    fn prelude_builtin_lookup_consumes_published_module_key() {
+        const ADAPTERS: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+            module: None,
+            name: "byte",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: &[],
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        }];
+        let provider_set = SourceLessLookupProviderSet {
+            qualified: &[],
+            compatibility_prelude: &[],
+            self_hosting_prelude: &[],
+            compiler_adapters: ADAPTERS,
+            standard_module: PRELUDE_MODULE,
+            prelude_builtin_module: "intrinsic",
+            builtin_type_syntax: BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
+            builtin_adts: vec![valid_adt_descriptor()],
+        };
+
+        with_source_less_lookup_provider_set_for_test(provider_set, || {
+            assert!(
+                crate::prelude::qualified_prelude_builtin_signature_with_input(
+                    &path("prelude_builtin", "byte"),
+                    None,
+                    None,
+                )
+                .is_none(),
+                "lookup must not use a registry-external prelude_builtin key"
+            );
+            assert!(
+                crate::prelude::qualified_prelude_builtin_signature_with_input(
+                    &path("intrinsic", "byte"),
+                    None,
+                    None,
+                )
+                .is_some(),
+                "lookup should consume the published prelude_builtin key"
+            );
+        });
     }
 }

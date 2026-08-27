@@ -77,6 +77,9 @@ fn production_adt_registry_uses_published_source_less_builtin_adts() {
         compatibility_prelude: &[],
         self_hosting_prelude: &[],
         compiler_adapters: &[],
+        standard_module: crate::standard_names::PRELUDE_MODULE,
+        prelude_builtin_module: crate::source_less_lookup::PRELUDE_BUILTIN_MODULE,
+        builtin_type_syntax: crate::type_syntax::BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
         builtin_adts,
     };
 
@@ -102,6 +105,9 @@ fn production_adt_registry_fails_when_standard_symbol_publication_fails() {
         compatibility_prelude: &[],
         self_hosting_prelude: &[],
         compiler_adapters: &[],
+        standard_module: crate::standard_names::PRELUDE_MODULE,
+        prelude_builtin_module: crate::source_less_lookup::PRELUDE_BUILTIN_MODULE,
+        builtin_type_syntax: crate::type_syntax::BUILTIN_TYPE_SYNTAX_DESCRIPTORS,
         builtin_adts: raw_builtin_descriptors_for_test(),
     };
 

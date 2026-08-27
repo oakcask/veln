@@ -11,6 +11,43 @@ pub(crate) struct BuiltinTypeSyntaxDescriptor {
     pub(crate) arity: usize,
 }
 
+#[derive(Debug)]
+pub(crate) struct BuiltinTypeSyntaxRegistry {
+    descriptors: Vec<&'static BuiltinTypeSyntaxDescriptor>,
+}
+
+impl BuiltinTypeSyntaxRegistry {
+    pub(crate) fn from_validated_source_less_descriptors(
+        descriptors: &'static [BuiltinTypeSyntaxDescriptor],
+    ) -> Result<Self, InvalidStandardSymbolCase> {
+        for descriptor in descriptors {
+            if descriptor.name_class != SourceLessNameClass::Type {
+                return Err(InvalidStandardSymbolCase {
+                    provider: "type_syntax",
+                    name: descriptor.name.to_string(),
+                    name_class: SourceLessNameClass::Type,
+                    reason: InvalidStandardSymbolReason::InvalidLookupClass,
+                });
+            }
+            validate_source_less_name("type_syntax", descriptor.name, descriptor.name_class)?;
+        }
+        Ok(Self {
+            descriptors: descriptors.iter().collect(),
+        })
+    }
+
+    pub(crate) fn descriptors(&self) -> &[&'static BuiltinTypeSyntaxDescriptor] {
+        &self.descriptors
+    }
+
+    pub(crate) fn arity(&self, name: &str) -> Option<usize> {
+        self.descriptors
+            .iter()
+            .find(|descriptor| descriptor.name == name)
+            .map(|descriptor| descriptor.arity)
+    }
+}
+
 pub(crate) const BUILTIN_TYPE_SYNTAX_DESCRIPTORS: &[BuiltinTypeSyntaxDescriptor] = &[
     builtin_type_syntax_descriptor("Bool", 0),
     builtin_type_syntax_descriptor("Int", 0),
@@ -32,21 +69,6 @@ const fn builtin_type_syntax_descriptor(
         name_class: SourceLessNameClass::Type,
         arity,
     }
-}
-
-pub(crate) fn validate_builtin_type_syntax_descriptors() -> Result<(), InvalidStandardSymbolCase> {
-    for descriptor in BUILTIN_TYPE_SYNTAX_DESCRIPTORS {
-        if descriptor.name_class != SourceLessNameClass::Type {
-            return Err(InvalidStandardSymbolCase {
-                provider: "type_syntax",
-                name: descriptor.name.to_string(),
-                name_class: SourceLessNameClass::Type,
-                reason: InvalidStandardSymbolReason::InvalidLookupClass,
-            });
-        }
-        validate_source_less_name("type_syntax", descriptor.name, descriptor.name_class)?;
-    }
-    Ok(())
 }
 
 pub fn type_annotation_reference_names(text: &str) -> Result<Vec<String>, String> {
@@ -307,10 +329,11 @@ impl<'a> TypeParser<'a> {
     }
 
     fn validate_named_type(&self, name: String, args: Vec<Type>) -> Result<Type, String> {
-        let expected_arity = BUILTIN_TYPE_SYNTAX_DESCRIPTORS
-            .iter()
-            .find(|descriptor| descriptor.name == name)
-            .map(|descriptor| descriptor.arity);
+        let expected_arity =
+            crate::source_less_lookup::with_builtin_type_syntax_registry(|registry| {
+                registry.arity(&name)
+            })
+            .expect("source-less lookup registries are valid");
         if let Some(expected) = expected_arity
             && args.len() != expected
         {
