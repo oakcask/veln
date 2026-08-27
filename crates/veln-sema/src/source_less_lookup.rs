@@ -51,6 +51,10 @@ pub(crate) fn with_builtin_adt_registry<R>(
     with_source_less_lookup_registries(|registries| lookup(&registries.builtin_adts))
 }
 
+pub(crate) fn published_builtin_adt_registry() -> Result<AdtRegistry, InvalidStandardSymbolCase> {
+    with_builtin_adt_registry(Clone::clone)
+}
+
 fn with_source_less_lookup_registries<R>(
     lookup: impl FnOnce(&SourceLessLookupRegistries) -> R,
 ) -> Result<R, InvalidStandardSymbolCase> {
@@ -365,11 +369,11 @@ mod tests {
         };
 
         with_source_less_lookup_provider_set_for_test(provider_set, || {
-            let result = std::panic::catch_unwind(|| AdtRegistry::from_module(&empty_module()));
+            let result = with_builtin_adt_registry(|registry| registry.descriptors().len());
 
             assert!(
                 result.is_err(),
-                "production ADT lookup must not publish when standard-symbol validation fails"
+                "published ADT lookup must not be available when standard-symbol validation fails"
             );
         });
     }

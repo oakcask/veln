@@ -98,11 +98,14 @@ fn production_adt_registry_fails_when_standard_symbol_publication_fails() {
     };
 
     crate::source_less_lookup::with_source_less_lookup_provider_set_for_test(provider_set, || {
-        let result = std::panic::catch_unwind(|| AdtRegistry::from_module(&empty_module()));
+        let result =
+            std::panic::catch_unwind(
+                || crate::types::TypeEnvironment::from_module(&empty_module()),
+            );
 
         assert!(
             result.is_err(),
-            "production ADT lookup must be unavailable when standard-symbol validation fails"
+            "environment ADT lookup must be unavailable when standard-symbol validation fails"
         );
     });
 }
