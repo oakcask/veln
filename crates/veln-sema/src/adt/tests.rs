@@ -33,6 +33,26 @@ fn constructors_match_qualified_and_unqualified_builtin_names() {
 }
 
 #[test]
+fn source_less_provider_inventory_names_builtin_adt_lookup_routes() {
+    let registry = registry();
+    let option = Type::named("Option", vec![Type::Unknown]);
+
+    let descriptor = registry
+        .descriptor_for_type(&option)
+        .expect("built-in ADT type route");
+    assert_eq!(descriptor.type_name, "Option");
+    assert_eq!(descriptor.module_name, None);
+
+    let ConstructorLookup::Found(constructor) =
+        registry.constructor(&path(&["Option", "Some"]), None, &[])
+    else {
+        panic!("built-in ADT constructor route should resolve");
+    };
+    assert_eq!(constructor.descriptor.type_name, "Option");
+    assert_eq!(constructor.variant.name, "Some");
+}
+
+#[test]
 fn invalid_builtin_adt_type_name_reports_descriptor_details() {
     let mut descriptors = builtin_descriptors();
     descriptors[0].type_name = "option".to_string();
@@ -46,6 +66,7 @@ fn invalid_builtin_adt_type_name_reports_descriptor_details() {
     assert_eq!(failure.name, "option");
     assert_eq!(failure.name_class, SourceLessNameClass::Type);
     assert_eq!(failure.required_initial(), "ascii_uppercase");
+    assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
     assert_eq!(diagnostic.span, None);
     assert_eq!(
         diagnostic.details.to_json(),
@@ -66,6 +87,99 @@ fn invalid_builtin_adt_constructor_name_prevents_registry_publication() {
     assert_eq!(failure.name, "some");
     assert_eq!(failure.name_class, SourceLessNameClass::Constructor);
     assert_eq!(failure.required_initial(), "ascii_uppercase");
+    assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
+}
+
+#[test]
+fn duplicate_builtin_adt_type_key_reports_lookup_key_failure() {
+    let mut descriptors = builtin_descriptors();
+    let duplicate = descriptors[0].clone();
+    descriptors.push(duplicate);
+
+    let failure =
+        validate_adt_lookup_descriptors("adt", &descriptors).expect_err("duplicate ADT type key");
+    let diagnostic = failure.diagnostic();
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "Option");
+    assert_eq!(failure.name_class, SourceLessNameClass::Type);
+    assert_eq!(failure.required_initial(), "ascii_uppercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        diagnostic.message,
+        "compiler-provided type lookup key `Option` from `adt` is duplicated"
+    );
+    assert_eq!(
+        diagnostic.details.to_json(),
+        "{\"provider\":\"adt\",\"name\":\"Option\",\"name_class\":\"type\",\"required_initial\":\"ascii_uppercase\"}"
+    );
+}
+
+#[test]
+fn duplicate_builtin_adt_constructor_key_reports_lookup_key_failure() {
+    let mut descriptors = builtin_descriptors();
+    let duplicate = descriptors[0].variants[0].clone();
+    descriptors[0].variants.push(duplicate);
+
+    let failure = validate_adt_lookup_descriptors("adt", &descriptors)
+        .expect_err("duplicate ADT constructor key");
+    let diagnostic = failure.diagnostic();
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "Option::Some");
+    assert_eq!(failure.name_class, SourceLessNameClass::Constructor);
+    assert_eq!(failure.required_initial(), "ascii_uppercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        diagnostic.message,
+        "compiler-provided constructor lookup key `Option::Some` from `adt` is duplicated"
+    );
+    assert_eq!(
+        diagnostic.details.to_json(),
+        "{\"provider\":\"adt\",\"name\":\"Option::Some\",\"name_class\":\"constructor\",\"required_initial\":\"ascii_uppercase\"}"
+    );
+}
+
+#[test]
+fn invalid_injected_adt_descriptor_does_not_publish_lookup_registry() {
+    let mut descriptors = builtin_descriptors();
+    descriptors[0].variants[0].name = "some".to_string();
+
+    let failure = AdtRegistry::from_validated_parts(descriptors, std::collections::BTreeMap::new())
+        .expect_err("invalid injected ADT descriptor");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "some");
+    assert_eq!(failure.name_class, SourceLessNameClass::Constructor);
+    assert_eq!(failure.reason, InvalidStandardSymbolReason::InvalidCase);
+}
+
+#[test]
+fn duplicate_injected_adt_constructor_does_not_publish_lookup_registry() {
+    let mut descriptors = builtin_descriptors();
+    let duplicate = descriptors[0].variants[0].clone();
+    descriptors[0].variants.push(duplicate);
+
+    let failure = AdtRegistry::from_validated_parts(descriptors, std::collections::BTreeMap::new())
+        .expect_err("duplicate injected ADT constructor");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "adt");
+    assert_eq!(failure.name, "Option::Some");
+    assert_eq!(failure.name_class, SourceLessNameClass::Constructor);
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
 }
 
 #[test]

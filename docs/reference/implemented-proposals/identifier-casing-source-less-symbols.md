@@ -19,12 +19,16 @@ the span-less `toolchain.invalid_symbol_case` internal failure. Details include
 or duplicate lookup keys do not produce source `name.invalid_case` diagnostics
 and do not reach lookup. The diagnostic kind is `toolchain`, so command and
 adapter outputs keep the failure separate from source name diagnostics.
+Duplicate lookup-key failures keep the same diagnostic id and details, and
+their primary message states that the lookup key is duplicated.
 
 Qualified lookup keys are the exact module-name and symbol-name pair. Prelude
 lookup keys are the exact source prelude name. Qualified `prelude_builtin`
 compiler-adapter names and built-in ADT type and constructor descriptors are
 included in this gate. Shared standard-environment initialization validates
 the registries before publishing reusable command or adapter state.
+`prelude_builtin` lookup and built-in ADT lookup consume only validated
+published registry state.
 
 Compiler temporaries and bookkeeping-only names that cannot participate in
 source lookup stay outside the source lookup validation gate. Embedded Veln

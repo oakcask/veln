@@ -31,9 +31,11 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
 - Source-less compiler lookup registry casing failures use span-less
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
   `name_class`, and `required_initial` fields and diagnostic kind
-  `toolchain`. Focused `veln-sema` `standard_symbols` and `adt` tests define
-  descriptor, atomic-failure, lookup-key, and lookup isolation behavior for
-  runtime, prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
+  `toolchain`. Duplicate lookup-key failures use the same id and details, and
+  their human primary message states that the lookup key is duplicated.
+  Focused `veln-sema` `standard_symbols` and `adt` tests define descriptor,
+  atomic-failure, lookup-key, and lookup isolation behavior for runtime,
+  prelude, `prelude_builtin`, and built-in ADT lookup descriptors.
 - Local inference diagnostic details:
   [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:

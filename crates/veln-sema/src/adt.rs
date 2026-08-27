@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::OnceLock;
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
@@ -8,7 +9,8 @@ use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::standard_symbols::{
-    InvalidStandardSymbolCase, SourceLessNameClass, validate_source_less_name,
+    InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
+    validate_source_less_name,
 };
 use crate::type_syntax::parse_type_or_unknown;
 
@@ -153,6 +155,15 @@ impl AdtRegistry {
 
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         Self::from_module_with_base(module, None)
+    }
+
+    #[cfg(test)]
+    fn from_validated_parts(
+        descriptors: Vec<AdtDescriptor>,
+        companion_access_targets: BTreeMap<String, String>,
+    ) -> Result<Self, InvalidStandardSymbolCase> {
+        validate_adt_lookup_descriptors("adt", &descriptors)?;
+        Ok(Self::from_parts(descriptors, companion_access_targets))
     }
 
     pub(crate) fn from_module_with_base(module: &SurfaceModule, base: Option<&Self>) -> Self {
@@ -751,15 +762,27 @@ pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
 }
 
 pub(crate) fn validate_builtin_adt_descriptors() -> Result<(), InvalidStandardSymbolCase> {
-    let descriptors = build_builtin_descriptors();
-    validate_adt_lookup_descriptors("adt", &descriptors)
+    validated_builtin_descriptors().map(|_| ())
 }
 
 fn checked_builtin_descriptors() -> Vec<AdtDescriptor> {
-    let descriptors = build_builtin_descriptors();
-    validate_adt_lookup_descriptors("adt", &descriptors)
-        .expect("built-in ADT descriptors are valid");
-    descriptors
+    validated_builtin_descriptors()
+        .expect("built-in ADT descriptors are valid")
+        .clone()
+}
+
+fn validated_builtin_descriptors() -> Result<&'static Vec<AdtDescriptor>, InvalidStandardSymbolCase>
+{
+    static DESCRIPTORS: OnceLock<Result<Vec<AdtDescriptor>, InvalidStandardSymbolCase>> =
+        OnceLock::new();
+    DESCRIPTORS
+        .get_or_init(|| {
+            let descriptors = build_builtin_descriptors();
+            validate_adt_lookup_descriptors("adt", &descriptors)?;
+            Ok(descriptors)
+        })
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 #[cfg(test)]
@@ -2703,8 +2726,9 @@ fn validate_adt_lookup_descriptors(
         )) {
             return Err(InvalidStandardSymbolCase {
                 provider,
-                name: descriptor.type_name.clone(),
+                name: adt_type_lookup_key(descriptor),
                 name_class: SourceLessNameClass::Type,
+                reason: InvalidStandardSymbolReason::DuplicateLookupKey,
             });
         }
         for variant in &descriptor.variants {
@@ -2716,13 +2740,33 @@ fn validate_adt_lookup_descriptors(
             )) {
                 return Err(InvalidStandardSymbolCase {
                     provider,
-                    name: variant.name.clone(),
+                    name: adt_constructor_lookup_key(descriptor, variant),
                     name_class: SourceLessNameClass::Constructor,
+                    reason: InvalidStandardSymbolReason::DuplicateLookupKey,
                 });
             }
         }
     }
     Ok(())
+}
+
+fn adt_type_lookup_key(descriptor: &AdtDescriptor) -> String {
+    match descriptor.module_name.as_deref() {
+        Some(module_name) => format!("{module_name}::{}", descriptor.type_name),
+        None => descriptor.type_name.clone(),
+    }
+}
+
+fn adt_constructor_lookup_key(
+    descriptor: &AdtDescriptor,
+    variant: &AdtVariantDescriptor,
+) -> String {
+    match descriptor.module_name.as_deref() {
+        Some(module_name) => {
+            format!("{module_name}::{}::{}", descriptor.type_name, variant.name)
+        }
+        None => format!("{}::{}", descriptor.type_name, variant.name),
+    }
 }
 
 fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {

@@ -17,10 +17,12 @@ compiler-provided source lookup descriptor has casing that is invalid for its
 source-less name class or has a duplicate lookup key. Details contain
 `provider`, `name`, `name_class`, and `required_initial`. The diagnostic kind
 is `toolchain`. The failure is not converted to source `name.invalid_case`.
-Focused `veln-sema` `standard_symbols` and `adt` tests pin the
-generated-table, injected-descriptor, duplicate-key, atomic-failure,
-checked-lookup, and lookup-isolation evidence for runtime, prelude,
-`prelude_builtin`, and built-in ADT lookup descriptors.
+Duplicate lookup-key failures use the same stable detail fields, and their
+human primary message states that the lookup key is duplicated. Focused
+`veln-sema` `standard_symbols` and `adt` tests pin the generated-table,
+injected-descriptor, duplicate-key, atomic-failure, checked-lookup, and
+lookup-isolation evidence for runtime, prelude, `prelude_builtin`, and
+built-in ADT lookup descriptors.
 
 ## Current Schema Diagnostic Boundary
 

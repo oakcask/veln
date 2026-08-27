@@ -70,12 +70,67 @@ fn source_lookup_registry_accepts_current_generated_tables() {
             .any(|symbol| symbol.name == "float_add")
     );
     assert!(registry.prelude.iter().any(|symbol| symbol.name == "byte"));
+    assert_eq!(
+        registry.compiler_adapters.len(),
+        COMPILER_ADAPTER_SYMBOLS.len()
+    );
+    assert!(
+        registry
+            .compiler_adapters
+            .iter()
+            .any(|symbol| symbol.name == "byte_decode_http2_frame")
+    );
     assert!(
         !registry
             .prelude
             .iter()
             .any(|symbol| private_compiler_adapter_name(symbol.name))
     );
+}
+
+#[test]
+fn source_less_provider_inventory_names_every_lookup_route() {
+    let routes = [
+        ("runtime", "stdio::println", SourceLessNameClass::Function),
+        ("prelude", "float_add", SourceLessNameClass::Function),
+        (
+            "prelude_builtin",
+            "prelude_builtin::byte",
+            SourceLessNameClass::Function,
+        ),
+    ];
+
+    let registry = standard_symbol_registry().expect("standard symbol registry");
+
+    for (provider, key, class) in routes {
+        match provider {
+            "runtime" => {
+                let segments = key.split("::").map(str::to_string).collect::<Vec<_>>();
+                assert_eq!(
+                    registry
+                        .qualified_symbol(&segments)
+                        .map(|symbol| symbol.name_class),
+                    Some(class)
+                );
+            }
+            "prelude" => {
+                assert_eq!(
+                    registry.prelude_symbol(key).map(|symbol| symbol.name_class),
+                    Some(class)
+                );
+            }
+            "prelude_builtin" => {
+                let name = key.strip_prefix("prelude_builtin::").expect("adapter key");
+                assert_eq!(
+                    registry
+                        .compiler_adapter_symbol(name)
+                        .map(|symbol| symbol.name_class),
+                    Some(class)
+                );
+            }
+            _ => unreachable!("covered provider route"),
+        }
+    }
 }
 
 #[test]
@@ -163,6 +218,7 @@ fn checked_lookup_reports_invalid_registry_instead_of_lookup_miss() {
         provider: "prelude",
         name: "Float_add".to_string(),
         name_class: SourceLessNameClass::Function,
+        reason: InvalidStandardSymbolReason::InvalidCase,
     });
     let lookup = checked_prelude_symbol_in_registry(invalid_registry, "missing_name");
     let failure = lookup.expect_err("invalid registry blocks lookup");
@@ -180,6 +236,7 @@ fn checked_qualified_lookup_reports_invalid_registry_instead_of_lookup_miss() {
         provider: "runtime",
         name: "Std".to_string(),
         name_class: SourceLessNameClass::Module,
+        reason: InvalidStandardSymbolReason::InvalidCase,
     });
     let lookup = checked_qualified_symbol_in_registry(invalid_registry, &path("stdio", "println"));
     let failure = lookup.expect_err("invalid registry blocks qualified lookup");
@@ -224,6 +281,14 @@ fn duplicate_qualified_lookup_key_fails_atomically() {
     assert_eq!(failure.name, "stdio::print");
     assert_eq!(failure.name_class, SourceLessNameClass::Function);
     assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup key `stdio::print` from `runtime` is duplicated"
+    );
 }
 
 #[test]
@@ -259,6 +324,61 @@ fn duplicate_prelude_lookup_key_fails_atomically() {
     assert_eq!(failure.name, "float_add");
     assert_eq!(failure.name_class, SourceLessNameClass::Function);
     assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup key `float_add` from `prelude` is duplicated"
+    );
+}
+
+#[test]
+fn duplicate_prelude_builtin_lookup_key_fails_atomically() {
+    const DUPLICATE_ADAPTERS: &[StandardSymbolDescriptor] = &[
+        StandardSymbolDescriptor {
+            module: None,
+            name: "byte_decode_http2_frame",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+        StandardSymbolDescriptor {
+            module: None,
+            name: "byte_decode_http2_frame",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+    ];
+
+    let failure = build_standard_symbol_registry(&[], &[], &[], DUPLICATE_ADAPTERS)
+        .expect_err("duplicate prelude_builtin lookup key");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "prelude_builtin::byte_decode_http2_frame");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup key `prelude_builtin::byte_decode_http2_frame` from `compiler_adapter` is duplicated"
+    );
+    assert!(
+        checked_compiler_adapter_symbol_in_registry(Err(failure), "byte_decode_http2_frame")
+            .is_err()
+    );
 }
 
 #[test]
@@ -284,6 +404,26 @@ fn prelude_builtin_compiler_adapter_names_are_validated_but_not_bare_prelude() {
     assert_eq!(failure.name, "Internal");
     assert_eq!(failure.name_class, SourceLessNameClass::Module);
     assert_eq!(failure.required_initial(), "ascii_lowercase");
+}
+
+#[test]
+fn checked_prelude_builtin_lookup_reports_invalid_registry_instead_of_table_match() {
+    let invalid_registry = Err(InvalidStandardSymbolCase {
+        provider: "compiler_adapter",
+        name: "prelude_builtin::byte_decode_http2_frame".to_string(),
+        name_class: SourceLessNameClass::Function,
+        reason: InvalidStandardSymbolReason::DuplicateLookupKey,
+    });
+    let lookup =
+        checked_compiler_adapter_symbol_in_registry(invalid_registry, "byte_decode_http2_frame");
+    let failure = lookup.expect_err("invalid registry blocks prelude_builtin lookup");
+
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "prelude_builtin::byte_decode_http2_frame");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
 }
 
 #[test]

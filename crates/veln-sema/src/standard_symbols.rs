@@ -68,6 +68,14 @@ pub(crate) struct InvalidStandardSymbolCase {
     pub(crate) provider: &'static str,
     pub(crate) name: String,
     pub(crate) name_class: SourceLessNameClass,
+    pub(crate) reason: InvalidStandardSymbolReason,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum InvalidStandardSymbolReason {
+    InvalidCase,
+    InvalidLookupKey,
+    DuplicateLookupKey,
 }
 
 impl InvalidStandardSymbolCase {
@@ -80,17 +88,32 @@ impl InvalidStandardSymbolCase {
     }
 
     pub(crate) fn diagnostic(&self) -> Diagnostic {
-        Diagnostic::new(
-            self.code(),
-            Severity::Error,
-            DiagnosticKind::Toolchain,
-            format!(
+        let message = match self.reason {
+            InvalidStandardSymbolReason::InvalidCase => format!(
                 "compiler-provided {} `{}` from `{}` must start with an {} letter",
                 self.name_class.as_str(),
                 self.name,
                 self.provider,
                 self.name_class.required_initial_description()
             ),
+            InvalidStandardSymbolReason::InvalidLookupKey => format!(
+                "compiler-provided {} `{}` from `{}` has an invalid source lookup key",
+                self.name_class.as_str(),
+                self.name,
+                self.provider
+            ),
+            InvalidStandardSymbolReason::DuplicateLookupKey => format!(
+                "compiler-provided {} lookup key `{}` from `{}` is duplicated",
+                self.name_class.as_str(),
+                self.name,
+                self.provider
+            ),
+        };
+        Diagnostic::new(
+            self.code(),
+            Severity::Error,
+            DiagnosticKind::Toolchain,
+            message,
             None,
             JsonValue::object([
                 ("provider", JsonValue::string(self.provider)),
@@ -109,6 +132,7 @@ impl InvalidStandardSymbolCase {
 pub(crate) struct StandardSymbolRegistry {
     qualified: Vec<&'static StandardSymbolDescriptor>,
     prelude: Vec<&'static StandardSymbolDescriptor>,
+    compiler_adapters: Vec<&'static StandardSymbolDescriptor>,
 }
 
 impl StandardSymbolRegistry {
@@ -124,6 +148,13 @@ impl StandardSymbolRegistry {
 
     fn prelude_symbol(&self, name: &str) -> Option<&'static StandardSymbolDescriptor> {
         self.prelude
+            .iter()
+            .copied()
+            .find(|symbol| symbol.name == name)
+    }
+
+    fn compiler_adapter_symbol(&self, name: &str) -> Option<&'static StandardSymbolDescriptor> {
+        self.compiler_adapters
             .iter()
             .copied()
             .find(|symbol| symbol.name == name)
@@ -249,6 +280,7 @@ const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
     StandardType::Named("Deadline"),
     StandardType::Named("CancelToken"),
 ];
+const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
 #[cfg(test)]
 const STANDARD_PACKAGE_PRIVATE_HELPERS: &[&str] = &[
     "vec_map_step",
@@ -1133,10 +1165,7 @@ pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescri
 pub(crate) fn compiler_adapter_symbol_checked(
     name: &str,
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
-    standard_symbol_registry()?;
-    Ok(COMPILER_ADAPTER_SYMBOLS
-        .iter()
-        .find(|symbol| symbol.name == name))
+    checked_compiler_adapter_symbol_in_registry(standard_symbol_registry(), name)
 }
 
 pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
@@ -1155,6 +1184,13 @@ fn checked_prelude_symbol_in_registry(
     name: &str,
 ) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
     Ok(registry?.prelude_symbol(name))
+}
+
+fn checked_compiler_adapter_symbol_in_registry(
+    registry: Result<&StandardSymbolRegistry, InvalidStandardSymbolCase>,
+    name: &str,
+) -> Result<Option<&'static StandardSymbolDescriptor>, InvalidStandardSymbolCase> {
+    Ok(registry?.compiler_adapter_symbol(name))
 }
 
 fn private_compiler_adapter_name(name: &str) -> bool {
@@ -1209,9 +1245,11 @@ fn build_standard_symbol_registry(
     let mut registry = StandardSymbolRegistry {
         qualified: Vec::new(),
         prelude: Vec::new(),
+        compiler_adapters: Vec::new(),
     };
     let mut qualified_keys = BTreeSet::new();
     let mut prelude_keys = BTreeSet::new();
+    let mut compiler_adapter_keys = BTreeSet::new();
 
     for descriptor in qualified {
         validate_source_lookup_descriptor("runtime", descriptor)?;
@@ -1228,6 +1266,12 @@ fn build_standard_symbol_registry(
     }
     for descriptor in compiler_adapters {
         validate_source_lookup_descriptor("compiler_adapter", descriptor)?;
+        validate_prelude_builtin_lookup_key(
+            "compiler_adapter",
+            descriptor,
+            &mut compiler_adapter_keys,
+        )?;
+        registry.compiler_adapters.push(descriptor);
         if !private_compiler_adapter_name(descriptor.name) {
             validate_prelude_lookup_key("compiler_adapter", descriptor, &mut prelude_keys)?;
             registry.prelude.push(descriptor);
@@ -1247,6 +1291,7 @@ fn validate_qualified_lookup_key(
             provider,
             name: descriptor.name.to_string(),
             name_class: SourceLessNameClass::Module,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
         });
     };
     if keys.insert((module, descriptor.name)) {
@@ -1256,6 +1301,7 @@ fn validate_qualified_lookup_key(
             provider,
             name: format!("{module}::{}", descriptor.name),
             name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::DuplicateLookupKey,
         })
     }
 }
@@ -1265,11 +1311,49 @@ fn validate_prelude_lookup_key(
     descriptor: &StandardSymbolDescriptor,
     keys: &mut BTreeSet<&'static str>,
 ) -> Result<(), InvalidStandardSymbolCase> {
-    if descriptor.module.is_some() || !keys.insert(descriptor.name) {
+    if descriptor.module.is_some() {
         return Err(InvalidStandardSymbolCase {
             provider,
             name: descriptor.name.to_string(),
             name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        });
+    }
+    if !keys.insert(descriptor.name) {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::DuplicateLookupKey,
+        });
+    }
+    Ok(())
+}
+
+fn validate_prelude_builtin_lookup_key(
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+    keys: &mut BTreeSet<(&'static str, &'static str)>,
+) -> Result<(), InvalidStandardSymbolCase> {
+    validate_source_less_name(
+        provider,
+        PRELUDE_BUILTIN_MODULE,
+        SourceLessNameClass::Module,
+    )?;
+    if descriptor.module.is_some() {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{PRELUDE_BUILTIN_MODULE}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        });
+    }
+    if !keys.insert((PRELUDE_BUILTIN_MODULE, descriptor.name)) {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{PRELUDE_BUILTIN_MODULE}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::DuplicateLookupKey,
         });
     }
     Ok(())
@@ -1299,6 +1383,7 @@ pub(crate) fn validate_source_less_name(
             provider,
             name: name.to_string(),
             name_class,
+            reason: InvalidStandardSymbolReason::InvalidCase,
         })
     }
 }

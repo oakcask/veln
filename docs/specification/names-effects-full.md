@@ -79,11 +79,14 @@ source prelude name. Qualified `prelude_builtin` compiler-adapter names and
 built-in ADT type and constructor descriptors are included in this gate.
 Invalid descriptors and duplicate lookup keys fail atomically with span-less
 `toolchain.invalid_symbol_case`; no partial registry is available, and the
-failure is not reported as source `name.invalid_case`. The diagnostic kind is
-`toolchain`. Compiler temporaries and bookkeeping-only names that cannot
-participate in source lookup stay outside this registry gate. Embedded Veln
-prelude sources remain source-written and continue to use ordinary source
-casing diagnostics.
+failure is not reported as source `name.invalid_case`. Duplicate lookup-key
+failures keep the same diagnostic id and stable details, and their primary
+message states that the lookup key is duplicated. The diagnostic kind is
+`toolchain`. `prelude_builtin` lookup and built-in ADT lookup consume only
+validated published registry state. Compiler temporaries and bookkeeping-only
+names that cannot participate in source lookup stay outside this registry
+gate. Embedded Veln prelude sources remain source-written and continue to use
+ordinary source casing diagnostics.
 
 Current duplicate checks reject:
 

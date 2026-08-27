@@ -169,13 +169,16 @@ compiler-known calls.
   span-less `toolchain.invalid_symbol_case` internal failure. The failure
   details contain `provider`, `name`, `name_class`, and `required_initial`; it
   has diagnostic kind `toolchain` and is not reported as source
-  `name.invalid_case`. Compiler temporaries and bookkeeping-only names that
-  cannot participate in source lookup stay outside this gate. The focused
+  `name.invalid_case`. Duplicate lookup-key failures keep the same diagnostic
+  id and details but their primary message states that the lookup key is
+  duplicated. Compiler temporaries and bookkeeping-only names that cannot
+  participate in source lookup stay outside this gate. The focused
   `veln-sema` `standard_symbols` and `adt` tests define the generated-table,
   injected-descriptor, duplicate-key, atomic-failure, checked-lookup, and
-  lookup-isolation evidence for this boundary. Shared standard-environment
-  initialization validates the registries before publishing reusable command
-  or adapter state.
+  lookup-isolation evidence for this boundary. `prelude_builtin` lookup and
+  built-in ADT lookup consume only validated published registry state. Shared
+  standard-environment initialization validates the registries before
+  publishing reusable command or adapter state.
 
 - Namespaces, shadowing, duplicate checks, module ownership, external package
   imports, and manifest export checks:
