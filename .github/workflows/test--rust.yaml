@@ -18,7 +18,6 @@ on:
       - tools/**/*.rs
       - workflow-scripts/plan-nextest-shards.mjs
       - workflow-scripts/prune-rust-test-build-caches.mjs
-      - workflow-scripts/merge-lcov.mjs
   pull_request:
     paths:
       - .github/workflows/test--rust.yaml
@@ -34,7 +33,6 @@ on:
       - tools/**/*.rs
       - workflow-scripts/plan-nextest-shards.mjs
       - workflow-scripts/prune-rust-test-build-caches.mjs
-      - workflow-scripts/merge-lcov.mjs
 
 permissions:
   actions: read
@@ -129,12 +127,14 @@ jobs:
         with:
           pattern: nextest-coverage-*
           path: target/coverage-shards
-      - name: Merge Rust shard coverage reports
-        run: node workflow-scripts/merge-lcov.mjs target/coverage-shards target/coverage/lcov.info
-      - name: Install LCOV HTML renderer
+      - name: Install LCOV and merge every Rust coverage shard
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends "lcov=${LCOV_VERSION}"
+          mkdir -p target/coverage
+          lcov --branch-coverage \
+            --add-tracefile 'target/coverage-shards/*/lcov.info' \
+            --output-file target/coverage/lcov.info
       - name: Generate browsable Rust coverage report
         run: |
           genhtml target/coverage/lcov.info \
