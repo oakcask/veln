@@ -40,7 +40,7 @@ impl StandardEnvironmentCache {
     fn input_for_standard_modules(
         &self,
         module_names: &BTreeSet<String>,
-    ) -> Result<ReusableStandardInput, Diagnostic> {
+    ) -> Result<ReusableStandardInput, Box<Diagnostic>> {
         validate_standard_symbol_registry_diagnostic()?;
         let mut inputs = self
             .inputs
@@ -159,7 +159,9 @@ fn analyze_project_with_standard_provider(
     mut project: Project,
     doctest_mode: DoctestMode,
     mut timings: Option<&mut Vec<AnalysisTiming>>,
-    standard_for_module: impl FnOnce(&BTreeSet<String>) -> Result<ReusableStandardInput, Diagnostic>,
+    standard_for_module: impl FnOnce(
+        &BTreeSet<String>,
+    ) -> Result<ReusableStandardInput, Box<Diagnostic>>,
 ) -> ProjectAnalysis {
     let surface_start = std::time::Instant::now();
     let doctests = match doctest_mode {
@@ -195,7 +197,7 @@ fn analyze_project_with_standard_provider(
                 doctest_expectations,
                 source_diagnostics,
                 semantic_diagnostics: Vec::new(),
-                checked: lowered_internal_failure(diagnostic),
+                checked: lowered_internal_failure(*diagnostic),
                 expected_doctest_failures,
                 reachability_cache: ReachabilityCache::default(),
             };
@@ -301,7 +303,7 @@ fn analyze_project_with_captured_dependencies(
                 doctest_expectations,
                 source_diagnostics,
                 semantic_diagnostics: Vec::new(),
-                checked: lowered_internal_failure(diagnostic),
+                checked: lowered_internal_failure(*diagnostic),
                 expected_doctest_failures,
                 reachability_cache: ReachabilityCache::default(),
             };
@@ -391,7 +393,7 @@ impl ProjectAnalysis {
                 &self.selected_standard,
                 &standard.environment,
             ),
-            Err(diagnostic) => lowered_internal_failure(diagnostic),
+            Err(diagnostic) => lowered_internal_failure(*diagnostic),
         };
         (
             ReachableEntryAnalysis { module, lowered },
@@ -409,7 +411,7 @@ impl ProjectAnalysis {
 
 fn standard_environment_for_modules(
     module_names: &BTreeSet<String>,
-) -> Result<ReusableStandardInput, Diagnostic> {
+) -> Result<ReusableStandardInput, Box<Diagnostic>> {
     STANDARD_ENVIRONMENTS
         .get_or_init(StandardEnvironmentCache::new)
         .input_for_standard_modules(module_names)
@@ -419,7 +421,7 @@ fn standard_environment_for_modules(
 fn standard_environment_with_test_cache(
     cache: &TestStandardEnvironmentCache,
     module_names: &BTreeSet<String>,
-) -> Result<ReusableStandardInput, Diagnostic> {
+) -> Result<ReusableStandardInput, Box<Diagnostic>> {
     validate_standard_symbol_registry_diagnostic()?;
     let mut inputs = cache
         .inputs
@@ -471,7 +473,7 @@ mod tests {
 
         let analysis =
             analyze_project_with_standard_provider(project, DoctestMode::Exclude, None, |_| {
-                Err(invalid_standard_symbol_case_diagnostic())
+                Err(Box::new(invalid_standard_symbol_case_diagnostic()))
             });
 
         assert!(analysis.source_diagnostics().is_empty());

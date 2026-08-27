@@ -108,13 +108,13 @@ pub fn prepare_reusable_standard_surface_module_environment(
     prepare_reusable_standard_environment(module)
 }
 
-pub fn validate_standard_symbol_registry_diagnostic() -> Result<(), Diagnostic> {
-    validate_standard_symbol_registry().map_err(|failure| failure.diagnostic())
+pub fn validate_standard_symbol_registry_diagnostic() -> Result<(), Box<Diagnostic>> {
+    validate_standard_symbol_registry().map_err(|failure| Box::new(failure.diagnostic()))
 }
 
 pub fn try_prepare_reusable_standard_surface_module_environment(
     module: &SurfaceModule,
-) -> Result<ReusableStandardEnvironment, Diagnostic> {
+) -> Result<ReusableStandardEnvironment, Box<Diagnostic>> {
     validate_standard_symbol_registry_diagnostic()?;
     Ok(prepare_reusable_standard_environment(module))
 }
@@ -127,7 +127,7 @@ pub fn prepare_current_reusable_standard_surface_module_environment(
 
 pub fn try_prepare_current_reusable_standard_surface_module_environment(
     module: &SurfaceModule,
-) -> Result<ReusableStandardEnvironment, Diagnostic> {
+) -> Result<ReusableStandardEnvironment, Box<Diagnostic>> {
     validate_standard_symbol_registry_diagnostic()?;
     Ok(prepare_current_reusable_standard_environment(module))
 }
