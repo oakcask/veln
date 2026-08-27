@@ -1,0 +1,84 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[stdout]
+contains = [
+  "\"newText\":\"Entry\"",
+  "\"newText\":\"Created\"",
+  "\"newText\":\"adapt\"",
+  "\"newText\":\"input\"",
+]
+
+[[lsp_assert]]
+id = 6
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/code"
+equals = "rename.invalid_case"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/symbol_class"
+equals = "type"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/requested_name"
+equals = "entry"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/required_initial"
+equals = "ascii_uppercase"
+
+[[lsp_assert]]
+id = 7
+path = "/error/data/details/symbol_class"
+equals = "constructor"
+
+[[lsp_assert]]
+id = 7
+path = "/error/data/details/requested_name"
+equals = "created"
+
+[[lsp_assert]]
+id = 7
+path = "/error/data/details/required_initial"
+equals = "ascii_uppercase"
+
+[[lsp_assert]]
+id = 8
+path = "/error/data/details/symbol_class"
+equals = "function"
+
+[[lsp_assert]]
+id = 8
+path = "/error/data/details/requested_name"
+equals = "Adapt"
+
+[[lsp_assert]]
+id = 8
+path = "/error/data/details/required_initial"
+equals = "ascii_lowercase"
+
+[[lsp_assert]]
+id = 9
+path = "/error/data/details/symbol_class"
+equals = "value_binding"
+
+[[lsp_assert]]
+id = 9
+path = "/error/data/details/requested_name"
+equals = "Input"
+
+[[lsp_assert]]
+id = 9
+path = "/error/data/details/required_initial"
+equals = "ascii_lowercase"

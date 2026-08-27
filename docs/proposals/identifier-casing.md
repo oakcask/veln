@@ -41,7 +41,8 @@ implementation record is
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 
 The remaining proposal work covers module identities, qualified-use segment
-casing, rename and recovery navigation, and source-less registries. The
+casing, recovery navigation, repair rename, rename conflict prediction, and
+source-less registries. The
 completed public alias target-leaf casing boundary is specified by
 [Names And Effects](../specification/names-effects.md) and checked by the
 `identifier-casing-public-alias-targets-json` and
@@ -59,9 +60,13 @@ The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
 implemented source foundation. Workspace snapshot and open-document overlay
 casing diagnostics and invalid-symbol index exclusion are also current
-language-service behavior. This proposal still owns recovery navigation and
-rename evidence for the remaining casing surfaces until those rows are
-implemented.
+language-service behavior. LSP rename now rejects class-changing replacements
+for selected valid workspace type, constructor, function, and value-binding
+symbols as specified by [Editor Support](../specification/editor-support.md)
+and checked by the `identifier-casing-rename-boundary` example. This proposal
+still owns recovery navigation, repair rename, rename conflict prediction, MCP
+rename mapping, and rename evidence for the remaining casing surfaces until
+those rows are implemented.
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
@@ -84,9 +89,11 @@ only the unimplemented casing extensions.
 
 [Names And Effects](../specification/names-effects.md) is the source of truth
 for current source-written type, constructor, function, test, public
-type-alias, public function-alias, value-binding declaration casing, and public
-alias target-leaf casing. This proposal now specifies only identifier-casing
-work that remains incomplete.
+type-alias, public function-alias, value-binding declaration casing, public
+alias target-leaf casing, and class-preserving LSP rename validation for
+selected valid workspace type, constructor, function, and value-binding
+symbols. This proposal now specifies only identifier-casing work that remains
+incomplete.
 
 The remaining proposal keeps the same class initials: type and constructor
 roles require an ASCII uppercase initial, and module, function, and
@@ -97,7 +104,6 @@ applies those initials to these not-yet-current surfaces:
 | --- | --- |
 | Module identities | Every written, import-path, import-alias, and source-path-derived module segment starts with an ASCII lowercase letter. |
 | Qualified uses | Every written segment with a syntax-fixed or resolution-fixed role satisfies that role's name class. Unresolved or ambiguous intermediate segments are not guessed from spelling. |
-| Rename requests | A requested replacement spelling satisfies the selected symbol's existing class before edits are returned. |
 | Source-less registries | A compiler-provided source-visible symbol carries an explicit name class and has a spelling valid for that class before the registry is published. |
 
 Name lookup remains case-sensitive. Identifiers outside the current
@@ -329,20 +335,15 @@ structural parse or module diagnostics precede `name.invalid_case`, which
 precedes duplicate, ambiguity, kind, unresolved, type, and lowering
 diagnostics.
 
-### Rename Boundary
+### Remaining Rename Boundary
 
-Rename validates the requested spelling against the selected declaration's
-name class before it produces edits. It does not reinterpret the symbol class
-and does not return edits that introduce a casing violation. A quarantined
-`fn Build` can therefore be repaired to `build`, but a valid function `parse`
-cannot be renamed to `Parse`.
-
-A class-changing request fails with shared code `rename.invalid_case` and
-details containing the symbol class, requested name, and required initial
-class. LSP maps this domain failure to JSON-RPC invalid params (`-32602`). A
-future MCP rename operation returns an MCP tool error with the same code and
-details. Neither adapter substitutes a successful empty edit or returns partial
-edits.
+Current LSP rename validates selected valid workspace type, constructor,
+function, and value-binding symbols before it produces edits. That implemented
+behavior is specified by [Editor Support](../specification/editor-support.md).
+The remaining rename proposal covers repair rename through quarantined
+invalid-name recovery records, predictable conflict rejection, source-path
+module rename exclusion, MCP error mapping, and the deferred module,
+qualified-use, and source-less registry surfaces.
 
 A repair rename edits the declaration and every occurrence linked to the same
 unique recovery symbol, including an occurrence whose initial-derived valid
@@ -402,8 +403,9 @@ loaded and unloaded direct dependencies, are specified by
 selection boundary is complete and recorded in
 [Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md).
 The remaining proposal scope is limited to module identity, qualified-use,
-source-less registry, and deferred language-service consumers listed in the
-acceptance model.
+source-less registry, recovery navigation, repair rename, rename conflict
+prediction, MCP rename mapping, and deferred language-service consumers listed
+in the acceptance model.
 
 No backend receives a remaining-scope module identity, registry entry, or
 recovery record with an invalid case. The planned command fixtures are
@@ -418,7 +420,8 @@ authoritative for the exact selection boundary when command behavior differs.
 - Preserve current visibility, ambiguity, and value-shadowing rules within
   each name class.
 - Extend the current source foundation to the remaining module, qualified-use,
-  selection, navigation, and source-less registry surfaces.
+  selection, recovery navigation, repair rename, rename conflict prediction,
+  MCP rename mapping, and source-less registry surfaces.
 
 ## Non-Goals
 
@@ -430,7 +433,7 @@ authoritative for the exact selection boundary when command behavior differs.
 - Renaming schemas, effects, handlers, operations, fields, type parameters, or
   holes as part of this change.
 - Defining unrelated MCP or LSP schemas, coordinates, project scope, or
-  transport errors beyond the rename failure mapping required here.
+  transport errors beyond the remaining rename failure mappings required here.
 
 ## Migration
 
@@ -474,7 +477,7 @@ identifier-casing remainder.
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
-| Request valid, class-changing, conflicting, and invalid-declaration repair renames. | Class-preserving and repair renames return complete linked edits. Class-changing requests return `rename.invalid_case`; predictable collisions return `rename.conflict`; failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service, LSP error-mapping, and planned MCP error-mapping cases. |
+| Request conflicting and invalid-declaration repair renames. | Repair renames return complete linked edits. Predictable collisions return `rename.conflict`; failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service, LSP error-mapping, and planned MCP error-mapping cases. |
 | Register valid and invalid source-less lookup descriptors. | The release-mode registry gate either publishes one complete validated registry or returns `toolchain.invalid_symbol_case`; invalid descriptors never reach lookup, while internal names remain outside the gate. | Generated-table, injected-descriptor, release-mode, atomic-failure, and lookup-isolation tests. |
 | Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module, qualified, or source-less recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module, qualified, source-less registry, definition, references, prepare-rename, and rename surfaces. |
 | Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |

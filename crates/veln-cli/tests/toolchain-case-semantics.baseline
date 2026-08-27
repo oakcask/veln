@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"2b3cf7d52376beb44a4aa8885bd24e5b7729272c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1584
+case_count	1585
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -11154,6 +11154,75 @@ field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":714,"sh
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
 case_digest	"e20888289e5bc22350494a2bdc62ea9c6fd23c072ad44e9b8da6a368dd763b40"
+case	"examples/specification/lsp/identifier-casing-rename-boundary"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	-32602
+field	expectations.lsp_assertions[0].id	6
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/error/code"
+field	expectations.lsp_assertions[10].equals	"ascii_lowercase"
+field	expectations.lsp_assertions[10].id	8
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/error/data/details/required_initial"
+field	expectations.lsp_assertions[11].equals	"value_binding"
+field	expectations.lsp_assertions[11].id	9
+field	expectations.lsp_assertions[11].operation	"equals"
+field	expectations.lsp_assertions[11].path	"/error/data/details/symbol_class"
+field	expectations.lsp_assertions[12].equals	"Input"
+field	expectations.lsp_assertions[12].id	9
+field	expectations.lsp_assertions[12].operation	"equals"
+field	expectations.lsp_assertions[12].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[13].equals	"ascii_lowercase"
+field	expectations.lsp_assertions[13].id	9
+field	expectations.lsp_assertions[13].operation	"equals"
+field	expectations.lsp_assertions[13].path	"/error/data/details/required_initial"
+field	expectations.lsp_assertions[1].equals	"rename.invalid_case"
+field	expectations.lsp_assertions[1].id	6
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/error/data/code"
+field	expectations.lsp_assertions[2].equals	"type"
+field	expectations.lsp_assertions[2].id	6
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/error/data/details/symbol_class"
+field	expectations.lsp_assertions[3].equals	"entry"
+field	expectations.lsp_assertions[3].id	6
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[4].equals	"ascii_uppercase"
+field	expectations.lsp_assertions[4].id	6
+field	expectations.lsp_assertions[4].operation	"equals"
+field	expectations.lsp_assertions[4].path	"/error/data/details/required_initial"
+field	expectations.lsp_assertions[5].equals	"constructor"
+field	expectations.lsp_assertions[5].id	7
+field	expectations.lsp_assertions[5].operation	"equals"
+field	expectations.lsp_assertions[5].path	"/error/data/details/symbol_class"
+field	expectations.lsp_assertions[6].equals	"created"
+field	expectations.lsp_assertions[6].id	7
+field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[7].equals	"ascii_uppercase"
+field	expectations.lsp_assertions[7].id	7
+field	expectations.lsp_assertions[7].operation	"equals"
+field	expectations.lsp_assertions[7].path	"/error/data/details/required_initial"
+field	expectations.lsp_assertions[8].equals	"function"
+field	expectations.lsp_assertions[8].id	8
+field	expectations.lsp_assertions[8].operation	"equals"
+field	expectations.lsp_assertions[8].path	"/error/data/details/symbol_class"
+field	expectations.lsp_assertions[9].equals	"Adapt"
+field	expectations.lsp_assertions[9].id	8
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/error/data/details/requested_name"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"newText\":\"Entry\""
+field	expectations.stdout.contains[1]	"\"newText\":\"Created\""
+field	expectations.stdout.contains[2]	"\"newText\":\"adapt\""
+field	expectations.stdout.contains[3]	"\"newText\":\"input\""
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2008,"sha256":"2c523b276b127f46c5f5a74a206f8483aa63ef7fafa75880612b832b2268417f"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"forbidden"
+case_digest	"b1c5572703fb8ae5cb0b747afb01ffc9141448d376f424285e1d230c72d5b6b6"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -49715,4 +49784,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"7796dd923a5fccedc4ea7715513a8b7a3f33b9b181201969fad1bfd972ecf204"
+aggregate_digest	"86e78cb1af77bad955efe71a13b7671ba5cf4403f1793de2334350c80ec53f11"

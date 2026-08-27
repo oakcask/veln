@@ -1,0 +1,15 @@
+type Item
+  Value(value: Int)
+end
+
+effect Choose
+  pick(value: Bool) -> Bool
+end
+
+handler choose() handles Choose
+  pick(value) => value
+end
+
+fn convert(input: Item) -> Item
+  Value(1)
+end

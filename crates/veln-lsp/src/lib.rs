@@ -15,7 +15,7 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::{
     DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationResult,
-    NavigationSource, SourcePosition, navigate,
+    NavigationSource, RenameFailure, SourcePosition, navigate, validate_rename,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -280,17 +280,25 @@ impl Server {
 
     fn handle_rename(&self, message: &str, id: Option<String>) -> Vec<String> {
         id.map(|id| {
-            let result = extract_string_field(message, "newName")
-                .filter(|new_name| is_identifier(new_name))
-                .and_then(|new_name| {
-                    self.symbol_at_request(message)
-                        .filter(|request| is_workspace_location(&request.result.definition))
-                        .map(|request| {
-                            workspace_edit_json(&request.root, &request.result, &new_name)
-                        })
-                })
-                .unwrap_or_else(|| "{\"changes\":{}}".to_string());
-            response(&id, &result)
+            let Some(new_name) = extract_string_field(message, "newName") else {
+                return response(&id, "{\"changes\":{}}");
+            };
+            if !is_identifier(&new_name) {
+                return response(&id, "{\"changes\":{}}");
+            }
+            let Some(request) = self
+                .symbol_at_request(message)
+                .filter(|request| is_workspace_location(&request.result.definition))
+            else {
+                return response(&id, "{\"changes\":{}}");
+            };
+            match validate_rename(&request.result, &new_name) {
+                Ok(()) => response(
+                    &id,
+                    &workspace_edit_json(&request.root, &request.result, &new_name),
+                ),
+                Err(failure) => rename_failure_response(&id, &failure),
+            }
         })
         .into_iter()
         .collect()
@@ -1019,6 +1027,17 @@ fn error_response(id: &str, code: i32, message: &str) -> String {
     format!(
         "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"error\":{{\"code\":{code},\"message\":\"{}\"}}}}",
         escape_json(message)
+    )
+}
+
+fn rename_failure_response(id: &str, failure: &RenameFailure) -> String {
+    format!(
+        "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"error\":{{\"code\":-32602,\"message\":\"{}\",\"data\":{{\"code\":\"{}\",\"details\":{{\"symbol_class\":\"{}\",\"requested_name\":\"{}\",\"required_initial\":\"{}\"}}}}}}}}",
+        escape_json(failure.code),
+        escape_json(failure.code),
+        failure.symbol_class.as_str(),
+        escape_json(&failure.requested_name),
+        failure.required_initial.as_str(),
     )
 }
 
@@ -2034,6 +2053,115 @@ mod tests {
             "{}",
             responses[0]
         );
+    }
+
+    #[test]
+    fn rename_accepts_same_class_replacements_for_cased_symbols() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-cased-symbol-success");
+        project.write(
+            "main.veln",
+            concat!(
+                "type Item\n",
+                "  Value(value: Int)\n",
+                "end\n\n",
+                "effect Choose\n",
+                "  pick(value: Bool) -> Bool\n",
+                "end\n\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => value\n",
+                "end\n\n",
+                "fn convert(input: Item) -> Item\n",
+                "  Value(1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let type_rename = server.handle_message(&rename_request(&main_uri, 0, 5, "Entry"));
+        let constructor_rename = server.handle_message(&rename_request(&main_uri, 1, 2, "Created"));
+        let function_rename = server.handle_message(&rename_request(&main_uri, 12, 3, "adapt"));
+        let value_rename = server.handle_message(&rename_request(&main_uri, 9, 7, "input"));
+
+        assert_eq!(type_rename[0].matches(r#""newText":"Entry""#).count(), 3);
+        assert_eq!(
+            constructor_rename[0]
+                .matches(r#""newText":"Created""#)
+                .count(),
+            2
+        );
+        assert_eq!(
+            function_rename[0].matches(r#""newText":"adapt""#).count(),
+            1
+        );
+        assert_eq!(value_rename[0].matches(r#""newText":"input""#).count(), 2);
+    }
+
+    #[test]
+    fn rename_rejects_class_changing_replacements_for_cased_symbols() {
+        let mut server = Server::default();
+        let project = TempProject::new("rename-cased-symbol-invalid-case");
+        project.write(
+            "main.veln",
+            concat!(
+                "type Item\n",
+                "  Value(value: Int)\n",
+                "end\n\n",
+                "effect Choose\n",
+                "  pick(value: Bool) -> Bool\n",
+                "end\n\n",
+                "handler choose() handles Choose\n",
+                "  pick(value) => value\n",
+                "end\n\n",
+                "fn convert(input: Item) -> Item\n",
+                "  Value(1)\n",
+                "end\n",
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let cases = [
+            (0, 5, "entry", "type", "ascii_uppercase"),
+            (1, 2, "created", "constructor", "ascii_uppercase"),
+            (12, 3, "Adapt", "function", "ascii_lowercase"),
+            (9, 7, "Input", "value_binding", "ascii_lowercase"),
+        ];
+        for (line, character, new_name, symbol_class, required_initial) in cases {
+            let responses =
+                server.handle_message(&rename_request(&main_uri, line, character, new_name));
+
+            assert_eq!(responses.len(), 1);
+            assert!(
+                responses[0].contains(r#""code":-32602"#),
+                "{}",
+                responses[0]
+            );
+            assert!(
+                responses[0].contains(r#""code":"rename.invalid_case""#),
+                "{}",
+                responses[0]
+            );
+            assert!(
+                responses[0].contains(&format!(r#""symbol_class":"{symbol_class}""#)),
+                "{}",
+                responses[0]
+            );
+            assert!(
+                responses[0].contains(&format!(r#""requested_name":"{new_name}""#)),
+                "{}",
+                responses[0]
+            );
+            assert!(
+                responses[0].contains(&format!(r#""required_initial":"{required_initial}""#)),
+                "{}",
+                responses[0]
+            );
+            assert!(!responses[0].contains(r#""changes""#), "{}", responses[0]);
+        }
     }
 
     #[test]

@@ -221,10 +221,83 @@ pub struct SourcePosition {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
+    Type,
     Function,
     Constructor,
     HandlerContextParameter,
     HandlerOperationClauseParameter,
+}
+
+impl SymbolKind {
+    pub fn rename_name_class(&self) -> RenameNameClass {
+        match self {
+            Self::Type => RenameNameClass::Type,
+            Self::Constructor => RenameNameClass::Constructor,
+            Self::Function => RenameNameClass::Function,
+            Self::HandlerContextParameter | Self::HandlerOperationClauseParameter => {
+                RenameNameClass::ValueBinding
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenameNameClass {
+    Type,
+    Constructor,
+    Function,
+    ValueBinding,
+}
+
+impl RenameNameClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Type => "type",
+            Self::Constructor => "constructor",
+            Self::Function => "function",
+            Self::ValueBinding => "value_binding",
+        }
+    }
+
+    pub fn required_initial(self) -> RenameRequiredInitial {
+        match self {
+            Self::Type | Self::Constructor => RenameRequiredInitial::AsciiUppercase,
+            Self::Function | Self::ValueBinding => RenameRequiredInitial::AsciiLowercase,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenameRequiredInitial {
+    AsciiUppercase,
+    AsciiLowercase,
+}
+
+impl RenameRequiredInitial {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::AsciiUppercase => "ascii_uppercase",
+            Self::AsciiLowercase => "ascii_lowercase",
+        }
+    }
+
+    fn accepts(self, name: &str) -> bool {
+        let Some(initial) = name.chars().next() else {
+            return false;
+        };
+        match self {
+            Self::AsciiUppercase => initial.is_ascii_uppercase(),
+            Self::AsciiLowercase => initial.is_ascii_lowercase(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RenameFailure {
+    pub code: &'static str,
+    pub symbol_class: RenameNameClass,
+    pub requested_name: String,
+    pub required_initial: RenameRequiredInitial,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -254,6 +327,24 @@ pub struct NavigationResult {
     pub references: Vec<SourceSpan>,
 }
 
+pub fn validate_rename(
+    result: &NavigationResult,
+    requested_name: &str,
+) -> Result<(), RenameFailure> {
+    let symbol_class = result.selected_symbol.kind.rename_name_class();
+    let required_initial = symbol_class.required_initial();
+    if required_initial.accepts(requested_name) {
+        Ok(())
+    } else {
+        Err(RenameFailure {
+            code: "rename.invalid_case",
+            symbol_class,
+            requested_name: requested_name.to_string(),
+            required_initial,
+        })
+    }
+}
+
 pub fn navigate(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,
@@ -262,11 +353,17 @@ pub fn navigate(
         .navigation_index()
         .symbol_at_position(position.source.as_str(), &position)?;
     let definition = match &request.symbol {
+        Symbol::Type(symbol) => symbol.declaration.clone(),
         Symbol::Function(symbol) => symbol.declaration.clone(),
         Symbol::Constructor(symbol) => symbol.declaration.clone(),
         Symbol::Local(symbol) => workspace_location(symbol.declaration.clone()),
     };
     let selected_symbol = match &request.symbol {
+        Symbol::Type(symbol) => SelectedSymbol {
+            kind: SymbolKind::Type,
+            name: symbol.name.clone(),
+            declaration: definition.clone(),
+        },
         Symbol::Function(symbol) => SelectedSymbol {
             kind: SymbolKind::Function,
             name: symbol.name.clone(),
@@ -289,13 +386,14 @@ pub fn navigate(
         },
     };
     let mut references = match &request.symbol {
+        Symbol::Type(symbol) => request.index.type_references(symbol),
         Symbol::Function(symbol) => request
             .index
             .files
             .iter()
             .flat_map(|file| request.index.references_in_file(file, symbol))
             .collect(),
-        Symbol::Constructor(_) => Vec::new(),
+        Symbol::Constructor(symbol) => request.index.constructor_references(symbol),
         Symbol::Local(symbol) => request.index.local_references(symbol, false),
     };
     sort_locations(&mut references);
@@ -333,6 +431,15 @@ struct FunctionSymbol {
 }
 
 #[derive(Clone, Debug)]
+struct TypeSymbol {
+    module: String,
+    name: String,
+    declaration: NavigationLocation,
+    package: Option<String>,
+    public: bool,
+}
+
+#[derive(Clone, Debug)]
 struct ConstructorSymbol {
     module: String,
     type_name: String,
@@ -362,6 +469,7 @@ struct SymbolRequest {
 
 #[derive(Clone, Debug)]
 enum Symbol {
+    Type(TypeSymbol),
     Function(FunctionSymbol),
     Constructor(ConstructorSymbol),
     Local(LocalSymbol),
@@ -409,6 +517,7 @@ enum IndexedOrigin {
 struct SymbolIndex {
     files: Vec<IndexedFile>,
     functions: Vec<FunctionSymbol>,
+    types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
 }
@@ -453,6 +562,7 @@ impl SymbolIndex {
         }
         Self {
             functions: files.iter().flat_map(function_declarations).collect(),
+            types: files.iter().flat_map(type_declarations).collect(),
             constructors: files.iter().flat_map(constructor_declarations).collect(),
             type_aliases: files.iter().flat_map(type_alias_declarations).collect(),
             files,
@@ -507,7 +617,24 @@ impl SymbolIndex {
             return Some(Symbol::Function(symbol));
         }
 
+        if let Some(symbol) = self.type_declared_at(name, selection) {
+            return Some(Symbol::Type(symbol));
+        }
+
+        if let Some(symbol) = self.constructor_declared_at(name, selection) {
+            return Some(Symbol::Constructor(symbol));
+        }
+
         if !is_call_target_token(tokens, token_index) {
+            if name
+                .chars()
+                .next()
+                .is_some_and(|initial| initial.is_ascii_uppercase())
+            {
+                return self
+                    .visible_type_for_reference(file, name)
+                    .map(Symbol::Type);
+            }
             return None;
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
@@ -525,6 +652,57 @@ impl SymbolIndex {
                     && symbol.declaration.span.file == selection.file
                     && symbol.declaration.span.start.offset == selection.start.offset
                     && symbol.declaration.span.end.offset == selection.end.offset
+            })
+            .cloned()
+    }
+
+    fn type_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<TypeSymbol> {
+        self.types
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.declaration.span.file == selection.file
+                    && symbol.declaration.span.start.offset == selection.start.offset
+                    && symbol.declaration.span.end.offset == selection.end.offset
+            })
+            .cloned()
+    }
+
+    fn constructor_declared_at(
+        &self,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<ConstructorSymbol> {
+        self.constructors
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.declaration.span.file == selection.file
+                    && symbol.declaration.span.start.offset == selection.start.offset
+                    && symbol.declaration.span.end.offset == selection.end.offset
+            })
+            .cloned()
+    }
+
+    fn visible_type_for_reference(&self, file: &IndexedFile, name: &str) -> Option<TypeSymbol> {
+        self.types
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && match &symbol.package {
+                        Some(package) => {
+                            symbol.public
+                                && file
+                                    .external_uses
+                                    .contains(&(symbol.module.clone(), package.clone()))
+                        }
+                        None => {
+                            symbol.module == file.module
+                                || (symbol.public && file.uses.contains(&symbol.module))
+                        }
+                    }
             })
             .cloned()
     }
@@ -827,6 +1005,74 @@ impl SymbolIndex {
         }
         Vec::new()
     }
+
+    fn type_references(&self, symbol: &TypeSymbol) -> Vec<SourceSpan> {
+        self.files
+            .iter()
+            .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
+            .flat_map(|file| {
+                type_references(&file.source, &symbol.name)
+                    .into_iter()
+                    .filter(|_| {
+                        self.visible_type_for_reference(file, &symbol.name)
+                            .is_some_and(|candidate| same_type(&candidate, symbol))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    fn constructor_references(&self, symbol: &ConstructorSymbol) -> Vec<SourceSpan> {
+        self.files
+            .iter()
+            .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
+            .flat_map(|file| {
+                let tokens = lex(&file.source).tokens;
+                tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        token.kind == TokenKind::Ident
+                            && token.text == symbol.name
+                            && token.range.start != symbol.declaration.span.start.offset
+                            && is_call_target_token(&tokens, *index)
+                            && self
+                                .constructor_symbol_for_call(file, &tokens, *index, &token.text)
+                                .is_some_and(|candidate| same_constructor(&candidate, symbol))
+                    })
+                    .map(|(_, token)| file.source.span(token.range))
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    fn constructor_symbol_for_call(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<ConstructorSymbol> {
+        match qualifier_for_token(tokens, token_index) {
+            Some(qualifier) => self.constructor_for_qualified_call(file, &qualifier, name),
+            None => self.constructor_for_bare_call(file, name),
+        }
+    }
+}
+
+fn same_constructor(left: &ConstructorSymbol, right: &ConstructorSymbol) -> bool {
+    left.package == right.package
+        && left.module == right.module
+        && left.type_name == right.type_name
+        && left.name == right.name
+        && left.declaration == right.declaration
+}
+
+fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
+    left.package == right.package
+        && left.module == right.module
+        && left.name == right.name
+        && left.declaration == right.declaration
 }
 
 fn index_workspace_source(source: SourceFile) -> IndexedFile {
@@ -943,6 +1189,52 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
         }
     }
     functions
+}
+
+fn type_declarations(file: &IndexedFile) -> Vec<TypeSymbol> {
+    parse(&file.source)
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) => {
+                let name = type_decl.name.as_ref()?;
+                let span = type_decl.name_span.clone()?;
+                if is_invalid_declaration_name(file, &span) {
+                    return None;
+                }
+                let public = type_decl.visibility == Visibility::Public;
+                let (declaration, package) = match &file.origin {
+                    IndexedOrigin::Workspace => (workspace_location(span), None),
+                    IndexedOrigin::Package {
+                        identity,
+                        uri,
+                        exported,
+                        ..
+                    } => {
+                        if !exported || !public {
+                            return None;
+                        }
+                        (
+                            NavigationLocation {
+                                source: NavigationSource::Package { uri: uri.clone() },
+                                span,
+                            },
+                            Some(identity.clone()),
+                        )
+                    }
+                };
+                Some(TypeSymbol {
+                    module: file.module.clone(),
+                    name: name.clone(),
+                    declaration,
+                    package,
+                    public,
+                })
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
@@ -1300,6 +1592,31 @@ fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<So
             token.text == name
                 && is_call_target_token(&tokens, *index)
                 && qualified_reference_matches(&tokens, *index, &module_segments)
+        })
+        .map(|(_, token)| source.span(token.range))
+        .collect()
+}
+
+fn type_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
+    let tokens = lex(source).tokens;
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| {
+            token.kind == TokenKind::Ident
+                && token.text == name
+                && token
+                    .text
+                    .chars()
+                    .next()
+                    .is_some_and(|initial| initial.is_ascii_uppercase())
+                && !is_type_declaration_name(&tokens, *index)
+                && !is_function_declaration_name(&tokens, *index)
+                && !is_parameter_name(&tokens, *index)
+                && !is_local_binding_name(&tokens, *index)
+                && !is_field_name(&tokens, *index)
+                && !is_call_target_token(&tokens, *index)
+                && !is_handler_operation_clause_operation_name(&tokens, *index)
         })
         .map(|(_, token)| source.span(token.range))
         .collect()
@@ -1759,6 +2076,11 @@ fn is_function_declaration_name(tokens: &[Token], index: usize) -> bool {
         .is_some_and(|previous| matches!(previous.kind, TokenKind::Fn | TokenKind::Test))
 }
 
+fn is_type_declaration_name(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|previous| previous.kind == TokenKind::Type)
+}
+
 fn is_parameter_name(tokens: &[Token], index: usize) -> bool {
     next_non_layout_token(tokens, index).is_some_and(|next| next.kind == TokenKind::Colon)
 }
@@ -2200,6 +2522,112 @@ mod tests {
         assert_eq!(
             locations(&result.references),
             [("math.test.veln", 4, 9), ("math.veln", 2, 3)]
+        );
+    }
+
+    #[test]
+    fn rename_validation_preserves_function_case_class() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                "fn increment(value: Int) -> Int\n  increment(value)\nend\n",
+            )],
+            "main.veln",
+            1,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert!(validate_rename(&result, "advance").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&result, "Advance").unwrap_err(),
+            RenameNameClass::Function,
+            "Advance",
+            RenameRequiredInitial::AsciiLowercase,
+        );
+    }
+
+    #[test]
+    fn rename_validation_preserves_type_case_class() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                "type Item\n  Value(value: Int)\nend\n\nfn main(input: Item) -> Item\n  input\nend\n",
+            )],
+            "main.veln",
+            1,
+            6,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 5, 16), ("main.veln", 5, 25)]
+        );
+        assert!(validate_rename(&result, "Entry").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&result, "entry").unwrap_err(),
+            RenameNameClass::Type,
+            "entry",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
+    fn rename_validation_preserves_constructor_case_class() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                "type Item\n  Value(value: Int)\nend\n\nfn main() -> Item\n  Value(1)\nend\n",
+            )],
+            "main.veln",
+            6,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert!(validate_rename(&result, "Entry").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&result, "entry").unwrap_err(),
+            RenameNameClass::Constructor,
+            "entry",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
+    fn rename_validation_preserves_value_binding_case_class() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "effect Choose\n",
+                    "  pick(value: Bool) -> Int\n",
+                    "end\n\n",
+                    "handler choose() handles Choose\n",
+                    "  pick(value) => value\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            6,
+            8,
+        )
+        .unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert!(validate_rename(&result, "input").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&result, "Input").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "Input",
+            RenameRequiredInitial::AsciiLowercase,
         );
     }
 
@@ -3058,6 +3486,18 @@ mod tests {
             .iter()
             .map(|span| (span.file.as_str(), span.start.line, span.start.column))
             .collect()
+    }
+
+    fn assert_rename_invalid_case(
+        failure: RenameFailure,
+        symbol_class: RenameNameClass,
+        requested_name: &str,
+        required_initial: RenameRequiredInitial,
+    ) {
+        assert_eq!(failure.code, "rename.invalid_case");
+        assert_eq!(failure.symbol_class, symbol_class);
+        assert_eq!(failure.requested_name, requested_name);
+        assert_eq!(failure.required_initial, required_initial);
     }
 
     fn dependency_query(
