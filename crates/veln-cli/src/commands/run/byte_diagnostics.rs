@@ -35,17 +35,7 @@ pub(super) fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Di
         .or_else(|| {
             schema_constraint_diagnostic(byte_diagnostic, byte_entries, &id, byte_offset)
         })?;
-    if let Some(field_path) = field_path_text(byte_entries) {
-        diagnostic
-            .related
-            .push(note_json(format!("Field path: {field_path}.")));
-    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
-        && !field_path.is_empty()
-    {
-        diagnostic
-            .related
-            .push(note_json(format!("Field path: {field_path}.")));
-    }
+    push_field_path_note(&mut diagnostic, byte_entries);
     Some(diagnostic)
 }
 
@@ -393,114 +383,39 @@ fn decode_error_result_failure_diagnostic(
     id: String,
     byte_offset: i64,
 ) -> Diagnostic {
-    if id == "codec.checksum_mismatch" {
-        return checksum_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.length_mismatch" {
-        return length_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.payload_length_mismatch" {
-        return payload_length_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.padding_mismatch" {
-        return padding_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.integer_out_of_range" {
-        return integer_out_of_range_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.sequence_mismatch" {
-        return sequence_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.version_mismatch" {
-        return version_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.tag_mismatch" {
-        return tag_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.magic_mismatch" {
-        return magic_mismatch_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.unsupported_feature" {
-        return unsupported_feature_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.trailing_input" {
-        return trailing_input_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
-    if id == "codec.consumed_count_invalid" {
-        return consumed_count_invalid_result_failure_diagnostic(
-            failure,
-            byte_diagnostic,
-            byte_entries,
-            id,
-            byte_offset,
-        );
-    }
+    let reason_diagnostic = match id.as_str() {
+        "codec.checksum_mismatch" => checksum_mismatch_result_failure_diagnostic,
+        "codec.length_mismatch" => length_mismatch_result_failure_diagnostic,
+        "codec.payload_length_mismatch" => payload_length_mismatch_result_failure_diagnostic,
+        "codec.padding_mismatch" => padding_mismatch_result_failure_diagnostic,
+        "codec.integer_out_of_range" => integer_out_of_range_result_failure_diagnostic,
+        "codec.sequence_mismatch" => sequence_mismatch_result_failure_diagnostic,
+        "codec.version_mismatch" => version_mismatch_result_failure_diagnostic,
+        "codec.tag_mismatch" => tag_mismatch_result_failure_diagnostic,
+        "codec.magic_mismatch" => magic_mismatch_result_failure_diagnostic,
+        "codec.unsupported_feature" => unsupported_feature_result_failure_diagnostic,
+        "codec.trailing_input" => trailing_input_result_failure_diagnostic,
+        "codec.consumed_count_invalid" => consumed_count_invalid_result_failure_diagnostic,
+        _ => {
+            return generic_decode_error_result_failure_diagnostic(
+                failure,
+                byte_diagnostic,
+                byte_entries,
+                id,
+                byte_offset,
+            );
+        }
+    };
+    reason_diagnostic(failure, byte_diagnostic, byte_entries, &id, byte_offset)
+}
+
+fn generic_decode_error_result_failure_diagnostic(
+    failure: &TestFailure,
+    byte_diagnostic: &JsonValue,
+    byte_entries: &[(String, JsonValue)],
+    id: String,
+    byte_offset: i64,
+) -> Diagnostic {
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
@@ -509,17 +424,7 @@ fn decode_error_result_failure_diagnostic(
         None,
         byte_diagnostic.clone(),
     );
-    if let Some(field_path) = field_path_text(byte_entries) {
-        diagnostic
-            .related
-            .push(note_json(format!("Field path: {field_path}.")));
-    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
-        && !field_path.is_empty()
-    {
-        diagnostic
-            .related
-            .push(note_json(format!("Field path: {field_path}.")));
-    }
+    push_field_path_note(&mut diagnostic, byte_entries);
     if let Some(reason) = json_string(byte_entries, "reason") {
         diagnostic
             .related
@@ -532,6 +437,20 @@ fn decode_error_result_failure_diagnostic(
             .push(note_json(format!("DecodeError value: {value}.")));
     }
     diagnostic
+}
+
+fn push_field_path_note(diagnostic: &mut Diagnostic, byte_entries: &[(String, JsonValue)]) {
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    } else if let Some(field_path) = json_string(byte_entries, "field_path_display")
+        && !field_path.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
 }
 
 fn push_decode_byte_context_notes(diagnostic: &mut Diagnostic, entries: &[(String, JsonValue)]) {
