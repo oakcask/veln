@@ -1,17 +1,19 @@
 ---
-role: proposal
-update-when: Identifier casing direct-dependency selection, selected-entry reachability, recovery isolation, or implicit-prelude evidence changes.
+role: implementation-record
+authority: supporting
+update-when: Identifier casing selection-boundary evidence is superseded, invalidated, or used as current specification authority.
 ---
 
 # Identifier Casing Selection Boundaries
 
 ## Outcome
 
-Extend source identifier casing diagnostics and quarantined recovery across
-direct-dependency and implicit-prelude boundaries.
+Source identifier casing diagnostics and quarantined recovery now preserve
+normal lookup and recovery isolation across direct-dependency and implicit
+standard-prelude boundaries.
 
-This proposal depends on
-[Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
+This record depends on
+[Recovery-Aware Source Identifier Casing](identifier-casing-source-recovery.md).
 That foundation is implemented and specified as current behavior.
 
 ## Scope
@@ -24,15 +26,14 @@ recovery-quarantine rows are executable current behavior. The checked
 consumer boundary. Focused analysis tests cover dependency-to-consumer and
 consumer-to-dependency recovery isolation.
 
-The Ready slice now retains implicit-prelude recovery isolation. The `test`,
-`doc`, companion recovery, direct-dependency, and language-service snapshot and
-overlay boundaries already have executable evidence and are not planned work
-here.
+The implicit-prelude recovery-isolation slice is complete. The `test`, `doc`,
+companion recovery, direct-dependency, and language-service snapshot and
+overlay boundaries also have executable evidence and are not planned work here.
 
 This proposal does not add module-identity casing, qualified-use casing,
 alias-target leaf casing, rename behavior, or source-less registry validation.
 Those capabilities remain in
-[Identifier Casing](identifier-casing.md).
+[Identifier Casing](../../proposals/identifier-casing.md).
 
 ## Implemented Direct-Dependency Slice
 
@@ -56,15 +57,16 @@ reachable.
 | Dependency | Consumer | The dependency recovery record does not resolve the consumer use. | Focused analysis case that requires the ordinary unresolved diagnostic and no reachable invalid dependency record. |
 | Consumer | Dependency | The consumer recovery record does not resolve the dependency use. | Focused analysis case that requires the ordinary unresolved diagnostic and no reachable invalid consumer record. |
 
-## Ready Implicit-Prelude Slice
+## Implemented Implicit-Prelude Slice
 
-| Source state | Required result | Planned evidence |
+| Source state | Required result | Evidence |
 | --- | --- | --- |
-| A use crosses the implicit-prelude boundary. | A valid prelude symbol may win normal lookup; an invalid recovery record cannot enter or escape the prelude namespace. | Valid-prelude precedence and invalid-recovery isolation cases. |
+| A use crosses the implicit-prelude boundary. | A valid prelude symbol may win normal lookup; an invalid recovery record cannot enter or escape the prelude namespace. | Focused semantic tests cover both recovery-isolation directions and valid-prelude precedence. The checked `identifier-casing-implicit-prelude-boundary-json` case covers the user-visible valid-prelude constructor boundary. |
 
 ## Completion
 
-This proposal is complete when the implicit-prelude slice has executable
-evidence. Completion moves this proposal to implemented history without
-claiming completion of module, qualified-name, language-service navigation,
-rename, or source-less registry casing.
+This proposal is complete. Current behavior lives in
+[Names And Effects](../../specification/names-effects.md) and checked cases
+under `examples/specification/`. Completion does not claim completion of
+module-identity casing, qualified-use casing, alias-target leaf casing, rename
+behavior, or source-less registry validation.

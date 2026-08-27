@@ -1,0 +1,12 @@
+# A same-spelled invalid application constructor recovery record does not hide
+# the valid constructor exported by the implicit standard prelude.
+type bad
+  Chunk(Int)
+end
+
+fn main() -> String
+  match Chunk(byte_chunk([]))
+    Chunk(_) => "prelude"
+    End => "end"
+  end
+end

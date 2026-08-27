@@ -25,13 +25,10 @@ Implementation starts with
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 That foundation combines declaration and binding diagnostics with quarantined
 recovery and `check`/`run` reachability. The dependent
-[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
-proposal then covers `test`, `doc`, language-service selection, dependencies,
-companions, and the implicit prelude. The `test`, `doc`, companion recovery,
-direct-dependency, and language-service snapshot and open-document overlay
-slices are now current behavior. The remaining work in this proposal is blocked
-until the implicit-prelude slice is implemented and promoted to the current
-specification.
+[Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md)
+record covers `test`, `doc`, language-service selection, dependencies,
+companions, and the implicit prelude as current behavior. The remaining work in
+this proposal is now selectable from the proposal catalog.
 
 ## Current Boundary
 
@@ -45,10 +42,8 @@ implementation record is
 
 The remaining proposal work covers module identities, qualified-use segment
 casing, alias target leaves, rename and recovery navigation, and source-less
-registries. It also depends on
-[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
-for implicit-prelude selection evidence. The completed `test`, `doc`,
-companion recovery, direct-dependency, and language-service snapshot and
+registries. The completed `test`, `doc`, companion recovery,
+direct-dependency, implicit-prelude, and language-service snapshot and
 open-document overlay boundaries are specified by
 [Names And Effects](../specification/names-effects.md), by
 [Editor Support](../specification/editor-support.md), and by the checked
@@ -478,10 +473,9 @@ does not become a constructor.
 Rows covered by
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md)
 and completed rows in
-[Identifier Casing Selection Boundaries](identifier-casing-selection-boundaries.md)
+[Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md)
 are no longer planned work. The table below retains only the unimplemented
-identifier-casing remainder and deferred implicit-prelude selection-boundary
-evidence.
+identifier-casing remainder.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
@@ -493,8 +487,8 @@ evidence.
 | Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |
 | Import a path whose final segment is also its implicit alias. | An invalid final segment produces one diagnostic owned by that segment, not separate path and alias diagnostics. | Single- and multi-segment import cases. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
-| Resolve uses near invalid declarations in qualified, module-derived, prelude, navigation, rename, and remaining companion roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
-| Cross the implicit-prelude or remaining exact-companion module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
+| Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
+| Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, target-kind, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request valid, class-changing, conflicting, and invalid-declaration repair renames. | Class-preserving and repair renames return complete linked edits. Class-changing requests return `rename.invalid_case`; predictable collisions return `rename.conflict`; failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service, LSP error-mapping, and planned MCP error-mapping cases. |
 | Register valid and invalid source-less lookup descriptors. | The release-mode registry gate either publishes one complete validated registry or returns `toolchain.invalid_symbol_case`; invalid descriptors never reach lookup, while internal names remain outside the gate. | Generated-table, injected-descriptor, release-mode, atomic-failure, and lookup-isolation tests. |

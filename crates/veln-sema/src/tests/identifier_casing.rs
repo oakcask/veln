@@ -1,5 +1,8 @@
 use super::*;
 use crate::types::environment::TypeEnvironment;
+use std::collections::BTreeSet;
+use veln_ast::{UseDecl, lower_surface_ast_with_module_identity};
+use veln_source::TextRange;
 
 #[test]
 fn covered_source_names_report_exact_casing_contract_details() {
@@ -754,6 +757,138 @@ fn consumer_function_recovery_does_not_cross_into_dependency_environment() {
 }
 
 #[test]
+fn application_recovery_does_not_cross_into_implicit_prelude_environment() {
+    let application = module_with_identity(
+        "main.veln",
+        concat!("mod app\n", "pub fn Bad() -> Int\n", "  1\n", "end\n"),
+        "app",
+    );
+    let application_environment = TypeEnvironment::from_module(&application);
+    assert_eq!(
+        application_environment.local_call_recovery_candidate_count("Bad", Some("app"), 0),
+        1
+    );
+    let prelude = module_with_identity(
+        "prelude.veln",
+        concat!(
+            "mod std::prelude\n",
+            "pub fn read() -> Int\n",
+            "  Bad()\n",
+            "end\n",
+        ),
+        "std::prelude",
+    );
+
+    let environment =
+        TypeEnvironment::from_module_with_base_for_test(&prelude, &application_environment);
+
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("std::prelude"), 0),
+        0
+    );
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("app"), 0),
+        0
+    );
+}
+
+#[test]
+fn implicit_prelude_recovery_does_not_cross_into_application_environment() {
+    let prelude = module_with_identity(
+        "prelude.veln",
+        concat!(
+            "mod std::prelude\n",
+            "pub fn Bad() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+        "std::prelude",
+    );
+    let prelude_environment = TypeEnvironment::from_module(&prelude);
+    assert_eq!(
+        prelude_environment.local_call_recovery_candidate_count("Bad", Some("std::prelude"), 0),
+        1
+    );
+    let application = application_module_with_implicit_prelude(
+        "main.veln",
+        concat!("mod app\n", "fn main() -> Int\n", "  Bad()\n", "end\n",),
+        "app",
+    );
+
+    let environment =
+        TypeEnvironment::from_module_with_base_for_test(&application, &prelude_environment);
+
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("app"), 0),
+        0
+    );
+    assert_eq!(
+        environment.local_call_recovery_candidate_count("Bad", Some("std::prelude"), 0),
+        0
+    );
+}
+
+#[test]
+fn valid_implicit_prelude_constructor_precedes_application_recovery_record() {
+    let standard = module_with_identity(
+        "prelude.veln",
+        concat!(
+            "mod std::prelude\n",
+            "pub type Token\n",
+            "  Valid(Int)\n",
+            "end\n",
+        ),
+        "std::prelude",
+    );
+    let reusable = prepare_reusable_standard_surface_module_environment(&standard)
+        .with_current_identity_for_test();
+    let application = application_module_with_implicit_prelude(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "type bad\n",
+            "  Valid(Int)\n",
+            "end\n",
+            "fn main() -> prelude::Token\n",
+            "  Valid(1)\n",
+            "end\n",
+        ),
+        "app",
+    );
+    let mut selected_standard_module_names = BTreeSet::new();
+    selected_standard_module_names.insert("std::prelude".to_string());
+
+    let (diagnostics, lowered) = check_project_surface_module_with_standard_modules_environment(
+        &application,
+        &selected_standard_module_names,
+        &reusable,
+    );
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"
+                && diagnostic.id != "name.ambiguous"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        lowered
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"
+                && diagnostic.id != "name.ambiguous"),
+        "{:#?}",
+        lowered.diagnostics
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.invalid_case"
+            && diagnostic.message == "type name `bad` must start with an ASCII uppercase letter"
+    }));
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn recovery_is_not_visible_through_public_alias_targets() {
     let source = SourceFile::new(
         "main.veln",
@@ -790,6 +925,29 @@ fn recovery_is_not_visible_through_public_alias_targets() {
 
     let environment = TypeEnvironment::from_module(&module);
     assert!(environment.function("exposed").is_none());
+}
+
+fn module_with_identity(path: &str, text: &str, module_name: &str) -> SurfaceModule {
+    let source = SourceFile::new(path, text);
+    lower_surface_ast_with_module_identity(
+        &parse(&source).tree,
+        module_name.to_string(),
+        source.span(TextRange::new(0, 0)),
+    )
+}
+
+fn application_module_with_implicit_prelude(
+    path: &str,
+    text: &str,
+    module_name: &str,
+) -> SurfaceModule {
+    let mut module = module_with_identity(path, text, module_name);
+    let source = SourceFile::new(path, text);
+    module.uses.push(UseDecl::implicit_standard_prelude(
+        module_name.to_string(),
+        source.span(TextRange::new(0, 0)),
+    ));
+    module
 }
 
 #[test]

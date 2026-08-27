@@ -1,0 +1,22 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["name.unresolved", "name.ambiguous", "core.missing_expression"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "type name `bad` must start with an ASCII uppercase letter"

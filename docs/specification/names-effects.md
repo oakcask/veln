@@ -98,7 +98,8 @@ compiler-known calls.
   The checked `identifier-casing-import-recovery-isolation-json`,
   `identifier-casing-public-alias-recovery-isolation-json`,
   `identifier-casing-accepted-names-json`,
-  `identifier-casing-valid-symbol-precedence-json`, and
+  `identifier-casing-valid-symbol-precedence-json`,
+  `identifier-casing-implicit-prelude-boundary-json`, and
   `identifier-casing-ambiguous-recovery-json` and
   `identifier-casing-cross-class-ambiguous-recovery-json` cases and the run
   `identifier-casing-import-recovery-isolation-json`,
@@ -116,11 +117,13 @@ compiler-known calls.
   that accepted names keep normal behavior, quarantined recovery records do not
   cross import boundaries, do not satisfy public alias targets, valid symbols
   win over same-source recovery records in bare function-value references and
-  before call or constructor arity is considered, ambiguous recovery records do
-  not resolve across name classes or when same-owner constructor candidates
-  would emit the same owner diagnostic, same-name recovery peers are selected
-  only when compatible with the call arity, and qualified type paths do not
-  select unrelated same-leaf local recovery records. A selected `run` consumer
+  before call or constructor arity is considered, valid implicit-prelude
+  symbols win over same-spelled application recovery records, ambiguous
+  recovery records do not resolve across name classes or when same-owner
+  constructor candidates would emit the same owner diagnostic, same-name
+  recovery peers are selected only when compatible with the call arity, and
+  qualified type paths do not select unrelated same-leaf local recovery
+  records. A selected `run` consumer
   that loads and reaches an invalid direct-dependency declaration reports the
   dependency `name.invalid_case` diagnostic and stops before backend execution.
   A selected `run` consumer that imports the dependency but reaches only a
