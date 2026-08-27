@@ -23,7 +23,8 @@ use veln_project::{
 };
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{
-    BodyLine, PublicAliasKind, SyntaxItem, Token, TokenKind, Visibility, lex, parse,
+    BodyLine, PublicAliasKind, SyntaxItem, Token, TokenKind, TypeVariantDecl, Visibility, lex,
+    parse,
 };
 
 #[derive(Clone, Debug)]
@@ -1251,42 +1252,12 @@ fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
             type_decl.variants.iter().filter_map(move |variant| {
                 let name = variant.name.as_ref()?;
                 let public = type_public && variant.visibility == Visibility::Public;
-                let span = tokens
-                    .iter()
-                    .find(|token| {
-                        token.kind == TokenKind::Ident
-                            && token.text == *name
-                            && token.range.start >= variant.span.start.offset
-                            && token.range.end <= variant.span.end.offset
-                    })
-                    .map_or_else(
-                        || variant.span.clone(),
-                        |token| file.source.span(token.range),
-                    );
+                let span = constructor_variant_name_span(file, tokens, variant, name);
                 if is_invalid_declaration_name(file, &span) {
                     return None;
                 }
-                let (declaration, package, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => (workspace_location(span), None, false),
-                    IndexedOrigin::Package {
-                        identity,
-                        uri,
-                        exported,
-                        standard_library,
-                    } => {
-                        if !exported || !public {
-                            return None;
-                        }
-                        (
-                            NavigationLocation {
-                                source: NavigationSource::Package { uri: uri.clone() },
-                                span,
-                            },
-                            Some(identity.clone()),
-                            *standard_library && file.module == "prelude",
-                        )
-                    }
-                };
+                let (declaration, package, standard_prelude) =
+                    constructor_navigation_origin(file, span, public)?;
                 Some(ConstructorSymbol {
                     module: file.module.clone(),
                     type_name: type_decl.name.clone().unwrap_or_default(),
@@ -1299,6 +1270,57 @@ fn constructor_declarations(file: &IndexedFile) -> Vec<ConstructorSymbol> {
             })
         })
         .collect()
+}
+
+fn constructor_variant_name_span(
+    file: &IndexedFile,
+    tokens: &[Token],
+    variant: &TypeVariantDecl,
+    name: &str,
+) -> SourceSpan {
+    if let Some(span) = &variant.name_span {
+        return span.clone();
+    }
+    tokens
+        .iter()
+        .find(|token| {
+            token.kind == TokenKind::Ident
+                && token.text == name
+                && token.range.start >= variant.span.start.offset
+                && token.range.end <= variant.span.end.offset
+        })
+        .map_or_else(
+            || variant.span.clone(),
+            |token| file.source.span(token.range),
+        )
+}
+
+fn constructor_navigation_origin(
+    file: &IndexedFile,
+    span: SourceSpan,
+    public: bool,
+) -> Option<(NavigationLocation, Option<String>, bool)> {
+    match &file.origin {
+        IndexedOrigin::Workspace => Some((workspace_location(span), None, false)),
+        IndexedOrigin::Package {
+            identity,
+            uri,
+            exported,
+            standard_library,
+        } => {
+            if !exported || !public {
+                return None;
+            }
+            Some((
+                NavigationLocation {
+                    source: NavigationSource::Package { uri: uri.clone() },
+                    span,
+                },
+                Some(identity.clone()),
+                *standard_library && file.module == "prelude",
+            ))
+        }
+    }
 }
 
 fn type_alias_declarations(file: &IndexedFile) -> Vec<TypeAliasSymbol> {
