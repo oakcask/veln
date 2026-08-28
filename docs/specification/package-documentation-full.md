@@ -93,7 +93,9 @@ name, version, description, license, authors, keywords, and exported module
 names. Exported module names are derived from validated, normalized export
 paths. A normalized export path for a `main.veln` source publishes module
 `main`. An exported source path must derive a valid source module path under
-the same source-path rules used by compiler analysis.
+the same source-path rules used by compiler analysis, including the
+source-path identifier casing boundary specified by
+[name-resolution.md](name-resolution.md).
 
 ## Generation Gates
 

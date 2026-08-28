@@ -254,8 +254,10 @@ selected documentation set.
 
 For `check`, `run`, `test`, and `doc`, parse-clean package-relative sources
 derive local module identity from the selected `.veln` path. Path separators
-become `::`. Invalid module path segments produce module diagnostics before
-semantic diagnostics are reported.
+become `::`. Path segments with invalid module-class initials produce
+source-path identifier casing diagnostics before semantic diagnostics are
+reported. Path segments that start with an ASCII lowercase letter but are not
+valid module identifiers produce structural module diagnostics instead.
 
 For each parse-clean selected non-companion source, `doc` emits the
 path-derived source module identity, the source path, imports, public source
