@@ -9,10 +9,27 @@ pub struct SourceFile {
     path: SourcePath,
     text: String,
     line_starts: Vec<usize>,
+    generated_origin_path: GeneratedOriginPath,
 }
 
 impl SourceFile {
     pub fn new(path: impl Into<SourcePath>, text: impl Into<String>) -> Self {
+        Self::with_generated_origin(path, text, GeneratedOriginPath::NotGenerated)
+    }
+
+    pub fn generated(
+        path: impl Into<SourcePath>,
+        text: impl Into<String>,
+        origin_path: Option<SourcePath>,
+    ) -> Self {
+        Self::with_generated_origin(path, text, GeneratedOriginPath::Generated(origin_path))
+    }
+
+    fn with_generated_origin(
+        path: impl Into<SourcePath>,
+        text: impl Into<String>,
+        generated_origin_path: GeneratedOriginPath,
+    ) -> Self {
         let text = text.into();
         let mut line_starts = vec![0];
         for (index, byte) in text.bytes().enumerate() {
@@ -24,6 +41,7 @@ impl SourceFile {
             path: path.into(),
             text,
             line_starts,
+            generated_origin_path,
         }
     }
 
@@ -39,6 +57,13 @@ impl SourceFile {
 
     pub fn text(&self) -> &str {
         &self.text
+    }
+
+    pub fn generated_origin_path(&self) -> Option<Option<&SourcePath>> {
+        match &self.generated_origin_path {
+            GeneratedOriginPath::NotGenerated => None,
+            GeneratedOriginPath::Generated(origin_path) => Some(origin_path.as_ref()),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -75,6 +100,12 @@ impl SourceFile {
             end: self.line_col(range.end),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+enum GeneratedOriginPath {
+    NotGenerated,
+    Generated(Option<SourcePath>),
 }
 
 fn relative_path(root: &Path, path: &Path) -> String {

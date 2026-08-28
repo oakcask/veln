@@ -20,7 +20,8 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 mod source_module_path;
 
 pub use source_module_path::derive as derive_source_module_path;
-use source_module_path::derive_with_diagnostics as derive_source_module_path_with_diagnostics;
+use source_module_path::derive_exported_with_diagnostics as derive_exported_source_module_path_with_diagnostics;
+use source_module_path::derive_visible_with_diagnostics as derive_visible_source_module_path_with_diagnostics;
 
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {
@@ -355,11 +356,12 @@ fn derive_and_record_source_module(
     parts: &mut SurfaceParts,
     package: Option<&str>,
 ) -> Option<String> {
-    match derive_source_module_path_with_diagnostics(source) {
-        Ok(module_name) => {
+    match derive_visible_source_module_path_with_diagnostics(source) {
+        Ok(Some(module_name)) => {
             record_derived_source_module(source, &module_name, diagnostics, parts, package);
             Some(module_name)
         }
+        Ok(None) => None,
         Err(source_diagnostics) => {
             diagnostics.extend(source_diagnostics);
             None
@@ -1295,90 +1297,93 @@ pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
         let candidate = match validate_manifest_export_path(export) {
             Ok(candidate) => candidate,
             Err(diagnostic) => {
+                diagnostics.push(diagnostic);
+                continue;
+            }
+        };
+        let selected_source = match validate_manifest_export_selection(project, export, &candidate)
+        {
+            Ok(source) => source,
+            Err(diagnostic) => {
                 diagnostics.push(*diagnostic);
                 continue;
             }
         };
-        if let Err(diagnostic) = validate_manifest_export_selection(project, export, &candidate) {
-            diagnostics.push(*diagnostic);
-            continue;
-        }
+        let module_name = match derive_exported_source_module_path_with_diagnostics(selected_source)
+        {
+            Ok(module_name) => module_name,
+            Err(source_diagnostics) => {
+                diagnostics.extend(source_diagnostics);
+                continue;
+            }
+        };
         if let Some((_, first_span)) = exported_modules
             .iter()
-            .find(|(known_module, _)| known_module == &candidate.module_name)
+            .find(|(known_module, _)| known_module == &module_name)
         {
             diagnostics.push(duplicate_manifest_export_diagnostic(
                 &export.path_span,
                 &export.path,
-                &candidate.module_name,
+                &module_name,
                 first_span,
             ));
             continue;
         }
-        exported_modules.push((candidate.module_name, export.path_span.clone()));
+        exported_modules.push((module_name, export.path_span.clone()));
     }
     diagnostics
 }
 
 struct ManifestExportCandidate {
     path: SourcePath,
-    module_name: String,
 }
 
 fn validate_manifest_export_path(
     export: &ManifestExport,
-) -> Result<ManifestExportCandidate, Box<Diagnostic>> {
+) -> Result<ManifestExportCandidate, Diagnostic> {
     if export.path.contains("::") {
-        return Err(Box::new(invalid_manifest_export_path_diagnostic(
+        return Err(invalid_manifest_export_path_diagnostic(
             &export.path_span,
             &export.path,
             "module paths are not valid manifest exports; use a package-relative source file path",
-        )));
+        ));
     }
     let path = SourcePath::new(export.path.clone());
     if !is_package_relative_path(path.as_str()) {
-        return Err(Box::new(invalid_manifest_export_path_diagnostic(
+        return Err(invalid_manifest_export_path_diagnostic(
             &export.path_span,
             &export.path,
             "manifest exports must stay inside the package",
-        )));
+        ));
     }
     if !path.as_str().ends_with(".veln") {
-        return Err(Box::new(invalid_manifest_export_path_diagnostic(
+        return Err(invalid_manifest_export_path_diagnostic(
             &export.path_span,
             &export.path,
             "manifest exports must name `.veln` source files",
-        )));
+        ));
     }
     if let Some(companion) = classify_companion_source(path.as_str()) {
-        return Err(Box::new(companion_manifest_export_diagnostic(
+        return Err(companion_manifest_export_diagnostic(
             &export.path_span,
             &export.path,
             &companion.companion_path,
-        )));
+        ));
     }
-    let export_source = SourceFile::new(path.as_str(), "");
-    let module_name = derive_source_module_path(&export_source).map_err(|_| {
-        Box::new(invalid_manifest_export_path_diagnostic(
-            &export.path_span,
-            &export.path,
-            "manifest export path does not derive a valid module path",
-        ))
-    })?;
-    Ok(ManifestExportCandidate { path, module_name })
+    Ok(ManifestExportCandidate { path })
 }
 
-fn validate_manifest_export_selection(
-    project: &Project,
+fn validate_manifest_export_selection<'a>(
+    project: &'a Project,
     export: &ManifestExport,
     candidate: &ManifestExportCandidate,
-) -> Result<(), Box<Diagnostic>> {
-    if project
+) -> Result<&'a SourceFile, Box<Diagnostic>> {
+    if let Some(source) = project
         .files
         .iter()
-        .any(|source| source.path() == &candidate.path)
+        .find(|source| source.path() == &candidate.path)
     {
-        return Ok(());
+        return Ok(source);
     }
     if project.root.join(candidate.path.as_str()).is_file() {
         Err(Box::new(unselected_manifest_export_diagnostic(

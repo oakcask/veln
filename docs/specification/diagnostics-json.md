@@ -29,6 +29,7 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `segment`, and the zero-based `segment_index`. The checked
   `identifier-casing-*-json` cases, including
   `identifier-casing-source-path-json`,
+  `identifier-casing-exported-source-path-json`,
   `identifier-casing-import-path-json`,
   `identifier-casing-import-missing-module-overlap-json`,
   `identifier-casing-import-duplicate-overlap-json`,

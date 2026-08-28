@@ -1,0 +1,97 @@
+command = ["check", "--json", "App/_net.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 4
+
+[[json_assert]]
+path = "diagnostics.0.details.source_kind"
+equals = "regular"
+
+[[json_assert]]
+path = "diagnostics.1.details.source_kind"
+equals = "regular"
+
+[[json_assert]]
+path = "diagnostics.2.details.source_kind"
+equals = "export"
+
+[[json_assert]]
+path = "diagnostics.3.details.source_kind"
+equals = "export"
+
+[[json_assert]]
+path = "diagnostics.2.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.2.details.occurrence"
+equals = "path_segment"
+
+[[json_assert]]
+path = "diagnostics.2.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.2.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.2.details.source_path"
+equals = "App/_net.veln"
+
+[[json_assert]]
+path = "diagnostics.2.span.file"
+equals = "App/_net.veln"
+
+[[json_assert]]
+path = "diagnostics.2.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.2.span.start.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.2.span.start.offset"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.2.span.end.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.2.span.end.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.2.span.end.offset"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.2.details.segment"
+equals = "App"
+
+[[json_assert]]
+path = "diagnostics.2.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.3.details.segment"
+equals = "_net"
+
+[[json_assert]]
+path = "diagnostics.3.details.segment_index"
+equals = 1

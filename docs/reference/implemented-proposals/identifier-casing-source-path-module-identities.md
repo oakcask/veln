@@ -12,7 +12,8 @@ Source-path-derived module identity segments now use the source identifier
 casing diagnostic contract for module-class path segments. Current behavior is
 specified by [Name Resolution](../../specification/name-resolution.md) and
 [Check JSON And Diagnostics](../../specification/diagnostics-json.md). The
-checked `identifier-casing-source-path-json` and
+checked `identifier-casing-source-path-json`,
+`identifier-casing-exported-source-path-json`, and
 `identifier-casing-source-path-human` examples fix the JSON and human command
 diagnostics. The checked `identifier-casing-source-path-boundary` example
 fixes the LSP zero-width diagnostic range.
@@ -22,10 +23,14 @@ fixes the LSP zero-width diagnostic range.
 Regular source paths validate the package-relative source path after removing
 `.veln`. Exact `.test.veln` companions validate the target source path before
 adding the internal companion suffix. Doctests validate the documented source
-path before adding the doctest suffix and wrapper name. Chained companions do
-not validate synthetic recovery segments for casing; they keep the existing
-structural diagnostic boundary. Manifest export path checks reuse the same
-accepted module derivation boundary.
+path before adding the doctest suffix and wrapper name. Generated sources with
+origin module metadata validate the supplied origin segments before generated
+bookkeeping paths or declaration names are considered. Generated sources
+without origin module metadata do not introduce a source-visible module.
+Chained companions do not validate synthetic recovery segments for casing;
+they keep the existing structural diagnostic boundary. Manifest export path
+checks reuse the same accepted module derivation boundary and report export
+origin casing failures as source-path diagnostics.
 
 Each invalid origin segment emits `name.invalid_case` with `phase: name`,
 `origin: source_path`, `occurrence: path_segment`, the segment spelling as
@@ -37,8 +42,8 @@ segments is not registered as a normal derived module identity.
 
 ## Completion
 
-This slice is complete for existing source-path-derived module identities. It
-does not complete generated-source origin metadata, written module identity
-syntax, explicit import-alias syntax, non-import qualified-use segment
-casing, recovery navigation, repair rename, rename conflict prediction, or
-MCP rename mapping.
+This slice is complete for source-path-derived module identities, including
+generated-source origin metadata and manifest export paths. It does not
+complete written module identity syntax, explicit import-alias syntax,
+non-import qualified-use segment casing, recovery navigation, repair rename,
+rename conflict prediction, or MCP rename mapping.

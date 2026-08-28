@@ -181,17 +181,23 @@ must start with an ASCII lowercase letter. Regular source paths validate the
 package-relative path after removing `.veln`. Exact `.test.veln` companions
 validate the target source path before the internal companion suffix is added.
 Doctests validate the documented source path before the doctest suffix and
-wrapper name are added. Chained companions do not derive a source-visible
-module identity and keep the existing `module.chained_companion` diagnostic
-instead of source-path casing diagnostics. Every invalid user-controlled
-origin segment reports one zero-width `name.invalid_case` diagnostic at the
-start of the affected source with `origin: source_path`, `occurrence:
-path_segment`, `name_class: module`, `required_initial: ascii_lowercase`,
-`source_path`, `source_kind`, `segment`, and the zero-based `segment_index`. A
-source with an invalid origin segment is not registered as a normal derived
-module identity. Manifest export path checks use the same accepted module
-derivation boundary. The checked
+wrapper name are added. Generated sources validate the origin module segments
+supplied by the generating source before generated bookkeeping paths or
+declaration names are considered. Generated sources without origin module
+metadata do not introduce a source-visible module. Chained companions do not
+derive a source-visible module identity and keep the existing
+`module.chained_companion` diagnostic instead of source-path casing
+diagnostics. Every invalid user-controlled origin segment reports one
+zero-width `name.invalid_case` diagnostic at the start of the affected source
+with `origin: source_path`, `occurrence: path_segment`, `name_class: module`,
+`required_initial: ascii_lowercase`, `source_path`, `source_kind`, `segment`,
+and the zero-based `segment_index`. A source with an invalid origin segment is
+not registered as a normal derived module identity. Manifest export path
+checks use the same accepted module derivation boundary and report export
+origin casing failures as source-path diagnostics instead of generic manifest
+export errors. The checked
 `identifier-casing-source-path-json`,
+`identifier-casing-exported-source-path-json`,
 `identifier-casing-source-path-human`, and
 `identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
 diagnostic spans and details.

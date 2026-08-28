@@ -14,18 +14,47 @@ pub fn derive(source: &SourceFile) -> Result<String, Box<Diagnostic>> {
 }
 
 pub(crate) fn derive_with_diagnostics(source: &SourceFile) -> Result<String, Vec<Diagnostic>> {
+    derive_visible_with_diagnostics(source).and_then(|module| {
+        module.ok_or_else(|| {
+            vec![*invalid_source_path(
+                source,
+                source.path().as_str(),
+                "generated source has no source-visible module origin",
+            )]
+        })
+    })
+}
+
+pub(crate) fn derive_visible_with_diagnostics(
+    source: &SourceFile,
+) -> Result<Option<String>, Vec<Diagnostic>> {
+    if let Some(origin_path) = source.generated_origin_path() {
+        return origin_path.map_or(Ok(None), |origin_path| {
+            derive_generated(source, origin_path.as_str()).map(Some)
+        });
+    }
     let path = source.path().as_str();
     if path.contains("#doctest-") {
-        return derive_doctest(source, path);
+        return derive_doctest(source, path).map(Some);
     }
     if let Some(companion) = classify_companion_source(path) {
         return if companion.chained {
-            derive_chained_companion(source, path).map_err(|diagnostic| vec![*diagnostic])
+            derive_chained_companion(source, path)
+                .map(Some)
+                .map_err(|diagnostic| vec![*diagnostic])
         } else {
-            derive_test_companion(source, path, &companion.target_path)
+            derive_test_companion(source, path, &companion.target_path).map(Some)
         };
     }
-    derive_regular(source, path)
+    derive_regular(source, path).map(Some)
+}
+
+pub(crate) fn derive_exported_with_diagnostics(
+    source: &SourceFile,
+) -> Result<String, Vec<Diagnostic>> {
+    let stem =
+        source_path_stem(source, source.path().as_str()).map_err(|diagnostic| vec![*diagnostic])?;
+    Ok(validated_segments(source, stem, "export")?.join("::"))
 }
 
 fn derive_chained_companion(source: &SourceFile, path: &str) -> Result<String, Box<Diagnostic>> {
@@ -128,6 +157,12 @@ fn derive_doctest(source: &SourceFile, path: &str) -> Result<String, Vec<Diagnos
     Ok(validated_segments(source, source_stem, "doctest")?.join("::"))
 }
 
+fn derive_generated(source: &SourceFile, origin_path: &str) -> Result<String, Vec<Diagnostic>> {
+    let source_stem =
+        source_path_stem(source, origin_path).map_err(|diagnostic| vec![*diagnostic])?;
+    Ok(validated_segments(source, source_stem, "generated")?.join("::"))
+}
+
 fn is_valid_module_segment(segment: &str) -> bool {
     let mut chars = segment.chars();
     let Some(first) = chars.next() else {
@@ -212,9 +247,9 @@ fn invalid_source_path(
 #[cfg(test)]
 mod tests {
     use veln_diagnostics::diagnostic_to_json;
-    use veln_source::SourceFile;
+    use veln_source::{SourceFile, SourcePath};
 
-    use super::{derive, derive_with_diagnostics};
+    use super::{derive, derive_visible_with_diagnostics, derive_with_diagnostics};
 
     #[test]
     fn preserves_each_source_kind() {
@@ -236,6 +271,41 @@ mod tests {
                 "unexpected derived module for {path}"
             );
         }
+    }
+
+    #[test]
+    fn validates_generated_origin_metadata_and_skips_source_less_generated_modules() {
+        let generated = SourceFile::generated(
+            "target/bookkeeping.veln",
+            "",
+            Some(SourcePath::new("App/_net.veln")),
+        );
+        let diagnostics =
+            derive_visible_with_diagnostics(&generated).expect_err("origin should be rejected");
+
+        assert_eq!(diagnostics.len(), 2);
+        assert_invalid_case(
+            &diagnostics[0],
+            "App",
+            "ascii_uppercase",
+            "generated",
+            0,
+            "target/bookkeeping.veln",
+        );
+        assert_invalid_case(
+            &diagnostics[1],
+            "_net",
+            "underscore",
+            "generated",
+            1,
+            "target/bookkeeping.veln",
+        );
+
+        let generated = SourceFile::generated("target/bookkeeping.veln", "", None::<SourcePath>);
+        assert_eq!(
+            derive_visible_with_diagnostics(&generated).expect("source-less generated source"),
+            None
+        );
     }
 
     #[test]
