@@ -1,0 +1,186 @@
+use veln_diagnostics::{
+    Diagnostic, ToolchainSymbolNameClass, ToolchainSymbolNameFailureReason,
+    toolchain_invalid_symbol_case_diagnostic,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum SourceLessNameClass {
+    Module,
+    Function,
+    Type,
+    Constructor,
+}
+
+impl SourceLessNameClass {
+    fn toolchain_class(self) -> ToolchainSymbolNameClass {
+        match self {
+            Self::Module => ToolchainSymbolNameClass::Module,
+            Self::Function => ToolchainSymbolNameClass::Function,
+            Self::Type => ToolchainSymbolNameClass::Type,
+            Self::Constructor => ToolchainSymbolNameClass::Constructor,
+        }
+    }
+
+    fn accepts(self, name: &str) -> bool {
+        let Some(initial) = name.as_bytes().first() else {
+            return false;
+        };
+        match self {
+            Self::Module | Self::Function => initial.is_ascii_lowercase(),
+            Self::Type | Self::Constructor => initial.is_ascii_uppercase(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct InvalidStandardSymbolCase {
+    pub(crate) provider: &'static str,
+    pub(crate) name: String,
+    pub(crate) name_class: SourceLessNameClass,
+    pub(crate) reason: InvalidStandardSymbolReason,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum InvalidStandardSymbolReason {
+    InvalidCase,
+    InvalidLookupClass,
+    InvalidLookupKey,
+    DuplicateLookupKey,
+}
+
+impl InvalidStandardSymbolCase {
+    #[cfg(test)]
+    pub(crate) fn code(&self) -> &'static str {
+        "toolchain.invalid_symbol_case"
+    }
+
+    #[cfg(test)]
+    pub(crate) fn required_initial(&self) -> &'static str {
+        match self.name_class {
+            SourceLessNameClass::Module | SourceLessNameClass::Function => "ascii_lowercase",
+            SourceLessNameClass::Type | SourceLessNameClass::Constructor => "ascii_uppercase",
+        }
+    }
+
+    pub(crate) fn diagnostic(&self) -> Diagnostic {
+        toolchain_invalid_symbol_case_diagnostic(
+            self.provider,
+            self.name.clone(),
+            self.name_class.toolchain_class(),
+            self.reason.toolchain_reason(),
+        )
+    }
+}
+
+impl InvalidStandardSymbolReason {
+    fn toolchain_reason(self) -> ToolchainSymbolNameFailureReason {
+        match self {
+            Self::InvalidCase => ToolchainSymbolNameFailureReason::InvalidCase,
+            Self::InvalidLookupClass => ToolchainSymbolNameFailureReason::InvalidLookupClass,
+            Self::InvalidLookupKey => ToolchainSymbolNameFailureReason::InvalidLookupKey,
+            Self::DuplicateLookupKey => ToolchainSymbolNameFailureReason::DuplicateLookupKey,
+        }
+    }
+}
+
+pub(crate) fn validate_source_less_name(
+    provider: &'static str,
+    name: &str,
+    name_class: SourceLessNameClass,
+) -> Result<(), InvalidStandardSymbolCase> {
+    if name_class.accepts(name) {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: name.to_string(),
+            name_class,
+            reason: InvalidStandardSymbolReason::InvalidCase,
+        })
+    }
+}
+
+pub(crate) fn validate_source_less_lookup_segment(
+    provider: &'static str,
+    name: &str,
+    name_class: SourceLessNameClass,
+) -> Result<(), InvalidStandardSymbolCase> {
+    validate_source_less_name(provider, name, name_class)?;
+    if source_lookup_segment_is_consumable(name) {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: name.to_string(),
+            name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        })
+    }
+}
+
+pub(crate) fn validate_bare_source_less_lookup_segment(
+    provider: &'static str,
+    name: &str,
+    name_class: SourceLessNameClass,
+) -> Result<(), InvalidStandardSymbolCase> {
+    validate_source_less_lookup_segment(provider, name, name_class)?;
+    let segments = [name.to_string()];
+    if veln_syntax::bare_expression_bool_literal(&segments).is_none() {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: name.to_string(),
+            name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        })
+    }
+}
+
+fn source_lookup_segment_is_consumable(name: &str) -> bool {
+    !is_source_keyword(name)
+        && name
+            .as_bytes()
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+}
+
+fn is_source_keyword(name: &str) -> bool {
+    matches!(
+        name,
+        "pub"
+            | "fn"
+            | "type"
+            | "schema"
+            | "codec"
+            | "for"
+            | "decode"
+            | "encode"
+            | "derive"
+            | "with"
+            | "format"
+            | "where"
+            | "test"
+            | "effect"
+            | "effects"
+            | "perform"
+            | "handler"
+            | "handles"
+            | "handle"
+            | "let"
+            | "end"
+            | "require"
+            | "ensure"
+            | "invariant"
+            | "mod"
+            | "use"
+            | "from"
+            | "at"
+            | "match"
+            | "if"
+            | "else"
+            | "or"
+            | "and"
+            | "not"
+    )
+}

@@ -1,142 +1,497 @@
+---
+role: specification
+authority: normative
+update-when: The Veln type annotation, type inference, assignment compatibility, operator typing, or executable type evidence changes.
+---
+
 # Types
 
-This page routes implemented type-system facts. Use it before opening the
-full type reference.
+This file specifies implemented type annotations, inference, assignment
+compatibility, and operator typing.
 
-## Read First
+## Annotations
 
-- Type annotations include primitives, descriptor-backed `Option`, `Result`,
-  `List`, source-declared ADTs, built-in containers, records, function types,
-  named type paths, and optional result bindings. Function type parameter
-  lists may use a final variadic `...T` element. Type constructor arguments
-  use angle brackets; parenthesized type constructor arguments are rejected in
-  source type positions.
-- Local inference is monomorphic and flow-sensitive within one function body.
-  An omitted local `let` binding type may be fixed by a later same-function use
-  checked against a concrete expected type from a declared return, local `let`
-  annotation, call argument, record field, match arm, `if` branch, constructor
-  payload, collection element, or dictionary value when that use requires one
-  concrete type. Non-empty `Vec<T>` and `Dict<K, V>` literal
-  initializers may also infer omitted local binding types when every element,
-  key, and value agrees on one concrete type. Empty `Vec<T>` literals, `Nil`
-  for `List<T>`, and empty dictionary literals accept concrete expected
-  collection types from annotations, returns, call arguments, record fields,
-  match arms, `if` branches, and constructor payloads, plus compiler-known
-  prelude helper result context for callback return values. Concrete record
-  field and constructor payload expected types also propagate through nested
-  initializer expressions when every enclosing field or payload type is
-  concrete. Payload-carrying
-  ADT constructors also infer omitted type arguments from payload expressions
-  when the constructor resolves to one visible variant and every type argument
-  becomes concrete.
-  Record let patterns bind nested named fields from a known record initializer
-  or local annotation; missing fields report `type.field_missing`.
-  Constructor let patterns bind named payload positions from a known ADT
-  initializer or local annotation; wrong descriptor constructors report
-  `type.mismatch`.
-  Constructor patterns in `match` arms may constrain an otherwise unknown
-  scrutinee when the visible arms identify one finite descriptor domain.
-  Compiler-known collection, dictionary, option, and result helper input
-  types also constrain named private callback function parameters passed to
-  the implemented map, filter, fold, try-map, `vec_try_map_with`,
-  context-carrying dictionary aliases, and and-then helpers. Same-module
-  helpers and visible imported
-  helpers whose declared parameter type is a concrete function type also
-  constrain named private callback parameters at that argument position,
-  including when the helper is reached through a visible public function
-  alias. This includes fixed parameter types, the variadic element type of a
-  concrete variadic function type, ordinary effect-set compatibility for
-  concrete effectful function types, and bound final effect-row tails such as
-  `effects [...E]`. Incompatible callback returns or effects
-  report `type.mismatch` at the helper call argument; helper callback
-  parameters without one concrete function type do not constrain the private
-  callback signature.
-  Source-backed prelude helpers without a compiler-known callback rule use the
-  same declared-helper fallback when their embedded source signature contains a
-  concrete function-typed callback parameter. A concrete expected record field
-  whose type is a concrete function type also constrains a named private
-  callback placed in that record field initializer.
-  A local binding whose annotation is a concrete function type also constrains
-  a named private callback assigned as that binding initializer; later calls or
-  returns through that local binding use the same concrete function type.
-  A local binding without an annotation also propagates a later same-function
-  concrete function expected type through one direct binding hop when its
-  initializer is a named same-module private callback function.
-  A direct function body return position whose declared return type is a
-  concrete function type also constrains a named private callback returned from
-  that body.
-  A `match` arm result checked against a concrete function type also
-  constrains a named private callback returned from that arm, including when
-  the `match` is a local binding initializer or function body tail expression.
-  An `if` branch result checked against a concrete function type also
-  constrains a named private callback returned from a `then`, `else if`, or
-  final `else` branch.
-  A constructor payload whose expected type is a concrete function type also
-  constrains a named private callback placed in that payload position. This
-  includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`,
-  and `Err` and `Result::Err` payloads. Concrete `Vec<fn(...) -> ...>`
-  element positions, concrete `List` `Cons` head positions, and concrete
-  `Dict<K, fn(...) -> ...>` value positions also constrain named private
-  callbacks placed at that position, including nested initializer positions
-  reached through concrete record fields or constructor payloads. When such a
-  concrete helper, record-field, local-binding, direct return, match arm, `if`
-  branch, constructor payload, collection element, dictionary value, or
-  prelude helper result context fixes a named private callback return type,
-  that expected return type propagates into non-empty callback tail
-  expressions such as `Some(...)`, `Ok(...)`, `Err(...)`, source ADT
-  constructors, records, and collection literals.
-- Private non-exported helper functions may omit parameter and return
-  annotations when same-module concrete call sites and body facts determine one
-  monomorphic signature. Public functions, tests, exported aliases, and
-  imported public functions still require declared signature boundaries.
-- Inference failure diagnostics keep the primary message on the failed fact and
-  expose stable JSON details for the failed slot, current inferred type when
-  one is available, and known constraint provenance. See
-  [diagnostics-json.md](diagnostics-json.md).
-- `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>`
-  and source-declared ADTs are descriptor-backed. Their constructors, payload
-  bindings, result propagation where applicable, and finite-domain
-  exhaustiveness use descriptor facts.
-- The standard prelude re-exports source-visible `Byte`, `ByteChunk`,
+Implemented type annotations:
+
+- primitives: `Bool`, `Int`, `Float`, `String`, and `()`
+- built-in and descriptor-backed type constructors: `Option<T>`,
+  `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`
+- standard prelude byte and codec vocabulary names: `Byte`, `ByteChunk`,
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`,
-  `AcceptOutcome`, `StreamReadOutcome`, `StreamWriteOutcome`,
-  `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`,
-  and `EncodeError` named types for small immutable byte values, bounded byte
-  views, byte-counted helper APIs, outgoing chunk lists and whole-chunk
-  production results, listener accept decisions, stream read and write
-  decisions, and incremental codec boundary values. The five generic byte
-  types are owned by the private `std::bytes` module; user packages cannot
-  import that implementation module directly.
-- `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
-  source-declared ADTs must be exhaustive unless a catch-all arm is present.
-  `if` expressions require a final `else`; `if` and `else if` conditions
-  follow the same Boolean branching type rules as equivalent `match Bool`
-  expressions. Non-`Bool` conditions and incompatible branch result types
-  report `type.mismatch` at the failed condition or branch expression.
-- Assignment compatibility treats `unknown` as compatible with any type and
-  checks records by required fields. Function compatibility preserves
-  fixed-arity versus variadic shape. `Path` is distinct from `String`; the
-  runtime path representation is not source-visible.
-- Integer bitwise operators `~`, `&`, `|`, `^`, `<<`, `>>`, and `>>>` accept
-  `Int` operands and return `Int` with fixed signed 64-bit two's-complement
-  semantics. Literal shift counts outside `0..63` are rejected during
-  checking; dynamic invalid counts fail at runtime instead of being masked.
+  `AcceptOutcome`, `StreamReadOutcome`, `DecodeStep<T>`,
+  `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
+- records: `{name: Type, ...}`
+- function types: `fn(T) -> U`, `fn(T, U) -> V`, or `fn(T, ...U) -> V`
+  with optional `effects [name, ...]`
+- other named type paths with optional type arguments, unless they are one of
+  the arity-checked built-ins above
 
-## Read When
+Angle brackets are the source spelling for type constructor arguments. Legacy
+parenthesized type constructor arguments in type positions are invalid type
+annotations.
 
-- Annotation syntax, public/private annotation requirements, and test
-  declaration type requirements: [types-full.md](types-full.md#annotations).
-- Local inference sources, match patterns, and pattern let bindings:
-  [types-full.md](types-full.md#inference).
-- Record, dictionary, function, and field-access assignment compatibility:
-  [types-full.md](types-full.md#assignment-compatibility).
-- Unary, boolean, bitwise, shift, comparison, arithmetic, equality, pipeline,
-  and float rules:
-  [types-full.md](types-full.md#operators).
+`Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>` and
+source-declared ADTs use descriptor entries for constructor payload typing,
+qualified and unqualified constructor names, postfix `?` result propagation for
+`Result`, and finite-domain exhaustiveness. Source ADTs may be generic and
+recursive through variant payloads. Constructor payload types instantiate the
+declared type parameters from surrounding context and payload expressions.
+Nullary generic constructors require surrounding type context; when no
+assignment, return, call, match, or other expected type determines the omitted
+parameter, inference reports an ambiguous constructor type.
 
-## Skip Unless Needed
+The standard prelude byte vocabulary uses `Byte` for one byte value,
+`ByteChunk` for an immutable owned byte sequence, `ByteView` for a bounded
+immutable view into byte data, `ByteCount` for byte lengths and consumed or
+produced counts, `ByteOffset` for absolute byte offsets, `StreamInput` for
+incremental input events, `AcceptOutcome` for adapter-owned listener accept
+decisions, `StreamReadOutcome` for adapter-owned stream read decisions,
+`StreamWriteOutcome` for adapter-owned stream write decisions, and
+`DecodeStep<T>` and `EncodeStep<TState>` for ordinary source-visible codec
+boundary values. `StreamInput` is a public ADT with `Chunk(bytes: ByteChunk)`
+and `End` variants. A zero-length `ByteChunk` inside `Chunk` remains a chunk
+arrival and is not equivalent to `End`. `AcceptOutcome` is a public ADT with
+`AcceptStream(stream: NetStream)`, `AcceptEnd`, `AcceptDeadlineExpired`, and
+`AcceptCancelled` variants.
+`StreamReadOutcome` is a public ADT with `ReadChunk(bytes: ByteChunk)`,
+`ReadEnd`, `ReadDeadlineExpired`, and `ReadCancelled` variants.
+`StreamWriteOutcome` is a public ADT with `WriteCompleted`,
+`WriteDeadlineExpired`, and `WriteCancelled` variants.
+`EncodeStep<TState>` is a public ADT with `Encoded`, `Partial`, and `Invalid`
+variants; its output payloads use `List<ByteChunk>` and its `Partial` variant
+carries the encoder state as `TState`. Prelude helpers also construct and
+append outgoing `List<ByteChunk>` values without adding a separate output-only
+byte type. `DecodeError` and `EncodeError` are public structured error ADTs for
+matching and inspection by ordinary source.
+The constructor layout of the other byte vocabulary types is not a public
+source contract; programs construct and inspect those values through the
+prelude helpers in
+[names-effects.md#helper-signatures](names-effects.md#helper-signatures).
 
-- Use [source-surface.md](source-surface.md) first when the question is about
-  source grammar rather than type behavior.
-- Use [contracts-holes.md](contracts-holes.md) for contract and hole typing
-  routes before opening full type details.
+In a function or test return annotation, a returned function type may carry its
+own effect list before the enclosing declaration's effect list. For example,
+`-> fn(String) -> () effects [stdio] effects []` returns a callback that may
+perform `stdio` while the factory declaration itself is pure.
+
+A function type parameter may be variadic by writing `...T` as the final
+parameter type. The marker is not an ordinary type constructor and is rejected
+outside function declaration parameter syntax and function type parameter
+syntax. Inside a function body, a variadic declaration parameter is bound as
+`List<T>`.
+
+Record type field lists may include a trailing comma, as in
+`{name: String, count: Int,}`.
+
+One record type annotation cannot declare the same field name twice. A
+duplicate field in a record type annotation is an invalid type annotation.
+
+Public functions must annotate every parameter, annotate the return type, and
+provide an explicit `effects [...]` clause. Private functions may omit a
+parameter or return annotation only when local inference produces a concrete
+type for the omitted fact. If the checker still has `unknown`, it reports
+`type.private_inference_incomplete`. The JSON details identify whether the
+missing slot is a private parameter or private return, name private parameters,
+report the missing fact, and include the current inferred type.
+
+The optional result binding in `-> name: Type` names the return value for
+postconditions, but the type annotation remains `Type`.
+
+Test declarations must use an empty parameter list, annotate the return type as
+`()` or `Result<(), E>`, and provide an explicit `effects [...]` clause. Their
+declared effect list is checked against directly inferred effects, but test
+declarations are not callable function values.
+
+## Inference
+
+Local inference is monomorphic and flow-sensitive within one function body.
+Expected types flow into holes and subexpressions from:
+
+- declared return types for tail expressions
+- local `let` annotations
+- function call parameters
+- prelude helper parameters and return context
+- record fields
+- vec elements
+- dictionary keys and values
+- callable function declarations used as values
+- `Ok`, `Err`, `Some`, `None`, `Nil`, `Cons`, source-declared constructors,
+  their type-qualified and import-alias-qualified forms, and postfix `?`
+- `match` arm results, `if` branch results, and constructor payload bindings
+- record pattern field bindings in `match` arms and `let` statements
+
+Typed holes use the same concrete expected-type flow as other subexpressions.
+When a hole appears under a concrete return, call argument, record field, `if`
+branch, `match` arm, or constructor payload context, the hole diagnostic and
+JSON details report that type and use it to build advisory symbol candidate
+queries.
+
+When a local `let` binding omits its annotation and its initializer leaves the
+binding type with `unknown`, later same-function uses may fix the binding to
+one concrete type. Implemented constraining uses are declared return
+positions, local `let` annotations, call arguments, record fields, match arm
+results, `if` branch results, constructor payloads, collection elements, and
+dictionary values.
+The expected type must be concrete; expected types that still contain
+`unknown` are not enough to fix the binding. The binding remains monomorphic:
+after one concrete type is fixed, a later incompatible use reports
+`type.mismatch`. If no same-function use fixes every `unknown` part of the
+binding type, checking reports `type.local_inference_incomplete` at the
+omitted binding. Initializers with an ambiguous concrete shape, including
+empty collection literals, `Nil`, empty dictionary literals, and nullary
+generic constructors, use the existing ambiguity diagnostics until a concrete
+same-function expected type fixes the binding. The JSON details identify the
+local binding slot and include the current inferred type.
+
+Non-empty `Vec<T>` literal initializers infer an omitted local binding as
+`Vec<T>` from the first element when all later elements are assignable to the
+same concrete element type. Non-empty `Dict<K, V>` literal initializers infer
+`Dict<K, V>` from the first key and value when later keys and values are
+assignable to the same concrete key and value types. Conflicting later facts
+remain focused `type.mismatch` diagnostics at the incompatible element, key,
+or value rather than widening the binding type.
+
+When a private non-exported helper omits parameter or return annotations,
+same-module concrete call sites may constrain the helper's single monomorphic
+signature. Concrete argument expressions constrain omitted parameters. A
+concrete expected result type at a helper call constrains an omitted return
+type, and body tail facts are checked against the inferred return type. Body
+facts and call-site facts must agree; a later incompatible call reports
+`type.mismatch` at the failed argument or expected-result use. Direct recursive
+edges do not supply inference facts for the recursive helper itself, so an
+omitted recursive slot still needs a non-recursive concrete fact or an
+annotation. Public functions, tests, exported aliases, and imported public
+functions do not receive inferred signatures.
+
+Empty `Vec<T>` literals, `Nil` for `List<T>`, and empty dictionary literals
+accept concrete expected collection types from local annotations, return
+positions, call arguments, record fields, match arm results, constructor
+payloads, and compiler-known prelude helper result context for callback return
+values. `Nil` in an omitted local binding may also be fixed by a later
+same-function use. Empty dictionary literals use `{}` when the expected type
+is `Dict<K, V>`; a later same-function use may fix an omitted local `{}`
+binding to that dictionary type. Without a dictionary expectation, `{}`
+remains an empty record literal. An expected collection type that still
+contains `unknown` is not concrete enough for an empty collection literal.
+When an empty collection literal still lacks concrete context, its
+`type.inference_ambiguous` JSON details identify the empty collection slot,
+current inferred type, and empty collection type-context constraint.
+Record field and constructor payload expected types propagate recursively
+through nested initializer expressions when every enclosing field or payload
+type is concrete. This lets empty collection literals and nullary
+source-declared constructors inside nested record literals and constructor
+payloads use the same concrete context they would receive at the top level.
+
+Payload-carrying ADT constructors infer omitted type arguments from payload
+expressions when there is no surrounding expected ADT type. The constructor
+name must resolve to one visible variant, and every type argument must become
+concrete from the payloads. Repeated uses of the same type parameter must agree;
+an incompatible later payload reports `type.mismatch` at that payload
+expression. If payloads leave a constructor type argument as `unknown`, the
+constructor reports `type.inference_ambiguous` with a constructor slot kind,
+current inferred type, and constructor type-context constraint. Bare,
+type-qualified,
+import-alias-qualified, and import-alias-and-type-qualified constructor forms
+use the same visibility and descriptor resolution rules as constructor calls
+with expected type context. Nullary generic constructors still require
+surrounding type context.
+
+Compiler-known prelude helpers push concrete input item types into named
+private callback function values. For `vec_map`, `vec_filter`, `vec_fold`, and
+`vec_try_map`, a concrete `Vec<T>` input constrains the callback parameter that
+receives each element to `T`. `vec_try_map_with` also constrains the callback
+context parameter from its first helper argument and the callback item
+parameter from the concrete `Vec<T>` input, including qualified
+`prelude::vec_try_map_with` calls. The same rule applies to `list_map`,
+`list_filter`, `list_fold`, and `list_try_map` for concrete `List<T>` inputs.
+For concrete `Dict<K, V>` inputs, `dict_map`, `dict_map_with`,
+`dict_filter`, `dict_filter_with`, `dict_try_map`, and `dict_try_map_with`
+constrain callback parameters that receive each key and value to `K` and `V`.
+`dict_fold` and `dict_fold_with` constrain accumulator, key, and value
+parameters from the fold result context and dictionary input. The `_with`
+aliases accept an explicit context argument before the dictionary and pass it
+as the first callback argument.
+`option_map` and `option_and_then` constrain their callback parameter from the
+`Option<T>` input. `result_map` and `result_and_then` constrain their callback
+parameter from the `Result<T, E>` success type, and `result_map_err` constrains
+its callback parameter from the error type. These helpers still use the
+surrounding expected result type to constrain the callback return type when
+that expected result is concrete. That concrete callback return type also
+flows into non-empty private callback tail expressions whose shape can use the
+context, including `Some(...)`, `Ok(...)`, `Err(...)`, source ADT
+constructors, record literals, `Vec` literals, and dictionary literals. The
+callback body remains monomorphic: incompatible payload, field, element, key,
+or value facts report the ordinary `type.mismatch` at the incompatible
+expression.
+
+Ordinary same-module helpers, visible imported public helpers, and helpers
+reached through visible public function aliases can provide the same
+expected-type context when their declared parameter type is already a concrete
+function type such as `fn(Int) -> String`,
+`fn(String, Int) -> Bool`, `fn(String, ...String) -> List<String>`, or
+`fn(String) -> () effects [stdio]`. A named private callback function value
+passed at that argument position receives the declared fixed parameter types
+and, for a concrete variadic function type, the declared variadic element type
+for any omitted callback parameter annotations. The callback return still has
+to satisfy the helper's declared function return type. When that return type is
+concrete, it flows into
+non-empty callback tail expressions using the same constructor, record, and
+collection expected-type rules as prelude helper callback returns. Function
+effect assignment keeps the usual pure and effectful compatibility checks;
+an incompatible callback return or effect set reports `type.mismatch` at the
+helper call argument.
+This rule does not infer public callback signatures, exported aliases, or
+helper signatures whose function parameter type still contains `unknown`,
+including an unknown variadic element type. A public function alias reached by
+a call re-exports the resolved target signature; it does not make an
+`unknown`-containing helper signature concrete.
+Source-backed prelude helpers that do not have a compiler-known callback rule
+use the same declared-helper fallback for bare and `prelude::` calls when the
+embedded source signature contains a concrete function-typed callback
+parameter. If that function parameter still contains `unknown`, the fallback
+does not constrain the private callback parameters.
+
+A concrete expected record type also pushes each expected field type into the
+matching record literal field initializer. When the expected field type is a
+concrete function type, a named private callback function value placed in that
+field receives the expected function parameter types for omitted callback
+parameter annotations. The callback return still has to satisfy the expected
+field function return type. When that return type is concrete, it flows into
+non-empty callback tail expressions using the same constructor, record, and
+collection expected-type rules as prelude helper callback returns. Expected
+record field function types that still contain `unknown` do not constrain
+callback parameters.
+
+A local binding annotation whose type is a concrete function type also
+provides expected-type context for its initializer. When a named private
+callback function value is assigned to that binding, omitted callback parameter
+annotations receive the binding function parameter types. Later calls through
+the local binding, or returns where the same concrete function type is
+expected, use the local binding's function type. The callback return still has
+to satisfy the binding function return type. When that return type is
+concrete, it flows into non-empty callback tail expressions using the same
+constructor, record, and collection expected-type rules as prelude helper
+callback returns. Ordinary function effect assignment keeps pure and effectful
+callback compatibility. Local binding function types that still contain
+`unknown` do not constrain callback parameters.
+
+An omitted local binding whose initializer is a named same-module private
+callback function can also receive one later same-function concrete function
+expected type. That concrete function type flows through the local binding into
+the private callback's omitted parameter and return slots, using the same
+callback return expected-type rules as direct declared-helper callback
+arguments. This is a single direct binding hop only; aliases of aliases,
+imported functions, public boundary signatures, and local binding function
+types that still contain `unknown` do not constrain callback parameters.
+Conflicting later uses report `type.mismatch` at the incompatible use.
+
+When a function body tail expression is checked against a declared return type
+that is a concrete function type, a named same-module private callback function
+value returned directly from that body receives the declared returned function
+parameter types for omitted callback parameter annotations. The callback return
+still has to satisfy the declared returned function return type. Ordinary
+function effect assignment keeps pure and effectful callback compatibility.
+Declared returned function types that still contain `unknown` do not constrain
+callback parameters.
+
+When a `match` expression is checked against a concrete expected function type,
+each arm result receives that expected type. A named same-module private
+callback function value returned from an arm receives the expected function
+parameter types for omitted callback parameter annotations. This applies when
+the `match` is a local binding initializer with a concrete function annotation
+and when the `match` is a function body tail expression whose declared return
+type is a concrete function type. The callback return still has to satisfy the
+expected function return type. When that return type is concrete, it flows into
+non-empty callback tail expressions using the same constructor, record, and
+collection expected-type rules as prelude helper callback returns. Ordinary
+function effect assignment keeps pure and effectful callback compatibility.
+Expected match arm function types that still contain `unknown` do not constrain
+callback parameters.
+
+When an `if` expression is checked against a concrete expected function type,
+each `then`, `else if`, and final `else` branch result receives that expected
+type. A named same-module private callback function value returned from a
+branch receives the expected function parameter types for omitted callback
+parameter annotations. This applies when the `if` is a local binding
+initializer with a concrete function annotation and when the `if` is a
+function body tail expression whose declared return type is a concrete function
+type. The callback return still has to satisfy the expected function return
+type. When that return type is concrete, it flows into non-empty callback tail
+expressions using the same constructor, record, and collection expected-type
+rules as prelude helper callback returns. Ordinary function effect assignment
+keeps pure and effectful callback compatibility. Expected `if` branch function
+types that still contain `unknown` do not constrain callback parameters.
+
+When a constructor call is checked against a concrete expected ADT type, each
+concrete payload type provides expected-type context for the matching payload
+expression. When an expected payload type is a concrete function type, a named
+private callback function value passed at that payload position receives the
+function parameter types for omitted callback parameter annotations. This
+includes compiler-owned `Some` and `Option::Some`, `Ok` and `Result::Ok`, and
+`Err` and `Result::Err` payloads, plus source-declared constructor payloads.
+The callback return still has to satisfy the expected payload function return
+type. When that return type is concrete, it flows into non-empty callback tail
+expressions using the same constructor, record, and collection expected-type
+rules as prelude helper callback returns. Ordinary function effect assignment
+keeps pure and effectful callback compatibility. Constructor payload function
+types that still contain `unknown` do not constrain callback parameters.
+
+When a concrete expected collection type reaches an element or value position
+whose contained type is a concrete function type, a named same-module private
+callback function value placed at that position receives the expected function
+parameter types for omitted callback parameter annotations. This applies to
+`Vec<fn(...) -> ...>` literal elements, `List<fn(...) -> ...>` `Cons` head
+payloads, `Dict<K, fn(...) -> ...>` literal values, one direct local binding
+hop to a private callback used as the collection element or dictionary value,
+and nested initializer positions where an outer concrete record field or
+constructor payload expected type reaches one of those positions. The callback
+return still has to satisfy the expected contained function return type. When
+that return type is concrete, it flows into non-empty callback tail expressions
+using the same constructor, record, and collection expected-type rules as
+prelude helper callback returns. Collection element and dictionary value
+function types that still contain `unknown` do not constrain callback
+parameters.
+
+Record field access gets its result type from the inferred base record type.
+Wildcard lets use the same annotation rule as named lets but do not add a
+binding to the local environment. Record let patterns bind each nested binding
+to the corresponding record field type when the right-hand side or annotation
+has a known record type. A record let pattern field missing from a known record
+type reports `type.field_missing` at the pattern field.
+Constructor let patterns bind each nested binding to the corresponding
+constructor payload type when the right-hand side or annotation has a known ADT
+descriptor type. A constructor pattern that resolves to a different descriptor
+reports `type.mismatch` at the constructor pattern. Pattern bindings whose
+payload or field type remains `unknown` still report
+`type.local_inference_incomplete` unless another diagnostic already explains
+the pattern.
+
+`match` infers a scrutinee type before checking arm bodies. Constructor
+patterns can constrain an otherwise unknown scrutinee when the visible arm
+patterns identify exactly one finite descriptor domain: `Option<T>`,
+`Result<T, E>`, `List<T>`, or one source-declared ADT. Payload literal and
+nested constructor subpatterns contribute concrete descriptor type arguments
+when they determine them. A catch-all arm alone does not infer the scrutinee
+type. Ambiguous constructor-pattern domains leave the scrutinee unknown and
+report `type.inference_ambiguous` when a concrete scrutinee type is required.
+The JSON details identify the match scrutinee slot, candidate domains, and
+constructor-pattern domain constraint.
+
+A binding pattern has the scrutinee type. `Some(value)`,
+`Option::Some(value)`, `Ok(value)`, `Result::Ok(value)`, `Err(error)`,
+`Result::Err(error)`, `Cons(head, tail)`, and `List::Cons(head, tail)`, and
+source-declared constructor patterns bind their payload patterns to the
+corresponding descriptor argument when the scrutinee type is known.
+Source-declared constructor patterns may use bare, type-qualified,
+import-alias-qualified, or import-alias-and-type-qualified names when the
+constructor is visible. For `List<A>`, `head` binds as `A` and `tail` binds as
+`List<A>`. A record pattern field binds nested patterns to the corresponding
+record field type when the scrutinee type is known. Unknown or non-record
+scrutinee types leave nested pattern bindings unknown. Arm expressions share
+the expected result type when one is available; otherwise the first arm
+supplies the initial result type for later arms.
+
+`if` and `else if` conditions are checked with expected type `Bool`. A
+non-`Bool` condition reports `type.mismatch` at the condition expression.
+Branch body expressions share the expected result type when one is available;
+otherwise the first branch supplies the initial result type for later branches,
+matching the result-unification behavior of equivalent `match Bool` arms.
+Typed holes in conditions therefore receive `Bool`, while typed holes in
+branch bodies receive the enclosing expected result type when one exists.
+
+After scrutinee type inference and arm expression checking, `match` expressions
+over finite domains must be exhaustive. `Bool` scrutinees require coverage for
+`true` and `false`; `Option<T>` scrutinees require `Some(_)` and `None`;
+`Result<T, E>` scrutinees require `Ok(_)` and `Err(_)`; `List<A>` scrutinees
+require `Nil` and `Cons(_)`; source-declared ADT scrutinees require every
+declared variant. In an importing module, hidden source-declared constructors
+still belong to the finite domain, so public constructor arms alone are not
+exhaustive; use `_` or a binding catch-all arm when private constructors may be
+present. `_` and binding patterns are catch-all arms. A
+non-exhaustive finite-domain match reports
+`type.match_non_exhaustive` at the `match` expression. The missing case is the
+unqualified coverage label: source-declared ADTs use the constructor leaf name,
+with `_` for payload variants. Related notes identify the scrutinee type and
+the arms that prove partial coverage.
+
+## Assignment Compatibility
+
+Assignment compatibility treats `unknown` as compatible with any type. Record
+assignment is width-compatible: every expected field must exist in the actual
+record and be assignable. Named types with the same constructor are compatible
+when their arguments are pairwise assignable, so `Vec<unknown>` accepts
+`Vec<Int>`. `Path` and `String` are distinct named types at assignment
+boundaries; the runtime path representation is not source-visible.
+Function assignment checks fixed parameter count, parameter types, variadic
+shape, return type, and effects. Variadic and fixed-arity function types are
+not assignment-compatible with each other. Two variadic function types are
+compatible only when the fixed parameters and variadic element types are
+assignable. The actual callable's effects must all be present in the expected
+function type's effect list, so a pure callable can satisfy an effectful
+function type but a `stdio` callable cannot satisfy a pure function type. If
+the expected function type contains a bound final effect row tail such as
+`effects [stdio, ...E]`, the row tail accepts the actual callable effects not
+already named by the concrete entries. The call boundary substitutes those
+effects for `E` when it computes the enclosing call's concrete effect set.
+
+One record literal cannot declare the same field name twice. Duplicate record
+literal fields are name errors before record assignability chooses an expected
+field type.
+
+Dictionary literals infer `Dict<K, V>` from their expected type when available.
+An empty `{}` expression becomes an empty dictionary only when the expected type
+is `Dict<K, V>`. Without an expected dictionary type, the first entry supplies
+the initial key and value types. Later entries are checked against the same key
+and value expectations. A dictionary key may be any implemented expression; the
+parser only reserves a first bare `name: value` entry for record literals.
+
+Record field access `expr.name` requires the base expression to have a record
+type containing `name`. The access has the declared field type. Accessing a
+field absent from a known record type is a type error reported at the field
+name, with the base expression reported as related context.
+
+## Operators
+
+Implemented operator typing:
+
+- `not` expects `Bool` and returns `Bool`.
+- Unary `-` expects `Int` and returns `Int`, or expects `Float` and returns
+  `Float` when the expected result type or operand is clearly `Float`.
+- Unary `~` expects `Int` and complements all 64 bits.
+- `or` and `and` expect `Bool` operands and return `Bool`.
+- `&`, `^`, and `|` expect `Int` operands and return their bitwise AND, XOR,
+  and OR result as `Int`.
+- `<<`, `>>`, and `>>>` expect `Int` operands. `<<` discards shifted-out high
+  bits, `>>` extends the sign bit, and `>>>` fills high bits with zero. A
+  literal count outside `0..63` reports `type.invalid_shift_count` at the
+  count expression. A dynamic invalid count fails with
+  `runtime.invalid_shift_count`; shift counts are never masked modulo 64.
+- comparisons other than equality expect matching `Int` operands or matching
+  `Float` operands and return `Bool`. A `Float` expected result does not apply
+  to comparisons, so `Float` comparison is selected from the operand types.
+- `+`, `-`, `*`, and `/` expect `Int` operands and return `Int`, or expect
+  numeric operands and return `Float` when the expected result type or either
+  operand is clearly `Float`.
+- `==` and `!=` return `Bool` and do not currently require matching operand
+  types.
+- `|>` requires a named or qualified call expression on the right. The left
+  expression is checked as the first argument of that call, and the pipeline
+  result is the call result. A non-call target, or a call whose callee is not a
+  name path, reports `type.pipeline_target`.
+
+Operator typing permits `Int` operands where a selected `Float` operator
+expects a numeric operand. This widening is limited to numeric operators;
+ordinary assignment, return, record, vec, and call argument checking still
+require `Float` where `Float` is declared.
+
+Float arithmetic and comparison operators lower as calls to compiler-known
+prelude functions. `Float` values follow the backend floating-point value
+space, including infinities and NaN values.
+
+Integer bitwise operations use signed 64-bit two's-complement patterns on
+every backend. Their precedence from highest to lowest is prefix, multiply,
+add, shift, comparison, equality, `&`, `^`, `|`, `and`, `or`, and pipeline.
+The formatter writes spaces around binary operators and no space after unary
+`~`. Contract typing and runtime checks accept these operators, and static
+contract reasoning evaluates literal-only bitwise expressions. Repair
+reasoning leaves nonliteral bitwise predicates runtime-checked instead of
+inventing an arithmetic rewrite.

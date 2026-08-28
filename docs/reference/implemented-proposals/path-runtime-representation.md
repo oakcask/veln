@@ -1,6 +1,10 @@
-# Path Runtime Representation
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Path Runtime Representation
 
 This record keeps the completed path-representation follow-up after the
 source-visible `Path` and `String` assignment boundary was already implemented.
@@ -10,8 +14,8 @@ It is historical evidence, not the source for current behavior.
 
 - Current type boundary:
   [../../specification/names-effects.md](../../specification/names-effects.md)
-  and [file system calls](../../specification/names-effects-full.md#file-system-calls)
-  plus [process calls](../../specification/names-effects-full.md#process-calls).
+  and [file system calls](../../specification/names-effects.md#file-system-calls)
+  plus [process calls](../../specification/names-effects.md#process-calls).
 - Current value and runtime semantics:
   [../../specification/execution.md](../../specification/execution.md) and
   [../../specification/execution-full.md](../../specification/execution-full.md).

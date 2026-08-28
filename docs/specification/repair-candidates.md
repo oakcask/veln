@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The advisory repair candidate fields, repair application policy, command evidence, or repair JSON behavior changes.
+---
+
 # Repair Candidates
 
 This page is the entry point for the implemented boundary around advisory
@@ -94,7 +100,7 @@ repair, candidate edits, applying edits, or the repair command.
 
 - Use [holes-full.md](holes-full.md) only for exact candidate examples or
   matching rules.
-- Use [diagnostics-json-full.md](diagnostics-json-full.md) only for the full
+- Use [diagnostics-json.md](diagnostics-json.md) only for the full
   diagnostic field catalog.
 - Use [repair-application.md](repair-application.md) only after the task
   touches write authorization, target validation, confirmation, override,

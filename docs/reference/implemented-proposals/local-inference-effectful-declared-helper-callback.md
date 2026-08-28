@@ -1,6 +1,11 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # Local Inference Effectful Declared-Helper Callback
 
-Status: implemented
 
 This record keeps the rationale and completion evidence for effectful
 declared-helper callback inference. Current behavior is defined by the type
@@ -10,7 +15,7 @@ specification and executable examples, not by this historical record.
 
 - Current inference summary: [../../specification/types.md](../../specification/types.md).
 - Detailed inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Same-module success:
   `../../../examples/specification/check/declared-helper-callback-inference/`.
 - Imported-helper and public-alias success:

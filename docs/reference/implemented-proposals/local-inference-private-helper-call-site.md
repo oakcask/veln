@@ -1,6 +1,10 @@
-# Local Inference Private Helper Call-Site
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Local Inference Private Helper Call-Site
 
 This record keeps the completed private helper call-site inference slice after
 the behavior moved into the specification and executable examples. It is
@@ -11,9 +15,9 @@ historical evidence, not the source for current behavior.
 - Current type annotation and inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Current JSON diagnostic shape:
-  [../../specification/diagnostics-json-full.md](../../specification/diagnostics-json-full.md).
+  [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md).
 - Checked example coverage:
   `../../../examples/specification/check/private-helper-inference/` and
   `../../../examples/specification/check/private-helper-inference-diagnostics/`.

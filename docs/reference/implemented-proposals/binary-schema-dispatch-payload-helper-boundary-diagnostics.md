@@ -1,12 +1,16 @@
-# Binary Schema Dispatch Payload Helper Boundary Diagnostics
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Binary Schema Dispatch Payload Helper Boundary Diagnostics
 
 This record preserves the completed nested dispatch payload helper-boundary
 diagnostics slice from
 `binary-schema-primitives-and-dispatch.md`. Current behavior is
 specified by `../../specification/execution.md`,
-`../../specification/diagnostics-json-full.md`,
+`../../specification/diagnostics-json.md`,
 `../../specification/examples.md`, and the checked executable examples under
 `../../../examples/specification/`.
 

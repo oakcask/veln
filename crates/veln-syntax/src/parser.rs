@@ -102,6 +102,15 @@ pub fn parse(source: &SourceFile) -> ParseOutput {
     let lexed = lex(source);
     Parser::new(source, lexed.tokens).parse()
 }
+
+pub fn bare_expression_bool_literal(segments: &[String]) -> Option<bool> {
+    match segments {
+        [segment] if segment == "true" => Some(true),
+        [segment] if segment == "false" => Some(false),
+        _ => None,
+    }
+}
+
 struct Parser<'a> {
     source: &'a SourceFile,
     tokens: Vec<Token>,
@@ -3486,15 +3495,9 @@ impl<'a> ExprParser<'a> {
                 break;
             }
         }
-        if segments == ["true"] {
+        if let Some(value) = bare_expression_bool_literal(&segments) {
             return Expr {
-                kind: ExprKind::BoolLiteral(true),
-                span: self.source.span(start.cover(end)),
-            };
-        }
-        if segments == ["false"] {
-            return Expr {
-                kind: ExprKind::BoolLiteral(false),
+                kind: ExprKind::BoolLiteral(value),
                 span: self.source.span(start.cover(end)),
             };
         }

@@ -1,12 +1,16 @@
-# Network Production Listen Connect Lifecycle
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Network Production Listen Connect Lifecycle
 
 This record preserves the completed source-visible production listen/connect
 lifecycle slice from [external production socket runtime record](network-effect-integration-boundary.md).
 Current behavior is specified by
 [names-effects.md](../../specification/names-effects.md),
-[names-effects-full.md](../../specification/names-effects-full.md),
+[names-effects.md](../../specification/names-effects.md),
 [execution.md](../../specification/execution.md), and the checked executable
 example under
 `../../../examples/specification/run/transport-socket-production-listen-connect-lifecycle/`.

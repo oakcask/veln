@@ -7,12 +7,12 @@ use veln_syntax::parse;
 
 use crate::adt;
 use crate::semantic_model::Type;
-pub(crate) use crate::standard_names::PRELUDE_MODULE;
-use crate::standard_symbols::{StandardSymbolDescriptor, compiler_adapter_symbol, prelude_symbol};
+use crate::source_less_lookup::{
+    compiler_adapter_symbol, prelude_builtin_module, prelude_symbol, standard_module,
+};
+use crate::standard_symbols::StandardSymbolDescriptor;
 use crate::type_lowering::core_type;
 use crate::type_syntax::parse_type_or_unknown;
-
-const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
 
 pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(Vec<Type>, Type)> {
     prelude_signature_with_input(name, expected, None)
@@ -44,7 +44,7 @@ pub(crate) fn qualified_prelude_builtin_signature_with_input(
     let [module, name] = segments else {
         return None;
     };
-    if module != PRELUDE_BUILTIN_MODULE {
+    if module != prelude_builtin_module() {
         return None;
     }
     let descriptor = compiler_adapter_symbol(name)?;
@@ -76,7 +76,7 @@ pub(crate) fn qualified_prelude_signature_with_input(
     let [module, name] = segments else {
         return None;
     };
-    if module != PRELUDE_MODULE {
+    if module != standard_module() {
         return None;
     }
     let (params, return_type) = prelude_signature_with_input(name, expected, input)?;
@@ -1649,7 +1649,7 @@ pub(crate) fn qualified_core_prelude_builtin_signature(
     let [module, name] = segments else {
         return None;
     };
-    if module != PRELUDE_BUILTIN_MODULE {
+    if module != prelude_builtin_module() {
         return None;
     }
     core_compiler_adapter_signature(compiler_adapter_symbol(name)?, expected)
@@ -1662,7 +1662,7 @@ pub(crate) fn qualified_core_prelude_signature(
     let [module, name] = segments else {
         return None;
     };
-    if module != PRELUDE_MODULE {
+    if module != standard_module() {
         return None;
     }
     core_prelude_signature(name, expected)

@@ -1,12 +1,16 @@
-# Runtime Diagnostic HTTP/2 Helper Payloads
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Runtime Diagnostic HTTP/2 Helper Payloads
 
 This record preserves the completed HTTP/2 standard helper runtime diagnostic
 payload slice from the runtime diagnostic payload proposal. Current behavior is
 specified by `../../specification/run-json.md`,
 `../../specification/commands.md`, `../../specification/execution.md`,
-`../../specification/names-effects-full.md`, and the checked executable cases
+`../../specification/names-effects.md`, and the checked executable cases
 under `../../../examples/specification/run/`.
 
 ## Completed Behavior
@@ -39,5 +43,5 @@ bridge remains available for unrelated helpers outside this slice.
   checks the direct flow-control window helper payload.
 - `../../specification/run-json.md`, `../../specification/commands.md`,
   `../../specification/execution.md`, and
-  `../../specification/names-effects-full.md` summarize the implemented
+  `../../specification/names-effects.md` summarize the implemented
   behavior and route readers to executable evidence.

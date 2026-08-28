@@ -6,20 +6,17 @@ update-when: The `veln check --json` diagnostic schema, human diagnostic alignme
 
 # Check JSON And Diagnostics
 
-This is the routing page for implemented `veln check --json` output and
-human diagnostics that must stay aligned with structured diagnostic behavior.
+This page specifies implemented `veln check --json` output and human
+diagnostics that must stay aligned with structured diagnostic behavior.
 
 ## Read First
 
 - Human primary messages: keep the primary message focused on the failed fact
   at the reported span; put causes, provenance, repair hints, and other
   locations in related notes.
-- Top-level envelope and status values:
-  [diagnostics-json-full.md](diagnostics-json-full.md).
-- Common diagnostic fields and span shape:
-  [diagnostics-json-full.md](diagnostics-json-full.md).
-- Stable `details` payloads by diagnostic family:
-  [diagnostics-json-full.md](diagnostics-json-full.md).
+- Top-level envelope and status values are specified below.
+- Common diagnostic fields and span shape are specified below.
+- Stable `details` payloads by diagnostic family are specified below.
 - Companion source diagnostics distinguish missing targets from chained
   companions and expose `details.companion_path` plus
   `details.target_path`.
@@ -28,8 +25,23 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   `required_initial`, and `observed_initial` fields. The checked
   `identifier-casing-*-json` cases define exact spans, detail values, and
   non-cascading recovery behavior.
+- Source-less compiler lookup registry validation failures use span-less
+  `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
+  `name_class`, and `required_initial` fields and diagnostic kind
+  `toolchain`. Invalid lookup-key failures use the same id and details as
+  invalid casing failures, and their human primary message states that the
+  source lookup key is invalid. Duplicate lookup-key failures also use the
+  same id and details, and their human primary message states that the lookup
+  key is duplicated. Focused `veln-sema` `standard_symbols`, `adt`, and
+  `source_less_lookup` tests define descriptor, atomic-failure,
+  cross-provider publication-failure, lookup-key, checked-lookup, and lookup
+  isolation behavior for runtime, prelude, `prelude_builtin`,
+  `standard_names`, `type_syntax`, and built-in ADT lookup descriptors.
+  Focused parser and registry tests cover contextual literal spellings that
+  cannot publish bare lookup routes. The Rust CI release registry test keeps
+  this validation active in release builds.
 - Local inference diagnostic details:
-  [diagnostics-json-full.md#type-inference-diagnostics](diagnostics-json-full.md#type-inference-diagnostics).
+  [diagnostics-json.md#type-inference-diagnostics](diagnostics-json.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
   [repair-candidates.md](repair-candidates.md).
 
@@ -44,22 +56,14 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
 
 ## Skip Unless Needed
 
-- Do not read the full details catalog before the envelope and diagnostic
-  family are relevant to the task.
+- Start from the summary rows before reading the detailed catalog.
 - Use [json-output.md](json-output.md) when choosing between `check --json`,
   `run --json`, and `test --json`.
 - Use [commands.md](commands.md) for CLI behavior and
   [test-json.md](test-json.md) or [run-json.md](run-json.md) for other command
   JSON surfaces.
 
-## Envelope
-
-See [diagnostics-json-full.md](diagnostics-json-full.md).
-
 ## Diagnostics
-
-See
-[diagnostics-json-full.md](diagnostics-json-full.md).
 
 Executable diagnostic cases may use harness JSON assertions, including array
 length checks, to verify existing command JSON fields. Those assertions are
@@ -96,6 +100,20 @@ behavior is specified by [names-effects.md](names-effects.md). Selected-entry
 `run --json` diagnostic-envelope evidence for source identifier casing is
 routed by [run-json.md](run-json.md), including direct-dependency selected
 loading and unloaded-manifest isolation.
+
+Source-less compiler lookup registry validation failures use
+`toolchain.invalid_symbol_case` with no span. Details expose the descriptor
+`provider`, invalid `name`, `name_class`, and `required_initial`. The failure
+is a toolchain invariant failure with diagnostic kind `toolchain`, not source
+`name.invalid_case`; invalid source lookup keys, duplicate lookup keys, and
+standard-symbol class and lookup-namespace mismatches use the same id and
+details. Focused `veln-syntax` parser tests and `veln-sema`
+`standard_symbols`, `adt`, and `source_less_lookup` tests pin generated-table
+validation, injected invalid descriptors, invalid parser-unreachable lookup
+keys, duplicate lookup keys, atomic failure, cross-provider publication
+failure, checked lookup, production provider inventory, and lookup isolation
+for runtime, prelude, `prelude_builtin`, `standard_names`, `type_syntax`, and
+built-in ADT lookup descriptors.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
@@ -170,7 +188,81 @@ Manifest export diagnostics reject `.test.veln` companion paths with
 publication boundaries are checked by
 `examples/specification/check/dependency-companion-export-boundary-json/`.
 
-## Stable Details
+## Detailed Contract
 
-See
-[diagnostics-json-full.md](diagnostics-json-full.md).
+[run-json.md](run-json.md), and [test-json.md](test-json.md).
+
+## Toolchain Invariant Diagnostics
+
+`toolchain.invalid_symbol_case` reports a span-less internal failure when a
+compiler-provided source lookup descriptor has casing that is invalid for its
+source-less name class, has an invalid source lookup key, has a duplicate
+lookup key, or declares a name class that does not match the standard-symbol
+function lookup namespace. Details contain `provider`, `name`, `name_class`,
+and `required_initial`. The diagnostic kind is `toolchain`. The failure is not
+converted to source `name.invalid_case`. Invalid lookup-key failures,
+duplicate lookup-key failures, and standard-symbol class and lookup-namespace
+mismatches use the same stable detail fields. Invalid-key human primary
+messages state that the source lookup key is invalid. Duplicate-key human
+primary messages state that the lookup key is duplicated. Focused
+`veln-syntax` parser tests and `veln-sema` `standard_symbols`, `adt`, and
+`source_less_lookup` tests pin the generated-table, injected-descriptor,
+parser-unreachable lookup-key, duplicate-key, class-mismatch, atomic-failure,
+cross-provider publication-failure, checked-lookup, and lookup-isolation
+evidence for runtime, prelude, `prelude_builtin`, `standard_names`,
+`type_syntax`, and built-in ADT lookup descriptors. The `source_less_lookup`
+tests also pin that public type-annotation reference lookup consumes the
+shared publication result instead of using independent type-syntax state.
+
+## Current Schema Diagnostic Boundary
+
+Schema diagnostics cover parse rejection, primitive kind checks, field
+references, validation predicates, dispatch payload eligibility, explicit
+schema operation path resolution, and generated helper availability.
+Schema-level mapping diagnostics are not current behavior because mapping
+clauses are rejected by the parser.
+
+## Type Inference Diagnostics
+
+`type.local_inference_incomplete` details identify the failed slot with
+`slot_kind = "local_binding"` and `binding`, and report the current
+`inferred_type` even when it still contains `unknown`.
+
+`type.private_inference_incomplete` details identify the private function
+boundary with `boundary = "private_function"`, identify the failed slot with
+`slot_kind = "private_parameter"` and `parameter` or
+`slot_kind = "private_return"`, report `missing_fact`, and report the current
+`inferred_type` known at the failure point.
+
+`type.inference_ambiguous` details identify the ambiguity slot with
+`slot_kind`. Constructor type-context ambiguity uses
+`slot_kind = "constructor_type"`, `constructor`, `inferred_type`, and
+`constraint = "constructor_type_context"`. Empty collection ambiguity uses
+`slot_kind = "empty_collection"`, `collection`, `inferred_type`, and
+`constraint = "empty_collection_type_context"`. Match scrutinee domain
+ambiguity uses `slot_kind = "match_scrutinee"`, `candidates`, and
+`constraint = "match_constructor_pattern_domain"`.
+
+Checked examples under `examples/specification/check/` pin these shapes for
+local bindings, private helper parameters and returns, constructor ambiguity,
+empty collection ambiguity, and match scrutinee ambiguity.
+
+## Handler Diagnostics
+
+Handler effect diagnostics use `phase = "effect"` and include `boundary`,
+`handler`, `handled_effect`, nullable `operation`, and `reason`. Operation
+clause diagnostics use `boundary = "handler_operation_clause"` and do not
+emit a `provider` field. Unknown handled effects report `reason = "unknown_handled_effect"`
+and add visible candidate effect declarations as related notes with `effect`
+and `operations`.
+
+The checked examples `handler-operation-signatures` and
+`handler-operation-signatures-human` pin the structured and human related
+context for missing, duplicate, unknown, mismatched, and recursive operation
+clauses.
+
+## Integer Bitwise Diagnostics
+
+`type.invalid_shift_count` details contain `operator`, `actual_count`,
+`minimum_count`, and `maximum_count`. The reported span is the literal count
+expression.

@@ -1,7 +1,9 @@
 //! Name, type, effect, contract, and hole analysis.
 
 mod adt;
+mod adt_source_less;
 mod analysis;
+mod builtin_type_syntax;
 mod call_resolution;
 mod contracts;
 mod diagnostics;
@@ -13,10 +15,13 @@ mod prelude;
 mod repair_candidates;
 mod schema;
 mod semantic_model;
+mod source_less_lookup;
+mod source_less_names;
 mod standard_names;
 mod standard_symbols;
 #[cfg(test)]
 mod tests;
+mod type_annotation_parser;
 mod type_lowering;
 mod type_relations;
 mod type_syntax;
@@ -34,6 +39,9 @@ pub use pipeline::{
     lower_project_reachable_surface_modules_with_standard_environment,
     prepare_current_reusable_standard_surface_module_environment,
     prepare_reusable_standard_surface_module_environment,
+    try_prepare_current_reusable_standard_surface_module_environment,
+    try_prepare_reusable_standard_surface_module_environment,
+    validate_standard_symbol_registry_diagnostic,
 };
 pub use type_syntax::{type_annotation_reference_names, type_annotation_reference_paths};
 pub use types::ReusableStandardEnvironment;

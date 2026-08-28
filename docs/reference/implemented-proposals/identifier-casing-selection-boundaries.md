@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: Identifier casing selection-boundary evidence is superseded, invalidated, or used as current specification authority.
+update-when: Identifier casing selection-boundary evidence, sibling identifier-casing completion boundaries, or current specification authority for this record changes.
 ---
 
 # Identifier Casing Selection Boundaries
@@ -30,10 +30,11 @@ The implicit-prelude recovery-isolation slice is complete. The `test`, `doc`,
 companion recovery, direct-dependency, and language-service snapshot and
 overlay boundaries also have executable evidence and are not planned work here.
 
-This proposal does not add module-identity casing, qualified-use casing,
-rename behavior, or source-less registry validation. Public alias target-leaf
-casing is completed separately in
+This proposal does not add module-identity casing, qualified-use casing, or
+rename behavior. Public alias target-leaf casing is completed separately in
 [Identifier Casing Public Alias Targets](identifier-casing-public-alias-targets.md).
+Source-less registry validation is completed separately in
+[Identifier Casing Source-Less Symbols](identifier-casing-source-less-symbols.md).
 The other capabilities remain in
 [Identifier Casing](../../proposals/identifier-casing.md).
 
@@ -70,5 +71,4 @@ reachable.
 This proposal is complete. Current behavior lives in
 [Names And Effects](../../specification/names-effects.md) and checked cases
 under `examples/specification/`. Completion does not claim completion of
-module-identity casing, qualified-use casing, rename behavior, or source-less
-registry validation.
+module-identity casing, qualified-use casing, or rename behavior.

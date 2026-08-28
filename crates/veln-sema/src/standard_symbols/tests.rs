@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::*;
+use crate::source_less_lookup::{compiler_adapter_symbol, prelude_symbol, qualified_symbol};
 
 fn path(module: &str, name: &str) -> Vec<String> {
     vec![module.to_string(), name.to_string()]
@@ -11,6 +12,7 @@ fn descriptor_table_carries_runtime_effect_metadata() {
     let symbol = qualified_symbol(&path("stdio", "println")).expect("stdio descriptor");
 
     assert_eq!(symbol.kind, StandardSymbolKind::Runtime);
+    assert_eq!(symbol.name_class, SourceLessNameClass::Function);
     assert_eq!(symbol.effects, ["stdio"]);
     assert_eq!(symbol.lowering, Some("runtime.stdio.println"));
     assert_eq!(
@@ -25,6 +27,7 @@ fn descriptor_table_carries_prelude_purity_metadata() {
     let symbol = prelude_symbol("float_add").expect("prelude descriptor");
 
     assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
+    assert_eq!(symbol.name_class, SourceLessNameClass::Function);
     assert!(symbol.effects.is_empty());
     assert_eq!(symbol.lowering, None);
     assert_eq!(symbol.stability, StandardSymbolStability::CompatibilityOnly);
@@ -35,14 +38,459 @@ fn compiler_adapter_descriptors_carry_pure_metadata() {
     for name in COMPILER_ADAPTER_NAMES.iter().copied() {
         let symbol = compiler_adapter_symbol(name).expect("compiler adapter descriptor");
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
+        assert_eq!(symbol.name_class, SourceLessNameClass::Function);
         assert!(symbol.effects.is_empty());
         assert_eq!(symbol.lowering, None);
         if private_compiler_adapter_name(name) {
+            assert!(
+                compiler_adapter_symbol(name).is_some(),
+                "prelude_builtin descriptor {name} should stay source-resolvable"
+            );
             assert_eq!(prelude_symbol(name), None);
         } else {
             assert_eq!(prelude_symbol(name), Some(symbol));
         }
     }
+}
+
+#[test]
+fn source_lookup_registry_accepts_current_generated_tables() {
+    crate::source_less_lookup::with_standard_symbol_registry(|registry| {
+        assert_eq!(registry.qualified.len(), QUALIFIED_SYMBOLS.len());
+        assert!(
+            registry
+                .qualified
+                .iter()
+                .any(|symbol| { symbol.module == Some("stdio") && symbol.name == "println" })
+        );
+        assert!(
+            registry
+                .prelude
+                .iter()
+                .any(|symbol| symbol.name == "float_add")
+        );
+        assert!(registry.prelude.iter().any(|symbol| symbol.name == "byte"));
+        assert_eq!(
+            registry.compiler_adapters.len(),
+            COMPILER_ADAPTER_SYMBOLS.len()
+        );
+        assert!(
+            registry
+                .compiler_adapters
+                .iter()
+                .any(|symbol| symbol.name == "byte_decode_http2_frame")
+        );
+        assert!(
+            !registry
+                .prelude
+                .iter()
+                .any(|symbol| private_compiler_adapter_name(symbol.name))
+        );
+    })
+    .expect("standard symbol registry");
+}
+
+#[test]
+fn source_less_provider_inventory_names_every_lookup_route() {
+    let routes = crate::source_less_lookup::production_source_less_lookup_routes_for_test()
+        .expect("production source-less lookup providers validate");
+    let providers = routes
+        .iter()
+        .map(|route| route.provider)
+        .collect::<BTreeSet<_>>();
+
+    assert_eq!(
+        providers,
+        BTreeSet::from([
+            "adt",
+            "compiler_adapter",
+            "prelude",
+            "runtime",
+            "standard_names",
+            "type_syntax"
+        ])
+    );
+    assert!(routes.iter().any(|route| {
+        route.provider == "runtime"
+            && route.lookup_key == "stdio::println"
+            && route.name_class == SourceLessNameClass::Function
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "prelude"
+            && route.lookup_key == "float_add"
+            && route.name_class == SourceLessNameClass::Function
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "compiler_adapter"
+            && route.lookup_key == "prelude_builtin::byte"
+            && route.name_class == SourceLessNameClass::Function
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "standard_names"
+            && route.lookup_key == "prelude"
+            && route.name_class == SourceLessNameClass::Module
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "type_syntax"
+            && route.lookup_key == "Result"
+            && route.name_class == SourceLessNameClass::Type
+    }));
+    assert!(routes.iter().any(|route| {
+        route.provider == "adt"
+            && route.lookup_key == "Option::Some"
+            && route.name_class == SourceLessNameClass::Constructor
+    }));
+}
+
+#[test]
+fn invalid_source_lookup_module_segment_fails_atomically() {
+    const INVALID_QUALIFIED: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: Some("Std"),
+        name: "print",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Runtime,
+        effects: PURE_EFFECTS,
+        lowering: Some("runtime.Std.print"),
+        signature: None,
+        stability: StandardSymbolStability::RequiredForSelfHosting,
+    }];
+
+    let failure =
+        build_standard_symbol_registry(INVALID_QUALIFIED, &[], &[], &[]).expect_err("case failure");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "runtime");
+    assert_eq!(failure.name, "Std");
+    assert_eq!(failure.name_class, SourceLessNameClass::Module);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+}
+
+#[test]
+fn invalid_source_lookup_symbol_name_reports_descriptor_details() {
+    const INVALID_ADAPTER: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "Byte",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let failure =
+        build_standard_symbol_registry(&[], &[], &[], INVALID_ADAPTER).expect_err("case failure");
+    let diagnostic = failure.diagnostic();
+
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "Byte");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(diagnostic.id, "toolchain.invalid_symbol_case");
+    assert!(diagnostic.span.is_none());
+    assert_eq!(
+        diagnostic.details.to_json(),
+        "{\"provider\":\"compiler_adapter\",\"name\":\"Byte\",\"name_class\":\"function\",\"required_initial\":\"ascii_lowercase\"}"
+    );
+}
+
+#[test]
+fn contextual_literal_prelude_names_are_invalid_bare_lookup_keys() {
+    const INVALID_PRELUDE: &[StandardSymbolDescriptor] = &[
+        StandardSymbolDescriptor {
+            module: None,
+            name: "true",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+        StandardSymbolDescriptor {
+            module: None,
+            name: "false",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+    ];
+
+    let failure = build_standard_symbol_registry(&[], INVALID_PRELUDE, &[], &[])
+        .expect_err("bare boolean literal spelling cannot publish to prelude lookup");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "prelude");
+    assert_eq!(failure.name, "true");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupKey
+    );
+}
+
+#[test]
+fn contextual_literal_public_adapter_names_are_invalid_bare_lookup_keys() {
+    const INVALID_ADAPTER: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "false",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let failure = build_standard_symbol_registry(&[], &[], &[], INVALID_ADAPTER)
+        .expect_err("public adapter cannot publish unreachable bare lookup");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "false");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupKey
+    );
+}
+
+#[test]
+fn contextual_literal_spelling_can_publish_as_qualified_runtime_leaf() {
+    const QUALIFIED: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: Some("boolean"),
+        name: "true",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Runtime,
+        effects: PURE_EFFECTS,
+        lowering: Some("runtime.boolean.true"),
+        signature: None,
+        stability: StandardSymbolStability::RequiredForSelfHosting,
+    }];
+
+    let registry =
+        build_standard_symbol_registry(QUALIFIED, &[], &[], &[]).expect("qualified route is valid");
+
+    assert!(
+        registry
+            .qualified_symbol(&path("boolean", "true"))
+            .is_some()
+    );
+}
+
+#[test]
+fn non_function_standard_symbol_class_cannot_publish_to_function_lookup() {
+    const INVALID_ADAPTER: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "byte",
+        name_class: SourceLessNameClass::Type,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let failure =
+        build_standard_symbol_registry(&[], &[], &[], INVALID_ADAPTER).expect_err("case failure");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "byte");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupClass
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup descriptor `byte` from `compiler_adapter` declares a non-function name class"
+    );
+}
+
+#[test]
+fn invalid_descriptor_prevents_partial_lookup_registry() {
+    const VALID_QUALIFIED: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: Some("stdio"),
+        name: "print",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Runtime,
+        effects: PURE_EFFECTS,
+        lowering: Some("runtime.stdio.print"),
+        signature: None,
+        stability: StandardSymbolStability::RequiredForSelfHosting,
+    }];
+    const INVALID_PRELUDE: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "Float_add",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let result = build_standard_symbol_registry(VALID_QUALIFIED, INVALID_PRELUDE, &[], &[]);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn duplicate_qualified_lookup_key_fails_atomically() {
+    const DUPLICATE_QUALIFIED: &[StandardSymbolDescriptor] = &[
+        StandardSymbolDescriptor {
+            module: Some("stdio"),
+            name: "print",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Runtime,
+            effects: PURE_EFFECTS,
+            lowering: Some("runtime.stdio.print"),
+            signature: None,
+            stability: StandardSymbolStability::RequiredForSelfHosting,
+        },
+        StandardSymbolDescriptor {
+            module: Some("stdio"),
+            name: "print",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Runtime,
+            effects: PURE_EFFECTS,
+            lowering: Some("runtime.stdio.print_duplicate"),
+            signature: None,
+            stability: StandardSymbolStability::RequiredForSelfHosting,
+        },
+    ];
+
+    let failure = build_standard_symbol_registry(DUPLICATE_QUALIFIED, &[], &[], &[])
+        .expect_err("duplicate qualified lookup key");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "runtime");
+    assert_eq!(failure.name, "stdio::print");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup key `stdio::print` from `runtime` is duplicated"
+    );
+}
+
+#[test]
+fn duplicate_prelude_lookup_key_fails_atomically() {
+    const DUPLICATE_PRELUDE: &[StandardSymbolDescriptor] = &[
+        StandardSymbolDescriptor {
+            module: None,
+            name: "float_add",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+        StandardSymbolDescriptor {
+            module: None,
+            name: "float_add",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+    ];
+
+    let failure = build_standard_symbol_registry(&[], DUPLICATE_PRELUDE, &[], &[])
+        .expect_err("duplicate prelude lookup key");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "prelude");
+    assert_eq!(failure.name, "float_add");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup key `float_add` from `prelude` is duplicated"
+    );
+}
+
+#[test]
+fn duplicate_prelude_builtin_lookup_key_fails_atomically() {
+    const DUPLICATE_ADAPTERS: &[StandardSymbolDescriptor] = &[
+        StandardSymbolDescriptor {
+            module: None,
+            name: "byte_decode_http2_frame",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+        StandardSymbolDescriptor {
+            module: None,
+            name: "byte_decode_http2_frame",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+    ];
+
+    let failure = build_standard_symbol_registry(&[], &[], &[], DUPLICATE_ADAPTERS)
+        .expect_err("duplicate prelude_builtin lookup key");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "prelude_builtin::byte_decode_http2_frame");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::DuplicateLookupKey
+    );
+    assert_eq!(
+        failure.diagnostic().message,
+        "compiler-provided function lookup key `prelude_builtin::byte_decode_http2_frame` from `compiler_adapter` is duplicated"
+    );
+}
+
+#[test]
+fn prelude_builtin_compiler_adapter_names_are_validated_but_not_bare_prelude() {
+    const PRIVATE_ADAPTER_WITH_INVALID_MODULE: &[StandardSymbolDescriptor] =
+        &[StandardSymbolDescriptor {
+            module: Some("Internal"),
+            name: "byte_decode_http2_frame",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        }];
+
+    let failure =
+        build_standard_symbol_registry(&[], &[], &[], PRIVATE_ADAPTER_WITH_INVALID_MODULE)
+            .expect_err("prelude_builtin adapter participates in source lookup");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "Internal");
+    assert_eq!(failure.name_class, SourceLessNameClass::Module);
+    assert_eq!(failure.required_initial(), "ascii_lowercase");
 }
 
 #[test]

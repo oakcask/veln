@@ -1,6 +1,11 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # Local Inference Declared Helper Callback Alias
 
-Status: implemented
 
 This record keeps the completed public member alias boundary for declared
 helper callback argument inference after the behavior moved into the
@@ -12,7 +17,7 @@ source for current behavior.
 - Current type inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Successful public alias coverage:
   `../../../examples/specification/check/declared-helper-callback-alias-inference/`.
 - Unsupported public alias coverage:

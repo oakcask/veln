@@ -1,6 +1,10 @@
-# Remove Legacy Type Delimiters
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Remove Legacy Type Delimiters
 
 Veln no longer treats old type delimiter spellings as migration-specific
 syntax. Angle brackets are the only spelling for declared type parameters,
@@ -100,10 +104,10 @@ Out of scope:
   [../../specification/source-surface-full.md](../../specification/source-surface-full.md).
 - Type annotation behavior:
   [../../specification/types.md](../../specification/types.md) and
-  [../../specification/types-full.md](../../specification/types-full.md).
+  [../../specification/types.md](../../specification/types.md).
 - Diagnostic JSON and repair boundaries:
   [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md),
-  [../../specification/diagnostics-json-full.md](../../specification/diagnostics-json-full.md),
+  [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md),
   and
   [../../specification/repair-candidates.md](../../specification/repair-candidates.md).
 - Executable examples:

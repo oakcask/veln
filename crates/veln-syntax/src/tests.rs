@@ -2732,6 +2732,37 @@ fn parses_boolean_literals_as_literals() {
 }
 
 #[test]
+fn parses_qualified_boolean_literal_spelling_as_name_path() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Bool\n\tprelude::true and prelude::false\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Binary { left, right, .. } = &expr.kind else {
+        panic!("expected boolean binary expression");
+    };
+    assert!(matches!(&left.kind, ExprKind::NamePath(segments)
+            if segments == &vec!["prelude".to_string(), "true".to_string()]));
+    assert!(matches!(&right.kind, ExprKind::NamePath(segments)
+            if segments == &vec!["prelude".to_string(), "false".to_string()]));
+    assert_eq!(
+        bare_expression_bool_literal(&["true".to_string()]),
+        Some(true)
+    );
+    assert_eq!(
+        bare_expression_bool_literal(&["prelude".to_string(), "true".to_string()]),
+        None
+    );
+}
+
+#[test]
 fn parses_boolean_literals_as_patterns() {
     let source = SourceFile::new(
         "main.veln",

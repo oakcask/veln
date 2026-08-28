@@ -245,7 +245,11 @@ pub(super) fn function_name_index(functions: &[FunctionSignature]) -> HashMap<St
 fn declaration_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> DeclarationFacts {
     let mut effects = effect_signatures(module);
     extend_with_base_facts(&mut effects, base.map(|base| &base.effects));
-    let adts = AdtRegistry::from_module_with_base(module, base.map(|base| &base.adts));
+    let adts = if let Some(base) = base {
+        AdtRegistry::from_module_with_base(module, &base.adts)
+    } else {
+        AdtRegistry::from_module(module)
+    };
     let mut companion_effect_access_targets = companion_access_target_infos(module);
     extend_with_base_facts(
         &mut companion_effect_access_targets,

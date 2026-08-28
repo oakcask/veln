@@ -15,8 +15,14 @@ stop when its authoritative page answers the task.
   [source-surface.md](source-surface.md).
 - Type annotations, inference, assignment compatibility, and operators:
   [types.md](types.md).
-- Names, stdio calls, prelude helpers, concurrency calls, and effects:
-  [names-effects.md](names-effects.md).
+- Source name resolution and source identifier casing:
+  [name-resolution.md](name-resolution.md).
+- Compiler-provided source-less lookup registry validation:
+  [source-less-lookup.md](source-less-lookup.md).
+- Effect labels, stdio, file-system, network, time, process, and concurrency
+  calls: [effects.md](effects.md).
+- Compiler-known descriptor metadata and prelude helpers:
+  [prelude-helpers.md](prelude-helpers.md).
 - Editor lexical fallback, semantic token classes, and LSP full-token encoding:
   [editor-support.md](editor-support.md).
 

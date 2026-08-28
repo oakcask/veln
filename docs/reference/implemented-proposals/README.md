@@ -40,6 +40,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-selection-boundaries.md](identifier-casing-selection-boundaries.md).
 - Identifier casing public alias targets:
   [identifier-casing-public-alias-targets.md](identifier-casing-public-alias-targets.md).
+- Identifier casing source-less symbols:
+  [identifier-casing-source-less-symbols.md](identifier-casing-source-less-symbols.md).
 - Common JSON assertion operation parity:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Schema declaration composition surface:

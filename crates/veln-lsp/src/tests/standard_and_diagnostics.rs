@@ -448,6 +448,26 @@ fn lsp_diagnostic_wire_fields_are_stable() {
 }
 
 #[test]
+fn lsp_diagnostic_wire_preserves_invalid_standard_symbol_case_boundary() {
+    let diagnostic = invalid_standard_symbol_case_diagnostic();
+
+    assert_eq!(
+        lsp_diagnostic_json(&diagnostic),
+        concat!(
+            "{\"range\":{\"start\":{\"line\":0,\"character\":0},",
+            "\"end\":{\"line\":0,\"character\":0}},\"severity\":1,",
+            "\"code\":\"toolchain.invalid_symbol_case\",\"source\":\"veln\",",
+            "\"message\":\"compiler-provided function `BadAdapter` from `compiler_adapter` ",
+            "must start with an ASCII lowercase letter\"}"
+        )
+    );
+
+    let published = publish_diagnostics_for_uri("file://main.veln", &[diagnostic]);
+    assert!(published.contains(r#""code":"toolchain.invalid_symbol_case""#));
+    assert!(!published.contains("name.invalid_case"));
+}
+
+#[test]
 fn server_publishes_semantic_diagnostics_after_parse_succeeds() {
     let mut server = Server::default();
 
@@ -488,3 +508,11 @@ fn server_reads_and_writes_content_length_frames() {
     assert!(output.contains(r#""id":1"#));
 }
 
+fn invalid_standard_symbol_case_diagnostic() -> Diagnostic {
+    veln_diagnostics::toolchain_invalid_symbol_case_diagnostic(
+        "compiler_adapter",
+        "BadAdapter",
+        veln_diagnostics::ToolchainSymbolNameClass::Function,
+        veln_diagnostics::ToolchainSymbolNameFailureReason::InvalidCase,
+    )
+}

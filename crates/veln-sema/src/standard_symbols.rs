@@ -1,3 +1,10 @@
+use std::collections::BTreeSet;
+
+use crate::source_less_names::{
+    InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
+    validate_bare_source_less_lookup_segment, validate_source_less_lookup_segment,
+};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum StandardSymbolKind {
     Runtime,
@@ -8,11 +15,66 @@ pub(crate) enum StandardSymbolKind {
 pub(crate) struct StandardSymbolDescriptor {
     pub(crate) module: Option<&'static str>,
     pub(crate) name: &'static str,
+    pub(crate) name_class: SourceLessNameClass,
     pub(crate) kind: StandardSymbolKind,
     pub(crate) effects: &'static [&'static str],
     pub(crate) lowering: Option<&'static str>,
     pub(crate) signature: Option<StandardSignature>,
     pub(crate) stability: StandardSymbolStability,
+}
+
+#[derive(Debug)]
+pub(crate) struct StandardSymbolRegistry {
+    qualified: Vec<&'static StandardSymbolDescriptor>,
+    prelude: Vec<&'static StandardSymbolDescriptor>,
+    compiler_adapters: Vec<&'static StandardSymbolDescriptor>,
+}
+
+impl StandardSymbolRegistry {
+    #[cfg(test)]
+    pub(crate) fn qualified_symbols(&self) -> &[&'static StandardSymbolDescriptor] {
+        &self.qualified
+    }
+
+    #[cfg(test)]
+    pub(crate) fn prelude_symbols(&self) -> &[&'static StandardSymbolDescriptor] {
+        &self.prelude
+    }
+
+    #[cfg(test)]
+    pub(crate) fn compiler_adapter_symbols(&self) -> &[&'static StandardSymbolDescriptor] {
+        &self.compiler_adapters
+    }
+
+    pub(crate) fn qualified_symbol(
+        &self,
+        segments: &[String],
+    ) -> Option<&'static StandardSymbolDescriptor> {
+        let [module, name] = segments else {
+            return None;
+        };
+        self.qualified
+            .iter()
+            .copied()
+            .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name)
+    }
+
+    pub(crate) fn prelude_symbol(&self, name: &str) -> Option<&'static StandardSymbolDescriptor> {
+        self.prelude
+            .iter()
+            .copied()
+            .find(|symbol| symbol.name == name)
+    }
+
+    pub(crate) fn compiler_adapter_symbol(
+        &self,
+        name: &str,
+    ) -> Option<&'static StandardSymbolDescriptor> {
+        self.compiler_adapters
+            .iter()
+            .copied()
+            .find(|symbol| symbol.name == name)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,6 +197,8 @@ const PARAM_DEADLINE_CANCEL_TOKEN: &[StandardType] = &[
     StandardType::Named("CancelToken"),
 ];
 #[cfg(test)]
+pub(crate) const DEFAULT_PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
+#[cfg(test)]
 const STANDARD_PACKAGE_PRIVATE_HELPERS: &[&str] = &[
     "vec_map_step",
     "vec_try_map_step",
@@ -153,13 +217,13 @@ macro_rules! compiler_adapter_symbol_set {
     ($($name:literal),+ $(,)?) => {
         #[cfg(test)]
         const COMPILER_ADAPTER_NAMES: &[&str] = &[$($name),+];
-        const COMPILER_ADAPTER_SYMBOLS: &[StandardSymbolDescriptor] = &[
+        pub(crate) const COMPILER_ADAPTER_SYMBOLS: &[StandardSymbolDescriptor] = &[
             $(source_prelude_symbol_descriptor($name)),+
         ];
     };
 }
 
-const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
+pub(crate) const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("stdio", "print", STDIO_EFFECTS, "runtime.stdio.print"),
     runtime_symbol("stdio", "println", STDIO_EFFECTS, "runtime.stdio.println"),
     runtime_symbol("stdio", "eprint", STDIO_EFFECTS, "runtime.stdio.eprint"),
@@ -771,7 +835,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     ),
 ];
 
-const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_negate"),
     prelude_symbol_descriptor("float_add"),
     prelude_symbol_descriptor("float_subtract"),
@@ -783,7 +847,7 @@ const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_greater_equal"),
 ];
 
-const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
+pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 compiler_adapter_symbol_set! {
     "byte",
@@ -938,6 +1002,7 @@ const fn runtime_symbol(
     StandardSymbolDescriptor {
         module: Some(module),
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Runtime,
         effects,
         lowering: Some(lowering),
@@ -956,6 +1021,7 @@ const fn runtime_symbol_with_signature(
     StandardSymbolDescriptor {
         module: Some(module),
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Runtime,
         effects,
         lowering: Some(lowering),
@@ -968,6 +1034,7 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
     StandardSymbolDescriptor {
         module: None,
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Prelude,
         effects: PURE_EFFECTS,
         lowering: None,
@@ -980,6 +1047,7 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
     StandardSymbolDescriptor {
         module: None,
         name,
+        name_class: SourceLessNameClass::Function,
         kind: StandardSymbolKind::Prelude,
         effects: PURE_EFFECTS,
         lowering: None,
@@ -988,43 +1056,202 @@ const fn source_prelude_symbol_descriptor(name: &'static str) -> StandardSymbolD
     }
 }
 
-pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardSymbolDescriptor> {
-    let [module, name] = segments else {
-        return None;
-    };
-    QUALIFIED_SYMBOLS
-        .iter()
-        .find(|symbol| symbol.module == Some(module.as_str()) && symbol.name == name)
-}
-
-pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    if private_compiler_adapter_name(name) {
-        return None;
-    }
-    prelude_symbols().find(|symbol| symbol.name == name)
-}
-
-pub(crate) fn compiler_adapter_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    COMPILER_ADAPTER_SYMBOLS
-        .iter()
-        .find(|symbol| symbol.name == name)
-}
-
-fn private_compiler_adapter_name(name: &str) -> bool {
+pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
     name == "byte_decode_http2_frame"
         || name.starts_with("http2_protocol_")
         || name.starts_with("http2_peer_limit_")
         || name.starts_with("hpack_fixture_")
 }
 
+#[cfg(test)]
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    compatibility_prelude_symbols().chain(COMPILER_ADAPTER_SYMBOLS.iter())
+    build_standard_symbol_registry(
+        QUALIFIED_SYMBOLS,
+        FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
+        SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+        COMPILER_ADAPTER_SYMBOLS,
+    )
+    .expect("standard symbol registry")
+    .prelude
+    .into_iter()
 }
 
+#[cfg(test)]
 fn compatibility_prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
     FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS
         .iter()
         .chain(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter())
+}
+
+#[cfg(test)]
+pub(crate) fn build_standard_symbol_registry(
+    qualified: &'static [StandardSymbolDescriptor],
+    compatibility_prelude: &'static [StandardSymbolDescriptor],
+    self_hosting_prelude: &'static [StandardSymbolDescriptor],
+    compiler_adapters: &'static [StandardSymbolDescriptor],
+) -> Result<StandardSymbolRegistry, InvalidStandardSymbolCase> {
+    build_standard_symbol_registry_with_modules(
+        DEFAULT_PRELUDE_BUILTIN_MODULE,
+        qualified,
+        compatibility_prelude,
+        self_hosting_prelude,
+        compiler_adapters,
+    )
+}
+
+pub(crate) fn build_standard_symbol_registry_with_modules(
+    prelude_builtin_module: &'static str,
+    qualified: &'static [StandardSymbolDescriptor],
+    compatibility_prelude: &'static [StandardSymbolDescriptor],
+    self_hosting_prelude: &'static [StandardSymbolDescriptor],
+    compiler_adapters: &'static [StandardSymbolDescriptor],
+) -> Result<StandardSymbolRegistry, InvalidStandardSymbolCase> {
+    let mut registry = StandardSymbolRegistry {
+        qualified: Vec::new(),
+        prelude: Vec::new(),
+        compiler_adapters: Vec::new(),
+    };
+    let mut qualified_keys = BTreeSet::new();
+    let mut prelude_keys = BTreeSet::new();
+    let mut compiler_adapter_keys = BTreeSet::new();
+
+    for descriptor in qualified {
+        validate_source_lookup_descriptor("runtime", descriptor)?;
+        validate_qualified_lookup_key("runtime", descriptor, &mut qualified_keys)?;
+        registry.qualified.push(descriptor);
+    }
+    for descriptor in compatibility_prelude
+        .iter()
+        .chain(self_hosting_prelude.iter())
+    {
+        validate_source_lookup_descriptor("prelude", descriptor)?;
+        validate_prelude_lookup_key("prelude", descriptor, &mut prelude_keys)?;
+        registry.prelude.push(descriptor);
+    }
+    for descriptor in compiler_adapters {
+        validate_source_lookup_descriptor("compiler_adapter", descriptor)?;
+        validate_prelude_builtin_lookup_key(
+            prelude_builtin_module,
+            "compiler_adapter",
+            descriptor,
+            &mut compiler_adapter_keys,
+        )?;
+        registry.compiler_adapters.push(descriptor);
+        if !private_compiler_adapter_name(descriptor.name) {
+            validate_prelude_lookup_key("compiler_adapter", descriptor, &mut prelude_keys)?;
+            registry.prelude.push(descriptor);
+        }
+    }
+
+    Ok(registry)
+}
+
+fn validate_qualified_lookup_key(
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+    keys: &mut BTreeSet<(&'static str, &'static str)>,
+) -> Result<(), InvalidStandardSymbolCase> {
+    let Some(module) = descriptor.module else {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: SourceLessNameClass::Module,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        });
+    };
+    if module.contains("::") {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{module}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        });
+    }
+    if keys.insert((module, descriptor.name)) {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{module}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::DuplicateLookupKey,
+        })
+    }
+}
+
+fn validate_prelude_lookup_key(
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+    keys: &mut BTreeSet<&'static str>,
+) -> Result<(), InvalidStandardSymbolCase> {
+    if descriptor.module.is_some() {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        });
+    }
+    validate_bare_source_less_lookup_segment(provider, descriptor.name, descriptor.name_class)?;
+    if !keys.insert(descriptor.name) {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::DuplicateLookupKey,
+        });
+    }
+    Ok(())
+}
+
+fn validate_prelude_builtin_lookup_key(
+    prelude_builtin_module: &'static str,
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+    keys: &mut BTreeSet<(&'static str, &'static str)>,
+) -> Result<(), InvalidStandardSymbolCase> {
+    validate_source_less_lookup_segment(
+        provider,
+        prelude_builtin_module,
+        SourceLessNameClass::Module,
+    )?;
+    if descriptor.module.is_some() {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{prelude_builtin_module}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        });
+    }
+    if !keys.insert((prelude_builtin_module, descriptor.name)) {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: format!("{prelude_builtin_module}::{}", descriptor.name),
+            name_class: descriptor.name_class,
+            reason: InvalidStandardSymbolReason::DuplicateLookupKey,
+        });
+    }
+    Ok(())
+}
+
+fn validate_source_lookup_descriptor(
+    provider: &'static str,
+    descriptor: &StandardSymbolDescriptor,
+) -> Result<(), InvalidStandardSymbolCase> {
+    if descriptor.name_class != SourceLessNameClass::Function {
+        return Err(InvalidStandardSymbolCase {
+            provider,
+            name: descriptor.name.to_string(),
+            name_class: SourceLessNameClass::Function,
+            reason: InvalidStandardSymbolReason::InvalidLookupClass,
+        });
+    }
+    if let Some(module) = descriptor.module {
+        for segment in module.split("::") {
+            validate_source_less_lookup_segment(provider, segment, SourceLessNameClass::Module)?;
+        }
+    }
+    validate_source_less_lookup_segment(provider, descriptor.name, descriptor.name_class)
 }
 
 #[cfg(test)]

@@ -1,6 +1,10 @@
-# Iterative List Helper Runtime
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Iterative List Helper Runtime
 
 This page records the completed list helper traversal follow-up. The
 implemented route uses iterative JVM runtime support for public `List<A>`
@@ -13,7 +17,7 @@ helpers instead of adding source helper trampoline lowering.
 - Current execution boundary and JVM backend behavior:
   [../../specification/execution.md](../../specification/execution.md).
 - Current standard-package helper boundary:
-  [../../specification/names-effects-full.md#standard-package-boundary](../../specification/names-effects-full.md#standard-package-boundary).
+  [../../specification/names-effects.md#standard-package-boundary](../../specification/names-effects.md#standard-package-boundary).
 - Completed ADT, `List`, immutable collection, and traversal runtime route:
   [adt-generalization-route.md](adt-generalization-route.md).
 - Current source grammar, which does not include loops or mutation:

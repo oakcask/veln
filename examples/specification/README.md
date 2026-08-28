@@ -1,3 +1,9 @@
+---
+role: reference
+authority: supporting
+update-when: The document content, evidence links, or current specification authority changes.
+---
+
 # Specification Examples
 
 These examples are executable language fixtures. Each case is ordinary Veln

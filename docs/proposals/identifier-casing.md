@@ -41,8 +41,7 @@ implementation record is
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 
 The remaining proposal work covers module identities, qualified-use segment
-casing, recovery navigation, repair rename, rename conflict prediction, and
-source-less registries. The
+casing, recovery navigation, repair rename, and rename conflict prediction. The
 completed public alias target-leaf casing boundary is specified by
 [Names And Effects](../specification/names-effects.md) and checked by the
 `identifier-casing-public-alias-targets-json` and
@@ -55,6 +54,10 @@ boundaries are specified by
 [Names And Effects](../specification/names-effects.md), by
 [Editor Support](../specification/editor-support.md), and by the checked
 examples that those pages name.
+Source-less compiler-provided source lookup descriptors are specified by
+[Source-Less Lookup](../specification/source-less-lookup.md) and covered by
+focused `veln-sema` registry tests. Their completion record is
+[Identifier Casing Source-Less Symbols](../reference/implemented-proposals/identifier-casing-source-less-symbols.md).
 
 The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
@@ -80,8 +83,8 @@ called as a constructor but cannot use the same bare spelling as a constructor
 pattern. Existing navigation cases also contain a lowercase `byte` variant
 that can collide with a same-spelled function or callable binding.
 
-[Names And Effects](../specification/names-effects-full.md#name-resolution)
-specifies current value shadowing. [Types](../specification/types-full.md)
+[Names And Effects](../specification/names-effects.md#name-resolution)
+specifies current value shadowing. [Types](../specification/types.md)
 specifies source ADTs and constructor resolution. The short
 [Names And Effects](../specification/names-effects.md) route names the checked
 casing evidence for the implemented source foundation; this proposal retains
@@ -106,7 +109,6 @@ applies those initials to these not-yet-current surfaces:
 | --- | --- |
 | Module identities | Every written, import-path, import-alias, and source-path-derived module segment starts with an ASCII lowercase letter. |
 | Qualified uses | Every written segment with a syntax-fixed or resolution-fixed role satisfies that role's name class. Unresolved or ambiguous intermediate segments are not guessed from spelling. |
-| Source-less registries | A compiler-provided source-visible symbol carries an explicit name class and has a spelling valid for that class before the registry is published. |
 
 Name lookup remains case-sensitive. Identifiers outside the current
 specification and the remaining surfaces above keep their existing casing
@@ -209,8 +211,7 @@ The implemented source foundation quarantines invalid source declarations,
 bindings, and public alias targets for `check`, `run`, and LSP single-file
 diagnostics. The remaining rules in this section are proposal scope where they
 require module identity validation, qualified-use segment validation,
-navigation, rename, source-less registries, or the deferred language-service
-selection boundary.
+navigation, rename, or the deferred language-service selection boundary.
 
 For sources without casing diagnostics, ordinary expression calls and
 constructor patterns use these candidate classes. Dedicated schema, effect,
@@ -266,14 +267,14 @@ remaining proposal defines how that recovery model extends to qualified-use
 roles, module-derived identity failures, remaining companion cases for invalid
 module or qualified roles, and recovery navigation.
 
-An invalid remaining-scope module segment, qualified segment, or source-less
-descriptor is not inserted into a normal name class. A use links to a recovery
-record only when the original spelling matches, the recovered class is
-compatible with the syntactic or resolved use role, no valid candidate wins,
-and exactly one compatible recovery record is in scope. The initial-derived
-class filter is ignored only for this repair lookup. The link supports cascade
-suppression and language-service navigation where the selected operation
-permits recovery, but it does not make the program valid.
+An invalid remaining-scope module segment or qualified segment is not inserted
+into a normal name class. A use links to a recovery record only when the
+original spelling matches, the recovered class is compatible with the
+syntactic or resolved use role, no valid candidate wins, and exactly one
+compatible recovery record is in scope. The initial-derived class filter is
+ignored only for this repair lookup. The link supports cascade suppression and
+language-service navigation where the selected operation permits recovery, but
+it does not make the program valid.
 
 | Invalid record | Compatible recovery uses | Incompatible recovery uses |
 | --- | --- | --- |
@@ -346,8 +347,8 @@ For type-role references, the current boundary rejects ambiguous bare imported
 type selections and preserves qualified type identity before returning rename
 edits. The remaining rename proposal covers repair rename through quarantined
 invalid-name recovery records, predictable conflict rejection, source-path
-module rename exclusion, MCP error mapping, and the deferred module,
-qualified-use, and source-less registry surfaces.
+module rename exclusion, MCP error mapping, and the deferred module and
+qualified-use surfaces.
 
 A repair rename edits the declaration and every occurrence linked to the same
 unique recovery symbol, including an occurrence whose initial-derived valid
@@ -370,33 +371,6 @@ Prepare-rename returns no range for them. Rename produces no file operation,
 including a case-only filesystem rename. A future module-rename capability
 must define filesystem and client resource-operation behavior separately.
 
-### Source-Less Symbols
-
-`name.invalid_case` validates source-written names. A compiler-provided symbol
-that participates in source name lookup must carry an explicit name class and
-must have a spelling valid for that class. A violation is a toolchain invariant
-failure, not a source diagnostic. Such a symbol enters only its declared name
-class and follows that class's existing collision and shadowing rules.
-
-The source-lookup registry construction gate validates every source-visible
-compiler descriptor before it publishes an immutable registry. The gate runs
-in release builds as well as tests. It validates the descriptor's module
-segments, explicit name class, spelling, and lookup key. Failure is atomic: no
-partial registry is available to lookup.
-
-An invalid descriptor produces a span-less internal failure with code
-`toolchain.invalid_symbol_case` and details containing `provider`, `name`,
-`name_class`, and `required_initial`. Command and adapter initialization stop in
-their existing internal-failure form. They do not convert the failure into a
-source `name.invalid_case`, silently skip the entry, panic only in debug builds,
-or wait until lookup to validate it. Generated tables use the same validator at
-their generation or build gate without removing the release-time check.
-
-Embedded Veln prelude sources are source-written and are validated normally.
-Compiler temporaries and bookkeeping names that cannot participate in source
-lookup are outside this contract. A source-less symbol must not use an invalid
-spelling as a compatibility exception or reintroduce a cross-class candidate.
-
 ## Analysis And Artifact Boundary
 
 Casing uses the selection and reachability boundary already defined by each
@@ -407,13 +381,13 @@ loaded and unloaded direct dependencies, are specified by
 selection boundary is complete and recorded in
 [Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md).
 The remaining proposal scope is limited to module identity, qualified-use,
-source-less registry, recovery navigation, repair rename, rename conflict
-prediction, MCP rename mapping, and deferred language-service consumers listed
-in the acceptance model.
+recovery navigation, repair rename, rename conflict prediction, MCP rename
+mapping, and deferred language-service consumers listed in the acceptance
+model.
 
-No backend receives a remaining-scope module identity, registry entry, or
-recovery record with an invalid case. The planned command fixtures are
-authoritative for the exact selection boundary when command behavior differs.
+No backend receives a remaining-scope module identity or recovery record with
+an invalid case. The planned command fixtures are authoritative for the exact
+selection boundary when command behavior differs.
 
 ## Goals
 
@@ -425,7 +399,7 @@ authoritative for the exact selection boundary when command behavior differs.
   each name class.
 - Extend the current source foundation to the remaining module, qualified-use,
   selection, recovery navigation, repair rename, rename conflict prediction,
-  MCP rename mapping, and source-less registry surfaces.
+  and MCP rename mapping surfaces.
 
 ## Non-Goals
 
@@ -482,8 +456,7 @@ identifier-casing remainder.
 | Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request conflicting and invalid-declaration repair renames. | Repair renames return complete linked edits. Predictable collisions return `rename.conflict`; failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service, LSP error-mapping, and planned MCP error-mapping cases. |
-| Register valid and invalid source-less lookup descriptors. | The release-mode registry gate either publishes one complete validated registry or returns `toolchain.invalid_symbol_case`; invalid descriptors never reach lookup, while internal names remain outside the gate. | Generated-table, injected-descriptor, release-mode, atomic-failure, and lookup-isolation tests. |
-| Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module, qualified, or source-less recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module, qualified, source-less registry, definition, references, prepare-rename, and rename surfaces. |
+| Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module or qualified recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module, qualified, definition, references, prepare-rename, and rename surfaces. |
 | Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |
 | Run the repository source-carrier audit and specification suite after migration. | Every parsed or analyzed repository-owned source follows the contract except dedicated exact-expectation casing fixtures, and unrelated negative fixtures retain their intended diagnostic sets. | Source-carrier audit, specification harness, doctest and documentation gates, and workspace tests. |
 

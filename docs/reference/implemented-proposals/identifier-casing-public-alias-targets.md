@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: Public alias target-leaf identifier casing evidence is superseded, invalidated, or used as current specification authority.
+update-when: Public alias target-leaf identifier casing evidence, sibling identifier-casing completion boundaries, or current specification authority for this record changes.
 ---
 
 # Identifier Casing Public Alias Targets
@@ -39,7 +39,8 @@ otherwise resolves.
 ## Completion
 
 This slice is complete. It does not add module-identity casing, non-leaf
-qualified-use segment casing, recovery navigation, rename behavior,
-source-less registry validation, or any casing rule for schema-alias targets,
-schema names, effects, handlers, operations, fields, type parameters, or
-holes.
+qualified-use segment casing, recovery navigation, rename behavior, or any
+casing rule for schema-alias targets, schema names, effects, handlers,
+operations, fields, type parameters, or holes. Source-less registry validation
+is completed separately in
+[Identifier Casing Source-Less Symbols](identifier-casing-source-less-symbols.md).

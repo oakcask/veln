@@ -1,6 +1,11 @@
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
+
 # Local Inference Collection Callback Element
 
-Status: implemented
 
 This record keeps the completed collection callback element inference slice
 after the behavior moved into the specification and executable examples. It
@@ -11,7 +16,7 @@ is historical evidence, not the source for current behavior.
 - Current type inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Successful collection element callback coverage:
   `../../../examples/specification/check/collection-callback-inference/`.
 - Diagnostic coverage:

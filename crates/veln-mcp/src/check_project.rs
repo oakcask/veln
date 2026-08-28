@@ -963,8 +963,34 @@ fn domain_failure(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use veln_diagnostics::Diagnostic;
     use veln_project::parse_manifest_text;
     use veln_source::SourceFile;
+
+    #[test]
+    fn diagnostic_json_preserves_invalid_standard_symbol_case_boundary() {
+        let diagnostic = invalid_standard_symbol_case_diagnostic();
+        let converted = diagnostic_to_serde(&diagnostic);
+
+        assert_eq!(
+            converted,
+            json!({
+                "id": "toolchain.invalid_symbol_case",
+                "severity": "error",
+                "kind": "toolchain",
+                "message": "compiler-provided function `BadAdapter` from `compiler_adapter` must start with an ASCII lowercase letter",
+                "span": null,
+                "details": {
+                    "provider": "compiler_adapter",
+                    "name": "BadAdapter",
+                    "name_class": "function",
+                    "required_initial": "ascii_lowercase"
+                },
+                "related": []
+            })
+        );
+        assert_ne!(converted["id"], json!("name.invalid_case"));
+    }
 
     #[test]
     fn stable_capture_retries_manifest_source_and_path_set_changes_only_three_times() {
@@ -1259,5 +1285,14 @@ mod tests {
 
     fn clean_source() -> &'static str {
         "fn main() -> Int\n  1\nend\n"
+    }
+
+    fn invalid_standard_symbol_case_diagnostic() -> Diagnostic {
+        veln_diagnostics::toolchain_invalid_symbol_case_diagnostic(
+            "compiler_adapter",
+            "BadAdapter",
+            veln_diagnostics::ToolchainSymbolNameClass::Function,
+            veln_diagnostics::ToolchainSymbolNameFailureReason::InvalidCase,
+        )
     }
 }

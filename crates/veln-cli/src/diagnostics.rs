@@ -311,6 +311,46 @@ mod tests {
         );
     }
 
+    #[test]
+    fn human_diagnostic_output_preserves_invalid_standard_symbol_case_boundary() {
+        let diagnostic = invalid_standard_symbol_case_diagnostic();
+
+        assert_eq!(
+            diagnostic_human_lines(&diagnostic),
+            vec![
+                "error[toolchain.invalid_symbol_case]: compiler-provided function `BadAdapter` from `compiler_adapter` must start with an ASCII lowercase letter",
+            ]
+        );
+        assert!(!diagnostic.id.contains("name.invalid_case"));
+    }
+
+    #[test]
+    fn json_diagnostic_output_preserves_invalid_standard_symbol_case_details() {
+        let envelope = veln_diagnostics::DiagnosticEnvelope::new(
+            tool_info(),
+            vec![invalid_standard_symbol_case_diagnostic()],
+        );
+
+        assert_eq!(
+            envelope.to_json(),
+            concat!(
+                "{\"schema_version\":1,\"tool\":{\"name\":\"veln\",\"version\":\"",
+                env!("CARGO_PKG_VERSION"),
+                "\"},\"status\":\"error\",",
+                "\"diagnostics\":[{\"id\":\"toolchain.invalid_symbol_case\",",
+                "\"severity\":\"error\",\"kind\":\"toolchain\",",
+                "\"message\":\"compiler-provided function `BadAdapter` from `compiler_adapter` ",
+                "must start with an ASCII lowercase letter\",",
+                "\"span\":null,",
+                "\"details\":{\"provider\":\"compiler_adapter\",\"name\":\"BadAdapter\",",
+                "\"name_class\":\"function\",\"required_initial\":\"ascii_lowercase\"},",
+                "\"related\":[]}],",
+                "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},",
+                "\"by_kind\":{\"toolchain\":1}}}"
+            )
+        );
+    }
+
     fn span(file: &str, line: usize, column: usize) -> SourceSpan {
         SourceSpan {
             file: SourcePath::new(file),
@@ -347,5 +387,14 @@ mod tests {
                 ]),
             ),
         ])
+    }
+
+    fn invalid_standard_symbol_case_diagnostic() -> Diagnostic {
+        veln_diagnostics::toolchain_invalid_symbol_case_diagnostic(
+            "compiler_adapter",
+            "BadAdapter",
+            veln_diagnostics::ToolchainSymbolNameClass::Function,
+            veln_diagnostics::ToolchainSymbolNameFailureReason::InvalidCase,
+        )
     }
 }

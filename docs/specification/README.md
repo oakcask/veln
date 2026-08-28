@@ -47,7 +47,9 @@ tracked in `../proposals/`.
   [../reference/documentation-authoring.md](../reference/documentation-authoring.md).
 - Unknown implemented-behavior topic: [topic-map.md](topic-map.md).
 - Source syntax and grammar details: [source-surface.md](source-surface.md),
-  [types.md](types.md), and [names-effects.md](names-effects.md).
+  [types.md](types.md), [name-resolution.md](name-resolution.md),
+  [effects.md](effects.md), [prelude-helpers.md](prelude-helpers.md), and
+  [source-less-lookup.md](source-less-lookup.md).
 - Contracts or holes: [contracts-holes.md](contracts-holes.md) first, then
   [contracts.md](contracts.md) or [holes.md](holes.md).
 - Commands and machine-readable output: [commands.md](commands.md) and

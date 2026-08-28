@@ -1,6 +1,10 @@
-# Local Inference Diagnostic Details
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Local Inference Diagnostic Details
 
 This record keeps the completed local inference diagnostic-detail slice after
 the behavior moved into the specification and checked examples. It is
@@ -9,11 +13,11 @@ historical evidence, not the source for current behavior.
 ## Read First
 
 - Current diagnostic JSON details:
-  [../../specification/diagnostics-json-full.md#type-inference-diagnostics](../../specification/diagnostics-json-full.md#type-inference-diagnostics).
+  [../../specification/diagnostics-json.md#type-inference-diagnostics](../../specification/diagnostics-json.md#type-inference-diagnostics).
 - Current type inference summary:
   [../../specification/types.md](../../specification/types.md).
 - Current full inference rules:
-  [../../specification/types-full.md#inference](../../specification/types-full.md#inference).
+  [../../specification/types.md#inference](../../specification/types.md#inference).
 - Checked diagnostic examples:
   `../../../examples/specification/check/local-let-inference-diagnostics/`,
   `../../../examples/specification/check/private-helper-inference-diagnostics/`,

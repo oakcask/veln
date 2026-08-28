@@ -1,12 +1,16 @@
-# Runtime Diagnostic HTTP/2 Closed Helper Payload
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Runtime Diagnostic HTTP/2 Closed Helper Payload
 
 This record preserves the completed HTTP/2 closed-input standard helper
 runtime diagnostic payload slice from the runtime diagnostic payload proposal.
 Current behavior is specified by `../../specification/run-json.md`,
 `../../specification/execution.md`,
-`../../specification/names-effects-full.md`, and the checked executable case
+`../../specification/names-effects.md`, and the checked executable case
 under `../../../examples/specification/run/`.
 
 ## Completed Behavior
@@ -33,5 +37,5 @@ outside this slice.
   `details.protocol_diagnostic` fields.
 - `../../specification/run-json.md`,
   `../../specification/execution.md`, and
-  `../../specification/names-effects-full.md` summarize the implemented
+  `../../specification/names-effects.md` summarize the implemented
   behavior and route readers to executable evidence.

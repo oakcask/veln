@@ -1,11 +1,15 @@
-# Runtime Diagnostic HTTP/2 Type Boundary
+---
+role: implementation-record
+authority: supporting
+update-when: The completed proposal record, evidence links, or current specification authority changes.
+---
 
-Status: implemented
+# Runtime Diagnostic HTTP/2 Type Boundary
 
 This record preserves the completed diagnostic-type slice of the HTTP/2
 standard-library completion proposal. Current behavior is specified by
 `../../specification/names-effects.md`,
-`../../specification/names-effects-full.md`, and
+`../../specification/names-effects.md`, and
 `../../specification/run-json.md` and is checked by focused cases under
 `../../../examples/specification/run/`.
 
