@@ -109,7 +109,7 @@ fn run_case_with_guard_and_after_invocation(
                 artifact_path.as_deref(),
             ),
         );
-        collect_run_failure(&mut run_failures, || {
+        collect_panic_failure(&mut run_failures, || {
             if let Some(artifact_path) = artifact_path.as_deref() {
                 let evidence = CommandSourceDiagnosticEvidence::read(&context, artifact_path);
                 manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
@@ -129,7 +129,7 @@ fn run_case_with_guard_and_after_invocation(
     }
 }
 
-fn collect_run_failure(failures: &mut Vec<String>, action: impl FnOnce()) {
+fn collect_panic_failure(failures: &mut Vec<String>, action: impl FnOnce()) {
     if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(action)) {
         failures.push(panic_message(panic));
     }
@@ -1845,46 +1845,7 @@ impl CaseExpectations {
         output: &CapturedOutput,
         project_root: &Path,
     ) {
-        let mut independent_failures = Vec::new();
-        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            assert_eq!(
-                output.exit,
-                Some(self.exit),
-                "{}: expected exit {}, got {:?}\nstdout:\n{}\nstderr:\n{}",
-                context.label(),
-                self.exit,
-                output.exit,
-                output.stdout,
-                output.stderr
-            );
-        })) {
-            independent_failures.push(panic_message(panic));
-        }
-        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            assert_stream(context, "stdout", &self.stdout, &output.stdout)
-        })) {
-            independent_failures.push(panic_message(panic));
-        }
-        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            assert_stream(context, "stderr", &self.stderr, &output.stderr)
-        })) {
-            independent_failures.push(panic_message(panic));
-        }
-        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            assert_lsp_assertions_in_workspace(
-                context,
-                &output.stdout,
-                &self.lsp_assertions,
-                project_root,
-            )
-        })) {
-            independent_failures.push(panic_message(panic));
-        }
-        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            assert_mcp_assertions(context, &output.stdout, &self.mcp_assertions, project_root)
-        })) {
-            independent_failures.push(panic_message(panic));
-        }
+        let independent_failures = self.independent_failure_messages(context, output, project_root);
         if !independent_failures.is_empty() {
             panic!("{}", independent_failures.join("\n"));
         }
@@ -1935,6 +1896,45 @@ impl CaseExpectations {
                 assert_output_chunk_list(context, program_stdout, chunks);
             }
         }
+    }
+
+    fn independent_failure_messages(
+        &self,
+        context: &CaseRunContext<'_>,
+        output: &CapturedOutput,
+        project_root: &Path,
+    ) -> Vec<String> {
+        let mut failures = Vec::new();
+        collect_panic_failure(&mut failures, || {
+            assert_eq!(
+                output.exit,
+                Some(self.exit),
+                "{}: expected exit {}, got {:?}\nstdout:\n{}\nstderr:\n{}",
+                context.label(),
+                self.exit,
+                output.exit,
+                output.stdout,
+                output.stderr
+            );
+        });
+        collect_panic_failure(&mut failures, || {
+            assert_stream(context, "stdout", &self.stdout, &output.stdout)
+        });
+        collect_panic_failure(&mut failures, || {
+            assert_stream(context, "stderr", &self.stderr, &output.stderr)
+        });
+        collect_panic_failure(&mut failures, || {
+            assert_lsp_assertions_in_workspace(
+                context,
+                &output.stdout,
+                &self.lsp_assertions,
+                project_root,
+            )
+        });
+        collect_panic_failure(&mut failures, || {
+            assert_mcp_assertions(context, &output.stdout, &self.mcp_assertions, project_root)
+        });
+        failures
     }
 
     fn needs_stdout_json(&self) -> bool {
@@ -11190,6 +11190,10 @@ fn repeated_run_failures_are_grouped_by_run_and_manifest_assertion_order() {
         Path::new("case.toml"),
         r#"command = ["lsp"]
 exit = 0
+[stdout]
+contains = ["required raw marker"]
+[stderr]
+format = "empty"
 [[lsp_assert]]
 id = 1
 path = "/result/value"
@@ -11206,7 +11210,7 @@ equals = "second expected"
             stdout: lsp_frame(
                 r#"{"jsonrpc":"2.0","id":1,"result":{"value":"run one","other":"one"}}"#,
             ),
-            stderr: String::new(),
+            stderr: "run one stderr".to_string(),
         },
         CapturedOutput {
             exit: Some(7),
@@ -11214,7 +11218,7 @@ equals = "second expected"
                 "{}trailing",
                 lsp_frame(r#"{"jsonrpc":"2.0","id":1,"result":{"value":"run two"}}"#)
             ),
-            stderr: String::new(),
+            stderr: "run two stderr".to_string(),
         },
     ];
     let mut failures = Vec::new();
@@ -11224,7 +11228,7 @@ equals = "second expected"
             case_dir: Path::new("repeat-lsp"),
             run_number: index + 1,
         };
-        collect_run_failure(&mut failures, || {
+        collect_panic_failure(&mut failures, || {
             manifest
                 .expectations
                 .assert_matches(&context, output, &root)
@@ -11232,17 +11236,32 @@ equals = "second expected"
     }
     assert_eq!(failures.len(), 2);
     assert!(failures[0].contains("repeat-lsp run 1"));
-    let first_position = failures[0]
-        .find("/result/value")
-        .expect("first assertion should be reported");
-    let second_position = failures[0]
-        .find("/result/other")
-        .expect("second assertion should be reported");
-    assert!(first_position < second_position);
+    assert_fragments_in_order(&failures[0], &["/result/value", "/result/other"]);
     assert!(failures[1].contains("repeat-lsp run 2"));
     assert!(failures[1].contains("expected exit 0, got Some(7)"));
+    assert!(failures[1].contains("expected stdout to contain `required raw marker`"));
+    assert!(failures[1].contains("expected stderr to be empty"));
     assert!(failures[1].contains("trailing bytes"));
+    assert_fragments_in_order(
+        &failures[1],
+        &[
+            "expected exit 0",
+            "expected stdout to contain",
+            "expected stderr to be empty",
+            "trailing bytes",
+        ],
+    );
     fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+fn assert_fragments_in_order(text: &str, fragments: &[&str]) {
+    let mut remainder = text;
+    for fragment in fragments {
+        let position = remainder
+            .find(fragment)
+            .unwrap_or_else(|| panic!("expected `{fragment}` after prior fragments in:\n{text}"));
+        remainder = &remainder[position + fragment.len()..];
+    }
 }
 
 fn assert_manifest_parse_error(source: &str, expected: &str) {
