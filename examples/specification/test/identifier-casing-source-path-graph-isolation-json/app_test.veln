@@ -1,0 +1,6 @@
+use app
+
+test app_value() -> ()
+  let actual = app::value()
+  ()
+end

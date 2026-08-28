@@ -75,8 +75,13 @@ This page routes implemented JSON output for `veln test --json`.
   `../../examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`,
   `../../examples/specification/test/identifier-casing-companion-target-binding-recovery-isolation-json/`,
   `../../examples/specification/test/identifier-casing-companion-source-binding-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-source-path-graph-isolation-json/`,
   and
   `../../examples/specification/test/identifier-casing-unselected-peer-json/`.
+  The source-path graph isolation case and focused `veln-test` unit coverage
+  check that a selected test source whose source-path-derived module identity
+  has invalid casing reports the existing diagnostic without adding imports
+  from that source as dependency graph edges during dependency closure.
 - Readable doctest runtime JSON coverage:
   `../../examples/specification/test/doctest-runtime-contract-json/`,
   `../../examples/specification/test/doctest-runtime-contract-blocked-json/`,

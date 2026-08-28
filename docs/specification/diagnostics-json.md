@@ -146,7 +146,9 @@ identity casing is checked by `identifier-casing-source-path-json` and
 `identifier-casing-exported-source-path-json`; import-resolution and
 duplicate-source graph isolation are checked by
 `identifier-casing-source-path-import-isolation-json` and
-`identifier-casing-source-path-duplicate-isolation-json`; parse-failure
+`identifier-casing-source-path-duplicate-isolation-json`; test dependency graph
+edge isolation is checked by
+`identifier-casing-source-path-graph-isolation-json`; parse-failure
 coexistence, human output, lowercase-initial structural failures, and chained
 companion structural isolation are checked by
 `identifier-casing-source-path-human` and

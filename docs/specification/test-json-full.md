@@ -49,8 +49,11 @@ For explicit non-test source targets with path-derived module identities,
 discovered test source whose transitive imports include the selected source is
 included in the final selection. When the graph selects or confirms a test
 source and all needed graph evidence is present, the run reports
-`reason: "dependency_graph"` and `confidence: "complete"`. If graph evidence
-is missing, such as an import with no discovered source module, the command
+`reason: "dependency_graph"` and `confidence: "complete"`. A selected source
+whose source-path-derived module identity has invalid casing keeps its
+diagnostic but does not add source-level imports as dependency graph edges,
+and that invalid identity alone does not widen selection. If graph evidence is
+missing, such as an import with no discovered source module, the command
 widens to all discovered tests, reports `reason: "widened_dependency_graph"`,
 and reports `confidence: "unknown"`. The reported `targets` array is the final
 selected test roots and is sorted after duplicate removal.

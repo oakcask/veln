@@ -233,6 +233,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`,
   `../../examples/specification/test/identifier-casing-companion-target-binding-recovery-isolation-json/`,
   `../../examples/specification/test/identifier-casing-companion-source-binding-recovery-isolation-json/`,
+  `../../examples/specification/test/identifier-casing-source-path-graph-isolation-json/`,
   `../../examples/specification/test/identifier-casing-unselected-peer-json/`,
   `../../examples/specification/doc/identifier-casing-included-source/`,
   `../../examples/specification/doc/identifier-casing-excluded-source/`,

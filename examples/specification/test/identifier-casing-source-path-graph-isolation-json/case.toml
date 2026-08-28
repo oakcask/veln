@@ -1,0 +1,92 @@
+command = ["test", "--json", "app.veln", "Bad.veln", "other_test.veln"]
+source_errors = "expected"
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+not_contains = ["module.duplicate_source_path", "widened_dependency_graph", "dependency graph is missing module identity"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "selection.mode"
+equals = "explicit"
+
+[[json_assert]]
+path = "selection.reason"
+equals = "dependency_graph"
+
+[[json_assert]]
+path = "selection.targets.0"
+equals = "Bad.veln"
+
+[[json_assert]]
+path = "selection.targets.1"
+equals = "app.veln"
+
+[[json_assert]]
+path = "selection.targets.2"
+equals = "app_test.veln"
+
+[[json_assert]]
+path = "selection.targets.3"
+equals = "other_test.veln"
+
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "Bad.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "Bad.veln"
+
+[[json_assert]]
+path = "summary.total"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "app_value"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "blocked"
+
+[[json_assert]]
+path = "cases.1.name"
+equals = "unrelated_valid_test"
+
+[[json_assert]]
+path = "cases.1.status"
+equals = "blocked"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `Bad` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "Bad.veln"
+line = 1
+column = 1

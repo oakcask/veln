@@ -26,9 +26,11 @@ The checked
 `identifier-casing-source-path-import-isolation-json` example fixes local
 import resolution isolation. The checked
 `identifier-casing-source-path-duplicate-isolation-json` example fixes
-duplicate source-path isolation. Focused `veln-test` unit coverage fixes that
-imports declared by a source without a normal module identity do not add
-dependency graph edges before dependency closure is computed.
+duplicate source-path isolation. The checked test
+`identifier-casing-source-path-graph-isolation-json` example and focused
+`veln-test` unit coverage fix that imports declared by a source without a
+normal module identity do not add dependency graph edges before dependency
+closure is computed.
 
 ## Completion
 

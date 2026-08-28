@@ -221,6 +221,7 @@ errors. The checked
 `identifier-casing-exported-source-path-json`,
 `identifier-casing-source-path-import-isolation-json`,
 `identifier-casing-source-path-duplicate-isolation-json`,
+the test `identifier-casing-source-path-graph-isolation-json`,
 `identifier-casing-source-path-human`,
 `identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples fix JSON, human, and LSP

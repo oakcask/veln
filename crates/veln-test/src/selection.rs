@@ -215,7 +215,7 @@ pub fn dependency_aware_selection_plan(
 
     let mut selected_roots = explicit_roots.clone();
     let mut metadata = source_to_test_metadata(source_to_test_added_count);
-    let mut missing_evidence = graph.missing_evidence_for(&source_roots);
+    let mut missing_evidence = graph.missing_evidence();
 
     if !missing_evidence.is_empty() {
         selected_roots.extend(graph.test_roots.iter().cloned());
@@ -281,7 +281,6 @@ fn source_to_test_metadata(added_count: usize) -> TestSelectionMetadata {
 struct SourceDependencyGraph {
     paths: BTreeSet<String>,
     test_roots: BTreeSet<String>,
-    module_by_path: BTreeMap<String, String>,
     module_paths: BTreeMap<String, BTreeSet<String>>,
     imports_by_path: BTreeMap<String, Vec<String>>,
     edges: BTreeMap<String, BTreeSet<String>>,
@@ -298,7 +297,6 @@ impl SourceDependencyGraph {
         Self {
             paths,
             test_roots,
-            module_by_path,
             module_paths,
             imports_by_path,
             edges,
@@ -401,15 +399,8 @@ impl SourceDependencyGraph {
         self.paths.iter().map(PathBuf::from).collect()
     }
 
-    fn missing_evidence_for(&self, source_roots: &BTreeSet<String>) -> Vec<String> {
+    fn missing_evidence(&self) -> Vec<String> {
         let mut missing = Vec::new();
-        for path in source_roots {
-            if self.paths.contains(path) && !self.module_by_path.contains_key(path) {
-                missing.push(format!(
-                    "dependency graph is missing module identity for selected source `{path}`"
-                ));
-            }
-        }
         for (path, imports) in &self.imports_by_path {
             for module_name in imports {
                 if !self.module_paths.contains_key(module_name) {
@@ -734,7 +725,7 @@ mod tests {
     }
 
     #[test]
-    fn dependency_graph_widens_when_selected_source_has_no_module_identity() {
+    fn dependency_graph_keeps_selected_source_with_no_module_identity_isolated() {
         let (project, module) = project_module_without_derived_identity(vec![
             SourceFile::new("math.veln", "fn value() -> Int\n  1\nend\n"),
             SourceFile::new("alpha_test.veln", "test alpha() -> ()\n  ()\nend\n"),
@@ -746,36 +737,14 @@ mod tests {
         let plan =
             dependency_aware_selection_plan(&project, &module, &explicit_roots, &source_roots, 0);
 
-        assert_eq!(
-            plan.analysis_targets,
-            vec![
-                PathBuf::from("alpha_test.veln"),
-                PathBuf::from("beta_test.veln"),
-                PathBuf::from("math.veln"),
-            ]
-        );
+        assert_eq!(plan.analysis_targets, vec![PathBuf::from("math.veln")]);
         assert_eq!(
             plan.selected_roots,
-            Some(BTreeSet::from([
-                "alpha_test.veln".to_string(),
-                "beta_test.veln".to_string(),
-                "math.veln".to_string(),
-            ]))
+            Some(BTreeSet::from(["math.veln".to_string()]))
         );
-        assert_eq!(
-            plan.metadata.confidence,
-            Some(TestSelectionConfidence::Unknown)
-        );
-        assert_eq!(
-            plan.metadata.reason,
-            Some(TestSelectionReason::WidenedDependencyGraph)
-        );
-        assert!(
-            plan.metadata.notes.contains(
-                &"dependency graph is missing module identity for selected source `math.veln`"
-                    .to_string()
-            )
-        );
+        assert_eq!(plan.metadata.confidence, None);
+        assert_eq!(plan.metadata.reason, None);
+        assert!(plan.metadata.notes.is_empty());
     }
 
     #[test]
