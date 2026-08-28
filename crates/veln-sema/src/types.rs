@@ -764,7 +764,7 @@ fn canonicalize_type_effects(
             let Some(canonical_name) = adts
                 .descriptor_for_type_path(&name, args.len(), current_module, uses)
                 .map(|descriptor| descriptor.type_name.clone())
-                .or_else(|| (!name.contains("::")).then_some(name))
+                .or_else(|| canonical_type_name_without_descriptor(name, current_module, uses))
             else {
                 return Type::Unknown;
             };
@@ -851,6 +851,24 @@ fn canonicalize_type_effects(
             ),
         },
         Type::Unknown => Type::Unknown,
+    }
+}
+
+fn canonical_type_name_without_descriptor(
+    name: String,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> Option<String> {
+    if !name.contains("::") {
+        return Some(name);
+    }
+    let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+    match segments.as_slice() {
+        [_, .., _] => {
+            imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            Some(name)
+        }
+        _ => Some(name),
     }
 }
 
