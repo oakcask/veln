@@ -117,9 +117,11 @@ impl Writer {
             NameOccurrence::Binding => 1,
             NameOccurrence::PatternHead => 2,
             NameOccurrence::AliasTarget => 3,
+            NameOccurrence::PathSegment => 4,
         });
         self.span(&value.span);
         self.option(&value.enclosing_function_span, Self::span);
+        self.option(&value.segment_index, |writer, value| writer.usize(*value));
     }
 
     fn module_header(&mut self, value: &ModuleHeader) {
@@ -860,6 +862,7 @@ impl<'a> Reader<'a> {
             1 => NameOccurrence::Binding,
             2 => NameOccurrence::PatternHead,
             3 => NameOccurrence::AliasTarget,
+            4 => NameOccurrence::PathSegment,
             value => return Err(format!("invalid name occurrence tag {value}")),
         };
         Ok(InvalidName {
@@ -868,6 +871,7 @@ impl<'a> Reader<'a> {
             occurrence,
             span: self.span()?,
             enclosing_function_span: self.option(Self::span)?,
+            segment_index: self.option(Self::usize)?,
         })
     }
 

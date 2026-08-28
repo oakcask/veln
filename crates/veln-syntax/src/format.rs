@@ -1583,7 +1583,7 @@ fn format_pattern(pattern: &Pattern) -> String {
                 .join(", ");
             format!("{{ {fields} }}")
         }
-        PatternKind::Constructor { name, args } => {
+        PatternKind::Constructor { name, args, .. } => {
             if args.is_empty() {
                 name.join("::")
             } else {

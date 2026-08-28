@@ -150,6 +150,12 @@ fn match_pattern_coverage(
             cases: vec![(if *value { "true" } else { "false" }).to_string()],
         },
         PatternKind::Constructor { name, .. } => {
+            if invalid_qualified_constructor_pattern(name) {
+                return PatternCoverage {
+                    catches_all: false,
+                    cases: Vec::new(),
+                };
+            }
             let case = match domain {
                 MatchDomain::Adt => environment
                     .adts
@@ -2947,6 +2953,7 @@ impl<'a> FunctionChecker<'a> {
             return;
         };
         let mut covered = Vec::new();
+        let mut invalid_recovery_covered = Vec::new();
         let mut proving_arms = Vec::new();
         for arm in arms {
             let coverage = match_pattern_coverage(
@@ -2959,6 +2966,13 @@ impl<'a> FunctionChecker<'a> {
             if coverage.catches_all {
                 return;
             }
+            invalid_recovery_covered.extend(invalid_qualified_constructor_recovery_cases(
+                &arm.pattern,
+                &domain,
+                scrutinee_type,
+                self.environment,
+                self.function.module_name.as_deref(),
+            ));
             for case in coverage.cases {
                 if !covered.contains(&case) {
                     covered.push(case.clone());
@@ -2968,7 +2982,11 @@ impl<'a> FunctionChecker<'a> {
         }
 
         let cases = domain.cases(scrutinee_type, self.environment);
-        let Some(missing_case) = cases.iter().find(|case| !covered.contains(case)).cloned() else {
+        let Some(missing_case) = cases
+            .iter()
+            .find(|case| !covered.contains(case) && !invalid_recovery_covered.contains(case))
+            .cloned()
+        else {
             return;
         };
 
@@ -3049,6 +3067,9 @@ impl<'a> FunctionChecker<'a> {
                 recover_unknown_bare_constructor,
             ),
             PatternKind::Constructor { name, args } => {
+                if invalid_qualified_constructor_pattern(name) {
+                    return self.unknown_pattern_bindings(args);
+                }
                 if recover_unknown_bare_constructor
                     && let [binding] = name.as_slice()
                     && args.is_empty()
@@ -4283,6 +4304,57 @@ impl<'a> FunctionChecker<'a> {
             ContractValidation::Valid
         )
     }
+}
+
+fn invalid_qualified_constructor_recovery_cases(
+    pattern: &Pattern,
+    domain: &MatchDomain,
+    scrutinee_type: &Type,
+    environment: &TypeEnvironment,
+    current_module: Option<&str>,
+) -> Vec<String> {
+    let PatternKind::Constructor { name, .. } = &pattern.kind else {
+        return Vec::new();
+    };
+    if !invalid_qualified_constructor_pattern(name) {
+        return Vec::new();
+    }
+    let MatchDomain::Adt = domain else {
+        return Vec::new();
+    };
+    let Some(descriptor) = environment.adts.descriptor_for_type(scrutinee_type) else {
+        return Vec::new();
+    };
+    let Some(leaf) = name.last() else {
+        return Vec::new();
+    };
+    descriptor
+        .variants
+        .iter()
+        .filter(|variant| variant.name.eq_ignore_ascii_case(leaf))
+        .filter_map(|variant| {
+            let mut recovered = name.to_vec();
+            let last = recovered.last_mut()?;
+            *last = variant.name.clone();
+            environment
+                .adts
+                .constructor_for_descriptor(
+                    &recovered,
+                    descriptor,
+                    current_module,
+                    &environment.uses,
+                )
+                .map(|constructor| constructor.variant.coverage_case.clone())
+        })
+        .collect()
+}
+
+fn invalid_qualified_constructor_pattern(name: &[String]) -> bool {
+    name.len() > 1
+        && name
+            .last()
+            .and_then(|name| name.as_bytes().first())
+            .is_some_and(u8::is_ascii_lowercase)
 }
 
 fn collect_effect_row_substitution(

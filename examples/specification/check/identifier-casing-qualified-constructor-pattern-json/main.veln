@@ -1,0 +1,11 @@
+type Item
+  None
+  Some(Int)
+end
+
+fn main(input: Item) -> Int
+  match input
+    Item::none => 0
+    Item::Some(value) => value
+  end
+end

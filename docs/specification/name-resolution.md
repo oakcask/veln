@@ -67,6 +67,15 @@ Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
 prelude-qualified lookup.
+Qualified constructor patterns keep constructor syntax. A qualified
+constructor pattern whose final segment starts with an ASCII lowercase letter
+reports `name.invalid_case` at that final segment with occurrence
+`path_segment`, name class `constructor`, required initial `ascii_uppercase`,
+observed initial `ascii_lowercase`, and the segment index inside the written
+path. That invalid head remains only as a recovery constructor pattern.
+Constructor resolution, constructor-pattern type mismatch, and match
+exhaustiveness diagnostics whose only cause is that invalid head are
+suppressed. Nested pattern bindings and the match-arm body are still checked.
 
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources

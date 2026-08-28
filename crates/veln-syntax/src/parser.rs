@@ -3349,11 +3349,14 @@ impl<'a> ExprParser<'a> {
     fn parse_name_pattern(&mut self) -> Pattern {
         let start = self.current().range;
         let mut end = start;
-        let mut segments = vec![self.bump().text];
+        let first_segment = self.bump();
+        let mut segment_spans = vec![self.source.span(first_segment.range)];
+        let mut segments = vec![first_segment.text];
         while self.eat(TokenKind::DoubleColon).is_some() {
             if self.at(TokenKind::Ident) {
                 let segment = self.bump();
                 end = segment.range;
+                segment_spans.push(self.source.span(segment.range));
                 segments.push(segment.text);
             } else {
                 break;
@@ -3397,6 +3400,7 @@ impl<'a> ExprParser<'a> {
         Pattern {
             kind: PatternKind::Constructor {
                 name: segments,
+                name_spans: segment_spans,
                 args,
             },
             span: self.source.span(start.cover(end)),

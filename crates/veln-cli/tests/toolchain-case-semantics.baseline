@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"aead1da51884875df9cffea7eec590fb86f81108"
+source_git_tree	"3e2d54c6fa6e634417d742fc1b4592237fe68bc6"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1585
+case_count	1587
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6070,6 +6070,34 @@ field	invocation.command[3]	"impl.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"0e60d6c8220e2c396fe40b55eae7fae1d13932e5eced161fff2ac5ce15326184"
+case	"examples/specification/check/identifier-casing-qualified-constructor-pattern-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	expectations.stdout.not_contains[0]	"name.unresolved"
+field	expectations.stdout.not_contains[1]	"type.mismatch"
+field	expectations.stdout.not_contains[2]	"type.match_non_exhaustive"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"aa5b8f9b0475d40a5aa190bef167681cae1a6813cf879fafb4f0de2be763aa50"
+case	"examples/specification/check/identifier-casing-qualified-constructor-pattern-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"constructor name `none` must start with an ASCII uppercase letter"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.unresolved"
+field	expectations.stdout.not_contains[1]	"type.mismatch"
+field	expectations.stdout.not_contains[2]	"type.match_non_exhaustive"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"c0e209bd8557ac23640f5e7092be4917a13bc522ec22b8bc7f338de17ff2be62"
 case	"examples/specification/check/identifier-casing-source-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -49818,4 +49846,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"d4f027a338a4f184413ffcd1b60f8543120f1a02dfd297fd652f76d72e04231b"
+aggregate_digest	"a2a69e3161f9ee3b589d1b1753a1688918f11e324cd8e8dee0be0352b6059a13"

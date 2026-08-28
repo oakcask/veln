@@ -41,8 +41,9 @@ implementation record is
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 
 The remaining proposal work covers module identities, qualified-use segment
-casing, recovery navigation, repair rename, and rename conflict prediction. The
-completed public alias target-leaf casing boundary is specified by
+casing beyond constructor-pattern leaves, recovery navigation, repair rename,
+and rename conflict prediction. The completed public alias target-leaf casing
+boundary is specified by
 [Names And Effects](../specification/names-effects.md) and checked by the
 `identifier-casing-public-alias-targets-json` and
 `identifier-casing-public-alias-targets-human` examples. Its completion record
@@ -58,6 +59,12 @@ Source-less compiler-provided source lookup descriptors are specified by
 [Source-Less Lookup](../specification/source-less-lookup.md) and covered by
 focused `veln-sema` registry tests. Their completion record is
 [Identifier Casing Source-Less Symbols](../reference/implemented-proposals/identifier-casing-source-less-symbols.md).
+Qualified constructor patterns whose final segment starts with an ASCII
+lowercase letter are specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Types](../specification/types.md), and checked by the
+`identifier-casing-qualified-constructor-pattern-json` and
+`identifier-casing-qualified-constructor-pattern-human` examples.
 
 The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
@@ -97,8 +104,10 @@ for current source-written type, constructor, function, test, public
 type-alias, public function-alias, value-binding declaration casing, public
 alias target-leaf casing, and class-preserving LSP rename validation for
 selected valid workspace type, constructor, function, and value-binding
-symbols. This proposal now specifies only identifier-casing work that remains
-incomplete.
+symbols. [Name Resolution](../specification/name-resolution.md) and
+[Types](../specification/types.md) specify the current qualified
+constructor-pattern leaf boundary. This proposal now specifies only
+identifier-casing work that remains incomplete.
 
 The remaining proposal keeps the same class initials: type and constructor
 roles require an ASCII uppercase initial, and module, function, and
@@ -238,14 +247,11 @@ The decomposition validates every role-classified written segment. It does not
 treat every prefix as a module and does not infer an unresolved intermediate
 role from capitalization alone.
 
-A qualified name pattern remains constructor syntax. Its final segment must be
-uppercase. `item::some(x)` and `item::none` each report `name.invalid_case` at
-only the final segment, with a message that the constructor name must start
-with an ASCII uppercase letter. The invalid head is retained only as a recovery
-pattern. Constructor lookup, arity, and exhaustiveness diagnostics for that
-head are suppressed, while nested binding patterns and the arm body continue
-to be checked. A qualified lowercase pattern is never reinterpreted as a value
-binding.
+The qualified constructor-pattern leaf boundary is now current behavior,
+specified by [Name Resolution](../specification/name-resolution.md) and
+[Types](../specification/types.md). The remaining qualified-use proposal scope
+does not reinterpret lowercase qualified constructor patterns as value
+bindings.
 
 Callability remains a type property. A lowercase binding with a non-function
 type still blocks the same-spelled lowercase function according to the current
@@ -278,7 +284,7 @@ it does not make the program valid.
 
 | Invalid record | Compatible recovery uses | Incompatible recovery uses |
 | --- | --- | --- |
-| Qualified constructor leaf `some` | Qualified constructor pattern `item::some` and constructor-call positions where resolution fixes a constructor role. | Bare pattern `some`, which declares a binding. |
+| Qualified constructor-call leaf `some` | Constructor-call positions where resolution fixes a constructor role. | Bare pattern `some`, which declares a binding. |
 | Qualified type leaf with a lowercase initial | Qualified type positions. | Expression and pattern-binding positions. |
 | Qualified function leaf with an uppercase initial | Qualified callable-value positions. | Type positions and constructor patterns. |
 | Invalid module segment | Diagnostics and local source analysis for the declaring source identity. | Imports, exports, public aliases, dependencies, companions, prelude lookup, and backend reachability. |
@@ -446,7 +452,6 @@ identifier-casing remainder.
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
-| Check qualified uppercase and lowercase constructor patterns. | Uppercase final segments retain constructor behavior. Each lowercase final segment reports one exact-span casing diagnostic without constructor-resolution, arity, or exhaustiveness cascades. | Parser recovery, semantic, lowering, and exhaustiveness cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
 | Derive module identities from every source kind with one or more invalid origin segments. | Every invalid user-controlled segment reports one source-start diagnostic with the required origin details; synthetic segments never report casing; a chained companion reports only its existing structural failure. | Regular, exact-companion, chained-companion, doctest, generated, export, human, JSON, and LSP source-kind table. |
 | Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |

@@ -291,6 +291,21 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
             "other"
         }
     });
+    let mut details = vec![
+        ("phase", JsonValue::string("name")),
+        ("origin", JsonValue::string("source")),
+        ("occurrence", JsonValue::string(invalid.occurrence.as_str())),
+        ("name", JsonValue::string(invalid.name.clone())),
+        ("name_class", JsonValue::string(invalid.class.as_str())),
+        (
+            "required_initial",
+            JsonValue::string(invalid.class.required_initial()),
+        ),
+        ("observed_initial", JsonValue::string(observed_initial)),
+    ];
+    if let Some(index) = invalid.segment_index {
+        details.push(("segment_index", JsonValue::Number(index as i64)));
+    }
     Diagnostic::new(
         "name.invalid_case",
         Severity::Error,
@@ -300,18 +315,7 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
             invalid.name
         ),
         Some(invalid.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("name")),
-            ("origin", JsonValue::string("source")),
-            ("occurrence", JsonValue::string(invalid.occurrence.as_str())),
-            ("name", JsonValue::string(invalid.name.clone())),
-            ("name_class", JsonValue::string(invalid.class.as_str())),
-            (
-                "required_initial",
-                JsonValue::string(invalid.class.required_initial()),
-            ),
-            ("observed_initial", JsonValue::string(observed_initial)),
-        ]),
+        JsonValue::object(details),
     )
 }
 

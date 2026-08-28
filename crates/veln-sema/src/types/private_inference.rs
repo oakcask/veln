@@ -2956,6 +2956,9 @@ pub(crate) fn infer_match_scrutinee_type_from_constructor_patterns(
         let PatternKind::Constructor { name, args } = &arm.pattern.kind else {
             continue;
         };
+        if invalid_qualified_constructor_pattern(name) {
+            continue;
+        }
         let candidates = adts.constructor_candidates(name, current_module, uses);
         if candidates.is_empty() {
             continue;
@@ -2998,6 +3001,14 @@ pub(crate) fn infer_match_scrutinee_type_from_constructor_patterns(
     }
 }
 
+fn invalid_qualified_constructor_pattern(name: &[String]) -> bool {
+    name.len() > 1
+        && name
+            .last()
+            .and_then(|name| name.as_bytes().first())
+            .is_some_and(u8::is_ascii_lowercase)
+}
+
 fn infer_pattern_type_from_constructor_patterns(
     pattern: &Pattern,
     current_module: Option<&str>,
@@ -3028,6 +3039,9 @@ fn infer_pattern_type_from_constructor_patterns(
                 .collect(),
         )),
         PatternKind::Constructor { name, args } => {
+            if invalid_qualified_constructor_pattern(name) {
+                return None;
+            }
             let candidates = adts.constructor_candidates(name, current_module, uses);
             let [constructor] = candidates.as_slice() else {
                 return None;
