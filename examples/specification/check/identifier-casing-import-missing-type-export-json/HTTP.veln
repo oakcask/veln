@@ -1,0 +1,3 @@
+pub type Other
+  pub Data(Int)
+end

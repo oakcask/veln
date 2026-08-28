@@ -1643,6 +1643,13 @@ fn unresolved_schema_composition_reason(
     let Some(path) = schema_payload_name_path(text) else {
         return "missing_schema";
     };
+    if let Some(reason) = quarantined_schema_composition_reference_reason(
+        module,
+        schema.module_name.as_deref(),
+        &path,
+    ) {
+        return reason;
+    }
     match resolve_schema_alias_check_reference(
         module,
         &path,
@@ -1658,6 +1665,26 @@ fn unresolved_schema_composition_reason(
             "missing_schema"
         }
     }
+}
+
+fn quarantined_schema_composition_reference_reason(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    path: &[String],
+) -> Option<&'static str> {
+    let [_, .., name] = path else {
+        return None;
+    };
+    let use_decl =
+        quarantined_imported_use_for_path(module, &path[..path.len() - 1], current_module)?;
+    if module.schemas.iter().any(|candidate| {
+        candidate.name.as_deref() == Some(name.as_str())
+            && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            && candidate.visibility != Visibility::Public
+    }) {
+        return Some("private_schema");
+    }
+    None
 }
 
 fn schema_composition_reference_blocker(
@@ -1702,10 +1729,12 @@ fn schema_composition_quarantine_is_sole_failure(
     module.schemas.iter().any(|candidate| {
         candidate.name.as_deref() == Some(name.as_str())
             && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            && candidate.visibility == Visibility::Public
     }) || module.aliases.iter().any(|alias| {
         alias.kind == PublicAliasKind::Schema
             && alias.name.as_deref() == Some(name.as_str())
             && alias.module_name.as_deref() == Some(use_decl.name.as_str())
+            && !public_alias_has_invalid_target_leaf(module, alias, None)
     })
 }
 

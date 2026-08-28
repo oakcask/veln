@@ -92,15 +92,16 @@ overlap with missing-module, duplicate-alias, and function alias-use cascade
 diagnostics. The
 `identifier-casing-import-type-cascade-boundary-json`,
 `identifier-casing-import-constructor-cascade-boundary-json`,
-`identifier-casing-import-missing-type-control-json`, and
+`identifier-casing-import-missing-type-control-json`,
+`identifier-casing-import-missing-type-export-json`, and
 `identifier-casing-import-missing-constructor-control-json` examples check
-that qualified imported types and constructors use the same quarantine
-boundary while missing-target controls still report independently provable
-failures. The
-`identifier-casing-import-schema-cascade-boundary-json` example checks the
-same boundary for schema composition: a private schema fact reached only
-through an invalid implicit import alias is suppressed, while a missing schema
-target remains independently reported.
+that qualified imported types and constructors use the same public-export
+quarantine boundary while missing-target and missing-export controls still
+report independently provable failures. The
+`identifier-casing-import-schema-cascade-boundary-json` and
+`identifier-casing-import-private-schema-boundary-json` examples check the
+same boundary for schema composition: a missing schema target and a private
+schema target remain independently reported.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter

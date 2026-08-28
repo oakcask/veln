@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"bccd4b135d1c8b9007f1e5d887e1e18e82c2710d"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1600
+case_count	1602
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5913,6 +5913,43 @@ field	invocation.command[2]	"app.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"62cc54ea7a7d3849b32fdfa0c7b25bd5552cb770b94c4e7738192452d0d6e73b"
+case	"examples/specification/check/identifier-casing-import-missing-type-export-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	5
+field	expectations.diagnostics[0].span.file	"app.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.diagnostics[1].id	"type.mismatch"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].message	"expected `Int`, but found `HTTP::Payload`"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	3
+field	expectations.diagnostics[1].span.file	"app.veln"
+field	expectations.diagnostics[1].span.line	4
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].length	2
+field	expectations.json_assertions[1].operation	"length"
+field	expectations.json_assertions[1].path	"diagnostics"
+field	expectations.json_assertions[2].equals	"name.invalid_case"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"type.mismatch"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.1.id"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"app.veln"
+field	invocation.command[3]	"HTTP.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"8caee2f0a5ee13ade1228078477281b3c359b50dc31b1787698d1aca8f699ce1"
 case	"examples/specification/check/identifier-casing-import-path-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -6009,6 +6046,46 @@ field	invocation.command[4]	"_crypto.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"868be72f8b6e316cec71a0e738790305a7152ba4b97400db119c0a1b54148f18"
+case	"examples/specification/check/identifier-casing-import-private-schema-boundary-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	5
+field	expectations.diagnostics[0].span.file	"app.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.diagnostics[1].id	"schema.composition_reference"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].message	"schema field `payload` cannot compose `HTTP::Wire` because it resolves to a private imported schema"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	3
+field	expectations.diagnostics[1].span.file	"app.veln"
+field	expectations.diagnostics[1].span.line	4
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].length	2
+field	expectations.json_assertions[1].operation	"length"
+field	expectations.json_assertions[1].path	"diagnostics"
+field	expectations.json_assertions[2].equals	"name.invalid_case"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"schema.composition_reference"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.1.id"
+field	expectations.json_assertions[4].equals	"private_schema"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.1.details.reason"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"app.veln"
+field	invocation.command[3]	"HTTP.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"a16c723cdf9d8ccb11dbef901cea4d23083ccedb303ec31a2a9e6751dc6bfc9f"
 case	"examples/specification/check/identifier-casing-import-recovery-isolation-json"
 field	expectations.diagnostics[0].id	"name.invalid_case"
 field	expectations.diagnostics[0].kind	"name"
@@ -50259,4 +50336,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"eecc6fe819f1e40d18fa721f9f4134ad83dbe7ad13929f70d1f9969755edfe47"
+aggregate_digest	"a3affb6495463c8a02e387640c64ce865ef985597db96cc9e219b2498523c2ec"

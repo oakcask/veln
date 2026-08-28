@@ -194,6 +194,40 @@ fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
 }
 
 #[test]
+fn invalid_implicit_import_alias_preserves_private_call_target() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  HTTP::entry()\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!("mod HTTP\n", "fn entry() -> Int\n", "  1\n", "end\n"),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "module.missing_identity",
+            "name.unresolved"
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_implicit_import_alias_suppresses_constructor_quarantine_cascade() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -297,7 +331,7 @@ fn invalid_implicit_import_alias_does_not_infer_private_signature_type() {
 }
 
 #[test]
-fn invalid_implicit_import_alias_does_not_report_private_schema_composition() {
+fn invalid_implicit_import_alias_preserves_private_schema_composition() {
     let app_source = SourceFile::new(
         "app.veln",
         concat!(
@@ -322,10 +356,23 @@ fn invalid_implicit_import_alias_does_not_report_private_schema_composition() {
             .any(|diagnostic| diagnostic.id == "name.invalid_case"),
         "{diagnostics:#?}"
     );
-    assert!(
+    assert_eq!(
         diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.id != "schema.composition_reference"),
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "module.missing_identity",
+            "schema.composition_reference"
+        ],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics[2]
+            .details
+            .to_json()
+            .contains("\"reason\":\"private_schema\""),
         "{diagnostics:#?}"
     );
 }
@@ -360,6 +407,53 @@ fn invalid_implicit_import_alias_preserves_missing_schema_composition() {
             .to_json()
             .contains("\"reason\":\"missing_schema\""),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_implicit_import_alias_preserves_missing_type_export() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn main(value: HTTP::Payload) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!(
+            "mod HTTP\n",
+            "pub type Other\n",
+            "  pub Data(Int)\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "module.missing_identity",
+            "type.mismatch"
+        ],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        TypeEnvironment::from_module(&module).quarantined_import_type_recovery_candidate_count(
+            "HTTP::Payload",
+            Some("app"),
+            0,
+        ),
+        0
     );
 }
 

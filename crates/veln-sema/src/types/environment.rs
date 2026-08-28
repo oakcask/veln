@@ -270,7 +270,7 @@ impl TypeEnvironment {
             .filter(|function| {
                 function.module_name.as_deref() == Some(module_name)
                     && function_signature_accepts_arg_count(function, arg_count)
-                    && self.imported_function_is_visible(function, use_decl, current_module, true)
+                    && function.visibility == Visibility::Public
                     && !self.imported_codec_helper_is_hidden(function, use_decl)
             })
             .count()
@@ -289,7 +289,7 @@ impl TypeEnvironment {
         self.functions_named(name)
             .filter(|function| {
                 function.module_name.as_deref() == Some(module_name)
-                    && self.imported_function_is_visible(function, use_decl, current_module, false)
+                    && function.visibility == Visibility::Public
                     && !self.imported_codec_helper_is_hidden(function, use_decl)
             })
             .count()
@@ -317,6 +317,42 @@ impl TypeEnvironment {
             })
             .map(|(_, count)| *count)
             .sum()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn quarantined_import_type_recovery_candidate_count(
+        &self,
+        type_name: &str,
+        current_module: Option<&str>,
+        args_len: usize,
+    ) -> usize {
+        let segments = type_name
+            .split("::")
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let Some((use_decl, name)) =
+            self.quarantined_import_for_segments(&segments, current_module)
+        else {
+            return 0;
+        };
+        let module_name = Some(use_decl.name.as_str());
+        self.type_symbols
+            .iter()
+            .filter(|symbol| {
+                symbol.name == name
+                    && symbol.module_name.as_deref() == module_name
+                    && self.symbol_is_visible(*symbol, module_name, current_module)
+                    && self
+                        .adts
+                        .descriptor_for_type_path(
+                            type_name,
+                            args_len,
+                            current_module,
+                            &self.quarantined_uses,
+                        )
+                        .is_some()
+            })
+            .count()
     }
 
     fn quarantined_import_for_segments<'a>(
@@ -377,6 +413,7 @@ impl TypeEnvironment {
         canonicalize_type_effects(
             ty,
             &self.uses,
+            &self.quarantined_uses,
             current_module,
             &self.effects,
             &self.adts,

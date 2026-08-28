@@ -20,12 +20,15 @@ diagnostics. The checked `identifier-casing-import-missing-module-overlap-json`,
 function alias-use overlap behavior. The checked
 `identifier-casing-import-type-cascade-boundary-json`,
 `identifier-casing-import-constructor-cascade-boundary-json`,
-`identifier-casing-import-missing-type-control-json`, and
+`identifier-casing-import-missing-type-control-json`,
+`identifier-casing-import-missing-type-export-json`, and
 `identifier-casing-import-missing-constructor-control-json` examples fix the
 qualified imported type and constructor quarantine boundary and the
 missing-target controls. The checked
-`identifier-casing-import-schema-cascade-boundary-json` example fixes the
-schema composition quarantine boundary and the schema missing-target control.
+`identifier-casing-import-schema-cascade-boundary-json` and
+`identifier-casing-import-private-schema-boundary-json` examples fix the
+schema composition quarantine boundary, the schema missing-target control,
+and the private-schema visibility control.
 
 ## Scope
 
@@ -48,9 +51,9 @@ Project-level unresolved import checks still report a missing selected source
 for the written local module path. A qualified use through an invalid implicit
 alias suppresses derivative unresolved, type-origin, constructor-arity, or
 exhaustiveness diagnostics, and derivative schema composition diagnostics,
-only when a matching selected source declaration or export exists and
-quarantine is the sole failure. Missing target modules and missing targets
-remain independently reported.
+only when a matching visible public selected source export proves quarantine
+is the sole failure. Missing target modules, missing exports, private targets,
+wrong-kind targets, and other independently provable failures remain reported.
 
 ## Completion
 

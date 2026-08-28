@@ -685,6 +685,14 @@ pub(crate) fn ordinary_function_signatures(
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<FunctionSignature> {
     let uses = normal_use_decls(module);
+    let quarantined_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     module
         .functions
         .iter()
@@ -701,6 +709,7 @@ pub(crate) fn ordinary_function_signatures(
                     canonicalize_type_effects(
                         ty,
                         &uses,
+                        &quarantined_uses,
                         function.module_name.as_deref(),
                         effects,
                         adts,
@@ -712,6 +721,7 @@ pub(crate) fn ordinary_function_signatures(
                 canonicalize_type_effects(
                     ty,
                     &uses,
+                    &quarantined_uses,
                     function.module_name.as_deref(),
                     effects,
                     adts,
@@ -721,6 +731,7 @@ pub(crate) fn ordinary_function_signatures(
             let return_type = canonicalize_type_effects(
                 parse_type_or_unknown(function.return_type.as_deref()),
                 &uses,
+                &quarantined_uses,
                 function.module_name.as_deref(),
                 effects,
                 adts,
@@ -754,6 +765,7 @@ pub(crate) fn ordinary_function_signatures(
 fn canonicalize_type_effects(
     ty: Type,
     uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
     effects: &[EffectSignature],
     adts: &AdtRegistry,
@@ -764,7 +776,16 @@ fn canonicalize_type_effects(
             let Some(canonical_name) = adts
                 .descriptor_for_type_path(&name, args.len(), current_module, uses)
                 .map(|descriptor| descriptor.type_name.clone())
-                .or_else(|| canonical_type_name_without_descriptor(name, current_module, uses))
+                .or_else(|| {
+                    canonical_type_name_without_descriptor(
+                        &name,
+                        current_module,
+                        uses,
+                        quarantined_uses,
+                        args.len(),
+                        adts,
+                    )
+                })
             else {
                 return Type::Unknown;
             };
@@ -776,6 +797,7 @@ fn canonicalize_type_effects(
                         canonicalize_type_effects(
                             arg,
                             uses,
+                            quarantined_uses,
                             current_module,
                             effects,
                             adts,
@@ -794,6 +816,7 @@ fn canonicalize_type_effects(
                         canonicalize_type_effects(
                             ty,
                             uses,
+                            quarantined_uses,
                             current_module,
                             effects,
                             adts,
@@ -815,6 +838,7 @@ fn canonicalize_type_effects(
                     canonicalize_type_effects(
                         param,
                         uses,
+                        quarantined_uses,
                         current_module,
                         effects,
                         adts,
@@ -827,6 +851,7 @@ fn canonicalize_type_effects(
                     canonicalize_type_effects(
                         *ty,
                         uses,
+                        quarantined_uses,
                         current_module,
                         effects,
                         adts,
@@ -837,6 +862,7 @@ fn canonicalize_type_effects(
             return_type: Box::new(canonicalize_type_effects(
                 *return_type,
                 uses,
+                quarantined_uses,
                 current_module,
                 effects,
                 adts,
@@ -855,20 +881,37 @@ fn canonicalize_type_effects(
 }
 
 fn canonical_type_name_without_descriptor(
-    name: String,
+    name: &str,
     current_module: Option<&str>,
     uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
+    args_len: usize,
+    adts: &AdtRegistry,
 ) -> Option<String> {
     if !name.contains("::") {
-        return Some(name);
+        return Some(name.to_string());
     }
     let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
     match segments.as_slice() {
         [_, .., _] => {
-            imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
-            Some(name)
+            if imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
+                .is_some()
+            {
+                return Some(name.to_string());
+            }
+            let use_decl = imported_use_for_path(
+                quarantined_uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )?;
+            adts.descriptor_for_type_path(name, args_len, current_module, quarantined_uses)
+                .filter(|descriptor| {
+                    descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+                        && descriptor.visibility == Visibility::Public
+                })
+                .map_or_else(|| Some(name.to_string()), |_| None)
         }
-        _ => Some(name),
+        _ => Some(name.to_string()),
     }
 }
 

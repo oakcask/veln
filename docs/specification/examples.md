@@ -179,8 +179,10 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-import-type-cascade-boundary-json/`,
   `../../examples/specification/check/identifier-casing-import-constructor-cascade-boundary-json/`,
   `../../examples/specification/check/identifier-casing-import-missing-type-control-json/`,
+  `../../examples/specification/check/identifier-casing-import-missing-type-export-json/`,
   `../../examples/specification/check/identifier-casing-import-missing-constructor-control-json/`,
   `../../examples/specification/check/identifier-casing-import-schema-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-private-schema-boundary-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability, recovery, import isolation,
