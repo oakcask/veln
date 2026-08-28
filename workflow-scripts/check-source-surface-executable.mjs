@@ -12,7 +12,7 @@ const prologSpec = path.join(
 const sourceSurfaceDoc = path.join(
   "docs",
   "specification",
-  "source-surface-full.md",
+  "source-surface.md",
 );
 const startMarker = "<!-- source-surface-grammar:start -->";
 const endMarker = "<!-- source-surface-grammar:end -->";

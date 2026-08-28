@@ -1,0 +1,29 @@
+command = ["check", "--json", "App/_math.test.test.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["name.invalid_case", "__chained_companion"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.chained_companion"
+
+[[json_assert]]
+path = "diagnostics.0.details.companion_path"
+equals = "App/_math.test.test.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.target_path"
+equals = "App/_math.test.veln"

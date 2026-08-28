@@ -129,8 +129,18 @@ constructor-pattern leaf boundary. Its completion record is
 [Identifier Casing Qualified Constructor Patterns](../reference/implemented-proposals/identifier-casing-qualified-constructor-patterns.md).
 Written import-path segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
-[Check JSON And Diagnostics](../specification/diagnostics-json.md). This
-proposal now specifies only identifier-casing work that remains incomplete.
+[Check JSON And Diagnostics](../specification/diagnostics-json.md).
+Source-path-derived module identity segments are specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), and
+checked by the `identifier-casing-source-path-json`,
+`identifier-casing-exported-source-path-json`,
+`identifier-casing-source-path-human`,
+`identifier-casing-chained-companion-boundary-json`, and
+`identifier-casing-source-path-boundary` examples. Their completion record is
+[Identifier Casing Source Path Module Identities](../reference/implemented-proposals/identifier-casing-source-path-module-identities.md).
+This proposal now specifies only identifier-casing work that remains
+incomplete.
 
 The remaining proposal keeps the same class initials: type and constructor
 roles require an ASCII uppercase initial, and module, function, and
@@ -139,7 +149,7 @@ applies those initials to these not-yet-current surfaces:
 
 | Surface | Proposed rule |
 | --- | --- |
-| Module identities | Every written module-identity, explicit import-alias, and source-path-derived module segment starts with an ASCII lowercase letter. |
+| Module identities | Every written module identity and explicit import alias starts with an ASCII lowercase letter. |
 | Qualified uses | Every written segment with a syntax-fixed or resolution-fixed role satisfies that role's name class. Unresolved or ambiguous intermediate segments are not guessed from spelling. |
 
 Name lookup remains case-sensitive. Identifiers outside the current
@@ -163,8 +173,7 @@ The primary message identifies the failed fact and required class.
 | Source state | Required result | Planned evidence |
 | --- | --- | --- |
 | A written module identity or explicit import alias starts with an uppercase letter. | Reject the offending segment with a message that the module name must start with an ASCII lowercase letter. | Module and import boundary fixtures. |
-| A source-path-derived module identity contains a segment that starts with an uppercase letter. | Reject the derived module with a message that names the segment and requires an ASCII lowercase initial. | Source-path module fixtures and structured diagnostic cases. |
-| An underscore-led token occurs in a remaining written module position, or an underscore-led source-path segment derives a module identity. | Reject it with `name.invalid_case` for the module class. | Module parser-recovery, source-path, and import fixtures. |
+| An underscore-led token occurs in a remaining written module position. | Reject it with `name.invalid_case` for the module class. | Module parser-recovery and import fixtures. |
 
 An invalid remaining-scope name does not introduce a normal symbol under
 another spelling. Command-specific analysis and lowering boundaries determine
@@ -189,26 +198,6 @@ role is fixed by syntax or alias kind is validated even when its target is
 unresolved. Checking and every language-service operation consume the same
 classified segment records.
 
-A source-path-derived module segment has no source token. Its diagnostic uses a
-zero-width primary span at the start of the affected source. Casing is checked
-once on the user-controlled origin segments before companion, doctest, or other
-generated identity transformations add or sanitize text. The structured
-details identify `source_path`, `source_kind`, the offending origin `segment`,
-and its zero-based `segment_index`. Human output names the origin segment in
-the primary message. No consumer invents a source-text range for path text.
-
-| Source kind | Origin segments validated for casing | Synthetic text excluded from validation |
-| --- | --- | --- |
-| Regular or exported source | Package-relative path after removing `.veln`. | None. |
-| Exact `.test.veln` companion | The target source path after removing `.veln`. | The `.test` marker and internal companion suffix. |
-| Chained companion | None; the existing chained-companion structural rejection prevents a source-visible module identity. | The complete sanitized recovery identity. |
-| Doctest | The documented source's origin module segments. | The `#doctest-...` path suffix and wrapper name. |
-| Generated source | Origin module segments supplied by the generating source. | Bookkeeping paths and generated declaration names. |
-
-A generated source without origin module metadata cannot introduce a
-source-visible module. The same origin segment sequence supplies diagnostics,
-module analysis, documentation, metrics, and language services.
-
 An implicit import alias derived from the final import-path segment is current
 behavior specified by
 [Name Resolution](../specification/name-resolution.md). A future explicit
@@ -231,10 +220,9 @@ occurrence is a path segment:
 | `required_initial` | `ascii_uppercase` or `ascii_lowercase` |
 | `observed_initial` | `ascii_uppercase`, `ascii_lowercase`, `underscore`, or `other` |
 
-A source-path occurrence uses `origin: source_path` and `occurrence:
-path_segment`. It has the same class and initial fields plus `source_path`,
-`source_kind`, `segment`, and `segment_index`. A written qualified occurrence
-also has its zero-based `segment_index` within the written path.
+A written qualified occurrence also has its zero-based `segment_index` within
+the written path. Source-path occurrences are current behavior specified by
+[Check JSON And Diagnostics](../specification/diagnostics-json.md).
 
 ## Resolution Consequences
 
@@ -292,8 +280,12 @@ quarantined recovery for source declarations and bindings selected by `check`,
 `run`, LSP single-file diagnostics, workspace snapshot and open-document
 overlay selection, and exact companion source and target boundaries. The
 remaining proposal defines how that recovery model extends to qualified-use
-roles, module-derived identity failures, remaining companion cases for invalid
-module or qualified roles, and recovery navigation.
+roles, remaining companion cases for invalid module or qualified roles, and
+recovery navigation. Source-path-derived module identity failures are current
+behavior specified by [Name Resolution](../specification/name-resolution.md)
+and [Check JSON And Diagnostics](../specification/diagnostics-json.md); this
+proposal covers their unimplemented interactions with graph, artifact, and
+deferred recovery consumers.
 
 An invalid remaining-scope module segment or qualified segment is not inserted
 into a normal name class. A use links to a recovery record only when the
@@ -330,16 +322,14 @@ recovery isolation is current behavior specified by
 indexes may retain remaining-scope locations for diagnostics, but downstream
 lookup and navigation do not expose them.
 
-A structurally valid source path with an invalid module segment produces one
-casing diagnostic for every invalid origin segment. The source remains
-available for local parse and declaration diagnostics under its source
-identity, but its derived identity is not registered as a normal or importable
-module. It cannot contribute exports, module duplicates, cycles,
-documentation modules, metrics modules, or backend reachability. Imports that
-name it receive the ordinary unavailable-module diagnostic. Unrelated valid
-modules continue to be analyzed. A structurally invalid path retains its
-existing structural module diagnostic and does not also create a module
-identity.
+Current source-path-derived module identity casing reports one diagnostic for
+each invalid origin segment and withholds the invalid derived identity from
+normal module registration. The remaining proposal covers the surrounding
+artifact matrix: imports, exports, module duplicates, cycles, documentation,
+metrics, backend reachability, and deferred recovery consumers must all treat
+that current invalid identity as absent while unrelated valid modules continue
+to be analyzed. A structurally invalid path retains its existing structural
+module diagnostic and does not also create a module identity.
 
 Every invalid name reports `name.invalid_case`. Independently provable
 diagnostics still accumulate. In particular, remaining-scope names with the
@@ -475,8 +465,7 @@ identifier-casing remainder.
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
-| Derive module identities from every source kind with one or more invalid origin segments. | Every invalid user-controlled segment reports one source-start diagnostic with the required origin details; synthetic segments never report casing; a chained companion reports only its existing structural failure. | Regular, exact-companion, chained-companion, doctest, generated, export, human, JSON, and LSP source-kind table. |
-| Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |
+| Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | Current source-path diagnostics remain attached to the source, but the invalid source contributes no importable graph identity, export, duplicate participant, cycle edge, documentation module, metrics module, backend reachability, or deferred recovery consumer result; unrelated graph analysis continues. | Import, duplicate, cycle, documentation, metrics, artifact, and deferred recovery consumer cases. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |

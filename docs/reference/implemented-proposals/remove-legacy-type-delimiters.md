@@ -99,9 +99,7 @@ Out of scope:
 ## Completion Evidence
 
 - Source-surface syntax:
-  [../../specification/source-surface.md](../../specification/source-surface.md)
-  and
-  [../../specification/source-surface-full.md](../../specification/source-surface-full.md).
+  [../../specification/source-surface.md](../../specification/source-surface.md).
 - Type annotation behavior:
   [../../specification/types.md](../../specification/types.md) and
   [../../specification/types.md](../../specification/types.md).

@@ -1,4 +1,4 @@
-command = ["check", "main.veln", "HTTP.veln"]
+command = ["check", "main.veln", "http.veln"]
 exit = 1
 
 [stdout]

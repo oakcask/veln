@@ -18,7 +18,7 @@ historical evidence, not the source for current behavior.
 - Current full inference rules:
   [../../specification/types.md#inference](../../specification/types.md#inference).
 - Current source-surface boundary:
-  [../../specification/source-surface-full.md](../../specification/source-surface-full.md).
+  [../../specification/source-surface.md](../../specification/source-surface.md).
 - Checked example coverage:
   `../../../examples/specification/check/local-let-inference/`.
 - Focused diagnostic coverage:

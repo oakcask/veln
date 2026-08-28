@@ -15,9 +15,10 @@ use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
 use veln_syntax::parse;
 
 use super::{
-    Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage, ReachabilityCache,
-    SurfaceParts, embedded_standard_counters, load_embedded_standard_package_from,
-    load_project_sources, load_surface_module, reachability_counters, reachable_entry_module,
+    CapturedDependencyProject, Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage,
+    ReachabilityCache, SurfaceParts, embedded_standard_counters,
+    load_embedded_standard_package_from, load_project_sources, load_surface_module,
+    load_surface_modules_with_captured_dependencies, reachability_counters, reachable_entry_module,
     reachable_entry_module_with_cache, reachable_entry_module_with_standard_cache,
     validate_manifest_exports,
 };
@@ -276,38 +277,12 @@ fn reachable_entry_keeps_invalid_import_segments_with_alias_proof_only() {
         manifest: None,
     };
     let (module, diagnostics) = load_surface_module(&project);
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.invalid_case");
 
     let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
 
-    assert_eq!(
-        reachable_function_names(&reachable),
-        vec![("HTTP", "entry"), ("app", "main")]
-    );
-    let imported_entry = reachable
-        .functions
-        .iter()
-        .find(|function| {
-            function.module_name.as_deref() == Some("HTTP")
-                && function.name.as_deref() == Some("entry")
-        })
-        .expect("quarantined import proof signature should be retained");
-    assert!(
-        matches!(
-            imported_entry.body.as_slice(),
-            [veln_ast::BodyLine {
-                kind: veln_ast::BodyLineKind::Expr {
-                    expr: veln_ast::Expr {
-                        kind: veln_ast::ExprKind::Unit,
-                        ..
-                    },
-                },
-                ..
-            }]
-        ),
-        "{:#?}",
-        imported_entry.body
-    );
+    assert_eq!(reachable_function_names(&reachable), vec![("app", "main")]);
     assert!(
         reachable.invalid_names.iter().any(|invalid| {
             invalid.name == "HTTP"
@@ -340,7 +315,8 @@ fn reachable_entry_skips_invalid_import_in_unselected_module() {
         manifest: None,
     };
     let (module, diagnostics) = load_surface_module(&project);
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.invalid_case");
 
     let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
 
@@ -367,7 +343,8 @@ fn reachable_entry_skips_unused_invalid_import_in_entry_module() {
         manifest: None,
     };
     let (module, diagnostics) = load_surface_module(&project);
-    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.invalid_case");
 
     let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
 
@@ -788,6 +765,8 @@ fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork
         &single_file_project("pub fn main() -> Int\n  1\nend\n"),
         &mut diagnostics,
         &mut parts,
+        None,
+        None,
         None,
     );
     let ((), standard_work) = embedded_standard_counters::observe(|| {
@@ -3639,6 +3618,189 @@ fn source_mod_declaration_reports_module_diagnostic() {
 }
 
 #[test]
+fn invalid_source_path_casing_reports_all_segments_without_registering_module() {
+    let source = SourceFile::new("app.veln", "use App::_net\nfn main() -> ()\n  ()\nend\n");
+    let invalid = SourceFile::new("App/_net.veln", "pub fn value() -> Int\n  1\nend\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![source, invalid],
+        manifest: None,
+    };
+
+    let (_, diagnostics) = load_surface_module(&project);
+
+    let invalid_cases = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_cases.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        invalid_cases
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "module name `App` must start with an ASCII lowercase letter",
+            "module name `_net` must start with an ASCII lowercase letter",
+        ]
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "origin"),
+        Some("source_path")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_kind"),
+        Some("regular")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_path"),
+        Some("App/_net.veln")
+    );
+    assert_eq!(detail_string(invalid_cases[0], "segment"), Some("App"));
+    assert_eq!(
+        detail_string(invalid_cases[0], "observed_initial"),
+        Some("ascii_uppercase")
+    );
+    assert_eq!(detail_number(invalid_cases[0], "segment_index"), Some(0));
+    assert_eq!(detail_string(invalid_cases[1], "segment"), Some("_net"));
+    assert_eq!(
+        detail_string(invalid_cases[1], "observed_initial"),
+        Some("underscore")
+    );
+    assert_eq!(detail_number(invalid_cases[1], "segment_index"), Some(1));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "module.unresolved_import"
+                && diagnostic.message
+                    == "local import `App::_net` has no matching selected source file"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "module.duplicate_source_path"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn source_path_casing_is_reported_when_source_parsing_fails() {
+    let regular = SourceFile::new("App/broken.veln", "fn main() -> ()\n");
+    let companion = SourceFile::new("Net/math.test.veln", "test broken() -> ()\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![regular, companion],
+        manifest: None,
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id.starts_with("parse.")),
+        "{diagnostics:#?}"
+    );
+    let invalid_cases = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_cases.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        invalid_cases
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "module name `App` must start with an ASCII lowercase letter",
+            "module name `Net` must start with an ASCII lowercase letter",
+        ]
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_kind"),
+        Some("regular")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_path"),
+        Some("App/broken.veln")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[1], "source_kind"),
+        Some("companion")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[1], "source_path"),
+        Some("Net/math.test.veln")
+    );
+    assert!(
+        module
+            .functions
+            .iter()
+            .all(
+                |function| function.module_name.as_deref() != Some("App::broken")
+                    && function.module_name.as_deref() != Some("Net::math__test_companion")
+            ),
+        "{module:#?}"
+    );
+}
+
+#[test]
+fn chained_companion_reports_structure_without_module_identity() {
+    let source = SourceFile::new("App/_math.test.test.veln", "fn helper() -> Int\n  1\nend\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![source],
+        manifest: None,
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["module.chained_companion"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        module
+            .functions
+            .iter()
+            .filter(|function| function.span.file.as_str() == "App/_math.test.test.veln")
+            .all(|function| function.module_name.is_none()),
+        "{module:#?}"
+    );
+}
+
+#[test]
+fn source_path_structural_error_after_valid_initial_is_not_casing() {
+    let source = SourceFile::new("appé.veln", "fn main() -> ()\n  ()\nend\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![source],
+        manifest: None,
+    };
+
+    let (_, diagnostics) = load_surface_module(&project);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["module.invalid_source_path"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics[0].message,
+        "source path segment cannot be used as a module identifier: `appé`"
+    );
+    assert_eq!(detail_string(&diagnostics[0], "segment"), Some("appé"));
+}
+
+#[test]
 fn selected_manifest_export_is_accepted() {
     let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
     let project = Project {
@@ -3668,6 +3830,283 @@ fn selected_manifest_export_is_accepted() {
             .iter()
             .all(|diagnostic| diagnostic.id != "manifest.invalid_export"),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn selected_manifest_export_reports_source_path_casing_diagnostic() {
+    let source = SourceFile::new("App/_net.veln", "pub fn value() -> Int\n  1\nend\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![source],
+        manifest: Some(ProjectManifest {
+            path: SourcePath::new("veln.toml"),
+            source_bytes: Vec::new(),
+            package: Default::default(),
+            lib: ManifestLib {
+                exports: vec![ManifestExport {
+                    path: "App/_net.veln".to_string(),
+                    path_span: span("veln.toml", 2, 13, 26),
+                }],
+            },
+            dependencies: Vec::new(),
+            unsupported_sections: Vec::new(),
+            tools: Vec::new(),
+        }),
+    };
+
+    let diagnostics = validate_manifest_exports(&project);
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "name.invalid_case"]
+    );
+    assert_eq!(
+        diagnostics[0].span.as_ref().unwrap().file.as_str(),
+        "App/_net.veln"
+    );
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().start.offset, 0);
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().end.offset, 0);
+    assert_eq!(
+        detail_string(&diagnostics[0], "source_kind"),
+        Some("export")
+    );
+    assert_eq!(detail_string(&diagnostics[0], "segment"), Some("App"));
+    assert_eq!(
+        detail_string(&diagnostics[0], "observed_initial"),
+        Some("ascii_uppercase")
+    );
+    assert_eq!(detail_number(&diagnostics[0], "segment_index"), Some(0));
+    assert_eq!(
+        detail_string(&diagnostics[1], "source_kind"),
+        Some("export")
+    );
+    assert_eq!(detail_string(&diagnostics[1], "segment"), Some("_net"));
+    assert_eq!(
+        detail_string(&diagnostics[1], "observed_initial"),
+        Some("underscore")
+    );
+    assert_eq!(detail_number(&diagnostics[1], "segment_index"), Some(1));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "manifest.invalid_export"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn generated_sources_use_origin_metadata_for_visible_modules() {
+    let generated = SourceFile::generated(
+        "target/bookkeeping.veln",
+        "pub fn value() -> Int\n  1\nend\n",
+        Some(SourcePath::new("src/generated_api.veln")),
+    );
+    let source_less = SourceFile::generated(
+        "target/source_less.veln",
+        "pub fn hidden() -> Int\n  1\nend\n",
+        None::<SourcePath>,
+    );
+    let project = Project {
+        root: ".".into(),
+        files: vec![generated, source_less],
+        manifest: None,
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(
+        module.functions.iter().any(|function| {
+            function.module_name.as_deref() == Some("src::generated_api")
+                && function.name.as_deref() == Some("value")
+        }),
+        "{module:#?}"
+    );
+    assert!(
+        module
+            .functions
+            .iter()
+            .all(|function| function.name.as_deref() != Some("hidden")
+                || function.module_name.is_none()),
+        "{module:#?}"
+    );
+}
+
+#[test]
+fn generated_manifest_export_uses_origin_metadata_before_synthetic_path() {
+    let generated = SourceFile::generated(
+        "Target/_bookkeeping.veln",
+        "pub fn value() -> Int\n  1\nend\n",
+        Some(SourcePath::new("src/generated_api.veln")),
+    );
+    let project = Project {
+        root: ".".into(),
+        files: vec![generated],
+        manifest: Some(ProjectManifest {
+            path: SourcePath::new("veln.toml"),
+            source_bytes: Vec::new(),
+            package: Default::default(),
+            lib: ManifestLib {
+                exports: vec![ManifestExport {
+                    path: "Target/_bookkeeping.veln".to_string(),
+                    path_span: span("veln.toml", 2, 13, 37),
+                }],
+            },
+            dependencies: Vec::new(),
+            unsupported_sections: Vec::new(),
+            tools: Vec::new(),
+        }),
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(
+        module.functions.iter().any(|function| {
+            function.module_name.as_deref() == Some("src::generated_api")
+                && function.name.as_deref() == Some("value")
+        }),
+        "{module:#?}"
+    );
+}
+
+#[test]
+fn generated_manifest_export_rejects_invalid_origin_before_valid_synthetic_path() {
+    let generated = SourceFile::generated(
+        "target/bookkeeping.veln",
+        "pub fn value() -> Int\n  1\nend\n",
+        Some(SourcePath::new("App/generated_api.veln")),
+    );
+    let project = Project {
+        root: ".".into(),
+        files: vec![generated],
+        manifest: Some(ProjectManifest {
+            path: SourcePath::new("veln.toml"),
+            source_bytes: Vec::new(),
+            package: Default::default(),
+            lib: ManifestLib {
+                exports: vec![ManifestExport {
+                    path: "target/bookkeeping.veln".to_string(),
+                    path_span: span("veln.toml", 2, 13, 36),
+                }],
+            },
+            dependencies: Vec::new(),
+            unsupported_sections: Vec::new(),
+            tools: Vec::new(),
+        }),
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.invalid_case");
+    assert_eq!(
+        detail_string(&diagnostics[0], "source_kind"),
+        Some("generated")
+    );
+    assert_eq!(detail_string(&diagnostics[0], "segment"), Some("App"));
+    assert_eq!(detail_number(&diagnostics[0], "segment_index"), Some(0));
+    assert!(
+        !module.functions.iter().any(|function| {
+            function.module_name.as_deref() == Some("target::bookkeeping")
+                || function.module_name.as_deref() == Some("App::generated_api")
+        }),
+        "{module:#?}"
+    );
+}
+
+#[test]
+fn generated_dependency_export_is_visible_by_origin_metadata() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![SourceFile::new(
+            "main.veln",
+            concat!(
+                "use src::generated_api from \"github.com/oakcask/generated\"\n",
+                "\n",
+                "pub fn main() -> Int\n",
+                "  generated_api::value()\n",
+                "end\n",
+            ),
+        )],
+        manifest: Some(ProjectManifest {
+            path: SourcePath::new("veln.toml"),
+            source_bytes: Vec::new(),
+            package: Default::default(),
+            lib: ManifestLib {
+                exports: Vec::new(),
+            },
+            dependencies: vec![veln_project::ManifestDependency {
+                package: "github.com/oakcask/generated".to_string(),
+                package_span: span("veln.toml", 1, 15, 43),
+                git: None,
+                path: Some(ManifestField {
+                    key: "path".to_string(),
+                    value: "vendor/generated".to_string(),
+                    key_span: span("veln.toml", 2, 1, 5),
+                    value_span: span("veln.toml", 2, 8, 24),
+                }),
+                vendor: None,
+                mirror: None,
+                subdir: None,
+                selectors: Vec::new(),
+            }],
+            unsupported_sections: Vec::new(),
+            tools: Vec::new(),
+        }),
+    };
+    let dependency_project = Project {
+        root: "vendor/generated".into(),
+        files: vec![SourceFile::generated(
+            "Target/_bookkeeping.veln",
+            "pub fn value() -> Int\n  1\nend\n",
+            Some(SourcePath::new("src/generated_api.veln")),
+        )],
+        manifest: Some(ProjectManifest {
+            path: SourcePath::new("veln.toml"),
+            source_bytes: Vec::new(),
+            package: veln_project::ManifestPackage {
+                fields: vec![ManifestField {
+                    key: "name".to_string(),
+                    value: "github.com/oakcask/generated".to_string(),
+                    key_span: span("veln.toml", 2, 1, 5),
+                    value_span: span("veln.toml", 2, 8, 36),
+                }],
+            },
+            lib: ManifestLib {
+                exports: vec![ManifestExport {
+                    path: "Target/_bookkeeping.veln".to_string(),
+                    path_span: span("veln.toml", 5, 13, 37),
+                }],
+            },
+            dependencies: Vec::new(),
+            unsupported_sections: Vec::new(),
+            tools: Vec::new(),
+        }),
+    };
+    let dependencies = [CapturedDependencyProject {
+        package: "github.com/oakcask/generated".to_string(),
+        source: "vendor/generated".to_string(),
+        project: Some(dependency_project),
+    }];
+
+    let (modules, diagnostics) =
+        load_surface_modules_with_captured_dependencies(&project, &dependencies);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert!(
+        modules.application.functions.iter().any(|function| {
+            function.module_name.as_deref()
+                == Some("github.com/oakcask/generated::src::generated_api")
+                && function.name.as_deref() == Some("value")
+        }),
+        "{:#?}",
+        modules.application
     );
 }
 
@@ -3903,6 +4342,21 @@ fn detail_string<'a>(diagnostic: &'a veln_diagnostics::Diagnostic, key: &str) ->
             && let veln_diagnostics::JsonValue::String(value) = value
         {
             Some(value.as_str())
+        } else {
+            None
+        }
+    })
+}
+
+fn detail_number(diagnostic: &veln_diagnostics::Diagnostic, key: &str) -> Option<i64> {
+    let veln_diagnostics::JsonValue::Object(entries) = &diagnostic.details else {
+        return None;
+    };
+    entries.iter().find_map(|(entry_key, value)| {
+        if entry_key == key
+            && let veln_diagnostics::JsonValue::Number(value) = value
+        {
+            Some(*value)
         } else {
             None
         }

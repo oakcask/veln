@@ -1,4 +1,4 @@
-command = ["check", "--json", "main.veln", "net/HTTP.veln", "_crypto.veln"]
+command = ["check", "--json", "main.veln", "net/http.veln", "crypto.veln"]
 exit = 1
 
 [stdout]
@@ -14,47 +14,11 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 2
+length = 3
 
 [[json_assert]]
 path = "diagnostics.0.id"
-equals = "name.invalid_case"
-
-[[json_assert]]
-path = "diagnostics.0.span.start.line"
-equals = 1
-
-[[json_assert]]
-path = "diagnostics.0.span.start.column"
-equals = 10
-
-[[json_assert]]
-path = "diagnostics.0.span.end.column"
-equals = 14
-
-[[json_assert]]
-path = "diagnostics.0.details.occurrence"
-equals = "path_segment"
-
-[[json_assert]]
-path = "diagnostics.0.details.name"
-equals = "HTTP"
-
-[[json_assert]]
-path = "diagnostics.0.details.name_class"
-equals = "module"
-
-[[json_assert]]
-path = "diagnostics.0.details.required_initial"
-equals = "ascii_lowercase"
-
-[[json_assert]]
-path = "diagnostics.0.details.observed_initial"
-equals = "ascii_uppercase"
-
-[[json_assert]]
-path = "diagnostics.0.details.segment_index"
-equals = 1
+equals = "module.unresolved_import"
 
 [[json_assert]]
 path = "diagnostics.1.id"
@@ -62,30 +26,70 @@ equals = "name.invalid_case"
 
 [[json_assert]]
 path = "diagnostics.1.span.start.line"
-equals = 2
+equals = 1
 
 [[json_assert]]
 path = "diagnostics.1.span.start.column"
-equals = 5
+equals = 10
 
 [[json_assert]]
 path = "diagnostics.1.span.end.column"
-equals = 12
+equals = 14
+
+[[json_assert]]
+path = "diagnostics.1.details.occurrence"
+equals = "path_segment"
 
 [[json_assert]]
 path = "diagnostics.1.details.name"
-equals = "_crypto"
+equals = "HTTP"
 
 [[json_assert]]
 path = "diagnostics.1.details.name_class"
 equals = "module"
 
 [[json_assert]]
+path = "diagnostics.1.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
 path = "diagnostics.1.details.observed_initial"
-equals = "underscore"
+equals = "ascii_uppercase"
 
 [[json_assert]]
 path = "diagnostics.1.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.2.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.2.span.start.column"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.2.span.end.column"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "_crypto"
+
+[[json_assert]]
+path = "diagnostics.2.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.2.details.observed_initial"
+equals = "underscore"
+
+[[json_assert]]
+path = "diagnostics.2.details.segment_index"
 equals = 0
 
 [[diagnostics]]

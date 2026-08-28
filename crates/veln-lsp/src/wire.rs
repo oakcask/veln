@@ -94,13 +94,55 @@ pub(crate) fn diagnostic_applies_to_uri(diagnostic: &Diagnostic, uri: &str) -> b
 }
 
 pub(crate) fn lsp_diagnostic_json(diagnostic: &Diagnostic) -> String {
+    let data = lsp_diagnostic_data_json(diagnostic)
+        .map(|data| format!(",\"data\":{data}"))
+        .unwrap_or_default();
     format!(
-        "{{\"range\":{},\"severity\":{},\"code\":\"{}\",\"source\":\"veln\",\"message\":\"{}\"}}",
+        "{{\"range\":{},\"severity\":{},\"code\":\"{}\",\"source\":\"veln\",\"message\":\"{}\"{data}}}",
         range_json(diagnostic.span.as_ref()),
         severity_code(diagnostic.severity),
         escape_json(&diagnostic.id),
         escape_json(&diagnostic.message),
     )
+}
+
+fn lsp_diagnostic_data_json(diagnostic: &Diagnostic) -> Option<String> {
+    if diagnostic.id != "name.invalid_case" {
+        return None;
+    }
+    if detail_string(diagnostic, "origin")? != "source_path" {
+        return None;
+    }
+    Some(
+        veln_diagnostics::JsonValue::object([
+            ("origin", detail(diagnostic, "origin")?.clone()),
+            ("occurrence", detail(diagnostic, "occurrence")?.clone()),
+            ("source_path", detail(diagnostic, "source_path")?.clone()),
+            ("source_kind", detail(diagnostic, "source_kind")?.clone()),
+            ("segment", detail(diagnostic, "segment")?.clone()),
+            (
+                "segment_index",
+                detail(diagnostic, "segment_index")?.clone(),
+            ),
+        ])
+        .to_json(),
+    )
+}
+
+fn detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a veln_diagnostics::JsonValue> {
+    let veln_diagnostics::JsonValue::Object(entries) = &diagnostic.details else {
+        return None;
+    };
+    entries
+        .iter()
+        .find_map(|(candidate, value)| (candidate == key).then_some(value))
+}
+
+fn detail_string<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
+    let veln_diagnostics::JsonValue::String(value) = detail(diagnostic, key)? else {
+        return None;
+    };
+    Some(value)
 }
 
 pub(crate) fn range_json(span: Option<&SourceSpan>) -> String {

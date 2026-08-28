@@ -56,7 +56,7 @@ the disambiguation boundary.
   `List`/`Vec` conversion helpers.
 - `examples/specification/check/source-adt-exhaustiveness/` covers
   source-declared ADT missing-case diagnostics.
-- `docs/specification/source-surface-full.md` defines constructor visibility
+- `docs/specification/source-surface.md` defines constructor visibility
   and qualified constructor paths.
 - `docs/specification/types.md` defines ADT finite-domain exhaustiveness
   and missing-case display.

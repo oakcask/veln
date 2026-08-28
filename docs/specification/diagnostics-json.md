@@ -23,8 +23,18 @@ diagnostics that must stay aligned with structured diagnostic behavior.
 - Source identifier casing diagnostics use `name.invalid_case` with stable
   `details.phase`, `origin`, `occurrence`, `name`, `name_class`,
   `required_initial`, and `observed_initial` fields. Written qualified path
-  segment diagnostics also include the zero-based `segment_index`. The checked
+  segment diagnostics also include the zero-based `segment_index`.
+  Source-path-derived module segment diagnostics use `origin: source_path`,
+  `occurrence: path_segment`, and also include `source_path`, `source_kind`,
+  `segment`, and the zero-based `segment_index`. The `source_kind` value is
+  `regular`, `export`, `companion`, `doctest`, or `generated`. Selected
+  regular and companion sources can report these diagnostics even when parsing
+  also fails. Source path segments with a valid ASCII-lowercase initial but an
+  invalid module-identifier character remain `module.invalid_source_path`
+  diagnostics rather than source identifier casing diagnostics. The checked
   `identifier-casing-*-json` cases, including
+  `identifier-casing-source-path-json`,
+  `identifier-casing-exported-source-path-json`,
   `identifier-casing-import-path-json`,
   `identifier-casing-import-missing-module-overlap-json`,
   `identifier-casing-import-duplicate-overlap-json`,
@@ -127,7 +137,15 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-private-schema-boundary-json`,
 `identifier-casing-import-effect-cascade-boundary-json`,
 `identifier-casing-import-handler-cascade-boundary-json`, and
-`identifier-casing-import-order-json` cases.
+`identifier-casing-import-order-json` cases. Source-path-derived module
+identity casing is checked by `identifier-casing-source-path-json` and
+`identifier-casing-exported-source-path-json`; parse-failure coexistence,
+human output, lowercase-initial structural failures, and chained companion
+structural isolation are checked by
+`identifier-casing-source-path-human` and
+`identifier-casing-chained-companion-boundary-json`. LSP span mapping for the
+same zero-width source-start diagnostics is checked by
+`identifier-casing-source-path-boundary`.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`

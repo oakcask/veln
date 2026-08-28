@@ -47,7 +47,7 @@ source-like metadata. They are not source prelude module declarations.
   the absence of public `List`/`Vec` conversion helpers.
 - `examples/specification/check/source-adt-exhaustiveness/` covers
   source-declared ADT missing-case diagnostics.
-- `docs/specification/source-surface-full.md` defines constructor visibility,
+- `docs/specification/source-surface.md` defines constructor visibility,
   payload field visibility, qualified constructor paths, and compiler-owned
   `List` constructor behavior.
 - `docs/specification/types.md` defines source-declared ADT finite-domain

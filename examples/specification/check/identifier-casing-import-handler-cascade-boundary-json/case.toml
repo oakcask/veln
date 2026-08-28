@@ -1,4 +1,4 @@
-command = ["check", "--json", "app.veln", "HTTP.veln"]
+command = ["check", "--json", "app.veln", "http.veln"]
 exit = 1
 
 [stdout]
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 1
+length = 2
 
 [[json_assert]]
 path = "diagnostics.0.id"

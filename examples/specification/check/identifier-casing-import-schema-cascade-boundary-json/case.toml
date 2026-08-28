@@ -1,4 +1,4 @@
-command = ["check", "--json", "app.veln", "HTTP.veln"]
+command = ["check", "--json", "app.veln", "http.veln"]
 exit = 1
 
 [stdout]
@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 2
+length = 3
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -43,9 +43,9 @@ column = 5
 id = "schema.composition_reference"
 severity = "error"
 kind = "type"
-message = "schema field `missing` cannot compose `HTTP::Missing` because it does not resolve to a visible schema or supported binary field family"
+message = "schema field `payload` cannot compose `HTTP::Wire` because it does not resolve to a visible schema or supported binary field family"
 
 [diagnostics.span]
 file = "app.veln"
-line = 8
+line = 4
 column = 3

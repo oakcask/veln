@@ -87,27 +87,28 @@ The
 `identifier-casing-import-path-json` and
 `identifier-casing-import-path-human` examples check multi-segment and
 single-segment import paths, uppercase and underscore initials, exact spans,
-detail fields, and the single-diagnostic implicit-alias boundary. The
+detail fields, and the unresolved-module boundary when the selected source
+derives a different lowercase module path. The
 `identifier-casing-import-missing-module-overlap-json`,
 `identifier-casing-import-duplicate-overlap-json`, and
 `identifier-casing-import-alias-cascade-boundary-json` examples check the
-overlap with missing-module, duplicate-alias, and function alias-use cascade
+overlap with missing-module, duplicate-alias, and function alias-use
 diagnostics. The
 `identifier-casing-import-type-cascade-boundary-json`,
 `identifier-casing-import-constructor-cascade-boundary-json`,
 `identifier-casing-import-missing-type-control-json`,
 `identifier-casing-import-missing-type-export-json`, and
 `identifier-casing-import-missing-constructor-control-json` examples check
-that qualified imported types and constructors use the same public-export
-quarantine boundary while missing-target and missing-export controls still
-report independently provable failures. The
+that qualified imported types and constructors keep independently provable
+type, call-target, missing-target, and missing-export failures. The
 `identifier-casing-import-schema-cascade-boundary-json` and
 `identifier-casing-import-private-schema-boundary-json` examples check the
-same boundary for schema composition: a missing schema target and a private
-schema target remain independently reported. The
+same boundary for schema composition: schema targets that are missing because
+the invalid module path has no matching selected module remain independently
+reported. The
 `identifier-casing-import-effect-cascade-boundary-json` and
 `identifier-casing-import-handler-cascade-boundary-json` examples check the
-same public-export quarantine boundary for effect and handler consumers. The
+same independently provable boundary for effect and handler consumers. The
 `identifier-casing-import-order-json` example checks source-ordering between
 an invalid import path segment and a later invalid declaration. The
 `identifier-casing-import-alias-run-boundary-json` example checks the same
@@ -175,6 +176,48 @@ and qualified module paths from another same-package module are visible only in
 that declaring source module. User source cannot derive module identity
 `prelude` or write an import path whose alias is `prelude`; both names are
 reserved for the implicit standard prelude import and report `name.reserved`.
+
+Each source-path-derived module segment is a module-class path segment and
+must start with an ASCII lowercase letter. Regular source paths validate the
+package-relative path after removing `.veln`. Exact `.test.veln` companions
+validate the target source path before the internal companion suffix is added.
+Doctests validate the documented source path before the doctest suffix and
+wrapper name are added. Generated sources validate the origin module segments
+supplied by the generating source before generated bookkeeping paths or
+declaration names are considered. Generated sources without origin module
+metadata do not introduce a source-visible module. Chained companions do not
+derive a source-visible module identity and keep the existing
+`module.chained_companion` diagnostic instead of source-path casing
+diagnostics. Every invalid user-controlled origin segment reports one
+zero-width `name.invalid_case` diagnostic at the start of the affected source
+with `origin: source_path`, `occurrence: path_segment`, `name`,
+`name_class: module`, `required_initial: ascii_lowercase`,
+`observed_initial`, `source_path`, `source_kind`, `segment`, and the
+zero-based `segment_index`. The `source_kind` value is `regular`,
+`export`, `companion`, `doctest`, or `generated`. A source with an invalid
+origin segment is not registered as a normal derived module identity.
+Source-path casing validation still runs for selected regular and companion
+sources that also have parse diagnostics, but those parse-failing sources are
+not lowered or registered as normal derived module identities. A source path
+segment that starts with an ASCII lowercase letter but contains another
+invalid module-identifier character reports `module.invalid_source_path`
+instead of `name.invalid_case`.
+Manifest export path checks use the same accepted module derivation boundary.
+A selected source that is also named by `lib.exports` is classified once for
+source-path casing diagnostics. A regular selected source uses
+`source_kind: export`. A generated selected source still uses its generated
+origin module metadata as the identity and casing authority, with
+`source_kind: generated`; its generated bookkeeping path is not validated or
+published as the exported module identity. The same invalid origin segment is
+not reported again as a regular source diagnostic. Export origin casing
+failures remain source-path diagnostics instead of generic manifest export
+errors. The checked
+`identifier-casing-source-path-json`,
+`identifier-casing-exported-source-path-json`,
+`identifier-casing-source-path-human`,
+`identifier-casing-chained-companion-boundary-json`, and
+`identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
+diagnostic spans and details.
 
 External `use path from "package"` declarations resolve `path` inside an
 already available direct `path`, `vendor`, `mirror`, or locally materialized

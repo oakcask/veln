@@ -153,7 +153,9 @@ to that checked surface model, so document-scoped diagnostics include the
 implemented source identifier casing failures specified by
 [names-effects.md](names-effects.md).
 For workspace sources, saved snapshots and open-document overlays publish
-source identifier casing diagnostics for the selected workspace project only.
+source identifier casing diagnostics for the selected workspace project only,
+including source-path-derived module segment diagnostics at the zero-width
+source-start range specified by [name-resolution.md](name-resolution.md).
 An invalid declaration or handler binding name in the selected snapshot or
 overlay does not enter the LSP navigation symbol set. Definition, references,
 prepare-rename, and rename requests for that invalid name return the same
@@ -164,7 +166,10 @@ Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
 `veln`. Span-less diagnostics are published at a zero-width start range while
 preserving the compiler-owned diagnostic id, including
-`toolchain.invalid_symbol_case`; LSP diagnostic details remain the shared
+`toolchain.invalid_symbol_case`. Source-path-derived module segment
+diagnostics include LSP `data` with the observable source-path origin
+projection: `origin`, `occurrence`, `source_path`, `source_kind`, `segment`,
+and `segment_index`. The remaining diagnostic detail contract is the shared
 compiler diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md).
 
 ## LSP Navigation, Formatting, And Rename
@@ -218,6 +223,9 @@ The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay
 replacement of saved source text, and unselected nested package isolation.
+The executable `identifier-casing-source-path-boundary` LSP example covers
+workspace source-path-derived module segment diagnostics at the zero-width
+source-start range.
 The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding exclusion across
 definition, references, prepare-rename, and rename for declaration positions
