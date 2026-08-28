@@ -1297,7 +1297,7 @@ pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
         let candidate = match validate_manifest_export_path(export) {
             Ok(candidate) => candidate,
             Err(diagnostic) => {
-                diagnostics.push(diagnostic);
+                diagnostics.push(*diagnostic);
                 continue;
             }
         };
@@ -1340,35 +1340,35 @@ struct ManifestExportCandidate {
 
 fn validate_manifest_export_path(
     export: &ManifestExport,
-) -> Result<ManifestExportCandidate, Diagnostic> {
+) -> Result<ManifestExportCandidate, Box<Diagnostic>> {
     if export.path.contains("::") {
-        return Err(invalid_manifest_export_path_diagnostic(
+        return Err(Box::new(invalid_manifest_export_path_diagnostic(
             &export.path_span,
             &export.path,
             "module paths are not valid manifest exports; use a package-relative source file path",
-        ));
+        )));
     }
     let path = SourcePath::new(export.path.clone());
     if !is_package_relative_path(path.as_str()) {
-        return Err(invalid_manifest_export_path_diagnostic(
+        return Err(Box::new(invalid_manifest_export_path_diagnostic(
             &export.path_span,
             &export.path,
             "manifest exports must stay inside the package",
-        ));
+        )));
     }
     if !path.as_str().ends_with(".veln") {
-        return Err(invalid_manifest_export_path_diagnostic(
+        return Err(Box::new(invalid_manifest_export_path_diagnostic(
             &export.path_span,
             &export.path,
             "manifest exports must name `.veln` source files",
-        ));
+        )));
     }
     if let Some(companion) = classify_companion_source(path.as_str()) {
-        return Err(companion_manifest_export_diagnostic(
+        return Err(Box::new(companion_manifest_export_diagnostic(
             &export.path_span,
             &export.path,
             &companion.companion_path,
-        ));
+        )));
     }
     Ok(ManifestExportCandidate { path })
 }

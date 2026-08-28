@@ -1,4 +1,4 @@
-command = ["run", "--json", "main", "main.veln", "unused.veln", "HTTP.veln"]
+command = ["run", "--json", "main", "main.veln", "unused.veln", "http.veln"]
 source_errors = "expected"
 exit = 0
 

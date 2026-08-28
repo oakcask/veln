@@ -1,4 +1,4 @@
-command = ["check", "--json", "app.veln", "HTTP.veln"]
+command = ["check", "--json", "app.veln", "http.veln"]
 exit = 1
 
 [stdout]
@@ -26,7 +26,7 @@ equals = "schema.composition_reference"
 
 [[json_assert]]
 path = "diagnostics.1.details.reason"
-equals = "private_schema"
+equals = "missing_schema"
 
 [[diagnostics]]
 id = "name.invalid_case"
@@ -43,7 +43,7 @@ column = 5
 id = "schema.composition_reference"
 severity = "error"
 kind = "type"
-message = "schema field `payload` cannot compose `HTTP::Wire` because it resolves to a private imported schema"
+message = "schema field `payload` cannot compose `HTTP::Wire` because it does not resolve to a visible schema or supported binary field family"
 
 [diagnostics.span]
 file = "app.veln"

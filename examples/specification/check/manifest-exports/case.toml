@@ -32,8 +32,8 @@ path = "diagnostics.4.details.reason"
 equals = "manifest exports must name `.veln` source files"
 
 [[json_assert]]
-path = "diagnostics.5.details.reason"
-equals = "manifest export path does not derive a valid module path"
+path = "diagnostics.5.details.source_path"
+equals = "bad-name.veln"
 
 [[json_assert]]
 path = "diagnostics.6.details.module_path"
@@ -95,10 +95,10 @@ line = 9
 column = 4
 
 [[diagnostics]]
-id = "manifest.invalid_export"
+id = "manifest.missing_export"
 severity = "error"
 kind = "module"
-message = "manifest export `bad-name.veln` is invalid: manifest export path does not derive a valid module path"
+message = "manifest export `bad-name.veln` does not exist"
 
 [diagnostics.span]
 file = "veln.toml"

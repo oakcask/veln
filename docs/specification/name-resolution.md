@@ -87,27 +87,28 @@ The
 `identifier-casing-import-path-json` and
 `identifier-casing-import-path-human` examples check multi-segment and
 single-segment import paths, uppercase and underscore initials, exact spans,
-detail fields, and the single-diagnostic implicit-alias boundary. The
+detail fields, and the unresolved-module boundary when the selected source
+derives a different lowercase module path. The
 `identifier-casing-import-missing-module-overlap-json`,
 `identifier-casing-import-duplicate-overlap-json`, and
 `identifier-casing-import-alias-cascade-boundary-json` examples check the
-overlap with missing-module, duplicate-alias, and function alias-use cascade
+overlap with missing-module, duplicate-alias, and function alias-use
 diagnostics. The
 `identifier-casing-import-type-cascade-boundary-json`,
 `identifier-casing-import-constructor-cascade-boundary-json`,
 `identifier-casing-import-missing-type-control-json`,
 `identifier-casing-import-missing-type-export-json`, and
 `identifier-casing-import-missing-constructor-control-json` examples check
-that qualified imported types and constructors use the same public-export
-quarantine boundary while missing-target and missing-export controls still
-report independently provable failures. The
+that qualified imported types and constructors keep independently provable
+type, call-target, missing-target, and missing-export failures. The
 `identifier-casing-import-schema-cascade-boundary-json` and
 `identifier-casing-import-private-schema-boundary-json` examples check the
-same boundary for schema composition: a missing schema target and a private
-schema target remain independently reported. The
+same boundary for schema composition: schema targets that are missing because
+the invalid module path has no matching selected module remain independently
+reported. The
 `identifier-casing-import-effect-cascade-boundary-json` and
 `identifier-casing-import-handler-cascade-boundary-json` examples check the
-same public-export quarantine boundary for effect and handler consumers. The
+same independently provable boundary for effect and handler consumers. The
 `identifier-casing-import-order-json` example checks source-ordering between
 an invalid import path segment and a later invalid declaration. The
 `identifier-casing-import-alias-run-boundary-json` example checks the same
