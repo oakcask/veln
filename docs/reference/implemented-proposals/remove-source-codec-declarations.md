@@ -1,11 +1,15 @@
-# Remove Source Codec Declarations
+---
+role: implementation-record
+authority: supporting
+update-when: The source codec declaration removal record, evidence links, or current source-surface authority changes.
+---
 
-Status: implemented
+# Remove Source Codec Declarations
 
 This record preserves the completed source-level `codec` declaration removal
 slice from `schema-binary-pattern-boundary.md`. Current
-behavior is specified by `../../specification/source-surface.md`,
-`../../specification/source-surface-full.md`, and executable examples under
+behavior is specified by `../../specification/source-surface.md` and
+executable examples under
 `../../../examples/specification/`.
 
 ## Outcome

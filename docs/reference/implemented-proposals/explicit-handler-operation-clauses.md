@@ -21,7 +21,7 @@ for that syntax.
 Current handler behavior is specified in
 [names-effects.md](../../specification/names-effects.md) and the
 current source grammar is specified in
-[source-surface-full.md](../../specification/source-surface-full.md).
+[source-surface.md](../../specification/source-surface.md).
 
 ## Motivation
 
