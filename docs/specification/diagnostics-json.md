@@ -99,7 +99,9 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-qualified-constructor-pattern-human`,
 `identifier-casing-qualified-constructor-pattern-over-suppression-json`,
 `identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`, and
-`identifier-casing-qualified-constructor-pattern-type-mismatch-json` cases.
+`identifier-casing-qualified-constructor-pattern-type-mismatch-json`,
+`identifier-casing-import-path-json`, and
+`identifier-casing-import-path-human` cases.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`
