@@ -1,0 +1,5 @@
+use net::http
+
+pub fn main() -> Int
+  0
+end

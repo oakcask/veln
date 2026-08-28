@@ -18,8 +18,6 @@ also states it.
 
 ## Ready
 
-- Identifier-casing diagnostic-tolerant source-path graph isolation:
-  [identifier-casing.md#diagnostic-tolerant-graph-isolation](identifier-casing.md#diagnostic-tolerant-graph-isolation).
 - Identifier-casing metrics source-error gate:
   [identifier-casing.md#metrics-source-error-gate](identifier-casing.md#metrics-source-error-gate).
 

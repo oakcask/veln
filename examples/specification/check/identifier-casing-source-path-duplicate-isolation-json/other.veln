@@ -1,0 +1,3 @@
+pub fn other() -> Int
+  true
+end

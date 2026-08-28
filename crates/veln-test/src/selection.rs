@@ -291,7 +291,7 @@ impl SourceDependencyGraph {
     fn new(project: &Project, module: &SurfaceModule) -> Self {
         let paths = Self::collect_source_paths(project);
         let (module_by_path, module_paths) = Self::index_modules(&paths, module);
-        let imports_by_path = Self::index_imports(&paths, module);
+        let imports_by_path = Self::index_imports(&paths, &module_by_path, module);
         let test_roots = Self::detect_test_roots(&paths, module);
         let edges = Self::build_edges(&imports_by_path, &module_paths);
 
@@ -343,6 +343,7 @@ impl SourceDependencyGraph {
 
     fn index_imports(
         paths: &BTreeSet<String>,
+        module_by_path: &BTreeMap<String, String>,
         module: &SurfaceModule,
     ) -> BTreeMap<String, Vec<String>> {
         let mut imports_by_path = BTreeMap::<String, Vec<String>>::new();
@@ -351,7 +352,7 @@ impl SourceDependencyGraph {
                 continue;
             }
             let path = selection_target_path(use_decl.span.file.as_str()).to_string();
-            if paths.contains(&path) {
+            if paths.contains(&path) && module_by_path.contains_key(&path) {
                 imports_by_path
                     .entry(path)
                     .or_default()
@@ -778,6 +779,53 @@ mod tests {
     }
 
     #[test]
+    fn dependency_graph_ignores_import_edges_from_source_without_module_identity() {
+        let (project, module) = project_module_with_identities(vec![
+            (
+                SourceFile::new(
+                    "Bad.veln",
+                    concat!(
+                        "use app\n",
+                        "\n",
+                        "pub fn invalid_source() -> Int\n",
+                        "  app::value()\n",
+                        "end\n",
+                    ),
+                ),
+                None,
+            ),
+            (
+                SourceFile::new("app.veln", "pub fn value() -> Int\n  1\nend\n"),
+                Some("app"),
+            ),
+            (
+                SourceFile::new(
+                    "app_test.veln",
+                    concat!(
+                        "use app\n",
+                        "\n",
+                        "test app_value() -> Int\n",
+                        "  app::value()\n",
+                        "end\n",
+                    ),
+                ),
+                Some("app_test"),
+            ),
+        ]);
+        let graph = SourceDependencyGraph::new(&project, &module);
+
+        assert_eq!(
+            graph.dependency_closure("Bad.veln"),
+            BTreeSet::from(["Bad.veln".to_string()])
+        );
+        assert_eq!(
+            graph.dependency_closure("app_test.veln"),
+            BTreeSet::from(["app.veln".to_string(), "app_test.veln".to_string()])
+        );
+        assert!(!graph.imports_by_path.contains_key("Bad.veln"));
+    }
+
+    #[test]
     fn dependency_graph_upgrades_convention_selection_to_complete() {
         let (project, module) = project_module(vec![
             SourceFile::new(
@@ -1005,6 +1053,67 @@ mod tests {
         sources: Vec<SourceFile>,
     ) -> (Project, SurfaceModule) {
         project_module_with_lowering(sources, false)
+    }
+
+    fn project_module_with_identities(
+        sources: Vec<(SourceFile, Option<&str>)>,
+    ) -> (Project, SurfaceModule) {
+        let mut module = None;
+        let mut uses = Vec::new();
+        let mut aliases = Vec::new();
+        let mut types = Vec::new();
+        let mut schemas = Vec::new();
+        let mut codecs = Vec::new();
+        let mut functions = Vec::new();
+        let mut invalid_names = Vec::new();
+        for (source, module_name) in &sources {
+            let parsed = parse(source);
+            assert!(
+                parsed.diagnostics.is_empty(),
+                "unexpected parse diagnostics: {:?}",
+                parsed.diagnostics
+            );
+            let lowered = module_name.map_or_else(
+                || lower_surface_ast(&parsed.tree),
+                |module_name| {
+                    lower_surface_ast_with_module_identity(
+                        &parsed.tree,
+                        module_name.to_string(),
+                        source.span(TextRange::new(0, 0)),
+                    )
+                },
+            );
+            module = module.or(lowered.module);
+            uses.extend(lowered.uses);
+            aliases.extend(lowered.aliases);
+            types.extend(lowered.types);
+            schemas.extend(lowered.schemas);
+            codecs.extend(lowered.codecs);
+            functions.extend(lowered.functions);
+            invalid_names.extend(lowered.invalid_names);
+        }
+        (
+            Project {
+                root: PathBuf::new(),
+                files: sources
+                    .into_iter()
+                    .map(|(source, _)| source)
+                    .collect::<Vec<_>>(),
+                manifest: None,
+            },
+            SurfaceModule {
+                module,
+                uses,
+                aliases,
+                effects: Vec::new(),
+                handlers: Vec::new(),
+                types,
+                schemas,
+                codecs,
+                functions,
+                invalid_names,
+            },
+        )
     }
 
     fn project_module_with_lowering(

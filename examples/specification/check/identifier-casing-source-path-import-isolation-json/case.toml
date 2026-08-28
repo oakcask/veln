@@ -1,0 +1,75 @@
+command = ["check", "--json", "app.veln", "Net/http.veln", "other.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["Selected source `Net/http.veln` derives", "module name `net`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 3
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "Net/http.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "Net/http.veln"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "module.unresolved_import"
+
+[[json_assert]]
+path = "diagnostics.1.span.file"
+equals = "app.veln"
+
+[[json_assert]]
+path = "diagnostics.1.details.module_path"
+equals = "net::http"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.2.span.file"
+equals = "other.veln"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `Net` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "Net/http.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `Bool`"
+
+[diagnostics.span]
+file = "other.veln"
+line = 2
+column = 3
