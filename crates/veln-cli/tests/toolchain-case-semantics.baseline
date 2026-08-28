@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"3e2d54c6fa6e634417d742fc1b4592237fe68bc6"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1587
+case_count	1588
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6098,6 +6098,24 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"c0e209bd8557ac23640f5e7092be4917a13bc522ec22b8bc7f338de17ff2be62"
+case	"examples/specification/check/identifier-casing-qualified-constructor-pattern-over-suppression-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"constructor name `some` must start with an ASCII uppercase letter"
+field	expectations.diagnostics[1].id	"type.match_non_exhaustive"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].message	"match is missing case SOME"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.unresolved"
+field	expectations.stdout.not_contains[1]	"type.mismatch"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"9482ea3a61a8ee06f2788212126b31d3064f9ca1a99008c1bf38c3531c5f8b9e"
 case	"examples/specification/check/identifier-casing-source-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -49846,4 +49864,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a2a69e3161f9ee3b589d1b1753a1688918f11e324cd8e8dee0be0352b6059a13"
+aggregate_digest	"2be3277dd3ff199c5471f651e0a1d649a1081e991855b29a22fe202dda644abc"
