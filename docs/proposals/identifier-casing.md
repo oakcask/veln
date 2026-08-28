@@ -63,9 +63,11 @@ Qualified constructor patterns whose final segment starts with an ASCII
 lowercase letter are specified by
 [Name Resolution](../specification/name-resolution.md) and
 [Types](../specification/types.md), and checked by the
-`identifier-casing-qualified-constructor-pattern-json` and
-`identifier-casing-qualified-constructor-pattern-human` examples. Their
-completion record is
+`identifier-casing-qualified-constructor-pattern-json`,
+`identifier-casing-qualified-constructor-pattern-human`,
+`identifier-casing-qualified-constructor-pattern-over-suppression-json`, and
+`identifier-casing-qualified-constructor-pattern-type-mismatch-json`
+examples. Their completion record is
 [Identifier Casing Qualified Constructor Patterns](../reference/implemented-proposals/identifier-casing-qualified-constructor-patterns.md).
 
 The LSP single-file diagnostics helper now receives the same parse-clean

@@ -91,11 +91,11 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-accepted-names-json`,
 `identifier-casing-valid-symbol-precedence-json`,
 `identifier-casing-implicit-prelude-boundary-json`,
-`identifier-casing-implicit-prelude-isolation-json`, and
+`identifier-casing-implicit-prelude-isolation-json`,
 `identifier-casing-ambiguous-recovery-json`,
 `identifier-casing-cross-class-ambiguous-recovery-json`,
 `identifier-casing-qualified-constructor-pattern-json`,
-`identifier-casing-qualified-constructor-pattern-human`, and
+`identifier-casing-qualified-constructor-pattern-human`,
 `identifier-casing-qualified-constructor-pattern-over-suppression-json`, and
 `identifier-casing-qualified-constructor-pattern-type-mismatch-json` cases.
 The checked
