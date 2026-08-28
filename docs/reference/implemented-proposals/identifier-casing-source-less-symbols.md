@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: The source-less compiler lookup registry descriptors, source-less registry failure details, publication boundary, or focused veln-sema registry tests change.
+update-when: The source-less compiler lookup registry descriptors, source-less registry failure details, publication boundary, focused veln-syntax parser evidence, or focused veln-sema registry tests change.
 ---
 
 # Identifier Casing Source-Less Symbols

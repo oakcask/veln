@@ -36,9 +36,10 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `source_less_lookup` tests define descriptor, atomic-failure,
   cross-provider publication-failure, lookup-key, checked-lookup, and lookup
   isolation behavior for runtime, prelude, `prelude_builtin`,
-  `standard_names`, `type_syntax`, and built-in ADT lookup descriptors. The
-  Rust CI release registry test keeps this validation active in release
-  builds.
+  `standard_names`, `type_syntax`, and built-in ADT lookup descriptors.
+  Focused parser and registry tests cover contextual literal spellings that
+  cannot publish bare lookup routes. The Rust CI release registry test keeps
+  this validation active in release builds.
 - Local inference diagnostic details:
   [diagnostics-json.md#type-inference-diagnostics](diagnostics-json.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:
@@ -106,12 +107,13 @@ Source-less compiler lookup registry validation failures use
 is a toolchain invariant failure with diagnostic kind `toolchain`, not source
 `name.invalid_case`; invalid source lookup keys, duplicate lookup keys, and
 standard-symbol class and lookup-namespace mismatches use the same id and
-details. Focused `veln-sema` `standard_symbols`, `adt`, and
-`source_less_lookup` tests pin generated-table validation, injected invalid
-descriptors, duplicate lookup keys, atomic failure, cross-provider
-publication failure, checked lookup, production provider inventory, and lookup
-isolation for runtime, prelude, `prelude_builtin`, `standard_names`,
-`type_syntax`, and built-in ADT lookup descriptors.
+details. Focused `veln-syntax` parser tests and `veln-sema`
+`standard_symbols`, `adt`, and `source_less_lookup` tests pin generated-table
+validation, injected invalid descriptors, invalid parser-unreachable lookup
+keys, duplicate lookup keys, atomic failure, cross-provider publication
+failure, checked lookup, production provider inventory, and lookup isolation
+for runtime, prelude, `prelude_builtin`, `standard_names`, `type_syntax`, and
+built-in ADT lookup descriptors.
 
 Invalid literal shift counts use `type.invalid_shift_count` with the operator,
 actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
@@ -202,15 +204,15 @@ converted to source `name.invalid_case`. Invalid lookup-key failures,
 duplicate lookup-key failures, and standard-symbol class and lookup-namespace
 mismatches use the same stable detail fields. Invalid-key human primary
 messages state that the source lookup key is invalid. Duplicate-key human
-primary messages state that the lookup key is duplicated. Focused `veln-sema`
-`standard_symbols`, `adt`, and `source_less_lookup` tests pin the
-generated-table, injected-descriptor, duplicate-key, class-mismatch,
-atomic-failure, cross-provider publication-failure, checked-lookup, and
-lookup-isolation evidence for runtime, prelude, `prelude_builtin`,
-`standard_names`, `type_syntax`, and built-in ADT lookup descriptors. The
-`source_less_lookup` tests also pin that public type-annotation reference
-lookup consumes the shared publication result instead of using independent
-type-syntax state.
+primary messages state that the lookup key is duplicated. Focused
+`veln-syntax` parser tests and `veln-sema` `standard_symbols`, `adt`, and
+`source_less_lookup` tests pin the generated-table, injected-descriptor,
+parser-unreachable lookup-key, duplicate-key, class-mismatch, atomic-failure,
+cross-provider publication-failure, checked-lookup, and lookup-isolation
+evidence for runtime, prelude, `prelude_builtin`, `standard_names`,
+`type_syntax`, and built-in ADT lookup descriptors. The `source_less_lookup`
+tests also pin that public type-annotation reference lookup consumes the
+shared publication result instead of using independent type-syntax state.
 
 ## Current Schema Diagnostic Boundary
 

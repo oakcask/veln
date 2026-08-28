@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The compiler-provided source-less lookup descriptors, source-less registry failure details, publication boundary, or focused veln-sema registry tests change.
+update-when: The compiler-provided source-less lookup descriptors, source-less registry failure details, publication boundary, focused veln-syntax parser evidence, or focused veln-sema registry tests change.
 ---
 
 # Source-Less Lookup
