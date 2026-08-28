@@ -42,6 +42,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-public-alias-targets.md](identifier-casing-public-alias-targets.md).
 - Identifier casing source-less symbols:
   [identifier-casing-source-less-symbols.md](identifier-casing-source-less-symbols.md).
+- Identifier casing qualified constructor patterns:
+  [identifier-casing-qualified-constructor-patterns.md](identifier-casing-qualified-constructor-patterns.md).
 - Common JSON assertion operation parity:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Schema declaration composition surface:

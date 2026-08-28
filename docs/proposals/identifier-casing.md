@@ -64,7 +64,9 @@ lowercase letter are specified by
 [Name Resolution](../specification/name-resolution.md) and
 [Types](../specification/types.md), and checked by the
 `identifier-casing-qualified-constructor-pattern-json` and
-`identifier-casing-qualified-constructor-pattern-human` examples.
+`identifier-casing-qualified-constructor-pattern-human` examples. Their
+completion record is
+[Identifier Casing Qualified Constructor Patterns](../reference/implemented-proposals/identifier-casing-qualified-constructor-patterns.md).
 
 The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
@@ -106,8 +108,10 @@ alias target-leaf casing, and class-preserving LSP rename validation for
 selected valid workspace type, constructor, function, and value-binding
 symbols. [Name Resolution](../specification/name-resolution.md) and
 [Types](../specification/types.md) specify the current qualified
-constructor-pattern leaf boundary. This proposal now specifies only
-identifier-casing work that remains incomplete.
+constructor-pattern leaf boundary. Its completion record is
+[Identifier Casing Qualified Constructor Patterns](../reference/implemented-proposals/identifier-casing-qualified-constructor-patterns.md).
+This proposal now specifies only identifier-casing work that remains
+incomplete.
 
 The remaining proposal keeps the same class initials: type and constructor
 roles require an ASCII uppercase initial, and module, function, and

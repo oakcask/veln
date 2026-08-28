@@ -76,6 +76,9 @@ path. That invalid head remains only as a recovery constructor pattern.
 Constructor resolution, constructor-pattern type mismatch, and match
 exhaustiveness diagnostics whose only cause is that invalid head are
 suppressed. Nested pattern bindings and the match-arm body are still checked.
+The `identifier-casing-qualified-constructor-pattern-json` and
+`identifier-casing-qualified-constructor-pattern-human` examples check the
+diagnostic shape and suppressed cascades.
 
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources
