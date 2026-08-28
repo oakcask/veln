@@ -190,19 +190,22 @@ derive a source-visible module identity and keep the existing
 `module.chained_companion` diagnostic instead of source-path casing
 diagnostics. Every invalid user-controlled origin segment reports one
 zero-width `name.invalid_case` diagnostic at the start of the affected source
-with `origin: source_path`, `occurrence: path_segment`, `name_class: module`,
-`required_initial: ascii_lowercase`, `source_path`, `source_kind`, `segment`,
-and the zero-based `segment_index`. A source with an invalid origin segment is
-not registered as a normal derived module identity. Manifest export path
-checks use the same accepted module derivation boundary. A selected source
-that is also named by `lib.exports` is classified once for source-path casing
-diagnostics, with `source_kind: export`; the same invalid origin segment is
-not reported again as a regular source diagnostic. Export origin casing
-failures remain source-path diagnostics instead of generic manifest export
-errors. The checked
+with `origin: source_path`, `occurrence: path_segment`, `name`,
+`name_class: module`, `required_initial: ascii_lowercase`,
+`observed_initial`, `source_path`, `source_kind`, `segment`, and the
+zero-based `segment_index`. The `source_kind` value is `regular`,
+`export`, `companion`, `doctest`, or `generated`. A source with an invalid
+origin segment is not registered as a normal derived module identity.
+Manifest export path checks use the same accepted module derivation boundary.
+A selected source that is also named by `lib.exports` is classified once for
+source-path casing diagnostics, with `source_kind: export`; the same invalid
+origin segment is not reported again as a regular source diagnostic. Export
+origin casing failures remain source-path diagnostics instead of generic
+manifest export errors. The checked
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
-`identifier-casing-source-path-human`, and
+`identifier-casing-source-path-human`,
+`identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
 diagnostic spans and details.
 

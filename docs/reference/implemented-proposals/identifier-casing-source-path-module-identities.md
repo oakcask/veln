@@ -31,19 +31,21 @@ origin module metadata validate the supplied origin segments before generated
 bookkeeping paths or declaration names are considered. Generated sources
 without origin module metadata do not introduce a source-visible module.
 Chained companions do not validate synthetic recovery segments for casing;
-they keep the existing structural diagnostic boundary. Manifest export path
-checks reuse the same accepted module derivation boundary and report export
-origin casing failures as source-path diagnostics. A source that is both
-selected normally and named by `lib.exports` is classified once for
-source-path casing diagnostics, using `source_kind: export`.
+they keep the existing `module.chained_companion` structural diagnostic
+boundary. Manifest export path checks reuse the same accepted module
+derivation boundary and report export origin casing failures as source-path
+diagnostics. A source that is both selected normally and named by
+`lib.exports` is classified once for source-path casing diagnostics, using
+`source_kind: export`.
 
 Each invalid origin segment emits `name.invalid_case` with `phase: name`,
 `origin: source_path`, `occurrence: path_segment`, the segment spelling as
 `name` and `segment`, `name_class: module`, `required_initial:
 ascii_lowercase`, the observed initial class, `source_path`, `source_kind`,
 and the zero-based `segment_index`. The primary span is zero-width at the
-start of the affected source. A source with one or more invalid origin
-segments is not registered as a normal derived module identity.
+start of the affected source. The `source_kind` value is `regular`,
+`export`, `companion`, `doctest`, or `generated`. A source with one or more
+invalid origin segments is not registered as a normal derived module identity.
 
 ## Completion
 

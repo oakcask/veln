@@ -26,7 +26,8 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   segment diagnostics also include the zero-based `segment_index`.
   Source-path-derived module segment diagnostics use `origin: source_path`,
   `occurrence: path_segment`, and also include `source_path`, `source_kind`,
-  `segment`, and the zero-based `segment_index`. The checked
+  `segment`, and the zero-based `segment_index`. The `source_kind` value is
+  `regular`, `export`, `companion`, `doctest`, or `generated`. The checked
   `identifier-casing-*-json` cases, including
   `identifier-casing-source-path-json`,
   `identifier-casing-exported-source-path-json`,
@@ -134,8 +135,11 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-handler-cascade-boundary-json`, and
 `identifier-casing-import-order-json` cases. Source-path-derived module
 identity casing is checked by `identifier-casing-source-path-json` and
-`identifier-casing-source-path-human`; LSP span mapping for the same
-zero-width source-start diagnostics is checked by
+`identifier-casing-exported-source-path-json`; human output and chained
+companion structural isolation are checked by
+`identifier-casing-source-path-human` and
+`identifier-casing-chained-companion-boundary-json`. LSP span mapping for the
+same zero-width source-start diagnostics is checked by
 `identifier-casing-source-path-boundary`.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that

@@ -135,7 +135,8 @@ Source-path-derived module identity segments are specified by
 [Check JSON And Diagnostics](../specification/diagnostics-json.md), and
 checked by the `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
-`identifier-casing-source-path-human`, and
+`identifier-casing-source-path-human`,
+`identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples. Their completion record is
 [Identifier Casing Source Path Module Identities](../reference/implemented-proposals/identifier-casing-source-path-module-identities.md).
 This proposal now specifies only identifier-casing work that remains
