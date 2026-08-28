@@ -24,7 +24,9 @@ is empty. The identifier-casing `*-json` run cases under
 `examples/specification/run/` check this pre-execution diagnostic boundary for
 reachable source declarations, aliases, type and constructor references,
 handler bindings, handler annotations, handler clause expressions, and import
-recovery isolation. The
+recovery isolation. The `identifier-casing-import-alias-run-boundary-json` case
+checks that an invalid implicit import alias remains a diagnostic blocker while
+the imported target body is quarantined from runtime type failures. The
 `identifier-casing-loaded-dependency-json` case checks the same boundary for a
 selected consumer that imports and reaches an invalid direct-dependency
 declaration. The `identifier-casing-loaded-unreachable-dependency-json` case
