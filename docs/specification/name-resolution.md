@@ -196,6 +196,12 @@ with `origin: source_path`, `occurrence: path_segment`, `name`,
 zero-based `segment_index`. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with an invalid
 origin segment is not registered as a normal derived module identity.
+Source-path casing validation still runs for selected regular and companion
+sources that also have parse diagnostics, but those parse-failing sources are
+not lowered or registered as normal derived module identities. A source path
+segment that starts with an ASCII lowercase letter but contains another
+invalid module-identifier character reports `module.invalid_source_path`
+instead of `name.invalid_case`.
 Manifest export path checks use the same accepted module derivation boundary.
 A selected source that is also named by `lib.exports` is classified once for
 source-path casing diagnostics, with `source_kind: export`; the same invalid

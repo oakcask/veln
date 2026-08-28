@@ -46,6 +46,12 @@ and the zero-based `segment_index`. The primary span is zero-width at the
 start of the affected source. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with one or more
 invalid origin segments is not registered as a normal derived module identity.
+Selected regular and companion sources still report source-path casing
+diagnostics when the source also has parse diagnostics, but parse-failing
+sources are not lowered or registered. A source path segment that starts with
+an ASCII lowercase letter but contains another invalid module-identifier
+character remains a structural `module.invalid_source_path` failure rather
+than a source identifier casing failure.
 
 ## Completion
 
