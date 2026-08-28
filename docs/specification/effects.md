@@ -51,6 +51,11 @@ Imported declarations use the written module path, such as
 the same effect-list spelling.
 Unknown nominal effects in function type annotations are rejected at the
 effect path inside the annotation.
+Nominal effect paths that use an import with an invalid module path segment
+follow the quarantine boundary specified by [name-resolution.md](name-resolution.md):
+one visible public effect export can suppress the derivative
+`effect.unknown` diagnostic, but private targets, wrong-kind targets, missing
+targets, and missing modules remain independently reported.
 
 `perform E::operation(arguments)` resolves `E` as a nominal effect and resolves
 `operation` in that effect declaration. The checker validates the argument
@@ -92,6 +97,11 @@ must return the operation result type and must not retain the handled effect.
 A public handler must declare every other effect retained by its clauses. A
 private handler infers retained effects from its clauses. Declared handler
 effect lists are canonical, unordered, and duplicate-free.
+Handler paths that use an import with an invalid module path segment follow
+the same name-resolution quarantine boundary: one visible public handler export
+can suppress the derivative `handler.unknown` diagnostic, but private targets,
+wrong-kind targets, missing targets, and missing modules remain independently
+reported.
 
 The checker evaluates the effect set of a handle expression as the union of
 context argument effects, body effects with the handled nominal effect removed,
