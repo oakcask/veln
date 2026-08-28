@@ -74,7 +74,12 @@ Written import-path segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
 [Check JSON And Diagnostics](../specification/diagnostics-json.md), and
 checked by the `identifier-casing-import-path-json` and
-`identifier-casing-import-path-human` examples. Their completion record is
+`identifier-casing-import-path-human` examples. The
+`identifier-casing-import-missing-module-overlap-json`,
+`identifier-casing-import-duplicate-overlap-json`, and
+`identifier-casing-import-alias-cascade-boundary-json` examples check their
+overlap with missing-module, duplicate-alias, and alias-use cascade
+diagnostics. Their completion record is
 [Identifier Casing Import Paths](../reference/implemented-proposals/identifier-casing-import-paths.md).
 
 The LSP single-file diagnostics helper now receives the same parse-clean

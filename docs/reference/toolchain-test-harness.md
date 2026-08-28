@@ -272,11 +272,13 @@ notification exists.
 The harness requires stdout to be a complete ordered sequence of
 `Content-Length` frames before it evaluates LSP assertions. Malformed or
 partial framing, trailing bytes, invalid JSON message bodies, and duplicate
-response identifiers fail decoded assertions for that invocation. Raw stdout
-checks still run independently. Repeated invocations decode and assert their
-own streams; failures are reported by run and manifest assertion order. The
-semantic baseline records each LSP assertion selector, path, operation, and
-operand so migrated cases stay reviewable. The
+response identifiers fail decoded assertions for that invocation. Exit status,
+raw stdout, raw stderr, decoded LSP assertions, and decoded MCP assertions run
+as independent checks within one invocation, so one failed command result does
+not hide later command-result failures for the same run. Repeated invocations
+decode and assert their own streams; failures are reported by run and manifest
+assertion order. The semantic baseline records each LSP assertion selector,
+path, operation, and operand so migrated cases stay reviewable. The
 `decoded_lsp_*`, `raw_stdout_and_decoded_lsp_*`, and
 `repeated_run_failures_*` tests in `toolchain_harness.rs` cover the transport,
 selector, pointer, operation, independence, and aggregation boundaries.
