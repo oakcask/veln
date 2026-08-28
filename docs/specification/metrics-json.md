@@ -15,9 +15,12 @@ Without `--check`, the command is report-only. A completed advisory analysis
 returns `status: "ok"` and exits successfully even when dependency cycles or
 large ABC values exist.
 Discovery, manifest loading, parsing, module identity, import resolution, or
-metric analysis errors fail without a clean metrics report. Type, effect, and
-contract errors are not reported as metrics diagnostics and do not block this
-syntax-and-module-graph report.
+metric analysis errors fail without a clean metrics report. A source-path
+module identity with invalid casing remains a source diagnostic and is not a
+dependency graph subject, so it cannot create module edges or a
+dependency-cycle policy violation. Type, effect, and contract errors are not
+reported as metrics diagnostics and do not block this syntax-and-module-graph
+report.
 
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
@@ -166,6 +169,9 @@ Executable evidence:
 - The metrics `dependency-report` and `dependency-report-json` cases check
   advisory human and JSON output, graph counts, external dependency counts,
   and cycle paths.
+- The metrics `identifier-casing-source-path-cycle-isolation-json` case checks
+  that an invalid source-path-derived module identity reports source
+  diagnostics without creating a dependency-cycle policy violation.
 - The metrics `path-selection` case checks JSON shape, selected subjects,
   containing graph counts, dependency edges, and cycle membership.
 - The metrics `check-acyclic`, `check-cycle-human`, and `check-cycle-json`

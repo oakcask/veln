@@ -46,9 +46,10 @@ Rust-only `veln-repo-metrics` repository-maintenance tool.
 ## Implemented Evidence
 
 Executable cases under `../../../examples/specification/metrics/` cover
-dependency graph reporting, path selection, stable ordering, ABC size,
-dependency-cycle checks and baselines, exact whole-body similarity, JSON
-output, invalid configuration, and human-output truncation.
+dependency graph reporting, source-path module identity isolation, path
+selection, stable ordering, ABC size, dependency-cycle checks and baselines,
+exact whole-body similarity, JSON output, invalid configuration, and
+human-output truncation.
 
 The reusable metrics library has table-driven graph, policy, baseline, ABC,
 similarity, ordering, and structural-bound tests. The controlled similarity
