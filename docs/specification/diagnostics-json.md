@@ -32,9 +32,9 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `identifier-casing-import-type-cascade-boundary-json`,
   `identifier-casing-import-constructor-cascade-boundary-json`,
   `identifier-casing-import-missing-type-control-json`, and
-  `identifier-casing-import-missing-constructor-control-json`, define exact
-  spans, detail values, diagnostic ordering, and non-cascading recovery
-  behavior.
+  `identifier-casing-import-missing-constructor-control-json`, and
+  `identifier-casing-import-schema-cascade-boundary-json`, define exact spans,
+  detail values, diagnostic ordering, and non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
   `name_class`, and `required_initial` fields and diagnostic kind
@@ -115,7 +115,8 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-type-cascade-boundary-json`,
 `identifier-casing-import-constructor-cascade-boundary-json`,
 `identifier-casing-import-missing-type-control-json`, and
-`identifier-casing-import-missing-constructor-control-json` cases.
+`identifier-casing-import-missing-constructor-control-json`, and
+`identifier-casing-import-schema-cascade-boundary-json` cases.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`

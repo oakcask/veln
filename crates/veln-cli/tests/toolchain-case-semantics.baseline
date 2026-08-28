@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"28258cb00724153401c27d05b9701da5875e20ce"
+source_git_tree	"bccd4b135d1c8b9007f1e5d887e1e18e82c2710d"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1595
+case_count	1600
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -5748,6 +5748,36 @@ field	invocation.command[3]	"HTTP.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"ff9eaa595e38bae2f8816d0bb7807325bfc731f4ab96bbc59cff86c1230972b1"
+case	"examples/specification/check/identifier-casing-import-constructor-cascade-boundary-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	5
+field	expectations.diagnostics[0].span.file	"app.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].length	1
+field	expectations.json_assertions[1].operation	"length"
+field	expectations.json_assertions[1].path	"diagnostics"
+field	expectations.json_assertions[2].equals	"name.invalid_case"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"HTTP"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.details.name"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"app.veln"
+field	invocation.command[3]	"HTTP.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"a99426967ab887e84b2b132034440e15bb85ec464ad8d8bb999916c4777e4d97"
 case	"examples/specification/check/identifier-casing-import-duplicate-overlap-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -5776,6 +5806,52 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"163c253db8ce983ca0c5680f5a74836e66c0a03f59ab037f4e4f8c78dc640988"
+case	"examples/specification/check/identifier-casing-import-missing-constructor-control-json"
+field	expectations.diagnostics[0].id	"module.unresolved_import"
+field	expectations.diagnostics[0].kind	"module"
+field	expectations.diagnostics[0].message	"local import `missing::HTTP` has no matching selected source file"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	1
+field	expectations.diagnostics[0].span.file	"app.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	14
+field	expectations.diagnostics[1].span.file	"app.veln"
+field	expectations.diagnostics[1].span.line	1
+field	expectations.diagnostics[2].id	"name.unresolved"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"unresolved call_target `HTTP::Payload::Data`"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.column	3
+field	expectations.diagnostics[2].span.file	"app.veln"
+field	expectations.diagnostics[2].span.line	4
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].length	3
+field	expectations.json_assertions[1].operation	"length"
+field	expectations.json_assertions[1].path	"diagnostics"
+field	expectations.json_assertions[2].equals	"module.unresolved_import"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"name.invalid_case"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.1.id"
+field	expectations.json_assertions[4].equals	"name.unresolved"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.2.id"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"app.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"1f2730a39225ea36471a7dcd53e4318b73eaf10c987689cdaf548af55c7a55ef"
 case	"examples/specification/check/identifier-casing-import-missing-module-overlap-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -5801,6 +5877,42 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"7140f1a722462cf8d781d46f7ad50cd8e646359fc97647ae060baa4e62c123f2"
+case	"examples/specification/check/identifier-casing-import-missing-type-control-json"
+field	expectations.diagnostics[0].id	"module.unresolved_import"
+field	expectations.diagnostics[0].kind	"module"
+field	expectations.diagnostics[0].message	"local import `missing::HTTP` has no matching selected source file"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	1
+field	expectations.diagnostics[0].span.file	"app.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	14
+field	expectations.diagnostics[1].span.file	"app.veln"
+field	expectations.diagnostics[1].span.line	1
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].length	2
+field	expectations.json_assertions[1].operation	"length"
+field	expectations.json_assertions[1].path	"diagnostics"
+field	expectations.json_assertions[2].equals	"module.unresolved_import"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"name.invalid_case"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.1.id"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"app.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"62cc54ea7a7d3849b32fdfa0c7b25bd5552cb770b94c4e7738192452d0d6e73b"
 case	"examples/specification/check/identifier-casing-import-path-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -5917,6 +6029,76 @@ field	invocation.command[3]	"helper.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"7660278c4198ea425dc6dd0c8428b0ed234ddefe23fc4c4ab041da112193d7b2"
+case	"examples/specification/check/identifier-casing-import-schema-cascade-boundary-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	5
+field	expectations.diagnostics[0].span.file	"app.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.diagnostics[1].id	"schema.composition_reference"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].message	"schema field `missing` cannot compose `HTTP::Missing` because it does not resolve to a visible schema or supported binary field family"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	3
+field	expectations.diagnostics[1].span.file	"app.veln"
+field	expectations.diagnostics[1].span.line	8
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].length	2
+field	expectations.json_assertions[1].operation	"length"
+field	expectations.json_assertions[1].path	"diagnostics"
+field	expectations.json_assertions[2].equals	"name.invalid_case"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"schema.composition_reference"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.1.id"
+field	expectations.json_assertions[4].equals	"missing_schema"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.1.details.reason"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"app.veln"
+field	invocation.command[3]	"HTTP.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"5d8d102148363bfb057846556d6938eb6608500493acee9eb9918d8159e95bad"
+case	"examples/specification/check/identifier-casing-import-type-cascade-boundary-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	5
+field	expectations.diagnostics[0].span.file	"app.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].length	1
+field	expectations.json_assertions[1].operation	"length"
+field	expectations.json_assertions[1].path	"diagnostics"
+field	expectations.json_assertions[2].equals	"name.invalid_case"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"HTTP"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.details.name"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"app.veln"
+field	invocation.command[3]	"HTTP.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"a99426967ab887e84b2b132034440e15bb85ec464ad8d8bb999916c4777e4d97"
 case	"examples/specification/check/identifier-casing-owned-constructor-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -50077,4 +50259,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"26f0061a7367336798b89ae499d0fb76fdae4d50afddd03c578febf1c214c855"
+aggregate_digest	"eecc6fe819f1e40d18fa721f9f4134ad83dbe7ad13929f70d1f9969755edfe47"

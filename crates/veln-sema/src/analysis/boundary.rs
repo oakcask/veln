@@ -1,6 +1,8 @@
 use super::*;
 use crate::adt::AdtRegistry;
-use crate::name_recovery::public_alias_has_invalid_target_leaf;
+use crate::name_recovery::{
+    public_alias_has_invalid_target_leaf, use_decl_has_invalid_module_segment,
+};
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
@@ -1007,8 +1009,8 @@ fn resolve_schema_alias_check_reference(
             cache,
         ),
         [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                &module.uses,
+            let Some(use_decl) = normal_imported_use_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 current_module,
             ) else {
@@ -1218,6 +1220,9 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
             }
             check_schema_non_byte_view_multiple(schema, field, &mut diagnostics);
             if schema_payload_name_path(&field.ty).is_some() {
+                if schema_composition_quarantine_is_sole_failure(module, schema, &field.ty) {
+                    continue;
+                }
                 diagnostics.push(schema_composition_reference_diagnostic(
                     module,
                     schema,
@@ -1569,6 +1574,8 @@ fn check_format_neutral_schema_field(
         format_neutral_schema_field_type_for_schema(module, schema, adts, &field.ty);
     if let Some(field_ty) = decode_field_type.clone() {
         record_decoded_schema_field(schema, field, field_ty, decoded_fields, diagnostics);
+    } else if schema_composition_quarantine_is_sole_failure(module, schema, &field.ty) {
+        return;
     } else if schema_payload_name_path(&field.ty).is_some()
         && !schema_field_has_ordinary_type_target(module, schema, &field.ty)
     {
@@ -1674,6 +1681,34 @@ fn schema_composition_reference_blocker(
         .then_some("cyclic_composition")
 }
 
+fn schema_composition_quarantine_is_sole_failure(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    text: &str,
+) -> bool {
+    let Some(path) = schema_payload_name_path(text) else {
+        return false;
+    };
+    let [_, .., name] = path.as_slice() else {
+        return false;
+    };
+    let Some(use_decl) = quarantined_imported_use_for_path(
+        module,
+        &path[..path.len() - 1],
+        schema.module_name.as_deref(),
+    ) else {
+        return false;
+    };
+    module.schemas.iter().any(|candidate| {
+        candidate.name.as_deref() == Some(name.as_str())
+            && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+    }) || module.aliases.iter().any(|alias| {
+        alias.kind == PublicAliasKind::Schema
+            && alias.name.as_deref() == Some(name.as_str())
+            && alias.module_name.as_deref() == Some(use_decl.name.as_str())
+    })
+}
+
 fn schema_field_uses_existing_grammar_at_boundary(schema: &SchemaDecl, text: &str) -> bool {
     schema_field_uses_existing_grammar(schema, text)
         || (schema.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
@@ -1692,8 +1727,8 @@ fn schema_field_has_ordinary_type_target(
     let (module_name, name, imported) = match path.as_slice() {
         [name] => (schema.module_name.as_deref(), name.as_str(), false),
         [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                &module.uses,
+            let Some(use_decl) = normal_imported_use_for_path(
+                module,
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),
             ) else {
@@ -2369,8 +2404,8 @@ fn resolve_schema_repeat_payload_schema<'a>(
             resolve_local_schema_repeat_payload_schema(module, schema, field, name, diagnostics)
         }
         [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                &module.uses,
+            let Some(use_decl) = normal_imported_use_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 schema.module_name.as_deref(),
             ) else {
@@ -3251,8 +3286,8 @@ fn resolve_schema_dispatch_payload_schema<'a>(
             diagnostics,
         ),
         [_, .., name] => {
-            let Some(use_decl) = imported_use_for_path(
-                &module.uses,
+            let Some(use_decl) = normal_imported_use_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 schema.module_name.as_deref(),
             ) else {
@@ -4248,8 +4283,8 @@ fn schema_for_type_name<'a>(
             schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == current_module
         }),
         [_, .., name] => {
-            let module_name = imported_module_for_path(
-                &module.uses,
+            let module_name = normal_imported_module_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 current_module,
             )?;
@@ -4681,8 +4716,8 @@ fn function_target<'a>(
                 && function.name.as_deref().is_some_and(valid_function_name)
         }),
         [_, .., name] => {
-            let module_name = imported_module_for_path(
-                &module.uses,
+            let module_name = normal_imported_module_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 current_module,
             )?;
@@ -4708,8 +4743,8 @@ fn type_target<'a>(
                 && type_decl.name.as_deref().is_some_and(valid_type_name)
         }),
         [_, .., name] => {
-            let module_name = imported_module_for_path(
-                &module.uses,
+            let module_name = normal_imported_module_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 current_module,
             )?;
@@ -4731,22 +4766,37 @@ fn valid_type_name(name: &str) -> bool {
     name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
 }
 
-fn imported_module_for_path<'a>(
-    uses: &'a [UseDecl],
+fn normal_imported_module_for_path<'a>(
+    module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a str> {
-    imported_use_for_path(uses, segments, current_module).map(|use_decl| use_decl.name.as_str())
+    normal_imported_use_for_path(module, segments, current_module)
+        .map(|use_decl| use_decl.name.as_str())
 }
 
-fn imported_use_for_path<'a>(
-    uses: &'a [UseDecl],
+fn normal_imported_use_for_path<'a>(
+    module: &'a SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    uses.iter().find(|use_decl| {
-        use_decl.module_name.as_deref() == current_module
+    module.uses.iter().find(|use_decl| {
+        !use_decl_has_invalid_module_segment(module, use_decl)
+            && use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
+}
+
+fn quarantined_imported_use_for_path<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    let module_path = segments.join("::");
+    module.uses.iter().find(|use_decl| {
+        use_decl_has_invalid_module_segment(module, use_decl)
+            && use_decl.module_name.as_deref() == current_module
             && (use_decl.name == module_path || use_decl.alias == module_path)
     })
 }

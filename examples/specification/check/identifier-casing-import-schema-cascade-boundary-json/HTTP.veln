@@ -1,0 +1,3 @@
+schema Wire
+  payload: Int
+end

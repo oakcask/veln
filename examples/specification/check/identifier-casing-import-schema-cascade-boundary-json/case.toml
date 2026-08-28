@@ -1,0 +1,51 @@
+command = ["check", "--json", "app.veln", "HTTP.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "schema.composition_reference"
+
+[[json_assert]]
+path = "diagnostics.1.details.reason"
+equals = "missing_schema"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `HTTP` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "app.veln"
+line = 1
+column = 5
+
+[[diagnostics]]
+id = "schema.composition_reference"
+severity = "error"
+kind = "type"
+message = "schema field `missing` cannot compose `HTTP::Missing` because it does not resolve to a visible schema or supported binary field family"
+
+[diagnostics.span]
+file = "app.veln"
+line = 8
+column = 3

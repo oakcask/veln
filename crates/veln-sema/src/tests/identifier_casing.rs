@@ -297,6 +297,73 @@ fn invalid_implicit_import_alias_does_not_infer_private_signature_type() {
 }
 
 #[test]
+fn invalid_implicit_import_alias_does_not_report_private_schema_composition() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: HTTP::Wire\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!("mod HTTP\n", "schema Wire\n", "  payload: Int\n", "end\n"),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.composition_reference"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_implicit_import_alias_preserves_missing_schema_composition() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "schema Packet\n",
+            "  payload: HTTP::Missing\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&app_source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "schema.composition_reference"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics[1]
+            .details
+            .to_json()
+            .contains("\"reason\":\"missing_schema\""),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn duplicate_invalid_implicit_import_aliases_stay_in_duplicate_analysis() {
     let source = SourceFile::new(
         "app.veln",

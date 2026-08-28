@@ -96,7 +96,11 @@ diagnostics. The
 `identifier-casing-import-missing-constructor-control-json` examples check
 that qualified imported types and constructors use the same quarantine
 boundary while missing-target controls still report independently provable
-failures.
+failures. The
+`identifier-casing-import-schema-cascade-boundary-json` example checks the
+same boundary for schema composition: a private schema fact reached only
+through an invalid implicit import alias is suppressed, while a missing schema
+target remains independently reported.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
