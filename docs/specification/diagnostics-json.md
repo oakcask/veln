@@ -96,7 +96,8 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-cross-class-ambiguous-recovery-json`,
 `identifier-casing-qualified-constructor-pattern-json`,
 `identifier-casing-qualified-constructor-pattern-human`,
-`identifier-casing-qualified-constructor-pattern-over-suppression-json`, and
+`identifier-casing-qualified-constructor-pattern-over-suppression-json`,
+`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`, and
 `identifier-casing-qualified-constructor-pattern-type-mismatch-json` cases.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that

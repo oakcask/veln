@@ -168,6 +168,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-human/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-over-suppression-json/`,
+  `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-direct-diagnostics-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-type-mismatch-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
