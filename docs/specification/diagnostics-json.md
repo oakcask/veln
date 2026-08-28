@@ -31,7 +31,7 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `identifier-casing-import-alias-cascade-boundary-json`,
   `identifier-casing-import-type-cascade-boundary-json`,
   `identifier-casing-import-constructor-cascade-boundary-json`,
-  `identifier-casing-import-missing-type-control-json`, and
+  `identifier-casing-import-missing-type-control-json`,
   `identifier-casing-import-missing-constructor-control-json`, and
   `identifier-casing-import-schema-cascade-boundary-json`, define exact spans,
   detail values, diagnostic ordering, and non-cascading recovery behavior.
@@ -114,7 +114,7 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-alias-cascade-boundary-json`,
 `identifier-casing-import-type-cascade-boundary-json`,
 `identifier-casing-import-constructor-cascade-boundary-json`,
-`identifier-casing-import-missing-type-control-json`, and
+`identifier-casing-import-missing-type-control-json`,
 `identifier-casing-import-missing-constructor-control-json`, and
 `identifier-casing-import-schema-cascade-boundary-json` cases.
 The checked

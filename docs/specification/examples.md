@@ -147,7 +147,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 ## Diagnostic Routes
 
 - Source identifier casing diagnostics, accepted-name absence checks,
-  valid-symbol precedence, and ambiguous recovery refusal:
+  valid-symbol precedence, import-path module casing, and ambiguous recovery
+  refusal:
   `../../examples/specification/check/identifier-casing-source-recovery-json/`,
   `../../examples/specification/check/identifier-casing-binding-positions-json/`,
   `../../examples/specification/check/identifier-casing-owned-constructor-recovery-json/`,
@@ -170,6 +171,16 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-over-suppression-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-direct-diagnostics-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-type-mismatch-json/`,
+  `../../examples/specification/check/identifier-casing-import-path-json/`,
+  `../../examples/specification/check/identifier-casing-import-path-human/`,
+  `../../examples/specification/check/identifier-casing-import-missing-module-overlap-json/`,
+  `../../examples/specification/check/identifier-casing-import-duplicate-overlap-json/`,
+  `../../examples/specification/check/identifier-casing-import-alias-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-type-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-constructor-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-missing-type-control-json/`,
+  `../../examples/specification/check/identifier-casing-import-missing-constructor-control-json/`,
+  `../../examples/specification/check/identifier-casing-import-schema-cascade-boundary-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability, recovery, import isolation,
