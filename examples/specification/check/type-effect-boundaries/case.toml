@@ -1,4 +1,4 @@
-command = ["check", "--json", "type-boundaries.veln", "effect-boundaries.veln"]
+command = ["check", "--json", "type_boundaries.veln", "effect_boundaries.veln"]
 exit = 1
 
 [stdout]

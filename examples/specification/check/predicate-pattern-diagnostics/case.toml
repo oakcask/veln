@@ -1,4 +1,4 @@
-command = ["check", "--json", "contract.veln", "malformed-satisfy.veln", "refutable-let.veln", "satisfy-candidate.veln", "satisfy-predicate.veln"]
+command = ["check", "--json", "contract.veln", "malformed_satisfy.veln", "refutable_let.veln", "satisfy_candidate.veln", "satisfy_predicate.veln"]
 exit = 1
 
 [stdout]

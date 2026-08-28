@@ -19,6 +19,9 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 
 mod source_module_path;
 
+#[cfg(test)]
+mod module_graph_tests;
+
 pub use source_module_path::derive as derive_source_module_path;
 use source_module_path::derive_visible_with_source_kind as derive_visible_source_module_path_with_source_kind;
 

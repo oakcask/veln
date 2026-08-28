@@ -625,6 +625,9 @@ struct DependencyNode {
     external_dependencies: BTreeSet<String>,
 }
 
+type DependencyModuleIndex = BTreeMap<String, usize>;
+type DependencyEdgeKeys = BTreeMap<(usize, usize), SourceSpan>;
+
 #[derive(Clone, Debug)]
 struct DependencyEdgeIndex {
     source: usize,
@@ -634,75 +637,9 @@ struct DependencyEdgeIndex {
 
 impl DependencyGraph {
     fn from_project(project: &Project) -> Result<Self, Vec<Diagnostic>> {
-        let mut nodes = Vec::new();
-        let mut module_index = BTreeMap::new();
-        for source in &project.files {
-            let module = match derive_source_module_path(source) {
-                Ok(module) => module,
-                Err(diagnostic) if is_source_path_module_case_diagnostic(&diagnostic) => {
-                    continue;
-                }
-                Err(diagnostic) => return Err(vec![*diagnostic]),
-            };
-            let index = nodes.len();
-            module_index.insert(module.clone(), index);
-            nodes.push(DependencyNode {
-                module,
-                path: source.path().as_str().to_string(),
-                span: source.span(veln_source::TextRange::new(0, 0)),
-                external_dependencies: BTreeSet::new(),
-            });
-        }
-
-        let mut edge_keys = BTreeMap::<(usize, usize), SourceSpan>::new();
-        for source in &project.files {
-            let module = match derive_source_module_path(source) {
-                Ok(module) => module,
-                Err(diagnostic) if is_source_path_module_case_diagnostic(&diagnostic) => {
-                    continue;
-                }
-                Err(diagnostic) => return Err(vec![*diagnostic]),
-            };
-            let source_index = module_index[&module];
-            let parsed = parse(source);
-            if !parsed.diagnostics.is_empty() {
-                continue;
-            }
-            for use_decl in parsed.tree.uses {
-                if let Some(package) = use_decl.package {
-                    if package.name != veln_stdlib::PACKAGE_NAME {
-                        nodes[source_index]
-                            .external_dependencies
-                            .insert(format!("{}::{}", package.name, use_decl.name));
-                    }
-                    continue;
-                }
-                if let Some(target_index) = module_index.get(&use_decl.name) {
-                    edge_keys
-                        .entry((source_index, *target_index))
-                        .or_insert(use_decl.span);
-                }
-            }
-        }
-
-        let mut incoming = vec![BTreeSet::new(); nodes.len()];
-        let mut outgoing = vec![BTreeSet::new(); nodes.len()];
-        let mut edges = Vec::new();
-        for ((source, target), span) in edge_keys {
-            outgoing[source].insert(target);
-            incoming[target].insert(source);
-            edges.push(DependencyEdgeIndex {
-                source,
-                target,
-                span,
-            });
-        }
-        edges.sort_by(|left, right| {
-            nodes[left.source]
-                .module
-                .cmp(&nodes[right.source].module)
-                .then_with(|| nodes[left.target].module.cmp(&nodes[right.target].module))
-        });
+        let (mut nodes, module_index) = dependency_nodes(project)?;
+        let edge_keys = dependency_edge_keys(project, &module_index, &mut nodes)?;
+        let (incoming, outgoing, edges) = dependency_adjacency(edge_keys, &nodes);
 
         Ok(Self {
             nodes,
@@ -897,6 +834,114 @@ impl DependencyGraph {
         }
         path.pop();
         false
+    }
+}
+
+fn dependency_nodes(
+    project: &Project,
+) -> Result<(Vec<DependencyNode>, DependencyModuleIndex), Vec<Diagnostic>> {
+    let mut nodes = Vec::new();
+    let mut module_index = BTreeMap::new();
+    for source in &project.files {
+        let Some(module) = derive_dependency_module(source)? else {
+            continue;
+        };
+        let index = nodes.len();
+        module_index.insert(module.clone(), index);
+        nodes.push(DependencyNode {
+            module,
+            path: source.path().as_str().to_string(),
+            span: source.span(veln_source::TextRange::new(0, 0)),
+            external_dependencies: BTreeSet::new(),
+        });
+    }
+    Ok((nodes, module_index))
+}
+
+fn dependency_edge_keys(
+    project: &Project,
+    module_index: &DependencyModuleIndex,
+    nodes: &mut [DependencyNode],
+) -> Result<DependencyEdgeKeys, Vec<Diagnostic>> {
+    let mut edge_keys = DependencyEdgeKeys::new();
+    for source in &project.files {
+        let Some(module) = derive_dependency_module(source)? else {
+            continue;
+        };
+        let source_index = module_index[&module];
+        let parsed = parse(source);
+        if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        record_source_dependencies(
+            parsed.tree.uses,
+            source_index,
+            module_index,
+            nodes,
+            &mut edge_keys,
+        );
+    }
+    Ok(edge_keys)
+}
+
+fn record_source_dependencies(
+    uses: Vec<veln_syntax::UseDecl>,
+    source_index: usize,
+    module_index: &DependencyModuleIndex,
+    nodes: &mut [DependencyNode],
+    edge_keys: &mut DependencyEdgeKeys,
+) {
+    for use_decl in uses {
+        if let Some(package) = use_decl.package {
+            if package.name != veln_stdlib::PACKAGE_NAME {
+                nodes[source_index]
+                    .external_dependencies
+                    .insert(format!("{}::{}", package.name, use_decl.name));
+            }
+            continue;
+        }
+        if let Some(target_index) = module_index.get(&use_decl.name) {
+            edge_keys
+                .entry((source_index, *target_index))
+                .or_insert(use_decl.span);
+        }
+    }
+}
+
+fn dependency_adjacency(
+    edge_keys: DependencyEdgeKeys,
+    nodes: &[DependencyNode],
+) -> (
+    Vec<BTreeSet<usize>>,
+    Vec<BTreeSet<usize>>,
+    Vec<DependencyEdgeIndex>,
+) {
+    let mut incoming = vec![BTreeSet::new(); nodes.len()];
+    let mut outgoing = vec![BTreeSet::new(); nodes.len()];
+    let mut edges = Vec::new();
+    for ((source, target), span) in edge_keys {
+        outgoing[source].insert(target);
+        incoming[target].insert(source);
+        edges.push(DependencyEdgeIndex {
+            source,
+            target,
+            span,
+        });
+    }
+    edges.sort_by(|left, right| {
+        nodes[left.source]
+            .module
+            .cmp(&nodes[right.source].module)
+            .then_with(|| nodes[left.target].module.cmp(&nodes[right.target].module))
+    });
+    (incoming, outgoing, edges)
+}
+
+fn derive_dependency_module(source: &SourceFile) -> Result<Option<String>, Vec<Diagnostic>> {
+    match derive_source_module_path(source) {
+        Ok(module) => Ok(Some(module)),
+        Err(diagnostic) if is_source_path_module_case_diagnostic(&diagnostic) => Ok(None),
+        Err(diagnostic) => Err(vec![*diagnostic]),
     }
 }
 
