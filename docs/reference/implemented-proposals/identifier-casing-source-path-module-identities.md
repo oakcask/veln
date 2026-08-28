@@ -34,9 +34,12 @@ Chained companions do not validate synthetic recovery segments for casing;
 they keep the existing `module.chained_companion` structural diagnostic
 boundary. Manifest export path checks reuse the same accepted module
 derivation boundary and report export origin casing failures as source-path
-diagnostics. A source that is both selected normally and named by
+diagnostics. A regular source that is both selected normally and named by
 `lib.exports` is classified once for source-path casing diagnostics, using
-`source_kind: export`.
+`source_kind: export`. A generated source selected by `lib.exports` keeps
+generated origin metadata as the identity and casing authority, using
+`source_kind: generated`; its generated bookkeeping path is not validated or
+published as the exported module identity.
 
 Each invalid origin segment emits `name.invalid_case` with `phase: name`,
 `origin: source_path`, `occurrence: path_segment`, the segment spelling as

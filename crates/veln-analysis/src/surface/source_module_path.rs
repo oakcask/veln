@@ -56,14 +56,6 @@ pub(crate) fn derive_visible_with_source_kind(
     derive_regular(source, path, regular_source_kind).map(Some)
 }
 
-pub(crate) fn derive_exported_with_diagnostics(
-    source: &SourceFile,
-) -> Result<String, Vec<Diagnostic>> {
-    let stem =
-        source_path_stem(source, source.path().as_str()).map_err(|diagnostic| vec![*diagnostic])?;
-    Ok(validated_segments(source, stem, "export")?.join("::"))
-}
-
 fn derive_chained_companion(source: &SourceFile, path: &str) -> Result<String, Box<Diagnostic>> {
     let stem = source_path_stem(source, path)?;
     Ok(stem
@@ -259,7 +251,10 @@ mod tests {
     use veln_diagnostics::diagnostic_to_json;
     use veln_source::{SourceFile, SourcePath};
 
-    use super::{derive, derive_visible_with_diagnostics, derive_with_diagnostics};
+    use super::{
+        derive, derive_visible_with_diagnostics, derive_visible_with_source_kind,
+        derive_with_diagnostics,
+    };
 
     #[test]
     fn preserves_each_source_kind() {
@@ -315,6 +310,39 @@ mod tests {
         assert_eq!(
             derive_visible_with_diagnostics(&generated).expect("source-less generated source"),
             None
+        );
+    }
+
+    #[test]
+    fn generated_origin_precedes_export_source_kind() {
+        let generated = SourceFile::generated(
+            "Target/_bookkeeping.veln",
+            "",
+            Some(SourcePath::new("src/generated_api.veln")),
+        );
+        assert_eq!(
+            derive_visible_with_source_kind(&generated, "export")
+                .expect("generated origin should derive")
+                .as_deref(),
+            Some("src::generated_api")
+        );
+
+        let generated = SourceFile::generated(
+            "target/bookkeeping.veln",
+            "",
+            Some(SourcePath::new("App/generated_api.veln")),
+        );
+        let diagnostics = derive_visible_with_source_kind(&generated, "export")
+            .expect_err("invalid origin should be rejected");
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_invalid_case(
+            &diagnostics[0],
+            "App",
+            "ascii_uppercase",
+            "generated",
+            0,
+            "target/bookkeeping.veln",
         );
     }
 

@@ -20,7 +20,6 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 mod source_module_path;
 
 pub use source_module_path::derive as derive_source_module_path;
-use source_module_path::derive_exported_with_diagnostics as derive_exported_source_module_path_with_diagnostics;
 use source_module_path::derive_visible_with_source_kind as derive_visible_source_module_path_with_source_kind;
 
 #[cfg(test)]
@@ -787,7 +786,7 @@ fn load_external_dependency_package(
         &dependency_project,
         &checked_export_source_paths,
     ));
-    let exported_modules = manifest_exported_modules(dependency_manifest);
+    let exported_modules = manifest_exported_modules(&dependency_project);
     for external_use in parts
         .module
         .uses
@@ -942,24 +941,20 @@ fn manifest_package_name(manifest: &ProjectManifest) -> Option<&ManifestField> {
         .find(|field| field.key == "name")
 }
 
-fn manifest_exported_modules(manifest: &ProjectManifest) -> Vec<String> {
+fn manifest_exported_modules(project: &Project) -> Vec<String> {
+    let Some(manifest) = project.manifest.as_ref() else {
+        return Vec::new();
+    };
     manifest
         .lib
         .exports
         .iter()
         .filter_map(|export| {
-            if export.path.contains("::") {
-                return None;
-            }
-            let normalized_path = SourcePath::new(export.path.clone());
-            let path = normalized_path.as_str();
-            if !is_package_relative_path(path) || !path.ends_with(".veln") {
-                return None;
-            }
-            if classify_companion_source(path).is_some() {
-                return None;
-            }
-            derive_source_module_path(&SourceFile::new(path, "")).ok()
+            let candidate = validate_manifest_export_path(export).ok()?;
+            let source = validate_manifest_export_selection(project, export, &candidate).ok()?;
+            derive_visible_source_module_path_with_source_kind(source, "export")
+                .ok()
+                .flatten()
         })
         .collect()
 }
@@ -1399,16 +1394,17 @@ fn validate_manifest_exports_with_checked_source_paths(
                 continue;
             }
         };
-        let module_name = match derive_exported_source_module_path_with_diagnostics(selected_source)
-        {
-            Ok(module_name) => module_name,
-            Err(source_diagnostics) => {
-                if !checked_export_source_paths.contains(selected_source.path().as_str()) {
-                    diagnostics.extend(source_diagnostics);
+        let module_name =
+            match derive_visible_source_module_path_with_source_kind(selected_source, "export") {
+                Ok(Some(module_name)) => module_name,
+                Ok(None) => continue,
+                Err(source_diagnostics) => {
+                    if !checked_export_source_paths.contains(selected_source.path().as_str()) {
+                        diagnostics.extend(source_diagnostics);
+                    }
+                    continue;
                 }
-                continue;
-            }
-        };
+            };
         if let Some((_, first_span)) = exported_modules
             .iter()
             .find(|(known_module, _)| known_module == &module_name)

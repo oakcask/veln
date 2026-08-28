@@ -204,10 +204,14 @@ invalid module-identifier character reports `module.invalid_source_path`
 instead of `name.invalid_case`.
 Manifest export path checks use the same accepted module derivation boundary.
 A selected source that is also named by `lib.exports` is classified once for
-source-path casing diagnostics, with `source_kind: export`; the same invalid
-origin segment is not reported again as a regular source diagnostic. Export
-origin casing failures remain source-path diagnostics instead of generic
-manifest export errors. The checked
+source-path casing diagnostics. A regular selected source uses
+`source_kind: export`. A generated selected source still uses its generated
+origin module metadata as the identity and casing authority, with
+`source_kind: generated`; its generated bookkeeping path is not validated or
+published as the exported module identity. The same invalid origin segment is
+not reported again as a regular source diagnostic. Export origin casing
+failures remain source-path diagnostics instead of generic manifest export
+errors. The checked
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
 `identifier-casing-source-path-human`,
