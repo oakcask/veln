@@ -279,8 +279,12 @@ quarantined recovery for source declarations and bindings selected by `check`,
 `run`, LSP single-file diagnostics, workspace snapshot and open-document
 overlay selection, and exact companion source and target boundaries. The
 remaining proposal defines how that recovery model extends to qualified-use
-roles, module-derived identity failures, remaining companion cases for invalid
-module or qualified roles, and recovery navigation.
+roles, remaining companion cases for invalid module or qualified roles, and
+recovery navigation. Source-path-derived module identity failures are current
+behavior specified by [Name Resolution](../specification/name-resolution.md)
+and [Check JSON And Diagnostics](../specification/diagnostics-json.md); this
+proposal covers their unimplemented interactions with graph, artifact, and
+deferred recovery consumers.
 
 An invalid remaining-scope module segment or qualified segment is not inserted
 into a normal name class. A use links to a recovery record only when the
@@ -317,16 +321,14 @@ recovery isolation is current behavior specified by
 indexes may retain remaining-scope locations for diagnostics, but downstream
 lookup and navigation do not expose them.
 
-A structurally valid source path with an invalid module segment produces one
-casing diagnostic for every invalid origin segment. The source remains
-available for local parse and declaration diagnostics under its source
-identity, but its derived identity is not registered as a normal or importable
-module. It cannot contribute exports, module duplicates, cycles,
-documentation modules, metrics modules, or backend reachability. Imports that
-name it receive the ordinary unavailable-module diagnostic. Unrelated valid
-modules continue to be analyzed. A structurally invalid path retains its
-existing structural module diagnostic and does not also create a module
-identity.
+Current source-path-derived module identity casing reports one diagnostic for
+each invalid origin segment and withholds the invalid derived identity from
+normal module registration. The remaining proposal covers the surrounding
+artifact matrix: imports, exports, module duplicates, cycles, documentation,
+metrics, backend reachability, and deferred recovery consumers must all treat
+that current invalid identity as absent while unrelated valid modules continue
+to be analyzed. A structurally invalid path retains its existing structural
+module diagnostic and does not also create a module identity.
 
 Every invalid name reports `name.invalid_case`. Independently provable
 diagnostics still accumulate. In particular, remaining-scope names with the
@@ -462,7 +464,7 @@ identifier-casing remainder.
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
-| Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |
+| Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | Current source-path diagnostics remain attached to the source, but the invalid source contributes no importable graph identity, export, duplicate participant, cycle edge, documentation module, metrics module, backend reachability, or deferred recovery consumer result; unrelated graph analysis continues. | Import, duplicate, cycle, documentation, metrics, artifact, and deferred recovery consumer cases. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
