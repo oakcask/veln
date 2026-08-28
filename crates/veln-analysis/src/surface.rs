@@ -21,7 +21,7 @@ mod source_module_path;
 
 pub use source_module_path::derive as derive_source_module_path;
 use source_module_path::derive_exported_with_diagnostics as derive_exported_source_module_path_with_diagnostics;
-use source_module_path::derive_visible_with_diagnostics as derive_visible_source_module_path_with_diagnostics;
+use source_module_path::derive_visible_with_source_kind as derive_visible_source_module_path_with_source_kind;
 
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {
@@ -106,9 +106,24 @@ fn load_surface_modules_with_combined(
     if toolchain_std {
         load_toolchain_standard_sources(project, &mut diagnostics, &mut parts);
     } else {
-        load_project_sources(project, &mut diagnostics, &mut parts, None);
+        let exported_source_paths = manifest_export_source_paths(project);
+        let mut checked_export_source_paths = BTreeSet::new();
+        load_project_sources(
+            project,
+            &mut diagnostics,
+            &mut parts,
+            None,
+            Some(&exported_source_paths),
+            Some(&mut checked_export_source_paths),
+        );
+        diagnostics.extend(validate_manifest_exports_with_checked_source_paths(
+            project,
+            &checked_export_source_paths,
+        ));
     }
-    diagnostics.extend(validate_manifest_exports(project));
+    if toolchain_std {
+        diagnostics.extend(validate_manifest_exports(project));
+    }
     diagnostics.extend(validate_manifest_dependencies(project));
     diagnostics.extend(validate_companion_sources(project));
     diagnostics.extend(validate_companion_public_declarations(&parts.module));
@@ -260,7 +275,10 @@ fn load_project_sources(
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
     package: Option<&str>,
+    exported_source_paths: Option<&BTreeSet<String>>,
+    checked_export_source_paths: Option<&mut BTreeSet<String>>,
 ) {
+    let mut checked_export_source_paths = checked_export_source_paths;
     for source in &project.files {
         if package.is_some() && classify_companion_source(source.path().as_str()).is_some() {
             continue;
@@ -274,7 +292,21 @@ fn load_project_sources(
         if !parsed.diagnostics.is_empty() {
             continue;
         }
-        process_parsed_source(source, &parsed.tree, diagnostics, parts, package);
+        let is_exported_source =
+            exported_source_paths.is_some_and(|paths| paths.contains(source.path().as_str()));
+        if is_exported_source
+            && let Some(checked_export_source_paths) = checked_export_source_paths.as_deref_mut()
+        {
+            checked_export_source_paths.insert(source.path().as_str().to_string());
+        }
+        process_parsed_source(
+            source,
+            &parsed.tree,
+            diagnostics,
+            parts,
+            package,
+            is_exported_source,
+        );
     }
 }
 
@@ -308,6 +340,8 @@ fn load_toolchain_standard_sources(
         diagnostics,
         parts,
         Some(veln_stdlib::PACKAGE_NAME),
+        None,
+        None,
     );
 }
 
@@ -317,9 +351,11 @@ fn process_parsed_source(
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
     package: Option<&str>,
+    is_exported_source: bool,
 ) {
     push_source_parse_semantic_diagnostics(tree, diagnostics);
-    let derived_module = derive_and_record_source_module(source, diagnostics, parts, package);
+    let derived_module =
+        derive_and_record_source_module(source, diagnostics, parts, package, is_exported_source);
     let mut lowered = lower_source_tree(source, tree, derived_module, package);
     rewrite_import_targets(&mut lowered.uses, package);
     if parts.module.module.is_none() {
@@ -355,8 +391,14 @@ fn derive_and_record_source_module(
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
     package: Option<&str>,
+    is_exported_source: bool,
 ) -> Option<String> {
-    match derive_visible_source_module_path_with_diagnostics(source) {
+    let source_kind = if is_exported_source {
+        "export"
+    } else {
+        "regular"
+    };
+    match derive_visible_source_module_path_with_source_kind(source, source_kind) {
         Ok(Some(module_name)) => {
             record_derived_source_module(source, &module_name, diagnostics, parts, package);
             Some(module_name)
@@ -703,7 +745,21 @@ fn load_external_dependency_package(
         return;
     }
 
-    diagnostics.extend(validate_manifest_exports(&dependency_project));
+    let exported_source_paths = manifest_export_source_paths(&dependency_project);
+    let mut checked_export_source_paths = BTreeSet::new();
+    let mut dependency_parts = SurfaceParts::new();
+    load_project_sources(
+        &dependency_project,
+        diagnostics,
+        &mut dependency_parts,
+        Some(package),
+        Some(&exported_source_paths),
+        Some(&mut checked_export_source_paths),
+    );
+    diagnostics.extend(validate_manifest_exports_with_checked_source_paths(
+        &dependency_project,
+        &checked_export_source_paths,
+    ));
     let exported_modules = manifest_exported_modules(dependency_manifest);
     for external_use in parts
         .module
@@ -718,7 +774,7 @@ fn load_external_dependency_package(
             diagnostics.push(unexported_external_module_diagnostic(external_use));
         }
     }
-    load_project_sources(&dependency_project, diagnostics, parts, Some(package));
+    merge_surface_parts(parts, &dependency_parts);
 }
 
 fn load_external_dependency_project<'a>(
@@ -1282,6 +1338,13 @@ fn reserved_source_module_diagnostic(source: &SourceFile, module_name: &str) -> 
 }
 
 pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
+    validate_manifest_exports_with_checked_source_paths(project, &BTreeSet::new())
+}
+
+fn validate_manifest_exports_with_checked_source_paths(
+    project: &Project,
+    checked_export_source_paths: &BTreeSet<String>,
+) -> Vec<Diagnostic> {
     let Some(manifest) = project.manifest.as_ref() else {
         return Vec::new();
     };
@@ -1313,7 +1376,9 @@ pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
         {
             Ok(module_name) => module_name,
             Err(source_diagnostics) => {
-                diagnostics.extend(source_diagnostics);
+                if !checked_export_source_paths.contains(selected_source.path().as_str()) {
+                    diagnostics.extend(source_diagnostics);
+                }
                 continue;
             }
         };
@@ -1332,6 +1397,25 @@ pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
         exported_modules.push((module_name, export.path_span.clone()));
     }
     diagnostics
+}
+
+fn manifest_export_source_paths(project: &Project) -> BTreeSet<String> {
+    let Some(manifest) = project.manifest.as_ref() else {
+        return BTreeSet::new();
+    };
+    manifest
+        .lib
+        .exports
+        .iter()
+        .filter_map(|export| validate_manifest_export_path(export).ok())
+        .filter(|candidate| {
+            project
+                .files
+                .iter()
+                .any(|source| source.path().as_str() == candidate.path.as_str())
+        })
+        .map(|candidate| candidate.path.as_str().to_string())
+        .collect()
 }
 
 struct ManifestExportCandidate {

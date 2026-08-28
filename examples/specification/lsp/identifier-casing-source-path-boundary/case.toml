@@ -32,6 +32,24 @@ equals = "name.invalid_case"
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 0
+path = "/params/diagnostics/0/severity"
+equals = 1
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/source"
+equals = "veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/message"
+equals = "module name `App` must start with an ASCII lowercase letter"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
 path = "/params/diagnostics/0/range/start/line"
 equals = 0
 
@@ -56,8 +74,122 @@ equals = 0
 [[lsp_assert]]
 method = "textDocument/publishDiagnostics"
 occurrence = 0
+path = "/params/diagnostics/0/data/origin"
+equals = "source_path"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/data/occurrence"
+equals = "path_segment"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/data/source_kind"
+equals = "regular"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/data/source_path"
+equals = "App/_net.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/data/segment"
+equals = "App"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/data/segment_index"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
 path = "/params/diagnostics/1/code"
 equals = "name.invalid_case"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/severity"
+equals = 1
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/source"
+equals = "veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/message"
+equals = "module name `_net` must start with an ASCII lowercase letter"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/range/start/character"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/range/end/line"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/range/end/character"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/data/origin"
+equals = "source_path"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/data/occurrence"
+equals = "path_segment"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/data/source_kind"
+equals = "regular"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/data/source_path"
+equals = "App/_net.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/data/segment"
+equals = "_net"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/data/segment_index"
+equals = 1
 
 [[lsp_assert]]
 id = 2

@@ -166,7 +166,10 @@ Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
 `veln`. Span-less diagnostics are published at a zero-width start range while
 preserving the compiler-owned diagnostic id, including
-`toolchain.invalid_symbol_case`; LSP diagnostic details remain the shared
+`toolchain.invalid_symbol_case`. Source-path-derived module segment
+diagnostics include LSP `data` with the observable source-path origin
+projection: `origin`, `occurrence`, `source_path`, `source_kind`, `segment`,
+and `segment_index`. The remaining diagnostic detail contract is the shared
 compiler diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md).
 
 ## LSP Navigation, Formatting, And Rename

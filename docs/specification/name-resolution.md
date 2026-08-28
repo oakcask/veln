@@ -194,9 +194,12 @@ with `origin: source_path`, `occurrence: path_segment`, `name_class: module`,
 `required_initial: ascii_lowercase`, `source_path`, `source_kind`, `segment`,
 and the zero-based `segment_index`. A source with an invalid origin segment is
 not registered as a normal derived module identity. Manifest export path
-checks use the same accepted module derivation boundary and report export
-origin casing failures as source-path diagnostics instead of generic manifest
-export errors. The checked
+checks use the same accepted module derivation boundary. A selected source
+that is also named by `lib.exports` is classified once for source-path casing
+diagnostics, with `source_kind: export`; the same invalid origin segment is
+not reported again as a regular source diagnostic. Export origin casing
+failures remain source-path diagnostics instead of generic manifest export
+errors. The checked
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
 `identifier-casing-source-path-human`, and

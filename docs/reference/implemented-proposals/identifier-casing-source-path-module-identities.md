@@ -16,7 +16,10 @@ checked `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`, and
 `identifier-casing-source-path-human` examples fix the JSON and human command
 diagnostics. The checked `identifier-casing-source-path-boundary` example
-fixes the LSP zero-width diagnostic range.
+fixes the LSP zero-width diagnostic range and source-path origin data
+projection. The checked
+`identifier-casing-chained-companion-boundary-json` example fixes the
+combined invalid-casing and chained-companion structural boundary.
 
 ## Scope
 
@@ -30,7 +33,9 @@ without origin module metadata do not introduce a source-visible module.
 Chained companions do not validate synthetic recovery segments for casing;
 they keep the existing structural diagnostic boundary. Manifest export path
 checks reuse the same accepted module derivation boundary and report export
-origin casing failures as source-path diagnostics.
+origin casing failures as source-path diagnostics. A source that is both
+selected normally and named by `lib.exports` is classified once for
+source-path casing diagnostics, using `source_kind: export`.
 
 Each invalid origin segment emits `name.invalid_case` with `phase: name`,
 `origin: source_path`, `occurrence: path_segment`, the segment spelling as

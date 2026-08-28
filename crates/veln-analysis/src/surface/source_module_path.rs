@@ -28,6 +28,13 @@ pub(crate) fn derive_with_diagnostics(source: &SourceFile) -> Result<String, Vec
 pub(crate) fn derive_visible_with_diagnostics(
     source: &SourceFile,
 ) -> Result<Option<String>, Vec<Diagnostic>> {
+    derive_visible_with_source_kind(source, "regular")
+}
+
+pub(crate) fn derive_visible_with_source_kind(
+    source: &SourceFile,
+    regular_source_kind: &'static str,
+) -> Result<Option<String>, Vec<Diagnostic>> {
     if let Some(origin_path) = source.generated_origin_path() {
         return origin_path.map_or(Ok(None), |origin_path| {
             derive_generated(source, origin_path.as_str()).map(Some)
@@ -46,7 +53,7 @@ pub(crate) fn derive_visible_with_diagnostics(
             derive_test_companion(source, path, &companion.target_path).map(Some)
         };
     }
-    derive_regular(source, path).map(Some)
+    derive_regular(source, path, regular_source_kind).map(Some)
 }
 
 pub(crate) fn derive_exported_with_diagnostics(
@@ -97,9 +104,13 @@ fn derive_test_companion(
     Ok(segments.join("::"))
 }
 
-fn derive_regular(source: &SourceFile, path: &str) -> Result<String, Vec<Diagnostic>> {
+fn derive_regular(
+    source: &SourceFile,
+    path: &str,
+    source_kind: &'static str,
+) -> Result<String, Vec<Diagnostic>> {
     let stem = source_path_stem(source, path).map_err(|diagnostic| vec![*diagnostic])?;
-    Ok(validated_segments(source, stem, "regular")?.join("::"))
+    Ok(validated_segments(source, stem, source_kind)?.join("::"))
 }
 
 fn source_path_stem<'a>(source: &SourceFile, path: &'a str) -> Result<&'a str, Box<Diagnostic>> {

@@ -14,84 +14,76 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 4
+length = 2
 
 [[json_assert]]
 path = "diagnostics.0.details.source_kind"
-equals = "regular"
+equals = "export"
 
 [[json_assert]]
 path = "diagnostics.1.details.source_kind"
-equals = "regular"
-
-[[json_assert]]
-path = "diagnostics.2.details.source_kind"
 equals = "export"
 
 [[json_assert]]
-path = "diagnostics.3.details.source_kind"
-equals = "export"
-
-[[json_assert]]
-path = "diagnostics.2.details.origin"
+path = "diagnostics.0.details.origin"
 equals = "source_path"
 
 [[json_assert]]
-path = "diagnostics.2.details.occurrence"
+path = "diagnostics.0.details.occurrence"
 equals = "path_segment"
 
 [[json_assert]]
-path = "diagnostics.2.details.name_class"
+path = "diagnostics.0.details.name_class"
 equals = "module"
 
 [[json_assert]]
-path = "diagnostics.2.details.required_initial"
+path = "diagnostics.0.details.required_initial"
 equals = "ascii_lowercase"
 
 [[json_assert]]
-path = "diagnostics.2.details.source_path"
+path = "diagnostics.0.details.source_path"
 equals = "App/_net.veln"
 
 [[json_assert]]
-path = "diagnostics.2.span.file"
+path = "diagnostics.0.span.file"
 equals = "App/_net.veln"
 
 [[json_assert]]
-path = "diagnostics.2.span.start.line"
+path = "diagnostics.0.span.start.line"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.2.span.start.column"
+path = "diagnostics.0.span.start.column"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.2.span.start.offset"
+path = "diagnostics.0.span.start.offset"
 equals = 0
 
 [[json_assert]]
-path = "diagnostics.2.span.end.line"
+path = "diagnostics.0.span.end.line"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.2.span.end.column"
+path = "diagnostics.0.span.end.column"
 equals = 1
 
 [[json_assert]]
-path = "diagnostics.2.span.end.offset"
+path = "diagnostics.0.span.end.offset"
 equals = 0
 
 [[json_assert]]
-path = "diagnostics.2.details.segment"
+path = "diagnostics.0.details.segment"
 equals = "App"
 
 [[json_assert]]
-path = "diagnostics.2.details.segment_index"
+path = "diagnostics.0.details.segment_index"
 equals = 0
 
 [[json_assert]]
-path = "diagnostics.3.details.segment"
+path = "diagnostics.1.details.segment"
 equals = "_net"
 
 [[json_assert]]
-path = "diagnostics.3.details.segment_index"
+path = "diagnostics.1.details.segment_index"
 equals = 1

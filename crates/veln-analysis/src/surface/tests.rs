@@ -765,6 +765,8 @@ fn load_synthetic_standard(unrelated_count: usize) -> StandardInitializationWork
         &mut diagnostics,
         &mut parts,
         None,
+        None,
+        None,
     );
     let ((), standard_work) = embedded_standard_counters::observe(|| {
         load_embedded_standard_package_from(&standard, &mut diagnostics, &mut parts, true);
