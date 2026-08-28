@@ -13,7 +13,9 @@ ASCII lowercase letter now report the source `name.invalid_case` diagnostic at
 that final segment. The checked
 `identifier-casing-qualified-constructor-pattern-json` and
 `identifier-casing-qualified-constructor-pattern-human` examples fix the JSON
-and human command behavior.
+and human command behavior. The checked
+`identifier-casing-qualified-constructor-pattern-over-suppression-json`
+example fixes the boundary for exhaustiveness recovery coverage.
 
 Current behavior is specified by
 [Name Resolution](../../specification/name-resolution.md),

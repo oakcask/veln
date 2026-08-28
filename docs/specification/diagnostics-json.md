@@ -93,8 +93,11 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-implicit-prelude-boundary-json`,
 `identifier-casing-implicit-prelude-isolation-json`, and
 `identifier-casing-ambiguous-recovery-json`,
-`identifier-casing-cross-class-ambiguous-recovery-json`, and
-`identifier-casing-qualified-constructor-pattern-json` cases. The checked
+`identifier-casing-cross-class-ambiguous-recovery-json`,
+`identifier-casing-qualified-constructor-pattern-json`,
+`identifier-casing-qualified-constructor-pattern-human`, and
+`identifier-casing-qualified-constructor-pattern-over-suppression-json` cases.
+The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`
 `details.local_bindings` or hole repair candidate queries. Current source name-class
