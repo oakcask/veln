@@ -130,7 +130,15 @@ constructor-pattern leaf boundary. Its completion record is
 Written import-path segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
 [Check JSON And Diagnostics](../specification/diagnostics-json.md). This
-proposal now specifies only identifier-casing work that remains incomplete.
+Source-path-derived module identity segments are specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), and
+checked by the `identifier-casing-source-path-json`,
+`identifier-casing-source-path-human`, and
+`identifier-casing-source-path-boundary` examples. Their completion record is
+[Identifier Casing Source Path Module Identities](../reference/implemented-proposals/identifier-casing-source-path-module-identities.md).
+This proposal now specifies only identifier-casing work that remains
+incomplete.
 
 The remaining proposal keeps the same class initials: type and constructor
 roles require an ASCII uppercase initial, and module, function, and
@@ -475,7 +483,7 @@ identifier-casing remainder.
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
-| Derive module identities from every source kind with one or more invalid origin segments. | Every invalid user-controlled segment reports one source-start diagnostic with the required origin details; synthetic segments never report casing; a chained companion reports only its existing structural failure. | Regular, exact-companion, chained-companion, doctest, generated, export, human, JSON, and LSP source-kind table. |
+| Preserve generated-source origin metadata for source-path module identity casing. | A generated source with origin module metadata validates only the supplied origin module segments; generated bookkeeping paths and declaration names are not validated as source-path module segments, and a generated source without origin module metadata introduces no source-visible module. | Generated-source source-kind table and source-less generated-boundary cases. |
 | Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |

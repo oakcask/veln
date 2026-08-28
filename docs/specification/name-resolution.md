@@ -176,6 +176,26 @@ that declaring source module. User source cannot derive module identity
 `prelude` or write an import path whose alias is `prelude`; both names are
 reserved for the implicit standard prelude import and report `name.reserved`.
 
+Each source-path-derived module segment is a module-class path segment and
+must start with an ASCII lowercase letter. Regular source paths validate the
+package-relative path after removing `.veln`. Exact `.test.veln` companions
+validate the target source path before the internal companion suffix is added.
+Doctests validate the documented source path before the doctest suffix and
+wrapper name are added. Chained companions do not derive a source-visible
+module identity and keep the existing `module.chained_companion` diagnostic
+instead of source-path casing diagnostics. Every invalid user-controlled
+origin segment reports one zero-width `name.invalid_case` diagnostic at the
+start of the affected source with `origin: source_path`, `occurrence:
+path_segment`, `name_class: module`, `required_initial: ascii_lowercase`,
+`source_path`, `source_kind`, `segment`, and the zero-based `segment_index`. A
+source with an invalid origin segment is not registered as a normal derived
+module identity. Manifest export path checks use the same accepted module
+derivation boundary. The checked
+`identifier-casing-source-path-json`,
+`identifier-casing-source-path-human`, and
+`identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
+diagnostic spans and details.
+
 External `use path from "package"` declarations resolve `path` inside an
 already available direct `path`, `vendor`, `mirror`, or locally materialized
 `git` dependency whose dependency table key is `package`. For a `git`

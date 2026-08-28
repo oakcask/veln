@@ -1,0 +1,11 @@
+command = ["check", "App/_net.veln"]
+exit = 1
+
+[stdout]
+contains = [
+  "App/_net.veln:1:1: error[name.invalid_case]: module name `App` must start with an ASCII lowercase letter",
+  "App/_net.veln:1:1: error[name.invalid_case]: module name `_net` must start with an ASCII lowercase letter",
+]
+
+[stderr]
+format = "empty"

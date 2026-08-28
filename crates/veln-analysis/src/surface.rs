@@ -20,6 +20,7 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 mod source_module_path;
 
 pub use source_module_path::derive as derive_source_module_path;
+use source_module_path::derive_with_diagnostics as derive_source_module_path_with_diagnostics;
 
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {
@@ -354,13 +355,13 @@ fn derive_and_record_source_module(
     parts: &mut SurfaceParts,
     package: Option<&str>,
 ) -> Option<String> {
-    match derive_source_module_path(source) {
+    match derive_source_module_path_with_diagnostics(source) {
         Ok(module_name) => {
             record_derived_source_module(source, &module_name, diagnostics, parts, package);
             Some(module_name)
         }
-        Err(diagnostic) => {
-            diagnostics.push((*diagnostic).clone());
+        Err(source_diagnostics) => {
+            diagnostics.extend(source_diagnostics);
             None
         }
     }

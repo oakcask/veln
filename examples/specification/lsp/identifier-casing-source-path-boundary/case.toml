@@ -1,0 +1,65 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/uri"
+workspace_file_uri = "App/_net.veln"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics"
+length = 2
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/code"
+equals = "name.invalid_case"
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/range/start/character"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/range/end/line"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/range/end/character"
+equals = 0
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/1/code"
+equals = "name.invalid_case"
+
+[[lsp_assert]]
+id = 2
+path = "/result"
+equals = null

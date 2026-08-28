@@ -3639,6 +3639,73 @@ fn source_mod_declaration_reports_module_diagnostic() {
 }
 
 #[test]
+fn invalid_source_path_casing_reports_all_segments_without_registering_module() {
+    let source = SourceFile::new("app.veln", "use App::_net\nfn main() -> ()\n  ()\nend\n");
+    let invalid = SourceFile::new("App/_net.veln", "pub fn value() -> Int\n  1\nend\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![source, invalid],
+        manifest: None,
+    };
+
+    let (_, diagnostics) = load_surface_module(&project);
+
+    let invalid_cases = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_cases.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        invalid_cases
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "module name `App` must start with an ASCII lowercase letter",
+            "module name `_net` must start with an ASCII lowercase letter",
+        ]
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "origin"),
+        Some("source_path")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_kind"),
+        Some("regular")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_path"),
+        Some("App/_net.veln")
+    );
+    assert_eq!(detail_string(invalid_cases[0], "segment"), Some("App"));
+    assert_eq!(
+        detail_string(invalid_cases[0], "observed_initial"),
+        Some("ascii_uppercase")
+    );
+    assert_eq!(detail_number(invalid_cases[0], "segment_index"), Some(0));
+    assert_eq!(detail_string(invalid_cases[1], "segment"), Some("_net"));
+    assert_eq!(
+        detail_string(invalid_cases[1], "observed_initial"),
+        Some("underscore")
+    );
+    assert_eq!(detail_number(invalid_cases[1], "segment_index"), Some(1));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "module.unresolved_import"
+                && diagnostic.message
+                    == "local import `App::_net` has no matching selected source file"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "module.duplicate_source_path"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn selected_manifest_export_is_accepted() {
     let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
     let project = Project {
@@ -3903,6 +3970,21 @@ fn detail_string<'a>(diagnostic: &'a veln_diagnostics::Diagnostic, key: &str) ->
             && let veln_diagnostics::JsonValue::String(value) = value
         {
             Some(value.as_str())
+        } else {
+            None
+        }
+    })
+}
+
+fn detail_number(diagnostic: &veln_diagnostics::Diagnostic, key: &str) -> Option<i64> {
+    let veln_diagnostics::JsonValue::Object(entries) = &diagnostic.details else {
+        return None;
+    };
+    entries.iter().find_map(|(entry_key, value)| {
+        if entry_key == key
+            && let veln_diagnostics::JsonValue::Number(value) = value
+        {
+            Some(*value)
         } else {
             None
         }
