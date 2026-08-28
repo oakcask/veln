@@ -101,9 +101,12 @@ The dependency graph contains project-owned modules. Source-written internal
 `use` declarations create directed edges and duplicate imports between the same
 pair of modules create one edge. Implicit standard-prelude imports do not
 create edges. Dependency packages and embedded standard-library modules are
-not metric subjects. A source-written import from a project-owned module to a
-non-standard dependency package increments that module's
-`external_dependency_count` without creating an internal edge.
+not metric subjects. A source whose package-relative path has invalid
+source-path-derived module identity casing does not enter the dependency graph
+as a module and does not contribute import edges or dependency cycles. A
+source-written import from a project-owned module to a non-standard dependency
+package increments that module's `external_dependency_count` without creating
+an internal edge.
 
 Path arguments select the project-owned modules reported as module subjects.
 The command still analyzes the containing project graph so selected modules
@@ -170,6 +173,10 @@ Executable evidence:
   containing graph counts, dependency edges, and cycle membership.
 - The metrics `check-acyclic`, `check-cycle-human`, and `check-cycle-json`
   cases check enabled dependency-cycle policy success and violation output.
+- The metrics `identifier-casing-source-path-cycle-isolation-json` case checks
+  that an invalid source-path-derived module identity is absent from the
+  dependency graph while cycle detection still reports unrelated valid
+  modules.
 - The metrics `check-no-policy-human`, `check-no-policy-json`,
   `check-invalid-policy-json`, and `check-unsupported-policy-json` cases check
   configuration and manifest policy failures that do not return a clean check

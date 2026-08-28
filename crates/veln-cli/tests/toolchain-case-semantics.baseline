@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"9daaf76a8711c9e364f90cff6455d0b6d7e93aa9"
+source_git_tree	"5bf69be4272d30ed2d38f3ed6350654ae3416d0a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1613
+case_count	1616
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6776,6 +6776,35 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"cdff5863acca9033ae94573df13eaa0170124e864dca7541e2df27170280c01f"
+case	"examples/specification/check/identifier-casing-source-path-duplicate-isolation-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"module name `App` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	1
+field	expectations.diagnostics[0].span.file	"App/feature.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	4
+field	expectations.diagnostics[1].span.file	"other.veln"
+field	expectations.diagnostics[1].span.line	1
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"module name `App` must start with an ASCII lowercase letter"
+field	expectations.stdout.contains[1]	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"module.duplicate_source_path"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"11f947b8d89117e749d454e51e61aeae4965947535402e597e62c1e4ff04382d"
 case	"examples/specification/check/identifier-casing-source-path-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -6786,6 +6815,41 @@ field	invocation.command[1]	"App/_net.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"bf4c8c50f90d5d30980ad2a475e314a7f76a91d060507e2db1d32b5a264bc5e1"
+case	"examples/specification/check/identifier-casing-source-path-import-isolation-json"
+field	expectations.diagnostics[0].id	"module.unresolved_import"
+field	expectations.diagnostics[0].kind	"module"
+field	expectations.diagnostics[0].message	"local import `app::feature` has no matching selected source file"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[1].id	"name.invalid_case"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"module name `App` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	1
+field	expectations.diagnostics[1].span.file	"App/feature.veln"
+field	expectations.diagnostics[1].span.line	1
+field	expectations.diagnostics[2].id	"name.invalid_case"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.column	4
+field	expectations.diagnostics[2].span.file	"other.veln"
+field	expectations.diagnostics[2].span.line	1
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"local import `app::feature` has no matching selected source file"
+field	expectations.stdout.contains[1]	"module name `App` must start with an ASCII lowercase letter"
+field	expectations.stdout.contains[2]	"function name `Bad` must start with an ASCII lowercase letter"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"module.duplicate_source_path"
+field	expectations.stdout.not_contains[1]	"Selected source `App/feature.veln` derives"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"2fb405622ba7febcb3c8ea9bac21b6910952e83cfbb0dadc0222d009ca7f33b7"
 case	"examples/specification/check/identifier-casing-source-path-json"
 field	expectations.diagnostics[0].id	"name.invalid_case"
 field	expectations.diagnostics[0].kind	"name"
@@ -13305,6 +13369,37 @@ field	invocation.command[1]	"--json"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"3497d5bb6e3d6cc16d93b725a31bc7ef385934c643918b5cab060fb3eea71c49"
+case	"examples/specification/metrics/identifier-casing-source-path-cycle-isolation-json"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"policy_violation"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	"fail"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"check.result"
+field	expectations.json_assertions[2].equals	2
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"summary.project_module_count"
+field	expectations.json_assertions[3].equals	1
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"summary.cycle_count"
+field	expectations.json_assertions[4].equals	"app"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"cycles.0.members.0"
+field	expectations.json_assertions[5].equals	"util"
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"cycles.0.members.1"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"cycle_count\":1"
+field	expectations.stdout.contains[1]	"\"project_module_count\":2"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"App::bridge"
+field	invocation.command[0]	"metrics"
+field	invocation.command[1]	"--check"
+field	invocation.command[2]	"--json"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"68de5c7130d76cfebb6578fb48a295fd8ff6288b886f0ed32d0a31c059205f06"
 case	"examples/specification/metrics/invalid-max-findings-human"
 field	expectations.exit	1
 field	expectations.stderr.contains[0]	"error[metrics.policy.invalid_value]: invalid metrics policy value `0` for `max_findings`"
@@ -50910,4 +51005,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"4e2c8a23c049e6162634aa68efd53a874a5a7ea5a62e34a7d1066d2582723110"
+aggregate_digest	"749d0511d7cb7d4836ccc2a18ba42cfe619a7287a033c2b6cd756814043279cf"

@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use veln_analysis::{derive_source_module_path, load_surface_module};
+use veln_analysis::{derive_visible_source_module_path, load_surface_module};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo, parse_json_value};
 use veln_project::{ManifestField, Project, ProjectManifest, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan, TextRange};
@@ -552,6 +552,9 @@ impl DependencyEdgeLike for BaselineEdge {
 fn source_graph_diagnostics(project: &Project) -> Vec<Diagnostic> {
     let (_, diagnostics) = load_surface_module(project);
     diagnostics
+        .into_iter()
+        .filter(|diagnostic| !is_source_path_module_case_diagnostic(diagnostic))
+        .collect()
 }
 
 fn project_owned_sources(mut project: Project) -> Project {
@@ -578,6 +581,27 @@ fn dependency_path_prefixes(project: &Project) -> Vec<String> {
         .map(|field| field.value.trim_matches('/').to_string())
         .filter(|path| !path.is_empty())
         .collect()
+}
+
+fn is_source_path_module_case_diagnostic(diagnostic: &Diagnostic) -> bool {
+    diagnostic.id == "name.invalid_case"
+        && detail_string(diagnostic, "origin") == Some("source_path")
+        && detail_string(diagnostic, "name_class") == Some("module")
+}
+
+fn detail_string<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
+    let JsonValue::Object(fields) = &diagnostic.details else {
+        return None;
+    };
+    fields.iter().find_map(|(field, value)| {
+        if field == key
+            && let JsonValue::String(value) = value
+        {
+            Some(value.as_str())
+        } else {
+            None
+        }
+    })
 }
 
 fn has_error(diagnostics: &[Diagnostic]) -> bool {
@@ -637,8 +661,9 @@ impl DependencyGraph {
         let mut nodes = Vec::new();
         let mut module_index = BTreeMap::new();
         for source in &project.files {
-            let module =
-                derive_source_module_path(source).map_err(|diagnostic| vec![*diagnostic])?;
+            let Some(module) = derive_graph_module(source)? else {
+                continue;
+            };
             let index = nodes.len();
             module_index.insert(module.clone(), index);
             nodes.push(DependencyNode {
@@ -651,9 +676,12 @@ impl DependencyGraph {
 
         let mut edge_keys = BTreeMap::<(usize, usize), SourceSpan>::new();
         for source in &project.files {
-            let module =
-                derive_source_module_path(source).map_err(|diagnostic| vec![*diagnostic])?;
-            let source_index = module_index[&module];
+            let Some(module) = derive_graph_module(source)? else {
+                continue;
+            };
+            let Some(source_index) = module_index.get(&module).copied() else {
+                continue;
+            };
             let parsed = parse(source);
             if !parsed.diagnostics.is_empty() {
                 continue;
@@ -887,6 +915,20 @@ impl DependencyGraph {
         }
         path.pop();
         false
+    }
+}
+
+fn derive_graph_module(source: &SourceFile) -> Result<Option<String>, Vec<Diagnostic>> {
+    match derive_visible_source_module_path(source) {
+        Ok(module) => Ok(module),
+        Err(diagnostics)
+            if diagnostics
+                .iter()
+                .all(is_source_path_module_case_diagnostic) =>
+        {
+            Ok(None)
+        }
+        Err(diagnostics) => Err(diagnostics),
     }
 }
 
@@ -2294,6 +2336,49 @@ mod tests {
         assert_eq!(report.cycles[0].path.last().unwrap(), "app");
         assert_eq!(report.modules[0].module, "util");
         assert_eq!(report.modules[0].dependency_pressure, 4);
+    }
+
+    #[test]
+    fn invalid_source_path_modules_do_not_enter_dependency_graph() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("app.veln", "use util\nfn main() -> ()\n  ()\nend\n"),
+                SourceFile::new("util.veln", "use app\nfn value() -> ()\n  ()\nend\n"),
+                SourceFile::new("App/bridge.veln", "use app\nfn bridge() -> ()\n  ()\nend\n"),
+            ],
+        };
+
+        let graph = DependencyGraph::from_project(&project).expect("graph");
+        let selected = ["app.veln".to_string(), "util.veln".to_string()]
+            .into_iter()
+            .collect();
+        let report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: Vec::new(),
+            },
+            &selected,
+            default_metrics_config(),
+        );
+
+        assert_eq!(report.summary.project_module_count, 2);
+        assert_eq!(report.summary.internal_edge_count, 2);
+        assert_eq!(report.summary.cycle_count, 1);
+        assert!(
+            report
+                .modules
+                .iter()
+                .all(|module| module.module != "App::bridge")
+        );
+        assert!(
+            report
+                .cycles
+                .iter()
+                .all(|cycle| !cycle.members.iter().any(|member| member == "App::bridge"))
+        );
     }
 
     #[test]

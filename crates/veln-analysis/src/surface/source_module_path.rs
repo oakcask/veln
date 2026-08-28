@@ -25,7 +25,7 @@ pub(crate) fn derive_with_diagnostics(source: &SourceFile) -> Result<String, Vec
     })
 }
 
-pub(crate) fn derive_visible_with_diagnostics(
+pub fn derive_visible_with_diagnostics(
     source: &SourceFile,
 ) -> Result<Option<String>, Vec<Diagnostic>> {
     derive_visible_with_source_kind(source, "regular")

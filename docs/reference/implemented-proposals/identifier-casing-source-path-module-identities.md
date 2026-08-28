@@ -19,7 +19,12 @@ diagnostics. The checked `identifier-casing-source-path-boundary` example
 fixes the LSP zero-width diagnostic range and source-path origin data
 projection. The checked
 `identifier-casing-chained-companion-boundary-json` example fixes the
-combined invalid-casing and chained-companion structural boundary.
+combined invalid-casing and chained-companion structural boundary. The checked
+`identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`, and
+`identifier-casing-source-path-cycle-isolation-json` examples fix local
+import, duplicate-module, and dependency-cycle graph isolation for invalid
+source-path-derived module identities.
 
 ## Scope
 
@@ -50,6 +55,8 @@ and the zero-based `segment_index`. The primary span is zero-width at the
 start of the affected source. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with one or more
 invalid origin segments is not registered as a normal derived module identity.
+It cannot satisfy a local import, collide as a duplicate source module, or
+contribute a source dependency graph edge or cycle.
 Selected regular and companion sources still report source-path casing
 diagnostics when the source also has parse diagnostics, but parse-failing
 sources are not lowered or registered. A source path segment that starts with

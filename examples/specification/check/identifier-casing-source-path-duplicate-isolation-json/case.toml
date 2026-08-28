@@ -1,0 +1,39 @@
+command = ["check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "module name `App` must start with an ASCII lowercase letter",
+  "function name `Bad` must start with an ASCII lowercase letter",
+]
+not_contains = ["module.duplicate_source_path"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `App` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "App/feature.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "function name `Bad` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "other.veln"
+line = 1
+column = 4
