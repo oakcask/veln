@@ -31,8 +31,10 @@ validates only the final segment for this completed slice and emits
 The invalid head is kept only as a recovery constructor pattern. It suppresses
 constructor-resolution, constructor-pattern type mismatch, and match
 exhaustiveness diagnostics that would exist only because the invalid
-constructor head was rejected. Nested pattern bindings and the match-arm body
-still receive normal checking.
+constructor head was rejected. Recovery coverage is limited to the constructor
+resolved after changing only the invalid final segment's first ASCII lowercase
+letter to uppercase and preserving the remaining spelling. Nested pattern
+bindings and the match-arm body still receive normal checking.
 
 ## Completion
 

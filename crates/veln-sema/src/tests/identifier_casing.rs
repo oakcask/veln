@@ -759,6 +759,69 @@ fn qualified_lowercase_nullary_constructor_pattern_suppresses_exhaustiveness_cas
 }
 
 #[test]
+fn qualified_lowercase_constructor_pattern_recovery_is_initial_only() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  Some\n",
+            "  SOME\n",
+            "end\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Item::some => 1\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    let non_exhaustive = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
+        .expect("SOME remains independently missing");
+    assert_eq!(non_exhaustive.message, "match is missing case SOME");
+}
+
+#[test]
+fn qualified_lowercase_constructor_pattern_recovery_preserves_remaining_spelling() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  Some\n",
+            "end\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Item::something => 1\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    let non_exhaustive = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
+        .expect("Some remains independently missing");
+    assert_eq!(non_exhaustive.message, "match is missing case Some");
+}
+
+#[test]
 fn qualified_uppercase_constructor_pattern_remains_valid_control() {
     let source = SourceFile::new(
         "main.veln",

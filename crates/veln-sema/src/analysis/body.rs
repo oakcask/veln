@@ -4325,28 +4325,14 @@ fn invalid_qualified_constructor_recovery_cases(
     let Some(descriptor) = environment.adts.descriptor_for_type(scrutinee_type) else {
         return Vec::new();
     };
-    let Some(leaf) = name.last() else {
+    let Some(recovered) = initial_uppercase_qualified_constructor_name(name) else {
         return Vec::new();
     };
-    descriptor
-        .variants
-        .iter()
-        .filter(|variant| variant.name.eq_ignore_ascii_case(leaf))
-        .filter_map(|variant| {
-            let mut recovered = name.to_vec();
-            let last = recovered.last_mut()?;
-            *last = variant.name.clone();
-            environment
-                .adts
-                .constructor_for_descriptor(
-                    &recovered,
-                    descriptor,
-                    current_module,
-                    &environment.uses,
-                )
-                .map(|constructor| constructor.variant.coverage_case.clone())
-        })
-        .collect()
+    environment
+        .adts
+        .constructor_for_descriptor(&recovered, descriptor, current_module, &environment.uses)
+        .map(|constructor| vec![constructor.variant.coverage_case.clone()])
+        .unwrap_or_default()
 }
 
 fn invalid_qualified_constructor_pattern(name: &[String]) -> bool {
@@ -4355,6 +4341,17 @@ fn invalid_qualified_constructor_pattern(name: &[String]) -> bool {
             .last()
             .and_then(|name| name.as_bytes().first())
             .is_some_and(u8::is_ascii_lowercase)
+}
+
+fn initial_uppercase_qualified_constructor_name(name: &[String]) -> Option<Vec<String>> {
+    let mut recovered = name.to_vec();
+    let leaf = recovered.last_mut()?;
+    let first = leaf.as_bytes().first().copied()?;
+    if !first.is_ascii_lowercase() {
+        return None;
+    }
+    leaf.replace_range(0..1, &(first as char).to_ascii_uppercase().to_string());
+    Some(recovered)
 }
 
 fn collect_effect_row_substitution(

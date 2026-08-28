@@ -75,10 +75,17 @@ observed initial `ascii_lowercase`, and the segment index inside the written
 path. That invalid head remains only as a recovery constructor pattern.
 Constructor resolution, constructor-pattern type mismatch, and match
 exhaustiveness diagnostics whose only cause is that invalid head are
-suppressed. Nested pattern bindings and the match-arm body are still checked.
-The `identifier-casing-qualified-constructor-pattern-json` and
-`identifier-casing-qualified-constructor-pattern-human` examples check the
-diagnostic shape and suppressed cascades.
+suppressed. An exhaustiveness diagnostic is suppressed only for the constructor
+found by changing the invalid final segment's first ASCII lowercase letter to
+uppercase and resolving the resulting path through ordinary case-sensitive
+constructor lookup. A different constructor spelling that remains unresolved
+after that initial-only repair is not treated as covered. Nested pattern
+bindings and the match-arm body are still checked. The
+`identifier-casing-qualified-constructor-pattern-json`,
+`identifier-casing-qualified-constructor-pattern-human`, and
+`identifier-casing-qualified-constructor-pattern-over-suppression-json`
+examples check the diagnostic shape, suppressed cascades, and over-suppression
+boundary.
 
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources
