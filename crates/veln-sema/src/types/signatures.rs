@@ -25,6 +25,7 @@ pub(crate) enum UserEffectPathResolution<'a> {
         effect: &'a EffectSignature,
         access: &'a CompanionAccessTarget,
     },
+    QuarantinedImportTarget,
     Missing,
 }
 
@@ -32,7 +33,9 @@ impl<'a> UserEffectPathResolution<'a> {
     pub(crate) fn found(self) -> Option<&'a EffectSignature> {
         match self {
             Self::Found(effect) => Some(effect),
-            Self::PrivateCompanionTargetMismatch { .. } | Self::Missing => None,
+            Self::PrivateCompanionTargetMismatch { .. }
+            | Self::QuarantinedImportTarget
+            | Self::Missing => None,
         }
     }
 }
@@ -137,6 +140,7 @@ pub(crate) enum HandlerPathResolution<'a> {
         handler: &'a HandlerSignature,
         access: &'a CompanionAccessTarget,
     },
+    QuarantinedImportTarget,
     Missing,
 }
 

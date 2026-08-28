@@ -158,6 +158,31 @@ fn import_path_segments_report_module_casing_with_retained_spans() {
 }
 
 #[test]
+fn import_path_casing_diagnostics_follow_source_order_with_declarations() {
+    let source = SourceFile::new(
+        "app.veln",
+        concat!("use HTTP\n", "\n", "fn Bad() -> Int\n", "  1\n", "end\n",),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "module name `HTTP` must start with an ASCII lowercase letter",
+            "function name `Bad` must start with an ASCII lowercase letter",
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -189,6 +214,210 @@ fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
         diagnostics
             .iter()
             .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_implicit_import_alias_suppresses_public_effect_quarantine_cascade() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn main() -> () effects [HTTP::Audit]\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!(
+            "mod HTTP\n",
+            "pub effect Audit\n",
+            "  record() -> ()\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "module.missing_identity"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "effect.unknown"),
+        "{diagnostics:#?}"
+    );
+    let environment = TypeEnvironment::from_module(&module);
+    let main = environment
+        .function("main")
+        .expect("valid function signature remains available");
+    assert!(main.effects.is_empty());
+    assert!(lower_checked_surface_module(&module).core.is_none());
+}
+
+#[test]
+fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_effects() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn missing() -> () effects [HTTP::Missing]\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "fn private() -> () effects [HTTP::Audit]\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "fn wrong_kind() -> () effects [HTTP::entry]\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!(
+            "mod HTTP\n",
+            "effect Audit\n",
+            "  record() -> ()\n",
+            "end\n",
+            "pub fn entry() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "module.missing_identity",
+            "effect.unknown",
+            "effect.unknown",
+            "effect.unknown",
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_implicit_import_alias_suppresses_public_handler_quarantine_cascade() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn body() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  handle body() with HTTP::audit()\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!(
+            "mod HTTP\n",
+            "pub effect Audit\n",
+            "  record() -> Int\n",
+            "end\n",
+            "pub handler audit() handles Audit\n",
+            "  record() => 1\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "module.missing_identity"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "handler.unknown"),
+        "{diagnostics:#?}"
+    );
+    assert!(lower_checked_surface_module(&module).core.is_none());
+}
+
+#[test]
+fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_handlers() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn body() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "fn missing() -> Int\n",
+            "  handle body() with HTTP::missing()\n",
+            "end\n",
+            "\n",
+            "fn private() -> Int\n",
+            "  handle body() with HTTP::private()\n",
+            "end\n",
+            "\n",
+            "fn wrong_kind() -> Int\n",
+            "  handle body() with HTTP::Audit()\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!(
+            "mod HTTP\n",
+            "pub effect Audit\n",
+            "  record() -> Int\n",
+            "end\n",
+            "handler private() handles Audit\n",
+            "  record() => 1\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "name.invalid_case",
+            "module.missing_identity",
+            "handler.unknown",
+            "handler.unknown",
+            "handler.unknown",
+        ],
         "{diagnostics:#?}"
     );
 }

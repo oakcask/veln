@@ -156,15 +156,15 @@ pub(crate) fn check_declared_effect_labels(
                             .cloned()
                             .unwrap_or_else(|| function.span.clone()),
                     ),
-                    UserEffectPathResolution::Found(_) | UserEffectPathResolution::Missing => {
-                        unknown_declared_effect_diagnostic(
-                            function,
-                            effect,
-                            index,
-                            node_prefix,
-                            boundary,
-                        )
-                    }
+                    UserEffectPathResolution::Found(_)
+                    | UserEffectPathResolution::QuarantinedImportTarget
+                    | UserEffectPathResolution::Missing => unknown_declared_effect_diagnostic(
+                        function,
+                        effect,
+                        index,
+                        node_prefix,
+                        boundary,
+                    ),
                 }
             }),
     );
@@ -407,6 +407,7 @@ fn collect_unknown_type_effects(
                     .resolve_user_effect_path(&segments, function.module_name.as_deref())
                 {
                     UserEffectPathResolution::Found(_) => {}
+                    UserEffectPathResolution::QuarantinedImportTarget => {}
                     UserEffectPathResolution::PrivateCompanionTargetMismatch {
                         effect: signature,
                         access,

@@ -1607,6 +1607,12 @@ impl<'a> FunctionChecker<'a> {
                     ));
                 return Type::Unknown;
             }
+            UserEffectPathResolution::QuarantinedImportTarget => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                return Type::Unknown;
+            }
             UserEffectPathResolution::Missing => {
                 for arg in args {
                     self.infer_expr(arg, None);
@@ -1690,6 +1696,12 @@ impl<'a> FunctionChecker<'a> {
                         handler_span.clone(),
                     ));
                 return body_ty;
+            }
+            HandlerPathResolution::QuarantinedImportTarget => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                return self.infer_expr(body, expected);
             }
             HandlerPathResolution::Missing => {
                 for arg in args {

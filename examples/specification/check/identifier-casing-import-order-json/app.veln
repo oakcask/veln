@@ -1,0 +1,5 @@
+use HTTP
+
+fn Bad() -> Int
+  1
+end

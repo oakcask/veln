@@ -178,6 +178,7 @@ fn public_handler_requires_and_canonicalizes_declared_clause_effects() {
     let declared = match environment.handler_path(&["declared".to_string()], None) {
         HandlerPathResolution::Found(handler) => handler,
         HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+        | HandlerPathResolution::QuarantinedImportTarget
         | HandlerPathResolution::Missing => panic!("declared handler should be present"),
     };
     assert_eq!(declared.effects, ["stdio"]);

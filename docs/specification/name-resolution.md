@@ -78,8 +78,11 @@ duplicate import-alias analysis. If no selected source derives the written
 local module path, `module.unresolved_import` is still reported. A use through
 the invalid implicit alias may suppress a derivative unresolved, type-origin,
 constructor-arity, or exhaustiveness diagnostic only when one matching
-selected source export proves that quarantine is the sole failure. Missing
-target modules and missing exports remain independently reported.
+selected source export proves that quarantine is the sole failure. This
+same quarantine proof suppresses derivative unknown-effect and
+unknown-handler diagnostics for public effect and handler exports. Missing
+target modules, missing exports, private targets, and wrong-kind targets
+remain independently reported.
 The
 `identifier-casing-import-path-json` and
 `identifier-casing-import-path-human` examples check multi-segment and
@@ -102,6 +105,11 @@ report independently provable failures. The
 `identifier-casing-import-private-schema-boundary-json` examples check the
 same boundary for schema composition: a missing schema target and a private
 schema target remain independently reported. The
+`identifier-casing-import-effect-cascade-boundary-json` and
+`identifier-casing-import-handler-cascade-boundary-json` examples check the
+same public-export quarantine boundary for effect and handler consumers. The
+`identifier-casing-import-order-json` example checks source-ordering between
+an invalid import path segment and a later invalid declaration. The
 `identifier-casing-import-alias-run-boundary-json` example checks the same
 invalid implicit-alias boundary for `run` reachability.
 Valid implicit standard prelude symbols remain normal lookup candidates. A

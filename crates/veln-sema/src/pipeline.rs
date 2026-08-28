@@ -226,10 +226,14 @@ fn check_invalid_name_casing(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    module
+    let mut invalid_names = module
         .invalid_names
         .iter()
         .filter(|invalid| !invalid_name_is_valid_constructor_pattern(invalid, module, environment))
+        .collect::<Vec<_>>();
+    invalid_names.sort_by_key(|invalid| (invalid.span.start.offset, invalid.span.end.offset));
+    invalid_names
+        .into_iter()
         .map(invalid_name_diagnostic)
         .collect()
 }

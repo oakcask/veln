@@ -295,6 +295,46 @@ impl TypeEnvironment {
             .count()
     }
 
+    fn quarantined_import_effect_recovery_candidate_count(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> usize {
+        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        else {
+            return 0;
+        };
+        let module_name = use_decl.name.as_str();
+        self.effects
+            .iter()
+            .filter(|effect| {
+                effect.name == name
+                    && effect.module_name.as_deref() == Some(module_name)
+                    && effect.visibility == Visibility::Public
+            })
+            .count()
+    }
+
+    fn quarantined_import_handler_recovery_candidate_count(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> usize {
+        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        else {
+            return 0;
+        };
+        let module_name = use_decl.name.as_str();
+        self.handlers
+            .iter()
+            .filter(|handler| {
+                handler.name == name
+                    && handler.module_name.as_deref() == Some(module_name)
+                    && handler.visibility == Visibility::Public
+            })
+            .count()
+    }
+
     pub(crate) fn quarantined_import_constructor_recovery_candidate_count(
         &self,
         segments: &[String],
@@ -457,6 +497,13 @@ impl TypeEnvironment {
                     &segments[..segments.len() - 1],
                     current_module,
                 ) else {
+                    if self.quarantined_import_effect_recovery_candidate_count(
+                        segments,
+                        current_module,
+                    ) == 1
+                    {
+                        return UserEffectPathResolution::QuarantinedImportTarget;
+                    }
                     return UserEffectPathResolution::Missing;
                 };
                 let module_name = use_decl.name.as_str();
@@ -529,6 +576,13 @@ impl TypeEnvironment {
                     current_module,
                 );
                 let Some(use_decl) = use_decl else {
+                    if self.quarantined_import_handler_recovery_candidate_count(
+                        segments,
+                        current_module,
+                    ) == 1
+                    {
+                        return HandlerPathResolution::QuarantinedImportTarget;
+                    }
                     return HandlerPathResolution::Missing;
                 };
                 let Some(handler) = self.handlers.iter().find(|handler| {

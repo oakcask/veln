@@ -1,0 +1,7 @@
+pub effect Audit
+  record() -> Int
+end
+
+pub handler audit() handles Audit
+  record() => 1
+end

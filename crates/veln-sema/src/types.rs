@@ -751,6 +751,7 @@ pub(crate) fn ordinary_function_signatures(
                 effects: canonical_declared_effects(
                     function.effects.clone().unwrap_or_default(),
                     &uses,
+                    &quarantined_uses,
                     function.module_name.as_deref(),
                     effects,
                     companion_effect_access_targets,
@@ -871,6 +872,7 @@ fn canonicalize_type_effects(
             effects: canonical_declared_effects(
                 declared,
                 uses,
+                quarantined_uses,
                 current_module,
                 effects,
                 companion_effect_access_targets,
@@ -918,6 +920,7 @@ fn canonical_type_name_without_descriptor(
 fn canonical_declared_effects(
     declared: Vec<String>,
     uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
     effects: &[EffectSignature],
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
@@ -937,6 +940,16 @@ fn canonical_declared_effects(
             companion_effect_access_targets,
         )
         .unwrap_or(effect);
+        if quarantined_public_user_effect_label(
+            &segments,
+            quarantined_uses,
+            current_module,
+            effects,
+        )
+        .is_some()
+        {
+            continue;
+        }
         push_unique_effect(&mut canonical, &label);
     }
     canonical
@@ -987,6 +1000,14 @@ fn handler_signatures(
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<HandlerSignature> {
     let uses = normal_use_decls(module);
+    let quarantined_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     module
         .handlers
         .iter()
@@ -1019,6 +1040,7 @@ fn handler_signatures(
                 effects: canonical_declared_effects(
                     handler.effects.clone().unwrap_or_default(),
                     &uses,
+                    &quarantined_uses,
                     handler.module_name.as_deref(),
                     effects,
                     companion_effect_access_targets,
@@ -1687,6 +1709,32 @@ pub(crate) fn canonical_user_effect_label(
         }
         _ => None,
     }
+}
+
+fn quarantined_public_user_effect_label(
+    segments: &[String],
+    quarantined_uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+) -> Option<String> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let use_decl = imported_use_for_path(
+        quarantined_uses,
+        &segments[..segments.len() - 1],
+        current_module,
+    )?;
+    let mut matches = effects.iter().filter(|effect| {
+        effect.name == *name
+            && effect.module_name.as_deref() == Some(use_decl.name.as_str())
+            && effect.visibility == Visibility::Public
+    });
+    let first = matches.next()?;
+    matches
+        .next()
+        .is_none()
+        .then(|| first.qualified_name.clone())
 }
 
 pub(crate) fn imported_effect_is_visible(

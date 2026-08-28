@@ -1,0 +1,3 @@
+pub effect Audit
+  record() -> ()
+end

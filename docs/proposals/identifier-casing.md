@@ -80,7 +80,9 @@ checked by the `identifier-casing-import-path-json` and
 `identifier-casing-import-alias-cascade-boundary-json` examples check their
 overlap with missing-module, duplicate-alias, and alias-use cascade
 diagnostics. The type, constructor, and schema cascade cases check the same
-quarantine boundary for imported qualified names. Their completion record is
+quarantine boundary for imported qualified names. The effect, handler, and
+ordering cases check the remaining written-import consumer and source-order
+boundaries. Their completion record is
 [Identifier Casing Import Paths](../reference/implemented-proposals/identifier-casing-import-paths.md).
 
 The LSP single-file diagnostics helper now receives the same parse-clean

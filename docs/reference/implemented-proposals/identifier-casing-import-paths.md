@@ -29,6 +29,11 @@ missing-target controls. The checked
 `identifier-casing-import-private-schema-boundary-json` examples fix the
 schema composition quarantine boundary, the schema missing-target control,
 and the private-schema visibility control. The checked
+`identifier-casing-import-effect-cascade-boundary-json` and
+`identifier-casing-import-handler-cascade-boundary-json` examples fix the
+public effect and handler quarantine boundary. The checked
+`identifier-casing-import-order-json` example fixes source-ordering between
+an invalid import path segment and a later invalid declaration. The checked
 `identifier-casing-import-alias-run-boundary-json` example fixes the same
 invalid implicit-alias boundary for `run` reachability.
 
@@ -53,9 +58,10 @@ Project-level unresolved import checks still report a missing selected source
 for the written local module path. A qualified use through an invalid implicit
 alias suppresses derivative unresolved, type-origin, constructor-arity, or
 exhaustiveness diagnostics, and derivative schema composition diagnostics,
-only when a matching visible public selected source export proves quarantine
-is the sole failure. Missing target modules, missing exports, private targets,
-wrong-kind targets, and other independently provable failures remain reported.
+unknown-effect diagnostics, and unknown-handler diagnostics only when a
+matching visible public selected source export proves quarantine is the sole
+failure. Missing target modules, missing exports, private targets, wrong-kind
+targets, and other independently provable failures remain reported.
 
 ## Completion
 
