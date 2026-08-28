@@ -16,6 +16,9 @@ that final segment. The checked
 and human command behavior. The checked
 `identifier-casing-qualified-constructor-pattern-over-suppression-json`
 example fixes the boundary for exhaustiveness recovery coverage. The checked
+`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`
+example fixes the boundary between suppressed head-derived cascades and direct
+nested-pattern or arm-body diagnostics. The checked
 `identifier-casing-qualified-constructor-pattern-type-mismatch-json` example
 fixes the boundary for independently provable constructor-pattern type
 mismatches.

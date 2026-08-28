@@ -843,6 +843,74 @@ fn lowercase_qualified_constructor_pattern_reports_independent_descriptor_mismat
 }
 
 #[test]
+fn lowering_suppresses_nullary_lowercase_qualified_constructor_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  None\n",
+            "  Some(Int)\n",
+            "end\n",
+            "\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Item::none => 0\n",
+            "    Item::Some(value) => value\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let ids = lowered
+        .diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["name.invalid_case"]);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
+fn lowering_suppresses_payload_lowercase_qualified_constructor_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  None\n",
+            "  Some(Int)\n",
+            "end\n",
+            "\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Item::some(value) => value\n",
+            "    Item::None => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let ids = lowered
+        .diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["name.invalid_case"]);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
 fn uppercase_qualified_constructor_pattern_reports_descriptor_mismatch_control() {
     let source = SourceFile::new(
         "main.veln",

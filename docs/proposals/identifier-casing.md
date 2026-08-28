@@ -65,7 +65,8 @@ lowercase letter are specified by
 [Types](../specification/types.md), and checked by the
 `identifier-casing-qualified-constructor-pattern-json`,
 `identifier-casing-qualified-constructor-pattern-human`,
-`identifier-casing-qualified-constructor-pattern-over-suppression-json`, and
+`identifier-casing-qualified-constructor-pattern-over-suppression-json`,
+`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`, and
 `identifier-casing-qualified-constructor-pattern-type-mismatch-json`
 examples. Their completion record is
 [Identifier Casing Qualified Constructor Patterns](../reference/implemented-proposals/identifier-casing-qualified-constructor-patterns.md).

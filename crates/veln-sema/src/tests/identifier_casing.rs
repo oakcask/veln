@@ -759,6 +759,55 @@ fn qualified_lowercase_nullary_constructor_pattern_suppresses_exhaustiveness_cas
 }
 
 #[test]
+fn qualified_lowercase_constructor_pattern_keeps_direct_nested_and_body_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  None\n",
+            "  Some(Int)\n",
+            "end\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Item::some(BadBinding) => missing_value\n",
+            "    Item::None => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    let ids = diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ids,
+        ["name.invalid_case", "name.invalid_case", "name.unresolved"]
+    );
+    assert_eq!(
+        diagnostics[0].message,
+        "constructor name `some` must start with an ASCII uppercase letter"
+    );
+    assert_eq!(
+        diagnostics[1].message,
+        "binding name `BadBinding` must start with an ASCII lowercase letter"
+    );
+    assert_eq!(diagnostics[2].message, "unresolved value `missing_value`");
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "core.constructor_arity_mismatch"
+                && diagnostic.id != "type.match_non_exhaustive"
+                && diagnostic.id != "type.mismatch"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn qualified_lowercase_constructor_pattern_recovery_is_initial_only() {
     let source = SourceFile::new(
         "main.veln",

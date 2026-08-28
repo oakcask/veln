@@ -86,6 +86,9 @@ bindings and the match-arm body are still checked. The
 `identifier-casing-qualified-constructor-pattern-over-suppression-json`
 examples check the diagnostic shape, suppressed cascades, and exhaustiveness
 over-suppression boundary. The
+`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`
+example checks that nested binding patterns and the match-arm body are still
+checked while head-derived cascades are suppressed. The
 `identifier-casing-qualified-constructor-pattern-type-mismatch-json` example
 checks that an independently provable constructor-pattern type mismatch is not
 suppressed.
