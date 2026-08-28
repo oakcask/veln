@@ -18,8 +18,10 @@ also states it.
 
 ## Ready
 
-- Remaining identifier-casing surfaces:
-  [identifier-casing.md](identifier-casing.md).
+- Identifier-casing diagnostic-tolerant source-path graph isolation:
+  [identifier-casing.md#diagnostic-tolerant-graph-isolation](identifier-casing.md#diagnostic-tolerant-graph-isolation).
+- Identifier-casing metrics source-error gate:
+  [identifier-casing.md#metrics-source-error-gate](identifier-casing.md#metrics-source-error-gate).
 
 Only proposals and subsections listed in this section are selectable targets.
 

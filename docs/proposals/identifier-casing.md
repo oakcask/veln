@@ -340,6 +340,42 @@ error, output, selection, and policy-evaluation contract. A structurally
 invalid path retains its existing structural module diagnostic and does not
 also create a module identity.
 
+### Source-Path Consumer Targets
+
+The source-path consumer work has two separately selectable targets. A target
+must select one row and preserve the other row's command boundary.
+
+| Selectable target | Input boundary | Required observations | Forbidden scope |
+| --- | --- | --- | --- |
+| [Diagnostic-Tolerant Graph Isolation](#diagnostic-tolerant-graph-isolation) | A selected project contains one invalid source-path-derived module identity, one import or valid module with the colliding derived identity, and one unrelated valid source with an independent diagnostic. | `check` reports the source-path casing diagnostic at its existing source, does not resolve or report a duplicate through the invalid identity, and still reports the unrelated diagnostic. | Metrics reports, dependency-cycle policy results, artifact commands, and deferred language-service consumers. |
+| [Metrics Source-Error Gate](#metrics-source-error-gate) | A metrics project contains an invalid source-path-derived module identity and imports that would form a cycle if that identity entered the graph. | `metrics --check` returns the source diagnostic envelope. The result has no metrics report, dependency-cycle policy result, or partial graph. | Changing the source-error gate, suppressing the casing diagnostic, returning partial metrics, or claiming internal dependency-graph participation. |
+
+#### Diagnostic-Tolerant Graph Isolation
+
+This target adds checked `check` command cases for import resolution and
+duplicate-module analysis. Each case must assert the existing
+`name.invalid_case` diagnostic and its source. Each case must also assert the
+absence of the invalid identity from the selected relationship. An independent
+diagnostic from an unrelated valid source proves that tolerant analysis
+continues.
+
+The target may add focused unit coverage at the shared module-registration
+boundary when the command cases cannot isolate that boundary. It must not use a
+metrics report as dependency-cycle evidence.
+
+#### Metrics Source-Error Gate
+
+This target adds a checked `metrics --check` command case for the current
+fail-fast boundary. The case must assert the source-path casing diagnostic and
+the absence of report, policy, and cycle fields. A would-be cycle supplies the
+rejected graph input; it does not establish that the invalid identity reached
+dependency-graph construction.
+
+A future partial-metrics design is a separate proposal. Its acceptance model
+must define diagnostic retention, result status and exit behavior, selected and
+unselected module treatment, partial-report marking, and policy evaluation
+before implementation changes the source-error gate.
+
 Every invalid name reports `name.invalid_case`. Independently provable
 diagnostics still accumulate. In particular, remaining-scope names with the
 same kind, scope, and original spelling still participate in duplicate
