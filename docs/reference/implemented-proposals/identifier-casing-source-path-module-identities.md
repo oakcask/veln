@@ -31,8 +31,9 @@ origin module metadata validate the supplied origin segments before generated
 bookkeeping paths or declaration names are considered. Generated sources
 without origin module metadata do not introduce a source-visible module.
 Chained companions do not validate synthetic recovery segments for casing;
-they keep the existing `module.chained_companion` structural diagnostic
-boundary. Manifest export path checks reuse the same accepted module
+they do not derive a source-visible module identity, and they keep the
+existing `module.chained_companion` structural diagnostic boundary. Manifest
+export path checks reuse the same accepted module
 derivation boundary and report export origin casing failures as source-path
 diagnostics. A regular source that is both selected normally and named by
 `lib.exports` is classified once for source-path casing diagnostics, using

@@ -3746,6 +3746,35 @@ fn source_path_casing_is_reported_when_source_parsing_fails() {
 }
 
 #[test]
+fn chained_companion_reports_structure_without_module_identity() {
+    let source = SourceFile::new("App/_math.test.test.veln", "fn helper() -> Int\n  1\nend\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![source],
+        manifest: None,
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["module.chained_companion"],
+        "{diagnostics:#?}"
+    );
+    assert!(
+        module
+            .functions
+            .iter()
+            .filter(|function| function.span.file.as_str() == "App/_math.test.test.veln")
+            .all(|function| function.module_name.is_none()),
+        "{module:#?}"
+    );
+}
+
+#[test]
 fn source_path_structural_error_after_valid_initial_is_not_casing() {
     let source = SourceFile::new("appé.veln", "fn main() -> ()\n  ()\nend\n");
     let project = Project {

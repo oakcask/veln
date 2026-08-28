@@ -46,35 +46,12 @@ pub(crate) fn derive_visible_with_source_kind(
     }
     if let Some(companion) = classify_companion_source(path) {
         return if companion.chained {
-            derive_chained_companion(source, path)
-                .map(Some)
-                .map_err(|diagnostic| vec![*diagnostic])
+            Ok(None)
         } else {
             derive_test_companion(source, path, &companion.target_path).map(Some)
         };
     }
     derive_regular(source, path, regular_source_kind).map(Some)
-}
-
-fn derive_chained_companion(source: &SourceFile, path: &str) -> Result<String, Box<Diagnostic>> {
-    let stem = source_path_stem(source, path)?;
-    Ok(stem
-        .split('/')
-        .map(|segment| {
-            let sanitized = segment
-                .chars()
-                .map(|ch| {
-                    if ch.is_ascii_alphanumeric() || ch == '_' {
-                        ch
-                    } else {
-                        '_'
-                    }
-                })
-                .collect::<String>();
-            format!("{sanitized}__chained_companion")
-        })
-        .collect::<Vec<_>>()
-        .join("::"))
 }
 
 fn derive_test_companion(
@@ -262,10 +239,6 @@ mod tests {
             ("app/math.veln", "app::math"),
             ("app/math.veln#doctest-example", "app::math"),
             ("app/math.test.veln", "app::math__test_companion"),
-            (
-                "app/math.test.test.veln",
-                "app__chained_companion::math_test_test__chained_companion",
-            ),
         ];
 
         for (path, expected) in cases {
@@ -422,14 +395,12 @@ mod tests {
     }
 
     #[test]
-    fn chained_companion_keeps_structural_recovery_identity() {
+    fn chained_companion_has_no_visible_module_identity() {
         let source = SourceFile::new("App/_math.test.test.veln", "");
-        let module = derive_with_diagnostics(&source)
-            .expect("chained companion should skip origin casing validation");
 
         assert_eq!(
-            module,
-            "App__chained_companion::_math_test_test__chained_companion"
+            derive_visible_with_diagnostics(&source).expect("chained companion"),
+            None
         );
     }
 

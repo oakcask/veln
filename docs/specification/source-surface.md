@@ -39,10 +39,11 @@ is not enough.
 
 A source file whose path ends exactly in `.test.veln` is a test companion.
 The target source is the same-directory `.veln` path formed by removing the
-`.test` component. The companion has a distinct path-derived module identity
-from both the target source and the existing `_test.veln` integration-test
-convention. A chained path such as `math.test.test.veln` is rejected as a
-companion-target error instead of targeting `math.test.veln`.
+`.test` component. An exact companion has a distinct path-derived module
+identity from both the target source and the existing `_test.veln`
+integration-test convention. A chained path such as `math.test.test.veln` is
+rejected as a companion-target error instead of targeting `math.test.veln`,
+and it does not derive a source-visible module identity.
 Generated public documentation excludes exact `.test.veln` companions both
 when they are discovered recursively and when they are selected explicitly.
 The existing `_test.veln` integration-test convention does not use companion
