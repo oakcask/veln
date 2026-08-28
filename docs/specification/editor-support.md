@@ -153,7 +153,9 @@ to that checked surface model, so document-scoped diagnostics include the
 implemented source identifier casing failures specified by
 [names-effects.md](names-effects.md).
 For workspace sources, saved snapshots and open-document overlays publish
-source identifier casing diagnostics for the selected workspace project only.
+source identifier casing diagnostics for the selected workspace project only,
+including source-path-derived module segment diagnostics at the zero-width
+source-start range specified by [name-resolution.md](name-resolution.md).
 An invalid declaration or handler binding name in the selected snapshot or
 overlay does not enter the LSP navigation symbol set. Definition, references,
 prepare-rename, and rename requests for that invalid name return the same
@@ -218,6 +220,9 @@ The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay
 replacement of saved source text, and unselected nested package isolation.
+The executable `identifier-casing-source-path-boundary` LSP example covers
+workspace source-path-derived module segment diagnostics at the zero-width
+source-start range.
 The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding exclusion across
 definition, references, prepare-rename, and rename for declaration positions
