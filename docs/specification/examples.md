@@ -147,7 +147,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 ## Diagnostic Routes
 
 - Source identifier casing diagnostics, accepted-name absence checks,
-  valid-symbol precedence, and ambiguous recovery refusal:
+  valid-symbol precedence, import-path module casing, and ambiguous recovery
+  refusal:
   `../../examples/specification/check/identifier-casing-source-recovery-json/`,
   `../../examples/specification/check/identifier-casing-binding-positions-json/`,
   `../../examples/specification/check/identifier-casing-owned-constructor-recovery-json/`,
@@ -170,6 +171,21 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-over-suppression-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-direct-diagnostics-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-type-mismatch-json/`,
+  `../../examples/specification/check/identifier-casing-import-path-json/`,
+  `../../examples/specification/check/identifier-casing-import-path-human/`,
+  `../../examples/specification/check/identifier-casing-import-missing-module-overlap-json/`,
+  `../../examples/specification/check/identifier-casing-import-duplicate-overlap-json/`,
+  `../../examples/specification/check/identifier-casing-import-alias-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-type-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-constructor-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-effect-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-handler-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-order-json/`,
+  `../../examples/specification/check/identifier-casing-import-missing-type-control-json/`,
+  `../../examples/specification/check/identifier-casing-import-missing-type-export-json/`,
+  `../../examples/specification/check/identifier-casing-import-missing-constructor-control-json/`,
+  `../../examples/specification/check/identifier-casing-import-schema-cascade-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-import-private-schema-boundary-json/`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability, recovery, import isolation,
@@ -184,6 +200,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-owned-nullary-constructor-recovery-json/`,
   `../../examples/specification/run/identifier-casing-owned-payload-constructor-recovery-json/`,
   `../../examples/specification/run/identifier-casing-function-value-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-import-alias-run-boundary-json/`,
   `../../examples/specification/run/identifier-casing-import-recovery-isolation-json/`,
   `../../examples/specification/run/identifier-casing-qualified-type-import-isolation-json/`,
   `../../examples/specification/run/identifier-casing-valid-function-value-precedence-json/`,
@@ -197,6 +214,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-loaded-dependency-json/`,
   `../../examples/specification/run/identifier-casing-loaded-unreachable-dependency-json/`,
   `../../examples/specification/run/identifier-casing-unloaded-dependency-json/`,
+  `../../examples/specification/run/identifier-casing-unselected-import-path-json/`,
+  `../../examples/specification/run/identifier-casing-unused-import-path-json/`,
   and `../../examples/specification/run/identifier-casing-record-field-reachability/`.
 - Source identifier casing selected-suite static gates, unselected test peer
   isolation, exact companion recovery isolation, selected documentation-source

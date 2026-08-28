@@ -120,7 +120,7 @@ fn load_surface_modules_with_combined(
         load_embedded_standard_package(&mut diagnostics, &mut parts, include_combined)
     };
     diagnostics.extend(unresolved_local_import_diagnostics(
-        &parts.module.uses,
+        &parts.module,
         &parts.derived_modules,
     ));
 
@@ -1681,10 +1681,12 @@ fn source_span_json(span: &SourceSpan) -> JsonValue {
 }
 
 fn unresolved_local_import_diagnostics(
-    uses: &[UseDecl],
+    module: &SurfaceModule,
     derived_modules: &[(String, SourceFile)],
 ) -> Vec<Diagnostic> {
-    uses.iter()
+    module
+        .uses
+        .iter()
         .filter(|use_decl| {
             use_decl.package.is_none()
                 && use_decl.name.contains("::")

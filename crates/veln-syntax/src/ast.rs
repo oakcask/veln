@@ -27,6 +27,7 @@ pub enum AdrLiteAnchor {
 #[derive(Clone, Debug)]
 pub struct UseDecl {
     pub name: String,
+    pub name_spans: Vec<SourceSpan>,
     pub package: Option<UsePackage>,
     pub span: SourceSpan,
 }

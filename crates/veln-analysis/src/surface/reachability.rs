@@ -2,8 +2,8 @@ use std::cell::{OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 
 use veln_ast::{
-    CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
-    PublicAliasKind, SurfaceModule, UseDecl, Visibility,
+    BodyLine, BodyLineKind, CodecImplementationKind, Expr, ExprKind, Function, FunctionKind,
+    Pattern, PatternKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility,
 };
 use veln_project::classify_companion_source;
 use veln_source::{SourceFile, SourceSpan};
@@ -150,11 +150,19 @@ impl<'a> ReachabilityInputs<'a> {
         }
     }
 
-    fn uses(&self) -> Vec<&'a UseDecl> {
+    fn all_uses(&self) -> Vec<&'a UseDecl> {
         self.standard
             .into_iter()
             .flat_map(|module| module.uses.iter())
             .chain(self.application.uses.iter())
+            .collect()
+    }
+
+    fn uses(&self) -> Vec<&'a UseDecl> {
+        let invalid_names = self.invalid_names().collect::<Vec<_>>();
+        self.all_uses()
+            .into_iter()
+            .filter(|use_decl| !use_decl_has_invalid_module_segment(use_decl, &invalid_names))
             .collect()
     }
 
@@ -505,8 +513,13 @@ fn module_with_reachable_functions(
     inputs: &ReachabilityInputs<'_>,
     reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
-    let functions = materialize_reachable_functions(inputs, reachable);
+    let mut functions = materialize_reachable_functions(inputs, reachable);
     let reachable_invalid_name_spans = reachable_invalid_name_spans(inputs, &functions);
+    functions.extend(materialize_quarantined_import_proof_functions(
+        inputs,
+        &functions,
+        &reachable_invalid_name_spans,
+    ));
     let invalid_names_by_declaration = inputs.cloned_declarations(|module| &module.invalid_names);
     let invalid_names = inputs
         .cloned_declarations(|module| &module.invalid_names)
@@ -568,16 +581,46 @@ fn invalid_name_is_reachable(
     })
 }
 
+fn invalid_import_path_segment_spans(
+    use_decl: &UseDecl,
+    invalid_names: &[&veln_ast::InvalidName],
+) -> Vec<ReachableInvalidNameSpan> {
+    invalid_names
+        .iter()
+        .copied()
+        .filter(move |invalid| invalid_module_segment_in_use_decl(use_decl, invalid))
+        .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
+        .collect()
+}
+
+fn use_decl_has_invalid_module_segment(
+    use_decl: &UseDecl,
+    invalid_names: &[&veln_ast::InvalidName],
+) -> bool {
+    invalid_names
+        .iter()
+        .copied()
+        .any(|invalid| invalid_module_segment_in_use_decl(use_decl, invalid))
+}
+
+fn invalid_module_segment_in_use_decl(use_decl: &UseDecl, invalid: &veln_ast::InvalidName) -> bool {
+    invalid.class == veln_ast::NameClass::Module
+        && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+        && span_contains(&use_decl.span, &invalid.span)
+}
+
 fn reachable_invalid_name_spans(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
 ) -> Vec<ReachableInvalidNameSpan> {
     let mut selector = ReachableInvalidNameSelector::new(inputs);
-    let mut spans = functions
-        .iter()
-        .map(|function| function.span.clone())
-        .map(ReachableInvalidNameSpan::Declaration)
-        .collect::<Vec<_>>();
+    let mut spans = Vec::new();
+    spans.extend(
+        functions
+            .iter()
+            .map(|function| function.span.clone())
+            .map(ReachableInvalidNameSpan::Declaration),
+    );
     for function in functions {
         selector.collect_function(function, &mut spans);
     }
@@ -610,6 +653,7 @@ impl ReachableInvalidNameSpan {
 
 struct ReachableInvalidNameSelector<'a> {
     uses: Vec<&'a UseDecl>,
+    invalid_uses: Vec<&'a UseDecl>,
     handlers: Vec<&'a veln_ast::HandlerDecl>,
     functions_by_name: HashMap<(Option<String>, String), Vec<&'a Function>>,
     aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,
@@ -696,14 +740,20 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let aliases_by_name = index_aliases_by_name(&aliases);
         let types_by_name = index_types_by_name(&types);
         let constructors_by_name = index_constructors_by_name(&types);
+        let invalid_names = inputs.invalid_names().collect::<Vec<_>>();
         Self {
             uses: inputs.uses(),
+            invalid_uses: inputs
+                .all_uses()
+                .into_iter()
+                .filter(|use_decl| use_decl_has_invalid_module_segment(use_decl, &invalid_names))
+                .collect(),
             handlers,
             functions_by_name,
             aliases_by_name,
             types_by_name,
             constructors_by_name,
-            invalid_names: inputs.invalid_names().collect(),
+            invalid_names,
             companion_access_targets,
         }
     }
@@ -932,6 +982,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         if self.has_valid_constructor(segments, current_module, None) {
             return;
         }
+        if self.select_invalid_import_path(segments, current_module, spans) {
+            return;
+        }
         if self.has_valid_function(segments, current_module, None) {
             return;
         }
@@ -956,6 +1009,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         {
             return;
         }
+        if self.select_invalid_import_path(segments, current_module, spans) {
+            return;
+        }
         if same_module_recovery_path(segments) {
             self.select_unique_call_recovery(segments, current_module, arg_count, spans);
         }
@@ -972,6 +1028,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         {
             return;
         }
+        if self.select_invalid_import_path(segments, current_module, spans) {
+            return;
+        }
         if same_module_recovery_path(segments) {
             self.select_unique_type_recovery(segments, current_module, spans);
         }
@@ -985,6 +1044,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if self.has_valid_constructor(segments, current_module, arg_count) {
+            return;
+        }
+        if self.select_invalid_import_path(segments, current_module, spans) {
             return;
         }
         if same_module_recovery_path(segments) {
@@ -1004,7 +1066,29 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             }
             spans.push(ReachableInvalidNameSpan::Declaration(handler.span.clone()));
             self.collect_handler(handler, spans);
+        } else {
+            self.select_invalid_import_path(segments, current_module, spans);
         }
+    }
+
+    fn select_invalid_import_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) -> bool {
+        let Some(use_decl) = imported_use_for_path(
+            &self.invalid_uses,
+            &segments[..segments.len().saturating_sub(1)],
+            current_module,
+        ) else {
+            return false;
+        };
+        spans.extend(invalid_import_path_segment_spans(
+            use_decl,
+            &self.invalid_names,
+        ));
+        true
     }
 
     fn collect_handler(
@@ -1566,6 +1650,69 @@ fn materialize_reachable_functions(
         })
         .cloned()
         .collect()
+}
+
+fn materialize_quarantined_import_proof_functions(
+    inputs: &ReachabilityInputs<'_>,
+    reachable_functions: &[Function],
+    reachable_invalid_name_spans: &[ReachableInvalidNameSpan],
+) -> Vec<Function> {
+    let invalid_names = inputs.invalid_names().collect::<Vec<_>>();
+    let quarantined_modules = inputs
+        .all_uses()
+        .into_iter()
+        .filter(|use_decl| use_decl_has_invalid_module_segment(use_decl, &invalid_names))
+        .filter(|use_decl| {
+            invalid_import_path_segment_spans(use_decl, &invalid_names)
+                .iter()
+                .any(|span| {
+                    reachable_invalid_name_spans
+                        .iter()
+                        .any(|reachable| reachable == span)
+                })
+        })
+        .map(|use_decl| use_decl.name.as_str())
+        .collect::<HashSet<_>>();
+    if quarantined_modules.is_empty() {
+        return Vec::new();
+    }
+    inputs
+        .functions()
+        .filter(|function| {
+            function.kind == FunctionKind::Function
+                && function.visibility == Visibility::Public
+                && function.module_name.as_deref().is_some_and(|module_name| {
+                    quarantined_modules.contains(module_name)
+                        && !reachable_functions.iter().any(|reachable| {
+                            reachable.module_name.as_deref() == Some(module_name)
+                                && reachable.name == function.name
+                                && reachable.node_id == function.node_id
+                        })
+                })
+        })
+        .map(quarantined_import_proof_function)
+        .collect()
+}
+
+fn quarantined_import_proof_function(function: &Function) -> Function {
+    let mut proof = function.clone();
+    proof.contracts.clear();
+    proof.return_type = Some("()".to_string());
+    for param in &mut proof.params {
+        param.ty = Some("()".to_string());
+    }
+    proof.body = vec![BodyLine {
+        node_id: function.node_id,
+        kind: BodyLineKind::Expr {
+            expr: Expr {
+                node_id: function.node_id,
+                kind: ExprKind::Unit,
+                span: function.span.clone(),
+            },
+        },
+        span: function.span.clone(),
+    }];
+    proof
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

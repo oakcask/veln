@@ -1,0 +1,7 @@
+fn target_only() -> Int
+  false
+end
+
+pub fn entry() -> Bool
+  target_only()
+end

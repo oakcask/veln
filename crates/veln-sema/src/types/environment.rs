@@ -1,6 +1,9 @@
 use super::*;
 
+mod effect_handlers;
 mod facts;
+mod quarantined_imports;
+mod standard_subset;
 
 #[derive(Clone)]
 pub(crate) struct TypeEnvironment {
@@ -9,6 +12,7 @@ pub(crate) struct TypeEnvironment {
     function_recovery_signatures: Vec<FunctionSignature>,
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
     constructor_recoveries: BTreeMap<ConstructorRecoveryKey, usize>,
+    import_constructor_recoveries: BTreeMap<ImportConstructorRecoveryKey, usize>,
     codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
@@ -16,6 +20,7 @@ pub(crate) struct TypeEnvironment {
     type_symbols: Vec<NamedSymbol>,
     codec_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
+    quarantined_uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
@@ -91,84 +96,6 @@ impl TypeEnvironment {
         #[cfg(test)]
         standard_reuse_counters::record_application_prepare();
         Self::from_module_with_base(&application_module, Some(standard_environment.as_ref()))
-    }
-
-    pub(super) fn standard_subset(&self, module_names: &BTreeSet<String>) -> Self {
-        let functions = selected_standard_facts(&self.functions, module_names, |signature| {
-            signature.module_name.as_deref()
-        });
-        let functions_by_name = facts::function_name_index(&functions);
-        Self {
-            functions,
-            functions_by_name,
-            function_recovery_signatures: self
-                .function_recovery_signatures
-                .iter()
-                .filter(|signature| {
-                    signature
-                        .module_name
-                        .as_ref()
-                        .is_none_or(|module| module_names.contains(module))
-                })
-                .cloned()
-                .collect(),
-            function_recoveries: self
-                .function_recoveries
-                .iter()
-                .filter(|(key, _)| {
-                    key.module_name
-                        .as_ref()
-                        .is_none_or(|module| module_names.contains(module))
-                })
-                .map(|(key, count)| (key.clone(), *count))
-                .collect(),
-            constructor_recoveries: self
-                .constructor_recoveries
-                .iter()
-                .filter(|(key, _)| {
-                    key.module_name
-                        .as_ref()
-                        .is_none_or(|module| module_names.contains(module))
-                })
-                .map(|(key, count)| (key.clone(), *count))
-                .collect(),
-            codec_calls: selected_standard_facts(&self.codec_calls, module_names, |signature| {
-                signature.module_name.as_deref()
-            }),
-            effects: selected_standard_facts(&self.effects, module_names, |signature| {
-                signature.module_name.as_deref()
-            }),
-            handlers: selected_standard_facts(&self.handlers, module_names, |signature| {
-                signature.module_name.as_deref()
-            }),
-            schema_symbols: self.schema_symbols.standard_subset(module_names),
-            type_symbols: selected_standard_facts(&self.type_symbols, module_names, |symbol| {
-                symbol.module_name.as_deref()
-            }),
-            codec_symbols: selected_standard_facts(&self.codec_symbols, module_names, |symbol| {
-                symbol.module_name.as_deref()
-            }),
-            uses: selected_standard_facts(&self.uses, module_names, |use_decl| {
-                use_decl.module_name.as_deref()
-            }),
-            adts: self.adts.standard_subset(module_names),
-            companion_function_access_targets: selected_standard_access_targets(
-                &self.companion_function_access_targets,
-                module_names,
-            ),
-            companion_schema_access_targets: selected_standard_access_targets(
-                &self.companion_schema_access_targets,
-                module_names,
-            ),
-            companion_effect_access_targets: self
-                .companion_effect_access_targets
-                .iter()
-                .filter(|(module, access)| {
-                    module_names.contains(*module) && module_names.contains(&access.target_module)
-                })
-                .map(|(module, access)| (module.clone(), access.clone()))
-                .collect(),
-        }
     }
 
     #[cfg(test)]
@@ -280,152 +207,12 @@ impl TypeEnvironment {
         canonicalize_type_effects(
             ty,
             &self.uses,
+            &self.quarantined_uses,
             current_module,
             &self.effects,
             &self.adts,
             &self.companion_effect_access_targets,
         )
-    }
-
-    pub(crate) fn user_effect_by_label(
-        &self,
-        label: &str,
-        current_module: Option<&str>,
-    ) -> Option<&EffectSignature> {
-        self.effects.iter().find(|effect| {
-            effect.qualified_name == label
-                || (effect.name == label && effect.module_name.as_deref() == current_module)
-        })
-    }
-
-    pub(crate) fn user_effect_path(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-    ) -> Option<&EffectSignature> {
-        self.resolve_user_effect_path(segments, current_module)
-            .found()
-    }
-
-    pub(crate) fn resolve_user_effect_path(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-    ) -> UserEffectPathResolution<'_> {
-        match segments {
-            [name] => self.user_effect_by_label(name, current_module).map_or(
-                UserEffectPathResolution::Missing,
-                UserEffectPathResolution::Found,
-            ),
-            [_, .., name] => {
-                let Some(use_decl) = imported_use_for_path(
-                    &self.uses,
-                    &segments[..segments.len() - 1],
-                    current_module,
-                ) else {
-                    return UserEffectPathResolution::Missing;
-                };
-                let module_name = use_decl.name.as_str();
-                let Some(effect) = self.effects.iter().find(|effect| {
-                    effect.name == *name && effect.module_name.as_deref() == Some(module_name)
-                }) else {
-                    return UserEffectPathResolution::Missing;
-                };
-                if imported_effect_is_visible(
-                    use_decl,
-                    current_module,
-                    module_name,
-                    effect.visibility,
-                    &self.companion_effect_access_targets,
-                ) {
-                    return UserEffectPathResolution::Found(effect);
-                }
-                if effect.visibility != Visibility::Public
-                    && use_decl.package.is_none()
-                    && let Some(access) = current_module
-                        .and_then(|module| self.companion_effect_access_targets.get(module))
-                    && access.target_module != module_name
-                {
-                    return UserEffectPathResolution::PrivateCompanionTargetMismatch {
-                        effect,
-                        access,
-                    };
-                }
-                UserEffectPathResolution::Missing
-            }
-            _ => UserEffectPathResolution::Missing,
-        }
-    }
-
-    pub(crate) fn visible_user_effects(
-        &self,
-        current_module: Option<&str>,
-    ) -> Vec<&EffectSignature> {
-        self.effects
-            .iter()
-            .filter(|effect| {
-                effect.module_name.as_deref() == current_module
-                    || effect.visibility == Visibility::Public
-                    || current_module
-                        .and_then(|module| self.companion_effect_access_targets.get(module))
-                        .is_some_and(|access| {
-                            effect.module_name.as_deref() == Some(access.target_module.as_str())
-                        })
-            })
-            .collect()
-    }
-
-    pub(crate) fn handler_path(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-    ) -> HandlerPathResolution<'_> {
-        match segments {
-            [name] => self
-                .handlers
-                .iter()
-                .find(|handler| {
-                    handler.name == *name && handler.module_name.as_deref() == current_module
-                })
-                .map_or(HandlerPathResolution::Missing, HandlerPathResolution::Found),
-            [_, .., name] => {
-                let use_decl = imported_use_for_path(
-                    &self.uses,
-                    &segments[..segments.len() - 1],
-                    current_module,
-                );
-                let Some(use_decl) = use_decl else {
-                    return HandlerPathResolution::Missing;
-                };
-                let Some(handler) = self.handlers.iter().find(|handler| {
-                    handler.name == *name
-                        && handler.module_name.as_deref() == Some(use_decl.name.as_str())
-                }) else {
-                    return HandlerPathResolution::Missing;
-                };
-                if imported_handler_is_visible(
-                    handler,
-                    use_decl,
-                    current_module,
-                    &self.companion_effect_access_targets,
-                ) {
-                    return HandlerPathResolution::Found(handler);
-                }
-                if handler.visibility != Visibility::Public
-                    && use_decl.package.is_none()
-                    && let Some(access) = current_module
-                        .and_then(|module| self.companion_effect_access_targets.get(module))
-                    && access.target_module != use_decl.name
-                {
-                    return HandlerPathResolution::PrivateCompanionTargetMismatch {
-                        handler,
-                        access,
-                    };
-                }
-                HandlerPathResolution::Missing
-            }
-            _ => HandlerPathResolution::Missing,
-        }
     }
 
     pub(crate) fn function_for(&self, source: &Function) -> Option<&FunctionSignature> {
@@ -836,5 +623,13 @@ impl FunctionRecoveryKey {
 pub(crate) struct ConstructorRecoveryKey {
     module_name: Option<String>,
     name: String,
+    field_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ImportConstructorRecoveryKey {
+    current_module: Option<String>,
+    alias: String,
+    constructor_segments: Vec<String>,
     field_count: usize,
 }

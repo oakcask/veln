@@ -35,6 +35,7 @@ pub struct SurfaceModule {
 pub enum NameClass {
     Type,
     Constructor,
+    Module,
     Function,
     ValueBinding,
 }
@@ -44,6 +45,7 @@ impl NameClass {
         match self {
             Self::Type => "type",
             Self::Constructor => "constructor",
+            Self::Module => "module",
             Self::Function => "function",
             Self::ValueBinding => "value_binding",
         }
@@ -52,7 +54,7 @@ impl NameClass {
     pub fn required_initial(self) -> &'static str {
         match self {
             Self::Type | Self::Constructor => "ascii_uppercase",
-            Self::Function | Self::ValueBinding => "ascii_lowercase",
+            Self::Module | Self::Function | Self::ValueBinding => "ascii_lowercase",
         }
     }
 }
@@ -126,6 +128,7 @@ pub struct UseDecl {
     pub module_name: Option<String>,
     pub name: String,
     pub alias: String,
+    pub name_spans: Vec<SourceSpan>,
     pub package: Option<String>,
     pub package_span: Option<SourceSpan>,
     pub span: SourceSpan,
@@ -145,6 +148,7 @@ impl UseDecl {
             module_name: Some(module_name),
             name: "std::prelude".to_string(),
             alias: "prelude".to_string(),
+            name_spans: Vec::new(),
             package: Some("std".to_string()),
             package_span: None,
             span,

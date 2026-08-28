@@ -1,0 +1,5 @@
+use HTTP
+
+fn main() -> HTTP::Payload
+  HTTP::Payload::Data(1)
+end

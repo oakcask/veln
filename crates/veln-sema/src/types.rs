@@ -36,6 +36,7 @@ use crate::adt::{self, AdtRegistry};
 use crate::effects::{
     concurrency_effects, is_stdio_call, prelude_effects, standard_library_effects,
 };
+use crate::name_recovery::normal_use_decls;
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 
@@ -683,6 +684,15 @@ pub(crate) fn ordinary_function_signatures(
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<FunctionSignature> {
+    let uses = normal_use_decls(module);
+    let quarantined_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     module
         .functions
         .iter()
@@ -698,7 +708,8 @@ pub(crate) fn ordinary_function_signatures(
                 .map(|ty| {
                     canonicalize_type_effects(
                         ty,
-                        &module.uses,
+                        &uses,
+                        &quarantined_uses,
                         function.module_name.as_deref(),
                         effects,
                         adts,
@@ -709,7 +720,8 @@ pub(crate) fn ordinary_function_signatures(
             let variadic = variadic.map(|ty| {
                 canonicalize_type_effects(
                     ty,
-                    &module.uses,
+                    &uses,
+                    &quarantined_uses,
                     function.module_name.as_deref(),
                     effects,
                     adts,
@@ -718,7 +730,8 @@ pub(crate) fn ordinary_function_signatures(
             });
             let return_type = canonicalize_type_effects(
                 parse_type_or_unknown(function.return_type.as_deref()),
-                &module.uses,
+                &uses,
+                &quarantined_uses,
                 function.module_name.as_deref(),
                 effects,
                 adts,
@@ -737,7 +750,8 @@ pub(crate) fn ordinary_function_signatures(
                 return_type,
                 effects: canonical_declared_effects(
                     function.effects.clone().unwrap_or_default(),
-                    &module.uses,
+                    &uses,
+                    &quarantined_uses,
                     function.module_name.as_deref(),
                     effects,
                     companion_effect_access_targets,
@@ -752,31 +766,48 @@ pub(crate) fn ordinary_function_signatures(
 fn canonicalize_type_effects(
     ty: Type,
     uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
     effects: &[EffectSignature],
     adts: &AdtRegistry,
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Type {
     match ty {
-        Type::Named { name, args } => Type::Named {
-            name: adts
+        Type::Named { name, args } => {
+            let Some(canonical_name) = adts
                 .descriptor_for_type_path(&name, args.len(), current_module, uses)
                 .map(|descriptor| descriptor.type_name.clone())
-                .unwrap_or(name),
-            args: args
-                .into_iter()
-                .map(|arg| {
-                    canonicalize_type_effects(
-                        arg,
-                        uses,
+                .or_else(|| {
+                    canonical_type_name_without_descriptor(
+                        &name,
                         current_module,
-                        effects,
+                        uses,
+                        quarantined_uses,
+                        args.len(),
                         adts,
-                        companion_effect_access_targets,
                     )
                 })
-                .collect(),
-        },
+            else {
+                return Type::Unknown;
+            };
+            Type::Named {
+                name: canonical_name,
+                args: args
+                    .into_iter()
+                    .map(|arg| {
+                        canonicalize_type_effects(
+                            arg,
+                            uses,
+                            quarantined_uses,
+                            current_module,
+                            effects,
+                            adts,
+                            companion_effect_access_targets,
+                        )
+                    })
+                    .collect(),
+            }
+        }
         Type::Record(fields) => Type::Record(
             fields
                 .into_iter()
@@ -786,6 +817,7 @@ fn canonicalize_type_effects(
                         canonicalize_type_effects(
                             ty,
                             uses,
+                            quarantined_uses,
                             current_module,
                             effects,
                             adts,
@@ -807,6 +839,7 @@ fn canonicalize_type_effects(
                     canonicalize_type_effects(
                         param,
                         uses,
+                        quarantined_uses,
                         current_module,
                         effects,
                         adts,
@@ -819,6 +852,7 @@ fn canonicalize_type_effects(
                     canonicalize_type_effects(
                         *ty,
                         uses,
+                        quarantined_uses,
                         current_module,
                         effects,
                         adts,
@@ -829,6 +863,7 @@ fn canonicalize_type_effects(
             return_type: Box::new(canonicalize_type_effects(
                 *return_type,
                 uses,
+                quarantined_uses,
                 current_module,
                 effects,
                 adts,
@@ -837,6 +872,7 @@ fn canonicalize_type_effects(
             effects: canonical_declared_effects(
                 declared,
                 uses,
+                quarantined_uses,
                 current_module,
                 effects,
                 companion_effect_access_targets,
@@ -846,9 +882,45 @@ fn canonicalize_type_effects(
     }
 }
 
+fn canonical_type_name_without_descriptor(
+    name: &str,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
+    args_len: usize,
+    adts: &AdtRegistry,
+) -> Option<String> {
+    if !name.contains("::") {
+        return Some(name.to_string());
+    }
+    let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+    match segments.as_slice() {
+        [_, .., _] => {
+            if imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
+                .is_some()
+            {
+                return Some(name.to_string());
+            }
+            let use_decl = imported_use_for_path(
+                quarantined_uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )?;
+            adts.descriptor_for_type_path(name, args_len, current_module, quarantined_uses)
+                .filter(|descriptor| {
+                    descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+                        && descriptor.visibility == Visibility::Public
+                })
+                .map_or_else(|| Some(name.to_string()), |_| None)
+        }
+        _ => Some(name.to_string()),
+    }
+}
+
 fn canonical_declared_effects(
     declared: Vec<String>,
     uses: &[UseDecl],
+    quarantined_uses: &[UseDecl],
     current_module: Option<&str>,
     effects: &[EffectSignature],
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
@@ -868,6 +940,16 @@ fn canonical_declared_effects(
             companion_effect_access_targets,
         )
         .unwrap_or(effect);
+        if quarantined_public_user_effect_label(
+            &segments,
+            quarantined_uses,
+            current_module,
+            effects,
+        )
+        .is_some()
+        {
+            continue;
+        }
         push_unique_effect(&mut canonical, &label);
     }
     canonical
@@ -917,6 +999,15 @@ fn handler_signatures(
     effects: &[EffectSignature],
     companion_effect_access_targets: &BTreeMap<String, CompanionAccessTarget>,
 ) -> Vec<HandlerSignature> {
+    let uses = normal_use_decls(module);
+    let quarantined_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     module
         .handlers
         .iter()
@@ -929,7 +1020,7 @@ fn handler_signatures(
             };
             let effect = canonical_user_effect_label(
                 &handler.effect,
-                &module.uses,
+                &uses,
                 handler.module_name.as_deref(),
                 effects,
                 companion_effect_access_targets,
@@ -948,7 +1039,8 @@ fn handler_signatures(
                 effect,
                 effects: canonical_declared_effects(
                     handler.effects.clone().unwrap_or_default(),
-                    &module.uses,
+                    &uses,
+                    &quarantined_uses,
                     handler.module_name.as_deref(),
                     effects,
                     companion_effect_access_targets,
@@ -979,7 +1071,7 @@ enum EffectDependencyNode {
 }
 
 struct FunctionEffectContext<'a> {
-    module: &'a SurfaceModule,
+    uses: &'a [UseDecl],
     functions: &'a [FunctionSignature],
     user_effects: &'a [EffectSignature],
     handlers: &'a [HandlerSignature],
@@ -991,6 +1083,7 @@ struct FunctionEffectContext<'a> {
 
 struct HandlerEffectContext<'a> {
     module: &'a SurfaceModule,
+    uses: &'a [UseDecl],
     user_effects: &'a [EffectSignature],
     functions: &'a [FunctionSignature],
     effects_by_function: &'a EffectsByFunction,
@@ -1014,6 +1107,7 @@ type EffectsByModulePath = BTreeMap<(String, String), (Vec<String>, Visibility)>
 
 struct EffectInference<'a> {
     module: &'a SurfaceModule,
+    uses: Vec<UseDecl>,
     functions: &'a mut [FunctionSignature],
     user_effects: &'a [EffectSignature],
     handlers: &'a mut [HandlerSignature],
@@ -1044,6 +1138,7 @@ impl<'a> EffectInference<'a> {
         let queued = graph.nodes.clone();
         Self {
             module,
+            uses: normal_use_decls(module),
             companion_access_targets: companion_function_access_targets(module),
             companion_effect_access_targets: companion_access_target_infos(module),
             clause_companion_access_targets: companion_access_targets_for_signatures(functions),
@@ -1109,6 +1204,7 @@ impl<'a> EffectInference<'a> {
             &self.handlers[index],
             &HandlerEffectContext {
                 module: self.module,
+                uses: &self.uses,
                 user_effects: self.user_effects,
                 functions: self.functions,
                 effects_by_function: &self.effects_by_function,
@@ -1127,7 +1223,7 @@ impl<'a> EffectInference<'a> {
 
     fn function_context(&self) -> FunctionEffectContext<'_> {
         FunctionEffectContext {
-            module: self.module,
+            uses: &self.uses,
             functions: self.functions,
             user_effects: self.user_effects,
             handlers: self.handlers,
@@ -1260,6 +1356,7 @@ fn effect_dependency_graph(
     user_effects: &[EffectSignature],
     handlers: &[HandlerSignature],
 ) -> EffectDependencyGraph {
+    let uses = normal_use_decls(module);
     let companion_access_targets = companion_function_access_targets(module);
     let companion_effect_access_targets = companion_access_target_infos(module);
     let (effects_by_function, effects_by_module_path) = effect_lookup_maps(functions);
@@ -1273,7 +1370,7 @@ fn effect_dependency_graph(
         })
         .collect::<BTreeSet<_>>();
     let context = FunctionEffectContext {
-        module,
+        uses: &uses,
         functions,
         user_effects,
         handlers,
@@ -1362,7 +1459,7 @@ fn insert_handler_effect_dependencies(
                 .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
         );
         let expr_context = ExprEffectContext {
-            uses: &module.uses,
+            uses: context.uses,
             current_module: handler.module_name.as_deref(),
             bindings: &bindings,
             functions: context.functions,
@@ -1446,7 +1543,7 @@ fn collect_private_handler_effects(
                 }),
         );
         let expr_context = ExprEffectContext {
-            uses: &context.module.uses,
+            uses: context.uses,
             current_module: handler.module_name.as_deref(),
             bindings: &bindings,
             functions: context.functions,
@@ -1491,7 +1588,7 @@ fn collect_function_body_effects(
                 expr,
             } => {
                 let expr_context = ExprEffectContext {
-                    uses: &context.module.uses,
+                    uses: context.uses,
                     current_module: function.module_name.as_deref(),
                     bindings: &bindings,
                     functions: context.functions,
@@ -1508,7 +1605,7 @@ fn collect_function_body_effects(
             }
             BodyLineKind::Expr { expr } => {
                 let expr_context = ExprEffectContext {
-                    uses: &context.module.uses,
+                    uses: context.uses,
                     current_module: function.module_name.as_deref(),
                     bindings: &bindings,
                     functions: context.functions,
@@ -1545,7 +1642,7 @@ fn function_effect_dependencies(
                 expr,
             } => {
                 let expr_context = ExprEffectContext {
-                    uses: &context.module.uses,
+                    uses: context.uses,
                     current_module: function.module_name.as_deref(),
                     bindings: &bindings,
                     functions: context.functions,
@@ -1562,7 +1659,7 @@ fn function_effect_dependencies(
             }
             BodyLineKind::Expr { expr } => {
                 let expr_context = ExprEffectContext {
-                    uses: &context.module.uses,
+                    uses: context.uses,
                     current_module: function.module_name.as_deref(),
                     bindings: &bindings,
                     functions: context.functions,
@@ -1612,6 +1709,32 @@ pub(crate) fn canonical_user_effect_label(
         }
         _ => None,
     }
+}
+
+fn quarantined_public_user_effect_label(
+    segments: &[String],
+    quarantined_uses: &[UseDecl],
+    current_module: Option<&str>,
+    effects: &[EffectSignature],
+) -> Option<String> {
+    let [_, .., name] = segments else {
+        return None;
+    };
+    let use_decl = imported_use_for_path(
+        quarantined_uses,
+        &segments[..segments.len() - 1],
+        current_module,
+    )?;
+    let mut matches = effects.iter().filter(|effect| {
+        effect.name == *name
+            && effect.module_name.as_deref() == Some(use_decl.name.as_str())
+            && effect.visibility == Visibility::Public
+    });
+    let first = matches.next()?;
+    matches
+        .next()
+        .is_none()
+        .then(|| first.qualified_name.clone())
 }
 
 pub(crate) fn imported_effect_is_visible(

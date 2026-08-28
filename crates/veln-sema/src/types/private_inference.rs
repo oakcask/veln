@@ -8,7 +8,7 @@ use veln_ast::{
 };
 
 use crate::adt::{self, AdtRegistry};
-use crate::name_recovery::public_alias_has_invalid_target_leaf;
+use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
 use crate::semantic_model::{Binding, FunctionKey, Type};
 use crate::type_syntax::parse_type_or_unknown;
 use crate::types::signatures::{FunctionSignature, MatchScrutineePatternInference};
@@ -46,6 +46,7 @@ pub(crate) fn infer_private_function_body_return_types(
     functions: &mut [FunctionSignature],
     adts: &AdtRegistry,
 ) {
+    let uses = normal_use_decls(module);
     let mut changed = true;
     while changed {
         changed = false;
@@ -67,7 +68,7 @@ pub(crate) fn infer_private_function_body_return_types(
             let key = (function.module_name.clone(), name.clone());
             let inferred = infer_private_function_tail_type(
                 function,
-                &module.uses,
+                &uses,
                 &signatures_by_path,
                 &returns_by_path,
                 adts,
@@ -98,6 +99,7 @@ pub(crate) fn infer_private_function_call_site_signature_types(
     functions: &mut [FunctionSignature],
     adts: &AdtRegistry,
 ) {
+    let uses = normal_use_decls(module);
     let function_by_path = module
         .functions
         .iter()
@@ -141,7 +143,7 @@ pub(crate) fn infer_private_function_call_site_signature_types(
             collect_private_call_site_constraints(
                 function,
                 &mut PrivateCallSiteConstraintContext {
-                    uses: &module.uses,
+                    uses: &uses,
                     function_by_path: &function_by_path,
                     omitted_private_slots: &omitted_private_slots,
                     signatures_by_path: &signatures_by_path,
@@ -1690,6 +1692,7 @@ pub(crate) fn infer_private_prelude_callback_return_types(
     functions: &mut [FunctionSignature],
     adts: &AdtRegistry,
 ) {
+    let uses = normal_use_decls(module);
     let function_by_path = module
         .functions
         .iter()
@@ -1711,7 +1714,7 @@ pub(crate) fn infer_private_prelude_callback_return_types(
         .collect::<BTreeMap<_, _>>();
 
     let initial_omitted_private_returns =
-        omitted_private_returns_requiring_prelude_pass(module, functions, &module.uses, adts);
+        omitted_private_returns_requiring_prelude_pass(module, functions, &uses, adts);
     if initial_omitted_private_returns.is_empty() {
         return;
     }
@@ -1727,7 +1730,7 @@ pub(crate) fn infer_private_prelude_callback_return_types(
         &returns_by_path,
         &function_by_path,
         &private_references,
-        &module.uses,
+        &uses,
         adts,
     );
     if contributors.is_empty() {
@@ -1743,7 +1746,7 @@ pub(crate) fn infer_private_prelude_callback_return_types(
         }) {
             collect_private_prelude_callback_return_constraints(
                 function,
-                &module.uses,
+                &uses,
                 &function_by_path,
                 &omitted_private_returns,
                 &mut returns_by_path,
@@ -3242,6 +3245,7 @@ pub(crate) fn function_alias_signatures(
     functions: &[FunctionSignature],
 ) -> Vec<FunctionSignature> {
     let companion_access_targets = BTreeMap::new();
+    let uses = normal_use_decls(module);
     module
         .aliases
         .iter()
@@ -3260,7 +3264,7 @@ pub(crate) fn function_alias_signatures(
             }
             let target = function_signature_path(
                 &alias.target,
-                &module.uses,
+                &uses,
                 functions,
                 alias.module_name.as_deref(),
                 &companion_access_targets,

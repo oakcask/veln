@@ -1,0 +1,5 @@
+use missing::HTTP
+
+fn main() -> Int
+  HTTP::Payload::Data(1)
+end

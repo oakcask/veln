@@ -24,8 +24,23 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `details.phase`, `origin`, `occurrence`, `name`, `name_class`,
   `required_initial`, and `observed_initial` fields. Written qualified path
   segment diagnostics also include the zero-based `segment_index`. The checked
-  `identifier-casing-*-json` cases define exact spans, detail values, and
-  non-cascading recovery behavior.
+  `identifier-casing-*-json` cases, including
+  `identifier-casing-import-path-json`,
+  `identifier-casing-import-missing-module-overlap-json`,
+  `identifier-casing-import-duplicate-overlap-json`,
+  `identifier-casing-import-alias-cascade-boundary-json`,
+  `identifier-casing-import-type-cascade-boundary-json`,
+  `identifier-casing-import-constructor-cascade-boundary-json`,
+  `identifier-casing-import-missing-type-control-json`,
+  `identifier-casing-import-missing-type-export-json`,
+  `identifier-casing-import-missing-constructor-control-json`,
+  `identifier-casing-import-schema-cascade-boundary-json`,
+  `identifier-casing-import-private-schema-boundary-json`, and
+  `identifier-casing-import-effect-cascade-boundary-json`,
+  `identifier-casing-import-handler-cascade-boundary-json`,
+  `identifier-casing-import-order-json`, and
+  `identifier-casing-import-alias-run-boundary-json` define exact spans,
+  detail values, diagnostic ordering, and non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
   `name_class`, and `required_initial` fields and diagnostic kind
@@ -97,8 +112,22 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-qualified-constructor-pattern-json`,
 `identifier-casing-qualified-constructor-pattern-human`,
 `identifier-casing-qualified-constructor-pattern-over-suppression-json`,
-`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`, and
-`identifier-casing-qualified-constructor-pattern-type-mismatch-json` cases.
+`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`,
+`identifier-casing-qualified-constructor-pattern-type-mismatch-json`,
+`identifier-casing-import-path-json`, `identifier-casing-import-path-human`,
+`identifier-casing-import-missing-module-overlap-json`,
+`identifier-casing-import-duplicate-overlap-json`,
+`identifier-casing-import-alias-cascade-boundary-json`,
+`identifier-casing-import-type-cascade-boundary-json`,
+`identifier-casing-import-constructor-cascade-boundary-json`,
+`identifier-casing-import-missing-type-control-json`,
+`identifier-casing-import-missing-type-export-json`,
+`identifier-casing-import-missing-constructor-control-json`,
+`identifier-casing-import-schema-cascade-boundary-json`,
+`identifier-casing-import-private-schema-boundary-json`,
+`identifier-casing-import-effect-cascade-boundary-json`,
+`identifier-casing-import-handler-cascade-boundary-json`, and
+`identifier-casing-import-order-json` cases.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`

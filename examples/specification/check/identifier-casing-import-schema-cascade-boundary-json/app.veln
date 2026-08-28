@@ -1,0 +1,9 @@
+use HTTP
+
+schema Packet
+  payload: HTTP::Wire
+end
+
+schema MissingPacket
+  missing: HTTP::Missing
+end

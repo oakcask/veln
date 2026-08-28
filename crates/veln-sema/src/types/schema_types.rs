@@ -1,4 +1,5 @@
 use super::*;
+use crate::name_recovery::use_decl_has_invalid_module_segment;
 
 mod schema_encode;
 
@@ -213,8 +214,8 @@ fn schema_reference<'a>(
             visited_aliases,
         ),
         [_, .., name] => {
-            let use_decl = imported_use_for_path(
-                &module.uses,
+            let use_decl = normal_imported_use_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 current_module,
             )?;
@@ -841,7 +842,7 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
                 .iter()
                 .map(|segment| (*segment).to_string())
                 .collect::<Vec<_>>();
-            let use_decl = imported_use_for_path(&module.uses, &import_path, current_module)?;
+            let use_decl = normal_imported_use_for_path(module, &import_path, current_module)?;
             adts.descriptors().iter().rev().find(|descriptor| {
                 descriptor.type_name == *type_name
                     && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
@@ -1351,8 +1352,8 @@ pub(crate) fn schema_dispatch_payload_schema<'a>(
     match segments.as_slice() {
         [name] => same_module_schema(module, schema, name),
         [_, .., name] => {
-            let use_decl = imported_use_for_path(
-                &module.uses,
+            let use_decl = normal_imported_use_for_path(
+                module,
                 &segments[..segments.len() - 1],
                 schema.module_name.as_deref(),
             )?;
@@ -1367,6 +1368,19 @@ pub(crate) fn schema_dispatch_payload_schema<'a>(
         }
         _ => None,
     }
+}
+
+fn normal_imported_use_for_path<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    let module_path = segments.join("::");
+    module.uses.iter().find(|use_decl| {
+        !use_decl_has_invalid_module_segment(module, use_decl)
+            && use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
 }
 
 pub(crate) fn schema_decode_value_type(

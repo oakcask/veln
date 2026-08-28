@@ -162,6 +162,7 @@ fn lower_handler_clause_functions(
     {
         UserEffectPathResolution::Found(effect) => effect,
         UserEffectPathResolution::PrivateCompanionTargetMismatch { .. }
+        | UserEffectPathResolution::QuarantinedImportTarget
         | UserEffectPathResolution::Missing => return Vec::new(),
     };
     handler
@@ -1133,6 +1134,7 @@ impl<'a> CoreLowerer<'a> {
         {
             HandlerPathResolution::Found(handler) => handler.clone(),
             HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+            | HandlerPathResolution::QuarantinedImportTarget
             | HandlerPathResolution::Missing => {
                 for arg in args {
                     self.lower_expr(arg, None);

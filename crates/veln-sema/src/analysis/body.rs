@@ -1607,6 +1607,12 @@ impl<'a> FunctionChecker<'a> {
                     ));
                 return Type::Unknown;
             }
+            UserEffectPathResolution::QuarantinedImportTarget => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                return Type::Unknown;
+            }
             UserEffectPathResolution::Missing => {
                 for arg in args {
                     self.infer_expr(arg, None);
@@ -1690,6 +1696,12 @@ impl<'a> FunctionChecker<'a> {
                         handler_span.clone(),
                     ));
                 return body_ty;
+            }
+            HandlerPathResolution::QuarantinedImportTarget => {
+                for arg in args {
+                    self.infer_expr(arg, None);
+                }
+                return self.infer_expr(body, expected);
             }
             HandlerPathResolution::Missing => {
                 for arg in args {
@@ -2031,6 +2043,16 @@ impl<'a> FunctionChecker<'a> {
                     {
                         return function.ty();
                     }
+                    if self
+                        .environment
+                        .quarantined_import_value_recovery_candidate_count(
+                            segments,
+                            self.function.module_name.as_deref(),
+                        )
+                        == 1
+                    {
+                        return Type::Unknown;
+                    }
                     let symbol = segments.join("::");
                     self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
                     Type::Unknown
@@ -2156,6 +2178,7 @@ impl<'a> FunctionChecker<'a> {
                 {
                     return Some(self.infer_adt_constructor(expr, args, expected, constructor));
                 }
+                ConstructorLookup::Found(_) => {}
                 ConstructorLookup::Ambiguous => {
                     if let Some(constructor) = expected
                         .and_then(|expected| {
@@ -2181,7 +2204,22 @@ impl<'a> FunctionChecker<'a> {
                     );
                     return Some(Type::Unknown);
                 }
-                _ => {}
+                ConstructorLookup::Missing => {
+                    if self
+                        .environment
+                        .quarantined_import_constructor_recovery_candidate_count(
+                            segments,
+                            self.function.module_name.as_deref(),
+                            Some(args.len()),
+                        )
+                        == 1
+                    {
+                        for arg in args {
+                            self.infer_expr(arg, None);
+                        }
+                        return Some(Type::Unknown);
+                    }
+                }
             }
         }
         None
@@ -2418,6 +2456,24 @@ impl<'a> FunctionChecker<'a> {
                 )
                 + self.invalid_local_callable_recovery_count(name)
                 == 1);
+            let recovered = recovered
+                || self
+                    .environment
+                    .quarantined_import_call_recovery_candidate_count(
+                        segments,
+                        self.function.module_name.as_deref(),
+                        args.len(),
+                    )
+                    == 1;
+            let recovered = recovered
+                || self
+                    .environment
+                    .quarantined_import_constructor_recovery_candidate_count(
+                        segments,
+                        self.function.module_name.as_deref(),
+                        Some(args.len()),
+                    )
+                    == 1;
             if !recovered {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(

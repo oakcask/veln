@@ -226,10 +226,14 @@ fn check_invalid_name_casing(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    module
+    let mut invalid_names = module
         .invalid_names
         .iter()
         .filter(|invalid| !invalid_name_is_valid_constructor_pattern(invalid, module, environment))
+        .collect::<Vec<_>>();
+    invalid_names.sort_by_key(|invalid| (invalid.span.start.offset, invalid.span.end.offset));
+    invalid_names
+        .into_iter()
         .map(invalid_name_diagnostic)
         .collect()
 }
@@ -264,6 +268,7 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
     let subject = match invalid.class {
         NameClass::Type => "type name",
         NameClass::Constructor => "constructor name",
+        NameClass::Module => "module name",
         NameClass::Function => "function name",
         NameClass::ValueBinding => "binding name",
     };
@@ -271,14 +276,14 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
         match invalid.class {
             NameClass::Type => "type alias target",
             NameClass::Function => "function alias target",
-            NameClass::Constructor | NameClass::ValueBinding => subject,
+            NameClass::Constructor | NameClass::Module | NameClass::ValueBinding => subject,
         }
     } else {
         subject
     };
     let required_letter = match invalid.class {
         NameClass::Type | NameClass::Constructor => "uppercase",
-        NameClass::Function | NameClass::ValueBinding => "lowercase",
+        NameClass::Module | NameClass::Function | NameClass::ValueBinding => "lowercase",
     };
     let observed_initial = invalid.name.as_bytes().first().map_or("other", |initial| {
         if initial.is_ascii_uppercase() {

@@ -38,6 +38,7 @@ struct SymbolFacts {
     type_symbols: Vec<NamedSymbol>,
     codec_symbols: Vec<NamedSymbol>,
     uses: Vec<UseDecl>,
+    quarantined_uses: Vec<UseDecl>,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
 }
@@ -47,6 +48,7 @@ struct RecoveryFacts {
     function_signatures: Vec<FunctionSignature>,
     functions: BTreeMap<FunctionRecoveryKey, usize>,
     constructors: BTreeMap<ConstructorRecoveryKey, usize>,
+    import_constructors: BTreeMap<ImportConstructorRecoveryKey, usize>,
 }
 
 impl RecoveryFacts {
@@ -84,6 +86,7 @@ pub(super) fn from_module_with_base(
         function_recovery_signatures: recovery.function_signatures,
         function_recoveries: recovery.functions,
         constructor_recoveries: recovery.constructors,
+        import_constructor_recoveries: recovery.import_constructors,
         codec_calls,
         effects: declarations.effects,
         handlers: callables.handlers,
@@ -91,6 +94,7 @@ pub(super) fn from_module_with_base(
         type_symbols: symbols.type_symbols,
         codec_symbols: symbols.codec_symbols,
         uses: symbols.uses,
+        quarantined_uses: symbols.quarantined_uses,
         adts: declarations.adts,
         companion_function_access_targets: symbols.companion_function_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
@@ -99,10 +103,10 @@ pub(super) fn from_module_with_base(
 }
 
 fn recovery_facts(module: &SurfaceModule, functions: &[FunctionSignature]) -> RecoveryFacts {
-    RecoveryFacts {
-        constructors: constructor_recovery_facts(module),
-        ..function_recovery_facts(module, functions)
-    }
+    let mut facts = function_recovery_facts(module, functions);
+    facts.constructors = constructor_recovery_facts(module);
+    facts.import_constructors = import_constructor_recovery_facts(module);
+    facts
 }
 
 fn function_recovery_facts(
@@ -216,6 +220,47 @@ fn constructor_recovery_facts(module: &SurfaceModule) -> BTreeMap<ConstructorRec
     candidates
 }
 
+fn import_constructor_recovery_facts(
+    module: &SurfaceModule,
+) -> BTreeMap<ImportConstructorRecoveryKey, usize> {
+    let mut candidates = BTreeMap::new();
+    for use_decl in module.uses.iter().filter(|use_decl| {
+        crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+    }) {
+        for type_decl in module.types.iter().filter(|type_decl| {
+            type_decl.module_name.as_deref() == Some(use_decl.name.as_str())
+                && type_decl.visibility == Visibility::Public
+        }) {
+            let Some(type_name) = &type_decl.name else {
+                continue;
+            };
+            for variant in type_decl
+                .variants
+                .iter()
+                .filter(|variant| variant.visibility == Visibility::Public)
+            {
+                let Some(variant_name) = &variant.name else {
+                    continue;
+                };
+                for constructor_segments in [
+                    vec![variant_name.clone()],
+                    vec![type_name.clone(), variant_name.clone()],
+                ] {
+                    *candidates
+                        .entry(ImportConstructorRecoveryKey {
+                            current_module: use_decl.module_name.clone(),
+                            alias: use_decl.alias.clone(),
+                            constructor_segments,
+                            field_count: variant.fields.len(),
+                        })
+                        .or_insert(0) += 1;
+                }
+            }
+        }
+    }
+    candidates
+}
+
 fn module_has_invalid_name(
     module: &SurfaceModule,
     class: veln_ast::NameClass,
@@ -316,8 +361,20 @@ fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Symbo
     extend_with_base_facts(&mut type_symbols, base.map(|base| &base.type_symbols));
     let mut codec_symbols = named_codec_symbols(module);
     extend_with_base_facts(&mut codec_symbols, base.map(|base| &base.codec_symbols));
-    let mut uses = module.uses.clone();
+    let mut uses = crate::name_recovery::normal_use_decls(module);
     extend_with_base_facts(&mut uses, base.map(|base| &base.uses));
+    let mut quarantined_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| {
+            crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+        })
+        .cloned()
+        .collect();
+    extend_with_base_facts(
+        &mut quarantined_uses,
+        base.map(|base| &base.quarantined_uses),
+    );
     let mut companion_function_access_targets = companion_function_access_targets(module);
     extend_with_base_facts(
         &mut companion_function_access_targets,
@@ -333,6 +390,7 @@ fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Symbo
         type_symbols,
         codec_symbols,
         uses,
+        quarantined_uses,
         companion_function_access_targets,
         companion_schema_access_targets,
     }

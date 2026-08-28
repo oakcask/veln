@@ -1,0 +1,5 @@
+use HTTP
+
+schema Packet
+  payload: HTTP::Wire
+end

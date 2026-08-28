@@ -26,6 +26,7 @@ fn check_handler_declaration(
         match environment.handler_path(std::slice::from_ref(name), handler.module_name.as_deref()) {
             HandlerPathResolution::Found(signature) => Some(signature),
             HandlerPathResolution::PrivateCompanionTargetMismatch { .. }
+            | HandlerPathResolution::QuarantinedImportTarget
             | HandlerPathResolution::Missing => None,
         }
     }) else {
@@ -45,6 +46,7 @@ fn check_handler_declaration(
                 handler.effect_span.clone(),
             )];
         }
+        UserEffectPathResolution::QuarantinedImportTarget => return Vec::new(),
         UserEffectPathResolution::Missing => {
             return vec![unknown_effect_diagnostic(handler, environment)];
         }
@@ -84,6 +86,7 @@ fn declared_effect_diagnostics(
                         handler.module_name.as_deref()
                     ),
                     UserEffectPathResolution::Found(_)
+                        | UserEffectPathResolution::QuarantinedImportTarget
                 )
         })
         .map(|(index, effect)| {
@@ -105,7 +108,9 @@ fn declared_effect_diagnostics(
                         .cloned()
                         .unwrap_or_else(|| handler.span.clone()),
                 ),
-                UserEffectPathResolution::Found(_) | UserEffectPathResolution::Missing => {
+                UserEffectPathResolution::Found(_)
+                | UserEffectPathResolution::QuarantinedImportTarget
+                | UserEffectPathResolution::Missing => {
                     unknown_declared_effect_diagnostic(handler, effect, index)
                 }
             }

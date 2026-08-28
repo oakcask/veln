@@ -63,6 +63,59 @@ valid candidate wins, the use role is compatible with the invalid name class,
 and the call arity is compatible for callable recovery. Cross-class recovery
 collisions select no recovery record and preserve the ordinary unresolved or
 ambiguous fact.
+Every written import path segment is a module-class path segment. Each segment
+must start with an ASCII lowercase letter. An uppercase-led or underscore-led
+segment reports `name.invalid_case` at the exact segment token span with
+occurrence `path_segment`, name class `module`, required initial
+`ascii_lowercase`, the observed initial class, and the zero-based
+`segment_index` inside the written import path. When the final segment would
+also provide the implicit import alias, the path segment and alias are one
+occurrence and produce at most one casing diagnostic. An import with an
+invalid module path segment does not enter normal import lookup for value,
+call, type, constructor, schema, effect, handler, inference, lowering, or
+reachability consumers. The original written import still participates in
+duplicate import-alias analysis. If no selected source derives the written
+local module path, `module.unresolved_import` is still reported. A use through
+the invalid implicit alias may suppress a derivative unresolved, type-origin,
+constructor-arity, or exhaustiveness diagnostic only when one matching
+selected source export proves that quarantine is the sole failure. This
+same quarantine proof suppresses derivative unknown-effect and
+unknown-handler diagnostics for public effect and handler exports. Missing
+target modules, missing exports, private targets, and wrong-kind targets
+remain independently reported.
+The
+`identifier-casing-import-path-json` and
+`identifier-casing-import-path-human` examples check multi-segment and
+single-segment import paths, uppercase and underscore initials, exact spans,
+detail fields, and the single-diagnostic implicit-alias boundary. The
+`identifier-casing-import-missing-module-overlap-json`,
+`identifier-casing-import-duplicate-overlap-json`, and
+`identifier-casing-import-alias-cascade-boundary-json` examples check the
+overlap with missing-module, duplicate-alias, and function alias-use cascade
+diagnostics. The
+`identifier-casing-import-type-cascade-boundary-json`,
+`identifier-casing-import-constructor-cascade-boundary-json`,
+`identifier-casing-import-missing-type-control-json`,
+`identifier-casing-import-missing-type-export-json`, and
+`identifier-casing-import-missing-constructor-control-json` examples check
+that qualified imported types and constructors use the same public-export
+quarantine boundary while missing-target and missing-export controls still
+report independently provable failures. The
+`identifier-casing-import-schema-cascade-boundary-json` and
+`identifier-casing-import-private-schema-boundary-json` examples check the
+same boundary for schema composition: a missing schema target and a private
+schema target remain independently reported. The
+`identifier-casing-import-effect-cascade-boundary-json` and
+`identifier-casing-import-handler-cascade-boundary-json` examples check the
+same public-export quarantine boundary for effect and handler consumers. The
+`identifier-casing-import-order-json` example checks source-ordering between
+an invalid import path segment and a later invalid declaration. The
+`identifier-casing-import-alias-run-boundary-json` example checks the same
+invalid implicit-alias boundary for `run` reachability. The
+`identifier-casing-unselected-import-path-json` and
+`identifier-casing-unused-import-path-json` examples check that `run` does not
+promote invalid written import paths outside the selected entry closure or
+unused by that closure.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter

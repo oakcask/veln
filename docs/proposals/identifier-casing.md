@@ -70,6 +70,20 @@ lowercase letter are specified by
 `identifier-casing-qualified-constructor-pattern-type-mismatch-json`
 examples. Their completion record is
 [Identifier Casing Qualified Constructor Patterns](../reference/implemented-proposals/identifier-casing-qualified-constructor-patterns.md).
+Written import-path segments are specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), and
+checked by the `identifier-casing-import-path-json` and
+`identifier-casing-import-path-human` examples. The
+`identifier-casing-import-missing-module-overlap-json`,
+`identifier-casing-import-duplicate-overlap-json`, and
+`identifier-casing-import-alias-cascade-boundary-json` examples check their
+overlap with missing-module, duplicate-alias, and alias-use cascade
+diagnostics. The type, constructor, and schema cascade cases check the same
+quarantine boundary for imported qualified names. The effect, handler, and
+ordering cases check the remaining written-import consumer and source-order
+boundaries. Their completion record is
+[Identifier Casing Import Paths](../reference/implemented-proposals/identifier-casing-import-paths.md).
 
 The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
@@ -113,8 +127,10 @@ symbols. [Name Resolution](../specification/name-resolution.md) and
 [Types](../specification/types.md) specify the current qualified
 constructor-pattern leaf boundary. Its completion record is
 [Identifier Casing Qualified Constructor Patterns](../reference/implemented-proposals/identifier-casing-qualified-constructor-patterns.md).
-This proposal now specifies only identifier-casing work that remains
-incomplete.
+Written import-path segments are specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Check JSON And Diagnostics](../specification/diagnostics-json.md). This
+proposal now specifies only identifier-casing work that remains incomplete.
 
 The remaining proposal keeps the same class initials: type and constructor
 roles require an ASCII uppercase initial, and module, function, and
@@ -123,7 +139,7 @@ applies those initials to these not-yet-current surfaces:
 
 | Surface | Proposed rule |
 | --- | --- |
-| Module identities | Every written, import-path, import-alias, and source-path-derived module segment starts with an ASCII lowercase letter. |
+| Module identities | Every written module-identity, explicit import-alias, and source-path-derived module segment starts with an ASCII lowercase letter. |
 | Qualified uses | Every written segment with a syntax-fixed or resolution-fixed role satisfies that role's name class. Unresolved or ambiguous intermediate segments are not guessed from spelling. |
 
 Name lookup remains case-sensitive. Identifiers outside the current
@@ -146,9 +162,9 @@ The primary message identifies the failed fact and required class.
 
 | Source state | Required result | Planned evidence |
 | --- | --- | --- |
-| A written module identity, import-path segment, or import alias starts with an uppercase letter. | Reject the offending segment with a message that the module name must start with an ASCII lowercase letter. | Module and import boundary fixtures. |
+| A written module identity or explicit import alias starts with an uppercase letter. | Reject the offending segment with a message that the module name must start with an ASCII lowercase letter. | Module and import boundary fixtures. |
 | A source-path-derived module identity contains a segment that starts with an uppercase letter. | Reject the derived module with a message that names the segment and requires an ASCII lowercase initial. | Source-path module fixtures and structured diagnostic cases. |
-| An underscore-led token occurs in a written module position, or an underscore-led source-path segment derives a module identity. | Reject it with `name.invalid_case` for the module class. | Module parser-recovery, source-path, and import fixtures. |
+| An underscore-led token occurs in a remaining written module position, or an underscore-led source-path segment derives a module identity. | Reject it with `name.invalid_case` for the module class. | Module parser-recovery, source-path, and import fixtures. |
 
 An invalid remaining-scope name does not introduce a normal symbol under
 another spelling. Command-specific analysis and lowering boundaries determine
@@ -193,12 +209,11 @@ A generated source without origin module metadata cannot introduce a
 source-visible module. The same origin segment sequence supplies diagnostics,
 module analysis, documentation, metrics, and language services.
 
-An implicit import alias is validated at its written origin. When the alias is
-derived from the final import-path segment, the segment and alias are one name
-occurrence and produce at most one `name.invalid_case` diagnostic at that
-segment. For example, `use net::HTTP` reports once at `HTTP`. The invalid alias
-does not enter the normal import namespace. A future explicit alias with its
-own token is a separate name occurrence and is validated at that token.
+An implicit import alias derived from the final import-path segment is current
+behavior specified by
+[Name Resolution](../specification/name-resolution.md). A future explicit
+alias with its own token is a separate name occurrence and is validated at that
+token.
 
 The current structured `name.invalid_case` details for source-written
 declarations, bindings, and public alias targets are specified by
@@ -462,7 +477,6 @@ identifier-casing remainder.
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
 | Derive module identities from every source kind with one or more invalid origin segments. | Every invalid user-controlled segment reports one source-start diagnostic with the required origin details; synthetic segments never report casing; a chained companion reports only its existing structural failure. | Regular, exact-companion, chained-companion, doctest, generated, export, human, JSON, and LSP source-kind table. |
 | Analyze an invalid derived module beside imports, duplicates, cycles, documentation, and metrics. | All invalid origin segments are reported; the source receives local diagnostics but no importable graph identity or emitted artifact; unrelated graph analysis continues. | Multi-segment module, import, duplicate, cycle, documentation, and metrics cases. |
-| Import a path whose final segment is also its implicit alias. | An invalid final segment produces one diagnostic owned by that segment, not separate path and alias diagnostics. | Single- and multi-segment import cases. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |

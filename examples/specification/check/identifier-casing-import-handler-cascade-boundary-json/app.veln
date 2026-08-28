@@ -1,0 +1,9 @@
+use HTTP
+
+fn body() -> Int
+  1
+end
+
+fn main() -> Int
+  handle body() with HTTP::audit()
+end
