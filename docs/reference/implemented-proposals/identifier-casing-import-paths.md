@@ -28,7 +28,9 @@ missing-target controls. The checked
 `identifier-casing-import-schema-cascade-boundary-json` and
 `identifier-casing-import-private-schema-boundary-json` examples fix the
 schema composition quarantine boundary, the schema missing-target control,
-and the private-schema visibility control.
+and the private-schema visibility control. The checked
+`identifier-casing-import-alias-run-boundary-json` example fixes the same
+invalid implicit-alias boundary for `run` reachability.
 
 ## Scope
 

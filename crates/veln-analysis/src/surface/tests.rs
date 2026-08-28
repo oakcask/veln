@@ -254,6 +254,105 @@ fn reachability_cache_keeps_entry_results_independent() {
 }
 
 #[test]
+fn reachable_entry_keeps_invalid_import_segments_with_alias_proof_only() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use HTTP\n",
+                    "\n",
+                    "fn main() -> Int\n",
+                    "  HTTP::entry()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "HTTP.veln",
+                concat!("pub fn entry() -> Bool\n", "  1\n", "end\n"),
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, diagnostics) = load_surface_module(&project);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("HTTP", "entry"), ("app", "main")]
+    );
+    let imported_entry = reachable
+        .functions
+        .iter()
+        .find(|function| {
+            function.module_name.as_deref() == Some("HTTP")
+                && function.name.as_deref() == Some("entry")
+        })
+        .expect("quarantined import proof signature should be retained");
+    assert!(
+        matches!(
+            imported_entry.body.as_slice(),
+            [veln_ast::BodyLine {
+                kind: veln_ast::BodyLineKind::Expr {
+                    expr: veln_ast::Expr {
+                        kind: veln_ast::ExprKind::Unit,
+                        ..
+                    },
+                },
+                ..
+            }]
+        ),
+        "{:#?}",
+        imported_entry.body
+    );
+    assert!(
+        reachable.invalid_names.iter().any(|invalid| {
+            invalid.name == "HTTP"
+                && invalid.class == veln_ast::NameClass::Module
+                && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+        }),
+        "{:#?}",
+        reachable.invalid_names
+    );
+}
+
+#[test]
+fn reachable_entry_keeps_valid_import_alias_target_reachable() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use helper\n",
+                    "\n",
+                    "fn main() -> Int\n",
+                    "  helper::entry()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "helper.veln",
+                concat!("pub fn entry() -> Int\n", "  1\n", "end\n"),
+            ),
+        ],
+        manifest: None,
+    };
+    let (module, diagnostics) = load_surface_module(&project);
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("app", "main"), ("helper", "entry")]
+    );
+}
+
+#[test]
 fn reachable_recovery_selection_skips_unrelated_invalid_declarations() {
     fn recovery_candidate_scans(unrelated_count: usize) -> usize {
         let mut source = String::from(concat!(

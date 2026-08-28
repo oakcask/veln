@@ -197,6 +197,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-owned-nullary-constructor-recovery-json/`,
   `../../examples/specification/run/identifier-casing-owned-payload-constructor-recovery-json/`,
   `../../examples/specification/run/identifier-casing-function-value-recovery-json/`,
+  `../../examples/specification/run/identifier-casing-import-alias-run-boundary-json/`,
   `../../examples/specification/run/identifier-casing-import-recovery-isolation-json/`,
   `../../examples/specification/run/identifier-casing-qualified-type-import-isolation-json/`,
   `../../examples/specification/run/identifier-casing-valid-function-value-precedence-json/`,

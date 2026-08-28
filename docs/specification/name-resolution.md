@@ -101,7 +101,9 @@ report independently provable failures. The
 `identifier-casing-import-schema-cascade-boundary-json` and
 `identifier-casing-import-private-schema-boundary-json` examples check the
 same boundary for schema composition: a missing schema target and a private
-schema target remain independently reported.
+schema target remain independently reported. The
+`identifier-casing-import-alias-run-boundary-json` example checks the same
+invalid implicit-alias boundary for `run` reachability.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
