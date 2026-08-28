@@ -38,7 +38,7 @@ graph nodes or dependency-cycle policy violations.
 ## Completion
 
 This slice completes diagnostic-tolerant graph isolation for source-path
-derived module identity casing. It does not complete metrics source-error
-gating, artifact consumers, deferred language-service consumers, qualified-use
-segment casing, recovery navigation, repair rename, rename conflict
-prediction, or MCP rename mapping.
+derived module identity casing, including the metrics dependency graph and
+dependency-cycle policy boundary. It does not complete artifact consumers,
+deferred language-service consumers, qualified-use segment casing, recovery
+navigation, repair rename, rename conflict prediction, or MCP rename mapping.

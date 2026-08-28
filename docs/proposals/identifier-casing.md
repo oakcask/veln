@@ -331,42 +331,30 @@ lookup and navigation do not expose them.
 
 Current source-path-derived module identity casing reports one diagnostic for
 each invalid origin segment and withholds the invalid derived identity from
-normal module registration. The remaining proposal separates consumers by
-their observable source-error boundary:
+normal module registration. Diagnostic-tolerant graph isolation for local
+import resolution, duplicate source-path detection, test dependency graphs,
+and metrics dependency-cycle policy is current behavior specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Metrics JSON](../specification/metrics-json.md). The remaining source-path
+consumer work covers export, documentation, backend, and deferred recovery
+consumers. Each consumer follows its specified source-error contract and
+exposes no normal artifact identity for the invalid source. A tolerant
+consumer continues unrelated valid-module analysis; a fail-fast consumer
+returns its specified error result without an artifact.
 
-| Consumer boundary | Required outcome | Evidence boundary |
-| --- | --- | --- |
-| Artifact commands that reject source-graph errors, including the current metrics command. | The command returns the source diagnostic envelope and no artifact or policy result. A would-be dependency cycle through the invalid identity produces no cycle policy violation because source errors already block the report. | Command cases assert the source diagnostic and the absence of report and policy output. They do not claim that an invalid source reached artifact graph construction. |
-| Export, documentation, backend, and deferred recovery consumers. | Each consumer follows its existing source-error contract and exposes no normal artifact identity for the invalid source. A tolerant consumer continues unrelated valid-module analysis; a fail-fast consumer returns its specified error result without an artifact. | Consumer-specific cases state whether the command is tolerant or fail-fast and assert the corresponding valid-module or no-artifact boundary. |
-
-A target must not require an invalid source to reach an artifact stage that the
-current command specification blocks on source diagnostics. A proposal that
-changes such a command to return a partial artifact must first define the new
-error, output, selection, and policy-evaluation contract. A structurally
-invalid path retains its existing structural module diagnostic and does not
-also create a module identity.
+A target must state whether its consumer is tolerant or fail-fast and assert
+the corresponding valid-module or no-artifact boundary. A structurally invalid
+path retains its existing structural module diagnostic and does not also
+create a module identity.
 
 ### Source-Path Consumer Targets
 
-The remaining source-path consumer work has one separately selectable target.
-It preserves the completed diagnostic-tolerant graph boundary.
+The remaining source-path consumer work has no separately selectable ready
+target.
 
 | Selectable target | Input boundary | Required observations | Forbidden scope |
 | --- | --- | --- | --- |
-| [Metrics Source-Error Gate](#metrics-source-error-gate) | A metrics project contains an invalid source-path-derived module identity and imports that would form a cycle if that identity entered the graph. | `metrics --check` returns the source diagnostic envelope. The result has no metrics report, dependency-cycle policy result, or partial graph. | Changing the source-error gate, suppressing the casing diagnostic, returning partial metrics, or claiming internal dependency-graph participation. |
-
-#### Metrics Source-Error Gate
-
-This target adds a checked `metrics --check` command case for the current
-fail-fast boundary. The case must assert the source-path casing diagnostic and
-the absence of report, policy, and cycle fields. A would-be cycle supplies the
-rejected graph input; it does not establish that the invalid identity reached
-dependency-graph construction.
-
-A future partial-metrics design is a separate proposal. Its acceptance model
-must define diagnostic retention, result status and exit behavior, selected and
-unselected module treatment, partial-report marking, and policy evaluation
-before implementation changes the source-error gate.
+| None. | Metrics graph isolation is current behavior. | Use the current specification and implemented proposal record. | Reintroducing a metrics fail-fast source-error gate without a new proposal that changes the current metrics contract. |
 
 Every invalid name reports `name.invalid_case`. Independently provable
 diagnostics still accumulate. In particular, remaining-scope names with the
@@ -502,7 +490,6 @@ identifier-casing remainder.
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
-| Request metrics for sources that include an invalid derived identity and declarations that would form a cycle if that identity were accepted. | The current source-error gate returns the casing diagnostic without a metrics report or dependency-cycle policy result. This case specifies fail-fast command behavior; it does not require the invalid source to enter the metrics graph. | A metrics command case that asserts the diagnostic envelope and the absence of report and policy fields. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |

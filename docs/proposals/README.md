@@ -18,8 +18,7 @@ also states it.
 
 ## Ready
 
-- Identifier-casing metrics source-error gate:
-  [identifier-casing.md#metrics-source-error-gate](identifier-casing.md#metrics-source-error-gate).
+No proposal target is ready for implementation.
 
 Only proposals and subsections listed in this section are selectable targets.
 
