@@ -2031,6 +2031,16 @@ impl<'a> FunctionChecker<'a> {
                     {
                         return function.ty();
                     }
+                    if self
+                        .environment
+                        .quarantined_import_value_recovery_candidate_count(
+                            segments,
+                            self.function.module_name.as_deref(),
+                        )
+                        == 1
+                    {
+                        return Type::Unknown;
+                    }
                     let symbol = segments.join("::");
                     self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
                     Type::Unknown
@@ -2418,6 +2428,15 @@ impl<'a> FunctionChecker<'a> {
                 )
                 + self.invalid_local_callable_recovery_count(name)
                 == 1);
+            let recovered = recovered
+                || self
+                    .environment
+                    .quarantined_import_call_recovery_candidate_count(
+                        segments,
+                        self.function.module_name.as_deref(),
+                        args.len(),
+                    )
+                    == 1;
             if !recovered {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(

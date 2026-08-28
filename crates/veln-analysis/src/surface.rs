@@ -4,8 +4,8 @@ use std::path::{Component, Path};
 use std::sync::OnceLock;
 
 use veln_ast::{
-    NameClass, NameOccurrence, PublicAliasKind, SurfaceModule, UseDecl, Visibility,
-    decode_surface_module, lower_surface_ast, lower_surface_ast_with_module_identity,
+    PublicAliasKind, SurfaceModule, UseDecl, Visibility, decode_surface_module, lower_surface_ast,
+    lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::{
@@ -1690,23 +1690,12 @@ fn unresolved_local_import_diagnostics(
         .filter(|use_decl| {
             use_decl.package.is_none()
                 && use_decl.name.contains("::")
-                && !use_decl_has_invalid_module_segment(module, use_decl)
                 && !derived_modules
                     .iter()
                     .any(|(module_name, _)| module_name == &use_decl.name)
         })
         .map(|use_decl| unresolved_local_import_diagnostic(use_decl, derived_modules))
         .collect()
-}
-
-fn use_decl_has_invalid_module_segment(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
-    module.invalid_names.iter().any(|invalid| {
-        invalid.class == NameClass::Module
-            && invalid.occurrence == NameOccurrence::PathSegment
-            && invalid.span.file == use_decl.span.file
-            && use_decl.span.start.offset <= invalid.span.start.offset
-            && invalid.span.end.offset <= use_decl.span.end.offset
-    })
 }
 
 fn unresolved_local_import_diagnostic(

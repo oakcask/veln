@@ -38,6 +38,7 @@ struct SymbolFacts {
     type_symbols: Vec<NamedSymbol>,
     codec_symbols: Vec<NamedSymbol>,
     uses: Vec<UseDecl>,
+    quarantined_uses: Vec<UseDecl>,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
 }
@@ -91,6 +92,7 @@ pub(super) fn from_module_with_base(
         type_symbols: symbols.type_symbols,
         codec_symbols: symbols.codec_symbols,
         uses: symbols.uses,
+        quarantined_uses: symbols.quarantined_uses,
         adts: declarations.adts,
         companion_function_access_targets: symbols.companion_function_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,
@@ -323,6 +325,16 @@ fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Symbo
         .cloned()
         .collect();
     extend_with_base_facts(&mut uses, base.map(|base| &base.uses));
+    let mut quarantined_uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl_has_invalid_module_segment(module, use_decl))
+        .cloned()
+        .collect();
+    extend_with_base_facts(
+        &mut quarantined_uses,
+        base.map(|base| &base.quarantined_uses),
+    );
     let mut companion_function_access_targets = companion_function_access_targets(module);
     extend_with_base_facts(
         &mut companion_function_access_targets,
@@ -338,6 +350,7 @@ fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Symbo
         type_symbols,
         codec_symbols,
         uses,
+        quarantined_uses,
         companion_function_access_targets,
         companion_schema_access_targets,
     }

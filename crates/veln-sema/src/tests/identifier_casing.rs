@@ -158,7 +158,7 @@ fn import_path_segments_report_module_casing_with_retained_spans() {
 }
 
 #[test]
-fn invalid_implicit_import_alias_is_not_inserted_for_lookup() {
+fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
     let app_source = SourceFile::new(
         "app.veln",
         concat!(
@@ -180,15 +180,78 @@ fn invalid_implicit_import_alias_is_not_inserted_for_lookup() {
     assert_eq!(
         diagnostics
             .iter()
-            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
-            .count(),
-        1,
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "module.missing_identity"],
         "{diagnostics:#?}"
     );
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "name.unresolved"
-            && diagnostic.message == "unresolved call_target `HTTP::entry`"
-    }));
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn duplicate_invalid_implicit_import_aliases_stay_in_duplicate_analysis() {
+    let source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "use HTTP\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "name.invalid_case", "name.duplicate"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics[2].message, "duplicate import alias name `HTTP`",
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn quarantined_import_alias_use_reports_unresolved_when_target_is_missing() {
+    let source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use missing::HTTP\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  HTTP::entry()\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["name.invalid_case", "name.unresolved"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics[1].message, "unresolved call_target `HTTP::entry`",
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

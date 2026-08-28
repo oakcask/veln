@@ -14,7 +14,10 @@ contract for module-class path segments. Current behavior is specified by
 [Check JSON And Diagnostics](../../specification/diagnostics-json.md). The
 checked `identifier-casing-import-path-json` and
 `identifier-casing-import-path-human` examples fix exact JSON and human
-diagnostics.
+diagnostics. The checked `identifier-casing-import-missing-module-overlap-json`,
+`identifier-casing-import-duplicate-overlap-json`, and
+`identifier-casing-import-alias-cascade-boundary-json` examples fix the
+corrected overlap behavior.
 
 ## Scope
 
@@ -30,8 +33,11 @@ module`, the required and observed initial classes, and the zero-based
 An implicit alias derived from the final import path segment is the same
 occurrence as that final path segment. The implementation emits at most one
 casing diagnostic for it. An import with an invalid module path segment does
-not enter normal import lookup, and project-level unresolved import checks do
-not add a cascade whose only source is the quarantined invalid path.
+not enter normal import lookup. Duplicate import-alias analysis still uses the
+original written alias. Project-level unresolved import checks still report a
+missing selected source for the written local module path. A qualified use
+through an invalid implicit alias suppresses `name.unresolved` only when the
+selected source export exists and quarantine is the sole failure.
 
 ## Completion
 

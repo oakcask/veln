@@ -72,10 +72,21 @@ occurrence `path_segment`, name class `module`, required initial
 also provide the implicit import alias, the path segment and alias are one
 occurrence and produce at most one casing diagnostic. An import with an
 invalid module path segment does not enter normal import lookup. The
+original written import still participates in duplicate import-alias analysis.
+If no selected source derives the written local module path,
+`module.unresolved_import` is still reported. A qualified call or value use
+through the invalid implicit alias suppresses `name.unresolved` only when a
+matching selected source export proves that quarantine is the sole failure.
+The
 `identifier-casing-import-path-json` and
 `identifier-casing-import-path-human` examples check multi-segment and
 single-segment import paths, uppercase and underscore initials, exact spans,
-detail fields, and the single-diagnostic implicit-alias boundary.
+detail fields, and the single-diagnostic implicit-alias boundary. The
+`identifier-casing-import-missing-module-overlap-json`,
+`identifier-casing-import-duplicate-overlap-json`, and
+`identifier-casing-import-alias-cascade-boundary-json` examples check the
+overlap with missing-module, duplicate-alias, and alias-use cascade
+diagnostics.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter

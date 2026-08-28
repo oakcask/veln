@@ -16,6 +16,7 @@ pub(crate) struct TypeEnvironment {
     type_symbols: Vec<NamedSymbol>,
     codec_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
+    quarantined_uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
@@ -151,6 +152,11 @@ impl TypeEnvironment {
             uses: selected_standard_facts(&self.uses, module_names, |use_decl| {
                 use_decl.module_name.as_deref()
             }),
+            quarantined_uses: selected_standard_facts(
+                &self.quarantined_uses,
+                module_names,
+                |use_decl| use_decl.module_name.as_deref(),
+            ),
             adts: self.adts.standard_subset(module_names),
             companion_function_access_targets: selected_standard_access_targets(
                 &self.companion_function_access_targets,
@@ -236,6 +242,62 @@ impl TypeEnvironment {
     ) -> usize {
         self.local_function_call_recovery_count(name, current_module, arg_count)
             + self.local_constructor_recovery_count(name, current_module, Some(arg_count))
+    }
+
+    pub(crate) fn quarantined_import_call_recovery_candidate_count(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: usize,
+    ) -> usize {
+        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        else {
+            return 0;
+        };
+        let module_name = use_decl.name.as_str();
+        self.functions_named(name)
+            .filter(|function| {
+                function.module_name.as_deref() == Some(module_name)
+                    && function_signature_accepts_arg_count(function, arg_count)
+                    && self.imported_function_is_visible(function, use_decl, current_module, true)
+                    && !self.imported_codec_helper_is_hidden(function, use_decl)
+            })
+            .count()
+    }
+
+    pub(crate) fn quarantined_import_value_recovery_candidate_count(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> usize {
+        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        else {
+            return 0;
+        };
+        let module_name = use_decl.name.as_str();
+        self.functions_named(name)
+            .filter(|function| {
+                function.module_name.as_deref() == Some(module_name)
+                    && self.imported_function_is_visible(function, use_decl, current_module, false)
+                    && !self.imported_codec_helper_is_hidden(function, use_decl)
+            })
+            .count()
+    }
+
+    fn quarantined_import_for_segments<'a>(
+        &'a self,
+        segments: &'a [String],
+        current_module: Option<&str>,
+    ) -> Option<(&'a UseDecl, &'a str)> {
+        match segments {
+            [_, .., name] => imported_use_for_path(
+                &self.quarantined_uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )
+            .map(|use_decl| (use_decl, name.as_str())),
+            _ => None,
+        }
     }
 
     fn local_function_call_recovery_count(
@@ -811,6 +873,14 @@ impl TypeEnvironment {
             }
             _ => Vec::new(),
         }
+    }
+}
+
+fn function_signature_accepts_arg_count(function: &FunctionSignature, arg_count: usize) -> bool {
+    if function.variadic.is_some() {
+        arg_count >= function.params.len()
+    } else {
+        arg_count == function.params.len()
     }
 }
 
