@@ -118,6 +118,25 @@ pub(crate) fn validate_source_less_lookup_segment(
     }
 }
 
+pub(crate) fn validate_bare_source_less_lookup_segment(
+    provider: &'static str,
+    name: &str,
+    name_class: SourceLessNameClass,
+) -> Result<(), InvalidStandardSymbolCase> {
+    validate_source_less_lookup_segment(provider, name, name_class)?;
+    let segments = [name.to_string()];
+    if veln_syntax::bare_expression_bool_literal(&segments).is_none() {
+        Ok(())
+    } else {
+        Err(InvalidStandardSymbolCase {
+            provider,
+            name: name.to_string(),
+            name_class,
+            reason: InvalidStandardSymbolReason::InvalidLookupKey,
+        })
+    }
+}
+
 fn source_lookup_segment_is_consumable(name: &str) -> bool {
     !is_source_keyword(name)
         && name

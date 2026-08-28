@@ -15,10 +15,15 @@ lookup keys before any standard-symbol or built-in ADT lookup state is
 published. Standard-symbol descriptors publish to function lookup only.
 Runtime, prelude, and `prelude_builtin` descriptors whose source-less name
 class is not `function` fail validation before lookup state is published.
-Every source-less descriptor module segment and leaf name must be one source
-lookup identifier segment: the initial byte must satisfy the declared name
-class, remaining bytes must be ASCII letters, ASCII digits, or `_`, and the
-complete segment must not be a source keyword.
+Every source-less descriptor module segment and leaf name must be consumable
+by the source parser for the concrete lookup route that the descriptor
+publishes: the initial byte must satisfy the declared name class, remaining
+bytes must be ASCII letters, ASCII digits, or `_`, and the complete segment
+must not be a source keyword. Bare prelude lookup keys must also stay name
+paths after parser-level literal interpretation, so compiler-provided
+descriptors cannot publish bare `true` or `false` prelude routes. Qualified
+routes can still publish those leaf spellings when the parser represents the
+complete route as a name path.
 
 Invalid compiler-provided descriptors fail registry construction atomically with
 the span-less `toolchain.invalid_symbol_case` internal failure. Details include
@@ -39,7 +44,9 @@ string that would publish a three-or-more-segment source lookup key fails
 publication as an invalid lookup key. Prelude, compiler-adapter, built-in
 type-syntax, built-in ADT type, and built-in ADT constructor leaves containing
 `::`, `-`, or any other spelling that source lookup cannot produce as one
-identifier segment also fail publication as invalid lookup keys.
+identifier segment also fail publication as invalid lookup keys. Bare prelude
+or public compiler-adapter leaves that parse as contextual literals fail
+publication as invalid lookup keys.
 Prelude lookup keys are the exact source prelude name. Compiler-adapter
 failures report the `compiler_adapter` provider and use `prelude_builtin::name`
 lookup keys. The implicit `prelude` module name reports the `standard_names`
@@ -75,8 +82,10 @@ through a registry-external module spelling.
 - Current behavior route:
   [../../specification/source-less-lookup.md](../../specification/source-less-lookup.md).
 - Focused executable evidence:
-  `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests for
-  the generated tables, injected invalid descriptors, invalid lookup keys,
+  `veln-syntax` parser tests and `veln-sema` `standard_symbols`, `adt`, and
+  `source_less_lookup` tests for bare and qualified parser name-path
+  interpretation, the generated tables, injected invalid descriptors, invalid
+  lookup keys,
   duplicate lookup keys, standard-symbol class and lookup-namespace
   mismatches, invalid standard module keys, invalid prelude-builtin module
   keys, atomic failure,

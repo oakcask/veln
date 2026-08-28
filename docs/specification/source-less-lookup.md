@@ -17,13 +17,19 @@ validate their module segments, spelling, declared name class, and lookup key
 before lookup state is published.
 
 Each source-less descriptor module segment and descriptor leaf name must be
-one source lookup identifier segment. The first byte must satisfy the declared
-name class: module and function segments start with an ASCII lowercase letter,
-and type and constructor segments start with an ASCII uppercase letter.
-Remaining bytes must be ASCII letters, ASCII digits, or `_`, and the complete
-segment must not be a source keyword. A descriptor leaf containing `::`, `-`,
-or any other byte that source lookup cannot produce as part of one identifier
-segment is an invalid source lookup key.
+consumable by the source parser for the concrete lookup route that the
+descriptor publishes. The first byte must satisfy the declared name class:
+module and function segments start with an ASCII lowercase letter, and type
+and constructor segments start with an ASCII uppercase letter. Remaining bytes
+must be ASCII letters, ASCII digits, or `_`, and the complete segment must not
+be a source keyword. A descriptor leaf containing `::`, `-`, or any other byte
+that source lookup cannot produce as part of one identifier segment is an
+invalid source lookup key. A bare prelude lookup key whose one-segment
+spelling is parsed as a literal instead of a name path is also an invalid
+source lookup key. The contextual boolean literal spellings `true` and
+`false` therefore cannot publish bare prelude lookup routes, while the same
+leaf spellings can publish qualified lookup routes that the parser represents
+as name paths, such as `module::true`.
 
 Registry construction is atomic in release and test builds. Valid input
 publishes one complete immutable source-less lookup registry set. If any
@@ -66,13 +72,14 @@ helpers and internal type annotation parsing check built-in type constructor
 arity through the published built-in type-syntax registry. Built-in ADT lookup
 seeds application registry state from the published built-in ADT registry.
 
-Focused `veln-sema` `standard_symbols`, `adt`, and `source_less_lookup` tests
-are the executable evidence for generated-table validation, injected invalid
-descriptors, invalid lookup keys, release-mode validation, atomic failure,
-cross-provider publication failure, checked lookup, provider inventory, and
-lookup isolation. The injected-descriptor cases cover qualified separators and
-other non-identifier characters in runtime, prelude or compiler-adapter,
-built-in type-syntax, built-in ADT type, and built-in ADT constructor leaves.
-Public source fixtures cannot inject compiler descriptors, so this contract is
-verified by focused Rust tests rather than examples under
+Focused `veln-syntax` and `veln-sema` tests are the executable evidence for
+parser interpretation of bare and qualified name paths, generated-table
+validation, injected invalid descriptors, invalid lookup keys, release-mode
+validation, atomic failure, cross-provider publication failure, checked
+lookup, provider inventory, and lookup isolation. The injected-descriptor
+cases cover qualified separators, other non-identifier characters, and
+parser-level contextual literal spellings in runtime, prelude or
+compiler-adapter, built-in type-syntax, built-in ADT type, and built-in ADT
+constructor leaves. Public source fixtures cannot inject compiler descriptors,
+so this contract is verified by focused Rust tests rather than examples under
 `examples/specification/`.

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
-    validate_source_less_lookup_segment,
+    validate_bare_source_less_lookup_segment, validate_source_less_lookup_segment,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1192,6 +1192,7 @@ fn validate_prelude_lookup_key(
             reason: InvalidStandardSymbolReason::InvalidLookupKey,
         });
     }
+    validate_bare_source_less_lookup_segment(provider, descriptor.name, descriptor.name_class)?;
     if !keys.insert(descriptor.name) {
         return Err(InvalidStandardSymbolCase {
             provider,

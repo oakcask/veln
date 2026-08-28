@@ -194,6 +194,93 @@ fn invalid_source_lookup_symbol_name_reports_descriptor_details() {
 }
 
 #[test]
+fn contextual_literal_prelude_names_are_invalid_bare_lookup_keys() {
+    const INVALID_PRELUDE: &[StandardSymbolDescriptor] = &[
+        StandardSymbolDescriptor {
+            module: None,
+            name: "true",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+        StandardSymbolDescriptor {
+            module: None,
+            name: "false",
+            name_class: SourceLessNameClass::Function,
+            kind: StandardSymbolKind::Prelude,
+            effects: PURE_EFFECTS,
+            lowering: None,
+            signature: None,
+            stability: StandardSymbolStability::CompatibilityOnly,
+        },
+    ];
+
+    let failure = build_standard_symbol_registry(&[], INVALID_PRELUDE, &[], &[])
+        .expect_err("bare boolean literal spelling cannot publish to prelude lookup");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "prelude");
+    assert_eq!(failure.name, "true");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupKey
+    );
+}
+
+#[test]
+fn contextual_literal_public_adapter_names_are_invalid_bare_lookup_keys() {
+    const INVALID_ADAPTER: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: None,
+        name: "false",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Prelude,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        signature: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }];
+
+    let failure = build_standard_symbol_registry(&[], &[], &[], INVALID_ADAPTER)
+        .expect_err("public adapter cannot publish unreachable bare lookup");
+
+    assert_eq!(failure.code(), "toolchain.invalid_symbol_case");
+    assert_eq!(failure.provider, "compiler_adapter");
+    assert_eq!(failure.name, "false");
+    assert_eq!(failure.name_class, SourceLessNameClass::Function);
+    assert_eq!(
+        failure.reason,
+        InvalidStandardSymbolReason::InvalidLookupKey
+    );
+}
+
+#[test]
+fn contextual_literal_spelling_can_publish_as_qualified_runtime_leaf() {
+    const QUALIFIED: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
+        module: Some("boolean"),
+        name: "true",
+        name_class: SourceLessNameClass::Function,
+        kind: StandardSymbolKind::Runtime,
+        effects: PURE_EFFECTS,
+        lowering: Some("runtime.boolean.true"),
+        signature: None,
+        stability: StandardSymbolStability::RequiredForSelfHosting,
+    }];
+
+    let registry =
+        build_standard_symbol_registry(QUALIFIED, &[], &[], &[]).expect("qualified route is valid");
+
+    assert!(
+        registry
+            .qualified_symbol(&path("boolean", "true"))
+            .is_some()
+    );
+}
+
+#[test]
 fn non_function_standard_symbol_class_cannot_publish_to_function_lookup() {
     const INVALID_ADAPTER: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
         module: None,
