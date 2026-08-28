@@ -1,0 +1,14 @@
+type Item
+  Some
+end
+
+type Other
+  Some
+end
+
+fn main(input: Item) -> Int
+  match input
+    Other::some => 1
+    _ => 0
+  end
+end

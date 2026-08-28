@@ -3068,6 +3068,11 @@ impl<'a> FunctionChecker<'a> {
             ),
             PatternKind::Constructor { name, args } => {
                 if invalid_qualified_constructor_pattern(name) {
+                    self.report_invalid_qualified_constructor_pattern_mismatch(
+                        pattern,
+                        name,
+                        scrutinee_type,
+                    );
                     return self.unknown_pattern_bindings(args);
                 }
                 if recover_unknown_bare_constructor
@@ -3217,6 +3222,67 @@ impl<'a> FunctionChecker<'a> {
     ) {
         let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
             name,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) else {
+            return;
+        };
+        let actual = adt::constructed_type_from_args(
+            constructor,
+            &vec![Type::Unknown; constructor.descriptor.type_parameters.len()],
+        );
+        self.diagnostics.push(Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "expected `{}`, but found `{}`",
+                scrutinee_type.render(),
+                actual.render()
+            ),
+            Some(pattern.span.clone()),
+            type_details(
+                pattern.node_id.display("pattern"),
+                scrutinee_type.render(),
+                actual.render(),
+                "inferred_expression",
+                "constructor_pattern",
+                "constructor_pattern",
+                [
+                    self.function.node_id.display("fn"),
+                    pattern.node_id.display("pattern"),
+                ],
+            ),
+        ));
+    }
+
+    fn report_invalid_qualified_constructor_pattern_mismatch(
+        &mut self,
+        pattern: &Pattern,
+        name: &[String],
+        scrutinee_type: &Type,
+    ) {
+        let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type) else {
+            return;
+        };
+        let Some(recovered) = initial_uppercase_qualified_constructor_name(name) else {
+            return;
+        };
+        if self
+            .environment
+            .adts
+            .constructor_for_descriptor(
+                &recovered,
+                descriptor,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            )
+            .is_some()
+        {
+            return;
+        }
+        let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+            &recovered,
             self.function.module_name.as_deref(),
             &self.environment.uses,
         ) else {

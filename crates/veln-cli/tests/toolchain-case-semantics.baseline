@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"42e1c7f300eb60c9da28fc70d9fe800eb0584329"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1588
+case_count	1589
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6116,6 +6116,24 @@ field	invocation.command[2]	"main.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"9482ea3a61a8ee06f2788212126b31d3064f9ca1a99008c1bf38c3531c5f8b9e"
+case	"examples/specification/check/identifier-casing-qualified-constructor-pattern-type-mismatch-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"constructor name `some` must start with an ASCII uppercase letter"
+field	expectations.diagnostics[1].id	"type.mismatch"
+field	expectations.diagnostics[1].kind	"type"
+field	expectations.diagnostics[1].message	"expected `Item`, but found `Other`"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.unresolved"
+field	expectations.stdout.not_contains[1]	"type.match_non_exhaustive"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"cdff5863acca9033ae94573df13eaa0170124e864dca7541e2df27170280c01f"
 case	"examples/specification/check/identifier-casing-source-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -49864,4 +49882,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"2be3277dd3ff199c5471f651e0a1d649a1081e991855b29a22fe202dda644abc"
+aggregate_digest	"4d0eeb5086784cdf8f23961a0c8136c0acdda257375fef78d3c3454a7af06275"

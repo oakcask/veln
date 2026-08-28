@@ -786,6 +786,108 @@ fn match_expression_binds_qualified_constructor_payloads() {
 }
 
 #[test]
+fn lowercase_qualified_constructor_pattern_reports_independent_descriptor_mismatch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  Some\n",
+            "end\n",
+            "\n",
+            "type Other\n",
+            "  Some\n",
+            "end\n",
+            "\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Other::some => 1\n",
+            "    _ => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let ids = lowered
+        .diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["name.invalid_case", "type.mismatch"]);
+    assert_eq!(
+        lowered.diagnostics[0].message,
+        "constructor name `some` must start with an ASCII uppercase letter"
+    );
+    assert_eq!(lowered.diagnostics[0].span.as_ref().unwrap().start.line, 11);
+    assert_eq!(
+        lowered.diagnostics[0].span.as_ref().unwrap().start.column,
+        12
+    );
+    assert_eq!(lowered.diagnostics[0].span.as_ref().unwrap().end.column, 16);
+    assert_eq!(
+        lowered.diagnostics[1].message,
+        "expected `Item`, but found `Other`"
+    );
+    assert_eq!(lowered.diagnostics[1].span.as_ref().unwrap().start.line, 11);
+    assert_eq!(
+        lowered.diagnostics[1].span.as_ref().unwrap().start.column,
+        5
+    );
+    assert_eq!(lowered.diagnostics[1].span.as_ref().unwrap().end.column, 16);
+    assert!(lowered.core.is_none());
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
+fn uppercase_qualified_constructor_pattern_reports_descriptor_mismatch_control() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  Some\n",
+            "end\n",
+            "\n",
+            "type Other\n",
+            "  Some\n",
+            "end\n",
+            "\n",
+            "fn main(input: Item) -> Int\n",
+            "  match input\n",
+            "    Other::Some => 1\n",
+            "    _ => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let ids = lowered
+        .diagnostics
+        .iter()
+        .map(|diagnostic| diagnostic.id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["type.mismatch"]);
+    assert_eq!(
+        lowered.diagnostics[0].message,
+        "expected `Item`, but found `Other`"
+    );
+    assert_eq!(lowered.diagnostics[0].span.as_ref().unwrap().start.line, 11);
+    assert_eq!(
+        lowered.diagnostics[0].span.as_ref().unwrap().start.column,
+        5
+    );
+    assert_eq!(lowered.diagnostics[0].span.as_ref().unwrap().end.column, 16);
+}
+
+#[test]
 fn holes_build_blocked_core_but_not_executable_ir() {
     let source = SourceFile::new(
         "main.veln",

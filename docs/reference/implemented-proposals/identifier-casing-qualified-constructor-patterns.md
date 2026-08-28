@@ -15,7 +15,10 @@ that final segment. The checked
 `identifier-casing-qualified-constructor-pattern-human` examples fix the JSON
 and human command behavior. The checked
 `identifier-casing-qualified-constructor-pattern-over-suppression-json`
-example fixes the boundary for exhaustiveness recovery coverage.
+example fixes the boundary for exhaustiveness recovery coverage. The checked
+`identifier-casing-qualified-constructor-pattern-type-mismatch-json` example
+fixes the boundary for independently provable constructor-pattern type
+mismatches.
 
 Current behavior is specified by
 [Name Resolution](../../specification/name-resolution.md),

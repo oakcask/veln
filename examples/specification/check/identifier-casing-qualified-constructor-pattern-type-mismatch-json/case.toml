@@ -1,0 +1,20 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+not_contains = ["name.unresolved", "type.match_non_exhaustive"]
+
+[stderr]
+format = "empty"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "constructor name `some` must start with an ASCII uppercase letter"
+
+[[diagnostics]]
+id = "type.mismatch"
+kind = "type"
+message = "expected `Item`, but found `Other`"

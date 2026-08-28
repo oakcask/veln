@@ -385,13 +385,15 @@ Source-declared constructor patterns may use bare, type-qualified,
 import-alias-qualified, or import-alias-and-type-qualified names when the
 constructor is visible. A qualified constructor pattern whose final segment is
 lowercase is rejected by the source identifier casing rule and is not used for
-constructor payload typing or exhaustiveness coverage, except that the matched
-case is treated as recovery coverage when initial-only repair of the final
-segment resolves that constructor through ordinary case-sensitive lookup and
-the invalid head is the only reason the match would be reported as
-non-exhaustive. Constructor spellings that still differ after changing only the
-first ASCII lowercase letter to uppercase remain missing cases. Its nested
-binding patterns and arm expression still receive checking. For `List<A>`,
+constructor payload typing or exhaustiveness coverage. A constructor-pattern
+type mismatch is still reported when initial-only repair of the final segment
+resolves a constructor for a different ADT descriptor. The matched case is
+treated as recovery coverage when initial-only repair of the final segment
+resolves that constructor through ordinary case-sensitive lookup and the
+invalid head is the only reason the match would be reported as non-exhaustive.
+Constructor spellings that still differ after changing only the first ASCII
+lowercase letter to uppercase remain missing cases. Its nested binding
+patterns and arm expression still receive checking. For `List<A>`,
 `head` binds as `A` and `tail` binds as `List<A>`. A record pattern field binds
 nested patterns to the corresponding record field type when the scrutinee type
 is known. Unknown or non-record scrutinee types leave nested pattern bindings
