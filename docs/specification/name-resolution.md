@@ -222,12 +222,13 @@ errors. The checked
 `identifier-casing-source-path-import-isolation-json`,
 `identifier-casing-source-path-duplicate-isolation-json`,
 the test `identifier-casing-source-path-graph-isolation-json`,
+the metrics `identifier-casing-source-path-cycle-isolation-json`,
 `identifier-casing-source-path-human`,
 `identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
 diagnostic spans, details, and graph-isolation boundaries. Focused
-`veln-test` unit coverage fixes the test dependency graph boundary for imports
-declared by a source without a normal module identity.
+`veln-test` and `veln-metrics` unit coverage fixes graph boundaries for
+imports declared by a source without a normal module identity.
 
 External `use path from "package"` declarations resolve `path` inside an
 already available direct `path`, `vendor`, `mirror`, or locally materialized

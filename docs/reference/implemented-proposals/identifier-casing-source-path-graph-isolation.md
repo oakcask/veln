@@ -30,7 +30,10 @@ duplicate source-path isolation. The checked test
 `identifier-casing-source-path-graph-isolation-json` example and focused
 `veln-test` unit coverage fix that imports declared by a source without a
 normal module identity do not add dependency graph edges before dependency
-closure is computed.
+closure is computed. The checked metrics
+`identifier-casing-source-path-cycle-isolation-json` example and focused
+`veln-metrics` unit coverage fix that invalid identities do not become metrics
+graph nodes or dependency-cycle policy violations.
 
 ## Completion
 

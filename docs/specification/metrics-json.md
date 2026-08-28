@@ -104,6 +104,11 @@ create edges. Dependency packages and embedded standard-library modules are
 not metric subjects. A source-written import from a project-owned module to a
 non-standard dependency package increments that module's
 `external_dependency_count` without creating an internal edge.
+Sources whose source-path-derived module identity reports
+`name.invalid_case` with `origin: source_path` do not become metrics graph
+nodes. Imports declared by those sources do not create metrics graph edges or
+dependency cycles, and they do not produce `deny_cycles` policy violations.
+The source diagnostic remains part of independent source analysis.
 
 Path arguments select the project-owned modules reported as module subjects.
 The command still analyzes the containing project graph so selected modules
@@ -170,6 +175,10 @@ Executable evidence:
   containing graph counts, dependency edges, and cycle membership.
 - The metrics `check-acyclic`, `check-cycle-human`, and `check-cycle-json`
   cases check enabled dependency-cycle policy success and violation output.
+- The metrics `identifier-casing-source-path-cycle-isolation-json` case checks
+  that invalid source-path-derived module identities do not create
+  dependency-cycle policy violations while unrelated valid modules remain in
+  the metrics report.
 - The metrics `check-no-policy-human`, `check-no-policy-json`,
   `check-invalid-policy-json`, and `check-unsupported-policy-json` cases check
   configuration and manifest policy failures that do not return a clean check

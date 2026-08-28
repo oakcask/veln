@@ -552,6 +552,26 @@ impl DependencyEdgeLike for BaselineEdge {
 fn source_graph_diagnostics(project: &Project) -> Vec<Diagnostic> {
     let (_, diagnostics) = load_surface_module(project);
     diagnostics
+        .into_iter()
+        .filter(|diagnostic| !is_source_path_invalid_case(diagnostic))
+        .collect()
+}
+
+fn is_source_path_invalid_case(diagnostic: &Diagnostic) -> bool {
+    diagnostic.id == "name.invalid_case"
+        && diagnostic_detail_string(diagnostic, "origin") == Some("source_path")
+}
+
+fn diagnostic_detail_string<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
+    let JsonValue::Object(entries) = &diagnostic.details else {
+        return None;
+    };
+    entries
+        .iter()
+        .find_map(|(entry_key, value)| match (entry_key.as_str(), value) {
+            (entry_key, JsonValue::String(value)) if entry_key == key => Some(value.as_str()),
+            _ => None,
+        })
 }
 
 fn project_owned_sources(mut project: Project) -> Project {
@@ -637,8 +657,9 @@ impl DependencyGraph {
         let mut nodes = Vec::new();
         let mut module_index = BTreeMap::new();
         for source in &project.files {
-            let module =
-                derive_source_module_path(source).map_err(|diagnostic| vec![*diagnostic])?;
+            let Some(module) = derive_metrics_module_path(source)? else {
+                continue;
+            };
             let index = nodes.len();
             module_index.insert(module.clone(), index);
             nodes.push(DependencyNode {
@@ -651,8 +672,9 @@ impl DependencyGraph {
 
         let mut edge_keys = BTreeMap::<(usize, usize), SourceSpan>::new();
         for source in &project.files {
-            let module =
-                derive_source_module_path(source).map_err(|diagnostic| vec![*diagnostic])?;
+            let Some(module) = derive_metrics_module_path(source)? else {
+                continue;
+            };
             let source_index = module_index[&module];
             let parsed = parse(source);
             if !parsed.diagnostics.is_empty() {
@@ -887,6 +909,14 @@ impl DependencyGraph {
         }
         path.pop();
         false
+    }
+}
+
+fn derive_metrics_module_path(source: &SourceFile) -> Result<Option<String>, Vec<Diagnostic>> {
+    match derive_source_module_path(source) {
+        Ok(module) => Ok(Some(module)),
+        Err(diagnostic) if is_source_path_invalid_case(&diagnostic) => Ok(None),
+        Err(diagnostic) => Err(vec![*diagnostic]),
     }
 }
 
@@ -2294,6 +2324,72 @@ mod tests {
         assert_eq!(report.cycles[0].path.last().unwrap(), "app");
         assert_eq!(report.modules[0].module, "util");
         assert_eq!(report.modules[0].dependency_pressure, 4);
+    }
+
+    #[test]
+    fn source_path_invalid_case_is_absent_from_dependency_cycles() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    "use bad\nfn main() -> Int\n  bad::value()\nend\n",
+                ),
+                SourceFile::new("bad.veln", "pub fn value() -> Int\n  1\nend\n"),
+                SourceFile::new(
+                    "Bad.veln",
+                    "use app\npub fn invalid_source() -> Int\n  app::main()\nend\n",
+                ),
+                SourceFile::new("other.veln", "pub fn other() -> Int\n  2\nend\n"),
+            ],
+        };
+
+        assert!(source_graph_diagnostics(&project).is_empty());
+
+        let graph = DependencyGraph::from_project(&project).expect("graph");
+        let selected = [
+            "app.veln".to_string(),
+            "bad.veln".to_string(),
+            "Bad.veln".to_string(),
+            "other.veln".to_string(),
+        ]
+        .into_iter()
+        .collect();
+        let report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: Vec::new(),
+            },
+            &selected,
+            default_metrics_config(),
+        );
+
+        assert_eq!(report.summary.project_module_count, 3);
+        assert_eq!(report.summary.internal_edge_count, 1);
+        assert_eq!(report.summary.cycle_count, 0);
+        assert!(
+            report
+                .modules
+                .iter()
+                .all(|module| module.path != "Bad.veln"),
+            "{:#?}",
+            report.modules
+        );
+        assert!(
+            report.edges.iter().all(|edge| edge.source != "Bad"),
+            "{:#?}",
+            report.edges
+        );
+        assert!(
+            report
+                .abc_subjects
+                .iter()
+                .any(|subject| subject.identity == "other.veln::other"),
+            "{:#?}",
+            report.abc_subjects
+        );
     }
 
     #[test]

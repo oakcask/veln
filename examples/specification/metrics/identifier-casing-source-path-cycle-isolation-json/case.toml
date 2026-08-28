@@ -1,0 +1,55 @@
+command = ["metrics", "--check", "--json"]
+source_errors = "expected"
+exit = 0
+
+[stdout]
+format = "json"
+contains = ["\"identity\":\"other.veln::other\""]
+not_contains = ["\"module\":\"Bad\"", "\"source\":\"Bad\"", "\"target\":\"Bad\"", "policy_violation"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "check.result"
+equals = "pass"
+
+[[json_assert]]
+path = "check.violations"
+length = 0
+
+[[json_assert]]
+path = "summary.project_module_count"
+equals = 3
+
+[[json_assert]]
+path = "summary.internal_edge_count"
+equals = 1
+
+[[json_assert]]
+path = "summary.cycle_count"
+equals = 0
+
+[[json_assert]]
+path = "modules.0.module"
+equals = "app"
+
+[[json_assert]]
+path = "modules.1.module"
+equals = "bad"
+
+[[json_assert]]
+path = "modules.2.module"
+equals = "other"
+
+[[json_assert]]
+path = "edges.0.source"
+equals = "app"
+
+[[json_assert]]
+path = "edges.0.target"
+equals = "bad"
