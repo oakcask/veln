@@ -35,7 +35,11 @@ public effect and handler quarantine boundary. The checked
 `identifier-casing-import-order-json` example fixes source-ordering between
 an invalid import path segment and a later invalid declaration. The checked
 `identifier-casing-import-alias-run-boundary-json` example fixes the same
-invalid implicit-alias boundary for `run` reachability.
+invalid implicit-alias boundary for `run` reachability. The checked
+`identifier-casing-unselected-import-path-json` and
+`identifier-casing-unused-import-path-json` examples fix the negative `run`
+selection boundary for invalid written import paths outside the selected entry
+closure and unused by that closure.
 
 ## Scope
 

@@ -111,7 +111,11 @@ same public-export quarantine boundary for effect and handler consumers. The
 `identifier-casing-import-order-json` example checks source-ordering between
 an invalid import path segment and a later invalid declaration. The
 `identifier-casing-import-alias-run-boundary-json` example checks the same
-invalid implicit-alias boundary for `run` reachability.
+invalid implicit-alias boundary for `run` reachability. The
+`identifier-casing-unselected-import-path-json` and
+`identifier-casing-unused-import-path-json` examples check that `run` does not
+promote invalid written import paths outside the selected entry closure or
+unused by that closure.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter

@@ -516,7 +516,9 @@ fn module_with_reachable_functions(
     let mut functions = materialize_reachable_functions(inputs, reachable);
     let reachable_invalid_name_spans = reachable_invalid_name_spans(inputs, &functions);
     functions.extend(materialize_quarantined_import_proof_functions(
-        inputs, &functions,
+        inputs,
+        &functions,
+        &reachable_invalid_name_spans,
     ));
     let invalid_names_by_declaration = inputs.cloned_declarations(|module| &module.invalid_names);
     let invalid_names = inputs
@@ -580,20 +582,14 @@ fn invalid_name_is_reachable(
 }
 
 fn invalid_import_path_segment_spans(
-    inputs: &ReachabilityInputs<'_>,
+    use_decl: &UseDecl,
     invalid_names: &[&veln_ast::InvalidName],
 ) -> Vec<ReachableInvalidNameSpan> {
-    inputs
-        .all_uses()
-        .into_iter()
-        .filter(|use_decl| use_decl_has_invalid_module_segment(use_decl, invalid_names))
-        .flat_map(|use_decl| {
-            invalid_names
-                .iter()
-                .copied()
-                .filter(move |invalid| invalid_module_segment_in_use_decl(use_decl, invalid))
-                .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
-        })
+    invalid_names
+        .iter()
+        .copied()
+        .filter(move |invalid| invalid_module_segment_in_use_decl(use_decl, invalid))
+        .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
         .collect()
 }
 
@@ -618,8 +614,7 @@ fn reachable_invalid_name_spans(
     functions: &[Function],
 ) -> Vec<ReachableInvalidNameSpan> {
     let mut selector = ReachableInvalidNameSelector::new(inputs);
-    let invalid_names = inputs.invalid_names().collect::<Vec<_>>();
-    let mut spans = invalid_import_path_segment_spans(inputs, &invalid_names);
+    let mut spans = Vec::new();
     spans.extend(
         functions
             .iter()
@@ -658,6 +653,7 @@ impl ReachableInvalidNameSpan {
 
 struct ReachableInvalidNameSelector<'a> {
     uses: Vec<&'a UseDecl>,
+    invalid_uses: Vec<&'a UseDecl>,
     handlers: Vec<&'a veln_ast::HandlerDecl>,
     functions_by_name: HashMap<(Option<String>, String), Vec<&'a Function>>,
     aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,
@@ -744,14 +740,20 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let aliases_by_name = index_aliases_by_name(&aliases);
         let types_by_name = index_types_by_name(&types);
         let constructors_by_name = index_constructors_by_name(&types);
+        let invalid_names = inputs.invalid_names().collect::<Vec<_>>();
         Self {
             uses: inputs.uses(),
+            invalid_uses: inputs
+                .all_uses()
+                .into_iter()
+                .filter(|use_decl| use_decl_has_invalid_module_segment(use_decl, &invalid_names))
+                .collect(),
             handlers,
             functions_by_name,
             aliases_by_name,
             types_by_name,
             constructors_by_name,
-            invalid_names: inputs.invalid_names().collect(),
+            invalid_names,
             companion_access_targets,
         }
     }
@@ -980,6 +982,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         if self.has_valid_constructor(segments, current_module, None) {
             return;
         }
+        if self.select_invalid_import_path(segments, current_module, spans) {
+            return;
+        }
         if self.has_valid_function(segments, current_module, None) {
             return;
         }
@@ -1004,6 +1009,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         {
             return;
         }
+        if self.select_invalid_import_path(segments, current_module, spans) {
+            return;
+        }
         if same_module_recovery_path(segments) {
             self.select_unique_call_recovery(segments, current_module, arg_count, spans);
         }
@@ -1020,6 +1028,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         {
             return;
         }
+        if self.select_invalid_import_path(segments, current_module, spans) {
+            return;
+        }
         if same_module_recovery_path(segments) {
             self.select_unique_type_recovery(segments, current_module, spans);
         }
@@ -1033,6 +1044,9 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         if self.has_valid_constructor(segments, current_module, arg_count) {
+            return;
+        }
+        if self.select_invalid_import_path(segments, current_module, spans) {
             return;
         }
         if same_module_recovery_path(segments) {
@@ -1052,7 +1066,29 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             }
             spans.push(ReachableInvalidNameSpan::Declaration(handler.span.clone()));
             self.collect_handler(handler, spans);
+        } else {
+            self.select_invalid_import_path(segments, current_module, spans);
         }
+    }
+
+    fn select_invalid_import_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) -> bool {
+        let Some(use_decl) = imported_use_for_path(
+            &self.invalid_uses,
+            &segments[..segments.len().saturating_sub(1)],
+            current_module,
+        ) else {
+            return false;
+        };
+        spans.extend(invalid_import_path_segment_spans(
+            use_decl,
+            &self.invalid_names,
+        ));
+        true
     }
 
     fn collect_handler(
@@ -1619,12 +1655,22 @@ fn materialize_reachable_functions(
 fn materialize_quarantined_import_proof_functions(
     inputs: &ReachabilityInputs<'_>,
     reachable_functions: &[Function],
+    reachable_invalid_name_spans: &[ReachableInvalidNameSpan],
 ) -> Vec<Function> {
     let invalid_names = inputs.invalid_names().collect::<Vec<_>>();
     let quarantined_modules = inputs
         .all_uses()
         .into_iter()
         .filter(|use_decl| use_decl_has_invalid_module_segment(use_decl, &invalid_names))
+        .filter(|use_decl| {
+            invalid_import_path_segment_spans(use_decl, &invalid_names)
+                .iter()
+                .any(|span| {
+                    reachable_invalid_name_spans
+                        .iter()
+                        .any(|reachable| reachable == span)
+                })
+        })
         .map(|use_decl| use_decl.name.as_str())
         .collect::<HashSet<_>>();
     if quarantined_modules.is_empty() {

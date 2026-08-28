@@ -1,0 +1,5 @@
+use HTTP
+
+fn dead() -> Int
+  HTTP::entry()
+end
