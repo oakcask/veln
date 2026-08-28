@@ -123,8 +123,11 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-missing-type-control-json`,
 `identifier-casing-import-missing-type-export-json`,
 `identifier-casing-import-missing-constructor-control-json`,
-`identifier-casing-import-schema-cascade-boundary-json`, and
-`identifier-casing-import-private-schema-boundary-json` cases.
+`identifier-casing-import-schema-cascade-boundary-json`,
+`identifier-casing-import-private-schema-boundary-json`,
+`identifier-casing-import-effect-cascade-boundary-json`,
+`identifier-casing-import-handler-cascade-boundary-json`, and
+`identifier-casing-import-order-json` cases.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`

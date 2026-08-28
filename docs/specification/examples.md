@@ -214,6 +214,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/run/identifier-casing-loaded-dependency-json/`,
   `../../examples/specification/run/identifier-casing-loaded-unreachable-dependency-json/`,
   `../../examples/specification/run/identifier-casing-unloaded-dependency-json/`,
+  `../../examples/specification/run/identifier-casing-unselected-import-path-json/`,
+  `../../examples/specification/run/identifier-casing-unused-import-path-json/`,
   and `../../examples/specification/run/identifier-casing-record-field-reachability/`.
 - Source identifier casing selected-suite static gates, unselected test peer
   isolation, exact companion recovery isolation, selected documentation-source
