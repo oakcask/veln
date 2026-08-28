@@ -3032,6 +3032,7 @@ fn public_schema_alias_with_invalid_target_leaf_does_not_enter_schema_namespace(
         occurrence: NameOccurrence::AliasTarget,
         span: target_span,
         enclosing_function_span: None,
+        segment_index: None,
     });
 
     let environment = TypeEnvironment::from_module(&module);

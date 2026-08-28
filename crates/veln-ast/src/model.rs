@@ -63,6 +63,7 @@ pub enum NameOccurrence {
     Binding,
     PatternHead,
     AliasTarget,
+    PathSegment,
 }
 
 impl NameOccurrence {
@@ -72,6 +73,7 @@ impl NameOccurrence {
             Self::Binding => "binding",
             Self::PatternHead => "pattern_head",
             Self::AliasTarget => "alias_target",
+            Self::PathSegment => "path_segment",
         }
     }
 }
@@ -83,6 +85,7 @@ pub struct InvalidName {
     pub occurrence: NameOccurrence,
     pub span: SourceSpan,
     pub enclosing_function_span: Option<SourceSpan>,
+    pub segment_index: Option<usize>,
 }
 
 #[derive(Clone, Debug)]

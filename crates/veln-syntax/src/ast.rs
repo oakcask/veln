@@ -430,6 +430,7 @@ pub enum PatternKind {
     Record(Vec<PatternField>),
     Constructor {
         name: Vec<String>,
+        name_spans: Vec<SourceSpan>,
         args: Vec<Pattern>,
     },
 }

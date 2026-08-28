@@ -22,7 +22,8 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `details.target_path`.
 - Source identifier casing diagnostics use `name.invalid_case` with stable
   `details.phase`, `origin`, `occurrence`, `name`, `name_class`,
-  `required_initial`, and `observed_initial` fields. The checked
+  `required_initial`, and `observed_initial` fields. Written qualified path
+  segment diagnostics also include the zero-based `segment_index`. The checked
   `identifier-casing-*-json` cases define exact spans, detail values, and
   non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less
@@ -90,9 +91,15 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-accepted-names-json`,
 `identifier-casing-valid-symbol-precedence-json`,
 `identifier-casing-implicit-prelude-boundary-json`,
-`identifier-casing-implicit-prelude-isolation-json`, and
-`identifier-casing-ambiguous-recovery-json` and
-`identifier-casing-cross-class-ambiguous-recovery-json` cases. The checked
+`identifier-casing-implicit-prelude-isolation-json`,
+`identifier-casing-ambiguous-recovery-json`,
+`identifier-casing-cross-class-ambiguous-recovery-json`,
+`identifier-casing-qualified-constructor-pattern-json`,
+`identifier-casing-qualified-constructor-pattern-human`,
+`identifier-casing-qualified-constructor-pattern-over-suppression-json`,
+`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`, and
+`identifier-casing-qualified-constructor-pattern-type-mismatch-json` cases.
+The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`
 `details.local_bindings` or hole repair candidate queries. Current source name-class

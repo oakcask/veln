@@ -383,12 +383,25 @@ source-declared constructor patterns bind their payload patterns to the
 corresponding descriptor argument when the scrutinee type is known.
 Source-declared constructor patterns may use bare, type-qualified,
 import-alias-qualified, or import-alias-and-type-qualified names when the
-constructor is visible. For `List<A>`, `head` binds as `A` and `tail` binds as
-`List<A>`. A record pattern field binds nested patterns to the corresponding
-record field type when the scrutinee type is known. Unknown or non-record
-scrutinee types leave nested pattern bindings unknown. Arm expressions share
-the expected result type when one is available; otherwise the first arm
-supplies the initial result type for later arms.
+constructor is visible. A qualified constructor pattern whose final segment is
+lowercase is rejected by the source identifier casing rule and is not an
+accepted constructor case. It is not used for constructor payload typing or
+ordinary exhaustiveness coverage. A constructor-pattern type mismatch is still
+reported when initial-only repair of the final segment resolves a constructor
+for a different ADT descriptor. For recovery-only cascade suppression, the
+checker also computes the constructor found by changing only the invalid final
+segment's first ASCII lowercase letter to uppercase and resolving the
+resulting path through ordinary case-sensitive lookup. If that constructor is
+in the matched ADT descriptor, a missing-case diagnostic is suppressed only for
+that recovered case and only when the invalid head is the sole cause of the
+missing case. Constructor spellings that still differ after that initial-only
+repair remain missing cases. The invalid pattern's nested binding patterns and
+arm expression still receive checking. For `List<A>`,
+`head` binds as `A` and `tail` binds as `List<A>`. A record pattern field binds
+nested patterns to the corresponding record field type when the scrutinee type
+is known. Unknown or non-record scrutinee types leave nested pattern bindings
+unknown. Arm expressions share the expected result type when one is available;
+otherwise the first arm supplies the initial result type for later arms.
 
 `if` and `else if` conditions are checked with expected type `Bool`. A
 non-`Bool` condition reports `type.mismatch` at the condition expression.

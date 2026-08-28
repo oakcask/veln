@@ -3764,7 +3764,7 @@ fn parses_and_formats_qualified_builtin_constructors() {
     assert_eq!(arms.len(), 3);
     assert!(matches!(
         &arms[0].pattern.kind,
-        PatternKind::Constructor { name, args } if name == &vec!["Result".to_string(), "Ok".to_string()]
+        PatternKind::Constructor { name, args, .. } if name == &vec!["Result".to_string(), "Ok".to_string()]
             && matches!(
                 &args[0].kind,
                 PatternKind::Constructor { name, .. } if name == &vec!["Option".to_string(), "Some".to_string()]
@@ -3788,6 +3788,94 @@ fn parses_and_formats_qualified_builtin_constructors() {
             "\tend\n",
             "end\n",
         )
+    );
+}
+
+#[test]
+fn parses_lowercase_qualified_pattern_as_recovery_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: Item) -> Int\n",
+            "\tmatch value\n",
+            "\t\tItem::some(payload) => payload\n",
+            "\tend\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    let PatternKind::Constructor {
+        name,
+        name_spans,
+        args,
+    } = &arms[0].pattern.kind
+    else {
+        panic!("expected recovery constructor pattern");
+    };
+    assert_eq!(name, &vec!["Item".to_string(), "some".to_string()]);
+    assert_eq!(args.len(), 1);
+    assert_eq!(name_spans.len(), 2);
+    assert_eq!(
+        (
+            name_spans[1].start.line,
+            name_spans[1].start.column,
+            name_spans[1].end.column
+        ),
+        (3, 9, 13)
+    );
+}
+
+#[test]
+fn parses_lowercase_qualified_nullary_pattern_as_recovery_constructor() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: Item) -> Int\n",
+            "\tmatch value\n",
+            "\t\tItem::none => 0\n",
+            "\tend\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    let PatternKind::Constructor {
+        name,
+        name_spans,
+        args,
+    } = &arms[0].pattern.kind
+    else {
+        panic!("expected recovery constructor pattern");
+    };
+    assert_eq!(name, &vec!["Item".to_string(), "none".to_string()]);
+    assert!(args.is_empty());
+    assert_eq!(name_spans.len(), 2);
+    assert_eq!(
+        (
+            name_spans[1].start.line,
+            name_spans[1].start.column,
+            name_spans[1].end.column
+        ),
+        (3, 9, 13)
     );
 }
 

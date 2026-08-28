@@ -67,6 +67,31 @@ Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
 prelude-qualified lookup.
+Qualified constructor patterns keep constructor syntax. A qualified
+constructor pattern whose final segment starts with an ASCII lowercase letter
+reports `name.invalid_case` at that final segment with occurrence
+`path_segment`, name class `constructor`, required initial `ascii_uppercase`,
+observed initial `ascii_lowercase`, and the segment index inside the written
+path. That invalid head remains only as a recovery constructor pattern.
+Constructor resolution, constructor-pattern type mismatch, and match
+exhaustiveness diagnostics whose only cause is that invalid head are
+suppressed. An exhaustiveness diagnostic is suppressed only for the constructor
+found by changing the invalid final segment's first ASCII lowercase letter to
+uppercase and resolving the resulting path through ordinary case-sensitive
+constructor lookup. A different constructor spelling that remains unresolved
+after that initial-only repair is not treated as covered. Nested pattern
+bindings and the match-arm body are still checked. The
+`identifier-casing-qualified-constructor-pattern-json`,
+`identifier-casing-qualified-constructor-pattern-human`, and
+`identifier-casing-qualified-constructor-pattern-over-suppression-json`
+examples check the diagnostic shape, suppressed cascades, and exhaustiveness
+over-suppression boundary. The
+`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`
+example checks that nested binding patterns and the match-arm body are still
+checked while head-derived cascades are suppressed. The
+`identifier-casing-qualified-constructor-pattern-type-mismatch-json` example
+checks that an independently provable constructor-pattern type mismatch is not
+suppressed.
 
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources

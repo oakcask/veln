@@ -127,6 +127,7 @@ fn collect_invalid_alias_name(alias: &SyntaxPublicAlias, invalid: &mut Vec<Inval
         class,
         NameOccurrence::Declaration,
         None,
+        None,
     );
     push_invalid_name(
         invalid,
@@ -134,6 +135,7 @@ fn collect_invalid_alias_name(alias: &SyntaxPublicAlias, invalid: &mut Vec<Inval
         alias.target_spans.last(),
         class,
         NameOccurrence::AliasTarget,
+        None,
         None,
     );
 }
@@ -146,6 +148,7 @@ fn collect_invalid_type_names(type_decl: &SyntaxTypeDecl, invalid: &mut Vec<Inva
         NameClass::Type,
         NameOccurrence::Declaration,
         None,
+        None,
     );
     for variant in &type_decl.variants {
         push_invalid_name(
@@ -154,6 +157,7 @@ fn collect_invalid_type_names(type_decl: &SyntaxTypeDecl, invalid: &mut Vec<Inva
             variant.name_span.as_ref(),
             NameClass::Constructor,
             NameOccurrence::Declaration,
+            None,
             None,
         );
     }
@@ -168,6 +172,7 @@ fn collect_invalid_function_names(function: &SyntaxFunction, invalid: &mut Vec<I
         NameClass::Function,
         NameOccurrence::Declaration,
         enclosing.clone(),
+        None,
     );
     for param in &function.params {
         push_invalid_name(
@@ -177,6 +182,7 @@ fn collect_invalid_function_names(function: &SyntaxFunction, invalid: &mut Vec<I
             NameClass::ValueBinding,
             NameOccurrence::Binding,
             enclosing.clone(),
+            None,
         );
     }
     if let Some(binding) = &function.return_binding {
@@ -187,6 +193,7 @@ fn collect_invalid_function_names(function: &SyntaxFunction, invalid: &mut Vec<I
             NameClass::ValueBinding,
             NameOccurrence::Binding,
             enclosing.clone(),
+            None,
         );
     }
     for line in &function.body {
@@ -211,6 +218,7 @@ fn collect_invalid_handler_names(handler: &SyntaxHandlerDecl, invalid: &mut Vec<
             NameClass::ValueBinding,
             NameOccurrence::Binding,
             None,
+            None,
         );
     }
     for clause in &handler.operation_clauses {
@@ -221,6 +229,7 @@ fn collect_invalid_handler_names(handler: &SyntaxHandlerDecl, invalid: &mut Vec<
                 Some(&param.name_span),
                 NameClass::ValueBinding,
                 NameOccurrence::Binding,
+                None,
                 None,
             );
         }
@@ -241,13 +250,31 @@ fn collect_invalid_pattern_names(
             NameClass::ValueBinding,
             NameOccurrence::PatternHead,
             enclosing,
+            None,
         ),
         SyntaxPatternKind::Record(fields) => {
             for field in fields {
                 collect_invalid_pattern_names(&field.pattern, invalid, enclosing.clone());
             }
         }
-        SyntaxPatternKind::Constructor { name, args } => {
+        SyntaxPatternKind::Constructor {
+            name,
+            name_spans,
+            args,
+        } => {
+            if name.len() > 1
+                && let Some((leaf, span)) = name.last().zip(name_spans.last())
+            {
+                push_invalid_name(
+                    invalid,
+                    Some(leaf),
+                    Some(span),
+                    NameClass::Constructor,
+                    NameOccurrence::PathSegment,
+                    enclosing.clone(),
+                    Some(name.len() - 1),
+                );
+            }
             if let [name] = name.as_slice()
                 && args.is_empty()
             {
@@ -258,6 +285,7 @@ fn collect_invalid_pattern_names(
                     NameClass::ValueBinding,
                     NameOccurrence::PatternHead,
                     enclosing.clone(),
+                    None,
                 );
             }
             for arg in args {
@@ -289,6 +317,7 @@ fn collect_invalid_expr_names(
             NameClass::ValueBinding,
             NameOccurrence::Binding,
             enclosing,
+            None,
         ),
         SyntaxExprKind::TypeApply { callee, .. }
         | SyntaxExprKind::FieldAccess { base: callee, .. }
@@ -379,6 +408,7 @@ fn push_invalid_name(
     class: NameClass,
     occurrence: NameOccurrence,
     enclosing_function_span: Option<SourceSpan>,
+    segment_index: Option<usize>,
 ) {
     let (Some(name), Some(span)) = (name, span) else {
         return;
@@ -398,6 +428,7 @@ fn push_invalid_name(
             occurrence,
             span: span.clone(),
             enclosing_function_span,
+            segment_index,
         });
     }
 }
@@ -1048,7 +1079,7 @@ impl AstBuilder {
                         })
                         .collect(),
                 ),
-                SyntaxPatternKind::Constructor { name, args } => PatternKind::Constructor {
+                SyntaxPatternKind::Constructor { name, args, .. } => PatternKind::Constructor {
                     name: name.clone(),
                     args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),
                 },
