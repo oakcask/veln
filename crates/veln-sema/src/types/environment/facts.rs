@@ -316,7 +316,12 @@ fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Symbo
     extend_with_base_facts(&mut type_symbols, base.map(|base| &base.type_symbols));
     let mut codec_symbols = named_codec_symbols(module);
     extend_with_base_facts(&mut codec_symbols, base.map(|base| &base.codec_symbols));
-    let mut uses = module.uses.clone();
+    let mut uses = module
+        .uses
+        .iter()
+        .filter(|use_decl| !use_decl_has_invalid_module_segment(module, use_decl))
+        .cloned()
+        .collect();
     extend_with_base_facts(&mut uses, base.map(|base| &base.uses));
     let mut companion_function_access_targets = companion_function_access_targets(module);
     extend_with_base_facts(
@@ -336,6 +341,16 @@ fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Symbo
         companion_function_access_targets,
         companion_schema_access_targets,
     }
+}
+
+fn use_decl_has_invalid_module_segment(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    module.invalid_names.iter().any(|invalid| {
+        invalid.class == veln_ast::NameClass::Module
+            && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+            && invalid.span.file == use_decl.span.file
+            && use_decl.span.start.offset <= invalid.span.start.offset
+            && invalid.span.end.offset <= use_decl.span.end.offset
+    })
 }
 
 fn extend_with_base_facts<T: BaseFacts>(facts: &mut T, base: Option<&T>) {

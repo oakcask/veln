@@ -63,6 +63,19 @@ valid candidate wins, the use role is compatible with the invalid name class,
 and the call arity is compatible for callable recovery. Cross-class recovery
 collisions select no recovery record and preserve the ordinary unresolved or
 ambiguous fact.
+Every written import path segment is a module-class path segment. Each segment
+must start with an ASCII lowercase letter. An uppercase-led or underscore-led
+segment reports `name.invalid_case` at the exact segment token span with
+occurrence `path_segment`, name class `module`, required initial
+`ascii_lowercase`, the observed initial class, and the zero-based
+`segment_index` inside the written import path. When the final segment would
+also provide the implicit import alias, the path segment and alias are one
+occurrence and produce at most one casing diagnostic. An import with an
+invalid module path segment does not enter normal import lookup. The
+`identifier-casing-import-path-json` and
+`identifier-casing-import-path-human` examples check multi-segment and
+single-segment import paths, uppercase and underscore initials, exact spans,
+detail fields, and the single-diagnostic implicit-alias boundary.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter

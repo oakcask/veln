@@ -24,7 +24,8 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `details.phase`, `origin`, `occurrence`, `name`, `name_class`,
   `required_initial`, and `observed_initial` fields. Written qualified path
   segment diagnostics also include the zero-based `segment_index`. The checked
-  `identifier-casing-*-json` cases define exact spans, detail values, and
+  `identifier-casing-*-json` cases, including
+  `identifier-casing-import-path-json`, define exact spans, detail values, and
   non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less
   `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,

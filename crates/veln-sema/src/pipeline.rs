@@ -264,6 +264,7 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
     let subject = match invalid.class {
         NameClass::Type => "type name",
         NameClass::Constructor => "constructor name",
+        NameClass::Module => "module name",
         NameClass::Function => "function name",
         NameClass::ValueBinding => "binding name",
     };
@@ -271,14 +272,14 @@ fn invalid_name_diagnostic(invalid: &InvalidName) -> Diagnostic {
         match invalid.class {
             NameClass::Type => "type alias target",
             NameClass::Function => "function alias target",
-            NameClass::Constructor | NameClass::ValueBinding => subject,
+            NameClass::Constructor | NameClass::Module | NameClass::ValueBinding => subject,
         }
     } else {
         subject
     };
     let required_letter = match invalid.class {
         NameClass::Type | NameClass::Constructor => "uppercase",
-        NameClass::Function | NameClass::ValueBinding => "lowercase",
+        NameClass::Module | NameClass::Function | NameClass::ValueBinding => "lowercase",
     };
     let observed_initial = invalid.name.as_bytes().first().map_or("other", |initial| {
         if initial.is_ascii_uppercase() {

@@ -109,8 +109,9 @@ impl Writer {
         self.u8(match value.class {
             NameClass::Type => 0,
             NameClass::Constructor => 1,
-            NameClass::Function => 2,
-            NameClass::ValueBinding => 3,
+            NameClass::Module => 2,
+            NameClass::Function => 3,
+            NameClass::ValueBinding => 4,
         });
         self.u8(match value.occurrence {
             NameOccurrence::Declaration => 0,
@@ -135,6 +136,7 @@ impl Writer {
         self.option(&value.module_name, |writer, value| writer.string(value));
         self.string(&value.name);
         self.string(&value.alias);
+        self.vec(&value.name_spans, Self::span);
         self.option(&value.package, |writer, value| writer.string(value));
         self.option(&value.package_span, Self::span);
         self.span(&value.span);
@@ -853,8 +855,9 @@ impl<'a> Reader<'a> {
         let class = match self.u8()? {
             0 => NameClass::Type,
             1 => NameClass::Constructor,
-            2 => NameClass::Function,
-            3 => NameClass::ValueBinding,
+            2 => NameClass::Module,
+            3 => NameClass::Function,
+            4 => NameClass::ValueBinding,
             value => return Err(format!("invalid name class tag {value}")),
         };
         let occurrence = match self.u8()? {
@@ -889,6 +892,7 @@ impl<'a> Reader<'a> {
             module_name: self.option(Self::string)?,
             name: self.string()?,
             alias: self.string()?,
+            name_spans: self.vec(Self::span)?,
             package: self.option(Self::string)?,
             package_span: self.option(Self::span)?,
             span: self.span()?,

@@ -1356,7 +1356,7 @@ impl<'a> Parser<'a> {
         context: &'static str,
     ) -> (ModuleDecl, UseDecl) {
         let start = self.expect(keyword, context, vec!["keyword"]).range;
-        let name = self.parse_module_name(context);
+        let (name, name_spans) = self.parse_written_module_path(context, false);
         let end = self.expect_newline(context).range;
         let span = self.source.span(start.cover(end));
         (
@@ -1366,6 +1366,7 @@ impl<'a> Parser<'a> {
             },
             UseDecl {
                 name,
+                name_spans,
                 package: None,
                 span,
             },
@@ -1387,7 +1388,7 @@ impl<'a> Parser<'a> {
         let start = self
             .expect(TokenKind::Use, "use_declaration", vec!["use"])
             .range;
-        let name = self.parse_module_name("use_declaration");
+        let (name, name_spans) = self.parse_written_module_path("use_declaration", true);
         let package = if self.eat(TokenKind::From).is_some() {
             let token = self.expect(TokenKind::String, "use_declaration", vec!["package"]);
             Some(UsePackage {
@@ -1400,6 +1401,7 @@ impl<'a> Parser<'a> {
         let end = self.expect_newline("use_declaration").range;
         UseDecl {
             name,
+            name_spans,
             package,
             span: self.source.span(start.cover(end)),
         }
@@ -1808,18 +1810,54 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_module_name(&mut self, context: &'static str) -> String {
-        let mut name = self
-            .expect_ident(context, "module name")
-            .unwrap_or_else(|| "<missing>".to_string());
+    fn parse_written_module_path(
+        &mut self,
+        context: &'static str,
+        allow_hole_segment: bool,
+    ) -> (String, Vec<SourceSpan>) {
+        let (name, span) =
+            self.expect_module_path_segment(context, "module name", allow_hole_segment);
+        let mut text = name.unwrap_or_else(|| "<missing>".to_string());
+        let mut spans = span.into_iter().collect::<Vec<_>>();
         while self.at(TokenKind::Dot) || self.at(TokenKind::DoubleColon) {
             let delimiter = self.bump();
-            if let Some(segment) = self.expect_ident(context, "module name segment") {
-                name.push_str(&delimiter.text);
-                name.push_str(&segment);
+            if let (Some(segment), span) =
+                self.expect_module_path_segment(context, "module name segment", allow_hole_segment)
+            {
+                text.push_str(&delimiter.text);
+                text.push_str(&segment);
+                if let Some(span) = span {
+                    spans.push(span);
+                }
             }
         }
-        name
+        (text, spans)
+    }
+
+    fn expect_module_path_segment(
+        &mut self,
+        context: &'static str,
+        expected: &'static str,
+        allow_hole_segment: bool,
+    ) -> (Option<String>, Option<SourceSpan>) {
+        if allow_hole_segment {
+            return self.expect_covered_name(context, expected);
+        }
+        if is_contextual_identifier(self.current().kind) {
+            let token = self.bump();
+            let span = self.source.span(token.range);
+            (Some(token.text), Some(span))
+        } else {
+            self.error_current(
+                "parse.expected_identifier",
+                format!("expected {expected}"),
+                context,
+                vec![expected],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            (None, None)
+        }
     }
 
     fn collect_type_until(&mut self, _context: &'static str, stop: &[TokenKind]) -> String {

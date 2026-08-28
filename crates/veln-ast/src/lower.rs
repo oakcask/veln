@@ -98,6 +98,9 @@ impl AstBuilder {
                 }
             }
         }
+        for use_decl in &tree.uses {
+            collect_invalid_use_name(use_decl, &mut invalid_names);
+        }
 
         SurfaceModule {
             module,
@@ -161,6 +164,30 @@ fn collect_invalid_type_names(type_decl: &SyntaxTypeDecl, invalid: &mut Vec<Inva
             None,
         );
     }
+}
+
+fn collect_invalid_use_name(use_decl: &SyntaxUse, invalid: &mut Vec<InvalidName>) {
+    for (index, (segment, span)) in module_path_segments(&use_decl.name)
+        .into_iter()
+        .zip(use_decl.name_spans.iter())
+        .enumerate()
+    {
+        push_invalid_name(
+            invalid,
+            Some(segment),
+            Some(span),
+            NameClass::Module,
+            NameOccurrence::PathSegment,
+            None,
+            Some(index),
+        );
+    }
+}
+
+fn module_path_segments(name: &str) -> Vec<&str> {
+    name.split(&[':', '.'])
+        .filter(|segment| !segment.is_empty())
+        .collect()
 }
 
 fn collect_invalid_function_names(function: &SyntaxFunction, invalid: &mut Vec<InvalidName>) {
@@ -417,7 +444,7 @@ fn push_invalid_name(
         NameClass::Type | NameClass::Constructor => {
             name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
         }
-        NameClass::Function | NameClass::ValueBinding => {
+        NameClass::Module | NameClass::Function | NameClass::ValueBinding => {
             name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
         }
     };
@@ -505,6 +532,7 @@ impl AstBuilder {
             module_name,
             name: use_decl.name.clone(),
             alias: import_alias(&use_decl.name),
+            name_spans: use_decl.name_spans.clone(),
             package: use_decl
                 .package
                 .as_ref()

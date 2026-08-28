@@ -4825,6 +4825,7 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
         .uses
         .iter()
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
+        .filter(|use_decl| !use_decl_has_invalid_module_segment(module, use_decl))
     {
         let node_id = use_decl.node_id.display("use");
         let key = (use_decl.module_name.clone(), use_decl.alias.clone());
@@ -4844,6 +4845,16 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
     }
 
     diagnostics
+}
+
+fn use_decl_has_invalid_module_segment(module: &SurfaceModule, use_decl: &UseDecl) -> bool {
+    module.invalid_names.iter().any(|invalid| {
+        invalid.class == NameClass::Module
+            && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+            && invalid.span.file == use_decl.span.file
+            && use_decl.span.start.offset <= invalid.span.start.offset
+            && invalid.span.end.offset <= use_decl.span.end.offset
+    })
 }
 
 pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {

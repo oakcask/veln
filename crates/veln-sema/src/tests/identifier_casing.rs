@@ -124,6 +124,74 @@ fn underscore_led_binding_recovers_without_missing_identifier_diagnostic() {
 }
 
 #[test]
+fn import_path_segments_report_module_casing_with_retained_spans() {
+    let source = SourceFile::new("main.veln", "use HTTP::_tls\n");
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(diagnostics.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[0].message,
+        "module name `HTTP` must start with an ASCII lowercase letter"
+    );
+    assert_diagnostic_span(&diagnostics[0], 1, 5, 1, 9);
+    let first_details = diagnostics[0].details.to_json();
+    assert!(first_details.contains("\"occurrence\":\"path_segment\""));
+    assert!(first_details.contains("\"name_class\":\"module\""));
+    assert!(first_details.contains("\"observed_initial\":\"ascii_uppercase\""));
+    assert!(first_details.contains("\"segment_index\":0"));
+
+    assert_eq!(
+        diagnostics[1].message,
+        "module name `_tls` must start with an ASCII lowercase letter"
+    );
+    assert_diagnostic_span(&diagnostics[1], 1, 11, 1, 15);
+    let second_details = diagnostics[1].details.to_json();
+    assert!(second_details.contains("\"observed_initial\":\"underscore\""));
+    assert!(second_details.contains("\"segment_index\":1"));
+}
+
+#[test]
+fn invalid_implicit_import_alias_is_not_inserted_for_lookup() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  HTTP::entry()\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!("mod HTTP\n", "pub fn entry() -> Int\n", "  1\n", "end\n"),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+            .count(),
+        1,
+        "{diagnostics:#?}"
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `HTTP::entry`"
+    }));
+}
+
+#[test]
 fn invalid_value_bindings_suppress_derivative_unresolved_without_lookup() {
     let source = SourceFile::new(
         "main.veln",
