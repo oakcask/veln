@@ -1,0 +1,6 @@
+mod app
+use util
+
+fn main() -> ()
+  ()
+end

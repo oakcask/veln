@@ -1,0 +1,66 @@
+command = ["check", "--json", "app.veln", "valid.veln", "Bad.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["name.duplicate", "duplicate function declaration name `same`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "Bad.veln"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "module.source_mod"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "type.mismatch"
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `Bad` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "Bad.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "module.source_mod"
+severity = "error"
+kind = "module"
+message = "source `mod` declarations are not supported"
+
+[diagnostics.span]
+file = "Bad.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `Bool`"
+
+[diagnostics.span]
+file = "valid.veln"
+line = 2
+column = 3

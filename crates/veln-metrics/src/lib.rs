@@ -637,8 +637,13 @@ impl DependencyGraph {
         let mut nodes = Vec::new();
         let mut module_index = BTreeMap::new();
         for source in &project.files {
-            let module =
-                derive_source_module_path(source).map_err(|diagnostic| vec![*diagnostic])?;
+            let module = match derive_source_module_path(source) {
+                Ok(module) => module,
+                Err(diagnostic) if is_source_path_module_case_diagnostic(&diagnostic) => {
+                    continue;
+                }
+                Err(diagnostic) => return Err(vec![*diagnostic]),
+            };
             let index = nodes.len();
             module_index.insert(module.clone(), index);
             nodes.push(DependencyNode {
@@ -651,8 +656,13 @@ impl DependencyGraph {
 
         let mut edge_keys = BTreeMap::<(usize, usize), SourceSpan>::new();
         for source in &project.files {
-            let module =
-                derive_source_module_path(source).map_err(|diagnostic| vec![*diagnostic])?;
+            let module = match derive_source_module_path(source) {
+                Ok(module) => module,
+                Err(diagnostic) if is_source_path_module_case_diagnostic(&diagnostic) => {
+                    continue;
+                }
+                Err(diagnostic) => return Err(vec![*diagnostic]),
+            };
             let source_index = module_index[&module];
             let parsed = parse(source);
             if !parsed.diagnostics.is_empty() {
@@ -888,6 +898,27 @@ impl DependencyGraph {
         path.pop();
         false
     }
+}
+
+fn is_source_path_module_case_diagnostic(diagnostic: &Diagnostic) -> bool {
+    diagnostic.id == "name.invalid_case"
+        && json_detail_string(&diagnostic.details, "origin") == Some("source_path")
+        && json_detail_string(&diagnostic.details, "name_class") == Some("module")
+}
+
+fn json_detail_string<'a>(details: &'a JsonValue, key: &str) -> Option<&'a str> {
+    let JsonValue::Object(entries) = details else {
+        return None;
+    };
+    entries.iter().find_map(|(entry_key, value)| {
+        if entry_key == key
+            && let JsonValue::String(value) = value
+        {
+            Some(value.as_str())
+        } else {
+            None
+        }
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -2294,6 +2325,38 @@ mod tests {
         assert_eq!(report.cycles[0].path.last().unwrap(), "app");
         assert_eq!(report.modules[0].module, "util");
         assert_eq!(report.modules[0].dependency_pressure, 4);
+    }
+
+    #[test]
+    fn invalid_source_path_casing_does_not_enter_dependency_cycles() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("util.veln", "use app\nfn value() -> ()\n  ()\nend\n"),
+                SourceFile::new(
+                    "Bad.veln",
+                    "mod app\nuse util\nfn main() -> ()\n  ()\nend\n",
+                ),
+            ],
+        };
+
+        let graph = DependencyGraph::from_project(&project).expect("graph");
+        let selected = ["util.veln".to_string()].into_iter().collect();
+        let report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: Vec::new(),
+            },
+            &selected,
+            default_metrics_config(),
+        );
+
+        assert_eq!(report.summary.project_module_count, 1);
+        assert_eq!(report.summary.internal_edge_count, 0);
+        assert_eq!(report.summary.cycle_count, 0);
+        assert_eq!(report.modules[0].module, "util");
     }
 
     #[test]

@@ -299,13 +299,16 @@ fn load_project_sources(
             derive_source_module(source, diagnostics, is_exported_source);
             continue;
         }
-        let derived_module = derive_and_record_source_module(
+        let Some(derived_module) = derive_and_record_source_module(
             source,
             diagnostics,
             parts,
             package,
             is_exported_source,
-        );
+        ) else {
+            push_source_parse_semantic_diagnostics(&parsed.tree, diagnostics);
+            continue;
+        };
         process_parsed_source(
             source,
             &parsed.tree,
@@ -397,14 +400,14 @@ fn derive_and_record_source_module(
     parts: &mut SurfaceParts,
     package: Option<&str>,
     is_exported_source: bool,
-) -> Option<String> {
+) -> Option<Option<String>> {
     let source_kind = source_module_kind(is_exported_source);
     match derive_visible_source_module_path_with_source_kind(source, source_kind) {
         Ok(Some(module_name)) => {
             record_derived_source_module(source, &module_name, diagnostics, parts, package);
-            Some(module_name)
+            Some(Some(module_name))
         }
-        Ok(None) => None,
+        Ok(None) => Some(None),
         Err(source_diagnostics) => {
             diagnostics.extend(source_diagnostics);
             None

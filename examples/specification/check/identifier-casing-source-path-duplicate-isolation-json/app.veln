@@ -1,0 +1,3 @@
+fn same() -> Int
+  1
+end

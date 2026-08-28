@@ -1,0 +1,5 @@
+use bad
+
+fn main() -> Int
+  bad::entry()
+end

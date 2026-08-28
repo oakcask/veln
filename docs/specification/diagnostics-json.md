@@ -35,6 +35,9 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `identifier-casing-*-json` cases, including
   `identifier-casing-source-path-json`,
   `identifier-casing-exported-source-path-json`,
+  `identifier-casing-source-path-import-isolation-json`,
+  `identifier-casing-source-path-duplicate-isolation-json`,
+  `identifier-casing-source-path-cycle-isolation-json`,
   `identifier-casing-import-path-json`,
   `identifier-casing-import-missing-module-overlap-json`,
   `identifier-casing-import-duplicate-overlap-json`,
@@ -139,9 +142,14 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-handler-cascade-boundary-json`, and
 `identifier-casing-import-order-json` cases. Source-path-derived module
 identity casing is checked by `identifier-casing-source-path-json` and
-`identifier-casing-exported-source-path-json`; parse-failure coexistence,
-human output, lowercase-initial structural failures, and chained companion
-structural isolation are checked by
+`identifier-casing-exported-source-path-json`. Source-path-derived module
+identity isolation from import resolution, duplicate module contents, and
+module-cycle policy violations is checked by
+`identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`, and
+`identifier-casing-source-path-cycle-isolation-json`. Parse-failure
+coexistence, human output, lowercase-initial structural failures, and chained
+companion structural isolation are checked by
 `identifier-casing-source-path-human` and
 `identifier-casing-chained-companion-boundary-json`. LSP span mapping for the
 same zero-width source-start diagnostics is checked by

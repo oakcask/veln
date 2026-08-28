@@ -13,9 +13,13 @@ casing diagnostic contract for module-class path segments. Current behavior is
 specified by [Name Resolution](../../specification/name-resolution.md) and
 [Check JSON And Diagnostics](../../specification/diagnostics-json.md). The
 checked `identifier-casing-source-path-json`,
-`identifier-casing-exported-source-path-json`, and
+`identifier-casing-exported-source-path-json`,
+`identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`,
+`identifier-casing-source-path-cycle-isolation-json`, and
 `identifier-casing-source-path-human` examples fix the JSON and human command
-diagnostics. The checked `identifier-casing-source-path-boundary` example
+diagnostics and the module-graph isolation boundary. The checked
+`identifier-casing-source-path-boundary` example
 fixes the LSP zero-width diagnostic range and source-path origin data
 projection. The checked
 `identifier-casing-chained-companion-boundary-json` example fixes the
@@ -50,6 +54,9 @@ and the zero-based `segment_index`. The primary span is zero-width at the
 start of the affected source. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with one or more
 invalid origin segments is not registered as a normal derived module identity.
+Its lowered declarations are not added to the normal source module graph and
+cannot satisfy imports, collide with declarations in a valid source module, or
+contribute dependency edges to cycle analysis.
 Selected regular and companion sources still report source-path casing
 diagnostics when the source also has parse diagnostics, but parse-failing
 sources are not lowered or registered. A source path segment that starts with
