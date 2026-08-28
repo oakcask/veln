@@ -69,11 +69,11 @@ runs:
           rust-test-build-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}-${{ inputs.llvm-cov-version }}-
           rust-test-build-${{ runner.os }}-
     - name: Install cargo-nextest
-      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
+      uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2
       with:
         tool: cargo-nextest@${{ inputs.nextest-version }}
     - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2
+      uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2
       with:
         tool: cargo-llvm-cov@${{ inputs.llvm-cov-version }}
     - name: Install LLVM coverage tools
