@@ -175,6 +175,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-exported-source-path-json/`,
   `../../examples/specification/check/identifier-casing-source-path-human/`,
   `../../examples/specification/check/identifier-casing-chained-companion-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-source-path-import-isolation-json/`,
+  `../../examples/specification/check/identifier-casing-source-path-duplicate-isolation-json/`,
   `../../examples/specification/check/identifier-casing-import-path-json/`,
   `../../examples/specification/check/identifier-casing-import-path-human/`,
   `../../examples/specification/check/identifier-casing-import-missing-module-overlap-json/`,
@@ -249,6 +251,13 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   cases under `../../examples/specification/run/`.
 - Typed protocol failures and projection: the focused `http2-*` cases under
   `../../examples/specification/run/`.
+
+## Metrics Routes
+
+- Source dependency graph reports and policy checks:
+  `../../examples/specification/metrics/dependency-report-json/`,
+  `../../examples/specification/metrics/check-cycle-json/`, and
+  `../../examples/specification/metrics/identifier-casing-source-path-cycle-isolation-json/`.
 
 ## Read When
 
