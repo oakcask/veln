@@ -1,0 +1,62 @@
+command = ["check", "--json", "app.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 3
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.unresolved_import"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "name.unresolved"
+
+[[diagnostics]]
+id = "module.unresolved_import"
+severity = "error"
+kind = "module"
+message = "local import `missing::HTTP` has no matching selected source file"
+
+[diagnostics.span]
+file = "app.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `HTTP` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "app.veln"
+line = 1
+column = 14
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `HTTP::Payload::Data`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 4
+column = 3

@@ -1,0 +1,5 @@
+use HTTP
+
+fn main(value: HTTP::Payload) -> Int
+  value
+end

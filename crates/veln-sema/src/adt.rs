@@ -5,7 +5,7 @@ use veln_core::CoreType;
 use veln_project::classify_companion_source;
 
 use crate::builtin_type_syntax::{BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxRegistry};
-use crate::name_recovery::public_alias_has_invalid_target_leaf;
+use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
 use crate::semantic_model::Type;
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
@@ -543,6 +543,7 @@ fn type_alias_descriptors(
     module: &SurfaceModule,
     descriptors: &[AdtDescriptor],
 ) -> Vec<AdtDescriptor> {
+    let uses = normal_use_decls(module);
     module
         .aliases
         .iter()
@@ -558,7 +559,7 @@ fn type_alias_descriptors(
             }
             let target = descriptor_for_alias_target(
                 &alias.target,
-                &module.uses,
+                &uses,
                 descriptors,
                 alias.module_name.as_deref(),
             )?;

@@ -9,6 +9,7 @@ pub(crate) struct TypeEnvironment {
     function_recovery_signatures: Vec<FunctionSignature>,
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
     constructor_recoveries: BTreeMap<ConstructorRecoveryKey, usize>,
+    import_constructor_recoveries: BTreeMap<ImportConstructorRecoveryKey, usize>,
     codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
@@ -128,6 +129,16 @@ impl TypeEnvironment {
                 .iter()
                 .filter(|(key, _)| {
                     key.module_name
+                        .as_ref()
+                        .is_none_or(|module| module_names.contains(module))
+                })
+                .map(|(key, count)| (key.clone(), *count))
+                .collect(),
+            import_constructor_recoveries: self
+                .import_constructor_recoveries
+                .iter()
+                .filter(|(key, _)| {
+                    key.current_module
                         .as_ref()
                         .is_none_or(|module| module_names.contains(module))
                 })
@@ -282,6 +293,30 @@ impl TypeEnvironment {
                     && !self.imported_codec_helper_is_hidden(function, use_decl)
             })
             .count()
+    }
+
+    pub(crate) fn quarantined_import_constructor_recovery_candidate_count(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> usize {
+        let [alias, constructor_segments @ ..] = segments else {
+            return 0;
+        };
+        if constructor_segments.is_empty() {
+            return 0;
+        }
+        self.import_constructor_recoveries
+            .iter()
+            .filter(|(key, _)| {
+                key.current_module.as_deref() == current_module
+                    && key.alias == *alias
+                    && key.constructor_segments == constructor_segments
+                    && arg_count.is_none_or(|count| key.field_count == count)
+            })
+            .map(|(_, count)| *count)
+            .sum()
     }
 
     fn quarantined_import_for_segments<'a>(
@@ -906,5 +941,13 @@ impl FunctionRecoveryKey {
 pub(crate) struct ConstructorRecoveryKey {
     module_name: Option<String>,
     name: String,
+    field_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ImportConstructorRecoveryKey {
+    current_module: Option<String>,
+    alias: String,
+    constructor_segments: Vec<String>,
     field_count: usize,
 }

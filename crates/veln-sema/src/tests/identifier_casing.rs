@@ -194,6 +194,109 @@ fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
 }
 
 #[test]
+fn invalid_implicit_import_alias_suppresses_constructor_quarantine_cascade() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn main() -> HTTP::Payload\n",
+            "  HTTP::Payload::Data(1)\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!(
+            "mod HTTP\n",
+            "pub type Payload\n",
+            "  pub Data(Int)\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    assert_eq!(module.uses[0].alias, "HTTP");
+    assert_eq!(module.uses[0].module_name.as_deref(), Some("app"));
+    assert_eq!(module.types[0].module_name.as_deref(), Some("HTTP"));
+    let environment = TypeEnvironment::from_module(&module);
+    assert_eq!(
+        environment.quarantined_import_constructor_recovery_candidate_count(
+            &[
+                "HTTP".to_string(),
+                "Payload".to_string(),
+                "Data".to_string()
+            ],
+            Some("app"),
+            Some(1),
+        ),
+        1
+    );
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved"
+                && diagnostic.id != "type.mismatch"
+                && diagnostic.id != "core.constructor_arity_mismatch"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(lower_checked_surface_module(&module).core.is_none());
+}
+
+#[test]
+fn invalid_implicit_import_alias_does_not_infer_private_signature_type() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use HTTP\n",
+            "\n",
+            "fn main(value: HTTP::Payload) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let http_source = SourceFile::new(
+        "http.veln",
+        concat!(
+            "mod HTTP\n",
+            "pub type Payload\n",
+            "  pub Data(Int)\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![app_source, http_source]);
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.mismatch"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .uses
+            .iter()
+            .all(|use_decl| use_decl.alias != "HTTP")
+    );
+}
+
+#[test]
 fn duplicate_invalid_implicit_import_aliases_stay_in_duplicate_analysis() {
     let source = SourceFile::new(
         "app.veln",

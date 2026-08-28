@@ -71,12 +71,15 @@ occurrence `path_segment`, name class `module`, required initial
 `segment_index` inside the written import path. When the final segment would
 also provide the implicit import alias, the path segment and alias are one
 occurrence and produce at most one casing diagnostic. An import with an
-invalid module path segment does not enter normal import lookup. The
-original written import still participates in duplicate import-alias analysis.
-If no selected source derives the written local module path,
-`module.unresolved_import` is still reported. A qualified call or value use
-through the invalid implicit alias suppresses `name.unresolved` only when a
-matching selected source export proves that quarantine is the sole failure.
+invalid module path segment does not enter normal import lookup for value,
+call, type, constructor, schema, effect, handler, inference, lowering, or
+reachability consumers. The original written import still participates in
+duplicate import-alias analysis. If no selected source derives the written
+local module path, `module.unresolved_import` is still reported. A use through
+the invalid implicit alias may suppress a derivative unresolved, type-origin,
+constructor-arity, or exhaustiveness diagnostic only when one matching
+selected source export proves that quarantine is the sole failure. Missing
+target modules and missing exports remain independently reported.
 The
 `identifier-casing-import-path-json` and
 `identifier-casing-import-path-human` examples check multi-segment and
@@ -85,8 +88,15 @@ detail fields, and the single-diagnostic implicit-alias boundary. The
 `identifier-casing-import-missing-module-overlap-json`,
 `identifier-casing-import-duplicate-overlap-json`, and
 `identifier-casing-import-alias-cascade-boundary-json` examples check the
-overlap with missing-module, duplicate-alias, and alias-use cascade
-diagnostics.
+overlap with missing-module, duplicate-alias, and function alias-use cascade
+diagnostics. The
+`identifier-casing-import-type-cascade-boundary-json`,
+`identifier-casing-import-constructor-cascade-boundary-json`,
+`identifier-casing-import-missing-type-control-json`, and
+`identifier-casing-import-missing-constructor-control-json` examples check
+that qualified imported types and constructors use the same quarantine
+boundary while missing-target controls still report independently provable
+failures.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter

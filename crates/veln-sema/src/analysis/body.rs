@@ -2166,6 +2166,7 @@ impl<'a> FunctionChecker<'a> {
                 {
                     return Some(self.infer_adt_constructor(expr, args, expected, constructor));
                 }
+                ConstructorLookup::Found(_) => {}
                 ConstructorLookup::Ambiguous => {
                     if let Some(constructor) = expected
                         .and_then(|expected| {
@@ -2191,7 +2192,22 @@ impl<'a> FunctionChecker<'a> {
                     );
                     return Some(Type::Unknown);
                 }
-                _ => {}
+                ConstructorLookup::Missing => {
+                    if self
+                        .environment
+                        .quarantined_import_constructor_recovery_candidate_count(
+                            segments,
+                            self.function.module_name.as_deref(),
+                            Some(args.len()),
+                        )
+                        == 1
+                    {
+                        for arg in args {
+                            self.infer_expr(arg, None);
+                        }
+                        return Some(Type::Unknown);
+                    }
+                }
             }
         }
         None
@@ -2435,6 +2451,15 @@ impl<'a> FunctionChecker<'a> {
                         segments,
                         self.function.module_name.as_deref(),
                         args.len(),
+                    )
+                    == 1;
+            let recovered = recovered
+                || self
+                    .environment
+                    .quarantined_import_constructor_recovery_candidate_count(
+                        segments,
+                        self.function.module_name.as_deref(),
+                        Some(args.len()),
                     )
                     == 1;
             if !recovered {

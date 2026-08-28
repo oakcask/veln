@@ -17,7 +17,13 @@ checked `identifier-casing-import-path-json` and
 diagnostics. The checked `identifier-casing-import-missing-module-overlap-json`,
 `identifier-casing-import-duplicate-overlap-json`, and
 `identifier-casing-import-alias-cascade-boundary-json` examples fix the
-corrected overlap behavior.
+function alias-use overlap behavior. The checked
+`identifier-casing-import-type-cascade-boundary-json`,
+`identifier-casing-import-constructor-cascade-boundary-json`,
+`identifier-casing-import-missing-type-control-json`, and
+`identifier-casing-import-missing-constructor-control-json` examples fix the
+qualified imported type and constructor quarantine boundary and the
+missing-target controls.
 
 ## Scope
 
@@ -33,11 +39,14 @@ module`, the required and observed initial classes, and the zero-based
 An implicit alias derived from the final import path segment is the same
 occurrence as that final path segment. The implementation emits at most one
 casing diagnostic for it. An import with an invalid module path segment does
-not enter normal import lookup. Duplicate import-alias analysis still uses the
-original written alias. Project-level unresolved import checks still report a
-missing selected source for the written local module path. A qualified use
-through an invalid implicit alias suppresses `name.unresolved` only when the
-selected source export exists and quarantine is the sole failure.
+not enter normal lookup, inference, lowering, or reachability consumers.
+Duplicate import-alias analysis still uses the original written alias.
+Project-level unresolved import checks still report a missing selected source
+for the written local module path. A qualified use through an invalid implicit
+alias suppresses derivative unresolved, type-origin, constructor-arity, or
+exhaustiveness diagnostics only when a matching selected source export exists
+and quarantine is the sole failure. Missing target modules and missing exports
+remain independently reported.
 
 ## Completion
 
