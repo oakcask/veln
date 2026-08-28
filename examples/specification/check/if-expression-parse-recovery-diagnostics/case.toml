@@ -1,4 +1,4 @@
-command = ["check", "--json", "missing-else.veln", "missing-end.veln", "missing-else-if-condition.veln", "malformed-else.veln"]
+command = ["check", "--json", "missing_else.veln", "missing_end.veln", "missing_else_if_condition.veln", "malformed_else.veln"]
 exit = 1
 
 [stdout]
@@ -23,7 +23,7 @@ kind = "parse"
 message = "if expression is missing a final `else` branch"
 
 [diagnostics.span]
-file = "missing-else.veln"
+file = "missing_else.veln"
 line = 4
 column = 2
 
@@ -34,7 +34,7 @@ kind = "parse"
 message = "if expression is missing `end`"
 
 [diagnostics.span]
-file = "missing-end.veln"
+file = "missing_end.veln"
 line = 6
 column = 1
 
@@ -45,7 +45,7 @@ kind = "parse"
 message = "expected `end` to close function declaration"
 
 [diagnostics.span]
-file = "missing-end.veln"
+file = "missing_end.veln"
 line = 6
 column = 1
 
@@ -56,7 +56,7 @@ kind = "parse"
 message = "else if condition is missing an expression"
 
 [diagnostics.span]
-file = "missing-else-if-condition.veln"
+file = "missing_else_if_condition.veln"
 line = 4
 column = 9
 
@@ -67,6 +67,6 @@ kind = "parse"
 message = "if branch is missing an expression"
 
 [diagnostics.span]
-file = "malformed-else.veln"
+file = "malformed_else.veln"
 line = 5
 column = 2

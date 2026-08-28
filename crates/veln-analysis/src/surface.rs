@@ -289,9 +289,6 @@ fn load_project_sources(
         }
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
-        if !parsed.diagnostics.is_empty() {
-            continue;
-        }
         let is_exported_source =
             exported_source_paths.is_some_and(|paths| paths.contains(source.path().as_str()));
         if is_exported_source
@@ -299,13 +296,24 @@ fn load_project_sources(
         {
             checked_export_source_paths.insert(source.path().as_str().to_string());
         }
+        if !parsed.diagnostics.is_empty() {
+            derive_source_module(source, diagnostics, is_exported_source);
+            continue;
+        }
+        let derived_module = derive_and_record_source_module(
+            source,
+            diagnostics,
+            parts,
+            package,
+            is_exported_source,
+        );
         process_parsed_source(
             source,
             &parsed.tree,
             diagnostics,
             parts,
             package,
-            is_exported_source,
+            derived_module,
         );
     }
 }
@@ -351,11 +359,9 @@ fn process_parsed_source(
     diagnostics: &mut Vec<Diagnostic>,
     parts: &mut SurfaceParts,
     package: Option<&str>,
-    is_exported_source: bool,
+    derived_module: Option<String>,
 ) {
     push_source_parse_semantic_diagnostics(tree, diagnostics);
-    let derived_module =
-        derive_and_record_source_module(source, diagnostics, parts, package, is_exported_source);
     let mut lowered = lower_source_tree(source, tree, derived_module, package);
     rewrite_import_targets(&mut lowered.uses, package);
     if parts.module.module.is_none() {
@@ -393,11 +399,7 @@ fn derive_and_record_source_module(
     package: Option<&str>,
     is_exported_source: bool,
 ) -> Option<String> {
-    let source_kind = if is_exported_source {
-        "export"
-    } else {
-        "regular"
-    };
+    let source_kind = source_module_kind(is_exported_source);
     match derive_visible_source_module_path_with_source_kind(source, source_kind) {
         Ok(Some(module_name)) => {
             record_derived_source_module(source, &module_name, diagnostics, parts, package);
@@ -408,6 +410,31 @@ fn derive_and_record_source_module(
             diagnostics.extend(source_diagnostics);
             None
         }
+    }
+}
+
+fn derive_source_module(
+    source: &SourceFile,
+    diagnostics: &mut Vec<Diagnostic>,
+    is_exported_source: bool,
+) -> Option<String> {
+    match derive_visible_source_module_path_with_source_kind(
+        source,
+        source_module_kind(is_exported_source),
+    ) {
+        Ok(module_name) => module_name,
+        Err(source_diagnostics) => {
+            diagnostics.extend(source_diagnostics);
+            None
+        }
+    }
+}
+
+fn source_module_kind(is_exported_source: bool) -> &'static str {
+    if is_exported_source {
+        "export"
+    } else {
+        "regular"
     }
 }
 

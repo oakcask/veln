@@ -3684,6 +3684,93 @@ fn invalid_source_path_casing_reports_all_segments_without_registering_module() 
 }
 
 #[test]
+fn source_path_casing_is_reported_when_source_parsing_fails() {
+    let regular = SourceFile::new("App/broken.veln", "fn main() -> ()\n");
+    let companion = SourceFile::new("Net/math.test.veln", "test broken() -> ()\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![regular, companion],
+        manifest: None,
+    };
+
+    let (module, diagnostics) = load_surface_module(&project);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id.starts_with("parse.")),
+        "{diagnostics:#?}"
+    );
+    let invalid_cases = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+    assert_eq!(invalid_cases.len(), 2, "{diagnostics:#?}");
+    assert_eq!(
+        invalid_cases
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "module name `App` must start with an ASCII lowercase letter",
+            "module name `Net` must start with an ASCII lowercase letter",
+        ]
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_kind"),
+        Some("regular")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[0], "source_path"),
+        Some("App/broken.veln")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[1], "source_kind"),
+        Some("companion")
+    );
+    assert_eq!(
+        detail_string(invalid_cases[1], "source_path"),
+        Some("Net/math.test.veln")
+    );
+    assert!(
+        module
+            .functions
+            .iter()
+            .all(
+                |function| function.module_name.as_deref() != Some("App::broken")
+                    && function.module_name.as_deref() != Some("Net::math__test_companion")
+            ),
+        "{module:#?}"
+    );
+}
+
+#[test]
+fn source_path_structural_error_after_valid_initial_is_not_casing() {
+    let source = SourceFile::new("appé.veln", "fn main() -> ()\n  ()\nend\n");
+    let project = Project {
+        root: ".".into(),
+        files: vec![source],
+        manifest: None,
+    };
+
+    let (_, diagnostics) = load_surface_module(&project);
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.id.as_str())
+            .collect::<Vec<_>>(),
+        ["module.invalid_source_path"],
+        "{diagnostics:#?}"
+    );
+    assert_eq!(
+        diagnostics[0].message,
+        "source path segment cannot be used as a module identifier: `appé`"
+    );
+    assert_eq!(detail_string(&diagnostics[0], "segment"), Some("appé"));
+}
+
+#[test]
 fn selected_manifest_export_is_accepted() {
     let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
     let project = Project {

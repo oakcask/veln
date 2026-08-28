@@ -133,7 +133,7 @@ fn validated_segments(
     for (index, segment) in stem.split('/').enumerate() {
         if is_valid_module_segment(segment) {
             segments.push(segment.to_string());
-        } else if has_segment_name_characters(segment) {
+        } else if has_invalid_module_initial(segment) {
             diagnostics.push(invalid_source_path_module_case_diagnostic(
                 source,
                 source_kind,
@@ -182,12 +182,11 @@ fn is_valid_module_segment(segment: &str) -> bool {
     first.is_ascii_lowercase() && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
-fn has_segment_name_characters(segment: &str) -> bool {
-    let mut chars = segment.chars();
-    if chars.next().is_none() {
-        return false;
-    }
-    segment.chars().all(|ch| ch.is_alphanumeric() || ch == '_')
+fn has_invalid_module_initial(segment: &str) -> bool {
+    segment
+        .as_bytes()
+        .first()
+        .is_some_and(|initial| !initial.is_ascii_lowercase())
 }
 
 fn observed_initial(segment: &str) -> &'static str {
@@ -348,6 +347,19 @@ mod tests {
             "regular",
             2,
             "App/_net/éclair.veln",
+        );
+    }
+
+    #[test]
+    fn preserves_structural_source_path_errors_after_valid_module_initial() {
+        let source = SourceFile::new("appé.veln", "");
+        let diagnostics = derive_with_diagnostics(&source).expect_err("path should be rejected");
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "module.invalid_source_path");
+        assert_eq!(
+            diagnostics[0].message,
+            "source path segment cannot be used as a module identifier: `appé`"
         );
     }
 

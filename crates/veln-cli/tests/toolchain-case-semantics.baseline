@@ -7156,35 +7156,35 @@ field	expectations.diagnostics[0].kind	"parse"
 field	expectations.diagnostics[0].message	"if expression is missing a final `else` branch"
 field	expectations.diagnostics[0].severity	"error"
 field	expectations.diagnostics[0].span.column	2
-field	expectations.diagnostics[0].span.file	"missing-else.veln"
+field	expectations.diagnostics[0].span.file	"missing_else.veln"
 field	expectations.diagnostics[0].span.line	4
 field	expectations.diagnostics[1].id	"parse.if_missing_end"
 field	expectations.diagnostics[1].kind	"parse"
 field	expectations.diagnostics[1].message	"if expression is missing `end`"
 field	expectations.diagnostics[1].severity	"error"
 field	expectations.diagnostics[1].span.column	1
-field	expectations.diagnostics[1].span.file	"missing-end.veln"
+field	expectations.diagnostics[1].span.file	"missing_end.veln"
 field	expectations.diagnostics[1].span.line	6
 field	expectations.diagnostics[2].id	"parse.expected_end"
 field	expectations.diagnostics[2].kind	"parse"
 field	expectations.diagnostics[2].message	"expected `end` to close function declaration"
 field	expectations.diagnostics[2].severity	"error"
 field	expectations.diagnostics[2].span.column	1
-field	expectations.diagnostics[2].span.file	"missing-end.veln"
+field	expectations.diagnostics[2].span.file	"missing_end.veln"
 field	expectations.diagnostics[2].span.line	6
 field	expectations.diagnostics[3].id	"parse.if_condition"
 field	expectations.diagnostics[3].kind	"parse"
 field	expectations.diagnostics[3].message	"else if condition is missing an expression"
 field	expectations.diagnostics[3].severity	"error"
 field	expectations.diagnostics[3].span.column	9
-field	expectations.diagnostics[3].span.file	"missing-else-if-condition.veln"
+field	expectations.diagnostics[3].span.file	"missing_else_if_condition.veln"
 field	expectations.diagnostics[3].span.line	4
 field	expectations.diagnostics[4].id	"parse.if_branch"
 field	expectations.diagnostics[4].kind	"parse"
 field	expectations.diagnostics[4].message	"if branch is missing an expression"
 field	expectations.diagnostics[4].severity	"error"
 field	expectations.diagnostics[4].span.column	2
-field	expectations.diagnostics[4].span.file	"malformed-else.veln"
+field	expectations.diagnostics[4].span.file	"malformed_else.veln"
 field	expectations.diagnostics[4].span.line	5
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -7204,13 +7204,13 @@ field	expectations.stdout.contains[6]	"\"strategy\":\"close_block\""
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
 field	invocation.command[1]	"--json"
-field	invocation.command[2]	"missing-else.veln"
-field	invocation.command[3]	"missing-end.veln"
-field	invocation.command[4]	"missing-else-if-condition.veln"
-field	invocation.command[5]	"malformed-else.veln"
+field	invocation.command[2]	"missing_else.veln"
+field	invocation.command[3]	"missing_end.veln"
+field	invocation.command[4]	"missing_else_if_condition.veln"
+field	invocation.command[5]	"malformed_else.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"1978c8aa8da0c31de0cb8c4ec90e9f8dbe569580cfa5a8b43e8f21ce282be842"
+case_digest	"be467d34c388bc4f06e5cc5b7104ef9ee3af49dea1c18c8d159a6c5e14a266cd"
 case	"examples/specification/check/if-expression-syntax"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -50910,4 +50910,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"814f4c473401c6a12790f37cfca89ac2f24e069cb861b4f8e7e98019d6a31a71"
+aggregate_digest	"4e2c8a23c049e6162634aa68efd53a874a5a7ea5a62e34a7d1066d2582723110"
