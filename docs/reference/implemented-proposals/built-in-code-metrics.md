@@ -10,8 +10,7 @@ update-when: The implemented metrics report, its executable evidence, or the dec
 
 The `veln metrics` command measures and reports maintainability signals for
 project-owned Veln source. Current behavior is specified in
-[commands.md](../../specification/commands.md),
-[commands.md](../../specification/commands.md), and
+[command-metrics.md](../../specification/command-metrics.md) and
 [metrics-json.md](../../specification/metrics-json.md).
 
 The implemented command reports:
