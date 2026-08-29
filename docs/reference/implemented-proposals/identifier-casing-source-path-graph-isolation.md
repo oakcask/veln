@@ -21,6 +21,10 @@ the invalid identity does not produce a duplicate source-module relationship.
 The checked `identifier-casing-source-path-cycle-isolation-json` example and
 the focused `veln-test` dependency graph test fix that imports written by a
 source without a module identity do not contribute dependency graph edges.
+The focused `veln-test` dependency graph test also fixes that a selected
+source file with a valid source-visible module identity remains in the graph
+when it contains only `use` declarations, so valid use-only imports can still
+select dependent tests.
 Each checked command case also retains the existing source-path
 `name.invalid_case` diagnostic and an independent diagnostic from an unrelated
 valid selected module.

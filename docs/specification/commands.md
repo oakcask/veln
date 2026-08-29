@@ -472,9 +472,11 @@ requiring the full command reference on the first read.
   ordered reporting, direct JVM classfile execution without an ordinary Java
   source compiler requirement, `runtime=contract`, `runtime=ensure`, and
   `runtime=result` doctest expectations, runtime failures, captured stdio
-  events, and test JSON. Source identifier casing diagnostics in the selected
-  test analysis set keep the selected-suite static gate and block JVM artifact
-  generation. Use
+  events, and test JSON. Explicit non-test source selection uses valid
+  source-visible module identities, including use-only source files, for the
+  source-level dependency graph. Source identifier casing diagnostics in the
+  selected test analysis set keep the selected-suite static gate and block JVM
+  artifact generation. Use
   [source-surface.md](source-surface.md) first for doctest fence metadata,
   [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact

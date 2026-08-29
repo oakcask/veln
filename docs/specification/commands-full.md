@@ -600,7 +600,11 @@ selection note.
 For explicit non-test source targets with path-derived module identities,
 `test` builds a source-level dependency graph from `use` declarations. Tests whose
 transitive imports include the selected source are included in the selected
-test roots before semantic analysis. If the graph is incomplete, for example
+test roots before semantic analysis. The graph derives module nodes from
+selected source files with valid source-visible module identities, including
+sources whose only top-level items are `use` declarations. It does not derive
+graph module nodes or import edges from sources without a valid
+source-visible module identity. If the graph is incomplete, for example
 because an import has no discovered source module, `test` reports the missing
 evidence and widens to all discovered tests instead of silently
 under-selecting. Selected cases, static diagnostics, and JSON selection

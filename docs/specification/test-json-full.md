@@ -47,8 +47,12 @@ the peer is added to the selected targets and the run records a selection note.
 For explicit non-test source targets with path-derived module identities,
 `test` also uses source-level `use` declarations as a dependency graph. A
 discovered test source whose transitive imports include the selected source is
-included in the final selection. When the graph selects or confirms a test
-source and all needed graph evidence is present, the run reports
+included in the final selection. The graph derives module nodes from selected
+source files with valid source-visible module identities, including sources
+whose only top-level items are `use` declarations. It does not derive graph
+module nodes or import edges from sources without a valid source-visible
+module identity. When the graph selects or confirms a test source and all
+needed graph evidence is present, the run reports
 `reason: "dependency_graph"` and `confidence: "complete"`. If graph evidence
 is missing, such as an import with no discovered source module, the command
 widens to all discovered tests, reports `reason: "widened_dependency_graph"`,
