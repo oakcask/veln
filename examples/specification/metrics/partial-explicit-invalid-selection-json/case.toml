@@ -1,0 +1,33 @@
+command = ["metrics", "--json", "App.veln", "app.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "incomplete"
+
+[[json_assert]]
+path = "project.selected_paths.0"
+equals = "App.veln"
+
+[[json_assert]]
+path = "project.selected_paths.1"
+equals = "app.veln"
+
+[[json_assert]]
+path = "modules.0.module"
+equals = "app"
+
+[[json_assert]]
+path = "summary.selected_module_count"
+equals = 1
+
+[[json_assert]]
+path = "abc_subjects.0.identity"
+equals = "App.veln::invalid_subject"

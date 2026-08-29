@@ -1,0 +1,26 @@
+command = ["metrics", "--check", "--json", "--baseline", "metrics.baseline.json"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["\"stale_subjects\":[\"App\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "incomplete"
+
+[[json_assert]]
+path = "check.result"
+equals = "incomplete"
+
+[[json_assert]]
+path = "check.baseline.stale_subjects.0"
+equals = "deleted"
+
+[[json_assert]]
+path = "completeness.excluded_baseline_subjects.0"
+equals = "App"

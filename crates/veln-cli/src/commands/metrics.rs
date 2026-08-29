@@ -46,9 +46,15 @@ pub(crate) fn metrics(
                 if json {
                     println!("{}", report_check_to_json(&report, tool_info()).to_json());
                 } else {
+                    if report.is_incomplete() {
+                        print_human_stderr(&DiagnosticEnvelope::new(
+                            tool_info(),
+                            report.report.diagnostics.clone(),
+                        ))?;
+                    }
                     print!("{}", render_check_human(&report));
                 }
-                Ok(if report.has_violations() {
+                Ok(if report.has_violations() || report.is_incomplete() {
                     ExitCode::from(1)
                 } else {
                     ExitCode::SUCCESS
@@ -76,9 +82,19 @@ pub(crate) fn metrics(
             if json {
                 println!("{}", report_to_json(&report, tool_info()).to_json());
             } else {
+                if report.is_incomplete() {
+                    print_human_stderr(&DiagnosticEnvelope::new(
+                        tool_info(),
+                        report.diagnostics.clone(),
+                    ))?;
+                }
                 print!("{}", render_human(&report));
             }
-            Ok(ExitCode::SUCCESS)
+            Ok(if report.is_incomplete() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            })
         }
         Err(diagnostics) => {
             let has_errors = has_error(&diagnostics);
@@ -104,6 +120,12 @@ fn write_metrics_baseline(
 ) -> Result<ExitCode, String> {
     match analyze_project_metrics(root, inputs) {
         Ok(report) => {
+            if report.is_incomplete() {
+                return Err(
+                    "metrics baseline requires complete analysis; invalid module identities were excluded"
+                        .to_string(),
+                );
+            }
             write_new_file_atomically(path, &baseline_to_json(&report, tool_info()).to_json())?;
             println!("wrote metrics baseline: {}", path.to_string_lossy());
             Ok(ExitCode::SUCCESS)

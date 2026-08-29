@@ -1,0 +1,13 @@
+command = ["metrics", "--write-baseline", "metrics.baseline.json"]
+source_errors = "expected"
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln: metrics baseline requires complete analysis; invalid module identities were excluded"]
+
+[[file_assert]]
+path = "metrics.baseline.json"
+equals_file = "case-text/file-assert-equals-1.txt"

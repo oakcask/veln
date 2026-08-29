@@ -18,8 +18,7 @@ also states it.
 
 ## Ready
 
-- Diagnostic-bearing partial metrics for invalid source-path module identities:
-  [metrics-partial-source-analysis.md](metrics-partial-source-analysis.md).
+No proposal is currently ready for implementation.
 
 Only proposals and subsections listed in this section are selectable targets.
 

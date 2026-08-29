@@ -1,0 +1,2 @@
+[tool.metrics]
+similarity_min_tokens = "1"

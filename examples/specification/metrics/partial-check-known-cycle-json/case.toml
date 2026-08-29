@@ -1,0 +1,29 @@
+command = ["metrics", "--check", "--json"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "policy_violation"
+
+[[json_assert]]
+path = "check.result"
+equals = "fail"
+
+[[json_assert]]
+path = "check.violations.0.policy"
+equals = "deny_cycles"
+
+[[json_assert]]
+path = "completeness.status"
+equals = "partial"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "App.veln"

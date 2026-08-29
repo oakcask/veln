@@ -1,0 +1,22 @@
+command = ["metrics", "--json"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["\"completeness\"", "\"modules\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "parse.expected_end"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.invalid_case"

@@ -14,10 +14,23 @@ schema version `veln-metrics-baseline/v0` with metric model
 Without `--check`, the command is report-only. A completed advisory analysis
 returns `status: "ok"` and exits successfully even when dependency cycles or
 large ABC values exist.
-Discovery, manifest loading, parsing, module identity, import resolution, or
-metric analysis errors fail without a clean metrics report. Type, effect, and
-contract errors are not reported as metrics diagnostics and do not block this
+Discovery, manifest loading, parsing, import resolution, or metric analysis
+errors fail without a clean metrics report except for the partial source-path
+module identity boundary below. Type, effect, and contract errors are not
+reported as metrics diagnostics and do not block this
 syntax-and-module-graph report.
+
+When every source-analysis error is a `name.invalid_case` diagnostic with
+`origin: "source_path"`, `veln metrics` returns a partial report and exits
+non-zero. Top-level `status` is `"incomplete"` without `--check` and remains
+`"incomplete"` for `--check` unless a known retained-graph policy violation
+takes precedence with `status: "policy_violation"`. Top-level `diagnostics`
+contains the retained source-path diagnostics. Top-level `completeness.status`
+is `"partial"` and `completeness.excluded_sources` lists project-relative
+source paths with reason `"invalid_module_identity"`, sorted by normalized
+path. If any non-qualifying source error is present, including a parse error,
+the command keeps the ordinary diagnostic envelope and returns no report,
+`completeness`, or policy result.
 
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
@@ -38,6 +51,8 @@ A successful check keeps the complete metrics report and adds `check.mode:
 `status: "policy_violation"` and keeps the complete report. Each violation
 names `policy: "deny_cycles"`, the cycle members, a concrete closed path, and
 guidance to review module ownership and dependency direction.
+For a partial check with no known retained-graph violation, `check.result` is
+`"incomplete"` and the command exits non-zero. It does not report `"pass"`.
 
 `--baseline PATH` is valid only with `--check`. With a baseline, `deny_cycles`
 allows a current dependency cycle only when its members and cyclic edges are
@@ -50,12 +65,19 @@ schema or metric-model values are command errors.
 When a check uses a baseline, the `check.baseline` object contains `path`,
 `schema_version`, `metric_model`, and `stale_subjects`. The path is the
 command-line baseline path normalized with `/` separators.
+For a partial baseline check, a baseline module whose current source path is
+excluded by invalid module identity appears in
+`completeness.excluded_baseline_subjects`, sorted by module identity, and does
+not appear in `check.baseline.stale_subjects`. Known retained-graph
+regressions still fail.
 
 `--write-baseline PATH` writes the complete current report fields described
 below, replacing only the top-level `schema_version` with
 `veln-metrics-baseline/v0` and adding top-level `metric_model` with value
 `veln-metrics-model/v0`. It writes project-relative paths and does not write
 absolute paths or source text. It refuses to overwrite an existing path.
+It refuses a partial analysis before creating or replacing the requested
+baseline path.
 
 The JSON document contains:
 
@@ -104,6 +126,12 @@ create edges. Dependency packages and embedded standard-library modules are
 not metric subjects. A source-written import from a project-owned module to a
 non-standard dependency package increments that module's
 `external_dependency_count` without creating an internal edge.
+In a partial source-path module identity report, an excluded source does not
+create a module record, dependency edge, dependency cycle, or graph-derived
+summary contribution. Imports written by an excluded source do not create
+internal or external edges. Path-based ABC and whole-body similarity subjects
+from parse-clean excluded sources remain eligible when their paths are
+selected.
 
 Path arguments select the project-owned modules reported as module subjects.
 The command still analyzes the containing project graph so selected modules
@@ -190,6 +218,14 @@ Executable evidence:
   `baseline-unsupported-metric-model-json` cases check baseline-aware cycle
   allowances, regressions, stale subject reporting, and unsupported version
   comparison errors.
+- The metrics `partial-advisory-json`,
+  `partial-check-hidden-cycle-json`, `partial-check-known-cycle-json`,
+  `partial-explicit-invalid-selection-json`,
+  `partial-mixed-source-errors-json`, `partial-baseline-write-refused`, and
+  `partial-baseline-check-json` cases check partial source-path module
+  identity diagnostics, retained path-based subjects, graph exclusion,
+  incomplete policy results, policy-violation precedence, diagnostic-envelope
+  fallback, baseline write refusal, and excluded baseline subjects.
 - The `metrics_baseline_check_preserves_report_fields` CLI integration test
   checks that a baseline check preserves the advisory ABC subjects, graph
   measurements, ordering, and ordinary report fields from the matching

@@ -67,16 +67,26 @@ requiring the full command reference on the first read.
 - `metrics`: advisory module dependency metrics, ABC size metrics, and
   experimental exact whole-body similarity for project-owned Veln source. It
   follows `check` source and project discovery for containing graph analysis
-  and accepts `--json`. Human output prints cycles, module rows, ABC size, and
-  then whole-body similarity with one primary declaration location and related
-  declaration locations. `--write-baseline PATH` writes the current report as a
-  reviewed baseline and refuses to overwrite an existing file. Without
+  and accepts `--json`. When source analysis fails only because selected or
+  discovered source paths derive invalid module identities, metrics returns an
+  incomplete report, retains the source-path diagnostics, excludes those
+  sources from module graph records, keeps parse-clean path-based ABC and
+  similarity subjects, and exits non-zero. Human output prints retained
+  diagnostics on the diagnostic stream, then prints an incomplete-analysis
+  notice before cycles, module rows, ABC size, and whole-body similarity.
+  `--write-baseline PATH` writes the current report as a reviewed baseline,
+  refuses to overwrite an existing file, and refuses incomplete analysis
+  without creating or replacing the baseline path. Without
   `--check`, it exits successfully when analysis completes even when
   dependency cycles, large ABC values, or duplicate whole bodies are present.
   With `--check`, `[tool.metrics] deny_cycles = "true"` makes dependency
-  cycles an enforced project policy. `--baseline PATH` is valid only with
-  `--check` and allows unchanged or reduced dependency cycles while rejecting
-  cycle regressions. `[tool.metrics] max_findings = "N"` is a positive integer
+  cycles an enforced project policy. A partial check with no known retained
+  graph violation is incomplete rather than pass; a known retained-graph cycle
+  violation still fails. `--baseline PATH` is valid only with `--check` and
+  allows unchanged or reduced dependency cycles while rejecting cycle
+  regressions. Partial baseline checks classify currently invalid module
+  identities as excluded baseline subjects rather than stale subjects.
+  `[tool.metrics] max_findings = "N"` is a positive integer
   string that must fit the metrics JSON number domain; it limits each detailed
   human-output section independently. Truncated sections state their displayed,
   total, and omitted counts. Summaries, JSON arrays, policy evaluation, and

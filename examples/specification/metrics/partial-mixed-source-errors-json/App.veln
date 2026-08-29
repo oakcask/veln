@@ -1,0 +1,2 @@
+pub fn invalid_subject() -> Int
+  1
