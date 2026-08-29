@@ -29,6 +29,9 @@ behavior specifications.
 - [toolchain-analysis-separated-reachable-inputs.json](toolchain-analysis-separated-reachable-inputs.json)
   records the controlled comparison for separated application and selected
   standard-library reachable-entry lowering inputs.
+- [metrics-similarity-benchmark.json](metrics-similarity-benchmark.json)
+  records the controlled comparison for metrics whole-body similarity
+  workloads before and after partial source analysis.
 - A proposal or reference page links to a named review record.
 - A local benchmark result or audit record is needed to check why a proposal
   slice was accepted.

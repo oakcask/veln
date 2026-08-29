@@ -169,10 +169,12 @@ and `commands-full.md` pair by keeping [Commands](../../specification/commands.m
 
 The implementation review compared the generated similarity workload with
 `scripts/benchmark-metrics-similarity` using debug profile, sizes `32,64,128`,
-one warmup, and five measured runs. The base medians were user CPU
-`0.02s`, `0.05s`, and `0.12s`, with peak RSS `17668 KiB`, `18848 KiB`, and
-`21736 KiB`. The repaired branch medians were user CPU `0.02s`, `0.05s`, and
-`0.12s`, with peak RSS `18496 KiB`, `19612 KiB`, and `22676 KiB`. Adjacent
-size ratios stayed within the script threshold on both revisions. Complete
-analysis kept the same existing project-wide source diagnostic pass; this
-repair did not add another parse pass merely to identify excluded sources.
+one warmup, and five measured runs. The raw comparison is stored in
+[metrics-similarity-benchmark.json](../../reviews/metrics-similarity-benchmark.json).
+The base medians were user CPU `0.02s`, `0.05s`, and `0.12s`, with peak RSS
+`17708 KiB`, `18820 KiB`, and `21736 KiB`. The repaired branch medians were
+user CPU `0.02s`, `0.05s`, and `0.12s`, with peak RSS `18752 KiB`,
+`19836 KiB`, and `22500 KiB`. Adjacent size ratios stayed within the script
+threshold on both revisions. Complete analysis kept the same existing
+project-wide source diagnostic pass; this repair did not add another parse
+pass merely to identify excluded sources.

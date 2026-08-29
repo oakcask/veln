@@ -1,111 +1,323 @@
 {
-  "adjacent_size_ratios": [
-    {
-      "from_size": 32,
-      "median_peak_rss_ratio": 1.0292754007153266,
-      "median_user_cpu_ratio": 1.107142857142857,
-      "passes_threshold": true,
-      "source_token_ratio": 2.0,
-      "to_size": 64
-    },
-    {
-      "from_size": 64,
-      "median_peak_rss_ratio": 1.0787644787644788,
-      "median_user_cpu_ratio": 1.1935483870967742,
-      "passes_threshold": true,
-      "source_token_ratio": 2.0,
-      "to_size": 128
-    }
-  ],
+  "adjacent_growth_threshold": {
+    "median_peak_rss_ratio_max": 3.0,
+    "median_user_cpu_ratio_max": 3.0
+  },
   "build_profile": "debug",
   "command": "benchmark-metrics-similarity",
-  "measured_runs": 3,
-  "passes_threshold": true,
-  "sizes": [
+  "comparison": [
     {
-      "declaration_fingerprint_count": 84,
-      "eligible_declaration_count": 84,
-      "median_peak_rss_kb": 30196,
-      "median_user_cpu_seconds": 0.28,
-      "median_wall_time_seconds": 0.29,
-      "reported_region_count": 20,
-      "runs": [
-        {
-          "peak_rss_kb": 30168,
-          "user_cpu_seconds": 0.3,
-          "wall_time_seconds": 0.3
-        },
-        {
-          "peak_rss_kb": 30196,
-          "user_cpu_seconds": 0.28,
-          "wall_time_seconds": 0.29
-        },
-        {
-          "peak_rss_kb": 30252,
-          "user_cpu_seconds": 0.26,
-          "wall_time_seconds": 0.29
-        }
-      ],
-      "similarity_instance_count": 9,
-      "size": 32,
-      "source_token_count": 2016
+      "median_peak_rss_ratio_repaired_to_base": 1.0589564038852497,
+      "median_user_cpu_ratio_repaired_to_base": 1.0,
+      "median_wall_time_ratio_repaired_to_base": 1.0,
+      "size": 32
     },
     {
-      "declaration_fingerprint_count": 168,
-      "eligible_declaration_count": 168,
-      "median_peak_rss_kb": 31080,
-      "median_user_cpu_seconds": 0.31,
-      "median_wall_time_seconds": 0.32,
-      "reported_region_count": 40,
-      "runs": [
-        {
-          "peak_rss_kb": 31356,
-          "user_cpu_seconds": 0.31,
-          "wall_time_seconds": 0.32
-        },
-        {
-          "peak_rss_kb": 31080,
-          "user_cpu_seconds": 0.3,
-          "wall_time_seconds": 0.32
-        },
-        {
-          "peak_rss_kb": 31048,
-          "user_cpu_seconds": 0.31,
-          "wall_time_seconds": 0.32
-        }
-      ],
-      "similarity_instance_count": 17,
-      "size": 64,
-      "source_token_count": 4032
+      "median_peak_rss_ratio_repaired_to_base": 1.0539851222104145,
+      "median_user_cpu_ratio_repaired_to_base": 1.0,
+      "median_wall_time_ratio_repaired_to_base": 1.0,
+      "size": 64
     },
     {
-      "declaration_fingerprint_count": 336,
-      "eligible_declaration_count": 336,
-      "median_peak_rss_kb": 33528,
-      "median_user_cpu_seconds": 0.37,
-      "median_wall_time_seconds": 0.38,
-      "reported_region_count": 80,
-      "runs": [
-        {
-          "peak_rss_kb": 33640,
-          "user_cpu_seconds": 0.37,
-          "wall_time_seconds": 0.38
-        },
-        {
-          "peak_rss_kb": 33392,
-          "user_cpu_seconds": 0.37,
-          "wall_time_seconds": 0.38
-        },
-        {
-          "peak_rss_kb": 33528,
-          "user_cpu_seconds": 0.38,
-          "wall_time_seconds": 0.4
-        }
-      ],
-      "similarity_instance_count": 33,
-      "size": 128,
-      "source_token_count": 8064
+      "median_peak_rss_ratio_repaired_to_base": 1.0351499815964307,
+      "median_user_cpu_ratio_repaired_to_base": 1.0,
+      "median_wall_time_ratio_repaired_to_base": 1.0,
+      "size": 128
     }
   ],
+  "measured_runs": 5,
+  "parse_pass_conclusion": "Complete analysis kept the existing project-wide source diagnostic pass; partial-source exclusion did not add a second project-wide parse pass before complete metrics analysis.",
+  "passes_threshold": true,
+  "revisions": {
+    "base": {
+      "git_revision": "0b5b7089859c85eb48575063a7bf245c2d9e3316",
+      "label": "base-before-partial-source-analysis"
+    },
+    "repaired": {
+      "git_revision": "f174f3e974fe669cd44dd0bfe73e0271d4555b1f",
+      "label": "repaired-partial-source-analysis"
+    }
+  },
+  "sizes": [
+    32,
+    64,
+    128
+  ],
+  "results": {
+    "base": {
+      "adjacent_size_ratios": [
+        {
+          "from_size": 32,
+          "median_peak_rss_ratio": 1.0627964761689632,
+          "median_user_cpu_ratio": 2.5,
+          "passes_threshold": true,
+          "source_token_ratio": 2.0,
+          "to_size": 64
+        },
+        {
+          "from_size": 64,
+          "median_peak_rss_ratio": 1.1549415515409138,
+          "median_user_cpu_ratio": 2.4,
+          "passes_threshold": true,
+          "source_token_ratio": 2.0,
+          "to_size": 128
+        }
+      ],
+      "passes_threshold": true,
+      "sizes": [
+        {
+          "declaration_fingerprint_count": 84,
+          "eligible_declaration_count": 84,
+          "median_peak_rss_kb": 17708,
+          "median_user_cpu_seconds": 0.02,
+          "median_wall_time_seconds": 0.02,
+          "reported_region_count": 20,
+          "runs": [
+            {
+              "peak_rss_kb": 17668,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 17732,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 17812,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 17708,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 17708,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            }
+          ],
+          "similarity_instance_count": 9,
+          "size": 32,
+          "source_token_count": 2016
+        },
+        {
+          "declaration_fingerprint_count": 168,
+          "eligible_declaration_count": 168,
+          "median_peak_rss_kb": 18820,
+          "median_user_cpu_seconds": 0.05,
+          "median_wall_time_seconds": 0.05,
+          "reported_region_count": 40,
+          "runs": [
+            {
+              "peak_rss_kb": 18636,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            },
+            {
+              "peak_rss_kb": 18820,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            },
+            {
+              "peak_rss_kb": 18916,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            },
+            {
+              "peak_rss_kb": 18516,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            },
+            {
+              "peak_rss_kb": 18840,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            }
+          ],
+          "similarity_instance_count": 17,
+          "size": 64,
+          "source_token_count": 4032
+        },
+        {
+          "declaration_fingerprint_count": 336,
+          "eligible_declaration_count": 336,
+          "median_peak_rss_kb": 21736,
+          "median_user_cpu_seconds": 0.12,
+          "median_wall_time_seconds": 0.13,
+          "reported_region_count": 80,
+          "runs": [
+            {
+              "peak_rss_kb": 21940,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            },
+            {
+              "peak_rss_kb": 21736,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            },
+            {
+              "peak_rss_kb": 21568,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            },
+            {
+              "peak_rss_kb": 21736,
+              "user_cpu_seconds": 0.13,
+              "wall_time_seconds": 0.14
+            },
+            {
+              "peak_rss_kb": 21732,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            }
+          ],
+          "similarity_instance_count": 33,
+          "size": 128,
+          "source_token_count": 8064
+        }
+      ]
+    },
+    "repaired": {
+      "adjacent_size_ratios": [
+        {
+          "from_size": 32,
+          "median_peak_rss_ratio": 1.057807167235495,
+          "median_user_cpu_ratio": 2.5,
+          "passes_threshold": true,
+          "source_token_ratio": 2.0,
+          "to_size": 64
+        },
+        {
+          "from_size": 64,
+          "median_peak_rss_ratio": 1.134301270417423,
+          "median_user_cpu_ratio": 2.4,
+          "passes_threshold": true,
+          "source_token_ratio": 2.0,
+          "to_size": 128
+        }
+      ],
+      "passes_threshold": true,
+      "sizes": [
+        {
+          "declaration_fingerprint_count": 84,
+          "eligible_declaration_count": 84,
+          "median_peak_rss_kb": 18752,
+          "median_user_cpu_seconds": 0.02,
+          "median_wall_time_seconds": 0.02,
+          "reported_region_count": 20,
+          "runs": [
+            {
+              "peak_rss_kb": 18900,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 18752,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 18796,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 18380,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            },
+            {
+              "peak_rss_kb": 18300,
+              "user_cpu_seconds": 0.02,
+              "wall_time_seconds": 0.02
+            }
+          ],
+          "similarity_instance_count": 9,
+          "size": 32,
+          "source_token_count": 2016
+        },
+        {
+          "declaration_fingerprint_count": 168,
+          "eligible_declaration_count": 168,
+          "median_peak_rss_kb": 19836,
+          "median_user_cpu_seconds": 0.05,
+          "median_wall_time_seconds": 0.05,
+          "reported_region_count": 40,
+          "runs": [
+            {
+              "peak_rss_kb": 19884,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.06
+            },
+            {
+              "peak_rss_kb": 20128,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            },
+            {
+              "peak_rss_kb": 19508,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            },
+            {
+              "peak_rss_kb": 19504,
+              "user_cpu_seconds": 0.05,
+              "wall_time_seconds": 0.05
+            },
+            {
+              "peak_rss_kb": 19836,
+              "user_cpu_seconds": 0.04,
+              "wall_time_seconds": 0.05
+            }
+          ],
+          "similarity_instance_count": 17,
+          "size": 64,
+          "source_token_count": 4032
+        },
+        {
+          "declaration_fingerprint_count": 336,
+          "eligible_declaration_count": 336,
+          "median_peak_rss_kb": 22500,
+          "median_user_cpu_seconds": 0.12,
+          "median_wall_time_seconds": 0.13,
+          "reported_region_count": 80,
+          "runs": [
+            {
+              "peak_rss_kb": 22268,
+              "user_cpu_seconds": 0.13,
+              "wall_time_seconds": 0.14
+            },
+            {
+              "peak_rss_kb": 22324,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            },
+            {
+              "peak_rss_kb": 22712,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            },
+            {
+              "peak_rss_kb": 22936,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            },
+            {
+              "peak_rss_kb": 22500,
+              "user_cpu_seconds": 0.12,
+              "wall_time_seconds": 0.13
+            }
+          ],
+          "similarity_instance_count": 33,
+          "size": 128,
+          "source_token_count": 8064
+        }
+      ]
+    }
+  },
   "warmups": 1
 }
