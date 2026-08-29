@@ -324,12 +324,21 @@ lookup and navigation do not expose them.
 
 Current source-path-derived module identity casing reports one diagnostic for
 each invalid origin segment and withholds the invalid derived identity from
-normal module registration. The remaining proposal separates consumers by
-their observable source-error boundary:
+normal module registration. That implemented registration invariant also means
+that the invalid identity cannot satisfy a local import or participate in a
+duplicate derived-module relationship. A second valid source cannot derive the
+same invalid-cased identity because every accepted derived identity satisfies
+the same segment validation. [Name Resolution](../specification/name-resolution.md)
+specifies this current boundary, and focused surface-analysis coverage checks
+the unresolved import after derivation rejection. Duplicate diagnostics consume
+only registered identities, so there is no separate invalid-versus-valid
+collision input to construct.
+
+The remaining proposal separates unimplemented consumers by their observable
+source-error boundary:
 
 | Consumer boundary | Required outcome | Evidence boundary |
 | --- | --- | --- |
-| Diagnostic-tolerant analysis, including import resolution and duplicate-module-content analysis. | The invalid identity does not satisfy an import or collide with a valid module. Independently provable diagnostics from unrelated valid modules still appear. | Checked command cases assert the casing diagnostic, the absent graph-derived diagnostic or candidate, and an unrelated valid-module diagnostic. |
 | Artifact commands that reject source-graph errors, including the current metrics command. | The command returns the source diagnostic envelope and no artifact or policy result. A would-be dependency cycle through the invalid identity produces no cycle policy violation because source errors already block the report. | This remains current behavior until [Metrics Partial Source Analysis](metrics-partial-source-analysis.md) is implemented. Identifier-casing graph-isolation evidence does not claim that an invalid source reached artifact graph construction. |
 | Export, documentation, backend, and deferred recovery consumers. | Each consumer follows its existing source-error contract and exposes no normal artifact identity for the invalid source. A tolerant consumer continues unrelated valid-module analysis; a fail-fast consumer returns its specified error result without an artifact. | Consumer-specific cases state whether the command is tolerant or fail-fast and assert the corresponding valid-module or no-artifact boundary. |
 
@@ -340,27 +349,12 @@ to change the metrics command boundary. A structurally invalid path retains
 its existing structural module diagnostic and does not also create a module
 identity.
 
-### Source-Path Consumer Targets
-
-The identifier-casing source-path consumer work has one selectable graph
-target. It preserves artifact command boundaries.
-
-| Selectable target | Input boundary | Required observations | Forbidden scope |
-| --- | --- | --- | --- |
-| [Diagnostic-Tolerant Graph Isolation](#diagnostic-tolerant-graph-isolation) | A selected project contains one invalid source-path-derived module identity, one import or valid module with the colliding derived identity, and one unrelated valid source with an independent diagnostic. | `check` reports the source-path casing diagnostic at its existing source, does not resolve or report a duplicate through the invalid identity, and still reports the unrelated diagnostic. | Metrics reports, dependency-cycle policy results, artifact commands, and deferred language-service consumers. |
-
-#### Diagnostic-Tolerant Graph Isolation
-
-This target adds checked `check` command cases for import resolution and
-duplicate-module analysis. Each case must assert the existing
-`name.invalid_case` diagnostic and its source. Each case must also assert the
-absence of the invalid identity from the selected relationship. An independent
-diagnostic from an unrelated valid source proves that tolerant analysis
-continues.
-
-The target may add focused unit coverage at the shared module-registration
-boundary when the command cases cannot isolate that boundary. It must not use a
-metrics report as dependency-cycle evidence.
+The `test` command's source dependency selection graph is a separate consumer.
+Its source-identity, parse-failure, completeness, and widening rules do not
+verify source module registration. Changes to those rules require command-level
+acceptance cases under the test selection contract. Metrics dependency-cycle
+policy remains owned by
+[Metrics Partial Source Analysis](metrics-partial-source-analysis.md).
 
 Every invalid name reports `name.invalid_case`. Independently provable
 diagnostics still accumulate. In particular, remaining-scope names with the
@@ -496,7 +490,6 @@ identifier-casing remainder.
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
-| Analyze an invalid derived module beside imports and duplicate-module contents. | Current source-path diagnostics remain attached to the source. The invalid identity does not satisfy an import or participate in duplicate-module-content analysis. An unrelated valid module still produces an independently provable diagnostic. | Import and duplicate checked-command cases that assert both isolation and continued valid-module analysis. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |

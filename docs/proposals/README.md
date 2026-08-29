@@ -18,8 +18,6 @@ also states it.
 
 ## Ready
 
-- Identifier-casing diagnostic-tolerant source-path graph isolation:
-  [identifier-casing.md#diagnostic-tolerant-graph-isolation](identifier-casing.md#diagnostic-tolerant-graph-isolation).
 - Diagnostic-bearing partial metrics for invalid source-path module identities:
   [metrics-partial-source-analysis.md](metrics-partial-source-analysis.md).
 
