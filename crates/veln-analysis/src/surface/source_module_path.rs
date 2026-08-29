@@ -54,7 +54,39 @@ pub(crate) fn derive_visible_with_source_kind(
     derive_regular(source, path, regular_source_kind).map(Some)
 }
 
-pub(crate) fn unvalidated_visible_module_path(source: &SourceFile) -> Option<String> {
+pub(crate) fn invalid_case_rejected_visible_module_path(source: &SourceFile) -> Option<String> {
+    let Err(diagnostics) = derive_visible_with_diagnostics(source) else {
+        return None;
+    };
+    diagnostics
+        .iter()
+        .all(is_source_path_invalid_case_diagnostic)
+        .then(|| unvalidated_visible_module_path(source))
+        .flatten()
+}
+
+fn is_source_path_invalid_case_diagnostic(diagnostic: &Diagnostic) -> bool {
+    diagnostic.id == "name.invalid_case"
+        && json_string_field(&diagnostic.details, "origin") == Some("source_path")
+}
+
+fn json_string_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {
+    let JsonValue::Object(fields) = value else {
+        return None;
+    };
+    fields.iter().find_map(|(field, value)| {
+        if field == key {
+            match value {
+                JsonValue::String(value) => Some(value.as_str()),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    })
+}
+
+fn unvalidated_visible_module_path(source: &SourceFile) -> Option<String> {
     if let Some(origin_path) = source.generated_origin_path() {
         return origin_path
             .and_then(|origin_path| unvalidated_regular_module_path(origin_path.as_str()));

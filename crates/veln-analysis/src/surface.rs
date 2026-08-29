@@ -21,7 +21,7 @@ mod source_module_path;
 
 pub use source_module_path::derive as derive_source_module_path;
 use source_module_path::derive_visible_with_source_kind as derive_visible_source_module_path_with_source_kind;
-use source_module_path::unvalidated_visible_module_path;
+use source_module_path::invalid_case_rejected_visible_module_path;
 
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {
@@ -480,7 +480,7 @@ fn record_rejected_source_module(
     parts: &mut SurfaceParts,
     package: Option<&str>,
 ) {
-    if let Some(module_name) = unvalidated_visible_module_path(source) {
+    if let Some(module_name) = invalid_case_rejected_visible_module_path(source) {
         let internal_module_name = internal_module_name(package, &module_name);
         parts.rejected_derived_modules.insert(internal_module_name);
     }

@@ -3813,6 +3813,75 @@ fn invalid_source_path_identity_does_not_collide_with_duplicate_modules() {
 }
 
 #[test]
+fn invalid_source_path_identity_is_absent_from_registration_boundary() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new("App.veln", "pub fn first() -> Int\n  1\nend\n"),
+            SourceFile::new("App.veln", "pub fn second() -> Int\n  2\nend\n"),
+            SourceFile::new("probe.veln", "fn probe() -> Int\n  \"kept\"\nend\n"),
+        ],
+        manifest: None,
+    };
+    let mut diagnostics = Vec::new();
+    let mut parts = SurfaceParts::new();
+
+    load_project_sources(&project, &mut diagnostics, &mut parts, None, None, None);
+
+    assert_eq!(
+        parts
+            .derived_modules
+            .iter()
+            .map(|(module, _)| module.as_str())
+            .collect::<Vec<_>>(),
+        ["probe"],
+        "{:#?}",
+        parts.derived_modules
+    );
+    assert!(
+        parts.rejected_derived_modules.contains("App"),
+        "{:#?}",
+        parts.rejected_derived_modules
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "module.duplicate_source_path"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn lowercase_parse_failure_does_not_add_single_segment_unresolved_import() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!("use helper\n", "\n", "fn main() -> ()\n", "  ()\n", "end\n"),
+            ),
+            SourceFile::new("helper.veln", "pub fn value() -> Int\n  1\n"),
+        ],
+        manifest: None,
+    };
+
+    let (_, diagnostics) = load_surface_module(&project);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.expected_end"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "module.unresolved_import"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn invalid_source_path_identity_does_not_add_reachability_cycle_edge() {
     let project = Project {
         root: ".".into(),
