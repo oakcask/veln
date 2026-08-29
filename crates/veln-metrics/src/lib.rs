@@ -3,7 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use veln_analysis::{derive_source_module_path, load_surface_module};
+use veln_analysis::{
+    derive_source_module_path, invalid_case_rejected_visible_module_path, load_surface_module,
+};
 use veln_diagnostics::{
     Diagnostic, JsonValue, Severity, ToolInfo, diagnostic_to_json, parse_json_value,
 };
@@ -389,14 +391,16 @@ fn partial_source_analysis(
         .filter_map(|diagnostic| json_string_field(&diagnostic.details, "source_path"))
         .map(str::to_string)
         .collect::<BTreeSet<_>>();
-    let excluded_modules = excluded_paths
-        .iter()
-        .filter_map(|path| unvalidated_regular_module_path(path))
-        .collect::<BTreeSet<_>>();
-    let project_paths = project
+    let excluded_modules = project
         .files
         .iter()
-        .map(|source| source.path().as_str().to_string())
+        .filter(|source| excluded_paths.contains(source.path().as_str()))
+        .filter_map(invalid_case_rejected_visible_module_path)
+        .collect::<BTreeSet<_>>();
+    let project_modules = project
+        .files
+        .iter()
+        .filter_map(source_visible_module_path)
         .collect::<BTreeSet<_>>();
 
     let disallowed = diagnostics.iter().any(|diagnostic| {
@@ -406,7 +410,7 @@ fn partial_source_analysis(
                 diagnostic,
                 &excluded_paths,
                 &excluded_modules,
-                &project_paths,
+                &project_modules,
             )
     });
     if disallowed {
@@ -446,7 +450,7 @@ fn is_exclusion_caused_unresolved_import(
     diagnostic: &Diagnostic,
     excluded_paths: &BTreeSet<String>,
     excluded_modules: &BTreeSet<String>,
-    project_paths: &BTreeSet<String>,
+    project_modules: &BTreeSet<String>,
 ) -> bool {
     if diagnostic.id != "module.unresolved_import" {
         return false;
@@ -461,12 +465,13 @@ fn is_exclusion_caused_unresolved_import(
         .span
         .as_ref()
         .is_some_and(|span| excluded_paths.contains(span.file.as_str()))
-        && project_paths.contains(&format!("{}.veln", module_path.replace("::", "/")))
+        && project_modules.contains(module_path)
 }
 
-fn unvalidated_regular_module_path(path: &str) -> Option<String> {
-    path.strip_suffix(".veln")
-        .map(|stem| stem.replace('/', "::"))
+fn source_visible_module_path(source: &SourceFile) -> Option<String> {
+    derive_source_module_path(source)
+        .ok()
+        .or_else(|| invalid_case_rejected_visible_module_path(source))
 }
 
 fn read_metrics_config(
@@ -3864,6 +3869,56 @@ mod tests {
             diagnostic.id == "module.unresolved_import"
                 && json_string_field(&diagnostic.details, "module_path") == Some("missing::thing")
         }));
+    }
+
+    #[test]
+    fn partial_source_analysis_uses_source_kind_aware_excluded_identities() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    "use App\nuse App__test_companion\nfn main() -> Int\n  1\nend\n",
+                ),
+                SourceFile::new("App.veln", "pub fn entry() -> Int\n  1\nend\n"),
+                SourceFile::new(
+                    "App.test.veln",
+                    "use app\ntest companion_imports_retained_source() -> Int\n  app::main()\nend\n",
+                ),
+            ],
+        };
+        let diagnostics = source_graph_diagnostics(&project);
+
+        let partial = partial_source_analysis(&project, &diagnostics).expect("partial analysis");
+
+        assert_eq!(
+            partial
+                .diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    (
+                        diagnostic.id.as_str(),
+                        json_string_field(&diagnostic.details, "source_path"),
+                        json_string_field(&diagnostic.details, "source_kind"),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            [
+                ("name.invalid_case", Some("App.veln"), Some("regular")),
+                (
+                    "name.invalid_case",
+                    Some("App.test.veln"),
+                    Some("companion")
+                )
+            ]
+        );
+        assert_eq!(
+            partial.excluded_paths,
+            ["App.test.veln".to_string(), "App.veln".to_string()]
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+        );
     }
 
     #[test]

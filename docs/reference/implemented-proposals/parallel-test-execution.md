@@ -13,7 +13,7 @@ the specification pages and executable examples for current command behavior.
 
 - Current command behavior:
   [../../specification/commands.md](../../specification/commands.md), then
-  [../../specification/commands.md#veln-test](../../specification/commands.md#veln-test)
+  [../../specification/command-test.md](../../specification/command-test.md)
   when exact command rules matter.
 - Test JSON behavior:
   [../../specification/test-json.md](../../specification/test-json.md).

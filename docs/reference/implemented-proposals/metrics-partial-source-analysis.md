@@ -8,7 +8,7 @@ update-when: The implemented metrics behavior for invalid source-path module ide
 
 This record preserves the completed proposal history. Current behavior is
 specified by [Metrics JSON](../../specification/metrics-json.md) and
-[Commands](../../specification/commands.md).
+[Metrics Command](../../specification/command-metrics.md).
 
 ## Summary
 
@@ -44,8 +44,8 @@ an invalid source identity. Metrics omits that diagnostic only when the import
 failure is a direct consequence of the same exclusion:
 
 - a retained source imports the path-derived identity of an excluded source;
-- an excluded source imports an identity whose ordinary project-relative
-  `.veln` path exists among the project-owned sources.
+- an excluded source imports another project-owned source's source-kind-aware
+  visible identity.
 
 These omitted diagnostics do not become report diagnostics. They do not make
 the excluded identities available for resolution. An unresolved import to any
@@ -165,9 +165,14 @@ the smallest metrics and command specification pages for the implemented
 schema and exit behavior.
 
 The command specification update retired the previous same-scope `commands.md`
-and `commands-full.md` pair under the documentation authoring policy.
+and `commands-full.md` pair by keeping [Commands](../../specification/commands.md) as a route and moving command contracts into focused pages.
 
-The implementation review compared the generated similarity workload before
-and after the change. Complete analysis did not acquire an additional
-project-wide parse pass merely to identify sources that partial analysis
-excludes; source diagnostics already establish the parse-clean boundary.
+The implementation review compared the generated similarity workload with
+`scripts/benchmark-metrics-similarity` using debug profile, sizes `32,64,128`,
+one warmup, and five measured runs. The base medians were user CPU
+`0.02s`, `0.05s`, and `0.12s`, with peak RSS `17668 KiB`, `18848 KiB`, and
+`21736 KiB`. The repaired branch medians were user CPU `0.02s`, `0.05s`, and
+`0.12s`, with peak RSS `18496 KiB`, `19612 KiB`, and `22676 KiB`. Adjacent
+size ratios stayed within the script threshold on both revisions. Complete
+analysis kept the same existing project-wide source diagnostic pass; this
+repair did not add another parse pass merely to identify excluded sources.

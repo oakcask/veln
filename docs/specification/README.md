@@ -52,7 +52,7 @@ tracked in `../proposals/`.
   [source-less-lookup.md](source-less-lookup.md).
 - Contracts or holes: [contracts-holes.md](contracts-holes.md) first, then
   [contracts.md](contracts.md) or [holes.md](holes.md).
-- Commands and machine-readable output: [commands.md](commands.md) and
+- Commands and machine-readable output: [commands.md](commands.md), focused command pages, and
   [json-output.md](json-output.md), then the command-specific JSON page.
 - Human diagnostics: [diagnostics-json.md](diagnostics-json.md) for the
   structured behavior that must stay aligned with diagnostic output, then

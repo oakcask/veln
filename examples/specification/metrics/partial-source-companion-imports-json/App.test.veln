@@ -1,0 +1,5 @@
+use app
+
+test companion_imports_retained_source() -> Int
+  1
+end

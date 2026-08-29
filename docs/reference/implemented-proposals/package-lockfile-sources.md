@@ -27,11 +27,11 @@ file-based modules and packages. Current behavior lives in
 ## Current Specification
 
 - Command behavior:
-  `../../specification/commands.md`.
+  [commands.md](../../specification/commands.md).
 - Full `veln package lock` reference:
-  `../../specification/commands.md#veln-package-lock`.
+  [command-package-lock.md](../../specification/command-package-lock.md).
 - Manifest dependency metadata:
-  `../../specification/source-surface.md`.
+  [source-surface.md](../../specification/source-surface.md).
 
 ## Executable Evidence
 

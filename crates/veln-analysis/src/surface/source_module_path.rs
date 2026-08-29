@@ -54,7 +54,7 @@ pub(crate) fn derive_visible_with_source_kind(
     derive_regular(source, path, regular_source_kind).map(Some)
 }
 
-pub(crate) fn invalid_case_rejected_visible_module_path(source: &SourceFile) -> Option<String> {
+pub fn invalid_case_rejected_visible_module_path(source: &SourceFile) -> Option<String> {
     let Err(diagnostics) = derive_visible_with_diagnostics(source) else {
         return None;
     };
