@@ -4,8 +4,8 @@ use std::path::{Component, Path};
 use std::sync::OnceLock;
 
 use veln_ast::{
-    PublicAliasKind, SurfaceModule, UseDecl, Visibility, decode_surface_module, lower_surface_ast,
-    lower_surface_ast_with_module_identity,
+    PublicAliasKind, SurfaceModule, UseDecl, UseOrigin, Visibility, decode_surface_module,
+    lower_surface_ast, lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::{
@@ -21,6 +21,7 @@ mod source_module_path;
 
 pub use source_module_path::derive as derive_source_module_path;
 use source_module_path::derive_visible_with_source_kind as derive_visible_source_module_path_with_source_kind;
+use source_module_path::invalid_case_rejected_visible_module_path;
 
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {
@@ -138,6 +139,7 @@ fn load_surface_modules_with_combined(
     diagnostics.extend(unresolved_local_import_diagnostics(
         &parts.module,
         &parts.derived_modules,
+        &parts.rejected_derived_modules,
     ));
 
     (
@@ -200,6 +202,7 @@ pub fn load_embedded_standard_surface_module() -> SurfaceModule {
 struct SurfaceParts {
     module: SurfaceModule,
     derived_modules: Vec<(String, SourceFile)>,
+    rejected_derived_modules: BTreeSet<String>,
 }
 
 struct EmbeddedStandardPackage {
@@ -240,6 +243,7 @@ impl EmbeddedStandardModuleEntry {
                         }),
                         SourceFile::new(self.path.as_str(), ""),
                     )],
+                    rejected_derived_modules: BTreeSet::new(),
                 },
                 diagnostics: Vec::new(),
             }
@@ -265,6 +269,7 @@ impl SurfaceParts {
                 invalid_names: Vec::new(),
             },
             derived_modules: Vec::new(),
+            rejected_derived_modules: BTreeSet::new(),
         }
     }
 }
@@ -297,6 +302,7 @@ fn load_project_sources(
         }
         if !parsed.diagnostics.is_empty() {
             derive_source_module(source, diagnostics, is_exported_source);
+            record_rejected_source_module(source, parts, package);
             continue;
         }
         let derived_module = derive_and_record_source_module(
@@ -406,6 +412,7 @@ fn derive_and_record_source_module(
         }
         Ok(None) => None,
         Err(source_diagnostics) => {
+            record_rejected_source_module(source, parts, package);
             diagnostics.extend(source_diagnostics);
             None
         }
@@ -465,6 +472,17 @@ fn record_derived_source_module(
         parts
             .derived_modules
             .push((internal_module_name, source.clone()));
+    }
+}
+
+fn record_rejected_source_module(
+    source: &SourceFile,
+    parts: &mut SurfaceParts,
+    package: Option<&str>,
+) {
+    if let Some(module_name) = invalid_case_rejected_visible_module_path(source) {
+        let internal_module_name = internal_module_name(package, &module_name);
+        parts.rejected_derived_modules.insert(internal_module_name);
     }
 }
 
@@ -680,6 +698,9 @@ fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceParts) {
     parts
         .derived_modules
         .extend(additions.derived_modules.clone());
+    parts
+        .rejected_derived_modules
+        .extend(additions.rejected_derived_modules.clone());
 }
 
 fn add_implicit_standard_prelude_imports(parts: &mut SurfaceParts) {
@@ -1796,13 +1817,16 @@ fn source_span_json(span: &SourceSpan) -> JsonValue {
 fn unresolved_local_import_diagnostics(
     module: &SurfaceModule,
     derived_modules: &[(String, SourceFile)],
+    rejected_derived_modules: &BTreeSet<String>,
 ) -> Vec<Diagnostic> {
     module
         .uses
         .iter()
         .filter(|use_decl| {
             use_decl.package.is_none()
-                && use_decl.name.contains("::")
+                && use_decl.origin == UseOrigin::Source
+                && (use_decl.name.contains("::")
+                    || rejected_derived_modules.contains(&use_decl.name))
                 && !derived_modules
                     .iter()
                     .any(|(module_name, _)| module_name == &use_decl.name)

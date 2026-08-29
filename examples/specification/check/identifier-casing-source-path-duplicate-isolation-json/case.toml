@@ -1,0 +1,41 @@
+command = ["check", "--json", "app.veln", "App.veln", "app.test.veln", "probe.veln"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "json"
+contains = [
+  "module name `App` must start with an ASCII lowercase letter",
+  "expected `Int`, but found `String`",
+]
+not_contains = [
+  "module.duplicate_source_path",
+  "multiple source files derive module path",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "App.veln"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "type.mismatch"
+
+[[json_assert]]
+path = "diagnostics.1.span.file"
+equals = "probe.veln"

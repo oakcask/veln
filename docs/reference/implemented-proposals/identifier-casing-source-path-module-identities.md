@@ -20,10 +20,13 @@ fixes the LSP zero-width diagnostic range and source-path origin data
 projection. The checked
 `identifier-casing-chained-companion-boundary-json` example fixes the
 combined invalid-casing and chained-companion structural boundary.
-Focused surface-analysis coverage fixes the registration consequence by
-requiring an import of the rejected identity to remain unresolved. Duplicate
-derived-module diagnostics consume the same successful registrations, so the
-rejected identity cannot become a duplicate participant.
+The checked `identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`, and
+`identifier-casing-source-path-cycle-isolation-json` examples fix the
+registration and graph consequences. An invalid source-path-derived identity
+does not satisfy a local import, does not become a duplicate participant, and
+does not add a reachable module-graph edge. Focused surface-analysis coverage
+checks the same isolation boundaries.
 
 ## Scope
 
@@ -56,10 +59,15 @@ start of the affected source. The `source_kind` value is `regular`,
 invalid origin segments is not registered as a normal derived module identity.
 Selected regular and companion sources still report source-path casing
 diagnostics when the source also has parse diagnostics, but parse-failing
-sources are not lowered or registered. A source path segment that starts with
-an ASCII lowercase letter but contains another invalid module-identifier
-character remains a structural `module.invalid_source_path` failure rather
-than a source identifier casing failure.
+sources are not lowered or registered. A rejected derived-module identity is
+recorded only when visible module derivation itself fails solely with
+source-path `name.invalid_case` diagnostics. A parse-failing source whose
+source path casing is accepted does not record a rejected derived-module
+identity and does not suppress a single-segment unresolved local import. A
+source path segment that starts with an ASCII lowercase letter but contains
+another invalid module-identifier character remains a structural
+`module.invalid_source_path` failure rather than a source identifier casing
+failure.
 
 ## Completion
 
