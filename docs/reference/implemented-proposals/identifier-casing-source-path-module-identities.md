@@ -20,10 +20,13 @@ fixes the LSP zero-width diagnostic range and source-path origin data
 projection. The checked
 `identifier-casing-chained-companion-boundary-json` example fixes the
 combined invalid-casing and chained-companion structural boundary.
-Focused surface-analysis coverage fixes the registration consequence by
-requiring an import of the rejected identity to remain unresolved. Duplicate
-derived-module diagnostics consume the same successful registrations, so the
-rejected identity cannot become a duplicate participant.
+The checked `identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`, and
+`identifier-casing-source-path-cycle-isolation-json` examples fix the
+registration and graph consequences. An invalid source-path-derived identity
+does not satisfy a local import, does not become a duplicate participant, and
+does not add a reachable module-graph edge. Focused surface-analysis coverage
+checks the same isolation boundaries.
 
 ## Scope
 
