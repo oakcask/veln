@@ -94,6 +94,11 @@ The JSON document contains:
 - `project.root` and `project.selected_paths`, with normalized relative paths
   and no absolute paths. Metrics-owned project-relative paths use `/`
   separators in JSON, baseline JSON, and human locations;
+- `diagnostics`, containing retained source diagnostics for partial reports
+  and empty for complete reports;
+- `completeness.status`, `completeness.excluded_sources`, and
+  `completeness.excluded_baseline_subjects` when baseline comparison excludes
+  invalid current subjects;
 - `modules`, sorted by descending `dependency_pressure`, descending
   `fan_out`, descending `fan_in`, then module identity;
 - `edges`, sorted by source module and target module, with canonical edge

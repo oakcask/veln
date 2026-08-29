@@ -297,8 +297,18 @@ generated Markdown.
 and experimental exact whole-body similarity for project-owned Veln source. It
 follows the shared command analysis route for source discovery and parse-clean
 module loading. Without `--check`, the command exits successfully when
-analysis completes, even if dependency cycles, large ABC values, or duplicate
-whole bodies are present.
+analysis completes with a complete report, even if dependency cycles, large
+ABC values, or duplicate whole bodies are present.
+
+When source analysis fails only because discovered or explicitly selected
+source paths derive invalid module identities, `veln metrics` returns an
+incomplete report and exits non-zero. The report retains the source-path
+diagnostics, excludes the invalid sources from module graph records, and keeps
+parse-clean path-based ABC and similarity subjects. Imports to excluded
+invalid identities do not become retained diagnostics. Unrelated source
+errors keep the ordinary diagnostic envelope and return no metrics report.
+Human output writes retained diagnostics to the diagnostic stream before the
+advisory report, and the report begins with an incomplete-analysis notice.
 
 `--json` emits the metrics JSON report specified in [metrics-json.md](metrics-json.md).
 `--check` applies enabled metrics policy from `[tool.metrics]`. The current
@@ -310,13 +320,16 @@ baseline schema `veln-metrics-baseline/v0` with metric model
 `veln-metrics-model/v0`. The baseline records project-relative paths and does
 not record absolute paths or source text. The command writes through a
 temporary file in the target directory and refuses to overwrite an existing
-target. `--write-baseline` conflicts with `--check` and `--json`.
+target. It refuses incomplete analysis before creating or replacing the target.
+`--write-baseline` conflicts with `--check` and `--json`.
 
 `--baseline PATH` is valid only with `--check`. The baseline is loaded
 explicitly from the command line; the command does not load a manifest
 baseline implicitly. Unsupported baseline schema or metric model values are
 comparison errors. A baseline subject that no longer exists in the current
-report is reported as stale but does not by itself fail the check.
+report is reported as stale but does not by itself fail the check. A partial
+baseline check classifies a currently invalid module identity as an excluded
+baseline subject instead of a stale subject.
 
 Human report output begins with summary counts, then cycles, then module rows,
 then ABC size, and then `Whole-body similarity (experimental)`. Each
@@ -324,6 +337,8 @@ similarity instance names one primary declaration with its declaration and body
 source locations. The remaining declarations are related locations.
 Similarity output does not instruct maintainers to deduplicate code
 mechanically, and similarity never creates a policy violation under `--check`.
+A partial check with no known retained-graph policy violation is incomplete
+rather than pass. A known retained-graph cycle violation still fails.
 
 `[tool.metrics] max_findings = "N"` limits each detailed human-output section
 to its first `N` findings in canonical order. The policy-violation, cycle,
