@@ -24,3 +24,7 @@ equals = "deleted"
 [[json_assert]]
 path = "completeness.excluded_baseline_subjects.0"
 equals = "App"
+
+[[json_assert]]
+path = "completeness.excluded_baseline_subjects.1"
+equals = "Zed"

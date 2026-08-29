@@ -644,6 +644,7 @@ fn evaluate_metrics_check_with_baseline(
         .filter(|module| excluded_source_paths.contains(module.path.as_str()))
         .map(|module| module.module.clone())
         .collect();
+    report.completeness.excluded_baseline_subjects.sort();
     let excluded_baseline_subjects = report
         .completeness
         .excluded_baseline_subjects
@@ -3374,9 +3375,17 @@ mod tests {
         let check = partial_check_report(vec![
             SourceFile::new("app.veln", "fn main() -> ()\n  ()\nend\n"),
             SourceFile::new("App.veln", "pub fn invalid_subject() -> ()\n  ()\nend\n"),
+            SourceFile::new(
+                "Zed.veln",
+                "pub fn other_invalid_subject() -> ()\n  ()\nend\n",
+            ),
         ]);
         let baseline = MetricsBaseline {
             modules: vec![
+                BaselineModule {
+                    module: "Zed".to_string(),
+                    path: "Zed.veln".to_string(),
+                },
                 BaselineModule {
                     module: "App".to_string(),
                     path: "App.veln".to_string(),
@@ -3399,7 +3408,7 @@ mod tests {
 
         assert_eq!(
             check.report.completeness.excluded_baseline_subjects,
-            ["App"]
+            ["App", "Zed"]
         );
         assert_eq!(check.baseline.as_ref().unwrap().stale_subjects, ["deleted"]);
         assert_eq!(
