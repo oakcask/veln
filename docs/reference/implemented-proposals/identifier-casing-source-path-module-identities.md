@@ -59,10 +59,15 @@ start of the affected source. The `source_kind` value is `regular`,
 invalid origin segments is not registered as a normal derived module identity.
 Selected regular and companion sources still report source-path casing
 diagnostics when the source also has parse diagnostics, but parse-failing
-sources are not lowered or registered. A source path segment that starts with
-an ASCII lowercase letter but contains another invalid module-identifier
-character remains a structural `module.invalid_source_path` failure rather
-than a source identifier casing failure.
+sources are not lowered or registered. A rejected derived-module identity is
+recorded only when visible module derivation itself fails solely with
+source-path `name.invalid_case` diagnostics. A parse-failing source whose
+source path casing is accepted does not record a rejected derived-module
+identity and does not suppress a single-segment unresolved local import. A
+source path segment that starts with an ASCII lowercase letter but contains
+another invalid module-identifier character remains a structural
+`module.invalid_source_path` failure rather than a source identifier casing
+failure.
 
 ## Completion
 

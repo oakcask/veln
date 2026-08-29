@@ -198,10 +198,14 @@ zero-based `segment_index`. The `source_kind` value is `regular`,
 origin segment is not registered as a normal derived module identity.
 Source-path casing validation still runs for selected regular and companion
 sources that also have parse diagnostics, but those parse-failing sources are
-not lowered or registered as normal derived module identities. A source path
-segment that starts with an ASCII lowercase letter but contains another
-invalid module-identifier character reports `module.invalid_source_path`
-instead of `name.invalid_case`.
+not lowered or registered as normal derived module identities. A rejected
+derived-module identity is recorded only when visible module derivation itself
+fails solely with source-path `name.invalid_case` diagnostics. A parse-failing
+source whose source path casing is accepted does not record a rejected
+derived-module identity and does not suppress a single-segment unresolved
+local import. A source path segment that starts with an ASCII lowercase letter
+but contains another invalid module-identifier character reports
+`module.invalid_source_path` instead of `name.invalid_case`.
 Manifest export path checks use the same accepted module derivation boundary.
 A selected source that is also named by `lib.exports` is classified once for
 source-path casing diagnostics. A regular selected source uses
