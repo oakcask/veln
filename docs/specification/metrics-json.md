@@ -218,7 +218,7 @@ Executable evidence:
   `baseline-unsupported-metric-model-json` cases check baseline-aware cycle
   allowances, regressions, stale subject reporting, and unsupported version
   comparison errors.
-- The metrics `partial-advisory-json`,
+- The metrics `partial-advisory-human`, `partial-advisory-json`,
   `partial-check-hidden-cycle-json`, `partial-check-known-cycle-json`,
   `partial-explicit-invalid-selection-json`,
   `partial-mixed-source-errors-json`, `partial-baseline-write-refused`, and
