@@ -1,8 +1,6 @@
 use super::*;
 use crate::adt::AdtRegistry;
-use crate::name_recovery::{
-    public_alias_has_invalid_target_leaf, use_decl_has_invalid_module_segment,
-};
+use crate::name_recovery::public_alias_has_invalid_target_leaf;
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
@@ -23,7 +21,6 @@ use crate::schema::reserved_layout::{
     schema_field_uses_generalized_reserved_byte_prefix,
     schema_payload_has_generalized_reserved_byte_prefix, supported_encode_reserved_bits,
 };
-use crate::standard_names::PRELUDE_MODULE;
 use crate::types::schema_types::{
     binary_schema_anonymous_record_decode_type,
     format_neutral_schema_encode_field_is_source_adt_candidate,
