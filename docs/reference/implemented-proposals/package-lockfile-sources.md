@@ -1,6 +1,10 @@
-# Package Lockfile Sources
+---
+role: implementation-record
+authority: supporting
+update-when: Package lock dependency source metadata, lockfile entries, or package lock command behavior changes.
+---
 
-Status: implemented
+# Package Lockfile Sources
 
 This record covers the completed package-manager lockfile source slice from
 file-based modules and packages. Current behavior lives in
@@ -25,7 +29,7 @@ file-based modules and packages. Current behavior lives in
 - Command behavior:
   `../../specification/commands.md`.
 - Full `veln package lock` reference:
-  `../../specification/commands-full.md#veln-package-lock`.
+  `../../specification/commands.md#veln-package-lock`.
 - Manifest dependency metadata:
   `../../specification/source-surface.md`.
 

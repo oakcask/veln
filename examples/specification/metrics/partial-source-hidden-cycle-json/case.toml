@@ -1,0 +1,26 @@
+command = ["metrics", "--check", "--json"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "json"
+not_contains = ["\"result\":\"pass\"", "\"status\":\"ok\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "incomplete"
+
+[[json_assert]]
+path = "check.result"
+equals = "incomplete"
+
+[[json_assert]]
+path = "completeness.excluded_sources.0.path"
+equals = "App.veln"
+
+[[json_assert]]
+path = "summary.cycle_count"
+equals = 0

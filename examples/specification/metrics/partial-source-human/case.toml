@@ -1,0 +1,16 @@
+command = ["metrics"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+contains = [
+  "Veln dependency metrics (advisory)",
+  "analysis status: incomplete",
+  "excluded sources:",
+  "  App.veln (invalid_module_identity)",
+  "project modules: 1, selected modules: 1, internal edges: 0",
+  "App.veln::entry"
+]
+
+[stderr]
+contains = ["App.veln:1:1: error[name.invalid_case]: module name `App` must start with an ASCII lowercase letter"]

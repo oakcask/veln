@@ -1,9 +1,14 @@
 ---
-role: proposal
-update-when: The planned metrics behavior for invalid source-path module identities, partial report completeness, source diagnostics, policy evaluation, or baseline handling changes.
+role: implementation-record
+authority: supporting
+update-when: The implemented metrics behavior for invalid source-path module identities, partial report completeness, source diagnostics, policy evaluation, or baseline handling changes.
 ---
 
 # Metrics Partial Source Analysis
+
+This record preserves the completed proposal history. Current behavior is
+specified by [Metrics JSON](../../specification/metrics-json.md) and
+[Commands](../../specification/commands.md).
 
 ## Summary
 
@@ -14,18 +19,18 @@ diagnostic, omit only import diagnostics caused by removing that identity, and
 mark the report incomplete. A partial graph cannot produce a successful policy
 result because excluded identities can hide graph relationships.
 
-This proposal changes the current fail-fast boundary in
-[Metrics JSON](../specification/metrics-json.md). It does not make invalid
+This proposal changed the fail-fast boundary in
+[Metrics JSON](../../specification/metrics-json.md). It does not make invalid
 source code valid and does not weaken source diagnostics in other commands.
 
 ## Current Boundary
 
 Metrics source discovery and source-graph validation currently fail on a
 module identity error before returning a metrics report. Source-path casing is
-specified by [Name Resolution](../specification/name-resolution.md). The
+specified by [Name Resolution](../../specification/name-resolution.md). The
 completed source-path module identity boundary deliberately excludes metrics
 and dependency-cycle evidence; see
-[Identifier Casing Source Path Module Identities](../reference/implemented-proposals/identifier-casing-source-path-module-identities.md).
+[Identifier Casing Source Path Module Identities](identifier-casing-source-path-module-identities.md).
 
 ## Proposed Result Contract
 
@@ -157,11 +162,8 @@ evidence, the smallest metrics and command specification pages describe the
 implemented schema and exit behavior, and the completed proposal record is
 moved out of `docs/proposals/` by the proposal implementation audit workflow.
 
-Updating the command specification must also retire the existing same-scope
-`commands.md` and `commands-full.md` pair under the documentation authoring
-policy. Because those files cover independently useful command subjects, the
-migration must route their content into focused subject pages instead of
-consolidating every command into one authority.
+The command specification update retired the existing same-scope `commands.md`
+and `commands-full.md` pair under the documentation authoring policy.
 
 The implementation review must compare the existing generated similarity
 workload before and after the change. Complete analysis must not acquire an

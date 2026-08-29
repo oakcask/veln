@@ -11,7 +11,7 @@ update-when: The completion evidence is superseded, its links become invalid, or
 This record preserves the completion boundary for editor package-root
 selection around package-owned source discovery, command-root selection, and
 dependency-root selection. Current behavior is specified in
-[commands-full.md](../../specification/commands-full.md) and
+[commands.md](../../specification/commands.md) and
 [editor-support.md](../../specification/editor-support.md). The executable
 specification cases named there are the primary evidence.
 
@@ -33,7 +33,7 @@ Source-analysis path dependencies already validate the dependency root's direct
 regular manifest before loading its sources.
 
 This record is not current-behavior authority. Use
-[commands-full.md](../../specification/commands-full.md),
+[commands.md](../../specification/commands.md),
 [editor-support.md](../../specification/editor-support.md), and the executable
 specification cases for current behavior.
 

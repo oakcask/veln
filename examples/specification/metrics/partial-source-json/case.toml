@@ -1,0 +1,58 @@
+command = ["metrics", "--json"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "json"
+not_contains = ["\"module\":\"App\"", "\"source\":\"app\",\"target\":\"App\"", "/home/"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-metrics-json/v0"
+
+[[json_assert]]
+path = "status"
+equals = "incomplete"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "completeness.status"
+equals = "partial"
+
+[[json_assert]]
+path = "completeness.excluded_sources.0.path"
+equals = "App.veln"
+
+[[json_assert]]
+path = "completeness.excluded_sources.0.reason"
+equals = "invalid_module_identity"
+
+[[json_assert]]
+path = "summary.project_module_count"
+equals = 2
+
+[[json_assert]]
+path = "summary.internal_edge_count"
+equals = 0
+
+[[json_assert]]
+path = "modules.0.module"
+equals = "app"
+
+[[json_assert]]
+path = "modules.1.module"
+equals = "probe"
+
+[[json_assert]]
+path = "abc_subjects.0.identity"
+equals = "App.veln::entry"

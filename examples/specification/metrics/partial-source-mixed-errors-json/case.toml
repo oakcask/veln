@@ -1,0 +1,26 @@
+command = ["metrics", "--json"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "json"
+not_contains = ["\"completeness\"", "\"modules\"", "\"check\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "module.unresolved_import"
+
+[[json_assert]]
+path = "diagnostics.2.details.module_path"
+equals = "missing::thing"

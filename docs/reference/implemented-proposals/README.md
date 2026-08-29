@@ -72,6 +72,8 @@ under `../../specification/` and its executable example routes.
   [bounded-toolchain-analysis-slices.md](bounded-toolchain-analysis-slices.md).
 - Built-in Veln code metrics:
   [built-in-code-metrics.md](built-in-code-metrics.md).
+- Metrics partial source analysis:
+  [metrics-partial-source-analysis.md](metrics-partial-source-analysis.md).
 - Readable toolchain case streams:
   [readable-toolchain-case-streams.md](readable-toolchain-case-streams.md).
 - Formatter stabilization:

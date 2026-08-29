@@ -1,0 +1,5 @@
+use probe
+
+pub fn entry() -> Int
+  1
+end
