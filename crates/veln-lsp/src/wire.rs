@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
-use veln_diagnostics::{Diagnostic, Severity};
+use veln_diagnostics::Severity;
 use veln_language_service::{
     NavigationLocation, NavigationResult, NavigationSource, RenameFailure,
 };
@@ -12,7 +12,11 @@ use veln_project::discover_source_paths;
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{format_tree, parse};
 
-use crate::{diagnostics, legend, semantic_tokens_full};
+use crate::{legend, semantic_tokens_full};
+
+mod diagnostic;
+
+pub(crate) use diagnostic::*;
 
 pub(crate) fn document_uri_and_text(message: &str) -> Option<(String, String)> {
     Some((
@@ -58,93 +62,6 @@ pub(crate) fn formatting_result(uri: &str, text: String) -> String {
     )
 }
 
-pub(crate) fn publish_diagnostics(uri: &str, text: String) -> String {
-    let source = SourceFile::new(display_path(uri), text);
-    let diagnostics = diagnostics(&source)
-        .into_iter()
-        .filter(|diagnostic| diagnostic_applies_to_uri(diagnostic, uri))
-        .collect::<Vec<_>>();
-    publish_diagnostics_for_uri(uri, &diagnostics)
-}
-
-pub(crate) fn publish_diagnostics_for_uri(uri: &str, diagnostics: &[Diagnostic]) -> String {
-    let diagnostics = diagnostics
-        .iter()
-        .map(lsp_diagnostic_json)
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        "{{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{{\"uri\":\"{}\",\"diagnostics\":[{diagnostics}]}}}}",
-        escape_json(uri)
-    )
-}
-
-pub(crate) fn empty_publish_diagnostics(uri: &str) -> String {
-    format!(
-        "{{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{{\"uri\":\"{}\",\"diagnostics\":[]}}}}",
-        escape_json(uri)
-    )
-}
-
-pub(crate) fn diagnostic_applies_to_uri(diagnostic: &Diagnostic, uri: &str) -> bool {
-    diagnostic
-        .span
-        .as_ref()
-        .is_none_or(|span| span.file.as_str() == display_path(uri))
-}
-
-pub(crate) fn lsp_diagnostic_json(diagnostic: &Diagnostic) -> String {
-    let data = lsp_diagnostic_data_json(diagnostic)
-        .map(|data| format!(",\"data\":{data}"))
-        .unwrap_or_default();
-    format!(
-        "{{\"range\":{},\"severity\":{},\"code\":\"{}\",\"source\":\"veln\",\"message\":\"{}\"{data}}}",
-        range_json(diagnostic.span.as_ref()),
-        severity_code(diagnostic.severity),
-        escape_json(&diagnostic.id),
-        escape_json(&diagnostic.message),
-    )
-}
-
-fn lsp_diagnostic_data_json(diagnostic: &Diagnostic) -> Option<String> {
-    if diagnostic.id != "name.invalid_case" {
-        return None;
-    }
-    if detail_string(diagnostic, "origin")? != "source_path" {
-        return None;
-    }
-    Some(
-        veln_diagnostics::JsonValue::object([
-            ("origin", detail(diagnostic, "origin")?.clone()),
-            ("occurrence", detail(diagnostic, "occurrence")?.clone()),
-            ("source_path", detail(diagnostic, "source_path")?.clone()),
-            ("source_kind", detail(diagnostic, "source_kind")?.clone()),
-            ("segment", detail(diagnostic, "segment")?.clone()),
-            (
-                "segment_index",
-                detail(diagnostic, "segment_index")?.clone(),
-            ),
-        ])
-        .to_json(),
-    )
-}
-
-fn detail<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a veln_diagnostics::JsonValue> {
-    let veln_diagnostics::JsonValue::Object(entries) = &diagnostic.details else {
-        return None;
-    };
-    entries
-        .iter()
-        .find_map(|(candidate, value)| (candidate == key).then_some(value))
-}
-
-fn detail_string<'a>(diagnostic: &'a Diagnostic, key: &str) -> Option<&'a str> {
-    let veln_diagnostics::JsonValue::String(value) = detail(diagnostic, key)? else {
-        return None;
-    };
-    Some(value)
-}
-
 pub(crate) fn range_json(span: Option<&SourceSpan>) -> String {
     let Some(span) = span else {
         return "{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":0}}"
@@ -188,21 +105,6 @@ pub(crate) fn severity_code(severity: Severity) -> u8 {
         Severity::Info => 3,
         Severity::Hint => 4,
     }
-}
-
-pub(crate) fn diagnostics_by_path(
-    diagnostics: Vec<Diagnostic>,
-) -> BTreeMap<String, Vec<Diagnostic>> {
-    let mut by_path = BTreeMap::<String, Vec<Diagnostic>>::new();
-    for diagnostic in diagnostics {
-        if let Some(span) = &diagnostic.span {
-            by_path
-                .entry(span.file.as_str().to_string())
-                .or_default()
-                .push(diagnostic);
-        }
-    }
-    by_path
 }
 
 #[derive(Debug, Default)]

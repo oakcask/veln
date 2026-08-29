@@ -1,0 +1,426 @@
+use super::*;
+
+#[test]
+fn java_identifier_helpers_sanitize_keywords_and_collisions() {
+    let mut used_names = std::collections::BTreeSet::new();
+
+    assert_eq!(sanitize_identifier_text("1-value!"), "_1_value_");
+    assert_eq!(java_type_identifier("class"), "VelnGenerated");
+    assert_eq!(java_type_identifier("app.Main"), "app_Main");
+    assert_eq!(unique_java_identifier("", &mut used_names), "_value");
+    assert_eq!(unique_java_identifier("return", &mut used_names), "_return");
+    assert_eq!(unique_java_identifier("value", &mut used_names), "value");
+    assert_eq!(unique_java_identifier("value", &mut used_names), "value_1");
+}
+
+#[test]
+fn java_method_name_helpers_map_builtin_surface_names() {
+    for (surface, method) in [
+        ("stdio::print", "stdioPrint"),
+        ("stdio::println", "stdioPrintln"),
+        ("stdio::eprint", "stdioEprint"),
+        ("stdio::eprintln", "stdioEprintln"),
+    ] {
+        assert_eq!(stdio_method(surface), method);
+    }
+
+    for (surface, method) in [
+        ("float_negate", "floatNegate"),
+        ("float_add", "floatAdd"),
+        ("float_subtract", "floatSubtract"),
+        ("float_multiply", "floatMultiply"),
+        ("float_divide", "floatDivide"),
+        ("float_less", "floatLess"),
+        ("float_less_equal", "floatLessEqual"),
+        ("float_greater", "floatGreater"),
+        ("float_greater_equal", "floatGreaterEqual"),
+        ("byte", "byteValue"),
+        ("byte_to_int", "byteToInt"),
+        ("byte_chunk", "byteChunk"),
+        ("byte_chunk_count", "byteChunkCount"),
+        ("byte_append", "byteAppend"),
+        ("byte_chunk_from_hex", "byteChunkFromHex"),
+        ("byte_take", "byteTake"),
+        ("byte_drop", "byteDrop"),
+        ("byte_view", "byteView"),
+        ("byte_view_to_chunk", "byteViewToChunk"),
+        ("byte_view_count", "byteViewCount"),
+        ("byte_view_take", "byteViewTake"),
+        ("byte_view_drop", "byteViewDrop"),
+        ("byte_view_slice", "byteViewSlice"),
+        ("byte_chunks_empty", "byteChunksEmpty"),
+        ("byte_chunks_one", "byteChunksOne"),
+        ("byte_chunks_append", "byteChunksAppend"),
+        ("byte_chunks_produce", "byteChunksProduce"),
+        ("byte_read_u8_be", "byteReadU8Be"),
+        ("byte_expect_fixed_u8_be", "byteExpectFixedU8Be"),
+        ("byte_decode_http2_frame", "byteDecodeHttp2Frame"),
+        (
+            "byte_decode_schema_width_sample",
+            "byteDecodeSchemaWidthSample",
+        ),
+        (
+            "byte_decode_schema_validation_sample",
+            "byteDecodeSchemaValidationSample",
+        ),
+        (
+            "http2_protocol_partial_preface",
+            "http2ProtocolPartialPreface",
+        ),
+        (
+            "http2_protocol_invalid_preface",
+            "http2ProtocolInvalidPreface",
+        ),
+        (
+            "http2_peer_limit_frame_size_exceeded",
+            "http2PeerLimitFrameSizeExceeded",
+        ),
+        (
+            "http2_peer_limit_header_list_size_exceeded",
+            "http2PeerLimitHeaderListSizeExceeded",
+        ),
+        (
+            "http2_peer_limit_header_table_size_exceeded",
+            "http2PeerLimitHeaderTableSizeExceeded",
+        ),
+        (
+            "http2_peer_limit_flow_control_window_exceeded",
+            "http2PeerLimitFlowControlWindowExceeded",
+        ),
+        (
+            "http2_peer_limit_concurrent_streams_exceeded",
+            "http2PeerLimitConcurrentStreamsExceeded",
+        ),
+        (
+            "http2_peer_limit_settings_value_out_of_range",
+            "http2PeerLimitSettingsValueOutOfRange",
+        ),
+        (
+            "hpack_fixture_unsupported_header_block",
+            "hpackFixtureUnsupportedHeaderBlock",
+        ),
+        (
+            "hpack_fixture_unsupported_static_index",
+            "hpackFixtureUnsupportedStaticIndex",
+        ),
+        (
+            "hpack_fixture_malformed_string_length",
+            "hpackFixtureMalformedStringLength",
+        ),
+        (
+            "hpack_fixture_malformed_raw_string_value",
+            "hpackFixtureMalformedRawStringValue",
+        ),
+        (
+            "hpack_fixture_malformed_huffman_padding",
+            "hpackFixtureMalformedHuffmanPadding",
+        ),
+        (
+            "hpack_fixture_huffman_eos_symbol",
+            "hpackFixtureHuffmanEosSymbol",
+        ),
+        (
+            "hpack_fixture_huffman_non_visible_value",
+            "hpackFixtureHuffmanNonVisibleValue",
+        ),
+        (
+            "hpack_fixture_table_size_update_malformed",
+            "hpackFixtureTableSizeUpdateMalformed",
+        ),
+        (
+            "hpack_fixture_dynamic_index_out_of_range",
+            "hpackFixtureDynamicIndexOutOfRange",
+        ),
+        (
+            "hpack_fixture_dynamic_name_continuation_missing",
+            "hpackFixtureDynamicNameContinuationMissing",
+        ),
+        (
+            "hpack_fixture_dynamic_name_continuation_malformed",
+            "hpackFixtureDynamicNameContinuationMalformed",
+        ),
+        (
+            "hpack_fixture_dynamic_name_continuation_out_of_range",
+            "hpackFixtureDynamicNameContinuationOutOfRange",
+        ),
+        (
+            "hpack_fixture_table_size_update_not_at_start",
+            "hpackFixtureTableSizeUpdateNotAtStart",
+        ),
+        (
+            "hpack_fixture_table_size_update_trailing_bytes",
+            "hpackFixtureTableSizeUpdateTrailingBytes",
+        ),
+        (
+            "http2_protocol_invalid_frame_kind",
+            "http2ProtocolInvalidFrameKind",
+        ),
+        (
+            "http2_protocol_initial_peer_settings_required",
+            "http2ProtocolInitialPeerSettingsRequired",
+        ),
+        (
+            "http2_protocol_invalid_stream_id",
+            "http2ProtocolInvalidStreamId",
+        ),
+        (
+            "http2_protocol_invalid_payload_length",
+            "http2ProtocolInvalidPayloadLength",
+        ),
+        (
+            "http2_protocol_invalid_payload_length_chunk",
+            "http2ProtocolInvalidPayloadLengthChunk",
+        ),
+        (
+            "http2_protocol_invalid_window_update_increment",
+            "http2ProtocolInvalidWindowUpdateIncrement",
+        ),
+        (
+            "http2_protocol_invalid_data_padding",
+            "http2ProtocolInvalidDataPadding",
+        ),
+        (
+            "http2_protocol_content_length_mismatch",
+            "http2ProtocolContentLengthMismatch",
+        ),
+        (
+            "http2_protocol_invalid_request_header_list",
+            "http2ProtocolInvalidRequestHeaderList",
+        ),
+        (
+            "http2_protocol_invalid_response_header_list",
+            "http2ProtocolInvalidResponseHeaderList",
+        ),
+        (
+            "http2_protocol_unexpected_settings_ack",
+            "http2ProtocolUnexpectedSettingsAck",
+        ),
+        (
+            "http2_protocol_settings_not_allowed_for_endpoint",
+            "http2ProtocolSettingsNotAllowedForEndpoint",
+        ),
+        (
+            "http2_protocol_invalid_priority_dependency",
+            "http2ProtocolInvalidPriorityDependency",
+        ),
+        (
+            "http2_protocol_stream_after_goaway",
+            "http2ProtocolStreamAfterGoaway",
+        ),
+        ("byte_read_u16_be", "byteReadU16Be"),
+        ("byte_read_u24_be", "byteReadU24Be"),
+        ("byte_read_u31_be", "byteReadU31Be"),
+        ("byte_read_u32_be", "byteReadU32Be"),
+        ("byte_read_u40_be", "byteReadU40Be"),
+        ("byte_read_u48_be", "byteReadU48Be"),
+        ("byte_read_u56_be", "byteReadU56Be"),
+        ("byte_read_u64_be", "byteReadU64Be"),
+        ("byte_read_u16_le", "byteReadU16Le"),
+        ("byte_read_u24_le", "byteReadU24Le"),
+        ("byte_read_u31_le", "byteReadU31Le"),
+        ("byte_read_u32_le", "byteReadU32Le"),
+        ("byte_read_u40_le", "byteReadU40Le"),
+        ("byte_read_u48_le", "byteReadU48Le"),
+        ("byte_read_u56_le", "byteReadU56Le"),
+        ("byte_read_u64_le", "byteReadU64Le"),
+        ("byte_write_u8_be", "byteWriteU8Be"),
+        ("byte_write_u16_be", "byteWriteU16Be"),
+        ("byte_write_u24_be", "byteWriteU24Be"),
+        ("byte_write_u31_be", "byteWriteU31Be"),
+        ("byte_write_u32_be", "byteWriteU32Be"),
+        ("byte_write_u40_be", "byteWriteU40Be"),
+        ("byte_write_u48_be", "byteWriteU48Be"),
+        ("byte_write_u56_be", "byteWriteU56Be"),
+        ("byte_write_u64_be", "byteWriteU64Be"),
+        ("byte_write_u16_le", "byteWriteU16Le"),
+        ("byte_write_u24_le", "byteWriteU24Le"),
+        ("byte_write_u31_le", "byteWriteU31Le"),
+        ("byte_write_u32_le", "byteWriteU32Le"),
+        ("byte_write_u40_le", "byteWriteU40Le"),
+        ("byte_write_u48_le", "byteWriteU48Le"),
+        ("byte_write_u56_le", "byteWriteU56Le"),
+        ("byte_write_u64_le", "byteWriteU64Le"),
+        ("byte_count", "byteCount"),
+        ("byte_count_to_int", "byteCountToInt"),
+        ("byte_offset", "byteOffset"),
+        ("byte_offset_to_int", "byteOffsetToInt"),
+        ("stream_adapter_drain_actions", "streamAdapterDrainActions"),
+        ("stream_adapter_accept_loop", "streamAdapterAcceptLoop"),
+        (
+            "stream_adapter_drain_actions_until_cancellable",
+            "streamAdapterDrainActionsUntilCancellable",
+        ),
+        ("string_split_once", "stringSplitOnce"),
+        ("string_parse_int", "stringParseInt"),
+        ("int_to_string", "intToString"),
+        ("vec_len", "vecLen"),
+        ("vec_is_empty", "vecIsEmpty"),
+        ("vec_push", "vecPush"),
+        ("vec_concat", "vecConcat"),
+        ("vec_map", "vecMap"),
+        ("vec_filter", "vecFilter"),
+        ("vec_fold", "vecFold"),
+        ("vec_try_map", "vecTryMap"),
+        ("vec_try_map_with", "vecTryMapWith"),
+        ("list_nil", "listNil"),
+        ("list_cons", "listCons"),
+        ("list_is_empty", "listIsEmpty"),
+        ("list_fold", "listFold"),
+        ("list_reverse", "listReverse"),
+        ("list_map", "listMap"),
+        ("list_filter", "listFilter"),
+        ("list_try_map", "listTryMap"),
+        ("dict_get", "dictGet"),
+        ("dict_contains", "dictContains"),
+        ("dict_insert", "dictInsert"),
+        ("dict_remove", "dictRemove"),
+        ("dict_map", "dictMap"),
+        ("dict_map_with", "dictMapWith"),
+        ("dict_filter", "dictFilter"),
+        ("dict_filter_with", "dictFilterWith"),
+        ("dict_fold", "dictFold"),
+        ("dict_fold_with", "dictFoldWith"),
+        ("dict_try_map", "dictTryMap"),
+        ("dict_try_map_with", "dictTryMapWith"),
+        ("option_map", "optionMap"),
+        ("option_and_then", "optionAndThen"),
+        ("option_unwrap_or", "optionUnwrapOr"),
+        ("result_map", "resultMap"),
+        ("result_map_err", "resultMapErr"),
+        ("result_and_then", "resultAndThen"),
+    ] {
+        assert_eq!(prelude_method(surface), method);
+    }
+
+    for (surface, method) in [
+        ("channel::bounded", "channelBounded"),
+        ("channel::clone", "channelClone"),
+        ("channel::send", "channelSend"),
+        ("channel::recv", "channelRecv"),
+        ("channel::select", "channelSelect"),
+        ("channel::select_priority", "channelSelectPriority"),
+        ("channel::select_many_priority", "channelSelectManyPriority"),
+        ("channel::select_many_timeout", "channelSelectManyTimeout"),
+        (
+            "channel::select_many_timeout_result",
+            "channelSelectManyTimeoutResult",
+        ),
+        (
+            "channel::select_many_timeout_cancellable",
+            "channelSelectManyTimeoutCancellable",
+        ),
+        ("channel::select_timeout", "channelSelectTimeout"),
+        ("channel::select_result", "channelSelectResult"),
+        (
+            "channel::select_priority_result",
+            "channelSelectPriorityResult",
+        ),
+        (
+            "channel::select_timeout_result",
+            "channelSelectTimeoutResult",
+        ),
+        ("channel::close", "channelClose"),
+        ("task::spawn", "taskSpawn"),
+        ("task::spawn_with", "taskSpawnWith"),
+        ("task::join", "taskJoin"),
+        ("task::cancel", "taskCancel"),
+    ] {
+        assert_eq!(concurrency_method(surface), method);
+    }
+
+    for (surface, method) in [
+        ("fs::read_to_string", "fsReadToString"),
+        ("fs::write_string", "fsWriteString"),
+        ("fs::exists", "fsExists"),
+        ("fs::read_dir", "fsReadDir"),
+        ("net::receive_chunk", "netReceiveChunk"),
+        ("net::send_chunk", "netSendChunk"),
+        ("net::listen", "netListen"),
+        ("net::connect", "netConnect"),
+        ("net::accept", "netAccept"),
+        ("net::accept_or_end", "netAcceptOrEnd"),
+        ("net::accept_until", "netAcceptUntil"),
+        ("net::accept_until_cancellable", "netAcceptUntilCancellable"),
+        ("net::listener_local_addr", "netListenerLocalAddr"),
+        ("net::read_chunk", "netReadChunk"),
+        ("net::stream_local_addr", "netStreamLocalAddr"),
+        ("net::stream_peer_addr", "netStreamPeerAddr"),
+        ("net::stream_can_read", "netStreamCanRead"),
+        ("net::stream_can_write", "netStreamCanWrite"),
+        ("net::stream_is_closed", "netStreamIsClosed"),
+        ("net::read_chunk_until", "netReadChunkUntil"),
+        (
+            "net::read_chunk_until_cancellable",
+            "netReadChunkUntilCancellable",
+        ),
+        ("net::read_chunk_or_end", "netReadChunkOrEnd"),
+        ("net::write_chunk", "netWriteChunk"),
+        ("net::write_chunk_until", "netWriteChunkUntil"),
+        (
+            "net::write_chunk_until_cancellable",
+            "netWriteChunkUntilCancellable",
+        ),
+        ("net::write_chunks", "netWriteChunks"),
+        ("net::write_chunks_until", "netWriteChunksUntil"),
+        (
+            "net::write_chunks_until_cancellable",
+            "netWriteChunksUntilCancellable",
+        ),
+        ("net::shutdown_write", "netShutdownWrite"),
+        ("net::shutdown_read", "netShutdownRead"),
+        ("net::close_stream", "netCloseStream"),
+        ("net::close_listener", "netCloseListener"),
+        ("process::args", "processArgs"),
+        ("process::env", "processEnv"),
+        ("process::cwd", "processCwd"),
+        ("process::exit", "processExit"),
+        ("time::monotonic_ms", "timeMonotonicMs"),
+        ("time::timeout_ms", "timeTimeoutMs"),
+        ("time::deadline_after_ms", "timeDeadlineAfterMs"),
+        ("time::deadline_at_ms", "timeDeadlineAtMs"),
+        ("time::wait_until", "timeWaitUntil"),
+        ("time::cancel_token", "timeCancelToken"),
+        ("time::cancel_owner", "timeCancelOwner"),
+        ("time::cancel_token_from", "timeCancelTokenFrom"),
+        ("time::cancel_owned", "timeCancelOwned"),
+        ("time::cancel", "timeCancel"),
+        ("time::is_cancelled", "timeIsCancelled"),
+        ("time::is_cancelled_owner", "timeIsCancelledOwner"),
+        ("time::wait_until_cancellable", "timeWaitUntilCancellable"),
+        (
+            "time::wait_until_cancellable_outcome",
+            "timeWaitUntilCancellableOutcome",
+        ),
+    ] {
+        assert_eq!(standard_library_method(surface), method);
+    }
+
+    let panic = std::panic::catch_unwind(|| standard_library_method("fs::unknown"));
+    assert!(panic.is_err());
+}
+
+#[test]
+fn standard_library_method_reports_the_unknown_surface_name() {
+    let panic = std::panic::catch_unwind(|| standard_library_method("net::missing"))
+        .expect_err("unknown standard library builtins should be rejected");
+    let message = panic
+        .downcast_ref::<String>()
+        .map(String::as_str)
+        .or_else(|| panic.downcast_ref::<&str>().copied());
+
+    assert_eq!(
+        message,
+        Some("unknown standard library builtin `net::missing`")
+    );
+}
+
+#[test]
+fn veln_string_literal_value_decodes_known_escapes_and_preserves_unknown_ones() {
+    assert_eq!(
+        veln_string_literal_value("\"line\\nquote\\\"slash\\\\tab\\t\""),
+        "line\nquote\"slash\\tab\t"
+    );
+    assert_eq!(veln_string_literal_value("\"unknown\\q\""), "unknown\\q");
+    assert_eq!(veln_string_literal_value("\"trailing\\\""), "trailing\\");
+    assert_eq!(veln_string_literal_value("raw"), "raw");
+}
