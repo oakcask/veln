@@ -1,0 +1,3 @@
+pub fn entry() -> Int
+  2
+end

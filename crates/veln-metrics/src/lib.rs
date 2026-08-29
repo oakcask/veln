@@ -627,7 +627,7 @@ fn evaluate_metrics_check_with_baseline(
         })
         .map(|module| module.module.clone())
         .collect();
-    report.completeness.excluded_baseline_subjects = baseline
+    let mut excluded_baseline_subjects: Vec<String> = baseline
         .modules
         .iter()
         .filter(|module| {
@@ -636,6 +636,8 @@ fn evaluate_metrics_check_with_baseline(
         })
         .map(|module| module.module.clone())
         .collect();
+    excluded_baseline_subjects.sort();
+    report.completeness.excluded_baseline_subjects = excluded_baseline_subjects;
     MetricsCheckReport {
         report,
         policy,
@@ -3927,9 +3929,14 @@ mod tests {
             external_dependency_count: 0,
             span: SourceFile::new("app.veln", "").span(TextRange::new(0, 0)),
         });
+        mark_report_partial(&mut report, "Beta.veln");
         mark_report_partial(&mut report, "App.veln");
         let baseline = MetricsBaseline {
             modules: vec![
+                BaselineModule {
+                    module: "Beta".to_string(),
+                    path: "Beta.veln".to_string(),
+                },
                 BaselineModule {
                     module: "App".to_string(),
                     path: "App.veln".to_string(),
@@ -3956,7 +3963,7 @@ mod tests {
         );
         assert_eq!(
             check.report.completeness.excluded_baseline_subjects,
-            vec!["App".to_string()]
+            vec!["App".to_string(), "Beta".to_string()]
         );
     }
 
@@ -4117,10 +4124,10 @@ mod tests {
     }
 
     fn mark_report_partial(report: &mut MetricsReport, path: &str) {
-        report.completeness.excluded_sources = vec![ExcludedSource {
+        report.completeness.excluded_sources.push(ExcludedSource {
             path: path.to_string(),
             reason: "invalid_module_identity".to_string(),
-        }];
+        });
     }
 
     fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {
