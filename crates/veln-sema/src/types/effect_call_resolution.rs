@@ -1,4 +1,5 @@
 use super::*;
+use crate::effect_rows::{collect_effect_row_substitution, instantiate_effect_rows};
 
 pub(super) fn instantiate_call_effect_rows(
     signature: &FunctionSignature,
@@ -10,9 +11,9 @@ pub(super) fn instantiate_call_effect_rows(
         let Some(actual) = function_type_for_expr(arg, context) else {
             continue;
         };
-        collect_effect_row_substitution_from_types(param, &actual, &mut row_substitutions);
+        collect_effect_row_substitution(param, &actual, &mut row_substitutions);
     }
-    instantiate_effect_row_entries(&signature.effects, &row_substitutions)
+    instantiate_effect_rows(&signature.effects, &row_substitutions)
 }
 
 pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
@@ -46,101 +47,6 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
             .map(FunctionSignature::ty)
         }
     }
-}
-
-pub(super) fn collect_effect_row_substitution_from_types(
-    expected: &Type,
-    actual: &Type,
-    row_substitutions: &mut Vec<(String, Vec<String>)>,
-) {
-    let (
-        Type::Function {
-            params: expected_params,
-            variadic: expected_variadic,
-            return_type: expected_return,
-            effects: expected_effects,
-        },
-        Type::Function {
-            params: actual_params,
-            variadic: actual_variadic,
-            return_type: actual_return,
-            effects: actual_effects,
-        },
-    ) = (expected, actual)
-    else {
-        return;
-    };
-
-    for effect in expected_effects {
-        let Some(row) = effect.strip_prefix("...") else {
-            continue;
-        };
-        let concrete = actual_effects
-            .iter()
-            .filter(|actual_effect| {
-                !expected_effects
-                    .iter()
-                    .any(|expected_effect| expected_effect == *actual_effect)
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        merge_effect_row_substitution(row_substitutions, row, concrete);
-    }
-
-    for (expected_param, actual_param) in expected_params.iter().zip(actual_params) {
-        collect_effect_row_substitution_from_types(expected_param, actual_param, row_substitutions);
-    }
-    if let (Some(expected), Some(actual)) =
-        (expected_variadic.as_deref(), actual_variadic.as_deref())
-    {
-        collect_effect_row_substitution_from_types(expected, actual, row_substitutions);
-    }
-    collect_effect_row_substitution_from_types(expected_return, actual_return, row_substitutions);
-}
-
-pub(super) fn merge_effect_row_substitution(
-    row_substitutions: &mut Vec<(String, Vec<String>)>,
-    row: &str,
-    effects: Vec<String>,
-) {
-    if let Some((_, existing)) = row_substitutions
-        .iter_mut()
-        .find(|(existing_row, _)| existing_row == row)
-    {
-        for effect in effects {
-            push_unique_effect(existing, &effect);
-        }
-        return;
-    }
-    let mut unique = Vec::new();
-    for effect in effects {
-        push_unique_effect(&mut unique, &effect);
-    }
-    row_substitutions.push((row.to_string(), unique));
-}
-
-pub(super) fn instantiate_effect_row_entries(
-    effects: &[String],
-    row_substitutions: &[(String, Vec<String>)],
-) -> Vec<String> {
-    let mut instantiated = Vec::new();
-    for effect in effects {
-        if let Some(row) = effect.strip_prefix("...") {
-            if let Some((_, substitution)) = row_substitutions
-                .iter()
-                .find(|(candidate, _)| candidate == row)
-            {
-                for substituted in substitution {
-                    push_unique_effect(&mut instantiated, substituted);
-                }
-            } else {
-                push_unique_effect(&mut instantiated, effect);
-            }
-        } else {
-            push_unique_effect(&mut instantiated, effect);
-        }
-    }
-    instantiated
 }
 
 pub(super) fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {

@@ -209,7 +209,7 @@ impl<'a> FunctionChecker<'a> {
         };
         let instantiated_effects =
             self.check_call_arguments(args, &params, variadic.as_deref(), &origin);
-        for effect in &instantiate_effects(&origin.effects, &instantiated_effects) {
+        for effect in &instantiate_effect_rows(&origin.effects, &instantiated_effects) {
             self.inferred_effects.push(EffectUse {
                 effect: effect.clone(),
                 node_id: expr.node_id,
@@ -325,7 +325,7 @@ impl<'a> FunctionChecker<'a> {
         let instantiated_effects =
             self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
 
-        for effect in &instantiate_effects(&origin.effects, &instantiated_effects) {
+        for effect in &instantiate_effect_rows(&origin.effects, &instantiated_effects) {
             self.inferred_effects.push(EffectUse {
                 effect: effect.clone(),
                 node_id: expr.node_id,
