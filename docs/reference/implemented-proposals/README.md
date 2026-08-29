@@ -48,6 +48,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-import-paths.md](identifier-casing-import-paths.md).
 - Identifier casing source path module identities:
   [identifier-casing-source-path-module-identities.md](identifier-casing-source-path-module-identities.md).
+- Identifier casing source path graph isolation:
+  [identifier-casing-source-path-graph-isolation.md](identifier-casing-source-path-graph-isolation.md).
 - Common JSON assertion operation parity:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Schema declaration composition surface:

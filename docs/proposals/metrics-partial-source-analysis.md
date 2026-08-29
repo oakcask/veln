@@ -23,9 +23,9 @@ source code valid and does not weaken source diagnostics in other commands.
 Metrics source discovery and source-graph validation currently fail on a
 module identity error before returning a metrics report. Source-path casing is
 specified by [Name Resolution](../specification/name-resolution.md). The
-remaining identifier-casing analysis target deliberately excludes metrics and
-dependency-cycle evidence; see
-[Identifier Casing](identifier-casing.md#diagnostic-tolerant-graph-isolation).
+implemented identifier-casing graph-isolation slice deliberately excludes
+metrics and dependency-cycle policy evidence; see
+[Identifier Casing](identifier-casing.md).
 
 ## Proposed Result Contract
 

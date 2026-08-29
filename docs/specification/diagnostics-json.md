@@ -143,7 +143,12 @@ identity casing is checked by `identifier-casing-source-path-json` and
 human output, lowercase-initial structural failures, and chained companion
 structural isolation are checked by
 `identifier-casing-source-path-human` and
-`identifier-casing-chained-companion-boundary-json`. LSP span mapping for the
+`identifier-casing-chained-companion-boundary-json`. Import, duplicate-module,
+and source dependency cycle graph isolation for invalid source-path-derived
+module identities are checked by
+`identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`, and
+`identifier-casing-source-path-cycle-isolation-json`. LSP span mapping for the
 same zero-width source-start diagnostics is checked by
 `identifier-casing-source-path-boundary`.
 The checked

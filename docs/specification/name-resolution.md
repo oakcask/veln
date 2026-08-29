@@ -196,6 +196,10 @@ with `origin: source_path`, `occurrence: path_segment`, `name`,
 zero-based `segment_index`. The `source_kind` value is `regular`,
 `export`, `companion`, `doctest`, or `generated`. A source with an invalid
 origin segment is not registered as a normal derived module identity.
+The absent identity cannot satisfy a selected local import, cannot create a
+duplicate source-module relationship, and cannot contribute import edges to a
+source dependency cycle. Valid unrelated selected modules continue to produce
+their own diagnostics while those source-path diagnostics are reported.
 Source-path casing validation still runs for selected regular and companion
 sources that also have parse diagnostics, but those parse-failing sources are
 not lowered or registered as normal derived module identities. A source path
@@ -215,7 +219,10 @@ errors. The checked
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
 `identifier-casing-source-path-human`,
-`identifier-casing-chained-companion-boundary-json`, and
+`identifier-casing-chained-companion-boundary-json`,
+`identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`,
+`identifier-casing-source-path-cycle-isolation-json`, and
 `identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
 diagnostic spans and details.
 

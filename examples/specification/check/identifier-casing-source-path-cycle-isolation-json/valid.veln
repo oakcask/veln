@@ -1,0 +1,7 @@
+fn duplicate() -> Int
+  1
+end
+
+fn duplicate() -> Int
+  2
+end

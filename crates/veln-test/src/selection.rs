@@ -291,7 +291,7 @@ impl SourceDependencyGraph {
     fn new(project: &Project, module: &SurfaceModule) -> Self {
         let paths = Self::collect_source_paths(project);
         let (module_by_path, module_paths) = Self::index_modules(&paths, module);
-        let imports_by_path = Self::index_imports(&paths, module);
+        let imports_by_path = Self::index_imports(&paths, &module_by_path, module);
         let test_roots = Self::detect_test_roots(&paths, module);
         let edges = Self::build_edges(&imports_by_path, &module_paths);
 
@@ -343,6 +343,7 @@ impl SourceDependencyGraph {
 
     fn index_imports(
         paths: &BTreeSet<String>,
+        module_by_path: &BTreeMap<String, String>,
         module: &SurfaceModule,
     ) -> BTreeMap<String, Vec<String>> {
         let mut imports_by_path = BTreeMap::<String, Vec<String>>::new();
@@ -351,7 +352,7 @@ impl SourceDependencyGraph {
                 continue;
             }
             let path = selection_target_path(use_decl.span.file.as_str()).to_string();
-            if paths.contains(&path) {
+            if paths.contains(&path) && module_by_path.contains_key(&path) {
                 imports_by_path
                     .entry(path)
                     .or_default()
@@ -778,6 +779,43 @@ mod tests {
     }
 
     #[test]
+    fn dependency_graph_ignores_import_edges_from_source_without_module_identity() {
+        let sources = vec![
+            SourceFile::new("app.veln", "use Bad\nfn main() -> Int\n  1\nend\n"),
+            SourceFile::new("Bad.veln", "use app\nfn helper() -> Int\n  1\nend\n"),
+            SourceFile::new(
+                "app_test.veln",
+                "use app\n\ntest checks_app() -> Int\n  app::main()\nend\n",
+            ),
+        ];
+        let (project, module) =
+            project_module_with_identity_filter(sources, |path| path != "Bad.veln");
+        let graph = SourceDependencyGraph::new(&project, &module);
+
+        assert!(!graph.module_by_path.contains_key("Bad.veln"));
+        assert!(!graph.module_paths.contains_key("Bad"));
+        assert!(!graph.imports_by_path.contains_key("Bad.veln"));
+        assert_eq!(
+            graph.edges.get("app.veln"),
+            Some(&BTreeSet::new()),
+            "{:#?}",
+            graph.edges
+        );
+        assert_eq!(
+            graph.dependency_closure("app_test.veln"),
+            BTreeSet::from(["app_test.veln".to_string(), "app.veln".to_string()])
+        );
+        assert_eq!(
+            graph.missing_evidence_for(&BTreeSet::from(["Bad.veln".to_string()])),
+            vec![
+                "dependency graph is missing module identity for selected source `Bad.veln`"
+                    .to_string(),
+                "dependency graph is missing source for import `Bad` in `app.veln`".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn dependency_graph_upgrades_convention_selection_to_complete() {
         let (project, module) = project_module(vec![
             SourceFile::new(
@@ -1007,9 +1045,23 @@ mod tests {
         project_module_with_lowering(sources, false)
     }
 
+    fn project_module_with_identity_filter(
+        sources: Vec<SourceFile>,
+        has_identity: impl Fn(&str) -> bool,
+    ) -> (Project, SurfaceModule) {
+        project_module_with_custom_lowering(sources, |source| has_identity(source.path().as_str()))
+    }
+
     fn project_module_with_lowering(
         sources: Vec<SourceFile>,
         derive_identity: bool,
+    ) -> (Project, SurfaceModule) {
+        project_module_with_custom_lowering(sources, |_| derive_identity)
+    }
+
+    fn project_module_with_custom_lowering(
+        sources: Vec<SourceFile>,
+        derive_identity: impl Fn(&SourceFile) -> bool,
     ) -> (Project, SurfaceModule) {
         let mut module = None;
         let mut uses = Vec::new();
@@ -1026,7 +1078,7 @@ mod tests {
                 "unexpected parse diagnostics: {:?}",
                 parsed.diagnostics
             );
-            let lowered = if derive_identity {
+            let lowered = if derive_identity(source) {
                 lower_surface_ast_with_module_identity(
                     &parsed.tree,
                     derived_module_name(source),

@@ -1,0 +1,42 @@
+command = ["check", "--json", "app.veln", "Bad.veln", "valid.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["module name `Bad` must start with an ASCII lowercase letter", "duplicate function declaration name `duplicate`"]
+not_contains = ["module.duplicate_source_path", "multiple source files derive module path `Bad`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "Bad.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.segment"
+equals = "Bad"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.duplicate"
+
+[[json_assert]]
+path = "diagnostics.1.span.file"
+equals = "valid.veln"

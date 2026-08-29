@@ -20,6 +20,8 @@ fixes the LSP zero-width diagnostic range and source-path origin data
 projection. The checked
 `identifier-casing-chained-companion-boundary-json` example fixes the
 combined invalid-casing and chained-companion structural boundary.
+The follow-up graph-isolation boundary is recorded in
+[Identifier Casing Source Path Graph Isolation](identifier-casing-source-path-graph-isolation.md).
 
 ## Scope
 
@@ -62,5 +64,6 @@ than a source identifier casing failure.
 This slice is complete for source-path-derived module identities, including
 generated-source origin metadata and manifest export paths. It does not
 complete written module identity syntax, explicit import-alias syntax,
-non-import qualified-use segment casing, recovery navigation, repair rename,
-rename conflict prediction, or MCP rename mapping.
+non-import qualified-use segment casing, artifact command partial analysis,
+recovery navigation, repair rename, rename conflict prediction, or MCP rename
+mapping.

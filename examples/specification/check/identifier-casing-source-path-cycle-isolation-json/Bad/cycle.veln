@@ -1,0 +1,5 @@
+use app
+
+pub fn candidate() -> Int
+  1
+end

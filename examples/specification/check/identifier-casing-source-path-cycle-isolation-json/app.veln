@@ -1,0 +1,5 @@
+use Bad::cycle
+
+pub fn main() -> Int
+  1
+end
