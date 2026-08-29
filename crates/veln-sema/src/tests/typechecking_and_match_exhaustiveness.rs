@@ -1364,6 +1364,66 @@ fn descriptor_routed_result_pattern_reports_payload_type_mismatch_at_branch_expr
 }
 
 #[test]
+fn match_arm_result_inference_reports_later_branch_mismatch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(flag: Bool)\n",
+            "  match flag\n",
+            "    true => 1\n",
+            "    false => \"no\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .expect("later match arm should be checked against the first arm's inferred type");
+    assert_eq!(diagnostic.message, "expected `Int`, but found `String`");
+    assert_diagnostic_span(diagnostic, 4, 14, 4, 18);
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"constraint\":\"match_arm\"")
+    );
+}
+
+#[test]
+fn match_arm_bindings_do_not_leak_into_siblings_or_after_match() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn label(input: Option<Int>) -> String\n",
+            "  let selected = match input\n",
+            "    Some(payload) => \"some\"\n",
+            "    None => payload\n",
+            "  end\n",
+            "  payload\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let unresolved_payloads = diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved value `payload`"
+        })
+        .count();
+    assert_eq!(unresolved_payloads, 2, "{diagnostics:#?}");
+}
+
+#[test]
 fn match_exhaustiveness_accepts_finite_builtin_domains() {
     let source = SourceFile::new(
         "main.veln",
@@ -2079,6 +2139,42 @@ fn ambiguous_constructor_patterns_do_not_infer_known_scrutinee_domain() {
         diagnostic.id == "type.inference_ambiguous"
             && diagnostic.message == "match scrutinee type is ambiguous"
     }));
+}
+
+#[test]
+fn ambiguous_constructor_patterns_report_unknown_scrutinee_domain() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Left\n",
+            "  Same(Int)\n",
+            "end\n",
+            "type Right\n",
+            "  Same(String)\n",
+            "end\n",
+            "fn label(value) -> Int\n",
+            "  match value\n",
+            "    Same(_) => 1\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "type.inference_ambiguous"
+                && diagnostic.message == "match scrutinee type is ambiguous"
+        })
+        .expect("unknown scrutinee should retain the ambiguous constructor domains");
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"constraint\":\"match_constructor_pattern_domain\""));
+    assert!(details.contains("\"left\""));
+    assert!(details.contains("\"right\""));
 }
 
 #[test]

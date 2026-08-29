@@ -2840,6 +2840,26 @@ impl<'a> FunctionChecker<'a> {
         arms: &[MatchArm],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        let scrutinee_type = self.infer_match_scrutinee(expr, scrutinee, arms);
+        if arms.is_empty() {
+            self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
+            return expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown);
+        }
+
+        let mut result_type = expected
+            .map(|expected| expected.ty.clone())
+            .unwrap_or(Type::Unknown);
+        for arm in arms {
+            self.infer_match_arm(expr, arm, &scrutinee_type, expected, &mut result_type);
+        }
+
+        self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
+        result_type
+    }
+
+    fn infer_match_scrutinee(&mut self, expr: &Expr, scrutinee: &Expr, arms: &[MatchArm]) -> Type {
         let mut prechecked_scrutinee_type = None;
         let pattern_scrutinee_type = match infer_match_scrutinee_type_from_constructor_patterns(
             arms,
@@ -2870,68 +2890,76 @@ impl<'a> FunctionChecker<'a> {
             origin_span: Some(expr.span.clone()),
             origin_message: "Match constructor patterns inferred the scrutinee type here.",
         });
-        let scrutinee_type = prechecked_scrutinee_type
-            .unwrap_or_else(|| self.infer_expr(scrutinee, scrutinee_expected.as_ref()));
-        if arms.is_empty() {
-            self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
-            return expected
-                .map(|expected| expected.ty.clone())
-                .unwrap_or(Type::Unknown);
+        prechecked_scrutinee_type
+            .unwrap_or_else(|| self.infer_expr(scrutinee, scrutinee_expected.as_ref()))
+    }
+
+    fn infer_match_arm(
+        &mut self,
+        match_expr: &Expr,
+        arm: &MatchArm,
+        scrutinee_type: &Type,
+        expected: Option<&ExpectedType>,
+        result_type: &mut Type,
+    ) {
+        let saved_bindings = self.bindings.len();
+        let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
+        let saved_names = self.local_names.clone();
+
+        self.declare_match_pattern_bindings(&arm.pattern, scrutinee_type);
+        self.infer_match_arm_result(match_expr, arm, expected, result_type);
+
+        self.bindings.truncate(saved_bindings);
+        self.invalid_binding_recoveries
+            .truncate(saved_invalid_binding_recoveries);
+        self.local_names = saved_names;
+    }
+
+    fn declare_match_pattern_bindings(&mut self, pattern: &Pattern, scrutinee_type: &Type) {
+        for binding in self.pattern_bindings(pattern, scrutinee_type) {
+            if !valid_value_binding_name(&binding.name) {
+                self.push_invalid_binding_recovery(binding);
+                continue;
+            }
+            if !self.declare_local_name(
+                &binding.name,
+                binding.node_id.display("pattern"),
+                binding.span,
+                "pattern binding",
+            ) {
+                continue;
+            }
+            self.bindings.push(Binding::new(binding.name, binding.ty));
         }
+    }
 
-        let mut result_type = expected
-            .map(|expected| expected.ty.clone())
-            .unwrap_or(Type::Unknown);
-        for arm in arms {
-            let saved_bindings = self.bindings.len();
-            let saved_invalid_binding_recoveries = self.invalid_binding_recoveries.len();
-            let saved_names = self.local_names.clone();
-            let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
-            for binding in pattern_bindings {
-                if !valid_value_binding_name(&binding.name) {
-                    self.push_invalid_binding_recovery(binding);
-                    continue;
-                }
-                if !self.declare_local_name(
-                    &binding.name,
-                    binding.node_id.display("pattern"),
-                    binding.span,
-                    "pattern binding",
-                ) {
-                    continue;
-                }
-                self.bindings.push(Binding::new(binding.name, binding.ty));
-            }
-
-            let arm_expected = if let Some(expected) = expected {
-                Some(expected.clone())
-            } else if result_type != Type::Unknown {
-                Some(ExpectedType {
-                    ty: result_type.clone(),
-                    source: ExpectedTypeSource::Inferred,
-                    origin_node_id: expr.node_id,
-                    origin_span: Some(expr.span.clone()),
-                    origin_message: "Match result type inferred here.",
-                })
-            } else {
-                None
-            };
-            let actual = self.infer_expr(&arm.expr, arm_expected.as_ref());
-            if let Some(expected) = &arm_expected {
-                self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
-            }
-            if result_type == Type::Unknown {
-                result_type = actual;
-            }
-
-            self.bindings.truncate(saved_bindings);
-            self.invalid_binding_recoveries
-                .truncate(saved_invalid_binding_recoveries);
-            self.local_names = saved_names;
+    fn infer_match_arm_result(
+        &mut self,
+        match_expr: &Expr,
+        arm: &MatchArm,
+        expected: Option<&ExpectedType>,
+        result_type: &mut Type,
+    ) {
+        let arm_expected = if let Some(expected) = expected {
+            Some(expected.clone())
+        } else if *result_type != Type::Unknown {
+            Some(ExpectedType {
+                ty: result_type.clone(),
+                source: ExpectedTypeSource::Inferred,
+                origin_node_id: match_expr.node_id,
+                origin_span: Some(match_expr.span.clone()),
+                origin_message: "Match result type inferred here.",
+            })
+        } else {
+            None
+        };
+        let actual = self.infer_expr(&arm.expr, arm_expected.as_ref());
+        if let Some(expected) = &arm_expected {
+            self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
         }
-
-        self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
-        result_type
+        if *result_type == Type::Unknown {
+            *result_type = actual;
+        }
     }
 
     pub(super) fn infer_if(
