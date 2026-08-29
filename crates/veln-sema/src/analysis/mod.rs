@@ -20,8 +20,8 @@ use crate::contracts::{
     predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
-    contract_details, effect_details, effect_missing_public_details, handler_details,
-    module_details, span_json, type_details,
+    contract_details, effect_details, effect_missing_public_details, handler_details, span_json,
+    type_details,
 };
 use crate::effects::KNOWN_EFFECT_LABELS;
 use crate::prelude::{

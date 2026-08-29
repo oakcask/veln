@@ -1,4 +1,14 @@
-use super::*;
+use crate::name_recovery::public_alias_has_invalid_target_leaf;
+use std::collections::BTreeMap;
+use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
+use veln_diagnostics::Diagnostic;
+use veln_source::SourceSpan;
+
+use super::module_boundaries::{
+    alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
+    normal_imported_use_for_path, private_alias_diagnostic, type_target,
+    unresolved_alias_diagnostic,
+};
 
 pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();

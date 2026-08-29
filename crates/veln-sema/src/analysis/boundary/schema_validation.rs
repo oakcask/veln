@@ -1,4 +1,13 @@
-use super::*;
+use crate::schema::primitives::schema_field_reference_type;
+use crate::semantic_model::Type;
+use std::collections::{BTreeMap, BTreeSet};
+use veln_ast::{SchemaDecl, SchemaField, SchemaValidationClause};
+use veln_diagnostics::{Diagnostic, JsonValue};
+
+use super::schema_dispatch_resolution::schema_field_declared_after;
+use super::schema_repeat_resolution::{
+    schema_field_predicate_reference_diagnostic, schema_validation_reference_diagnostic,
+};
 
 pub(super) fn check_schema_validation_clause(
     schema: &SchemaDecl,

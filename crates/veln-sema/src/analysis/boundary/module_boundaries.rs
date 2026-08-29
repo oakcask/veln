@@ -1,4 +1,13 @@
-use super::*;
+use crate::adt;
+use crate::diagnostics::{module_details, span_json};
+use crate::name_recovery::use_decl_has_invalid_module_segment;
+use crate::semantic_model::Type;
+use crate::standard_names::PRELUDE_MODULE;
+use crate::type_syntax::parse_type_annotation;
+use std::collections::BTreeMap;
+use veln_ast::{Function, FunctionKind, SurfaceModule, UseDecl};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_source::SourceSpan;
 
 pub(super) fn function_target<'a>(
     module: &'a SurfaceModule,
