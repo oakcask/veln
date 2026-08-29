@@ -22,5 +22,17 @@ path = "diagnostics.2.id"
 equals = "module.unresolved_import"
 
 [[json_assert]]
-path = "diagnostics.2.details.module_path"
+path = "diagnostics.1.span.file"
+equals = "App.veln"
+
+[[json_assert]]
+path = "diagnostics.1.details.module_path"
+equals = "missing::excluded"
+
+[[json_assert]]
+path = "diagnostics.3.span.file"
+equals = "app.veln"
+
+[[json_assert]]
+path = "diagnostics.3.details.module_path"
 equals = "missing::thing"

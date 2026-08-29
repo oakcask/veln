@@ -3865,6 +3865,34 @@ mod tests {
     }
 
     #[test]
+    fn partial_source_analysis_rejects_missing_imports_from_excluded_sources() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("app.veln", "use App\nfn main() -> ()\n  ()\nend\n"),
+                SourceFile::new(
+                    "App.veln",
+                    "use missing::excluded\npub fn entry() -> Int\n  1\nend\n",
+                ),
+            ],
+        };
+        let diagnostics = source_graph_diagnostics(&project);
+
+        let rejected = partial_source_analysis(&project, &diagnostics).expect_err("source errors");
+
+        assert!(rejected.iter().any(|diagnostic| {
+            diagnostic.id == "module.unresolved_import"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.file.as_str() == "App.veln")
+                && json_string_field(&diagnostic.details, "module_path")
+                    == Some("missing::excluded")
+        }));
+    }
+
+    #[test]
     fn partial_check_result_is_incomplete_unless_known_cycle_fails() {
         let mut acyclic = report_from_edges(&[]);
         mark_report_partial(&mut acyclic, "App.veln");

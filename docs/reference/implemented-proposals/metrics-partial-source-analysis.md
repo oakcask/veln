@@ -23,16 +23,17 @@ This proposal changed the fail-fast boundary in
 [Metrics JSON](../../specification/metrics-json.md). It does not make invalid
 source code valid and does not weaken source diagnostics in other commands.
 
-## Current Boundary
+## Historical Boundary
 
-Metrics source discovery and source-graph validation currently fail on a
-module identity error before returning a metrics report. Source-path casing is
-specified by [Name Resolution](../../specification/name-resolution.md). The
-completed source-path module identity boundary deliberately excludes metrics
-and dependency-cycle evidence; see
+Before this work, metrics source discovery and source-graph validation failed
+on a module identity error before returning a metrics report. Source-path
+casing is specified by
+[Name Resolution](../../specification/name-resolution.md). The earlier
+source-path module identity boundary deliberately excluded metrics and
+dependency-cycle evidence; see
 [Identifier Casing Source Path Module Identities](identifier-casing-source-path-module-identities.md).
 
-## Proposed Result Contract
+## Implemented Result Contract
 
 At least one `name.invalid_case` diagnostic with `origin: source_path` must be
 present for a partial report. The command keeps every such diagnostic,
