@@ -14,6 +14,8 @@ use veln_project::{
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
 use veln_syntax::parse;
 
+use crate::analysis::{DoctestMode, analyze_project};
+
 use super::{
     CapturedDependencyProject, Diagnostic, EmbeddedStandardModuleEntry, EmbeddedStandardPackage,
     ReachabilityCache, SurfaceParts, embedded_standard_counters,
@@ -277,8 +279,19 @@ fn reachable_entry_keeps_invalid_import_segments_with_alias_proof_only() {
         manifest: None,
     };
     let (module, diagnostics) = load_surface_module(&project);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "name.invalid_case");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unresolved_import"
+                && diagnostic.message == "local import `HTTP` has no matching selected source file"
+        }),
+        "{diagnostics:#?}"
+    );
 
     let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
 
@@ -315,8 +328,19 @@ fn reachable_entry_skips_invalid_import_in_unselected_module() {
         manifest: None,
     };
     let (module, diagnostics) = load_surface_module(&project);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "name.invalid_case");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unresolved_import"
+                && diagnostic.message == "local import `HTTP` has no matching selected source file"
+        }),
+        "{diagnostics:#?}"
+    );
 
     let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
 
@@ -343,8 +367,19 @@ fn reachable_entry_skips_unused_invalid_import_in_entry_module() {
         manifest: None,
     };
     let (module, diagnostics) = load_surface_module(&project);
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    assert_eq!(diagnostics[0].id, "name.invalid_case");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unresolved_import"
+                && diagnostic.message == "local import `HTTP` has no matching selected source file"
+        }),
+        "{diagnostics:#?}"
+    );
 
     let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
 
@@ -3681,6 +3716,169 @@ fn invalid_source_path_casing_reports_all_segments_without_registering_module() 
             .iter()
             .all(|diagnostic| diagnostic.id != "module.duplicate_source_path"),
         "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_source_path_identity_does_not_satisfy_import_but_valid_modules_still_analyze() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use App\n",
+                    "\n",
+                    "fn main() -> Int\n",
+                    "  App::entry()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new("App.veln", "pub fn entry() -> Int\n  1\nend\n"),
+            SourceFile::new("probe.veln", "fn probe() -> Int\n  \"kept\"\nend\n"),
+        ],
+        manifest: None,
+    };
+
+    let (_, source_diagnostics) = load_surface_module(&project);
+    let diagnostics = analyze_project(project, DoctestMode::Exclude).checked_diagnostics();
+
+    assert!(
+        source_diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "module.unresolved_import"
+                && diagnostic.message == "local import `App` has no matching selected source file"
+        }),
+        "{source_diagnostics:#?}"
+    );
+    assert!(
+        source_diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.invalid_case"
+                && diagnostic.message
+                    == "module name `App` must start with an ASCII lowercase letter"
+                && detail_string(diagnostic, "origin") == Some("source_path")
+        }),
+        "{source_diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.file.as_str() == "probe.veln")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_source_path_identity_does_not_collide_with_duplicate_modules() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new("app.veln", "fn main() -> Int\n  1\nend\n"),
+            SourceFile::new("App.veln", "pub fn upper() -> Int\n  1\nend\n"),
+            SourceFile::new("app.test.veln", "test companion() -> ()\n  ()\nend\n"),
+            SourceFile::new("probe.veln", "fn probe() -> Int\n  \"kept\"\nend\n"),
+        ],
+        manifest: None,
+    };
+
+    let (_, source_diagnostics) = load_surface_module(&project);
+    let diagnostics = analyze_project(project, DoctestMode::Exclude).checked_diagnostics();
+
+    assert!(
+        source_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"
+                && detail_string(diagnostic, "source_path") == Some("App.veln")),
+        "{source_diagnostics:#?}"
+    );
+    assert!(
+        source_diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "module.duplicate_source_path"),
+        "{source_diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.file.as_str() == "probe.veln")
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn invalid_source_path_identity_does_not_add_reachability_cycle_edge() {
+    let project = Project {
+        root: ".".into(),
+        files: vec![
+            SourceFile::new(
+                "app.veln",
+                concat!(
+                    "use helper\n",
+                    "\n",
+                    "fn main() -> Int\n",
+                    "  helper::entry()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "helper.veln",
+                concat!(
+                    "use App\n",
+                    "\n",
+                    "pub fn entry() -> Int\n",
+                    "  App::back()\n",
+                    "end\n",
+                ),
+            ),
+            SourceFile::new(
+                "App.veln",
+                "use app\n\npub fn back() -> Int\n  app::main()\nend\n",
+            ),
+            SourceFile::new("probe.veln", "fn probe() -> Int\n  \"kept\"\nend\n"),
+        ],
+        manifest: None,
+    };
+    let (module, source_diagnostics) = load_surface_module(&project);
+    let diagnostics = analyze_project(project, DoctestMode::Exclude).checked_diagnostics();
+
+    assert!(
+        source_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "name.invalid_case"
+                && detail_string(diagnostic, "source_path") == Some("App.veln")),
+        "{source_diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.file.as_str() == "probe.veln")
+        }),
+        "{diagnostics:#?}"
+    );
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("app", "main"), ("helper", "entry")]
+    );
+    assert!(
+        reachable
+            .uses
+            .iter()
+            .all(|use_decl| use_decl.module_name.as_deref() != Some("App")),
+        "{:#?}",
+        reachable.uses
     );
 }
 

@@ -145,7 +145,10 @@ structural isolation are checked by
 `identifier-casing-source-path-human` and
 `identifier-casing-chained-companion-boundary-json`. LSP span mapping for the
 same zero-width source-start diagnostics is checked by
-`identifier-casing-source-path-boundary`.
+`identifier-casing-source-path-boundary`. Source-path graph isolation is
+checked by `identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`, and
+`identifier-casing-source-path-cycle-isolation-json`.
 The checked
 `identifier-casing-handler-binding-quarantine-json` case also fixes that
 invalid handler bindings do not appear in `hole.unfilled`

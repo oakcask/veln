@@ -217,7 +217,13 @@ errors. The checked
 `identifier-casing-source-path-human`,
 `identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
-diagnostic spans and details.
+diagnostic spans and details. The checked
+`identifier-casing-source-path-import-isolation-json`,
+`identifier-casing-source-path-duplicate-isolation-json`, and
+`identifier-casing-source-path-cycle-isolation-json` examples check that an
+invalid source-path-derived identity cannot satisfy an import, cannot collide
+as a duplicate source module, and does not add a reachable module-graph edge
+while unrelated valid modules continue semantic analysis.
 
 External `use path from "package"` declarations resolve `path` inside an
 already available direct `path`, `vendor`, `mirror`, or locally materialized

@@ -325,13 +325,13 @@ lookup and navigation do not expose them.
 Current source-path-derived module identity casing reports one diagnostic for
 each invalid origin segment and withholds the invalid derived identity from
 normal module registration. That implemented registration invariant also means
-that the invalid identity cannot satisfy a local import or participate in a
-duplicate derived-module relationship. A second valid source cannot derive the
-same invalid-cased identity because every accepted derived identity satisfies
-the same segment validation. [Name Resolution](../specification/name-resolution.md)
-specifies this current boundary, and focused surface-analysis coverage checks
-the unresolved import after derivation rejection. Duplicate diagnostics consume
-only registered identities, so there is no separate invalid-versus-valid
+that the invalid identity cannot satisfy a local import, participate in a
+duplicate derived-module relationship, or add a reachable module-graph edge.
+A second valid source cannot derive the same invalid-cased identity because
+every accepted derived identity satisfies the same segment validation.
+[Name Resolution](../specification/name-resolution.md) specifies this current
+boundary and routes to the focused executable examples. Duplicate diagnostics
+consume only registered identities, so there is no separate invalid-versus-valid
 collision input to construct.
 
 The remaining proposal separates unimplemented consumers by their observable
@@ -490,7 +490,7 @@ identifier-casing remainder.
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Classify every segment of module-only, module-and-type, and prelude-qualified paths with each segment invalid in turn. | Every syntax- or resolution-fixed role receives its class diagnostic; unresolved intermediate roles are not guessed; all language-service operations observe the same decomposition. | Expression, pattern, type, definition, reference, and rename decision table. |
-| Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
+| Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |

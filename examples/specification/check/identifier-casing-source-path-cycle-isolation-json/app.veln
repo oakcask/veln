@@ -1,0 +1,5 @@
+use helper
+
+fn main() -> Int
+  helper::entry()
+end
