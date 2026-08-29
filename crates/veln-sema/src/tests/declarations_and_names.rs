@@ -1210,6 +1210,32 @@ fn private_helper_return_infers_nested_collection_control_flow() {
 }
 
 #[test]
+fn private_helper_return_infers_through_record_field_and_if_branch() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn empty_items()\n",
+            "  []\n",
+            "end\n",
+            "\n",
+            "fn main(flag: Bool) -> {items: Vec<Int>}\n",
+            "  {items: if flag\n",
+            "    empty_items()\n",
+            "  else\n",
+            "    []\n",
+            "  end}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn private_helper_signature_infers_from_same_module_test_call_site() {
     let source = SourceFile::new(
         "main_test.veln",
