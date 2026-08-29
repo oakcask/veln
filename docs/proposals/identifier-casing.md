@@ -286,11 +286,12 @@ quarantined recovery for source declarations and bindings selected by `check`,
 overlay selection, and exact companion source and target boundaries. The
 remaining proposal defines how that recovery model extends to qualified-use
 roles, remaining companion cases for invalid module or qualified roles, and
-recovery navigation. Source-path-derived module identity failures are current
-behavior specified by [Name Resolution](../specification/name-resolution.md)
-and [Check JSON And Diagnostics](../specification/diagnostics-json.md); this
-proposal covers their unimplemented interactions with graph, artifact, and
-deferred recovery consumers.
+recovery navigation. Source-path-derived module identity failures and graph
+isolation are current behavior specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Check JSON And Diagnostics](../specification/diagnostics-json.md). This
+proposal covers their unimplemented interactions with artifact and deferred
+recovery consumers.
 
 An invalid remaining-scope module segment or qualified segment is not inserted
 into a normal name class. A use links to a recovery record only when the
