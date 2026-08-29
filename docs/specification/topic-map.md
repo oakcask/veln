@@ -43,13 +43,18 @@ stop when its authoritative page answers the task.
 
 - MCP stdio lifecycle, workspace project selection, saved diagnostics, saved
   definitions, tool declarations, and atomic refresh: [mcp.md](mcp.md).
-- Command gates, source discovery, entry selection, formatting, checking,
-  running, and testing: [commands.md](commands.md).
+- Command routes: [commands.md](commands.md).
+- Shared analysis gates and source discovery:
+  [command-analysis.md](command-analysis.md).
+- Checking, formatting, documentation, running, and testing:
+  [command-check.md](command-check.md), [command-fmt.md](command-fmt.md),
+  [command-doc.md](command-doc.md), [command-run.md](command-run.md), and
+  [command-test.md](command-test.md).
 - Choosing the command-specific machine-readable output page:
   [json-output.md](json-output.md).
 - Advisory source dependency metrics, dependency-cycle policy checks,
   experimental exact whole-body similarity, and metrics JSON:
-  [commands.md](commands.md), then [metrics-json.md](metrics-json.md).
+  [command-metrics.md](command-metrics.md), then [metrics-json.md](metrics-json.md).
 - Human diagnostics that need related notes or structured output coverage, and
   diagnostic JSON envelope, spans, related notes, and stable details:
   [diagnostics-json.md](diagnostics-json.md).
@@ -70,8 +75,7 @@ stop when its authoritative page answers the task.
   and fixed vectors: [package-snapshots.md](package-snapshots.md).
 - Transport-independent package documentation catalogs, canonical result
   bytes, documentation digest, resource URI identity, gates, and disclosure
-  boundaries: [package-documentation.md](package-documentation.md), then
-  [package-documentation-full.md](package-documentation-full.md).
+  boundaries: [package-documentation.md](package-documentation.md).
 - Canonical package virtual-source URIs, listing, and exact resolution:
   [package-virtual-sources.md](package-virtual-sources.md).
 - Explicit HTTP/2 frame, diagnostic, HPACK, and core modules:

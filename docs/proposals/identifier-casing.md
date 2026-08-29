@@ -339,22 +339,22 @@ source-error boundary:
 
 | Consumer boundary | Required outcome | Evidence boundary |
 | --- | --- | --- |
-| Artifact commands that reject source-graph errors, including the current metrics command. | The command returns the source diagnostic envelope and no artifact or policy result. A would-be dependency cycle through the invalid identity produces no cycle policy violation because source errors already block the report. | This remains current behavior until [Metrics Partial Source Analysis](metrics-partial-source-analysis.md) is implemented. Identifier-casing graph-isolation evidence does not claim that an invalid source reached artifact graph construction. |
+| Artifact commands that reject source-graph errors. | The command returns the source diagnostic envelope and no artifact or policy result. | Metrics is now covered separately by [Metrics JSON](../specification/metrics-json.md). |
 | Export, documentation, backend, and deferred recovery consumers. | Each consumer follows its existing source-error contract and exposes no normal artifact identity for the invalid source. A tolerant consumer continues unrelated valid-module analysis; a fail-fast consumer returns its specified error result without an artifact. | Consumer-specific cases state whether the command is tolerant or fail-fast and assert the corresponding valid-module or no-artifact boundary. |
 
 A target must not require an invalid source to reach an artifact stage that the
 current command specification blocks on source diagnostics. [Metrics Partial
-Source Analysis](metrics-partial-source-analysis.md) owns the separate proposal
-to change the metrics command boundary. A structurally invalid path retains
-its existing structural module diagnostic and does not also create a module
-identity.
+Source Analysis](../reference/implemented-proposals/metrics-partial-source-analysis.md)
+owns the implemented metrics command exception. A structurally invalid path
+retains its existing structural module diagnostic and does not also create a
+module identity.
 
 The `test` command's source dependency selection graph is a separate consumer.
 Its source-identity, parse-failure, completeness, and widening rules do not
 verify source module registration. Changes to those rules require command-level
 acceptance cases under the test selection contract. Metrics dependency-cycle
-policy remains owned by
-[Metrics Partial Source Analysis](metrics-partial-source-analysis.md).
+policy history remains owned by
+[Metrics Partial Source Analysis](../reference/implemented-proposals/metrics-partial-source-analysis.md).
 
 Every invalid name reports `name.invalid_case`. Independently provable
 diagnostics still accumulate. In particular, remaining-scope names with the

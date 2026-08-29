@@ -1,9 +1,14 @@
 ---
-role: proposal
-update-when: The planned metrics behavior for invalid source-path module identities, partial report completeness, source diagnostics, policy evaluation, or baseline handling changes.
+role: implementation-record
+authority: supporting
+update-when: The implemented metrics behavior for invalid source-path module identities, partial report completeness, source diagnostics, policy evaluation, or baseline handling changes.
 ---
 
 # Metrics Partial Source Analysis
+
+This record preserves the completed proposal history. Current behavior is
+specified by [Metrics JSON](../../specification/metrics-json.md) and
+[Metrics Command](../../specification/command-metrics.md).
 
 ## Summary
 
@@ -14,20 +19,21 @@ diagnostic, omit only import diagnostics caused by removing that identity, and
 mark the report incomplete. A partial graph cannot produce a successful policy
 result because excluded identities can hide graph relationships.
 
-This proposal changes the current fail-fast boundary in
-[Metrics JSON](../specification/metrics-json.md). It does not make invalid
+This proposal changed the fail-fast boundary in
+[Metrics JSON](../../specification/metrics-json.md). It does not make invalid
 source code valid and does not weaken source diagnostics in other commands.
 
-## Current Boundary
+## Historical Boundary
 
-Metrics source discovery and source-graph validation currently fail on a
-module identity error before returning a metrics report. Source-path casing is
-specified by [Name Resolution](../specification/name-resolution.md). The
-completed source-path module identity boundary deliberately excludes metrics
-and dependency-cycle evidence; see
-[Identifier Casing Source Path Module Identities](../reference/implemented-proposals/identifier-casing-source-path-module-identities.md).
+Before this work, metrics source discovery and source-graph validation failed
+on a module identity error before returning a metrics report. Source-path
+casing is specified by
+[Name Resolution](../../specification/name-resolution.md). The earlier
+source-path module identity boundary deliberately excluded metrics and
+dependency-cycle evidence; see
+[Identifier Casing Source Path Module Identities](identifier-casing-source-path-module-identities.md).
 
-## Proposed Result Contract
+## Implemented Result Contract
 
 At least one `name.invalid_case` diagnostic with `origin: source_path` must be
 present for a partial report. The command keeps every such diagnostic,
@@ -38,8 +44,8 @@ an invalid source identity. Metrics omits that diagnostic only when the import
 failure is a direct consequence of the same exclusion:
 
 - a retained source imports the path-derived identity of an excluded source;
-- an excluded source imports an identity whose ordinary project-relative
-  `.veln` path exists among the project-owned sources.
+- an excluded source imports another project-owned source's source-kind-aware
+  visible identity.
 
 These omitted diagnostics do not become report diagnostics. They do not make
 the excluded identities available for resolution. An unresolved import to any
@@ -107,16 +113,17 @@ A baseline comparison uses the retained valid graph. A known regression still
 fails. A baseline subject excluded only because its current source identity is
 invalid appears in `completeness.excluded_baseline_subjects`, sorted by module
 identity, and does not appear in `check.baseline.stale_subjects`. The
-completeness field is present only for baseline checks. In the absence of a
-known regression, the check remains incomplete rather than passing.
+`excluded_baseline_subjects` field appears only when a partial baseline check
+has excluded baseline subjects. In the absence of a known regression, the
+check remains incomplete rather than passing.
 
 `--write-baseline` refuses a partial report and does not create or replace the
 requested baseline path. It must not persist incomplete graph data as a
 complete future allowance.
 
-## Acceptance Cases
+## Acceptance Evidence
 
-The checked metrics cases are the primary planned evidence.
+The checked metrics cases are the primary executable evidence.
 
 | Case | Input | Required observations |
 | --- | --- | --- |
@@ -129,12 +136,12 @@ The checked metrics cases are the primary planned evidence.
 | Partial baseline write | A partial advisory report is requested with `--write-baseline`. | The command fails and does not create or replace the baseline path. |
 | Partial baseline check | A baseline names a module whose current source identity is invalid. | The subject is excluded rather than stale. A known retained-graph regression fails; otherwise the result is incomplete. |
 
-Focused metrics unit tests must isolate node creation, imports declared by an
+Focused metrics unit tests isolate node creation, imports declared by an
 identityless source, imports to an excluded identity, unrelated unresolved
 imports on both sides of the causal boundary, path-based subject retention,
 and the precedence between known policy violations and incomplete results.
-JSON and human command cases must cover diagnostic retention and nonzero exit
-behavior. A file-state test must cover baseline-write refusal without modifying
+JSON and human command cases cover diagnostic retention and nonzero exit
+behavior. File-state evidence covers baseline-write refusal without modifying
 an existing path.
 
 ## Out Of Scope
@@ -150,21 +157,24 @@ an existing path.
   diagnostic.
 - Returning a successful advisory or policy result from a partial graph.
 
-## Completion
+## Completion Evidence
 
-Implementation is complete only when all acceptance cases have executable
-evidence, the smallest metrics and command specification pages describe the
-implemented schema and exit behavior, and the completed proposal record is
-moved out of `docs/proposals/` by the proposal implementation audit workflow.
+The implementation moved this record out of `docs/proposals/`, added
+executable metrics cases under `examples/specification/metrics/`, and updated
+the smallest metrics and command specification pages for the implemented
+schema and exit behavior.
 
-Updating the command specification must also retire the existing same-scope
-`commands.md` and `commands-full.md` pair under the documentation authoring
-policy. Because those files cover independently useful command subjects, the
-migration must route their content into focused subject pages instead of
-consolidating every command into one authority.
+The command specification update retired the previous same-scope `commands.md`
+and `commands-full.md` pair by keeping [Commands](../../specification/commands.md) as a route and moving command contracts into focused pages.
 
-The implementation review must compare the existing generated similarity
-workload before and after the change. Complete analysis must not acquire an
-additional project-wide parse pass merely to identify sources that partial
-analysis excludes; source diagnostics already establish the parse-clean
-boundary.
+The implementation review compared the generated similarity workload with
+`scripts/benchmark-metrics-similarity` using debug profile, sizes `32,64,128`,
+one warmup, and five measured runs. The raw comparison is stored in
+[metrics-similarity-benchmark.json](../../reviews/metrics-similarity-benchmark.json).
+The base medians were user CPU `0.02s`, `0.05s`, and `0.12s`, with peak RSS
+`17708 KiB`, `18820 KiB`, and `21736 KiB`. The repaired branch medians were
+user CPU `0.02s`, `0.05s`, and `0.12s`, with peak RSS `18752 KiB`,
+`19836 KiB`, and `22500 KiB`. Adjacent size ratios stayed within the script
+threshold on both revisions. Complete analysis kept the same existing
+project-wide source diagnostic pass; this repair did not add another parse
+pass merely to identify excluded sources.

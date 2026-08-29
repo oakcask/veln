@@ -19,9 +19,10 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 
 mod source_module_path;
 
-pub use source_module_path::derive as derive_source_module_path;
 use source_module_path::derive_visible_with_source_kind as derive_visible_source_module_path_with_source_kind;
-use source_module_path::invalid_case_rejected_visible_module_path;
+pub use source_module_path::{
+    derive as derive_source_module_path, invalid_case_rejected_visible_module_path,
+};
 
 #[cfg(test)]
 pub(crate) mod embedded_standard_counters {

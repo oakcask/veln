@@ -1,0 +1,6 @@
+use App
+use App__test_companion
+
+fn main() -> Int
+  1
+end

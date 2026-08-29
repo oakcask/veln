@@ -19,6 +19,19 @@ metric analysis errors fail without a clean metrics report. Type, effect, and
 contract errors are not reported as metrics diagnostics and do not block this
 syntax-and-module-graph report.
 
+When every source error is either `name.invalid_case` with `details.origin:
+"source_path"` or an unresolved import caused by excluding such an identity,
+the command emits a partial metrics report with `status: "incomplete"` and
+exits non-zero. The report keeps the source-path casing diagnostics in
+top-level `diagnostics`, emits `completeness.status: "partial"`, and lists
+each excluded project-relative source path in `completeness.excluded_sources`
+with `reason: "invalid_module_identity"`. The excluded sources do not create
+module records, dependency edges, cycles, or graph-derived summary counts.
+Parse-clean excluded sources remain eligible for selected path-based ABC and
+whole-body similarity records. A parse error, unrelated unresolved import, or
+any other non-qualifying source error keeps the ordinary diagnostic envelope
+and emits no metrics report, completeness object, or check result.
+
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
 enforceable policy enabled and fail as a command configuration error without a
@@ -38,6 +51,10 @@ A successful check keeps the complete metrics report and adds `check.mode:
 `status: "policy_violation"` and keeps the complete report. Each violation
 names `policy: "deny_cycles"`, the cycle members, a concrete closed path, and
 guidance to review module ownership and dependency direction.
+With a partial report, a retained-graph cycle violation takes precedence and
+uses `status: "policy_violation"` with `check.result: "fail"`. A partial check
+without a retained-graph violation uses `status: "incomplete"`,
+`check.result: "incomplete"`, an empty violation array, and a non-zero exit.
 
 `--baseline PATH` is valid only with `--check`. With a baseline, `deny_cycles`
 allows a current dependency cycle only when its members and cyclic edges are
@@ -50,19 +67,27 @@ schema or metric-model values are command errors.
 When a check uses a baseline, the `check.baseline` object contains `path`,
 `schema_version`, `metric_model`, and `stale_subjects`. The path is the
 command-line baseline path normalized with `/` separators.
+For partial baseline checks, a baseline module whose current source path is in
+`completeness.excluded_sources` is omitted from `stale_subjects` and appears
+in `completeness.excluded_baseline_subjects`, sorted by module identity.
 
 `--write-baseline PATH` writes the complete current report fields described
 below, replacing only the top-level `schema_version` with
 `veln-metrics-baseline/v0` and adding top-level `metric_model` with value
 `veln-metrics-model/v0`. It writes project-relative paths and does not write
-absolute paths or source text. It refuses to overwrite an existing path.
+absolute paths or source text. It refuses to overwrite an existing path and
+refuses to write an incomplete partial report.
 
 The JSON document contains:
 
 - `tool.name`, `tool.version`, `command`, `status`, and `schema_version`;
+- `diagnostics`, empty for complete reports and containing retained
+  source-path casing diagnostics for partial reports;
 - `project.root` and `project.selected_paths`, with normalized relative paths
   and no absolute paths. Metrics-owned project-relative paths use `/`
   separators in JSON, baseline JSON, and human locations;
+- `completeness` only for partial reports, with `status`, excluded source
+  paths, and excluded baseline subjects when a baseline check has them;
 - `modules`, sorted by descending `dependency_pressure`, descending
   `fan_out`, descending `fan_in`, then module identity;
 - `edges`, sorted by source module and target module, with canonical edge
@@ -190,6 +215,14 @@ Executable evidence:
   `baseline-unsupported-metric-model-json` cases check baseline-aware cycle
   allowances, regressions, stale subject reporting, and unsupported version
   comparison errors.
+- The metrics `partial-source-json`, `partial-source-human`,
+  `partial-source-hidden-cycle-json`, `partial-source-known-cycle-json`,
+  `partial-source-selection-json`, `partial-source-mixed-errors-json`,
+  `partial-baseline-write`, and `partial-baseline-check-json` cases check
+  partial source-path casing diagnostics, excluded graph identities,
+  retained path-based subjects, non-zero exits, hidden-cycle incompleteness,
+  retained-graph cycle precedence, ordinary error envelopes for mixed source
+  errors, baseline-write refusal, and excluded baseline subjects.
 - The `metrics_baseline_check_preserves_report_fields` CLI integration test
   checks that a baseline check preserves the advisory ABC subjects, graph
   measurements, ordering, and ordinary report fields from the matching

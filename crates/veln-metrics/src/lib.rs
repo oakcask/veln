@@ -3,8 +3,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use veln_analysis::{derive_source_module_path, load_surface_module};
-use veln_diagnostics::{Diagnostic, JsonValue, Severity, ToolInfo, parse_json_value};
+use veln_analysis::{
+    derive_source_module_path, invalid_case_rejected_visible_module_path, load_surface_module,
+};
+use veln_diagnostics::{
+    Diagnostic, JsonValue, Severity, ToolInfo, diagnostic_to_json, parse_json_value,
+};
 use veln_project::{ManifestField, Project, ProjectManifest, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan, TextRange};
 use veln_syntax::{
@@ -21,6 +25,8 @@ pub const DEFAULT_HUMAN_OUTPUT_MAX_FINDINGS: usize = 50;
 #[derive(Clone, Debug)]
 pub struct MetricsReport {
     pub project: ProjectIdentity,
+    pub diagnostics: Vec<Diagnostic>,
+    pub completeness: MetricsCompleteness,
     pub modules: Vec<ModuleMetric>,
     pub edges: Vec<DependencyEdge>,
     pub cycles: Vec<DependencyCycle>,
@@ -36,6 +42,24 @@ pub struct MetricsCheckReport {
     pub policy: MetricsPolicy,
     pub violations: Vec<MetricsPolicyViolation>,
     pub baseline: Option<BaselineComparison>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MetricsCompleteness {
+    pub excluded_sources: Vec<ExcludedSource>,
+    pub excluded_baseline_subjects: Vec<String>,
+}
+
+impl MetricsCompleteness {
+    pub fn is_partial(&self) -> bool {
+        !self.excluded_sources.is_empty()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExcludedSource {
+    pub path: String,
+    pub reason: String,
 }
 
 impl MetricsCheckReport {
@@ -302,9 +326,7 @@ fn analyze_project_metrics_from_project(
 ) -> Result<MetricsReport, Vec<Diagnostic>> {
     let project = project_owned_sources(full_project);
     let source_diagnostics = source_graph_diagnostics(&project);
-    if has_error(&source_diagnostics) {
-        return Err(source_diagnostics);
-    }
+    let partial = partial_source_analysis(&project, &source_diagnostics)?;
 
     let selected_paths = selected_source_paths(&root, inputs)?;
     let selected_paths = if inputs.is_empty() {
@@ -317,7 +339,12 @@ fn analyze_project_metrics_from_project(
         selected_paths
     };
     let selected_paths = selected_paths.into_iter().collect::<BTreeSet<_>>();
-    let graph = DependencyGraph::from_project(&project)?;
+    let graph_project = if partial.completeness.is_partial() {
+        project_without_paths(project.clone(), &partial.excluded_paths)
+    } else {
+        project.clone()
+    };
+    let graph = DependencyGraph::from_project(&graph_project)?;
     Ok(graph.report(
         &project,
         ProjectIdentity {
@@ -326,7 +353,125 @@ fn analyze_project_metrics_from_project(
         },
         &selected_paths,
         config,
+        partial.diagnostics,
+        partial.completeness,
     ))
+}
+
+#[derive(Debug)]
+struct PartialSourceAnalysis {
+    diagnostics: Vec<Diagnostic>,
+    completeness: MetricsCompleteness,
+    excluded_paths: BTreeSet<String>,
+}
+
+fn partial_source_analysis(
+    project: &Project,
+    diagnostics: &[Diagnostic],
+) -> Result<PartialSourceAnalysis, Vec<Diagnostic>> {
+    if !has_error(diagnostics) {
+        return Ok(PartialSourceAnalysis {
+            diagnostics: Vec::new(),
+            completeness: MetricsCompleteness::default(),
+            excluded_paths: BTreeSet::new(),
+        });
+    }
+
+    let qualifying = diagnostics
+        .iter()
+        .filter(|diagnostic| is_source_path_invalid_case(diagnostic))
+        .cloned()
+        .collect::<Vec<_>>();
+    if qualifying.is_empty() {
+        return Err(diagnostics.to_vec());
+    }
+
+    let excluded_paths = qualifying
+        .iter()
+        .filter_map(|diagnostic| json_string_field(&diagnostic.details, "source_path"))
+        .map(str::to_string)
+        .collect::<BTreeSet<_>>();
+    let excluded_modules = project
+        .files
+        .iter()
+        .filter(|source| excluded_paths.contains(source.path().as_str()))
+        .filter_map(invalid_case_rejected_visible_module_path)
+        .collect::<BTreeSet<_>>();
+    let project_modules = project
+        .files
+        .iter()
+        .filter_map(source_visible_module_path)
+        .collect::<BTreeSet<_>>();
+
+    let disallowed = diagnostics.iter().any(|diagnostic| {
+        diagnostic.severity == Severity::Error
+            && !is_source_path_invalid_case(diagnostic)
+            && !is_exclusion_caused_unresolved_import(
+                diagnostic,
+                &excluded_paths,
+                &excluded_modules,
+                &project_modules,
+            )
+    });
+    if disallowed {
+        return Err(diagnostics.to_vec());
+    }
+
+    Ok(PartialSourceAnalysis {
+        diagnostics: qualifying,
+        completeness: MetricsCompleteness {
+            excluded_sources: excluded_paths
+                .iter()
+                .map(|path| ExcludedSource {
+                    path: path.clone(),
+                    reason: "invalid_module_identity".to_string(),
+                })
+                .collect(),
+            excluded_baseline_subjects: Vec::new(),
+        },
+        excluded_paths,
+    })
+}
+
+fn project_without_paths(mut project: Project, excluded_paths: &BTreeSet<String>) -> Project {
+    project
+        .files
+        .retain(|source| !excluded_paths.contains(source.path().as_str()));
+    project
+}
+
+fn is_source_path_invalid_case(diagnostic: &Diagnostic) -> bool {
+    diagnostic.id == "name.invalid_case"
+        && diagnostic.severity == Severity::Error
+        && json_string_field(&diagnostic.details, "origin") == Some("source_path")
+}
+
+fn is_exclusion_caused_unresolved_import(
+    diagnostic: &Diagnostic,
+    excluded_paths: &BTreeSet<String>,
+    excluded_modules: &BTreeSet<String>,
+    project_modules: &BTreeSet<String>,
+) -> bool {
+    if diagnostic.id != "module.unresolved_import" {
+        return false;
+    }
+    let Some(module_path) = json_string_field(&diagnostic.details, "module_path") else {
+        return false;
+    };
+    if excluded_modules.contains(module_path) {
+        return true;
+    }
+    diagnostic
+        .span
+        .as_ref()
+        .is_some_and(|span| excluded_paths.contains(span.file.as_str()))
+        && project_modules.contains(module_path)
+}
+
+fn source_visible_module_path(source: &SourceFile) -> Option<String> {
+    derive_source_module_path(source)
+        .ok()
+        .or_else(|| invalid_case_rejected_visible_module_path(source))
 }
 
 fn read_metrics_config(
@@ -448,7 +593,7 @@ fn evaluate_metrics_check(report: MetricsReport, policy: MetricsPolicy) -> Metri
 }
 
 fn evaluate_metrics_check_with_baseline(
-    report: MetricsReport,
+    mut report: MetricsReport,
     policy: MetricsPolicy,
     baseline: MetricsBaseline,
     baseline_path: String,
@@ -472,12 +617,32 @@ fn evaluate_metrics_check_with_baseline(
         .iter()
         .map(|module| module.module.as_str())
         .collect::<BTreeSet<_>>();
+    let excluded_paths = report
+        .completeness
+        .excluded_sources
+        .iter()
+        .map(|source| source.path.as_str())
+        .collect::<BTreeSet<_>>();
     let stale_subjects = baseline
         .modules
         .iter()
-        .filter(|module| !current_subjects.contains(module.module.as_str()))
+        .filter(|module| {
+            !current_subjects.contains(module.module.as_str())
+                && !excluded_paths.contains(module.path.as_str())
+        })
         .map(|module| module.module.clone())
         .collect();
+    let mut excluded_baseline_subjects: Vec<String> = baseline
+        .modules
+        .iter()
+        .filter(|module| {
+            !current_subjects.contains(module.module.as_str())
+                && excluded_paths.contains(module.path.as_str())
+        })
+        .map(|module| module.module.clone())
+        .collect();
+    excluded_baseline_subjects.sort();
+    report.completeness.excluded_baseline_subjects = excluded_baseline_subjects;
     MetricsCheckReport {
         report,
         policy,
@@ -708,6 +873,8 @@ impl DependencyGraph {
         project: ProjectIdentity,
         selected_paths: &BTreeSet<String>,
         config: MetricsConfig,
+        diagnostics: Vec<Diagnostic>,
+        completeness: MetricsCompleteness,
     ) -> MetricsReport {
         let selected_modules = self.selected_modules(selected_paths);
         let modules = self.selected_module_metrics(&selected_modules);
@@ -727,6 +894,8 @@ impl DependencyGraph {
         );
         MetricsReport {
             project,
+            diagnostics,
+            completeness,
             modules,
             edges,
             cycles,
@@ -1494,6 +1663,13 @@ fn render_human_with_selection(report: &MetricsReport, selection: &ReportHumanSe
 
 fn append_report_summary(out: &mut String, report: &MetricsReport) {
     out.push_str("Veln dependency metrics (advisory)\n");
+    if report.completeness.is_partial() {
+        out.push_str("analysis status: incomplete\n");
+        out.push_str("excluded sources:\n");
+        for source in &report.completeness.excluded_sources {
+            out.push_str(&format!("  {} ({})\n", source.path, source.reason));
+        }
+    }
     out.push_str(&format!(
         "project modules: {}, selected modules: {}, internal edges: {}, cycles: {}, external dependencies: {}, ABC subjects: {}, ABC contract subjects: {}, similarity fingerprints: {}, similarity instances: {}, similarity regions: {}\n\n",
         report.summary.project_module_count,
@@ -1659,10 +1835,23 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
                 baseline.stale_subjects.join(", ")
             ));
         }
+        if !check
+            .report
+            .completeness
+            .excluded_baseline_subjects
+            .is_empty()
+        {
+            out.push_str(&format!(
+                "baseline excluded subjects: {}\n",
+                check
+                    .report
+                    .completeness
+                    .excluded_baseline_subjects
+                    .join(", ")
+            ));
+        }
     }
-    if check.violations.is_empty() {
-        out.push_str("policy result: pass\n\n");
-    } else {
+    if check.has_violations() {
         out.push_str("policy result: fail\n\n");
         out.push_str("Policy violations\n");
         append_section_truncation(&mut out, check.violations.len(), limit, "policy violations");
@@ -1681,6 +1870,10 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
             ));
         }
         out.push('\n');
+    } else if check.report.completeness.is_partial() {
+        out.push_str("policy result: incomplete\n\n");
+    } else {
+        out.push_str("policy result: pass\n\n");
     }
     out.push_str(&render_human_with_selection(
         &check.report,
@@ -1691,7 +1884,13 @@ pub fn render_check_human(check: &MetricsCheckReport) -> String {
 }
 
 pub fn report_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
-    JsonValue::object(metrics_report_json_entries(report, tool, "ok", None, true))
+    JsonValue::object(metrics_report_json_entries(
+        report,
+        tool,
+        report_status(report),
+        None,
+        true,
+    ))
 }
 
 pub fn baseline_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
@@ -1701,6 +1900,7 @@ pub fn baseline_to_json(report: &MetricsReport, tool: ToolInfo) -> JsonValue {
         "schema_version",
         JsonValue::string(BASELINE_SCHEMA_VERSION),
     );
+    entries.retain(|(key, _)| *key != "diagnostics" && *key != "completeness");
     entries.insert(1, ("metric_model", JsonValue::string(METRIC_MODEL_VERSION)));
     JsonValue::object(entries)
 }
@@ -1718,10 +1918,12 @@ pub fn baseline_from_json(source: &str) -> Result<MetricsBaseline, Vec<Diagnosti
 }
 
 pub fn report_check_to_json(check: &MetricsCheckReport, tool: ToolInfo) -> JsonValue {
-    let status = if check.violations.is_empty() {
-        "ok"
-    } else {
+    let status = if check.has_violations() {
         "policy_violation"
+    } else if check.report.completeness.is_partial() {
+        "incomplete"
+    } else {
+        "ok"
     };
     JsonValue::object(metrics_report_json_entries(
         &check.report,
@@ -1750,6 +1952,10 @@ fn metrics_report_json_entries(
         ),
         ("command", JsonValue::string("metrics")),
         ("status", JsonValue::string(status)),
+        (
+            "diagnostics",
+            JsonValue::array(report.diagnostics.iter().map(diagnostic_to_json)),
+        ),
         (
             "project",
             JsonValue::object([
@@ -1788,6 +1994,9 @@ fn metrics_report_json_entries(
         ),
         ("summary", summary_to_json(&report.summary)),
     ];
+    if report.completeness.is_partial() {
+        entries.push(("completeness", completeness_to_json(&report.completeness)));
+    }
     if include_human_output {
         entries.push(("human_output", human_output_to_json(report, check.as_ref())));
     }
@@ -1851,10 +2060,12 @@ fn check_to_json(check: &MetricsCheckReport) -> JsonValue {
         ),
         (
             "result",
-            JsonValue::string(if check.violations.is_empty() {
-                "pass"
-            } else {
+            JsonValue::string(if check.has_violations() {
                 "fail"
+            } else if check.report.completeness.is_partial() {
+                "incomplete"
+            } else {
+                "pass"
             }),
         ),
         (
@@ -1894,6 +2105,48 @@ fn baseline_comparison_to_json(baseline: &BaselineComparison) -> JsonValue {
                     .map(|subject| JsonValue::string(subject.clone())),
             ),
         ),
+    ])
+}
+
+fn report_status(report: &MetricsReport) -> &'static str {
+    if report.completeness.is_partial() {
+        "incomplete"
+    } else {
+        "ok"
+    }
+}
+
+fn completeness_to_json(completeness: &MetricsCompleteness) -> JsonValue {
+    let mut entries = vec![
+        ("status", JsonValue::string("partial")),
+        (
+            "excluded_sources",
+            JsonValue::array(
+                completeness
+                    .excluded_sources
+                    .iter()
+                    .map(excluded_source_to_json),
+            ),
+        ),
+    ];
+    if !completeness.excluded_baseline_subjects.is_empty() {
+        entries.push((
+            "excluded_baseline_subjects",
+            JsonValue::array(
+                completeness
+                    .excluded_baseline_subjects
+                    .iter()
+                    .map(|subject| JsonValue::string(subject.clone())),
+            ),
+        ));
+    }
+    JsonValue::object(entries)
+}
+
+fn excluded_source_to_json(source: &ExcludedSource) -> JsonValue {
+    JsonValue::object([
+        ("path", JsonValue::string(source.path.clone())),
+        ("reason", JsonValue::string(source.reason.clone())),
     ])
 }
 
@@ -2285,6 +2538,8 @@ mod tests {
             },
             &selected,
             default_metrics_config(),
+            Vec::new(),
+            MetricsCompleteness::default(),
         );
 
         assert_eq!(report.summary.internal_edge_count, 3);
@@ -2468,6 +2723,8 @@ mod tests {
             },
             &selected,
             default_metrics_config(),
+            Vec::new(),
+            MetricsCompleteness::default(),
         );
         let human = render_human(&report);
 
@@ -2669,6 +2926,8 @@ mod tests {
                 similarity_min_tokens: 8,
                 ..default_metrics_config()
             },
+            Vec::new(),
+            MetricsCompleteness::default(),
         );
         report.human_output_max_findings = 1;
 
@@ -2774,6 +3033,8 @@ mod tests {
                 },
                 &selected,
                 default_metrics_config(),
+                Vec::new(),
+                MetricsCompleteness::default(),
             );
 
             let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
@@ -2869,6 +3130,8 @@ mod tests {
                 },
                 &selected,
                 default_metrics_config(),
+                Vec::new(),
+                MetricsCompleteness::default(),
             );
 
             let check = evaluate_metrics_check(report, MetricsPolicy { deny_cycles: true });
@@ -3489,6 +3752,8 @@ mod tests {
                 similarity_min_tokens: workload.min_tokens,
                 ..default_metrics_config()
             },
+            Vec::new(),
+            MetricsCompleteness::default(),
         );
         let eligible_declarations = workload.eligible_declaration_count();
 
@@ -3521,6 +3786,240 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn partial_source_analysis_excludes_invalid_identity_from_graph_but_keeps_path_subjects() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("app.veln", "use App\nfn main() -> ()\n  ()\nend\n"),
+                SourceFile::new("App.veln", "pub fn entry() -> Int\n  1\nend\n"),
+                SourceFile::new("probe.veln", "fn probe() -> Int\n  1\nend\n"),
+            ],
+        };
+        let diagnostics = source_graph_diagnostics(&project);
+        let partial = partial_source_analysis(&project, &diagnostics).expect("partial analysis");
+        let graph_project = project_without_paths(project.clone(), &partial.excluded_paths);
+        let graph = DependencyGraph::from_project(&graph_project).expect("retained graph");
+        let selected = ["App.veln", "app.veln", "probe.veln"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>();
+        let report = graph.report(
+            &project,
+            ProjectIdentity {
+                root: ".".to_string(),
+                selected_paths: selected.iter().cloned().collect(),
+            },
+            &selected,
+            default_metrics_config(),
+            partial.diagnostics,
+            partial.completeness,
+        );
+
+        assert_eq!(report.diagnostics.len(), 1);
+        assert_eq!(report.diagnostics[0].id, "name.invalid_case");
+        assert_eq!(
+            report.completeness.excluded_sources,
+            vec![ExcludedSource {
+                path: "App.veln".to_string(),
+                reason: "invalid_module_identity".to_string()
+            }]
+        );
+        assert_eq!(
+            report
+                .modules
+                .iter()
+                .map(|module| module.module.as_str())
+                .collect::<Vec<_>>(),
+            ["app", "probe"]
+        );
+        assert!(report.edges.is_empty());
+        assert_eq!(report.summary.project_module_count, 2);
+        assert_eq!(
+            report
+                .abc_subjects
+                .iter()
+                .map(|subject| subject.identity.as_str())
+                .collect::<Vec<_>>(),
+            ["App.veln::entry", "app.veln::main", "probe.veln::probe"]
+        );
+    }
+
+    #[test]
+    fn partial_source_analysis_rejects_unrelated_source_errors() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    "use App\nuse missing::thing\nfn main() -> ()\n  ()\nend\n",
+                ),
+                SourceFile::new("App.veln", "pub fn entry() -> Int\n  1\nend\n"),
+            ],
+        };
+        let diagnostics = source_graph_diagnostics(&project);
+
+        let rejected = partial_source_analysis(&project, &diagnostics).expect_err("source errors");
+
+        assert!(rejected.iter().any(|diagnostic| {
+            diagnostic.id == "module.unresolved_import"
+                && json_string_field(&diagnostic.details, "module_path") == Some("missing::thing")
+        }));
+    }
+
+    #[test]
+    fn partial_source_analysis_uses_source_kind_aware_excluded_identities() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    "use App\nuse App__test_companion\nfn main() -> Int\n  1\nend\n",
+                ),
+                SourceFile::new("App.veln", "pub fn entry() -> Int\n  1\nend\n"),
+                SourceFile::new(
+                    "App.test.veln",
+                    "use app\ntest companion_imports_retained_source() -> Int\n  app::main()\nend\n",
+                ),
+            ],
+        };
+        let diagnostics = source_graph_diagnostics(&project);
+
+        let partial = partial_source_analysis(&project, &diagnostics).expect("partial analysis");
+
+        assert_eq!(
+            partial
+                .diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    (
+                        diagnostic.id.as_str(),
+                        json_string_field(&diagnostic.details, "source_path"),
+                        json_string_field(&diagnostic.details, "source_kind"),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            [
+                ("name.invalid_case", Some("App.veln"), Some("regular")),
+                (
+                    "name.invalid_case",
+                    Some("App.test.veln"),
+                    Some("companion")
+                )
+            ]
+        );
+        assert_eq!(
+            partial.excluded_paths,
+            ["App.test.veln".to_string(), "App.veln".to_string()]
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+        );
+    }
+
+    #[test]
+    fn partial_source_analysis_rejects_missing_imports_from_excluded_sources() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("app.veln", "use App\nfn main() -> ()\n  ()\nend\n"),
+                SourceFile::new(
+                    "App.veln",
+                    "use missing::excluded\npub fn entry() -> Int\n  1\nend\n",
+                ),
+            ],
+        };
+        let diagnostics = source_graph_diagnostics(&project);
+
+        let rejected = partial_source_analysis(&project, &diagnostics).expect_err("source errors");
+
+        assert!(rejected.iter().any(|diagnostic| {
+            diagnostic.id == "module.unresolved_import"
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.file.as_str() == "App.veln")
+                && json_string_field(&diagnostic.details, "module_path")
+                    == Some("missing::excluded")
+        }));
+    }
+
+    #[test]
+    fn partial_check_result_is_incomplete_unless_known_cycle_fails() {
+        let mut acyclic = report_from_edges(&[]);
+        mark_report_partial(&mut acyclic, "App.veln");
+        let acyclic_check = evaluate_metrics_check(acyclic, MetricsPolicy { deny_cycles: true });
+        let acyclic_json = report_check_to_json(&acyclic_check, tool_info()).to_json();
+
+        assert!(!acyclic_check.has_violations());
+        assert!(acyclic_json.contains("\"status\":\"incomplete\""));
+        assert!(acyclic_json.contains("\"result\":\"incomplete\""));
+
+        let mut cyclic = report_from_edges(&[("app", "util"), ("util", "app")]);
+        mark_report_partial(&mut cyclic, "App.veln");
+        let cyclic_check = evaluate_metrics_check(cyclic, MetricsPolicy { deny_cycles: true });
+        let cyclic_json = report_check_to_json(&cyclic_check, tool_info()).to_json();
+
+        assert!(cyclic_check.has_violations());
+        assert!(cyclic_json.contains("\"status\":\"policy_violation\""));
+        assert!(cyclic_json.contains("\"result\":\"fail\""));
+        assert!(cyclic_json.contains("\"completeness\":{\"status\":\"partial\""));
+    }
+
+    #[test]
+    fn baseline_subjects_with_invalid_current_identity_are_excluded_not_stale() {
+        let mut report = report_from_edges(&[]);
+        report.modules.push(ModuleMetric {
+            module: "app".to_string(),
+            path: "app.veln".to_string(),
+            generated: false,
+            fan_in: 0,
+            fan_out: 0,
+            dependency_pressure: 0,
+            external_dependency_count: 0,
+            span: SourceFile::new("app.veln", "").span(TextRange::new(0, 0)),
+        });
+        mark_report_partial(&mut report, "Beta.veln");
+        mark_report_partial(&mut report, "App.veln");
+        let baseline = MetricsBaseline {
+            modules: vec![
+                BaselineModule {
+                    module: "Beta".to_string(),
+                    path: "Beta.veln".to_string(),
+                },
+                BaselineModule {
+                    module: "App".to_string(),
+                    path: "App.veln".to_string(),
+                },
+                BaselineModule {
+                    module: "deleted".to_string(),
+                    path: "deleted.veln".to_string(),
+                },
+            ],
+            edges: Vec::new(),
+            cycles: Vec::new(),
+        };
+
+        let check = evaluate_metrics_check_with_baseline(
+            report,
+            MetricsPolicy { deny_cycles: true },
+            baseline,
+            "metrics.baseline.json".to_string(),
+        );
+
+        assert_eq!(
+            check.baseline.as_ref().unwrap().stale_subjects,
+            vec!["deleted".to_string()]
+        );
+        assert_eq!(
+            check.report.completeness.excluded_baseline_subjects,
+            vec!["App".to_string(), "Beta".to_string()]
+        );
     }
 
     fn first_function_vector(source: &str) -> AbcVector {
@@ -3566,6 +4065,8 @@ mod tests {
                 similarity_min_tokens: 8,
                 ..default_metrics_config()
             },
+            Vec::new(),
+            MetricsCompleteness::default(),
         )
     }
 
@@ -3677,6 +4178,13 @@ mod tests {
         ToolInfo::new("veln", "test")
     }
 
+    fn mark_report_partial(report: &mut MetricsReport, path: &str) {
+        report.completeness.excluded_sources.push(ExcludedSource {
+            path: path.to_string(),
+            reason: "invalid_module_identity".to_string(),
+        });
+    }
+
     fn report_from_edges(edges: &[(&str, &str)]) -> MetricsReport {
         let mut modules = edges
             .iter()
@@ -3731,6 +4239,8 @@ mod tests {
             },
             &selected,
             default_metrics_config(),
+            Vec::new(),
+            MetricsCompleteness::default(),
         )
     }
 

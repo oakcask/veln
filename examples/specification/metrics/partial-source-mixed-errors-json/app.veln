@@ -1,0 +1,6 @@
+use App
+use missing::thing
+
+fn main() -> ()
+  ()
+end

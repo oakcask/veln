@@ -344,6 +344,11 @@ function markdownAnchors(text) {
   const anchors = new Set();
   const counts = new Map();
   const headingPattern = /^#{1,6}[ \t]+(.+?)[ \t#]*$/gm;
+  const explicitAnchorPattern = /<a\s+[^>]*id=["']([^"']+)["'][^>]*>/gi;
+
+  for (const match of text.matchAll(explicitAnchorPattern)) {
+    anchors.add(match[1]);
+  }
 
   for (const match of text.matchAll(headingPattern)) {
     const base = slugifyHeading(match[1]);

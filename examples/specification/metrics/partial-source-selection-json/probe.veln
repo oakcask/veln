@@ -1,0 +1,3 @@
+fn probe() -> Int
+  1
+end

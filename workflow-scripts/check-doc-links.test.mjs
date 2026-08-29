@@ -58,6 +58,20 @@ test("resolves duplicate heading anchors and ignores fenced code links", () => {
   assert.equal(result.valid, true);
 });
 
+test("resolves explicit html id anchors", () => {
+  using fixture = tempDocs("doc-links-explicit-anchor");
+  fixture.write(
+    "README.md",
+    ["# Start", "", "[command](target.md#veln-fmt)"].join("\n"),
+  );
+  fixture.write("target.md", '<a id="veln-fmt"></a>\n\n## `veln fmt [path ...]`\n');
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
 test("ignores image links and inline code links", () => {
   using fixture = tempDocs("doc-links-ignored-syntax");
   fixture.write(

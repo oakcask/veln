@@ -46,13 +46,16 @@ pub(crate) fn metrics(
                 if json {
                     println!("{}", report_check_to_json(&report, tool_info()).to_json());
                 } else {
+                    print_metrics_report_diagnostics(&report.report)?;
                     print!("{}", render_check_human(&report));
                 }
-                Ok(if report.has_violations() {
-                    ExitCode::from(1)
-                } else {
-                    ExitCode::SUCCESS
-                })
+                Ok(
+                    if report.has_violations() || report.report.completeness.is_partial() {
+                        ExitCode::from(1)
+                    } else {
+                        ExitCode::SUCCESS
+                    },
+                )
             }
             Err(diagnostics) => {
                 let has_errors = has_error(&diagnostics);
@@ -76,9 +79,14 @@ pub(crate) fn metrics(
             if json {
                 println!("{}", report_to_json(&report, tool_info()).to_json());
             } else {
+                print_metrics_report_diagnostics(&report)?;
                 print!("{}", render_human(&report));
             }
-            Ok(ExitCode::SUCCESS)
+            Ok(if report.completeness.is_partial() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            })
         }
         Err(diagnostics) => {
             let has_errors = has_error(&diagnostics);
@@ -104,6 +112,11 @@ fn write_metrics_baseline(
 ) -> Result<ExitCode, String> {
     match analyze_project_metrics(root, inputs) {
         Ok(report) => {
+            if report.completeness.is_partial() {
+                print_metrics_report_diagnostics(&report)?;
+                eprintln!("metrics baseline requires complete analysis");
+                return Ok(ExitCode::from(1));
+            }
             write_new_file_atomically(path, &baseline_to_json(&report, tool_info()).to_json())?;
             println!("wrote metrics baseline: {}", path.to_string_lossy());
             Ok(ExitCode::SUCCESS)
@@ -119,6 +132,14 @@ fn write_metrics_baseline(
             })
         }
     }
+}
+
+fn print_metrics_report_diagnostics(report: &veln_metrics::MetricsReport) -> Result<(), String> {
+    if report.diagnostics.is_empty() {
+        return Ok(());
+    }
+    let envelope = DiagnosticEnvelope::new(tool_info(), report.diagnostics.clone());
+    print_human_stderr(&envelope)
 }
 
 fn write_new_file_atomically(path: &Path, contents: &str) -> Result<(), String> {

@@ -1,0 +1,16 @@
+command = ["metrics", "--write-baseline", "metrics.baseline.json"]
+exit = 1
+source_errors = "expected"
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = [
+  "App.veln:1:1: error[name.invalid_case]: module name `App` must start with an ASCII lowercase letter",
+  "metrics baseline requires complete analysis"
+]
+
+[[file_assert]]
+path = "metrics.baseline.json"
+equals_file = "case-text/file-assert-equals-1.txt"
