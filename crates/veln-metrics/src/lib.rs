@@ -3449,6 +3449,40 @@ mod tests {
     }
 
     #[test]
+    fn unrelated_unresolved_import_preserves_error_envelope_boundary() {
+        let project = Project {
+            root: ".".into(),
+            manifest: None,
+            files: vec![
+                SourceFile::new(
+                    "app.veln",
+                    "use missing::nested\nfn main() -> ()\n  ()\nend\n",
+                ),
+                SourceFile::new("App.veln", "pub fn invalid_subject() -> ()\n  ()\nend\n"),
+            ],
+        };
+
+        let diagnostics = analyze_project_metrics_from_project(
+            ".".into(),
+            &[],
+            project,
+            default_metrics_config(),
+        )
+        .expect_err("unrelated unresolved import should block partial analysis");
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(is_source_path_invalid_case_diagnostic)
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "module.unresolved_import")
+        );
+    }
+
+    #[test]
     fn parses_baseline_schema_and_metric_model_versions() {
         let report = report_from_edges(&[("app", "util"), ("util", "app")]);
         let json = baseline_to_json(&report, ToolInfo::new("veln", "0.1.0")).to_json();

@@ -4,6 +4,7 @@ exit = 1
 
 [stdout]
 format = "json"
+not_contains = ["module.unresolved_import"]
 
 [stderr]
 format = "empty"

@@ -71,7 +71,10 @@ requiring the full command reference on the first read.
   discovered source paths derive invalid module identities, metrics returns an
   incomplete report, retains the source-path diagnostics, excludes those
   sources from module graph records, keeps parse-clean path-based ABC and
-  similarity subjects, and exits non-zero. Human output prints retained
+  similarity subjects, and exits non-zero. Unresolved imports derived from
+  excluded invalid identities are suppressed from the retained diagnostics;
+  unrelated unresolved imports keep the ordinary diagnostic-only error
+  envelope. Human output prints retained
   diagnostics on the diagnostic stream, then prints an incomplete-analysis
   notice before cycles, module rows, ABC size, and whole-body similarity.
   `--write-baseline PATH` writes the current report as a reviewed baseline,

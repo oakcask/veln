@@ -20,12 +20,14 @@ and routed from [Commands](../../specification/commands.md).
 The metrics checked examples cover:
 
 - advisory partial reports with retained diagnostics, excluded sources,
-  retained path-based ABC subjects, and non-zero exit;
+  retained path-based ABC subjects, suppressed excluded-identity import
+  diagnostics, and non-zero exit;
 - checked hidden cycles where the retained graph has no known violation and
   the result is incomplete rather than pass;
 - checked known cycles where retained-graph policy violations take precedence;
 - explicit invalid source selection;
-- mixed source errors that keep the ordinary diagnostic envelope;
+- mixed source errors and unrelated unresolved imports that keep the ordinary
+  diagnostic envelope;
 - baseline write refusal without modifying the requested file;
 - baseline checks that classify currently invalid module identities as
   excluded baseline subjects instead of stale subjects.

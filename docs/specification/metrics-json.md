@@ -20,17 +20,20 @@ module identity boundary below. Type, effect, and contract errors are not
 reported as metrics diagnostics and do not block this
 syntax-and-module-graph report.
 
-When every source-analysis error is a `name.invalid_case` diagnostic with
-`origin: "source_path"`, `veln metrics` returns a partial report and exits
-non-zero. Top-level `status` is `"incomplete"` without `--check` and remains
-`"incomplete"` for `--check` unless a known retained-graph policy violation
-takes precedence with `status: "policy_violation"`. Top-level `diagnostics`
-contains the retained source-path diagnostics. Top-level `completeness.status`
-is `"partial"` and `completeness.excluded_sources` lists project-relative
-source paths with reason `"invalid_module_identity"`, sorted by normalized
-path. If any non-qualifying source error is present, including a parse error,
-the command keeps the ordinary diagnostic envelope and returns no report,
-`completeness`, or policy result.
+When every retained source-analysis error is a `name.invalid_case` diagnostic
+with `origin: "source_path"`, `veln metrics` returns a partial report and
+exits non-zero. A `module.unresolved_import` diagnostic is not retained and
+does not block the partial report only when it is derived from an excluded
+source or from an import that names an excluded module identity. Top-level
+`status` is `"incomplete"` without `--check` and remains `"incomplete"` for
+`--check` unless a known retained-graph policy violation takes precedence with
+`status: "policy_violation"`. Top-level `diagnostics` contains the retained
+source-path diagnostics. Top-level `completeness.status` is `"partial"` and
+`completeness.excluded_sources` lists project-relative source paths with reason
+`"invalid_module_identity"`, sorted by normalized path. If any other
+non-qualifying source error is present, including a parse error or an unrelated
+unresolved import, the command keeps the ordinary diagnostic envelope and
+returns no report, `completeness`, or policy result.
 
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
@@ -129,9 +132,10 @@ non-standard dependency package increments that module's
 In a partial source-path module identity report, an excluded source does not
 create a module record, dependency edge, dependency cycle, or graph-derived
 summary contribution. Imports written by an excluded source do not create
-internal or external edges. Path-based ABC and whole-body similarity subjects
-from parse-clean excluded sources remain eligible when their paths are
-selected.
+internal or external edges. Imports from retained sources to an excluded module
+identity do not create dependency edges and do not appear as retained
+diagnostics. Path-based ABC and whole-body similarity subjects from parse-clean
+excluded sources remain eligible when their paths are selected.
 
 Path arguments select the project-owned modules reported as module subjects.
 The command still analyzes the containing project graph so selected modules
@@ -221,11 +225,13 @@ Executable evidence:
 - The metrics `partial-advisory-human`, `partial-advisory-json`,
   `partial-check-hidden-cycle-json`, `partial-check-known-cycle-json`,
   `partial-explicit-invalid-selection-json`,
-  `partial-mixed-source-errors-json`, `partial-baseline-write-refused`, and
+  `partial-mixed-source-errors-json`,
+  `partial-unrelated-import-error-json`, `partial-baseline-write-refused`, and
   `partial-baseline-check-json` cases check partial source-path module
   identity diagnostics, retained path-based subjects, graph exclusion,
-  incomplete policy results, policy-violation precedence, diagnostic-envelope
-  fallback, baseline write refusal, and excluded baseline subjects.
+  excluded-import diagnostic suppression, incomplete policy results,
+  policy-violation precedence, diagnostic-envelope fallback, baseline write
+  refusal, and excluded baseline subjects.
 - The `metrics_baseline_check_preserves_report_fields` CLI integration test
   checks that a baseline check preserves the advisory ABC subjects, graph
   measurements, ordering, and ordinary report fields from the matching
