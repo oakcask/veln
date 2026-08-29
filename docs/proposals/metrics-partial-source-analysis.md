@@ -9,10 +9,10 @@ update-when: The planned metrics behavior for invalid source-path module identit
 
 Allow `veln metrics` to return useful path-based measurements and the valid
 portion of its module graph when a project-owned source has an invalid
-source-path-derived module identity. The command must retain the source
-diagnostic and mark the report incomplete. A partial graph cannot produce a
-successful policy result because excluded identities can hide graph
-relationships.
+source-path-derived module identity. The command must retain the direct source
+diagnostic, omit only import diagnostics caused by removing that identity, and
+mark the report incomplete. A partial graph cannot produce a successful policy
+result because excluded identities can hide graph relationships.
 
 This proposal changes the current fail-fast boundary in
 [Metrics JSON](../specification/metrics-json.md). It does not make invalid
@@ -29,11 +29,24 @@ and dependency-cycle evidence; see
 
 ## Proposed Result Contract
 
-Only `name.invalid_case` diagnostics with `origin: source_path` qualify for a
-partial report. The command keeps every qualifying diagnostic, including its
-existing source association, span, details, and ordering. If source analysis
-also produces any other error diagnostic, the command keeps the current error
-envelope and returns no report or policy result.
+At least one `name.invalid_case` diagnostic with `origin: source_path` must be
+present for a partial report. The command keeps every such diagnostic,
+including its existing source association, span, details, and ordering.
+
+Source graph analysis also reports `module.unresolved_import` after it rejects
+an invalid source identity. Metrics omits that diagnostic only when the import
+failure is a direct consequence of the same exclusion:
+
+- a retained source imports the path-derived identity of an excluded source;
+- an excluded source imports an identity whose ordinary project-relative
+  `.veln` path exists among the project-owned sources.
+
+These omitted diagnostics do not become report diagnostics. They do not make
+the excluded identities available for resolution. An unresolved import to any
+other identity, an import from an excluded source to a missing project path, or
+any other error diagnostic keeps the current error envelope and returns no
+report or policy result. This causal boundary is part of metrics behavior only;
+other commands keep their current diagnostic sets.
 
 A partial report has all ordinary report fields and these completeness fields:
 
@@ -111,20 +124,24 @@ The checked metrics cases are the primary planned evidence.
 | Checked hidden cycle | Imports would form a cycle only if the invalid identity became a graph node. | The retained graph has no such cycle or violation. The check result is incomplete, not pass. The source diagnostic and excluded source remain visible. |
 | Checked known cycle | Valid modules form a cycle while another source has an invalid identity. | The valid cycle produces a policy violation. Partial-completeness fields and the source diagnostic remain visible. |
 | Explicit invalid selection | The command explicitly selects the invalid source and one valid source. | Both paths remain selected. Only the valid source has a module record. Eligible path-based subjects from both sources follow the subject boundary above. |
-| Mixed source errors | The project contains a qualifying source-path casing diagnostic and another parse or module error. | The command returns the current error envelope with no report, completeness object, or policy result. |
+| Exclusion-caused import diagnostics | A retained source imports an excluded path-derived identity, and an excluded source imports an existing project-owned source. | The command omits only those resulting unresolved-import diagnostics, retains every qualifying casing diagnostic, and returns the partial report without creating recovery edges. |
+| Mixed source errors | The project contains a qualifying source-path casing diagnostic and another parse error or unresolved import outside the causal boundary. | The command returns the current error envelope with no report, completeness object, or policy result. |
 | Partial baseline write | A partial advisory report is requested with `--write-baseline`. | The command fails and does not create or replace the baseline path. |
 | Partial baseline check | A baseline names a module whose current source identity is invalid. | The subject is excluded rather than stale. A known retained-graph regression fails; otherwise the result is incomplete. |
 
 Focused metrics unit tests must isolate node creation, imports declared by an
-identityless source, path-based subject retention, and the precedence between
-known policy violations and incomplete results. JSON and human command cases
-must cover diagnostic retention and nonzero exit behavior. A file-state test
-must cover baseline-write refusal without modifying an existing path.
+identityless source, imports to an excluded identity, unrelated unresolved
+imports on both sides of the causal boundary, path-based subject retention,
+and the precedence between known policy violations and incomplete results.
+JSON and human command cases must cover diagnostic retention and nonzero exit
+behavior. A file-state test must cover baseline-write refusal without modifying
+an existing path.
 
 ## Out Of Scope
 
-- Accepting any source error other than source-path identifier casing for
-  partial analysis.
+- Retaining or broadly suppressing any source error other than source-path
+  identifier casing. Only the two exclusion-caused unresolved-import shapes
+  defined above may be omitted by metrics.
 - Changing `check`, `test`, `run`, documentation, backend, package snapshot, or
   language-service source-error boundaries.
 - Treating excluded identities as recovery modules or resolving imports
@@ -139,3 +156,15 @@ Implementation is complete only when all acceptance cases have executable
 evidence, the smallest metrics and command specification pages describe the
 implemented schema and exit behavior, and the completed proposal record is
 moved out of `docs/proposals/` by the proposal implementation audit workflow.
+
+Updating the command specification must also retire the existing same-scope
+`commands.md` and `commands-full.md` pair under the documentation authoring
+policy. Because those files cover independently useful command subjects, the
+migration must route their content into focused subject pages instead of
+consolidating every command into one authority.
+
+The implementation review must compare the existing generated similarity
+workload before and after the change. Complete analysis must not acquire an
+additional project-wide parse pass merely to identify sources that partial
+analysis excludes; source diagnostics already establish the parse-clean
+boundary.
