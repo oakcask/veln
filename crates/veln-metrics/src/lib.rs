@@ -4279,23 +4279,7 @@ mod tests {
         let mut offset = "[tool.metrics]\n".len();
         let fields = fields
             .iter()
-            .map(|(key, value)| {
-                let key_start = offset;
-                let value_start = offset + key.len() + " = \"".len();
-                offset += key.len() + " = \"".len() + value.len() + "\"\n".len();
-                veln_project::ManifestField {
-                    key: (*key).to_string(),
-                    value: (*value).to_string(),
-                    key_span: source.span(veln_source::TextRange::new(
-                        key_start,
-                        key_start + key.len(),
-                    )),
-                    value_span: source.span(veln_source::TextRange::new(
-                        value_start,
-                        value_start + value.len(),
-                    )),
-                }
-            })
+            .map(|(key, value)| metrics_manifest_field(&source, key, value, &mut offset))
             .collect();
 
         ProjectManifest {
@@ -4311,6 +4295,29 @@ mod tests {
                 name: "metrics".to_string(),
                 fields,
             }],
+        }
+    }
+
+    fn metrics_manifest_field(
+        source: &SourceFile,
+        key: &str,
+        value: &str,
+        offset: &mut usize,
+    ) -> veln_project::ManifestField {
+        let key_start = *offset;
+        let value_start = *offset + key.len() + " = \"".len();
+        *offset += key.len() + " = \"".len() + value.len() + "\"\n".len();
+        veln_project::ManifestField {
+            key: key.to_string(),
+            value: value.to_string(),
+            key_span: source.span(veln_source::TextRange::new(
+                key_start,
+                key_start + key.len(),
+            )),
+            value_span: source.span(veln_source::TextRange::new(
+                value_start,
+                value_start + value.len(),
+            )),
         }
     }
 

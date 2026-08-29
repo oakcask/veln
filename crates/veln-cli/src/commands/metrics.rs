@@ -3,11 +3,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use veln_diagnostics::DiagnosticEnvelope;
+use veln_diagnostics::{Diagnostic, DiagnosticEnvelope};
 use veln_metrics::{
-    analyze_project_metrics, baseline_from_json, baseline_to_json, check_project_metrics,
-    check_project_metrics_with_baseline, render_check_human, render_human, report_check_to_json,
-    report_to_json,
+    MetricsCheckReport, MetricsReport, analyze_project_metrics, baseline_from_json,
+    baseline_to_json, check_project_metrics, check_project_metrics_with_baseline,
+    render_check_human, render_human, report_check_to_json, report_to_json,
 };
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
@@ -26,91 +26,99 @@ pub(crate) fn metrics(
         return write_metrics_baseline(root, &inputs, &path);
     }
     if check {
-        let checked = if let Some(path) = baseline {
-            let source = fs::read_to_string(&path)
-                .map_err(|error| format!("failed to read metrics baseline: {error}"))?;
-            match baseline_from_json(&source) {
-                Ok(baseline) => check_project_metrics_with_baseline(
-                    root,
-                    &inputs,
-                    baseline,
-                    path.to_string_lossy().replace('\\', "/"),
-                ),
-                Err(diagnostics) => Err(diagnostics),
-            }
-        } else {
-            check_project_metrics(root, &inputs)
-        };
-        return match checked {
-            Ok(report) => {
-                if json {
-                    println!("{}", report_check_to_json(&report, tool_info()).to_json());
-                } else {
-                    if report.is_incomplete() {
-                        print_human_stderr(&DiagnosticEnvelope::new(
-                            tool_info(),
-                            report.report.diagnostics.clone(),
-                        ))?;
-                    }
-                    print!("{}", render_check_human(&report));
-                }
-                Ok(if report.has_violations() || report.is_incomplete() {
-                    ExitCode::from(1)
-                } else {
-                    ExitCode::SUCCESS
-                })
-            }
-            Err(diagnostics) => {
-                let has_errors = has_error(&diagnostics);
-                let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
-                if json {
-                    println!("{}", envelope.to_json());
-                } else {
-                    print_human_stderr(&envelope)?;
-                }
-                Ok(if has_errors {
-                    ExitCode::from(1)
-                } else {
-                    ExitCode::SUCCESS
-                })
-            }
-        };
+        return run_metrics_check(root, &inputs, baseline, json);
     }
 
     match analyze_project_metrics(root, &inputs) {
-        Ok(report) => {
-            if json {
-                println!("{}", report_to_json(&report, tool_info()).to_json());
-            } else {
-                if report.is_incomplete() {
-                    print_human_stderr(&DiagnosticEnvelope::new(
-                        tool_info(),
-                        report.diagnostics.clone(),
-                    ))?;
-                }
-                print!("{}", render_human(&report));
-            }
-            Ok(if report.is_incomplete() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            })
-        }
-        Err(diagnostics) => {
-            let has_errors = has_error(&diagnostics);
-            let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
-            if json {
-                println!("{}", envelope.to_json());
-            } else {
-                print_human_stderr(&envelope)?;
-            }
-            Ok(if has_errors {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            })
-        }
+        Ok(report) => emit_metrics_report(&report, json),
+        Err(diagnostics) => emit_metrics_diagnostics(diagnostics, json),
     }
+}
+
+fn run_metrics_check(
+    root: PathBuf,
+    inputs: &[PathBuf],
+    baseline: Option<PathBuf>,
+    json: bool,
+) -> Result<ExitCode, String> {
+    match check_metrics_report(root, inputs, baseline)? {
+        Ok(report) => emit_metrics_check_report(&report, json),
+        Err(diagnostics) => emit_metrics_diagnostics(diagnostics, json),
+    }
+}
+
+fn check_metrics_report(
+    root: PathBuf,
+    inputs: &[PathBuf],
+    baseline: Option<PathBuf>,
+) -> Result<Result<MetricsCheckReport, Vec<Diagnostic>>, String> {
+    let Some(path) = baseline else {
+        return Ok(check_project_metrics(root, inputs));
+    };
+    let source = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read metrics baseline: {error}"))?;
+    Ok(match baseline_from_json(&source) {
+        Ok(baseline) => check_project_metrics_with_baseline(
+            root,
+            inputs,
+            baseline,
+            path.to_string_lossy().replace('\\', "/"),
+        ),
+        Err(diagnostics) => Err(diagnostics),
+    })
+}
+
+fn emit_metrics_check_report(report: &MetricsCheckReport, json: bool) -> Result<ExitCode, String> {
+    if json {
+        println!("{}", report_check_to_json(report, tool_info()).to_json());
+    } else {
+        if report.is_incomplete() {
+            print_human_stderr(&DiagnosticEnvelope::new(
+                tool_info(),
+                report.report.diagnostics.clone(),
+            ))?;
+        }
+        print!("{}", render_check_human(report));
+    }
+    Ok(if report.has_violations() || report.is_incomplete() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    })
+}
+
+fn emit_metrics_report(report: &MetricsReport, json: bool) -> Result<ExitCode, String> {
+    if json {
+        println!("{}", report_to_json(report, tool_info()).to_json());
+    } else {
+        if report.is_incomplete() {
+            print_human_stderr(&DiagnosticEnvelope::new(
+                tool_info(),
+                report.diagnostics.clone(),
+            ))?;
+        }
+        print!("{}", render_human(report));
+    }
+    Ok(if report.is_incomplete() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    })
+}
+
+fn emit_metrics_diagnostics(diagnostics: Vec<Diagnostic>, json: bool) -> Result<ExitCode, String> {
+    let has_errors = has_error(&diagnostics);
+    let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
+    if json {
+        println!("{}", envelope.to_json());
+    } else {
+        print_human_stderr(&envelope)?;
+    }
+    Ok(if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    })
 }
 
 fn write_metrics_baseline(
