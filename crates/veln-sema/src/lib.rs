@@ -7,6 +7,7 @@ mod builtin_type_syntax;
 mod call_resolution;
 mod contracts;
 mod diagnostics;
+mod effect_rows;
 mod effects;
 mod lowering;
 mod name_recovery;

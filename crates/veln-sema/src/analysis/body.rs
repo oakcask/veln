@@ -9,6 +9,7 @@ use super::boundary::{
 };
 use super::repair_reasoning::*;
 use super::*;
+use crate::effect_rows::{collect_effect_row_substitution, instantiate_effect_rows};
 use crate::effects::prelude_effect_origin;
 use crate::schema::primitives::lowercase_schema_primitive;
 use crate::source_less_lookup::qualified_symbol;
