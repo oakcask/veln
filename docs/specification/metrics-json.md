@@ -19,18 +19,18 @@ metric analysis errors fail without a clean metrics report. Type, effect, and
 contract errors are not reported as metrics diagnostics and do not block this
 syntax-and-module-graph report.
 
-When every source error is `name.invalid_case` with
-`details.origin: "source_path"`, the command emits a partial metrics report
-with `status: "incomplete"` and exits non-zero. The report keeps those
-diagnostics in top-level `diagnostics`, emits `completeness.status:
-"partial"`, and lists each excluded project-relative source path in
-`completeness.excluded_sources` with `reason:
-"invalid_module_identity"`. The excluded sources do not create module records,
-dependency edges, cycles, or graph-derived summary counts. Parse-clean
-excluded sources remain eligible for selected path-based ABC and whole-body
-similarity records. A parse error, unrelated unresolved import, or any other
-non-qualifying source error keeps the ordinary diagnostic envelope and emits
-no metrics report, completeness object, or check result.
+When every source error is either `name.invalid_case` with `details.origin:
+"source_path"` or an unresolved import caused by excluding such an identity,
+the command emits a partial metrics report with `status: "incomplete"` and
+exits non-zero. The report keeps the source-path casing diagnostics in
+top-level `diagnostics`, emits `completeness.status: "partial"`, and lists
+each excluded project-relative source path in `completeness.excluded_sources`
+with `reason: "invalid_module_identity"`. The excluded sources do not create
+module records, dependency edges, cycles, or graph-derived summary counts.
+Parse-clean excluded sources remain eligible for selected path-based ABC and
+whole-body similarity records. A parse error, unrelated unresolved import, or
+any other non-qualifying source error keeps the ordinary diagnostic envelope
+and emits no metrics report, completeness object, or check result.
 
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no

@@ -113,16 +113,17 @@ A baseline comparison uses the retained valid graph. A known regression still
 fails. A baseline subject excluded only because its current source identity is
 invalid appears in `completeness.excluded_baseline_subjects`, sorted by module
 identity, and does not appear in `check.baseline.stale_subjects`. The
-completeness field is present only for baseline checks. In the absence of a
-known regression, the check remains incomplete rather than passing.
+`excluded_baseline_subjects` field appears only when a partial baseline check
+has excluded baseline subjects. In the absence of a known regression, the
+check remains incomplete rather than passing.
 
 `--write-baseline` refuses a partial report and does not create or replace the
 requested baseline path. It must not persist incomplete graph data as a
 complete future allowance.
 
-## Acceptance Cases
+## Acceptance Evidence
 
-The checked metrics cases are the primary planned evidence.
+The checked metrics cases are the primary executable evidence.
 
 | Case | Input | Required observations |
 | --- | --- | --- |
@@ -135,12 +136,12 @@ The checked metrics cases are the primary planned evidence.
 | Partial baseline write | A partial advisory report is requested with `--write-baseline`. | The command fails and does not create or replace the baseline path. |
 | Partial baseline check | A baseline names a module whose current source identity is invalid. | The subject is excluded rather than stale. A known retained-graph regression fails; otherwise the result is incomplete. |
 
-Focused metrics unit tests must isolate node creation, imports declared by an
+Focused metrics unit tests isolate node creation, imports declared by an
 identityless source, imports to an excluded identity, unrelated unresolved
 imports on both sides of the causal boundary, path-based subject retention,
 and the precedence between known policy violations and incomplete results.
-JSON and human command cases must cover diagnostic retention and nonzero exit
-behavior. A file-state test must cover baseline-write refusal without modifying
+JSON and human command cases cover diagnostic retention and nonzero exit
+behavior. File-state evidence covers baseline-write refusal without modifying
 an existing path.
 
 ## Out Of Scope
@@ -156,18 +157,17 @@ an existing path.
   diagnostic.
 - Returning a successful advisory or policy result from a partial graph.
 
-## Completion
+## Completion Evidence
 
-Implementation is complete only when all acceptance cases have executable
-evidence, the smallest metrics and command specification pages describe the
-implemented schema and exit behavior, and the completed proposal record is
-moved out of `docs/proposals/` by the proposal implementation audit workflow.
+The implementation moved this record out of `docs/proposals/`, added
+executable metrics cases under `examples/specification/metrics/`, and updated
+the smallest metrics and command specification pages for the implemented
+schema and exit behavior.
 
-The command specification update retired the existing same-scope `commands.md`
+The command specification update retired the previous same-scope `commands.md`
 and `commands-full.md` pair under the documentation authoring policy.
 
-The implementation review must compare the existing generated similarity
-workload before and after the change. Complete analysis must not acquire an
-additional project-wide parse pass merely to identify sources that partial
-analysis excludes; source diagnostics already establish the parse-clean
-boundary.
+The implementation review compared the generated similarity workload before
+and after the change. Complete analysis did not acquire an additional
+project-wide parse pass merely to identify sources that partial analysis
+excludes; source diagnostics already establish the parse-clean boundary.

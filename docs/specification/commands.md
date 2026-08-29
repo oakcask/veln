@@ -299,10 +299,11 @@ module loading. Without `--check`, the command exits successfully when
 analysis completes, even if dependency cycles, large ABC values, or duplicate
 whole bodies are present.
 
-When every source error is a source-path-derived `name.invalid_case`
-diagnostic, metrics returns a partial report instead of the ordinary source
-diagnostic envelope. The command keeps those diagnostics, excludes the invalid
-source identities from module records, dependency edges, cycles, and
+When every source error is either a source-path-derived `name.invalid_case`
+diagnostic or an unresolved import caused by excluding such an identity,
+metrics returns a partial report instead of the ordinary source diagnostic
+envelope. The command keeps the source-path casing diagnostics, excludes the
+invalid source identities from module records, dependency edges, cycles, and
 graph-derived summary counts, and reports the excluded project-relative paths.
 ABC and whole-body similarity still include parse-clean invalid sources when
 their paths are selected. Advisory partial reports exit non-zero.
