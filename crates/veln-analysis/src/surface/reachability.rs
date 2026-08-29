@@ -35,50 +35,6 @@ pub(crate) fn reachable_entry_module(
 }
 
 #[cfg(test)]
-pub(crate) mod reachability_counters {
-    use std::cell::Cell;
-
-    thread_local! {
-        static FUNCTION_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
-        static TARGET_RESOLUTION_SCANS: Cell<usize> = const { Cell::new(0) };
-        static MATERIALIZED_FUNCTION_BODIES: Cell<usize> = const { Cell::new(0) };
-        static RECOVERY_SELECTOR_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
-    }
-
-    pub(crate) fn reset() {
-        FUNCTION_LOOKUP_SCANS.set(0);
-        TARGET_RESOLUTION_SCANS.set(0);
-        MATERIALIZED_FUNCTION_BODIES.set(0);
-        RECOVERY_SELECTOR_CANDIDATE_SCANS.set(0);
-    }
-
-    pub(crate) fn record_function_lookup_scan() {
-        FUNCTION_LOOKUP_SCANS.set(FUNCTION_LOOKUP_SCANS.get() + 1);
-    }
-
-    pub(crate) fn record_target_resolution_scan() {
-        TARGET_RESOLUTION_SCANS.set(TARGET_RESOLUTION_SCANS.get() + 1);
-    }
-
-    pub(crate) fn record_materialized_function_body() {
-        MATERIALIZED_FUNCTION_BODIES.set(MATERIALIZED_FUNCTION_BODIES.get() + 1);
-    }
-
-    pub(crate) fn record_recovery_selector_candidate_scan() {
-        RECOVERY_SELECTOR_CANDIDATE_SCANS.set(RECOVERY_SELECTOR_CANDIDATE_SCANS.get() + 1);
-    }
-
-    pub(crate) fn snapshot() -> (usize, usize, usize, usize) {
-        (
-            FUNCTION_LOOKUP_SCANS.get(),
-            TARGET_RESOLUTION_SCANS.get(),
-            MATERIALIZED_FUNCTION_BODIES.get(),
-            RECOVERY_SELECTOR_CANDIDATE_SCANS.get(),
-        )
-    }
-}
-
-#[cfg(test)]
 pub(crate) fn reachable_entry_module_with_cache(
     module: &SurfaceModule,
     entry: &str,
@@ -486,4 +442,48 @@ fn quarantined_import_proof_function(function: &Function) -> Function {
         span: function.span.clone(),
     }];
     proof
+}
+
+#[cfg(test)]
+pub(crate) mod reachability_counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        static FUNCTION_LOOKUP_SCANS: Cell<usize> = const { Cell::new(0) };
+        static TARGET_RESOLUTION_SCANS: Cell<usize> = const { Cell::new(0) };
+        static MATERIALIZED_FUNCTION_BODIES: Cell<usize> = const { Cell::new(0) };
+        static RECOVERY_SELECTOR_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(crate) fn reset() {
+        FUNCTION_LOOKUP_SCANS.set(0);
+        TARGET_RESOLUTION_SCANS.set(0);
+        MATERIALIZED_FUNCTION_BODIES.set(0);
+        RECOVERY_SELECTOR_CANDIDATE_SCANS.set(0);
+    }
+
+    pub(crate) fn record_function_lookup_scan() {
+        FUNCTION_LOOKUP_SCANS.set(FUNCTION_LOOKUP_SCANS.get() + 1);
+    }
+
+    pub(crate) fn record_target_resolution_scan() {
+        TARGET_RESOLUTION_SCANS.set(TARGET_RESOLUTION_SCANS.get() + 1);
+    }
+
+    pub(crate) fn record_materialized_function_body() {
+        MATERIALIZED_FUNCTION_BODIES.set(MATERIALIZED_FUNCTION_BODIES.get() + 1);
+    }
+
+    pub(crate) fn record_recovery_selector_candidate_scan() {
+        RECOVERY_SELECTOR_CANDIDATE_SCANS.set(RECOVERY_SELECTOR_CANDIDATE_SCANS.get() + 1);
+    }
+
+    pub(crate) fn snapshot() -> (usize, usize, usize, usize) {
+        (
+            FUNCTION_LOOKUP_SCANS.get(),
+            TARGET_RESOLUTION_SCANS.get(),
+            MATERIALIZED_FUNCTION_BODIES.get(),
+            RECOVERY_SELECTOR_CANDIDATE_SCANS.get(),
+        )
+    }
 }
