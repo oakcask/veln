@@ -20,8 +20,8 @@ also states it.
 
 - Identifier-casing diagnostic-tolerant source-path graph isolation:
   [identifier-casing.md#diagnostic-tolerant-graph-isolation](identifier-casing.md#diagnostic-tolerant-graph-isolation).
-- Identifier-casing metrics source-error gate:
-  [identifier-casing.md#metrics-source-error-gate](identifier-casing.md#metrics-source-error-gate).
+- Diagnostic-bearing partial metrics for invalid source-path module identities:
+  [metrics-partial-source-analysis.md](metrics-partial-source-analysis.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
