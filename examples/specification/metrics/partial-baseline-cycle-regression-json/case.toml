@@ -1,0 +1,45 @@
+command = ["metrics", "--check", "--json", "--baseline", "metrics.baseline.json"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "policy_violation"
+
+[[json_assert]]
+path = "check.result"
+equals = "fail"
+
+[[json_assert]]
+path = "check.violations.0.policy"
+equals = "deny_cycles"
+
+[[json_assert]]
+path = "check.violations.0.path.0"
+equals = "app"
+
+[[json_assert]]
+path = "check.violations.0.path.2"
+equals = "app"
+
+[[json_assert]]
+path = "check.baseline.stale_subjects.0"
+missing = true
+
+[[json_assert]]
+path = "completeness.status"
+equals = "partial"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "App.veln"
+
+[[json_assert]]
+path = "completeness.excluded_baseline_subjects.0"
+equals = "App"

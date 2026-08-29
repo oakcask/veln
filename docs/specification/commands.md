@@ -6,552 +6,868 @@ update-when: The CLI command behavior, command-visible output contract, command 
 
 # Commands
 
-This file routes command changes to the implemented CLI behavior without
-requiring the full command reference on the first read.
+This page specifies command-specific behavior, gates, and output boundaries.
 
-## Read First
+## Command Sections
 
-- `check`, `run`, `test`, and `repair` share the project analysis path for
-  source discovery, parse-clean surface loading, semantic diagnostics,
-  checked-core readiness, and selected-entry typed-IR readiness. Command
-  sections below cover only their selection, output, execution, or write
-  policy. Use
-  [commands-full.md#shared-command-analysis](commands-full.md#shared-command-analysis)
-  only when changing the shared path itself.
-- `check`, `doc`, `fmt`, `metrics`, `repair`, `run`, `test`, and `package lock`
-  select one package root from the invocation directory before project
-  discovery or manifest loading. The checked cases
-  `package-root-from-subdirectory` and `package-root-relative-input` cover the
-  command-visible selection and relative-input rules. Use
-  [commands-full.md#shared-command-analysis](commands-full.md#shared-command-analysis)
-  for exact boundary and failure behavior.
-- Command help: top-level help, subcommand help, and help-topic errors are
-  implemented command behavior. Use
-  [commands-full.md#command-help](commands-full.md#command-help) when changing
-  help parsing or output.
-- `mcp`: starts a stdio MCP server without source path arguments and without
-  the shared package-root analysis used by source-oriented commands. Standard
-  output carries only MCP JSON-RPC messages. Use [mcp.md](mcp.md) for the
-  workspace-project tool contract, saved diagnostics, saved definitions, tool
-  schemas, and refresh behavior.
-- `check`: source discovery, nested-manifest package boundaries for recursive
-  and explicit inputs, ordinary `target` source directories, source path
-  derived local module identity,
-  `.test.veln` companion target inclusion, manifest dependency metadata
-  validation, exact companion private-function and private source ADT access
-  through qualified target imports, exact companion private nominal effect
-  access through qualified target imports, companion observation of established
-  private target function effects, package export rejection for `.test.veln`
-  companions, direct path, vendor, mirror, and already available git dependency
-  source loading for external imports,
-  parse/semantic diagnostics, checked-core blockers, and check JSON output.
-  Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
-  [source-surface.md](source-surface.md) for the companion private-function
-  and source ADT access and isolation cases, then
-  [commands-full.md](commands-full.md) for exact command rules.
-  Package-boundary command evidence lives in the checked cases
-  `manifest-package-boundary-discovery`, `deep-manifest-package-boundary`,
-  `target-owned-source-directory`, `target-nested-package-boundary`,
-  `anonymous-outer-package-boundary`, and `explicit-nested-package-boundary`.
-  `package-root-from-subdirectory` proves ancestor package selection, and
-  `package-root-relative-input` proves that an explicit input remains relative
-  to the invocation directory after selection.
-- `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
-  canonical indentation, schema layout, `match` arm indentation, and canonical
-  binary schema primitive spelling for supported compatibility fields and
-  payloads, canonical bool `match` to `if` / `else` rewriting, with literal
-  equality chains kept as direct literal `match` expressions, and canonical
-  hash spelling for standalone and trailing line comments. Use
-  [commands-full.md](commands-full.md) only when the route summary is not
-  enough.
-- `metrics`: advisory module dependency metrics, ABC size metrics, and
-  experimental exact whole-body similarity for project-owned Veln source. It
-  follows `check` source and project discovery for containing graph analysis
-  and accepts `--json`. When source analysis fails only because selected or
-  discovered source paths derive invalid module identities, metrics returns an
-  incomplete report, retains the source-path diagnostics, excludes those
-  sources from module graph records, keeps parse-clean path-based ABC and
-  similarity subjects, and exits non-zero. Unresolved imports derived from
-  excluded invalid identities are suppressed from the retained diagnostics;
-  unrelated unresolved imports keep the ordinary diagnostic-only error
-  envelope. Human output prints retained
-  diagnostics on the diagnostic stream, then prints an incomplete-analysis
-  notice before cycles, module rows, ABC size, and whole-body similarity.
-  `--write-baseline PATH` writes the current report as a reviewed baseline,
-  refuses to overwrite an existing file, and refuses incomplete analysis
-  without creating or replacing the baseline path. Without
-  `--check`, it exits successfully when analysis completes even when
-  dependency cycles, large ABC values, or duplicate whole bodies are present.
-  With `--check`, `[tool.metrics] deny_cycles = "true"` makes dependency
-  cycles an enforced project policy. A partial check with no known retained
-  graph violation is incomplete rather than pass; a known retained-graph cycle
-  violation still fails. `--baseline PATH` is valid only with `--check` and
-  allows unchanged or reduced dependency cycles while rejecting cycle
-  regressions. Partial baseline checks classify currently invalid module
-  identities as excluded baseline subjects rather than stale subjects.
-  `[tool.metrics] max_findings = "N"` is a positive integer
-  string that must fit the metrics JSON number domain; it limits each detailed
-  human-output section independently. Truncated sections state their displayed,
-  total, and omitted counts. Summaries, JSON arrays, policy evaluation, and
-  baseline content still use the complete finding set. Similarity remains
-  advisory during baseline checks. No enabled policy or invalid metrics policy
-  configuration is a command error.
-  Use [metrics-json.md](metrics-json.md) for machine-readable output.
-- `doc`: generated Markdown documentation from selected non-companion source
-  files, package/tool manifest metadata, documentation comments, public API
-  declarations including public schemas and schema aliases, schema references,
-  contracts, doctest fences, and ADR-lite records. Source identifier casing
-  diagnostics in selected non-companion source files reject the documentation
-  set before Markdown is written. Exact `.test.veln` companions are excluded
-  from generated documentation and source identifier casing selection even when
-  discovered recursively or selected explicitly. `_test.veln` integration-test
-  modules remain ordinary documentation inputs. Schema references in selected
-  non-companion documentation comments are validated even when the declaration
-  itself is private and omitted from generated Markdown. Use
-  [commands-full.md](commands-full.md) when changing generated documentation
-  output.
-- `run`: production source discovery excluding `.test.veln` companions,
-  rejection of explicitly supplied `.test.veln` run inputs, entry resolution,
-  fixed and variadic entry argument conversion, selected-entry source
-  identifier casing gates for loaded direct dependencies while leaving
-  unloaded manifest dependencies outside the selected unit, static gates,
-  direct JVM classfile execution without an ordinary Java source compiler
-  requirement,
-  and reusable JVM class caching below the host user cache or the complete
-  absolute `VELN_CACHE_DIR` override, with cache configuration checked only
-  after analysis, entry selection, JVM generation, and Java discovery, and
-  with concurrent cache publication using only a complete validated winner,
-  bounded cache-coordination waiting that fails before JVM startup when an
-  abandoned writer blocks progress, cleanup and same-root retry after removal,
-  preparation, validation, or publication failures, and preservation of a
-  valid concurrent winner when another writer fails,
-  human runtime diagnostics for closed-input `ByteView` read truncation,
-  schema fixed-field mismatch, binary schema field truncation, reserved-bit
-  mismatch, integer range failure, field-local validation failure,
-  closed-dispatch unknown tag
-  failures, payload length boundary failures, schema length/count
-  division-by-zero failures, generated binary schema
-  `EncodeError` value failures for schema-owned primitive representability,
-  repeat count mismatches, length-bounded `ByteView` count mismatches,
-  schema-owned dispatch unknown tags, dispatch length mismatches, and dispatch
-  tag/payload mismatches, direct source-visible `EncodeError(...)` result failures,
-  hand-written codec `EncodeStep::Invalid(EncodeError(...))` entry results,
-  direct source-visible `DecodeError(...)` and
-  `DecodeErrorWithReason(...)` result failures,
-  source-visible `DecodeStep::Invalid(DecodeError(...))` and
-  `DecodeStep::NeedMore(...)` entry results,
-  HTTP/2 protocol-core failures
-  including partial and invalid client connection prefaces, frame-size
-  peer-limits with bounded frame-header byte previews, flow-control
-  peer-limits with bounded DATA payload byte previews,
-  header-list and header-table receive-limit peer-limits with bounded
-  header-block byte previews,
-  GOAWAY receive preserving already-admitted stream DATA and trailer HEADERS
-  lifecycle while rejecting later peer-created streams above the recorded last
-  stream id with bounded frame-header byte previews, repeated local outbound
-  GOAWAY send-intents that preserve or narrow the locally recorded shutdown
-  boundary, plus local outbound HEADERS, stream-level outbound
-  `WINDOW_UPDATE`, and server-side outbound `PUSH_PROMISE` send-intents above
-  received or locally sent GOAWAY boundaries, plus server-side outbound
-  promised stream id ordering with retained connection state and focused
-  human and JSON diagnostic projections, plus client-side outbound HEADERS
-  local stream admission and retained stream-id ordering with focused human
-  and JSON projections,
-  standard helper-returned frame-size, SETTINGS value, and header-table
-  runtime diagnostic payloads,
-  HPACK dynamic index lookup failures with dynamic table entry counts, and
-  HPACK dynamic table-size update placement and trailing-byte failures with
-  frame and stream context,
-  SETTINGS value range peer-limit, stream id domain
-  failures with bounded frame-header byte previews, invalid connection-state
-  and stream-state frame-kind failures with bounded frame-header byte
-  previews, continuation-ordering and pending-byte close failures with
-  bounded protocol-owned byte previews, unexpected SETTINGS ACK failures with
-  bounded frame-header byte previews, and fixed payload-length failures
-  including SETTINGS ACK, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE`,
-  plus invalid DATA padding and content-length body mismatches, with bounded
-  payload byte-preview notes. `RST_STREAM` payload-length projection has
-  checked human and JSON cases,
-  and run JSON. Use
-  [run-json.md](run-json.md) first for
-  machine-readable output, then [commands-full.md](commands-full.md) for exact
-  command rules. Standard helper calls for pending-byte close and partial
-  preface failures return the same source-visible HTTP/2 protocol diagnostics.
-  Human schema-owned byte diagnostics and HTTP/2 client connection preface,
-  continuation-ordering, and pending-byte close protocol diagnostics render
-  preview bytes as bounded lowercase hex pairs grouped with spaces and keep
-  byte offsets, field paths, expected counts, actual counts, accepted ranges,
-  actual values, matched prefix counts, byte values, active continuation
-  state, and rule provenance in separate notes or structured details.
-  Generated binary schema encode diagnostics, direct source-visible
-  `EncodeError(...)` result failures, and
-  `EncodeStep::Invalid(EncodeError(...))` entry diagnostics keep the primary
-  message on the failed encode fact and put field path, reason or predicate
-  details, and source-visible `EncodeError` value in related notes.
-  Source-visible `RuntimeDiagnostic(..., RuntimeValueDiagnostic(...))`
-  generated encode payloads keep the same public value diagnostic details
-  while preserving the rendered `RuntimeDiagnostic(...)` value.
-  Length-bounded `ByteView` encode count mismatches also put expected and
-  actual byte counts, byte offset, and bounded nearby byte preview in related
-  notes.
-  Direct source-visible `DecodeError(...)`,
-  `DecodeErrorWithReason(...)`, and
-  `DecodeStep::Invalid(DecodeError(...))` entry diagnostics keep the primary
-  message on the failed decode fact at the reported byte offset and put field
-  path plus the source-visible `DecodeError` value in related notes. When the
-  value is `DecodeErrorWithReason(...)`, the decode failure reason is also a
-  related note and `details.byte_diagnostic.reason`. When that reason is a
-  byte-helper failure message with registered helper context, related notes
-  also include local byte offset, expected and available byte counts, and a
-  bounded nearby-byte preview when available; `run --json` carries the same
-  context as `details.byte_diagnostic.local_byte_offset`, `expected_count`,
-  `available_count`, and `byte_preview`. The same projection applies when an
-  ordinary decode function returns a codec-owned `Invalid(DecodeError(...))`
-  or `Invalid(DecodeErrorWithReason(...))` result. Plain source-visible
-  reasons preserve the codec-owned id and reason
-  without helper-only related notes unless registered byte-helper context is
-  present; direct `Result<_, DecodeError>` failures preserve codec-owned ids
-  such as `codec.packet_kind_invalid` through the same focused human
-  diagnostic shape. The checked packet-kind examples cover direct
-  `DecodeErrorWithReason(...)` result failures and
-  `Invalid(DecodeErrorWithReason(...))` entry results in
-  `examples/specification/run/codec-packet-kind-invalid-direct-human/` and
-  `examples/specification/run/codec-packet-kind-invalid-step-human/`.
-  Codec-owned checksum mismatch failures with id
-  `codec.checksum_mismatch` use `checksum mismatch at byte offset ...` as the
-  primary human message and put field path, expected checksum, actual
-  checksum, failure reason, and the source-visible `DecodeError` value in
-  related notes; the checked direct result and `DecodeStep::Invalid(...)`
-  examples are
-  `examples/specification/run/codec-checksum-mismatch-direct-human/` and
-  `examples/specification/run/codec-checksum-mismatch-step-human/`.
-  Codec-owned length mismatch failures with id `codec.length_mismatch` use
-  `length mismatch at byte offset ...` as the primary human message and put
-  field path, expected length, actual length, failure reason, and the
-  source-visible `DecodeError` value in related notes when the source-visible
-  reason uses the narrow
-  `expected_length=<n>; actual_length=<n>; reason=<text>` form; the checked
-  direct result and `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-length-mismatch-direct-human/` and
-  `examples/specification/run/codec-length-mismatch-step-human/`.
-  Codec-owned payload length mismatch failures with id
-  `codec.payload_length_mismatch` use
-  `payload length mismatch at byte offset ...` as the primary human message
-  and put field path, expected payload length, actual payload length, failure
-  reason, and the source-visible `DecodeError` value in related notes when
-  the source-visible reason uses the narrow
-  `expected_payload_length=<n>; actual_payload_length=<n>; reason=<text>`
-  form; the checked direct result and `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-payload-length-mismatch-direct-human/`
-  and
-  `examples/specification/run/codec-payload-length-mismatch-step-human/`.
-  Codec-owned padding mismatch failures with id `codec.padding_mismatch` use
-  `padding mismatch at byte offset ...` as the primary human message and put
-  field path, expected padding length, actual padding length, failure reason,
-  and the source-visible `DecodeError` value in related notes when the
-  source-visible reason uses the narrow
-  `expected_padding_length=<n>; actual_padding_length=<n>; reason=<text>`
-  form; the checked direct result and `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-padding-mismatch-direct-human/` and
-  `examples/specification/run/codec-padding-mismatch-step-human/`.
-  Codec-owned integer range failures with id `codec.integer_out_of_range`
-  use `integer out of range at byte offset ...` as the primary human message
-  and put field path, byte width, expected integer range, actual decoded
-  value, failure reason, and the source-visible `DecodeError` value in
-  related notes when the source-visible reason uses the narrow form with
-  `byte_width=<n>`, `min_value=<n>`, `max_value=<n>`, `actual_value=<n>`,
-  and `reason=<text>`; the checked direct result and
-  `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-integer-out-of-range-direct-human/` and
-  `examples/specification/run/codec-integer-out-of-range-step-human/`.
-  Codec-owned sequence mismatch failures with id `codec.sequence_mismatch`
-  use `sequence mismatch at byte offset ...` as the primary human message and
-  put field path, expected sequence, actual sequence, failure reason, and the
-  source-visible `DecodeError` value in related notes when the source-visible
-  reason uses the narrow
-  `expected_sequence=<value>; actual_sequence=<value>; reason=<text>` form;
-  the checked direct result and `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-sequence-mismatch-direct-human/` and
-  `examples/specification/run/codec-sequence-mismatch-step-human/`.
-  Codec-owned version mismatch failures with id `codec.version_mismatch`
-  use `version mismatch at byte offset ...` as the primary human message and
-  put field path, expected version, actual version, failure reason, and the
-  source-visible `DecodeError` value in related notes when the source-visible
-  reason uses the narrow
-  `expected_version=<value>; actual_version=<value>; reason=<text>` form;
-  the checked direct result and `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-version-mismatch-direct-human/` and
-  `examples/specification/run/codec-version-mismatch-step-human/`.
-  Codec-owned tag mismatch failures with id `codec.tag_mismatch` use
-  `tag mismatch at byte offset ...` as the primary human message and put
-  field path, expected tag, actual tag, failure reason, and the
-  source-visible `DecodeError` value in related notes when the source-visible
-  reason uses the narrow
-  `expected_tag=<value>; actual_tag=<value>; reason=<text>` form; the checked
-  direct result and `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-tag-mismatch-direct-human/` and
-  `examples/specification/run/codec-tag-mismatch-step-human/`.
-  Codec-owned magic mismatch failures with id `codec.magic_mismatch` use
-  `magic mismatch at byte offset ...` as the primary human message and put
-  field path, expected magic, actual magic, failure reason, and the
-  source-visible `DecodeError` value in related notes when the source-visible
-  reason uses the narrow
-  `expected_magic=<value>; actual_magic=<value>; reason=<text>` form; the
-  checked direct result and `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-magic-mismatch-direct-human/` and
-  `examples/specification/run/codec-magic-mismatch-step-human/`.
-  Codec-owned unsupported feature failures with id
-  `codec.unsupported_feature` use
-  `unsupported feature failed at byte offset ...` as the primary human
-  message and put field path, unsupported feature, failure reason, and the
-  source-visible `DecodeError` value in related notes when the
-  source-visible reason uses the narrow
-  `feature=<value>; reason=<text>` form; the checked direct result and
-  `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-unsupported-feature-direct-human/` and
-  `examples/specification/run/codec-unsupported-feature-step-human/`.
-  Codec-owned trailing-input failures with id `codec.trailing_input` use
-  `trailing input at byte offset ...` as the primary human message and put
-  field path, consumed, available, and remaining byte counts, failure reason,
-  and the source-visible `DecodeError` value in related notes when the
-  source-visible reason uses the narrow
-  `consumed_count=<n>; available_count=<n>; remaining_count=<n>; reason=<text>`
-  form. Counts are projected only when remaining is positive and consumed plus
-  remaining equals available. The checked direct result and
-  `DecodeStep::Invalid(...)` examples are
-  `examples/specification/run/codec-trailing-input-direct-human/` and
-  `examples/specification/run/codec-trailing-input-step-human/`; the plain
-  reason fallback is checked by
-  `examples/specification/run/codec-trailing-input-plain-step-human/`. A
-  source-visible `ByteView` range failure reports
-  `codec.byte_range_out_of_bounds` at the requested byte offset and puts the
-  requested count, available count, and bounded nearby byte preview in related
-  notes. A source-visible
-  `Err(RuntimeDiagnostic(id, message, RuntimeByteDiagnostic(...)))` value uses
-  the same human byte-diagnostic rendering as value-carried runtime byte
-  failures, with the id, byte offset, field path, counts, readiness,
-  fixed-field expected and actual values, reason, and optional preview
-  projected from the returned error value itself. Generated binary schema
-  decode fixed-field mismatches return this payload directly and keep the
-  focused `schema.fixed_field_mismatch` human diagnostic. Plain
-  `Err(value)` values remain ordinary result failures. A source-visible
-  `Err(RuntimeDiagnostic(id, message, RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDiagnostic(...))))`
-  value for unsupported-header-block, unsupported-static-index,
-  malformed-string-length, malformed-raw-string, malformed-Huffman-padding,
-  Huffman-EOS, and Huffman non-visible HPACK fixture ids, plus the
-  source-visible HPACK static decoder `hpack.static.unsupported_index` id and
-  malformed table-size update integers,
-  uses the same focused HPACK fixture human diagnostic as the compatibility
-  helper, with byte offset, observed header block size, observed first byte,
-  expected fixture, codec module, and bounded byte preview projected from the
-  returned error value. Checked focused examples cover both a direct returned
-  diagnostic value and projection from the HTTP/2 protocol-core HPACK failure
-  path.
-  Source-visible HPACK static Huffman failures projected from the static
-  boundary keep the same fields and use
-  `codec_module = "hpack_static"`. The standalone source-visible HPACK static
-  boundary case checks accepted static-name literal-with-indexing and
-  literal-never-indexed inputs, accepted Huffman-marked literal values decoded
-  through the HPACK static Huffman table for the three static-name forms, and
-  malformed raw-length fallback for those forms. The aggregate HTTP/2
-  protocol-core run case also checks source-visible HPACK static-name
-  `:scheme` and `:authority` literal values in request header blocks through
-  the existing request header-list validation path, including accepted raw
-  `:scheme` values `http` and `https`, the checked Huffman-marked `https`
-  value on completed HEADERS and final CONTINUATION paths, the checked
-  Huffman-marked `:path: test` value on completed HEADERS and final
-  CONTINUATION paths, accepted visible ASCII `:authority` values, and
-  rejected visible ASCII values for both pseudo-headers. It also checks a
-  source-visible HPACK static-name `content-length` literal in request header
-  blocks across the
-  literal-without-indexing, literal-with-indexing, and literal-never-indexed
-  forms that do not require later fixture dynamic-table reuse; accepted
-  visible ASCII decimal values update the existing content-length
-  body-accounting state, while non-decimal visible values use the existing
-  request header-list validation diagnostic. The aggregate case also checks
-  ordinary `CONNECT` request-header validation on completed HEADERS and final
-  CONTINUATION paths. A non-empty `:authority` without `:scheme` or `:path`
-  is accepted; missing or empty `:authority` and present `:scheme` or `:path`
-  use focused request-header diagnostics. The same aggregate run case also
-  checks the source-visible HPACK Huffman encode boundary directly:
-  successful calls print payload-only `ByteChunk` output for supported string
-  and bounded byte input, while unsupported string input prints the returned
-  HPACK fixture failure. The focused HPACK fixture boundary case checks the
-  same payload-only boundary without routing through outbound header-list
-  fixture encoding. The same HPACK fixture boundary case also checks a
-  standalone source-visible static-indexed encode helper
-  for exact HPACK static table fixed-value entries, including request
-  pseudo-header, response pseudo-header, and ordinary-header examples, and
-  keeps non-exact values for known static names on the fixture encode-failure
-  path. It also checks a
-  standalone source-visible `hpack_dynamic_core` dynamic
-  indexed decode for multiple carried bounded entries, decode-count
-  advancement after accepted reads, and the focused
-  `hpack.fixture.dynamic_index_out_of_range` failure facts when an indexed
-  byte asks past the carried table without advancing state. It also checks
-  source-visible HPACK dynamic-table accounting helpers for entry-size
-  calculation, newest-first insertion, retained older entries, table-size
-  reduction eviction including a zero-size table, insertion-caused eviction,
-  over-limit insertion, static-name literal-with-indexing insertion for
-  `content-type: text`, later dynamic-indexed reuse through `0xbe`, accepted
-  raw visible-ASCII literal-name fields across the literal-without-indexing,
-  literal-with-indexing, and literal-never-indexed forms, including bounded
-  Huffman-marked values accepted by the checked HPACK Huffman boundary,
-  dynamic-table mutation only for literal-with-indexing, dynamic-indexed reuse
-  of the inserted Huffman-valued raw literal, focused malformed-Huffman
-  fallback projection, and final CONTINUATION routing through the
-  source-visible raw literal-name boundary before fixture fallback. The same
-  checked boundary accepts dynamic-name Huffman-marked values for
-  literal-without-indexing, literal-with-indexing, and literal-never-indexed;
-  only literal-with-indexing inserts the decoded value, and completed HEADERS
-  plus final CONTINUATION routing use the source-visible boundary before
-  fixture fallback.
-  `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicIndexDiagnostic(...))`,
-  `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureDynamicNameDiagnostic(...))`, and
-  `RuntimeHttp2HpackDiagnostic(RuntimeHpackFixtureTableSizeUpdateDiagnostic(...))` additionally project the
-  dynamic-index, dynamic-name continuation, and table-size update facts needed
-  by those focused human diagnostics, including the trailing-byte table-size
-  update diagnostic. The standard `hpack_fixture_*` reporting helpers return
-  their HPACK fixture payloads directly as
-  `Result<(), RuntimeDiagnostic>`, so their command-facing detail projection is
-  derived from the returned value.
-  Source-visible `Err(RuntimeDiagnostic(...))` HTTP/2 protocol
-  payload projections for pending-byte close, partial and invalid client
-  connection preface failures, continuation ordering, invalid frame kind,
-  frame-size exceeded, header-list receive-limit failures, SETTINGS value
-  range peer-limit failures, stream id domain failures, fixed payload length,
-  DATA padding,
-  flow-control window, content-length mismatch, request and response
-  header-list validation, invalid
-  `WINDOW_UPDATE` increment, unexpected SETTINGS ACK, invalid PRIORITY dependency,
-  stream-after-GOAWAY,
-  header-table receive-limit failures, and concurrent-stream receive-limit failures
-  likewise use the same human runtime diagnostic rendering as the
-  compatibility helpers, with the stable id, protocol facts, provenance,
-  decoded header names, and bounded byte preview projected from the returned
-  value. The request and response header-list validation projections carry a
-  bounded inspected header-block preview. The frame-size and
-  concurrent-stream receive-limit
-  projections include bounded byte previews for inspected frame headers from
-  the returned `RuntimeDiagnostic(...)` value, and stream-after-GOAWAY
-  projections include the bounded inspected frame-header preview or empty local
-  outbound preview and active shutdown label carried by the returned value.
-  The standard
-  `http2::diagnostic::protocol_invalid_preface(...)`,
-  `http2::diagnostic::protocol_initial_peer_settings_required(...)`,
-  `http2::diagnostic::protocol_continuation_expected(...)`, and
-  `http2::diagnostic::protocol_invalid_frame_kind(...)`,
-  `http2::diagnostic::protocol_invalid_stream_id(...)`,
-  `http2::diagnostic::peer_limit_frame_size_exceeded(...)`,
-  `http2::diagnostic::peer_limit_header_list_size_exceeded(...)`,
-  `http2::diagnostic::peer_limit_header_table_size_exceeded(...)`,
-  `http2::diagnostic::peer_limit_concurrent_streams_exceeded(...)`, and
-  `http2::diagnostic::peer_limit_settings_value_out_of_range(...)`,
-  `http2::diagnostic::protocol_invalid_window_update_increment(...)`,
-  `http2::diagnostic::protocol_invalid_data_padding(...)`,
-  `http2::diagnostic::protocol_content_length_mismatch(...)`,
-  `http2::diagnostic::protocol_unexpected_settings_ack(...)`,
-  `http2::diagnostic::protocol_settings_not_allowed_for_endpoint(...)`,
-  `http2::diagnostic::protocol_invalid_priority_dependency(...)`,
-  `http2::diagnostic::protocol_stream_after_goaway(...)`,
-  `http2::diagnostic::peer_limit_flow_control_window_exceeded(...)`,
-  `http2::diagnostic::protocol_invalid_request_header_list(...)`, and
-  `http2::diagnostic::protocol_invalid_response_header_list(...)` helpers also return
-  this payload form, so their human runtime diagnostics are rendered from the
-  returned value rather than from helper-local registration.
-  Checked byte write
-  conversion failures report
-  `codec.byte_write_value_unrepresentable` and put the helper name, supplied
-  value, accepted range, width, byte order, and source-visible `Err` value in
-  related notes.
-  A hand-written codec boundary that projects an oversized decoded consumed
-  count as `codec.consumed_count_invalid` uses this shape and is not reported
-  as retryable readiness. Human output keeps the primary message focused on
-  the invalid consumed-count fact, puts field path, supplied view length,
-  actual consumed count, reason, and source-visible `DecodeErrorWithReason`
-  value in related notes, and is checked by
-  `examples/specification/run/codec-consumed-count-invalid-human/`.
-  `DecodeStep::NeedMore(...)` entry diagnostics report
-  `codec.incomplete_input` at the closed-input byte boundary and put
-  readiness, requested count when present, and the source-visible
-  `DecodeStep` value in related notes.
-  Transport runtime
-  failures from descriptor-backed
-  receive/send calls, fixture-backed or production loopback socket
-  listen/accept/read/write and address metadata calls, and relative timeout
-  or deadline calls stay runtime errors.
-- `test`: test and doctest selection, static gates, bounded `-j` / `--jobs`
-  case execution, the serial `--jobs 1` compatibility route, deterministic
-  ordered reporting, direct JVM classfile execution without an ordinary Java
-  source compiler requirement, `runtime=contract`, `runtime=ensure`, and
-  `runtime=result` doctest expectations, runtime failures, captured stdio
-  events, and test JSON. Source identifier casing diagnostics in the selected
-  test analysis set keep the selected-suite static gate and block JVM artifact
-  generation. Use
-  [source-surface.md](source-surface.md) first for doctest fence metadata,
-  [test-json.md](test-json.md) first for
-  machine-readable output, then [commands-full.md](commands-full.md) for exact
-  command rules. The checked example
-  `../../examples/specification/test/companion-private-function-access/` shows
-  that a selected companion test can execute a private function declared in its
-  exact target. The checked example
-  `../../examples/specification/test/companion-private-source-adt-access/`
-  shows that a selected companion test can construct and match a private
-  source ADT declared in its exact target. The checked
-  `../../examples/specification/test/companion-private-function-established-effects/`
-  case shows that the companion test must declare established effects from the
-  private target function call. The checked
-  `../../examples/specification/test/companion-private-effect-operation/`
-  case shows that a selected companion test can perform and handle a private
-  nominal effect declared in its exact target. The checked
-  `../../examples/specification/test/companion-private-handler-access/`
-  case shows that a selected companion test can execute a private handler
-  declared in its exact target, and
-  `../../examples/specification/test/companion-private-handler-established-effects/`
-  shows that retained private handler effects must be declared by the
-  companion test. The checked examples
-  `../../examples/specification/test/parallel-jobs-one-json/`,
-  `../../examples/specification/test/parallel-jobs-two-json/`, and
-  `../../examples/specification/test/parallel-jobs-auto-json/` show that
-  serial, bounded, and automatic job modes preserve ordered case records.
-- `repair`: preview, apply one safe advisory hole repair candidate, or apply
-  one explicitly confirmed manual-review candidate with override recording. Use
-  [repair-candidates.md](repair-candidates.md) for candidate input and
-  selection concepts, [repair-application.md](repair-application.md) for write
-  gates, and [repair-json.md](repair-json.md) for machine-readable output.
-- `explain`: diagnostic catalog lookup. Use
-  [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
-  task.
-- `package lock`: path, git, vendor, and mirror dependency graph lockfile
-  writes, including invalid package identity rejection and incompatible source
-  rejection for repeated package identities. The toolchain-owned `std` package
-  cannot be declared as a dependency and is never written to `veln.lock`. Use
-  [commands-full.md#veln-package-lock](commands-full.md#veln-package-lock)
-  when changing package-manager command behavior.
-- `lsp`: stdio language-server startup for editor semantic highlighting and
-  diagnostics. Use [editor-support.md](editor-support.md) first for editor
-  protocol behavior.
+- [Shared command analysis](#shared-command-analysis)
+- [Command help](#command-help)
+- [`veln check`](#veln-check)
+- [`veln fmt`](#veln-fmt)
+- [`veln doc`](#veln-doc)
+- [`veln metrics`](#veln-metrics)
+- [`veln run`](#veln-run)
+- [`veln test`](#veln-test)
+- [`veln repair`](#veln-repair)
+- [`veln explain`](#veln-explain)
+- [`veln package lock`](#veln-package-lock)
+- [`veln lsp`](#veln-lsp)
+- [`veln mcp`](#veln-mcp)
 
-## Read When
+<a id="shared-command-analysis"></a>
 
-The HTTP/2 run examples cover extended CONNECT negotiation through
-`SETTINGS_ENABLE_CONNECT_PROTOCOL`, including accepted HEADERS and final
-CONTINUATION completion, local server advertisement, endpoint-role and value
-rejection, required `:protocol`, `:scheme`, `:path`, and `:authority` facts,
-and the unchanged ordinary CONNECT path. Focused human and JSON cases expose
-the failed header fact, header name, negotiation state, and rule provenance.
+## Shared Command Analysis
 
-- Use [json-output.md](json-output.md) to choose the implemented reference for
-  `check --json`, `run --json`, `test --json`, or `repair --json` output.
-- Use [source-surface.md](source-surface.md) when command behavior depends on
-  source syntax, doctest fences, or path-derived module identity.
-- Use
-  [../reference/implemented-proposals/formatter-stabilization.md](../reference/implemented-proposals/formatter-stabilization.md)
-  only when auditing the implemented formatter stabilization proposal record.
+Before source discovery, `check`, `doc`, `fmt`, `metrics`, `repair`, `run`,
+`test`, and `package lock` resolve the invocation directory to its filesystem
+identity. Each command selects the nearest ancestor with a regular
+`veln.toml`. The marker is inspected without following the marker itself. A
+symbolic link, directory, or other non-regular marker does not select a root.
+If no ancestor qualifies, the resolved invocation directory is an anonymous
+package root.
 
-## Skip Unless Needed
+An error while classifying a marker fails the command. The command does not
+continue to a wider ancestor. After a root is selected, manifest loading reads
+that root's manifest. A manifest read failure fails the command and does not
+trigger fallback selection.
 
-- Use only the command section above that matches the task.
-- Use [../reference/source-decisions/commands-output.md](../reference/source-decisions/commands-output.md)
-  only when the implemented command reference does not explain why a boundary
-  exists.
+Relative command arguments remain relative to the invocation directory. An
+explicit source or test input does not select another package root. Shared
+ownership validation rejects an input outside the selected package or inside a
+nested package.
+
+The checked cases `package-root-from-subdirectory` and
+`package-root-relative-input` are the executable command evidence for ancestor
+selection and the invocation-relative input base. The `veln-project` selector
+tests cover anonymous fallback, equivalent direct and symbolic starts,
+non-regular markers, classification failure, and unreadable selected
+manifests. The CLI harness checks the common command entry for all listed
+commands.
+
+`check`, `run`, `test`, and `repair` use one project analysis path for source
+discovery, generated doctest sources when the command includes doctests, parse
+diagnostics, parse-clean surface module loading, semantic diagnostics,
+checked-core readiness, and selected-entry typed-IR readiness.
+
+Each command keeps selection, output, execution, and write policy outside that
+shared path. Command-specific sections below define those user-visible
+boundaries.
+
+<a id="command-help"></a>
+
+## Command Help
+
+Top-level help is printed for an empty invocation, `veln --help`, `veln -h`,
+and `veln help`. Subcommand help is printed for `veln help <command>` and for
+`--help` or `-h` before the command-specific argument separator.
+
+For `run`, help flags after `--` are entry arguments, not command help flags.
+Unknown help topics and extra help-topic arguments are command-line errors.
+
+Help invocations emit human help text on stdout and do not discover, parse,
+check, lower, compile, run, repair, or emit command JSON.
+
+<a id="veln-check"></a>
+
+## `veln check [--json] [path ...]`
+
+`check` discovers source files, parses them, combines parse-clean files into one
+surface module, runs semantic diagnostics for that module, and then lowers it
+far enough to report checked-core executable blockers such as missing
+expressions plus call and constructor arity mismatches. With `--json`, it
+prints the check JSON envelope. Without `--json`, it prints human diagnostics
+or `ok`.
+
+Inputs are files or directories. If no path is provided, discovery recursively
+selects owned regular `.veln` files below the supplied project root. A regular
+file named `veln.toml` in a descendant directory makes that directory a nested
+package root, so discovery excludes the directory and its descendants without
+opening or parsing that manifest. A symbolic link or non-regular object named
+`veln.toml` is not a boundary.
+
+Discovery does not follow source or directory symbolic links. It skips `.git`
+directories. A directory named `target` is an ordinary source directory and
+receives the same nested-package handling as every other directory. An error
+while classifying a boundary candidate fails discovery. The final discovered
+file list is sorted and deduplicated.
+
+Explicit directories are searched recursively, but every explicit file and
+directory must remain owned by the supplied project root. Discovery rejects an
+input outside that root, an input below a nested manifest root, a parent-path
+escape, or an input that traverses a symbolic link below the root. A nested
+package rejection identifies the input and nested package root. One rejected
+input fails the complete discovery operation.
+
+The checked cases `manifest-package-boundary-discovery`,
+`deep-manifest-package-boundary`, `target-owned-source-directory`,
+`target-nested-package-boundary`, `anonymous-outer-package-boundary`, and
+`explicit-nested-package-boundary` are the executable command evidence for
+recursive and explicit boundary handling.
+
+If the selected project root contains `veln.toml`, the command reads package
+and tool metadata, path dependency entries from
+`[dependencies."package"]`, git, vendor, and mirror dependency metadata from
+the same dependency tables, plus the implemented `[lib].exports` manifest list
+after source discovery. Git dependency metadata must name a `git` remote plus
+exactly one selector: `rev`, `tag`, or `branch`; `subdir` is optional
+package-root metadata inside the selected source. Vendor dependency metadata
+uses a string-valued `vendor` field naming an already available vendored
+package directory. Mirror dependency metadata uses a string-valued `mirror`
+field naming an already materialized source tree. Current dependency discovery
+loads already available direct path, vendor, mirror, and git dependency roots
+for source imports. A git dependency source may be a local path, a local
+`file:` URL, or a non-local URL that has already been materialized under the
+project cache by another operation. When `subdir` is present, the command loads
+the package root below that repository-relative subdirectory. Source imports
+do not clone, fetch, check out packages, resolve git revisions, update
+dependency checksums, or write lockfiles. Current package export entries do not
+add files to the selected set. Each export must be a
+package-relative `.veln` source path, must use file-path spelling instead of
+module-path spelling, must not name a `.test.veln` test companion, must derive
+a valid source module path, must match a selected source file, and must not
+duplicate another export for the same derived module path. `[modules]` is
+rejected.
+
+When a parse-clean source contains `use path from "package"`, the command
+looks for a matching direct path, vendor, mirror, or already available git
+dependency table in the current project manifest, requires the dependency root
+to have a direct regular `veln.toml`, loads that dependency's discovered
+`.veln` sources, checks that the dependency manifest's `[package].name` matches
+the requested package identity, and requires the imported module path to be
+listed by the dependency package's
+`[lib].exports`. A dependency manifest export that names a `.test.veln`
+companion is rejected before that path can contribute an exported module. The
+external import contributes only public declarations and public aliases from
+the exported dependency module to the importing source.
+
+The checked cases `external-package-direct-manifest` and
+`external-package-missing-direct-manifest` are executable command evidence for
+direct dependency package roots during source analysis. The checked cases
+`external-package-imports`, `external-package-vendor-mirror-imports`, and
+`external-package-git-imports` are executable command evidence for direct path,
+vendor, mirror, and git import success, including git `subdir` package-root
+selection. The checked cases `external-package-import-boundaries`,
+`external-package-vendor-mirror-boundaries`, and
+`external-package-git-boundaries` are executable command evidence for the
+matching export and public visibility boundaries.
+
+Semantic diagnostics are suppressed for a file that has parse diagnostics.
+Other parse-clean files in the same invocation may still produce semantic
+diagnostics. Cross-file facts from parse-clean selected files, including
+source-level imports and imported qualified calls, participate in the same
+semantic analysis used by `run` and `test`.
+
+<a id="veln-fmt"></a>
+
+## `veln fmt [path ...]`
+
+`fmt` uses the same source discovery rule as `check`. It parses every selected
+file before writing any file. If any parse diagnostic is present, the whole
+format invocation exits with failure and writes nothing.
+
+For parse-clean files, formatting is deterministic for the implemented syntax:
+use declarations, function signatures, contract clauses, let statements,
+tail expressions, holes with `satisfy`, records, lists, calls, literals, paths,
+prefix operators, binary operators, postfix `?`, and supported binary schema
+primitive compatibility spellings.
+
+Canonical indentation uses one tab character per indentation level. Top-level
+imports, item signatures, and item-closing `end` lines use
+indentation level 0. Function body lines, including contract clauses, `let`
+statements, tail expressions, and standalone comments attached to those lines,
+use indentation level 1.
+
+For formatted `match` expressions, the `match` line uses the parent expression
+indentation level, each arm is one indentation level deeper than that `match`
+line, and the `match` closing `end` aligns with the `match` line.
+When a parse-clean `match` has exactly one `true` arm and one `false` arm,
+`fmt` canonicalizes it to `if` / `else`; false-arm continuations that are also
+ordinary `true` / `false` matches become `else if`. When a parse-clean boolean
+`match` compares the same scrutinee to string, integer, float, or unit literals
+through a `true` arm and a `false` continuation chain, `fmt` instead
+canonicalizes it to a direct literal `match` with a wildcard fallback.
+Commented rewritable matches are left in their lossless source form.
+
+Formatting accepts multiple parse-clean input files in one invocation and
+writes each selected file only after all selected files have parsed without
+diagnostics. The implemented golden coverage includes `ensure` clauses, prefix
+and binary precedence, postfix `?`, nested records, lists, calls, and
+idempotent formatting across multiple input files. In `format binary` schemas,
+supported compatibility spellings such as `UIntN`, representable
+`ReservedBits(width, value)`, and `Repeat(count, Payload)` are formatted as
+canonical lowercase field text, including dispatch payload field text.
+
+Standalone line comments attach to the next parsed source line during
+formatting. The formatter emits hash comments with the same indentation as the
+formatted import, function signature, contract clause, body line, or closing
+`end` line it documents. Comment-only lines between imports, function
+signatures, contract clauses, body lines, and closing `end` lines do not
+prevent parsing or deterministic formatting of those declarations. Trailing
+line comments after source code stay on the same formatted source line.
+`veln fmt` formats parse-clean source only; it does not migrate slash-prefixed
+comment-like text.
+
+<a id="veln-doc"></a>
+
+## `veln doc [path ...]`
+
+`doc` generates deterministic Markdown documentation for selected source
+files. It uses the same source discovery rule as `check`: absent paths discover
+`.veln` files recursively below the current project root, explicit directories
+are searched recursively, and selected paths are sorted and deduplicated.
+Exact `.test.veln` test companions are excluded from the generated public
+document after source discovery. Explicit companion path inputs are excluded
+the same way. If no non-companion source remains, `doc` still emits package and
+tool metadata and the generated module section states that no source modules
+were selected. `_test.veln` integration-test modules remain ordinary selected
+sources for generated documentation.
+
+`doc` reads `veln.toml` when present. The implemented manifest documentation
+surface accepts string-valued `[package]` fields and string-valued
+`[tool.<name>]` fields. Package fields are emitted as package metadata, and
+tool fields are emitted under a tool metadata section. The package `name`
+field, when present, is the generated document title; otherwise the title is
+`Veln Project`.
+
+If discovery selects no non-companion source files, `doc` still emits package
+and tool metadata from `veln.toml` when present. The generated module section
+states that no source modules were selected.
+
+The command has parse, manifest, and semantic gates. If any selected source has
+parse diagnostics, if manifest validation reports errors, or if a selected
+non-companion source has semantic diagnostics such as source identifier casing
+errors, `doc` emits human diagnostics on stderr, writes no documentation, and
+exits with failure. Invalid source identifier casing in an excluded source or
+excluded `.test.veln` companion is not reported by `doc` and does not block the
+selected documentation set.
+
+For `check`, `run`, `test`, and `doc`, parse-clean package-relative sources
+derive local module identity from the selected `.veln` path. Path separators
+become `::`. Path segments with invalid module-class initials produce
+source-path identifier casing diagnostics before semantic diagnostics are
+reported. Path segments that start with an ASCII lowercase letter but are not
+valid module identifiers produce structural module diagnostics instead.
+
+For each parse-clean selected non-companion source, `doc` emits the
+path-derived source module identity, the source path, imports, public source
+`type` declarations, public constructors, public `schema` declarations, public
+member aliases, and public `fn` declarations. Public `fn` documentation
+includes attached documentation line comments and contract clauses. Public
+`type` and `schema` documentation includes attached documentation line
+comments. Excluded companion sources contribute no module heading, source
+path, imports, declarations, documentation comments, ADR-lite records, or
+documentation schema-reference diagnostics.
+
+Documentation line comments are attached to the nearest following module,
+public type, public schema, public member alias, or public function
+declaration only when they are immediately above that declaration. The
+generated Markdown strips the `##` marker.
+Executable doctest and expected-output fences remain visible examples, except
+hidden setup lines whose visible doc-comment content starts with `> ` are
+omitted from the generated example. ADR-lite records are emitted in a separate
+ADR-lite section and keep their parsed anchor when one exists.
+Documentation comments may write schema references as `{@schema Name}` or
+`{@schema module::Name}`. The `doc` command resolves those references through
+schema-aware lookup: same-module bare references may name private or public
+schemas, and module-qualified references require a matching written `use` path,
+including nested module paths such as `use app::nested`, and a public schema or
+public schema alias. The generated Markdown renders a resolved schema reference
+as code text. Missing, private, and wrong-kind schema references are name
+diagnostics reported at the referenced name span. Schema-reference diagnostics
+are validated for all documentation comments in selected non-companion sources,
+including comments attached to private declarations that are not emitted in the
+generated Markdown.
+
+<a id="veln-metrics"></a>
+
+## `veln metrics [--json] [--check] [--baseline PATH] [--write-baseline PATH] [path ...]`
+
+`veln metrics` reports advisory module dependency metrics, ABC size metrics,
+and experimental exact whole-body similarity for project-owned Veln source. It
+follows the shared command analysis route for source discovery and parse-clean
+module loading. Without `--check`, the command exits successfully when
+analysis completes with a complete report, even if dependency cycles, large
+ABC values, or duplicate whole bodies are present.
+
+When source analysis fails only because discovered or explicitly selected
+source paths derive invalid module identities, `veln metrics` returns an
+incomplete report and exits non-zero. The report retains the source-path
+diagnostics, excludes the invalid sources from module graph records, and keeps
+parse-clean path-based ABC and similarity subjects. Imports to excluded
+invalid identities do not become retained diagnostics. Unrelated source
+errors keep the ordinary diagnostic envelope and return no metrics report.
+Human output writes retained diagnostics to the diagnostic stream before the
+advisory report, and the report begins with an incomplete-analysis notice.
+
+`--json` emits the metrics JSON report specified in [metrics-json.md](metrics-json.md).
+`--check` applies enabled metrics policy from `[tool.metrics]`. The current
+enforceable policy is `deny_cycles = "true"`. A check with no enabled policy
+is a command error.
+
+`--write-baseline PATH` writes the current complete metrics report as
+baseline schema `veln-metrics-baseline/v0` with metric model
+`veln-metrics-model/v0`. The baseline records project-relative paths and does
+not record absolute paths or source text. The command writes through a
+temporary file in the target directory and refuses to overwrite an existing
+target. It refuses incomplete analysis before creating or replacing the target.
+`--write-baseline` conflicts with `--check` and `--json`.
+
+`--baseline PATH` is valid only with `--check`. The baseline is loaded
+explicitly from the command line; the command does not load a manifest
+baseline implicitly. Unsupported baseline schema or metric model values are
+comparison errors. A baseline subject that no longer exists in the current
+report is reported as stale but does not by itself fail the check. A partial
+baseline check classifies a currently invalid module identity as an excluded
+baseline subject instead of a stale subject.
+
+Human report output begins with summary counts, then cycles, then module rows,
+then ABC size, and then `Whole-body similarity (experimental)`. Each
+similarity instance names one primary declaration with its declaration and body
+source locations. The remaining declarations are related locations.
+Similarity output does not instruct maintainers to deduplicate code
+mechanically, and similarity never creates a policy violation under `--check`.
+A partial check with no known retained-graph policy violation is incomplete
+rather than pass. A known retained-graph cycle violation still fails.
+
+`[tool.metrics] max_findings = "N"` limits each detailed human-output section
+to its first `N` findings in canonical order. The policy-violation, cycle,
+module-row, ABC-subject, and whole-body-similarity sections apply the limit
+independently, so findings in one section do not hide every finding in a later
+section. The default is `50`. The value must be a positive integer string
+representable in the metrics JSON number domain. Zero, malformed strings,
+values outside the implementation's integer range, and values outside that
+JSON number domain are manifest errors at the value span. A truncated section
+states its displayed, total, and omitted counts and identifies `veln metrics
+--json` as the complete evidence route. The final summary states the exact
+omitted count across all sections. Summary counts, section headings, policy
+status, baseline status, related lines for a displayed finding, JSON arrays,
+policy evaluation, and baseline content use the complete finding set.
+
+When `deny_cycles = "true"` is checked with a baseline, a current cycle is
+allowed only when its member set and cyclic edge set are subsets of one
+baseline cycle. This allows unchanged cycles and cycles that lost members or
+cyclic edges. New cycles, self-cycles without a matching baseline allowance,
+renamed-module cycles, and cycles with added members or cyclic edges fail.
+
+<a id="veln-run"></a>
+
+## `veln run [--json] <entry> [path ...] [-- arg ...]`
+
+`run` uses the same source discovery rule as `check`. Parse-clean files are
+combined into one surface module for entry resolution. It blocks before user
+code execution on parse errors, a missing entry function, an entry argument
+count mismatch, an entry parameter type that cannot be supplied from command
+line text, selected-entry semantic errors, reachable holes, or checked-core
+blockers.
+
+The entry must be a discovered function. Arguments after `--` are entry
+arguments, not source inputs. Entry parameters may be declared as `String`,
+`Int`, `Float`, or `Bool`. A final variadic entry parameter may use those same
+element types, and extra command-line arguments are converted to that element
+type and gathered into the entry binding as `List<T>`. `String` arguments are
+passed through unchanged.
+`Int` arguments parse as decimal signed integers, `Float` arguments parse as
+JVM double-precision decimal text, and `Bool` arguments must be exactly `true`
+or `false`. Non-variadic entries keep exact argument count behavior; variadic
+entries require at least the fixed parameter count. The reachable program is
+semantically checked, lowered to checked core, then typed IR, then JVM
+classfile artifacts. Ordinary execution does not
+write generated Java source or invoke a Java source compiler. Reachability
+follows imported qualified calls by resolving the alias from selected-file `use`
+declarations to the imported source module. A selected entry that imports and
+reaches an invalid direct-dependency declaration reports the dependency
+diagnostic and blocks backend execution. If the selected entry imports the
+dependency but reaches only valid dependency declarations, unreachable
+dependency diagnostics do not block `run`. A manifest dependency that the
+selected entry does not import is not loaded for that invocation, so its
+diagnostics are not reported. Semantic diagnostics in functions unreachable
+from the selected entry do not block `run`.
+
+`run` and `test` cache generated JVM classfile artifacts by backend content
+below the selected Veln user cache root. On Unix other than macOS, the default
+root is the `veln` child of an absolute, non-empty `XDG_CACHE_HOME`, or the
+`veln` child of an absolute, non-empty `HOME/.cache` fallback. On macOS, it is
+the `veln` child of an absolute, non-empty `HOME/Library/Caches`. On Windows,
+it is the `veln` child of an absolute, non-empty `LOCALAPPDATA`.
+`VELN_CACHE_DIR`, when set, must be non-empty and lexically absolute and names
+the complete Veln cache root without an added `veln` component. Selection uses
+native operating-system strings and does not canonicalize or normalize the
+path.
+
+A command that needs the cache checks Java launcher availability before cache
+configuration. It checks cache configuration only after successful source
+analysis, executable selection, and JVM program generation. `test` checks the
+configuration once before any runnable test body starts. Empty or relative
+overrides do not fall back to a host base. An unavailable host base or an
+unusable selected root does not fall back to the package, working directory,
+`target`, or a temporary directory. Commands that do not reach JVM execution
+do not inspect cache configuration.
+
+On a cache miss the command writes the emitted classfiles into the cache; on a
+cache hit it validates the manifest and cached classfiles before invoking
+`java`. Invalid or incomplete cache entries are replaced instead of executed.
+If an invalid entry cannot be removed, the command reports a cache error before
+JVM startup and leaves the entry subject to full validation by later
+invocations. If removal succeeds but preparation, prepared-entry validation,
+or publication fails, the command leaves no published or partial replacement.
+A later invocation observes a miss and can retry preparation and publication
+below the same selected root; the failure does not select a fallback root.
+When concurrent invocations prepare the same cache entry, each invocation uses
+only a complete entry that validates against its own generated JVM program; an
+invocation that loses publication to another writer revalidates the published
+winner before using it. A writer that fails after another invocation publishes
+a valid winner does not delete, replace, or invalidate that winner.
+If an earlier process stops while it owns cache coordination, a later
+invocation either uses a fully validated entry or reports a cache-coordination
+error within an internal bound. The error occurs before JVM startup. Recovery
+does not execute preparation remnants. The coordination representation,
+waiting strategy, and duration are not command contracts. The fault-injected
+cache evidence is in the `java::tests` unit tests. The process-level evidence
+is `abandoned_jvm_cache_coordination_reaches_bounded_error_without_starting_java`
+in the `toolchain_harness` test target.
+Runtime trace files for command output remain isolated to the individual
+command invocation. Human mode forwards process
+stdout and stderr and returns the Java process status for ordinary runtime
+failures. When a closed-input fixed-width `ByteView` read returns
+`codec.incomplete_input`, human mode reports the missing byte at the decoded
+byte offset as the primary diagnostic fact and puts pending readiness,
+expected byte count, available byte count, and any available field path in
+related notes. When a schema fixed-field check returns
+`schema.fixed_field_mismatch`, human mode reports the fixed-field mismatch at
+the decoded byte offset as the primary diagnostic fact and puts expected
+value, actual value, bounded nearby byte preview, and field path in related
+notes. The byte preview is rendered as lowercase hex byte pairs grouped with
+spaces and includes the shown byte count, total diagnostic byte count, and
+whether the preview was truncated.
+When a source-visible `ByteView` range operation returns
+`codec.byte_range_out_of_bounds`, human mode reports the failed range fact at
+the requested byte offset and puts requested count, available count, and
+bounded nearby byte preview in related notes. Checked byte write conversion
+failures report `codec.byte_write_value_unrepresentable` and put the helper
+name, supplied value, accepted range, width, byte order, and source-visible
+`Err` value in related notes.
+When binary schema frame decode returns `schema.length_out_of_bounds`, human
+mode reports the failed payload boundary at the first missing byte offset and
+puts expected payload count, available payload count, bounded nearby byte
+preview, and field path in related notes.
+When binary schema field-local validation returns `schema.validation_failed`,
+human mode reports the failed validation fact at the owning field byte offset
+and puts predicate text, decoded values, bounded nearby byte preview, and
+field path in related notes.
+When generated binary schema encode returns encode-time
+`schema.validation_failed`, human mode reports the failed encode validation
+fact and puts predicate text, supplied schema-local `Int` values, field path,
+and the source-visible `EncodeError` value in related notes.
+When a source-visible `EncodeError(...)` is returned directly from a run entry,
+human mode uses the same focused encode diagnostic as the corresponding
+generated encode or `EncodeStep::Invalid(EncodeError(...))` value and keeps the
+rendered `EncodeError` value in related notes.
+When generated length-bounded `ByteView` schema encode returns
+`schema.encode_value_unrepresentable` for a count mismatch, human mode reports
+the failed encode fact and puts the field path, mismatch reason, expected byte
+count, actual `ByteView` count, byte offset, bounded nearby byte preview, and
+the source-visible `EncodeError` value in related notes.
+When binary schema decode returns `schema.integer_out_of_range`, human mode
+reports the failed integer range fact at the field byte offset and puts byte
+width, accepted range, actual value, bounded nearby byte preview, and field
+path in related notes.
+When a `veln run` entry returns
+`DecodeError(id, byte_offset, field_path)`,
+`DecodeErrorWithReason(id, byte_offset, field_path, reason)`,
+`DecodeStep::Invalid(DecodeError(id, byte_offset, field_path))`, or
+`DecodeStep::Invalid(DecodeErrorWithReason(id, byte_offset, field_path, reason))`,
+human mode reports the failed decode fact at the contained byte offset and
+puts field path plus the source-visible `DecodeError` value in related notes.
+For `DecodeErrorWithReason`, the reason is also a related note. When an
+attached reason is a byte-helper failure message with registered helper
+context, human mode also puts local byte offset, expected and available byte
+counts, and bounded nearby-byte preview in related notes, and `run --json`
+keeps the same context in `details.byte_diagnostic`.
+For `codec.checksum_mismatch`, human mode reports
+`checksum mismatch at byte offset ...` and puts field path, expected checksum,
+actual checksum, failure reason, and the source-visible `DecodeError` value in
+related notes. `run --json` keeps the same checksum facts in
+`details.byte_diagnostic.expected_checksum`, `actual_checksum`, and `reason`.
+For `codec.length_mismatch`, human mode reports
+`length mismatch at byte offset ...` and puts field path, expected length,
+actual length, failure reason, and the source-visible `DecodeError` value in
+related notes when the source-visible reason uses
+`expected_length=<n>; actual_length=<n>; reason=<text>`. `run --json` keeps
+the same length facts in `details.byte_diagnostic.expected_length`,
+`actual_length`, and `reason`; plain reason strings keep only `reason`.
+For `codec.payload_length_mismatch`, human mode reports
+`payload length mismatch at byte offset ...` and puts field path, expected
+payload length, actual payload length, failure reason, and the source-visible
+`DecodeError` value in related notes when the source-visible reason uses
+`expected_payload_length=<n>; actual_payload_length=<n>; reason=<text>`.
+`run --json` keeps the same payload length facts in
+`details.byte_diagnostic.expected_payload_length`, `actual_payload_length`,
+and `reason`; plain reason strings keep only `reason`.
+When an entry returns `DecodeStep::NeedMore(readiness)`, human mode reports
+`codec.incomplete_input` at the closed-input byte boundary and puts readiness,
+requested count when present, and the source-visible `DecodeStep` value in
+related notes. `Decoded` entry values remain ordinary successful values.
+
+With `--json`, `run` captures process stdout and stderr into the run JSON
+record instead of forwarding them separately. Runtime contract failures are
+reported as top-level structured runtime errors with contract details.
+
+Missing `java` before class loading is reported as a JDK setup error.
+
+<a id="veln-test"></a>
+
+## `veln test [--json] [-j <JOBS> | --jobs <JOBS>] [target ...]`
+
+`test` reuses the parser, semantic diagnostics, checked-core lowering, typed IR,
+JVM backend, and Java execution path used by `run`, including the generated JVM
+class cache.
+
+Like `run`, `test` combines parse-clean selected files into one surface module
+before semantic analysis.
+Source identifier casing diagnostics inside the selected test analysis set
+keep the selected-suite static gate, mark selected cases as blocked, and
+prevent JVM artifact generation. Source identifier casing diagnostics outside
+the selected test analysis set are not reported by that invocation and do not
+block the selected suite.
+
+`-j <JOBS>` and `--jobs <JOBS>` set the maximum number of runnable test cases
+that may execute concurrently. `JOBS` is a positive decimal integer. When the
+option is omitted, `test` uses the process's available parallelism and falls
+back to one job if availability cannot be determined. The active worker count
+is clamped to the runnable case count, and an empty runnable set starts no
+workers. `--jobs 1` is the serial compatibility route for suites whose cases
+share external state. The job option is recognized before `--`, including
+after a target; after `--`, the same token is a target. Zero, missing,
+malformed, repeated, mixed-spelling repeated, and overflowing job values are
+command-line errors before project discovery.
+
+Without explicit targets, `test` selects top-level `test` declarations in
+discovered `*_test.veln` files and in any other discovered source file that
+contains a top-level `test` declaration. With explicit targets, it selects
+`test` declarations from the selected files, including files found recursively
+below explicit directories and including non-test files. Ordinary `fn`
+declarations are never selected merely because they have zero parameters.
+
+`test` also extracts executable doctests from documentation line comments.
+A doctest starts with a doc comment fence whose info string is `veln` and is
+checked as a generated private `test` declaration. By default the generated
+test returns `()` and declares `effects [stdio]`. A doctest fence may include
+an `error=<TypePath>` info-string attribute. With that attribute, the
+generated test returns `Result<(), <TypePath>>` and appends `Ok(())` as the
+implicit success value, so the visible example body can use `?` without
+writing harness-only success code. Without `error=<TypePath>`, a doctest that
+uses `?` can infer the wrapper error type from the immediately documented
+public `Result<_, E>` function or from known propagated function calls when all
+of them use the same `E`. A `veln ignore` fence is documentation-only: it is
+not generated, checked, selected, or paired with expected output. A `veln fail`
+fence is a negative static example: `check` and `test` accept it only when its
+generated source produces at least one error diagnostic; hint-only diagnostics
+do not satisfy the expected failure. A negative doctest is not selected as a
+runtime doctest case. A positive doctest fence may include
+`runtime=contract clause=<Clause> predicate=<Predicate>` to expect a runtime
+contract failure after static checking succeeds. The contract expectation
+matches `require`, `ensure`, or `invariant` by contract failure kind, runtime
+phase, clause, and predicate; optional `function=<Name>` and `blame=<Side>`
+attributes further constrain the match. A positive doctest may instead include
+`runtime=ensure predicate=<Predicate>` to expect a runtime `ensure` contract
+failure after static checking succeeds, with optional `function=<Name>` and
+`blame=<Side>` constraints. A positive doctest may also include
+`runtime=result value=<FormattedValue>` to expect the generated test to return
+`Err(<FormattedValue>)`. Other unknown executable doctest attributes, empty
+metadata values, missing runtime contract `clause` or `predicate`, missing
+runtime ensure `predicate`, missing runtime result `value`, and unsupported
+runtime expectation kinds are static doc diagnostics. A line inside an
+executable doctest fence that starts with `> ` is hidden setup: the generated
+test includes the line after the marker, so the example can bind helpers
+without exposing harness code in the documented sample. `# comment` lines stay
+visible source comments inside generated doctests. The hidden marker is exact
+after the doc-comment prefix and one optional separator space; an example that
+intentionally starts source with `>` can write one extra leading space before
+`>`. In `check`, generated doctests participate in parse and semantic
+diagnostics. In `test`, generated positive doctests are selected as doctest
+cases.
+
+An adjacent doc comment fence whose info string is
+`veln-output stream=stdout` or `veln-output stream=stderr` records expected
+output for the immediately preceding executable doctest. Unknown output-fence
+attributes, missing `stream`, duplicate `stream` attributes, and unsupported
+stream values are static doc diagnostics. When at least one output fence is
+present, any stream without a fence is expected to be empty. Output comparison
+uses captured stdio events, reconstructs logical stdout and stderr text, and
+ignores the Markdown closing-fence newline as a raw byte assertion.
+
+When an explicit target names a non-test `.veln` source file, `test` also
+selects a same-directory `*_test.veln` file with the same base name when that
+paired file exists. The command records this in JSON output and prints a human
+selection note.
+
+For explicit non-test source targets with path-derived module identities,
+`test` builds a source-level dependency graph from `use` declarations. Tests whose
+transitive imports include the selected source are included in the selected
+test roots before semantic analysis. If the graph is incomplete, for example
+because an import has no discovered source module, `test` reports the missing
+evidence and widens to all discovered tests instead of silently
+under-selecting. Selected cases, static diagnostics, and JSON selection
+metadata all observe the final selected target set.
+
+Static diagnostics block the suite before Java execution. In JSON output,
+already discovered cases are marked `blocked` with reason `static_gate`.
+Runtime failures become failed cases. Runtime contract failures inside a
+selected case use `failure.kind: "contract"` and include runtime contract
+details. Tests or doctests that return `Err(value)` use
+`failure.kind: "result"` and include the formatted error value. A doctest with
+runtime failure metadata passes that route only when the actual runtime failure
+matches the expected details. If execution succeeds or fails differently, the
+case fails with
+`failure.kind: "runtime_expectation"` and
+`reason: "expected_runtime_failure"`. If static diagnostics block execution,
+the discovered doctest case is blocked with `reason: "static_gate"`. JDK setup
+failures become case errors with reason `runner_error`, including a missing
+`java` before class loading.
+
+When the static gate passes, every runnable case is scheduled through the
+bounded ordered executor. The coordinator constructs and renders the report
+only after all workers finish, so human status lines, JSON `cases`, diagnostics,
+captured events, summary counts, failures, and exit status remain in discovered
+case order regardless of completion order. Worker stdout and stderr are
+captured per case and are not streamed while workers are active. The checked
+examples under `../../examples/specification/test/parallel-jobs-one-json/`,
+`../../examples/specification/test/parallel-jobs-two-json/`, and
+`../../examples/specification/test/parallel-jobs-auto-json/` are the primary
+observable specification for ordered JSON case records across serial, bounded,
+and automatic job modes.
+
+Runtime failure expectation matching is independent from expected-output
+comparison. Satisfying `runtime=contract`, `runtime=ensure`, or
+`runtime=result` does not satisfy any attached output fence, and matching
+output does not satisfy the runtime failure expectation. The implemented
+runtime expectation surface is limited to those structured contract, ensure,
+and result failure kinds. Doctests do not match arbitrary panics, raw stderr
+text, or process exit status as runtime failure expectations.
+
+Doctest output mismatches become failed cases with `failure.kind: "output"` and
+`reason: "expected_output"`. JSON details include the mismatched stream,
+expected text, actual text, first differing logical line, bounded captured
+stdio events for the actual stream, and the expected-output fence span when
+available.
+
+<a id="veln-repair"></a>
+
+## `veln repair [--json] [--apply | --dry-run] [--candidate CANDIDATE_ID] [--confirm CANDIDATE_ID] [--override] [path ...]`
+
+`repair` uses the same source discovery and static analysis path as `check` to
+collect advisory hole repair candidates. Without `--apply`, the command is a
+preview: it prints command-level repair candidates and writes no source files.
+`--dry-run` is an explicit spelling of that default preview mode.
+
+Candidate input is recomputed from the current source files unless one or more
+`*.json` inputs are present. A JSON input is treated as saved repair candidate
+input, not as a source file. Saved input may be a `repair --json` envelope, a
+command-level candidate object or array, a `check --json` envelope, or an
+advisory candidate object or array. Command-level candidate ids use the form
+`repair-N` and are assigned for the current invocation. The original advisory
+candidate id from diagnostic details is also preserved as
+`source_candidate_id`. `--candidate` may name either id, or a saved
+command-level id from a saved repair candidate, but application refuses
+ambiguous ids.
+
+Application is deliberately narrow. `--apply` applies exactly one selected
+candidate; saved candidate input remains advisory rather than write
+authorization. Selection, safe application, confirmation, override, target
+validation, partial-application non-support, post-edit verification, and
+rollback are specified in
+[repair-application.md](repair-application.md).
+
+Human preview output lists candidate ids, summaries, a representative target
+span, replacement, and application policy. Human apply output reports the
+applied candidate and verification result. Human refusal output starts with
+`repair refused:` followed by the failed gate.
+
+With `--json`, `repair` emits the repair JSON record described in
+[repair-json.md](repair-json.md).
+
+<a id="veln-explain"></a>
+
+## `veln explain [--list] [diagnostic-id]`
+
+`explain` is a read-only diagnostic catalog command. It does not discover,
+parse, check, lower, compile, or run source files.
+
+With a known diagnostic ID, it prints the diagnostic title, a short meaning,
+and a repair-oriented note. With `--list`, it prints the IDs available in the
+implemented catalog. Unknown IDs and an invocation without either `--list` or
+a diagnostic ID are command-line errors.
+
+The implemented catalog covers the first diagnostic families used most often
+in the typed-hole and predicate repair loop:
+
+- `hole.unfilled`
+- `hole.satisfy_type_mismatch`
+- `hole.satisfy_candidate_shadow`
+- `hole.satisfy_candidate_unused`
+- `parse.contract_predicate`
+- `parse.satisfy_candidate`
+- `parse.satisfy_arrow`
+- `parse.satisfy_predicate`
+
+<a id="veln-package-lock"></a>
+
+## `veln package lock`
+
+`package lock` reads the current project `veln.toml`, follows dependency
+tables in resolved dependency manifests, and writes `veln.lock`. The
+implemented package-manager slice supports dependency tables with exactly one
+source field: a string-valued `path` field, a string-valued `vendor` field,
+string-valued `mirror` field naming an already materialized source tree, or a
+string-valued `git` field plus exactly one selector: `rev`, `tag`, or `branch`.
+The command materializes non-local git URLs through git before lockfile
+generation. It does not resolve registry sources.
+
+Dependency table keys are package identities. `package lock` rejects a
+dependency table key that is outside the portable package identity domain
+specified by [package-snapshots.md](package-snapshots.md). A rejected key
+reports `package.invalid_dependency_identity` at the dependency key and
+refuses to write `veln.lock`. The checked
+`../../examples/specification/package/package-lock-dot-segment-identity/` case
+shows this rejection for a key with a `..` segment.
+
+Across the graph, a package identity may resolve to only one source selection.
+Repeated dependencies on the same identity are compatible when the source kind,
+source location, requested git selector, and git `subdir` match after lockfile
+path normalization. If a later dependency table selects a different source
+location, source kind, git selector, or git `subdir` for an identity that was
+already selected, `package lock` reports
+`package.incompatible_dependency_source` at the later dependency key, adds a
+related note for the first dependency key, and refuses to write `veln.lock`.
+
+For each path dependency, the dependency table key is the package identity.
+The command requires the path to name an existing package root, reads that
+root's `veln.toml`, and requires its `[package].name` to match the dependency
+table key before writing an entry. A mismatch is reported at the dependency
+table key with a related note on the dependency manifest name when available.
+
+The written lockfile uses sorted `[[package]]` entries for the resolved
+dependency graph. Each entry records the package `name`, a path `source`
+object, and a `sha256:` checksum:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = { kind = "path", path = "vendor/lib" }
+checksum = "sha256:..."
+```
+
+Serialized source paths use `/` separators. The checksum is computed from the
+sorted owned `.veln` source files discovered under the dependency package root
+after the same package-boundary and ignored-directory rules as source
+discovery. Descendant package roots and `.git` contents do not affect the
+lockfile. A directory named `target` is an ordinary source directory, so owned
+`.veln` files below `target` do affect the lockfile. Lexically equivalent
+dependency root spellings use the same package-relative source path names when
+computing the checksum. The checked case `lock-normalized-path-dependency`
+proves that a path dependency spelled with a `..` component writes the
+normalized source path and computes the checksum from owned sources below that
+normalized root.
+
+For each vendor dependency, the dependency table key is the package identity
+and `vendor` names an already available vendored package directory. The
+command reads that directory's `veln.toml`, requires its `[package].name` to
+match the dependency table key, and writes a distinct vendor source record:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = { kind = "vendor", path = "vendor/lib" }
+checksum = "sha256:..."
+```
+
+Vendor lockfile entries use the same source-tree checksum rule as path
+dependencies. The distinct source kind preserves that the source came from
+vendored package storage rather than an ordinary local path dependency.
+
+For each mirror dependency, the dependency table key is the package identity.
+The command requires `mirror` to name an already materialized package source
+tree, reads that tree's `veln.toml`, and requires its `[package].name` to match
+the dependency table key before writing an entry. The written mirror source
+record preserves the package identity separately from the mirror source path
+and checksum:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = { kind = "mirror", path = "mirror/github.com/oakcask/lib" }
+checksum = "sha256:..."
+```
+
+For each git dependency, the `git` value may name an already available local
+repository path, a local `file:` URL, or a non-local git URL. Non-local URLs are
+materialized under `.veln/package/git/` before the requested selector is
+resolved. Existing materialized repositories are fetched before checkout. If
+`subdir` is present, the command uses that repository-relative package root for
+manifest validation and checksum generation. The dependency package root must
+contain `veln.toml`, and its `[package].name` must match the dependency table
+key.
+
+The written git source record stores the package identity separately from the
+source URL, requested selector, resolved commit, optional subdirectory, and
+source-tree checksum:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = {
+  kind = "git",
+  url = "vendor/mono",
+  selector = { branch = "main" },
+  rev = "0123456789abcdef0123456789abcdef01234567",
+  subdir = "packages/lib",
+}
+checksum = "sha256:..."
+```
+
+<a id="veln-lsp"></a>
+
+## `veln lsp`
+
+`lsp` starts the editor language server over standard input and standard output
+using JSON-RPC framing. It is intended for editor clients and does not take
+source path arguments.
+
+The server handles initialize, initialized, shutdown, exit, open-document,
+change-document, full semantic-token, definition, prepare-rename, and rename
+requests. It publishes diagnostics for open documents and for discovered
+workspace sources when the client initializes workspace identity. It keeps the
+latest open document text in memory and returns semantic tokens for unsaved
+editor content. When a semantic-token request names a document that has not
+been opened through the server, the server attempts to read the file URI from
+disk; unreadable documents produce an empty token data array.
+
+The semantic-token legend, token classes, LSP navigation support, and editor
+feature boundaries are specified in [editor-support.md](editor-support.md).
+
+<a id="veln-mcp"></a>
+
+## `veln mcp`
+
+`mcp` starts the agent-facing MCP server over standard input and standard
+output using JSON-RPC messages. It does not take source path arguments, and it
+does not run the shared package-root analysis used by `check`, `doc`, `fmt`,
+`metrics`, `repair`, `run`, `test`, or `package lock`.
+
+Standard output is reserved for MCP protocol messages. End-of-file on standard
+input ends the session successfully. Startup failures are command failures
+reported by the CLI command wrapper.
+
+The MCP workspace-project selection rules, saved diagnostics, saved
+definitions, implemented tools, checked tool schemas, and refresh state
+transitions are specified in [mcp.md](mcp.md).

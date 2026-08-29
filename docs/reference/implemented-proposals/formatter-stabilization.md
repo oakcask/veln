@@ -1,6 +1,10 @@
-# Formatter Stabilization
+---
+role: implementation-record
+authority: supporting
+update-when: The formatter command, formatter source syntax, or formatter executable evidence changes.
+---
 
-Status: implemented
+# Formatter Stabilization
 
 This page routes the implemented formatter follow-up target. Use the
 specification pages for current `veln fmt` behavior.
@@ -9,7 +13,7 @@ specification pages for current `veln fmt` behavior.
 
 - Current formatter behavior:
   [../../specification/commands.md](../../specification/commands.md), then
-  [../../specification/commands-full.md#veln-fmt-path](../../specification/commands-full.md#veln-fmt-path)
+  [../../specification/commands.md#veln-fmt-path](../../specification/commands.md#veln-fmt-path)
   when exact command rules matter.
 - Implemented comment and source syntax:
   [../../specification/source-surface.md](../../specification/source-surface.md).

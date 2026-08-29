@@ -21,9 +21,9 @@ the validated manifest parsed from that same capture. The catalog is not the
   digests, or embedded snapshot capture.
 - Use [package-virtual-sources.md](package-virtual-sources.md) when changing
   `veln-pkg:` URI listing or exact virtual-source resolution.
-- Use [commands.md](commands.md) and [commands-full.md](commands-full.md) when
-  changing `veln doc` Markdown generation, schema-reference diagnostics, or
-  doctest output comparison for CLI commands.
+- Use [commands.md](commands.md) when changing `veln doc` Markdown
+  generation, schema-reference diagnostics, or doctest output comparison for
+  CLI commands.
 
 ## Current Contract
 

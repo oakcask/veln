@@ -240,11 +240,13 @@ Executable evidence:
   `partial-explicit-invalid-selection-json`,
   `partial-mixed-source-errors-json`,
   `partial-unrelated-import-error-json`, `partial-baseline-write-refused`, and
-  `partial-baseline-check-json` cases check partial source-path module
-  identity diagnostics, retained path-based subjects, graph exclusion,
+  `partial-baseline-check-json`, and
+  `partial-baseline-cycle-regression-json` cases check partial source-path
+  module identity diagnostics, retained path-based subjects, graph exclusion,
   excluded-import diagnostic suppression, incomplete policy results,
   policy-violation precedence, diagnostic-envelope fallback, baseline write
-  refusal, and excluded baseline subjects.
+  refusal, excluded baseline subjects, and retained-graph baseline
+  regressions during partial checks.
 - The `metrics_baseline_check_preserves_report_fields` CLI integration test
   checks that a baseline check preserves the advisory ABC subjects, graph
   measurements, ordering, and ordinary report fields from the matching

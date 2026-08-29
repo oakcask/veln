@@ -1,6 +1,10 @@
-# File Based Modules And Packages
+---
+role: implementation-record
+authority: supporting
+update-when: The file-based module identity, package manifest, external package import, or package lock source behavior changes.
+---
 
-Status: implemented
+# File Based Modules And Packages
 
 This record preserves the completed proposal history for file-based module
 identity, package manifests, external package imports, and package lock source
@@ -34,8 +38,7 @@ covered by executable examples under `../../../examples/specification/`.
 - Name resolution, local imports, and external package imports:
   [../../specification/names-effects.md](../../specification/names-effects.md).
 - Package lock command behavior:
-  [../../specification/commands.md](../../specification/commands.md) and
-  [../../specification/commands-full.md](../../specification/commands-full.md).
+  [../../specification/commands.md](../../specification/commands.md).
 
 ## Executable Evidence
 
