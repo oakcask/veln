@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use veln_ast::{FunctionKind, SurfaceModule, UseOrigin};
 use veln_diagnostics::JsonValue;
 use veln_project::{Project, classify_companion_source};
+use veln_source::SourceFile;
 
 pub struct TestTargetExpansion {
     pub targets: Vec<PathBuf>,
@@ -290,7 +291,7 @@ struct SourceDependencyGraph {
 impl SourceDependencyGraph {
     fn new(project: &Project, module: &SurfaceModule) -> Self {
         let paths = Self::collect_source_paths(project);
-        let (module_by_path, module_paths) = Self::index_modules(&paths, module);
+        let (module_by_path, module_paths) = Self::index_modules(&paths, project);
         let imports_by_path = Self::index_imports(&paths, &module_by_path, module);
         let test_roots = Self::detect_test_roots(&paths, module);
         let edges = Self::build_edges(&imports_by_path, &module_paths);
@@ -318,25 +319,20 @@ impl SourceDependencyGraph {
 
     fn index_modules(
         paths: &BTreeSet<String>,
-        module: &SurfaceModule,
+        project: &Project,
     ) -> (BTreeMap<String, String>, BTreeMap<String, BTreeSet<String>>) {
         let mut module_by_path = BTreeMap::<String, String>::new();
         let mut module_paths = BTreeMap::<String, BTreeSet<String>>::new();
-        for function in &module.functions {
-            let Some(module_name) = &function.module_name else {
-                continue;
-            };
-            let path = selection_target_path(function.span.file.as_str()).to_string();
+        for source in &project.files {
+            let path = selection_target_path(source.path().as_str()).to_string();
             if !paths.contains(&path) {
                 continue;
             }
-            module_by_path
-                .entry(path.clone())
-                .or_insert_with(|| module_name.clone());
-            module_paths
-                .entry(module_name.clone())
-                .or_default()
-                .insert(path);
+            let Some(module_name) = derive_visible_source_module_path(source) else {
+                continue;
+            };
+            module_by_path.insert(path.clone(), module_name.clone());
+            module_paths.entry(module_name).or_default().insert(path);
         }
         (module_by_path, module_paths)
     }
@@ -462,6 +458,45 @@ impl SourceDependencyGraph {
         }
         visited
     }
+}
+
+fn derive_visible_source_module_path(source: &SourceFile) -> Option<String> {
+    if let Some(origin_path) = source.generated_origin_path() {
+        return origin_path
+            .and_then(|origin_path| derive_regular_source_module_path(origin_path.as_str()));
+    }
+    let path = source.path().as_str();
+    if path.contains("#doctest-") {
+        return None;
+    }
+    if let Some(companion) = classify_companion_source(path) {
+        if companion.chained {
+            return None;
+        }
+        let module_name = derive_regular_source_module_path(&companion.target_path)?;
+        return Some(format!("{module_name}__test_companion"));
+    }
+    derive_regular_source_module_path(path)
+}
+
+fn derive_regular_source_module_path(path: &str) -> Option<String> {
+    let stem = path.strip_suffix(".veln")?;
+    let mut segments = Vec::new();
+    for segment in stem.split('/') {
+        if !is_valid_source_module_segment(segment) {
+            return None;
+        }
+        segments.push(segment);
+    }
+    Some(segments.join("::"))
+}
+
+fn is_valid_source_module_segment(segment: &str) -> bool {
+    let mut chars = segment.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    first.is_ascii_lowercase() && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -736,7 +771,11 @@ mod tests {
     #[test]
     fn dependency_graph_widens_when_selected_source_has_no_module_identity() {
         let (project, module) = project_module_without_derived_identity(vec![
-            SourceFile::new("math.veln", "fn value() -> Int\n  1\nend\n"),
+            SourceFile::generated(
+                "math.veln",
+                "fn value() -> Int\n  1\nend\n",
+                None::<veln_source::SourcePath>,
+            ),
             SourceFile::new("alpha_test.veln", "test alpha() -> ()\n  ()\nend\n"),
             SourceFile::new("beta_test.veln", "test beta() -> ()\n  ()\nend\n"),
         ]);
@@ -812,6 +851,34 @@ mod tests {
                     .to_string(),
                 "dependency graph is missing source for import `Bad` in `app.veln`".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn dependency_graph_keeps_use_only_valid_source_edges_while_isolating_invalid_sources() {
+        let (project, module) = project_module(vec![
+            SourceFile::new(
+                "math.veln",
+                concat!("fn value() -> Int\n", "  1\n", "end\n"),
+            ),
+            SourceFile::new("consumer_test.veln", "use math\n"),
+            SourceFile::new("Bad.veln", "use math\n"),
+        ]);
+        let graph = SourceDependencyGraph::new(&project, &module);
+
+        assert_eq!(
+            graph.module_by_path.get("consumer_test.veln"),
+            Some(&"consumer_test".to_string())
+        );
+        assert!(!graph.module_by_path.contains_key("Bad.veln"));
+        assert!(!graph.imports_by_path.contains_key("Bad.veln"));
+        assert_eq!(
+            graph.dependency_closure("consumer_test.veln"),
+            BTreeSet::from(["consumer_test.veln".to_string(), "math.veln".to_string()])
+        );
+        assert_eq!(
+            graph.dependency_closure("Bad.veln"),
+            BTreeSet::from(["Bad.veln".to_string()])
         );
     }
 
