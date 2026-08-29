@@ -23,17 +23,23 @@ syntax-and-module-graph report.
 When every retained source-analysis error is a `name.invalid_case` diagnostic
 with `origin: "source_path"`, `veln metrics` returns a partial report and
 exits non-zero. A `module.unresolved_import` diagnostic is not retained and
-does not block the partial report only when it is derived from an excluded
-source or from an import that names an excluded module identity. Top-level
-`status` is `"incomplete"` without `--check` and remains `"incomplete"` for
-`--check` unless a known retained-graph policy violation takes precedence with
-`status: "policy_violation"`. Top-level `diagnostics` contains the retained
-source-path diagnostics. Top-level `completeness.status` is `"partial"` and
-`completeness.excluded_sources` lists project-relative source paths with reason
-`"invalid_module_identity"`, sorted by normalized path. If any other
-non-qualifying source error is present, including a parse error or an unrelated
-unresolved import, the command keeps the ordinary diagnostic envelope and
-returns no report, `completeness`, or policy result.
+does not block the partial report only when either condition is true:
+
+- the import is written by a retained source and names an excluded module
+  identity;
+- the import is written by an excluded source and names an existing
+  project-owned source path.
+
+Top-level `status` is `"incomplete"` without `--check` and remains
+`"incomplete"` for `--check` unless a known retained-graph policy violation
+takes precedence with `status: "policy_violation"`. Top-level `diagnostics`
+contains the retained source-path diagnostics. Top-level
+`completeness.status` is `"partial"` and `completeness.excluded_sources` lists
+project-relative source paths with reason `"invalid_module_identity"`, sorted
+by normalized path. If any other non-qualifying source error is present,
+including a parse error or an unrelated unresolved import from an excluded
+source to a missing module, the command keeps the ordinary diagnostic envelope
+and returns no report, `completeness`, or policy result.
 
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
@@ -132,7 +138,9 @@ non-standard dependency package increments that module's
 In a partial source-path module identity report, an excluded source does not
 create a module record, dependency edge, dependency cycle, or graph-derived
 summary contribution. Imports written by an excluded source do not create
-internal or external edges. Imports from retained sources to an excluded module
+internal or external edges. An import written by an excluded source to a
+missing module is still an unrelated unresolved import and keeps the ordinary
+diagnostic envelope. Imports from retained sources to an excluded module
 identity do not create dependency edges and do not appear as retained
 diagnostics. Path-based ABC and whole-body similarity subjects from parse-clean
 excluded sources remain eligible when their paths are selected.

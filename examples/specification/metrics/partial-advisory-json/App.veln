@@ -1,3 +1,5 @@
+use util
+
 pub fn invalid_subject() -> Int
   call()
 end
