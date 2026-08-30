@@ -1,3 +1,5 @@
+use veln_source::SourceSpan;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum JsonValue {
     Null,
@@ -417,4 +419,3 @@ mod tests {
         assert_eq!(error, "unexpected trailing JSON input");
     }
 }
-use veln_source::SourceSpan;

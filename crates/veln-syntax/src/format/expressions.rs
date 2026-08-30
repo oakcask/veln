@@ -141,12 +141,10 @@ fn format_call_expr(callee: &Expr, args: &[Expr], prec: u8, indent: usize) -> St
 }
 
 fn format_expr_args(args: &[Expr], indent: usize) -> String {
-    let args = args
-        .iter()
+    args.iter()
         .map(|arg| format_expr_at_indent(arg, indent))
         .collect::<Vec<_>>()
-        .join(", ");
-    args
+        .join(", ")
 }
 
 fn format_record_expr(fields: &[crate::RecordField], indent: usize) -> String {

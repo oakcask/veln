@@ -18,9 +18,9 @@ fn decode_reason_result_failure_diagnostic(
     id: &str,
     summary: String,
     reason_label: &str,
-    related_note: Option<String>,
-    include_byte_context: bool,
+    finish: (Option<String>, bool),
 ) -> Diagnostic {
+    let (related_note, include_byte_context) = finish;
     let mut diagnostic = start_decode_reason_diagnostic(byte_diagnostic, byte_entries, id, summary);
     if let Some(related_note) = related_note {
         diagnostic.related.push(note_json(related_note));
@@ -60,8 +60,7 @@ pub(super) fn checksum_mismatch_result_failure_diagnostic(
         id,
         format!("checksum mismatch at byte offset {byte_offset}"),
         "Checksum failure reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -88,8 +87,7 @@ pub(super) fn length_mismatch_result_failure_diagnostic(
         id,
         format!("length mismatch at byte offset {byte_offset}"),
         "Length mismatch reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -116,8 +114,7 @@ pub(super) fn payload_length_mismatch_result_failure_diagnostic(
         id,
         format!("payload length mismatch at byte offset {byte_offset}"),
         "Payload length mismatch reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -144,8 +141,7 @@ pub(super) fn padding_mismatch_result_failure_diagnostic(
         id,
         format!("padding mismatch at byte offset {byte_offset}"),
         "Padding mismatch reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -174,8 +170,7 @@ pub(super) fn integer_out_of_range_result_failure_diagnostic(
         id,
         format!("integer out of range at byte offset {byte_offset}"),
         "Integer conversion reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -202,8 +197,7 @@ pub(super) fn sequence_mismatch_result_failure_diagnostic(
         id,
         format!("sequence mismatch at byte offset {byte_offset}"),
         "Sequence mismatch reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -230,8 +224,7 @@ pub(super) fn tag_mismatch_result_failure_diagnostic(
         id,
         format!("tag mismatch at byte offset {byte_offset}"),
         "Tag mismatch reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -258,8 +251,7 @@ pub(super) fn magic_mismatch_result_failure_diagnostic(
         id,
         format!("magic mismatch at byte offset {byte_offset}"),
         "Magic mismatch reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -286,8 +278,7 @@ pub(super) fn version_mismatch_result_failure_diagnostic(
         id,
         format!("version mismatch at byte offset {byte_offset}"),
         "Version mismatch reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -307,8 +298,7 @@ pub(super) fn unsupported_feature_result_failure_diagnostic(
         id,
         format!("unsupported feature failed at byte offset {byte_offset}"),
         "Unsupported feature reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -336,8 +326,7 @@ pub(super) fn trailing_input_result_failure_diagnostic(
         id,
         format!("trailing input at byte offset {byte_offset}"),
         "Trailing input reason",
-        related_note,
-        true,
+        (related_note, true),
     )
 }
 
@@ -364,7 +353,6 @@ pub(super) fn consumed_count_invalid_result_failure_diagnostic(
         id,
         format!("invalid decoded consumed count at byte offset {byte_offset}"),
         "Consumed count reason",
-        related_note,
-        false,
+        (related_note, false),
     )
 }

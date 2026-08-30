@@ -178,12 +178,14 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
         callee,
         args,
         expected,
-        context.current_module,
-        context.uses,
-        context.bindings,
+        &PrivateSignatureInferContext {
+            current_module: context.current_module,
+            uses: context.uses,
+            bindings: context.bindings,
+            returns_by_path: &*context.returns_by_path,
+            adts: context.adts,
+        },
         context.function_by_path,
-        context.returns_by_path,
-        context.adts,
     ) else {
         return;
     };
@@ -197,42 +199,18 @@ pub(crate) fn private_prelude_callback_call_params(
     callee: &Expr,
     args: &[Expr],
     expected: Option<&Type>,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    bindings: &[Binding],
+    context: &PrivateSignatureInferContext<'_>,
     function_by_path: &FunctionAstMap<'_>,
-    returns_by_path: &FunctionReturnMap,
-    adts: &AdtRegistry,
 ) -> Option<Vec<Type>> {
     let ExprKind::NamePath(segments) = &callee.kind else {
         return None;
     };
-    let name = private_prelude_constraint_name(segments, current_module, function_by_path)?;
-    let input_type = private_prelude_input_arg(args, name).map(|arg| {
-        infer_private_signature_expr_type(
-            arg,
-            None,
-            current_module,
-            uses,
-            bindings,
-            returns_by_path,
-            adts,
-        )
-    });
+    let name = private_prelude_constraint_name(segments, context.current_module, function_by_path)?;
+    let input_type = private_prelude_input_arg(args, name).map(|arg| context.infer(arg, None));
     let (mut params, _) =
         crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())?;
     if name == "vec_try_map_with" {
-        let context_type = args.first().map(|arg| {
-            infer_private_signature_expr_type(
-                arg,
-                None,
-                current_module,
-                uses,
-                bindings,
-                returns_by_path,
-                adts,
-            )
-        });
+        let context_type = args.first().map(|arg| context.infer(arg, None));
         apply_vec_try_map_with_context_param(&mut params, context_type);
     }
     Some(params)

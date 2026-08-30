@@ -1,4 +1,3 @@
-use super::type_operations::adt_args;
 use super::{AdtDescriptor, AdtPayloadType, CoreType, Type};
 
 pub(super) fn payload_type_from_args(
@@ -405,6 +404,14 @@ pub(super) fn core_type_template(ty: &Type) -> CoreType {
 
 pub(crate) trait NamedTypeArguments: Sized {
     fn named_type_arguments(&self) -> Option<(&str, &[Self])>;
+}
+
+pub(crate) fn adt_args<'a, T: NamedTypeArguments>(
+    ty: &'a T,
+    descriptor: &AdtDescriptor,
+) -> Option<&'a [T]> {
+    let (name, args) = ty.named_type_arguments()?;
+    (name == descriptor.type_name && args.len() == descriptor.type_parameters.len()).then_some(args)
 }
 
 impl NamedTypeArguments for Type {

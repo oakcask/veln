@@ -622,13 +622,14 @@ use type_operations::raw_builtin_descriptors_for_test;
 #[cfg(test)]
 pub(crate) use type_operations::validate_builtin_adt_descriptors;
 pub(crate) use type_operations::{
-    adt_args, constructed_type, constructed_type_from_args, core_constructed_type,
+    constructed_type, constructed_type_from_args, core_constructed_type,
     core_constructed_type_from_args, core_list_part, core_list_type, core_option_part,
     core_option_type, core_payload_type, core_payload_type_with_args, core_result_parts,
     core_result_type, list_part, list_type, merge_core_type_args_from_payload,
     merge_type_args_from_payload, option_part, option_type, payload_type, payload_type_with_args,
     result_parts, result_type,
 };
+pub(crate) use unification::adt_args;
 
 #[cfg(test)]
 #[path = "adt/tests.rs"]

@@ -117,11 +117,13 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
                     pattern,
                     expr,
                     annotation_type,
-                    function.module_name.as_deref(),
-                    uses,
-                    function_by_path,
-                    returns_by_path,
-                    adts,
+                    &PrivateCallbackBindingContext {
+                        current_module: function.module_name.as_deref(),
+                        uses,
+                        function_by_path,
+                        returns_by_path,
+                        adts,
+                    },
                     &mut bindings,
                 );
             }
@@ -245,11 +247,13 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
                     pattern,
                     expr,
                     annotation_type,
-                    function.module_name.as_deref(),
-                    uses,
-                    function_by_path,
-                    returns_by_path,
-                    adts,
+                    &PrivateCallbackBindingContext {
+                        current_module: function.module_name.as_deref(),
+                        uses,
+                        function_by_path,
+                        returns_by_path,
+                        adts,
+                    },
                     &mut bindings,
                 );
             }
@@ -276,30 +280,40 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
     false
 }
 
+struct PrivateCallbackBindingContext<'a, 'function> {
+    current_module: Option<&'a str>,
+    uses: &'a [UseDecl],
+    function_by_path: &'a FunctionAstMap<'function>,
+    returns_by_path: &'a FunctionReturnMap,
+    adts: &'a AdtRegistry,
+}
+
 fn collect_private_callback_let_bindings(
     pattern: &Pattern,
     expression: &Expr,
     annotation_type: Option<Type>,
-    current_module: Option<&str>,
-    uses: &[UseDecl],
-    function_by_path: &FunctionAstMap<'_>,
-    returns_by_path: &FunctionReturnMap,
-    adts: &AdtRegistry,
+    context: &PrivateCallbackBindingContext<'_, '_>,
     bindings: &mut Vec<Binding>,
 ) {
     let initializer_private_function = annotation_type
         .is_none()
-        .then(|| private_same_module_call_target(expression, current_module, function_by_path))
+        .then(|| {
+            private_same_module_call_target(
+                expression,
+                context.current_module,
+                context.function_by_path,
+            )
+        })
         .flatten();
     let ty = annotation_type.unwrap_or_else(|| {
         infer_private_signature_expr_type(
             expression,
             None,
-            current_module,
-            uses,
+            context.current_module,
+            context.uses,
             bindings,
-            returns_by_path,
-            adts,
+            context.returns_by_path,
+            context.adts,
         )
     });
     collect_let_pattern_bindings(pattern, &ty, initializer_private_function, bindings);
@@ -471,12 +485,14 @@ pub(crate) fn private_prelude_callback_call_references_slot(
         callee,
         args,
         expected,
-        context.current_module,
-        context.uses,
-        context.bindings,
+        &PrivateSignatureInferContext {
+            current_module: context.current_module,
+            uses: context.uses,
+            bindings: context.bindings,
+            returns_by_path: context.returns_by_path,
+            adts: context.adts,
+        },
         context.function_by_path,
-        context.returns_by_path,
-        context.adts,
     ) else {
         return false;
     };

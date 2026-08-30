@@ -1,20 +1,13 @@
 use super::unification::{
-    NamedTypeArguments, core_payload_type_from_args, fill_core_type_parameters,
-    fill_type_parameters, named_part, named_parts2, payload_type_from_args,
+    core_payload_type_from_args, fill_core_type_parameters, fill_type_parameters, named_part,
+    named_parts2, payload_type_from_args,
 };
-use super::{AdtConstructor, AdtDescriptor, CoreType, Type};
+use super::{AdtConstructor, CoreType, Type};
 #[cfg(test)]
 use super::{
-    InvalidStandardSymbolCase, build_builtin_descriptors, validate_adt_lookup_descriptors,
+    AdtDescriptor, InvalidStandardSymbolCase, build_builtin_descriptors,
+    validate_adt_lookup_descriptors,
 };
-
-pub(crate) fn adt_args<'a, T: NamedTypeArguments>(
-    ty: &'a T,
-    descriptor: &AdtDescriptor,
-) -> Option<&'a [T]> {
-    let (name, args) = ty.named_type_arguments()?;
-    (name == descriptor.type_name && args.len() == descriptor.type_parameters.len()).then_some(args)
-}
 
 pub(crate) fn constructed_type(constructor: AdtConstructor<'_>, payloads: &[Type]) -> Type {
     let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];

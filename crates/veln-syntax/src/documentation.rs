@@ -58,12 +58,10 @@ pub fn declaration_function_signature(
 ) -> String {
     let mut signature = String::from("fn ");
     signature.push_str(function.name.as_deref().unwrap_or("<anonymous>"));
-    if include_effect_binder {
-        if let Some(binder) = &function.effect_binder {
-            signature.push_str("<effect ");
-            signature.push_str(&binder.name);
-            signature.push('>');
-        }
+    if include_effect_binder && let Some(binder) = &function.effect_binder {
+        signature.push_str("<effect ");
+        signature.push_str(&binder.name);
+        signature.push('>');
     }
     signature.push('(');
     signature.push_str(

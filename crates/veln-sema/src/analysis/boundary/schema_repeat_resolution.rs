@@ -55,8 +55,7 @@ pub(super) fn schema_repeat_reference_diagnostic<const N: usize>(
         reason,
         message,
         extra,
-        "schema.repeat_reference",
-        "count",
+        ("schema.repeat_reference", "count"),
     )
 }
 
@@ -75,8 +74,7 @@ pub(super) fn schema_byte_view_reference_diagnostic<const N: usize>(
         reason,
         message,
         extra,
-        "schema.byte_view_reference",
-        "length",
+        ("schema.byte_view_reference", "length"),
     )
 }
 
@@ -95,8 +93,7 @@ pub(super) fn schema_byte_view_multiple_diagnostic<const N: usize>(
         reason,
         message,
         extra,
-        "schema.byte_view_reference",
-        "multiple",
+        ("schema.byte_view_reference", "multiple"),
     )
 }
 
@@ -142,8 +139,7 @@ pub(super) fn schema_field_predicate_reference_diagnostic<const N: usize>(
         reason,
         message,
         extra,
-        "schema.field_predicate_reference",
-        "predicate",
+        ("schema.field_predicate_reference", "predicate"),
     )
 }
 
@@ -154,9 +150,9 @@ fn schema_field_reference_diagnostic<const N: usize>(
     reason: &'static str,
     message: String,
     extra: [(&'static str, JsonValue); N],
-    id: &'static str,
-    role: &'static str,
+    identity: (&'static str, &'static str),
 ) -> Diagnostic {
+    let (id, role) = identity;
     let mut fields = schema_dispatch_details(schema, field, reason);
     fields.push(("role", JsonValue::string(role)));
     fields.push(("reference", JsonValue::string(reference.to_string())));

@@ -319,10 +319,12 @@ pub(super) fn format_neutral_schema_helper_diagnostic(
         schema_name,
         &schema.span,
         field,
-        "schema.format_neutral_decode_helper",
-        "decode",
-        supported,
-        "unsupported_format_neutral_field_type",
+        FormatNeutralHelperDiagnostic {
+            id: "schema.format_neutral_decode_helper",
+            direction: "decode",
+            supported,
+            reason: "unsupported_format_neutral_field_type",
+        },
         boundary_message,
     )
 }
@@ -340,24 +342,36 @@ pub(in crate::analysis) fn format_neutral_schema_encode_helper_diagnostic(
         schema_name,
         schema_span,
         field,
-        "schema.format_neutral_encode_helper",
-        "encode",
-        supported,
-        "unsupported_format_neutral_encode_field_type",
+        FormatNeutralHelperDiagnostic {
+            id: "schema.format_neutral_encode_helper",
+            direction: "encode",
+            supported,
+            reason: "unsupported_format_neutral_encode_field_type",
+        },
         boundary_message,
     )
+}
+
+struct FormatNeutralHelperDiagnostic {
+    id: &'static str,
+    direction: &'static str,
+    supported: &'static str,
+    reason: &'static str,
 }
 
 fn format_neutral_schema_direction_helper_diagnostic(
     schema_name: &str,
     schema_span: &SourceSpan,
     field: &SchemaField,
-    id: &'static str,
-    direction: &'static str,
-    supported: &'static str,
-    reason: &'static str,
+    config: FormatNeutralHelperDiagnostic,
     boundary_message: String,
 ) -> Diagnostic {
+    let FormatNeutralHelperDiagnostic {
+        id,
+        direction,
+        supported,
+        reason,
+    } = config;
     let mut diagnostic = Diagnostic::new(
         id,
         Severity::Error,
