@@ -292,12 +292,8 @@ fn match_arm_pattern_binding_names(
     function_end: usize,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
-    for (index, token) in tokens.iter().enumerate() {
-        if token.range.start < body_start
-            || token.range.start >= function_end
-            || token.kind != TokenKind::FatArrow
-            || !inside_match(tokens, index, body_start)
-        {
+    for (index, token) in function_body_tokens(tokens, body_start, function_end) {
+        if token.kind != TokenKind::FatArrow || !inside_match(tokens, index, body_start) {
             continue;
         }
         let scope_start = token.range.end;
@@ -320,12 +316,8 @@ fn satisfy_candidate_binding_names(
     function_end: usize,
 ) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
-    for (index, token) in tokens.iter().enumerate() {
-        if token.range.start < body_start
-            || token.range.start >= function_end
-            || token.kind != TokenKind::Ident
-            || token.text != "satisfy"
-        {
+    for (index, token) in function_body_tokens(tokens, body_start, function_end) {
+        if token.kind != TokenKind::Ident || token.text != "satisfy" {
             continue;
         }
         let Some(candidate_index) = next_non_layout_index(tokens, index) else {
@@ -353,6 +345,16 @@ fn satisfy_candidate_binding_names(
         });
     }
     bindings
+}
+
+fn function_body_tokens(
+    tokens: &[Token],
+    body_start: usize,
+    function_end: usize,
+) -> impl Iterator<Item = (usize, &Token)> {
+    tokens.iter().enumerate().filter(move |(_, token)| {
+        token.range.start >= body_start && token.range.start < function_end
+    })
 }
 
 fn inside_match(tokens: &[Token], index: usize, body_start: usize) -> bool {
@@ -446,4 +448,3 @@ fn token_scope(scopes: &[FunctionScope], offset: usize) -> Option<&FunctionScope
         .iter()
         .find(|scope| offset >= scope.body_start && offset < scope.end)
 }
-

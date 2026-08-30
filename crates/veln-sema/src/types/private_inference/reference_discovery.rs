@@ -258,41 +258,18 @@ pub(crate) fn private_expr_mentions_candidate(
 }
 
 pub(crate) fn private_reference_initial_bindings(function: &Function) -> Vec<Binding> {
-    function
-        .params
-        .iter()
-        .filter(|param| valid_value_binding_name(&param.name))
-        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
-        .collect()
+    function_parameter_bindings(function)
 }
 
 pub(crate) fn collect_private_reference_pattern_bindings(
     pattern: &Pattern,
     bindings: &mut Vec<Binding>,
 ) {
-    match &pattern.kind {
-        PatternKind::Binding(name) => {
-            if valid_value_binding_name(name) {
-                bindings.push(Binding::new(name.clone(), Type::Unknown));
-            }
+    pattern.for_each_binding(&mut |name| {
+        if valid_value_binding_name(name) {
+            bindings.push(Binding::new(name.to_string(), Type::Unknown));
         }
-        PatternKind::Record(fields) => {
-            for field in fields {
-                collect_private_reference_pattern_bindings(&field.pattern, bindings);
-            }
-        }
-        PatternKind::Constructor { args, .. } => {
-            for arg in args {
-                collect_private_reference_pattern_bindings(arg, bindings);
-            }
-        }
-        PatternKind::Wildcard
-        | PatternKind::StringLiteral(_)
-        | PatternKind::IntLiteral(_)
-        | PatternKind::FloatLiteral(_)
-        | PatternKind::BoolLiteral(_)
-        | PatternKind::Unit => {}
-    }
+    });
 }
 
 pub(crate) fn collect_private_function_references(

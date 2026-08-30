@@ -236,16 +236,9 @@ impl TypeEnvironment {
             return FunctionLookup::Found(function);
         }
 
-        let mut matches = self.functions_named(name).filter(|function| {
-            function.name == name
-                && function.visibility == Visibility::Public
-                && function.module_name.as_deref().is_some_and(|module_name| {
-                    self.uses.iter().any(|use_decl| {
-                        use_decl.module_name.as_deref() == current_module
-                            && use_decl.name.as_str() == module_name
-                    })
-                })
-        });
+        let mut matches = self
+            .functions_named(name)
+            .filter(|function| self.function_is_unqualified_import(function, name, current_module));
         let Some(first) = matches.next() else {
             return FunctionLookup::Missing;
         };
@@ -262,17 +255,24 @@ impl TypeEnvironment {
         current_module: Option<&str>,
     ) -> Vec<&FunctionSignature> {
         self.functions_named(name)
-            .filter(|function| {
-                function.name == name
-                    && function.visibility == Visibility::Public
-                    && function.module_name.as_deref().is_some_and(|module_name| {
-                        self.uses.iter().any(|use_decl| {
-                            use_decl.module_name.as_deref() == current_module
-                                && use_decl.name.as_str() == module_name
-                        })
-                    })
-            })
+            .filter(|function| self.function_is_unqualified_import(function, name, current_module))
             .collect()
+    }
+
+    fn function_is_unqualified_import(
+        &self,
+        function: &FunctionSignature,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> bool {
+        function.name == name
+            && function.visibility == Visibility::Public
+            && function.module_name.as_deref().is_some_and(|module_name| {
+                self.uses.iter().any(|use_decl| {
+                    use_decl.module_name.as_deref() == current_module
+                        && use_decl.name.as_str() == module_name
+                })
+            })
     }
 
     pub(crate) fn function_path(
@@ -326,29 +326,26 @@ impl TypeEnvironment {
         schema_path: &[String],
         current_module: Option<&str>,
     ) -> Option<&FunctionSignature> {
-        let schema = self.schema_symbols.schema_target_path(
+        self.schema_helper_signature(
             schema_path,
             current_module,
-            &self.uses,
-            true,
-            &self.companion_schema_access_targets,
-            &mut Vec::new(),
-        )?;
-        let helper_name = schema_decode_step_function_name(&schema.name);
-        self.functions_named(&helper_name).find(|function| {
-            function.module_name == schema.module_name
-                && self.schema_helper_is_visible(
-                    function.visibility,
-                    schema.module_name.as_deref(),
-                    current_module,
-                )
-        })
+            schema_decode_step_function_name,
+        )
     }
 
     pub(crate) fn schema_encode_signature(
         &self,
         schema_path: &[String],
         current_module: Option<&str>,
+    ) -> Option<&FunctionSignature> {
+        self.schema_helper_signature(schema_path, current_module, schema_encode_function_name)
+    }
+
+    fn schema_helper_signature(
+        &self,
+        schema_path: &[String],
+        current_module: Option<&str>,
+        helper_name_for: fn(&str) -> String,
     ) -> Option<&FunctionSignature> {
         let schema = self.schema_symbols.schema_target_path(
             schema_path,
@@ -358,7 +355,7 @@ impl TypeEnvironment {
             &self.companion_schema_access_targets,
             &mut Vec::new(),
         )?;
-        let helper_name = schema_encode_function_name(&schema.name);
+        let helper_name = helper_name_for(&schema.name);
         self.functions_named(&helper_name).find(|function| {
             function.module_name == schema.module_name
                 && self.schema_helper_is_visible(

@@ -1,5 +1,4 @@
 use super::*;
-use veln_literals::parse_integer_literal;
 
 #[derive(PartialEq, Eq)]
 pub(in crate::analysis) enum RepairLiteral {
@@ -23,63 +22,11 @@ impl RepairLiteral {
 }
 
 pub(in crate::analysis) fn parse_repair_number_literal(text: &str) -> Option<RepairNumber> {
-    let (negative, digits) = text
-        .strip_prefix('-')
-        .map_or((false, text), |digits| (true, digits.trim_start()));
-    if digits.is_empty() {
-        return None;
-    }
-    if !digits.contains('.')
-        && let Ok(literal) = parse_integer_literal(digits)
-    {
-        return Some(RepairNumber {
-            mantissa: if negative {
-                -i128::from(literal.value)
-            } else {
-                i128::from(literal.value)
-            },
-            scale: 0,
-        });
-    }
-    let (integer, fraction) = digits.split_once('.').unwrap_or((digits, ""));
-    if integer.is_empty()
-        || !integer.chars().all(|ch| ch.is_ascii_digit())
-        || !fraction.chars().all(|ch| ch.is_ascii_digit())
-        || (digits.contains('.') && fraction.is_empty())
-    {
-        return None;
-    }
-    let mut scale = fraction.len() as u32;
-    let signed_digits = if negative {
-        format!("-{integer}{fraction}")
-    } else {
-        format!("{integer}{fraction}")
-    };
-    let mut mantissa = signed_digits.parse::<i128>().ok()?;
-    while scale > 0 && mantissa % 10 == 0 {
-        mantissa /= 10;
-        scale -= 1;
-    }
-    Some(RepairNumber { mantissa, scale })
+    RepairNumber::parse(text)
 }
 
 pub(in crate::analysis) fn parse_repair_string_literal(text: &str) -> Option<String> {
-    if !text.starts_with('"') || !text.ends_with('"') {
-        return None;
-    }
-    let mut value = String::new();
-    let mut chars = text[1..text.len() - 1].chars();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            let escaped = chars.next()?;
-            value.push(escaped);
-        } else if ch == '"' {
-            return None;
-        } else {
-            value.push(ch);
-        }
-    }
-    Some(value)
+    crate::contracts::parse_quoted_string_literal(text)
 }
 
 pub(in crate::analysis) fn ordering_path_implies_clause(
@@ -319,42 +266,17 @@ impl RepairEquivalences {
     }
 
     pub(in crate::analysis) fn canonical_expression(&self, expression: &str) -> String {
-        let mut output = String::with_capacity(expression.len());
-        let mut chars = expression.char_indices().peekable();
-        while let Some((start, ch)) = chars.next() {
-            if ch == '"' {
-                output.push(ch);
-                let mut escaped = false;
-                for (_, string_ch) in chars.by_ref() {
-                    output.push(string_ch);
-                    if escaped {
-                        escaped = false;
-                    } else if string_ch == '\\' {
-                        escaped = true;
-                    } else if string_ch == '"' {
-                        break;
-                    }
-                }
-            } else if is_ident_start(ch) {
-                let mut end = start + ch.len_utf8();
-                while let Some((next, next_ch)) = chars.peek().copied() {
-                    if !is_ident_continue(next_ch) {
-                        break;
-                    }
-                    chars.next();
-                    end = next + next_ch.len_utf8();
-                }
-                let ident = &expression[start..end];
-                if is_value_identifier_position(expression, start, end) {
-                    output.push_str(self.canonical_operand(ident));
+        crate::predicate_text::rewrite_identifiers(
+            expression,
+            false,
+            |identifier, is_value, output| {
+                if is_value {
+                    output.push_str(self.canonical_operand(identifier));
                 } else {
-                    output.push_str(ident);
+                    output.push_str(identifier);
                 }
-            } else if !ch.is_whitespace() {
-                output.push(ch);
-            }
-        }
-        output
+            },
+        )
     }
 
     pub(in crate::analysis) fn canonical_operand<'a>(&'a self, operand: &'a str) -> &'a str {

@@ -253,13 +253,7 @@ pub(super) fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<Strin
         .functions
         .iter()
         .filter_map(|function| {
-            let companion = classify_companion_source(function.span.file.as_str())?;
-            let companion_module = function.module_name.clone()?;
-            let target_module = companion
-                .target_path
-                .strip_suffix(".veln")?
-                .replace('/', "::");
-            Some((companion_module, target_module))
+            companion_access_target(function.span.file.as_str(), function.module_name.as_deref())
         })
         .collect()
 }

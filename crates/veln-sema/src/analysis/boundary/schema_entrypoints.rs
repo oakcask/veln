@@ -285,30 +285,17 @@ pub(super) fn check_lowercase_reserved_bits(
     reserved: Result<(i64, i64), LowercaseSchemaPrimitiveError>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match (format_name, reserved) {
-        (Some("binary"), Ok(reserved)) => {
+    check_lowercase_schema_primitive(
+        schema,
+        field,
+        format_name,
+        reserved,
+        diagnostics,
+        |reserved, diagnostics| {
             check_schema_non_byte_view_multiple(schema, field, diagnostics);
             check_reserved_bits_encode_shape(schema, field, reserved, diagnostics);
-        }
-        (Some("binary"), Err(reason)) | (_, Err(reason)) => {
-            diagnostics.push(lowercase_schema_primitive_diagnostic(
-                &field.ty,
-                Some(schema),
-                Some(field),
-                field.node_id.display("schema-field"),
-                field.span.clone(),
-                reason,
-            ));
-        }
-        (_, Ok(_)) => diagnostics.push(lowercase_schema_primitive_position_diagnostic(
-            &field.ty,
-            Some(schema),
-            Some(field),
-            field.node_id.display("schema-field"),
-            field.span.clone(),
-            "non_binary_format",
-        )),
-    }
+        },
+    );
 }
 
 pub(super) fn check_lowercase_integer_primitive(
@@ -319,11 +306,29 @@ pub(super) fn check_lowercase_integer_primitive(
     decoded_fields: &mut BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match (format_name, primitive) {
-        (Some("binary"), Ok(_)) => {
+    check_lowercase_schema_primitive(
+        schema,
+        field,
+        format_name,
+        primitive,
+        diagnostics,
+        |_, diagnostics| {
             check_schema_non_byte_view_multiple(schema, field, diagnostics);
             record_decoded_schema_field(schema, field, Type::int(), decoded_fields, diagnostics);
-        }
+        },
+    );
+}
+
+fn check_lowercase_schema_primitive<T>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    format_name: Option<&str>,
+    primitive: Result<T, LowercaseSchemaPrimitiveError>,
+    diagnostics: &mut Vec<Diagnostic>,
+    on_binary: impl FnOnce(T, &mut Vec<Diagnostic>),
+) {
+    match (format_name, primitive) {
+        (Some("binary"), Ok(primitive)) => on_binary(primitive, diagnostics),
         (Some("binary"), Err(reason)) | (_, Err(reason)) => {
             diagnostics.push(lowercase_schema_primitive_diagnostic(
                 &field.ty,

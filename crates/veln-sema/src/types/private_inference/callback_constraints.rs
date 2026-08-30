@@ -174,48 +174,46 @@ pub(crate) fn collect_private_prelude_callback_call_constraints(
     expected: Option<&Type>,
     context: &mut PrivatePreludeCallbackConstraintContext<'_>,
 ) {
-    let ExprKind::NamePath(segments) = &callee.kind else {
+    let Some(params) = private_prelude_callback_call_params(
+        callee,
+        args,
+        expected,
+        &PrivateSignatureInferContext {
+            current_module: context.current_module,
+            uses: context.uses,
+            bindings: context.bindings,
+            returns_by_path: &*context.returns_by_path,
+            adts: context.adts,
+        },
+        context.function_by_path,
+    ) else {
         return;
     };
-    let Some(name) =
-        private_prelude_constraint_name(segments, context.current_module, context.function_by_path)
-    else {
-        return;
-    };
-    let input_type = private_prelude_input_arg(args, name).map(|arg| {
-        infer_private_signature_expr_type(
-            arg,
-            None,
-            context.current_module,
-            context.uses,
-            context.bindings,
-            context.returns_by_path,
-            context.adts,
-        )
-    });
-    let Some((mut params, _)) =
-        crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
-    else {
-        return;
-    };
-    if name == "vec_try_map_with" {
-        let context_type = args.first().map(|arg| {
-            infer_private_signature_expr_type(
-                arg,
-                None,
-                context.current_module,
-                context.uses,
-                context.bindings,
-                context.returns_by_path,
-                context.adts,
-            )
-        });
-        apply_vec_try_map_with_context_param(&mut params, context_type);
-    }
     for (arg, param) in args.iter().zip(params.iter()) {
         collect_private_callback_return_constraint(arg, param, context);
         collect_private_prelude_callback_expr_constraints(arg, Some(param), context);
     }
+}
+
+pub(crate) fn private_prelude_callback_call_params(
+    callee: &Expr,
+    args: &[Expr],
+    expected: Option<&Type>,
+    context: &PrivateSignatureInferContext<'_>,
+    function_by_path: &FunctionAstMap<'_>,
+) -> Option<Vec<Type>> {
+    let ExprKind::NamePath(segments) = &callee.kind else {
+        return None;
+    };
+    let name = private_prelude_constraint_name(segments, context.current_module, function_by_path)?;
+    let input_type = private_prelude_input_arg(args, name).map(|arg| context.infer(arg, None));
+    let (mut params, _) =
+        crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())?;
+    if name == "vec_try_map_with" {
+        let context_type = args.first().map(|arg| context.infer(arg, None));
+        apply_vec_try_map_with_context_param(&mut params, context_type);
+    }
+    Some(params)
 }
 
 pub(crate) fn apply_vec_try_map_with_context_param(

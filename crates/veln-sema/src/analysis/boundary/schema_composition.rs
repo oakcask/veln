@@ -315,36 +315,18 @@ pub(super) fn format_neutral_schema_helper_diagnostic(
     let boundary_message = format!(
         "Generated format-neutral decode helpers for schema `{schema_name}` accept recursive visible shapes made from scalar leaves, anonymous record fields, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<Ok, Err> when both payloads are recursive visible shapes, and same-module or public imported source ADTs whose constructor payloads are recursive visible shapes."
     );
-    let mut diagnostic = Diagnostic::new(
-        "schema.format_neutral_decode_helper",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "format-neutral schema field `{}` cannot expose a generated decode helper because `{}` is not a {supported}",
-            field.name, field.ty,
-        ),
-        Some(field.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("schema")),
-            (
-                "node_id",
-                JsonValue::string(field.node_id.display("schema-field")),
-            ),
-            ("schema", JsonValue::string(schema_name)),
-            ("field", JsonValue::string(field.name.clone())),
-            ("field_type", JsonValue::string(field.ty.clone())),
-            (
-                "reason",
-                JsonValue::string("unsupported_format_neutral_field_type"),
-            ),
-        ]),
-    );
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("schema_helper_boundary")),
-        ("span", span_json(&schema.span)),
-        ("message", JsonValue::string(boundary_message)),
-    ]));
-    diagnostic
+    format_neutral_schema_direction_helper_diagnostic(
+        schema_name,
+        &schema.span,
+        field,
+        FormatNeutralHelperDiagnostic {
+            id: "schema.format_neutral_decode_helper",
+            direction: "decode",
+            supported,
+            reason: "unsupported_format_neutral_field_type",
+        },
+        boundary_message,
+    )
 }
 
 pub(in crate::analysis) fn format_neutral_schema_encode_helper_diagnostic(
@@ -356,13 +338,47 @@ pub(in crate::analysis) fn format_neutral_schema_encode_helper_diagnostic(
     let boundary_message = format!(
         "Generated format-neutral encode helpers for schema `{schema_name}` accept recursive visible shapes made from Int, Bool, Float, and String leaves, anonymous records, Option<T>, List<T>, Vec<T>, Dict<String, T>, Result<Ok, Err>, and eligible same-module or public imported source ADTs when every recursively visited child or constructor payload is also eligible."
     );
+    format_neutral_schema_direction_helper_diagnostic(
+        schema_name,
+        schema_span,
+        field,
+        FormatNeutralHelperDiagnostic {
+            id: "schema.format_neutral_encode_helper",
+            direction: "encode",
+            supported,
+            reason: "unsupported_format_neutral_encode_field_type",
+        },
+        boundary_message,
+    )
+}
+
+struct FormatNeutralHelperDiagnostic {
+    id: &'static str,
+    direction: &'static str,
+    supported: &'static str,
+    reason: &'static str,
+}
+
+fn format_neutral_schema_direction_helper_diagnostic(
+    schema_name: &str,
+    schema_span: &SourceSpan,
+    field: &SchemaField,
+    config: FormatNeutralHelperDiagnostic,
+    boundary_message: String,
+) -> Diagnostic {
+    let FormatNeutralHelperDiagnostic {
+        id,
+        direction,
+        supported,
+        reason,
+    } = config;
     let mut diagnostic = Diagnostic::new(
-        "schema.format_neutral_encode_helper",
+        id,
         Severity::Error,
         DiagnosticKind::Type,
         format!(
-            "format-neutral schema field `{}` cannot expose a generated encode helper because `{}` is not a {supported}",
-            field.name, field.ty,
+            "format-neutral schema field `{}` cannot expose a generated {direction} helper because `{}` is not a {supported}",
+            field.name, field.ty
         ),
         Some(field.span.clone()),
         JsonValue::object([
@@ -374,10 +390,7 @@ pub(in crate::analysis) fn format_neutral_schema_encode_helper_diagnostic(
             ("schema", JsonValue::string(schema_name)),
             ("field", JsonValue::string(field.name.clone())),
             ("field_type", JsonValue::string(field.ty.clone())),
-            (
-                "reason",
-                JsonValue::string("unsupported_format_neutral_encode_field_type"),
-            ),
+            ("reason", JsonValue::string(reason)),
         ]),
     );
     diagnostic.related.push(JsonValue::object([

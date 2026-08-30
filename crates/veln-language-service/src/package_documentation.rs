@@ -4,7 +4,7 @@ use std::fmt;
 
 use sha2::{Digest, Sha256};
 use veln_analysis::{DoctestMode, analyze_project, derive_source_module_path};
-use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity, write_json_string};
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,
     parse_manifest_text,
@@ -13,10 +13,16 @@ use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     ContractClause, ContractKind, FunctionDecl, FunctionKind, ParseDiagnostic, PublicAliasDecl,
     PublicAliasKind, SchemaDecl, SyntaxItem, TokenKind, TypeDecl, TypeVariantDecl, Visibility,
-    canonical_type_text, lex, parse,
+    declaration_type_signature as type_signature,
+    declaration_variant_signature as variant_signature, documentation_block_before,
+    documentation_lines_are_adr_lite, extract_documentation_schema_references, lex, parse,
+    render_documentation_lines,
 };
-use veln_test::{ExpectedOutput, doctest_sources, visible_doctests};
+use veln_test::{
+    ExpectedOutput, doctest_sources, reconcile_expected_doctest_failures_with, visible_doctests,
+};
 
+use crate::encoded_uri_segment as encoded_segment;
 use crate::{NavigationLocation, NavigationSource};
 
 const DOC_DOMAIN: &[u8] = b"veln-package-doc-catalog/v1\0";

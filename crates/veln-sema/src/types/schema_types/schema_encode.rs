@@ -205,18 +205,8 @@ fn recursive_dispatch_encode_payload_field(
     field: &SchemaField,
     dispatch: &SchemaDispatchSpec,
 ) -> bool {
-    dispatch.cases.iter().any(|case| {
-        matches!(
-            &case.payload,
-            SchemaDispatchCasePayload::Schema { schema_name }
-                if recursive_dispatch_payload_case_is_eligible(
-                    module,
-                    schema,
-                    field,
-                    dispatch,
-                    schema_name,
-                )
-        )
+    schema_dispatch_has_schema_payload_where(dispatch, |schema_name| {
+        recursive_dispatch_payload_case_is_eligible(module, schema, field, dispatch, schema_name)
     })
 }
 

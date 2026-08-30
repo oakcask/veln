@@ -3,7 +3,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{
+    Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity,
+    source_span_to_json as span_json,
+};
 use veln_project::{
     DirectAnalysisSourceError, LockfileGitSelector, LockfilePackage, LockfileSource,
     ManifestDependency, ManifestDependencySelector, ManifestDependencySelectorKind, ManifestField,

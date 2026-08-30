@@ -1,3 +1,5 @@
+use veln_source::SourceSpan;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum JsonValue {
     Null,
@@ -18,6 +20,22 @@ pub fn parse_json_value(source: &str) -> Result<JsonValue, String> {
     } else {
         Err("unexpected trailing JSON input".to_string())
     }
+}
+
+pub fn source_span_to_json(span: &SourceSpan) -> JsonValue {
+    JsonValue::object([
+        ("file", JsonValue::string(span.file.as_str())),
+        ("start", source_position_to_json(span.start)),
+        ("end", source_position_to_json(span.end)),
+    ])
+}
+
+fn source_position_to_json(position: veln_source::LineCol) -> JsonValue {
+    JsonValue::object([
+        ("line", JsonValue::Number(position.line as i64)),
+        ("column", JsonValue::Number(position.column as i64)),
+        ("offset", JsonValue::Number(position.offset as i64)),
+    ])
 }
 
 impl JsonValue {
@@ -285,7 +303,7 @@ impl<'a> JsonParser<'a> {
     }
 }
 
-fn write_json_string(out: &mut String, value: &str) {
+pub fn write_json_string(out: &mut String, value: &str) {
     out.push('"');
     for ch in value.chars() {
         match ch {

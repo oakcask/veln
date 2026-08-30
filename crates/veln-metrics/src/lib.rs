@@ -1,13 +1,14 @@
 //! Report-only Veln source metrics.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use veln_analysis::{
     derive_source_module_path, invalid_case_rejected_visible_module_path, load_surface_module,
 };
 use veln_diagnostics::{
     Diagnostic, JsonValue, Severity, ToolInfo, diagnostic_to_json, parse_json_value,
+    source_span_to_json as span_to_json,
 };
 use veln_project::{ManifestField, Project, ProjectManifest, discover_source_paths};
 use veln_source::{SourceFile, SourceSpan, TextRange};
@@ -256,12 +257,7 @@ pub fn analyze_project_metrics(
     root: PathBuf,
     inputs: &[PathBuf],
 ) -> Result<MetricsReport, Vec<Diagnostic>> {
-    let full_project = Project::discover(root.clone(), &[]).map_err(|error| {
-        vec![metrics_io_diagnostic(format!(
-            "source discovery failed: {error}"
-        ))]
-    })?;
-    let config = read_metrics_config(full_project.manifest.as_ref())?;
+    let (full_project, config) = discover_metrics_project(&root)?;
     analyze_project_metrics_from_project(root, inputs, full_project, config)
 }
 
@@ -269,22 +265,7 @@ pub fn check_project_metrics(
     root: PathBuf,
     inputs: &[PathBuf],
 ) -> Result<MetricsCheckReport, Vec<Diagnostic>> {
-    let full_project = Project::discover(root.clone(), &[]).map_err(|error| {
-        vec![metrics_io_diagnostic(format!(
-            "source discovery failed: {error}"
-        ))]
-    })?;
-    let config = read_metrics_config(full_project.manifest.as_ref())?;
-    let policy = config.policy;
-    if !policy.deny_cycles {
-        return Err(vec![metrics_policy_diagnostic(
-            "metrics.policy.no_enabled",
-            "metrics check requires at least one enabled policy".to_string(),
-            None,
-            JsonValue::object([("policy", JsonValue::string("none"))]),
-        )]);
-    }
-    let report = analyze_project_metrics_from_project(root, inputs, full_project, config)?;
+    let (report, policy) = analyze_project_metrics_for_check(root, inputs)?;
     Ok(evaluate_metrics_check(report, policy))
 }
 
@@ -294,13 +275,37 @@ pub fn check_project_metrics_with_baseline(
     baseline: MetricsBaseline,
     baseline_path: String,
 ) -> Result<MetricsCheckReport, Vec<Diagnostic>> {
-    let full_project = Project::discover(root.clone(), &[]).map_err(|error| {
+    let (report, policy) = analyze_project_metrics_for_check(root, inputs)?;
+    Ok(evaluate_metrics_check_with_baseline(
+        report,
+        policy,
+        baseline,
+        baseline_path,
+    ))
+}
+
+fn analyze_project_metrics_for_check(
+    root: PathBuf,
+    inputs: &[PathBuf],
+) -> Result<(MetricsReport, MetricsPolicy), Vec<Diagnostic>> {
+    let (full_project, config) = discover_metrics_project(&root)?;
+    let policy = config.policy;
+    require_enabled_metrics_policy(policy)?;
+    let report = analyze_project_metrics_from_project(root, inputs, full_project, config)?;
+    Ok((report, policy))
+}
+
+fn discover_metrics_project(root: &Path) -> Result<(Project, MetricsConfig), Vec<Diagnostic>> {
+    let project = Project::discover(root.to_path_buf(), &[]).map_err(|error| {
         vec![metrics_io_diagnostic(format!(
             "source discovery failed: {error}"
         ))]
     })?;
-    let config = read_metrics_config(full_project.manifest.as_ref())?;
-    let policy = config.policy;
+    let config = read_metrics_config(project.manifest.as_ref())?;
+    Ok((project, config))
+}
+
+fn require_enabled_metrics_policy(policy: MetricsPolicy) -> Result<(), Vec<Diagnostic>> {
     if !policy.deny_cycles {
         return Err(vec![metrics_policy_diagnostic(
             "metrics.policy.no_enabled",
@@ -309,13 +314,7 @@ pub fn check_project_metrics_with_baseline(
             JsonValue::object([("policy", JsonValue::string("none"))]),
         )]);
     }
-    let report = analyze_project_metrics_from_project(root, inputs, full_project, config)?;
-    Ok(evaluate_metrics_check_with_baseline(
-        report,
-        policy,
-        baseline,
-        baseline_path,
-    ))
+    Ok(())
 }
 
 mod abc;

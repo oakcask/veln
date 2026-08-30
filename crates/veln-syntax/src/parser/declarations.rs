@@ -208,23 +208,8 @@ impl<'a> Parser<'a> {
             self.skip_to_next_line();
         }
 
-        let mut variants = Vec::new();
-        let mut end_present = false;
-        while !self.at(TokenKind::Eof) {
-            self.eat_newlines();
-            if self.at(TokenKind::End) {
-                self.bump();
-                end_present = true;
-                if self.at(TokenKind::Newline) {
-                    self.bump();
-                }
-                break;
-            }
-            if self.at(TokenKind::Eof) {
-                break;
-            }
-            variants.push(self.parse_type_variant());
-        }
+        let (variants, end_present) =
+            self.parse_declaration_body(|parser| parser.parse_type_variant());
 
         if !end_present {
             self.error_current(
@@ -262,6 +247,28 @@ impl<'a> Parser<'a> {
         params
     }
 
+    pub(super) fn parse_declaration_body<T>(
+        &mut self,
+        mut parse_item: impl FnMut(&mut Self) -> T,
+    ) -> (Vec<T>, bool) {
+        let mut items = Vec::new();
+        while !self.at(TokenKind::Eof) {
+            self.eat_newlines();
+            if self.at(TokenKind::End) {
+                self.bump();
+                if self.at(TokenKind::Newline) {
+                    self.bump();
+                }
+                return (items, true);
+            }
+            if self.at(TokenKind::Eof) {
+                break;
+            }
+            items.push(parse_item(self));
+        }
+        (items, false)
+    }
+
     pub(super) fn parse_effect_decl(&mut self) -> EffectDecl {
         let visibility = if self.eat(TokenKind::Pub).is_some() {
             Visibility::Public
@@ -274,23 +281,8 @@ impl<'a> Parser<'a> {
         let name = self.expect_ident("effect_declaration", "effect name");
         self.expect_newline("effect_declaration");
 
-        let mut operations = Vec::new();
-        let mut end_present = false;
-        while !self.at(TokenKind::Eof) {
-            self.eat_newlines();
-            if self.at(TokenKind::End) {
-                self.bump();
-                end_present = true;
-                if self.at(TokenKind::Newline) {
-                    self.bump();
-                }
-                break;
-            }
-            if self.at(TokenKind::Eof) {
-                break;
-            }
-            operations.push(self.parse_effect_operation_decl());
-        }
+        let (operations, end_present) =
+            self.parse_declaration_body(|parser| parser.parse_effect_operation_decl());
 
         if operations.is_empty() {
             self.error_current(
@@ -420,23 +412,8 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_handler_body(&mut self, start: TextRange) -> HandlerBody {
-        let mut operation_clauses = Vec::new();
-        let mut end_present = false;
-        while !self.at(TokenKind::Eof) {
-            self.eat_newlines();
-            if self.at(TokenKind::End) {
-                self.bump();
-                end_present = true;
-                if self.at(TokenKind::Newline) {
-                    self.bump();
-                }
-                break;
-            }
-            if self.at(TokenKind::Eof) {
-                break;
-            }
-            operation_clauses.push(self.parse_handler_operation_clause_decl());
-        }
+        let (operation_clauses, end_present) =
+            self.parse_declaration_body(|parser| parser.parse_handler_operation_clause_decl());
         if !end_present {
             self.error_current(
                 "parse.expected_end",

@@ -287,27 +287,7 @@ pub(in crate::analysis) fn expression_identifiers(expression: &str) -> Vec<&str>
 }
 
 pub(in crate::analysis) fn compact_predicate_text(predicate: &str) -> String {
-    let mut output = String::with_capacity(predicate.len());
-    let mut chars = predicate.chars();
-    while let Some(ch) = chars.next() {
-        if ch == '"' {
-            output.push(ch);
-            let mut escaped = false;
-            for string_ch in chars.by_ref() {
-                output.push(string_ch);
-                if escaped {
-                    escaped = false;
-                } else if string_ch == '\\' {
-                    escaped = true;
-                } else if string_ch == '"' {
-                    break;
-                }
-            }
-        } else if !ch.is_whitespace() {
-            output.push(ch);
-        }
-    }
-    output
+    crate::predicate_text::compact_predicate_text(predicate)
 }
 
 pub(in crate::analysis) fn compact_direct_repair_expression_text(predicate: &str) -> String {

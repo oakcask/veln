@@ -43,25 +43,9 @@ fn stable_navigation_capture_or_failure(
 }
 
 pub(super) fn capture_stable_navigation_source_with(
-    mut capture: impl FnMut() -> io::Result<CapturedNavigationSource>,
+    capture: impl FnMut() -> io::Result<CapturedNavigationSource>,
 ) -> Result<CapturedNavigationSource, CaptureError> {
-    let mut first_error = None;
-    for _ in 0..SNAPSHOT_ATTEMPTS {
-        let first = capture();
-        let second = capture();
-        match (first, second) {
-            (Ok(first), Ok(second)) if first.key == second.key => {
-                return Ok(first);
-            }
-            (Ok(_), Ok(_)) => {}
-            (Err(error), _) | (_, Err(error)) => first_error = Some(error),
-        }
-    }
-    if first_error.is_some() {
-        Err(CaptureError::Io)
-    } else {
-        Err(CaptureError::Changed)
-    }
+    capture_stable_with(capture, |captured| &captured.key)
 }
 
 fn capture_navigation_source_once(
@@ -149,14 +133,21 @@ fn navigation_domain_as_io(failure: CheckProjectOutcome) -> io::Error {
 }
 
 pub(super) fn capture_stable_project_with(
-    mut capture: impl FnMut() -> io::Result<CapturedProject>,
+    capture: impl FnMut() -> io::Result<CapturedProject>,
 ) -> Result<CapturedProject, CaptureError> {
+    capture_stable_with(capture, |captured| &captured.key)
+}
+
+fn capture_stable_with<T>(
+    mut capture: impl FnMut() -> io::Result<T>,
+    key: impl Fn(&T) -> &Value,
+) -> Result<T, CaptureError> {
     let mut first_error = None;
     for _ in 0..SNAPSHOT_ATTEMPTS {
         let first = capture();
         let second = capture();
         match (first, second) {
-            (Ok(first), Ok(second)) if first.key == second.key => {
+            (Ok(first), Ok(second)) if key(&first) == key(&second) => {
                 return Ok(first);
             }
             (Ok(_), Ok(_)) => {}
@@ -262,8 +253,13 @@ fn open_checked_root(target: &Target) -> io::Result<File> {
 
 #[cfg(target_os = "linux")]
 fn open_dir_beneath(base: &WorkspaceBase, path: &Path) -> io::Result<File> {
+    open_directory_at(base.dir(), path)
+}
+
+#[cfg(target_os = "linux")]
+fn open_directory_at(parent: &File, path: &Path) -> io::Result<File> {
     let fd = openat2(
-        base.dir(),
+        parent,
         path,
         OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
         Mode::empty(),
@@ -279,14 +275,7 @@ fn open_dir_beneath(_base: &WorkspaceBase, _path: &Path) -> io::Result<File> {
 
 #[cfg(target_os = "linux")]
 fn open_child_dir_beneath(parent: &File, path: &Path) -> io::Result<File> {
-    let fd = openat2(
-        parent,
-        path,
-        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
-        Mode::empty(),
-        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
-    )?;
-    Ok(File::from(fd))
+    open_directory_at(parent, path)
 }
 
 fn read_source_file(root: &File, root_path: &Path, path: &Path) -> io::Result<SourceFile> {
@@ -296,6 +285,18 @@ fn read_source_file(root: &File, root_path: &Path, path: &Path) -> io::Result<So
 
 #[cfg(target_os = "linux")]
 fn read_text_beneath(root: &File, _root_path: &Path, path: &Path) -> io::Result<String> {
+    let mut file = open_regular_file_beneath(root, path, "captured path is not a regular file")?;
+    let mut text = String::new();
+    file.read_to_string(&mut text)?;
+    Ok(text)
+}
+
+#[cfg(target_os = "linux")]
+fn open_regular_file_beneath(
+    root: &File,
+    path: &Path,
+    non_regular_message: &'static str,
+) -> io::Result<File> {
     let fd = openat2(
         root,
         path,
@@ -303,13 +304,11 @@ fn read_text_beneath(root: &File, _root_path: &Path, path: &Path) -> io::Result<
         Mode::empty(),
         ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
     )?;
-    let mut file = File::from(fd);
+    let file = File::from(fd);
     if !file.metadata()?.file_type().is_file() {
-        return Err(io::Error::other("captured path is not a regular file"));
+        return Err(io::Error::other(non_regular_message));
     }
-    let mut text = String::new();
-    file.read_to_string(&mut text)?;
-    Ok(text)
+    Ok(file)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -372,19 +371,11 @@ fn collect_veln_files_beneath(
 
 #[cfg(target_os = "linux")]
 fn read_boundary_manifest(dir: &File, relative_dir: &Path) -> io::Result<BoundaryManifest> {
-    let fd = openat2(
+    let mut file = open_regular_file_beneath(
         dir,
         Path::new("veln.toml"),
-        OFlags::RDONLY | OFlags::CLOEXEC,
-        Mode::empty(),
-        ResolveFlags::BENEATH | ResolveFlags::NO_SYMLINKS | ResolveFlags::NO_MAGICLINKS,
+        "nested manifest boundary is not a regular file",
     )?;
-    let mut file = File::from(fd);
-    if !file.metadata()?.file_type().is_file() {
-        return Err(io::Error::other(
-            "nested manifest boundary is not a regular file",
-        ));
-    }
     let identity = FileIdentity::from_metadata(&file.metadata()?)?;
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;

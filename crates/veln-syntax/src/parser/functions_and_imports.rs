@@ -191,24 +191,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_function_body(&mut self) -> (Vec<BodyLine>, bool) {
-        let mut body = Vec::new();
-        let mut end_present = false;
-        while !self.at(TokenKind::Eof) {
-            self.eat_newlines();
-            if self.at(TokenKind::End) {
-                self.bump();
-                end_present = true;
-                if self.at(TokenKind::Newline) {
-                    self.bump();
-                }
-                break;
-            }
-            if self.at(TokenKind::Eof) {
-                break;
-            }
-            body.push(self.parse_body_line());
-        }
-        (body, end_present)
+        self.parse_declaration_body(|parser| parser.parse_body_line())
     }
 
     pub(super) fn report_missing_function_end(&mut self, kind: FunctionKind) {

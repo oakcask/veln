@@ -25,7 +25,8 @@ use crate::types::schema_types::{
     format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, schema_decode_function_name,
-    schema_decode_value_type, schema_dispatch_payload_schema, schema_field_target,
+    schema_decode_value_type, schema_dispatch_has_recursive_payload,
+    schema_dispatch_payload_schema, schema_field_target,
     schema_recursive_dispatch_helper_payload_type, schema_recursive_dispatch_payload_type,
 };
 
@@ -87,20 +88,12 @@ fn format_neutral_schema_decode_spec(
                     .and_then(|target| schema_decode_spec_inner(module, target, stack))
                     .map(Box::new);
             Some(IrSchemaDecodeField {
-                name: field.name.clone(),
-                width: 0,
-                max_value: 0,
-                little_endian: false,
                 predicate: field
                     .where_clause
                     .as_ref()
                     .map(|where_clause| where_clause.predicate.clone()),
-                length_field: None,
-                length_multiple: None,
-                repeat: None,
                 payload_schema,
-                dispatch: None,
-                reserved_bits: None,
+                ..IrSchemaDecodeField::new(field.name.clone())
             })
         })
         .collect::<Option<Vec<_>>>()?;
@@ -179,27 +172,17 @@ fn ir_schema_reserved_bits_field(
         return Some(None);
     };
     Some(Some(IrSchemaDecodeField {
-        name: field.name.clone(),
-        width: 0,
-        max_value: 0,
-        little_endian: false,
-        predicate: None,
-        length_field: None,
-        length_multiple: None,
-        repeat: None,
-        payload_schema: None,
-        dispatch: None,
         reserved_bits: Some(IrSchemaReservedBits {
             bit_width,
             expected_value,
         }),
+        ..IrSchemaDecodeField::new(field.name.clone())
     }))
 }
 
 fn ir_schema_exact_width_field(field: &SchemaField) -> Option<Option<IrSchemaDecodeField>> {
     let width = exact_width_schema_primitive(&field.ty)?;
     Some(Some(IrSchemaDecodeField {
-        name: field.name.clone(),
         width,
         max_value: exact_width_schema_primitive_max_value(&field.ty)?,
         little_endian: exact_width_schema_primitive_little_endian(&field.ty),
@@ -207,12 +190,7 @@ fn ir_schema_exact_width_field(field: &SchemaField) -> Option<Option<IrSchemaDec
             .where_clause
             .as_ref()
             .map(|where_clause| where_clause.predicate.clone()),
-        length_field: None,
-        length_multiple: None,
-        repeat: None,
-        payload_schema: None,
-        dispatch: None,
-        reserved_bits: None,
+        ..IrSchemaDecodeField::new(field.name.clone())
     }))
 }
 
@@ -227,21 +205,13 @@ fn ir_schema_byte_view_field(
         return Some(None);
     }
     Some(Some(IrSchemaDecodeField {
-        name: field.name.clone(),
-        width: 0,
-        max_value: 0,
-        little_endian: false,
-        predicate: None,
         length_field: Some(length_expr.render()),
         length_multiple: field
             .where_clause
             .as_ref()
             .and_then(|where_clause| byte_view_multiple_constraint(&where_clause.predicate))
             .map(|constraint| constraint.render()),
-        repeat: None,
-        payload_schema: None,
-        dispatch: None,
-        reserved_bits: None,
+        ..IrSchemaDecodeField::new(field.name.clone())
     }))
 }
 
@@ -274,17 +244,8 @@ fn ir_schema_repeat_field(
     Some(Some((
         field_ty,
         IrSchemaDecodeField {
-            name: field.name.clone(),
-            width: 0,
-            max_value: 0,
-            little_endian: false,
-            predicate: None,
-            length_field: None,
-            length_multiple: None,
             repeat: Some(ir_repeat),
-            payload_schema: None,
-            dispatch: None,
-            reserved_bits: None,
+            ..IrSchemaDecodeField::new(field.name.clone())
         },
     )))
 }
@@ -306,22 +267,21 @@ fn ir_schema_nested_schema_field(
     }
     let field_ty = schema_decode_value_type(module, nested_schema)?;
     let payload_schema = schema_decode_spec_inner(module, nested_schema, stack)?;
-    Some(Some((
+    Some(ir_schema_payload_field(field, field_ty, payload_schema))
+}
+
+fn ir_schema_payload_field(
+    field: &SchemaField,
+    field_ty: Type,
+    payload_schema: IrSchemaDecodeSpec,
+) -> Option<(Option<Type>, IrSchemaDecodeField)> {
+    Some((
         Some(field_ty),
         IrSchemaDecodeField {
-            name: field.name.clone(),
-            width: 0,
-            max_value: 0,
-            little_endian: false,
-            predicate: None,
-            length_field: None,
-            length_multiple: None,
-            repeat: None,
             payload_schema: Some(Box::new(payload_schema)),
-            dispatch: None,
-            reserved_bits: None,
+            ..IrSchemaDecodeField::new(field.name.clone())
         },
-    )))
+    ))
 }
 
 fn ir_schema_anonymous_record_field(
@@ -331,22 +291,7 @@ fn ir_schema_anonymous_record_field(
         return None;
     };
     let (field_ty, payload_schema) = ir_schema_anonymous_record_spec(fields)?;
-    Some(Some((
-        Some(field_ty),
-        IrSchemaDecodeField {
-            name: field.name.clone(),
-            width: 0,
-            max_value: 0,
-            little_endian: false,
-            predicate: None,
-            length_field: None,
-            length_multiple: None,
-            repeat: None,
-            payload_schema: Some(Box::new(payload_schema)),
-            dispatch: None,
-            reserved_bits: None,
-        },
-    )))
+    Some(ir_schema_payload_field(field, field_ty, payload_schema))
 }
 
 fn ir_schema_anonymous_record_spec(
@@ -372,34 +317,18 @@ fn ir_schema_anonymous_record_spec_inner(
                 let width = exact_width_schema_primitive(&ty_name)?;
                 visible_fields.push((name.clone(), Type::int()));
                 ir_fields.push(IrSchemaDecodeField {
-                    name,
                     width,
                     max_value: exact_width_schema_primitive_max_value(&ty_name)?,
                     little_endian: exact_width_schema_primitive_little_endian(&ty_name),
-                    predicate: None,
-                    length_field: None,
-                    length_multiple: None,
-                    repeat: None,
-                    payload_schema: None,
-                    dispatch: None,
-                    reserved_bits: None,
+                    ..IrSchemaDecodeField::new(name)
                 });
             }
             Type::Record(fields) => {
                 let (field_ty, payload_schema) = ir_schema_anonymous_record_spec_inner(fields)?;
                 visible_fields.push((name.clone(), field_ty));
                 ir_fields.push(IrSchemaDecodeField {
-                    name,
-                    width: 0,
-                    max_value: 0,
-                    little_endian: false,
-                    predicate: None,
-                    length_field: None,
-                    length_multiple: None,
-                    repeat: None,
                     payload_schema: Some(Box::new(payload_schema)),
-                    dispatch: None,
-                    reserved_bits: None,
+                    ..IrSchemaDecodeField::new(name)
                 });
             }
             _ => return None,
@@ -436,15 +365,6 @@ fn ir_schema_dispatch_field(
     Some((
         Some(field_ty),
         IrSchemaDecodeField {
-            name: field.name.clone(),
-            width: 0,
-            max_value: 0,
-            little_endian: false,
-            predicate: None,
-            length_field: None,
-            length_multiple: None,
-            repeat: None,
-            payload_schema: None,
             dispatch: Some(IrSchemaDecodeDispatch {
                 tag_field: dispatch.tag_field,
                 length_field: dispatch.length_field,
@@ -455,7 +375,7 @@ fn ir_schema_dispatch_field(
                     .map(|case| ir_schema_dispatch_case(module, schema, case, stack))
                     .collect::<Option<Vec<_>>>()?,
             }),
-            reserved_bits: None,
+            ..IrSchemaDecodeField::new(field.name.clone())
         },
     ))
 }
@@ -648,24 +568,7 @@ fn schema_dispatch_field_type(
         })
         .collect::<Option<Vec<_>>>()?;
     let payload_ty = payload_types.pop()?;
-    let recursive_payload = dispatch.cases.iter().any(|case| {
-        matches!(
-            &case.payload,
-            SchemaDispatchCasePayload::Schema { schema_name }
-                    if recursive_dispatch_payload_case_is_eligible(
-                        module,
-                        schema,
-                        field,
-                        dispatch,
-                        schema_name,
-                    ) || recursive_dispatch_decode_only_payload_case_is_eligible(
-                        module,
-                        schema,
-                        dispatch,
-                        schema_name,
-                    )
-        )
-    });
+    let recursive_payload = schema_dispatch_has_recursive_payload(module, schema, field, dispatch);
     let payload_ty = if recursive_payload {
         schema_recursive_dispatch_helper_payload_type(module, schema, dispatch)?
     } else if payload_types.iter().any(|ty| ty != &payload_ty) {

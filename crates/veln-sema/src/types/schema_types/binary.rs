@@ -377,6 +377,23 @@ pub(crate) fn recursive_dispatch_decode_only_payload_case_is_eligible(
         && recursive_dispatch_payload_target_is_eligible(module, schema, schema_name))
 }
 
+pub(crate) fn schema_dispatch_has_recursive_payload(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+) -> bool {
+    schema_dispatch_has_schema_payload_where(dispatch, |schema_name| {
+        recursive_dispatch_payload_case_is_eligible(module, schema, field, dispatch, schema_name)
+            || recursive_dispatch_decode_only_payload_case_is_eligible(
+                module,
+                schema,
+                dispatch,
+                schema_name,
+            )
+    })
+}
+
 fn imported_recursive_dispatch_decode_only_payload_case_is_eligible(
     module: &SurfaceModule,
     schema: &SchemaDecl,
@@ -514,17 +531,4 @@ pub(crate) fn schema_dispatch_payload_schema<'a>(
         }
         _ => None,
     }
-}
-
-pub(super) fn normal_imported_use_for_path<'a>(
-    module: &'a SurfaceModule,
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<&'a UseDecl> {
-    let module_path = segments.join("::");
-    module.uses.iter().find(|use_decl| {
-        !use_decl_has_invalid_module_segment(module, use_decl)
-            && use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
-    })
 }

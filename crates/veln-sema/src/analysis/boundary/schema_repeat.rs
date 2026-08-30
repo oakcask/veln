@@ -83,6 +83,24 @@ pub(super) fn check_schema_repeat_byte_view_reference(
     let Some(references) = schema_length_expression_references(length_expr) else {
         return false;
     };
+    check_schema_byte_view_references(
+        schema,
+        field,
+        references,
+        "repeat ByteView",
+        decoded_fields,
+        diagnostics,
+    )
+}
+
+fn check_schema_byte_view_references<'a>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    references: impl IntoIterator<Item = &'a str>,
+    view_name: &str,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
     let mut valid = true;
     for reference in references {
         let Some(ty) = schema_field_reference_type(decoded_fields, reference) else {
@@ -97,7 +115,7 @@ pub(super) fn check_schema_repeat_byte_view_reference(
                 reference,
                 reason,
                 format!(
-                    "repeat ByteView length operand `{reference}` must be an earlier decoded `Int` field"
+                    "{view_name} length operand `{reference}` must be an earlier decoded `Int` field"
                 ),
                 [],
             );
@@ -118,7 +136,7 @@ pub(super) fn check_schema_repeat_byte_view_reference(
                 reference,
                 "incompatible_field_reference",
                 format!(
-                    "repeat ByteView length operand `{reference}` decodes as `{}`, not `Int`",
+                    "{view_name} length operand `{reference}` decodes as `{}`, not `Int`",
                     ty.render()
                 ),
                 [("actual", JsonValue::string(ty.render()))],
@@ -143,57 +161,14 @@ pub(super) fn check_schema_byte_view_reference(
     decoded_fields: &BTreeMap<String, Type>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
-    let mut valid = true;
-    for reference in length_expr.references() {
-        let Some(ty) = schema_field_reference_type(decoded_fields, reference) else {
-            let reason = if schema_field_declared_after(schema, field, reference) {
-                "forward_field_reference"
-            } else {
-                "unknown_field_reference"
-            };
-            let mut diagnostic = schema_byte_view_reference_diagnostic(
-                schema,
-                field,
-                reference,
-                reason,
-                format!(
-                    "ByteView length operand `{reference}` must be an earlier decoded `Int` field"
-                ),
-                [],
-            );
-            add_compatible_prior_int_field_related(
-                &mut diagnostic,
-                schema,
-                decoded_fields,
-                "length",
-            );
-            diagnostics.push(diagnostic);
-            valid = false;
-            continue;
-        };
-        if ty != &Type::int() {
-            let mut diagnostic = schema_byte_view_reference_diagnostic(
-                schema,
-                field,
-                reference,
-                "incompatible_field_reference",
-                format!(
-                    "ByteView length operand `{reference}` decodes as `{}`, not `Int`",
-                    ty.render()
-                ),
-                [("actual", JsonValue::string(ty.render()))],
-            );
-            add_compatible_prior_int_field_related(
-                &mut diagnostic,
-                schema,
-                decoded_fields,
-                "length",
-            );
-            diagnostics.push(diagnostic);
-            valid = false;
-        }
-    }
-    valid
+    check_schema_byte_view_references(
+        schema,
+        field,
+        length_expr.references(),
+        "ByteView",
+        decoded_fields,
+        diagnostics,
+    )
 }
 
 pub(super) fn check_schema_byte_view_multiple(

@@ -174,51 +174,22 @@ pub(super) fn prepare_test_case_job(
     }))
 }
 
-const HOST_EFFECT_LABELS: &[&str] = &[
-    "stdio",
-    "fs",
-    "net",
-    "db",
-    "time",
-    "random",
-    "process",
-    "concurrency",
-];
-
 pub(super) fn retained_user_effect_diagnostic(
     module: &SurfaceModule,
     core: Option<&veln_core::CheckedProgram>,
     test_name: &str,
 ) -> Option<Diagnostic> {
-    let function = module.functions.iter().find(|function| {
-        function.kind == FunctionKind::Test && function.name.as_deref() == Some(test_name)
-    })?;
-    let effects = core
-        .and_then(|core| {
-            core.functions
-                .iter()
-                .find(|core_function| core_function.node_id == function.node_id)
-        })
-        .map(|core_function| &core_function.effects)?;
-    let effect = effects
-        .iter()
-        .find(|effect| !HOST_EFFECT_LABELS.contains(&effect.as_str()))?;
-    Some(Diagnostic::new(
-        "effect.unhandled_user",
-        Severity::Error,
-        DiagnosticKind::Effect,
-        format!("runnable test retains user-defined effect `{effect}`"),
-        Some(function.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("effect")),
-            (
-                "node_id",
-                JsonValue::string(function.node_id.display("test")),
-            ),
-            ("effect", JsonValue::string(effect.clone())),
-            ("boundary", JsonValue::string("test_entry")),
-        ]),
-    ))
+    crate::commands::retained_user_effect_diagnostic(
+        module,
+        core,
+        test_name,
+        crate::commands::RunnableEntryDiagnostic {
+            kind: FunctionKind::Test,
+            subject: "test",
+            node_kind: "test",
+            boundary: "test_entry",
+        },
+    )
 }
 
 pub(super) fn execute_test_case_job(job: TestCaseJob) -> Result<TestCase, String> {

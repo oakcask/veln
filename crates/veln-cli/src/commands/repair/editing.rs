@@ -197,59 +197,27 @@ struct LegacyResolvedEdit {
 
 #[cfg(test)]
 mod tests {
-    use veln_diagnostics::JsonValue;
-
     use super::*;
-    use crate::commands::repair::{
-        APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE, APPLICATION_STATUS_UNAPPLIED,
-    };
-
-    fn candidate(start: usize, end: usize) -> RepairCandidate {
-        RepairCandidate {
-            repair_id: "repair-1".to_string(),
-            source_candidate_id: "symbol-1".to_string(),
-            name: "value".to_string(),
-            application_policy: APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE.to_string(),
-            application_status: APPLICATION_STATUS_UNAPPLIED.to_string(),
-            edit_summary: "Replace hole with `value`".to_string(),
-            edits: vec![RepairEdit {
-                file: "main.veln".to_string(),
-                start: LineCol {
-                    line: 1,
-                    column: start + 1,
-                    offset: start,
-                },
-                end: LineCol {
-                    line: 1,
-                    column: end + 1,
-                    offset: end,
-                },
-                replacement: "value".to_string(),
-            }],
-            verification_command: None,
-            source: JsonValue::Null,
-            input_repair_id: None,
-            requires_current_match: false,
-        }
-    }
+    use crate::commands::repair::test_candidate;
 
     #[test]
     fn replace_span_refuses_stale_targets() {
-        let error = replace_span("value\n", &candidate(0, 5)).expect_err("target is not a hole");
+        let error =
+            replace_span("value\n", &test_candidate(0, 5)).expect_err("target is not a hole");
 
         assert_eq!(error, "repair target no longer names a hole");
     }
 
     #[test]
     fn replace_span_refuses_out_of_bounds_targets() {
-        let error = replace_span("_hole\n", &candidate(0, 20)).expect_err("target is stale");
+        let error = replace_span("_hole\n", &test_candidate(0, 20)).expect_err("target is stale");
 
         assert_eq!(error, "repair target span is stale");
     }
 
     #[test]
     fn replace_span_refuses_saved_parse_delimiter_targets() {
-        let mut candidate = candidate(8, 9);
+        let mut candidate = test_candidate(8, 9);
         candidate.source_candidate_id = "parse.type_parameter_delimiters".to_string();
         candidate.edits[0].replacement = "<".to_string();
 
@@ -263,7 +231,7 @@ mod tests {
     fn replace_span_removes_satisfy_suffix() {
         let edit = replace_span(
             "fn main(order: Int) -> Int\n  _value satisfy candidate => candidate == order\nend\n",
-            &candidate(29, 35),
+            &test_candidate(29, 35),
         )
         .expect("satisfy suffix should be included in the edit");
 
@@ -279,7 +247,7 @@ mod tests {
         fs::create_dir_all(&root).expect("test root should be created");
         fs::write(root.join("main.veln"), "__hole\n").expect("source should be written");
 
-        let mut candidate = candidate(0, 6);
+        let mut candidate = test_candidate(0, 6);
         candidate.edits.push(RepairEdit {
             file: "main.veln".to_string(),
             start: LineCol {

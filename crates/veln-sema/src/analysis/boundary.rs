@@ -21,6 +21,7 @@ use crate::schema::reserved_layout::{
     schema_field_uses_generalized_reserved_byte_prefix,
     schema_payload_has_generalized_reserved_byte_prefix, supported_encode_reserved_bits,
 };
+use crate::types::companion_access_targets;
 use crate::types::schema_types::{
     binary_schema_anonymous_record_decode_type,
     format_neutral_schema_encode_field_is_source_adt_candidate,
@@ -28,7 +29,8 @@ use crate::types::schema_types::{
     format_neutral_schema_field_type_for_schema,
     recursive_dispatch_decode_only_payload_case_is_eligible,
     recursive_dispatch_payload_case_is_eligible, recursive_dispatch_payload_is_eligible,
-    schema_decode_step_function_name, schema_decode_value_type, schema_dispatch_payload_schema,
+    schema_decode_step_function_name, schema_decode_value_type,
+    schema_dispatch_has_recursive_payload, schema_dispatch_payload_schema,
     schema_encode_function_name, schema_encode_value_type, schema_field_target,
     schema_field_uses_existing_grammar, schema_has_eligible_recursive_dispatch_payload,
     schema_has_recursive_dispatch_payload, schema_recursive_dispatch_helper_payload_type,
@@ -39,7 +41,6 @@ use veln_ast::{
     NameClass, PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl,
 };
 use veln_literals::parse_integer_literal;
-use veln_project::classify_companion_source;
 
 mod effects;
 mod module_boundaries;
@@ -49,6 +50,7 @@ mod schema_dispatch;
 mod schema_dispatch_helpers;
 mod schema_dispatch_resolution;
 mod schema_entrypoints;
+mod schema_payload_resolution;
 mod schema_repeat;
 mod schema_repeat_resolution;
 mod schema_type_references;
@@ -77,6 +79,7 @@ use schema_composition::*;
 use schema_dispatch::*;
 use schema_dispatch_helpers::*;
 use schema_dispatch_resolution::*;
+use schema_payload_resolution::*;
 use schema_repeat::*;
 use schema_repeat_resolution::*;
 use schema_type_references::*;

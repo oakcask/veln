@@ -72,50 +72,18 @@ pub fn expand_test_targets(root: &Path, targets: &[PathBuf]) -> TestTargetExpans
 }
 
 fn paired_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
-    let absolute = if target.is_absolute() {
-        target.to_path_buf()
-    } else {
-        root.join(target)
-    };
-    if absolute.is_dir()
-        || absolute
-            .extension()
-            .is_none_or(|extension| extension != "veln")
-    {
-        return None;
-    }
+    let absolute = absolute_veln_target(root, target)?;
     let file_name = absolute.file_name()?.to_str()?;
     if file_name.ends_with("_test.veln") {
         return None;
     }
     let stem = absolute.file_stem()?.to_str()?;
     let candidate = absolute.with_file_name(format!("{stem}_test.veln"));
-    if !candidate.is_file() {
-        return None;
-    }
-    if target.is_absolute() {
-        Some(candidate)
-    } else {
-        candidate.strip_prefix(root).map_or_else(
-            |_| Some(candidate.clone()),
-            |relative| Some(relative.to_path_buf()),
-        )
-    }
+    existing_paired_target(root, target, candidate)
 }
 
 fn paired_companion_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
-    let absolute = if target.is_absolute() {
-        target.to_path_buf()
-    } else {
-        root.join(target)
-    };
-    if absolute.is_dir()
-        || absolute
-            .extension()
-            .is_none_or(|extension| extension != "veln")
-    {
-        return None;
-    }
+    let absolute = absolute_veln_target(root, target)?;
     let relative = if target.is_absolute() {
         absolute.strip_prefix(root).ok()?.to_path_buf()
     } else {
@@ -128,6 +96,26 @@ fn paired_companion_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
     }
     let candidate =
         absolute.with_file_name(format!("{}.test.veln", absolute.file_stem()?.to_str()?));
+    existing_paired_target(root, target, candidate)
+}
+
+fn absolute_veln_target(root: &Path, target: &Path) -> Option<PathBuf> {
+    let absolute = if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        root.join(target)
+    };
+    if absolute.is_dir()
+        || absolute
+            .extension()
+            .is_none_or(|extension| extension != "veln")
+    {
+        return None;
+    }
+    Some(absolute)
+}
+
+fn existing_paired_target(root: &Path, target: &Path, candidate: PathBuf) -> Option<PathBuf> {
     if !candidate.is_file() {
         return None;
     }

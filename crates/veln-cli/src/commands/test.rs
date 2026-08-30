@@ -11,7 +11,7 @@ use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::{
     JvmProgram, generate_classfiles_with_entry, generate_classfiles_with_test_entries,
 };
-use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{Diagnostic, DiagnosticEnvelope};
 use veln_project::{Project, discover_source_paths};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,

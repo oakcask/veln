@@ -38,6 +38,36 @@ const REFUSAL_OVERRIDE_STATUS_NOT_UNAPPLIED: &str = "override candidate is not u
 const REFUSAL_SAVED_CANDIDATE_NOT_CURRENT: &str = "saved candidate is not current";
 const REFUSAL_VERIFICATION_FAILED: &str = "verification failed";
 
+#[cfg(test)]
+fn test_candidate(start: usize, end: usize) -> candidates::RepairCandidate {
+    candidates::RepairCandidate {
+        repair_id: "repair-1".to_string(),
+        source_candidate_id: "symbol-1".to_string(),
+        name: "value".to_string(),
+        application_policy: APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE.to_string(),
+        application_status: APPLICATION_STATUS_UNAPPLIED.to_string(),
+        edit_summary: "Replace hole with `value`".to_string(),
+        edits: vec![candidates::RepairEdit {
+            file: "main.veln".to_string(),
+            start: veln_source::LineCol {
+                line: 1,
+                column: start + 1,
+                offset: start,
+            },
+            end: veln_source::LineCol {
+                line: 1,
+                column: end + 1,
+                offset: end,
+            },
+            replacement: "value".to_string(),
+        }],
+        verification_command: None,
+        source: veln_diagnostics::JsonValue::Null,
+        input_repair_id: None,
+        requires_current_match: false,
+    }
+}
+
 pub(crate) fn repair(
     start: super::CommandAnalysisStart,
     json: bool,

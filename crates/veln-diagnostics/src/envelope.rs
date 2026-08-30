@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use veln_source::SourceSpan;
 
-use crate::{CheckStatus, DiagnosticKind, JsonValue, Severity};
+use crate::{CheckStatus, DiagnosticKind, JsonValue, Severity, source_span_to_json};
 
 pub const SCHEMA_VERSION: u32 = 1;
 
@@ -147,33 +147,31 @@ fn map_to_json(map: BTreeMap<String, i64>) -> JsonValue {
 }
 
 fn span_to_json(span: Option<&SourceSpan>) -> JsonValue {
-    let Some(span) = span else {
-        return JsonValue::Null;
-    };
-    JsonValue::object([
-        ("file", JsonValue::string(span.file.as_str())),
-        (
-            "start",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.start.line as i64)),
-                ("column", JsonValue::Number(span.start.column as i64)),
-                ("offset", JsonValue::Number(span.start.offset as i64)),
-            ]),
-        ),
-        (
-            "end",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.end.line as i64)),
-                ("column", JsonValue::Number(span.end.column as i64)),
-                ("offset", JsonValue::Number(span.end.offset as i64)),
-            ]),
-        ),
-    ])
+    span.map_or(JsonValue::Null, source_span_to_json)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn envelope_with_diagnostic(
+        id: &str,
+        severity: Severity,
+        kind: DiagnosticKind,
+        message: &str,
+    ) -> DiagnosticEnvelope {
+        DiagnosticEnvelope::new(
+            ToolInfo::new("veln", "0.1.0"),
+            vec![Diagnostic::new(
+                id,
+                severity,
+                kind,
+                message,
+                None,
+                JsonValue::Null,
+            )],
+        )
+    }
     use veln_source::{SourceFile, TextRange};
 
     #[test]
@@ -226,16 +224,11 @@ mod tests {
 
     #[test]
     fn envelope_status_is_partial_for_non_error_holes() {
-        let envelope = DiagnosticEnvelope::new(
-            ToolInfo::new("veln", "0.1.0"),
-            vec![Diagnostic::new(
-                "hole.unresolved",
-                Severity::Hint,
-                DiagnosticKind::Hole,
-                "hole remains",
-                None,
-                JsonValue::Null,
-            )],
+        let envelope = envelope_with_diagnostic(
+            "hole.unresolved",
+            Severity::Hint,
+            DiagnosticKind::Hole,
+            "hole remains",
         );
 
         assert_eq!(envelope.status, CheckStatus::Partial);
@@ -244,16 +237,11 @@ mod tests {
 
     #[test]
     fn envelope_status_is_ok_for_warnings_without_holes() {
-        let envelope = DiagnosticEnvelope::new(
-            ToolInfo::new("veln", "0.1.0"),
-            vec![Diagnostic::new(
-                "lint.unused",
-                Severity::Warning,
-                DiagnosticKind::Lint,
-                "unused binding",
-                None,
-                JsonValue::Null,
-            )],
+        let envelope = envelope_with_diagnostic(
+            "lint.unused",
+            Severity::Warning,
+            DiagnosticKind::Lint,
+            "unused binding",
         );
 
         assert_eq!(envelope.status, CheckStatus::Ok);

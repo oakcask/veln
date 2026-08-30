@@ -4,6 +4,8 @@ use std::fmt;
 
 use veln_project::{CapturedPackageSnapshot, PackageIdentity};
 
+use crate::encoded_uri_segment;
+
 const URI_PREFIX: &str = "veln-pkg:///";
 
 /// A canonical location for one source retained by a package snapshot.
@@ -117,7 +119,7 @@ impl Error for VirtualSourceCatalogError {}
 
 fn canonical_uri(identity: &PackageIdentity, digest: &str, source_path: &str) -> String {
     let mut uri = String::from(URI_PREFIX);
-    encode_segment(identity.as_str(), &mut uri);
+    uri.push_str(&encoded_uri_segment(identity.as_str()));
     uri.push_str("/snapshot/");
     uri.push_str(digest);
     uri.push('/');
@@ -125,23 +127,9 @@ fn canonical_uri(identity: &PackageIdentity, digest: &str, source_path: &str) ->
         if index > 0 {
             uri.push('/');
         }
-        encode_segment(segment, &mut uri);
+        uri.push_str(&encoded_uri_segment(segment));
     }
     uri
-}
-
-fn encode_segment(segment: &str, output: &mut String) {
-    const HEX: &[u8; 16] = b"0123456789ABCDEF";
-
-    for byte in segment.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
-            output.push(char::from(byte));
-        } else {
-            output.push('%');
-            output.push(char::from(HEX[usize::from(byte >> 4)]));
-            output.push(char::from(HEX[usize::from(byte & 0x0f)]));
-        }
-    }
 }
 
 #[cfg(test)]
@@ -238,12 +226,10 @@ mod tests {
         let before = capture_package_snapshot(root.path()).unwrap();
         fs::write(root.path().join("main.veln"), b"after\n").unwrap();
         let after = capture_package_snapshot(root.path()).unwrap();
-        let before_catalog = VirtualSourceCatalog::new([(identity.clone(), before)]).unwrap();
-        let after_catalog = VirtualSourceCatalog::new([(identity, after)]).unwrap();
 
         assert_ne!(
-            before_catalog.entries().next().unwrap().uri(),
-            after_catalog.entries().next().unwrap().uri()
+            first_source_uri(identity.clone(), before),
+            first_source_uri(identity, after)
         );
     }
 
@@ -258,13 +244,21 @@ mod tests {
         )
         .unwrap();
         let after = capture_package_snapshot(root.path()).unwrap();
-        let before_catalog = VirtualSourceCatalog::new([(identity.clone(), before)]).unwrap();
-        let after_catalog = VirtualSourceCatalog::new([(identity, after)]).unwrap();
 
         assert_ne!(
-            before_catalog.entries().next().unwrap().uri(),
-            after_catalog.entries().next().unwrap().uri()
+            first_source_uri(identity.clone(), before),
+            first_source_uri(identity, after)
         );
+    }
+
+    fn first_source_uri(identity: PackageIdentity, snapshot: CapturedPackageSnapshot) -> String {
+        VirtualSourceCatalog::new([(identity, snapshot)])
+            .unwrap()
+            .entries()
+            .next()
+            .unwrap()
+            .uri()
+            .to_string()
     }
 
     #[test]

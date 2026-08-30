@@ -17,17 +17,14 @@ pub(super) fn parse_diagnostic(
     identity: &str,
     snapshot_digest: &str,
 ) -> PackageDocDiagnostic {
-    PackageDocDiagnostic {
-        gate: gate.to_string(),
-        code: diagnostic.id.to_string(),
-        message: diagnostic.message,
-        span: diagnostic.span.as_ref().map(|span| {
-            PackageDocDiagnosticSpan::from_span(
-                &source_uri(identity, snapshot_digest, span.file.as_str()),
-                span,
-            )
-        }),
-    }
+    package_doc_diagnostic(
+        gate,
+        diagnostic.id.to_string(),
+        diagnostic.message,
+        diagnostic.span.as_ref(),
+        identity,
+        snapshot_digest,
+    )
 }
 
 pub(super) fn module_diagnostic(
@@ -36,11 +33,29 @@ pub(super) fn module_diagnostic(
     identity: &str,
     snapshot_digest: &str,
 ) -> PackageDocDiagnostic {
+    package_doc_diagnostic(
+        gate,
+        diagnostic.id,
+        diagnostic.message,
+        diagnostic.span.as_ref(),
+        identity,
+        snapshot_digest,
+    )
+}
+
+fn package_doc_diagnostic(
+    gate: &str,
+    code: String,
+    message: String,
+    span: Option<&SourceSpan>,
+    identity: &str,
+    snapshot_digest: &str,
+) -> PackageDocDiagnostic {
     PackageDocDiagnostic {
         gate: gate.to_string(),
-        code: diagnostic.id,
-        message: diagnostic.message,
-        span: diagnostic.span.as_ref().map(|span| {
+        code,
+        message,
+        span: span.map(|span| {
             PackageDocDiagnosticSpan::from_span(
                 &source_uri(identity, snapshot_digest, span.file.as_str()),
                 span,
@@ -61,41 +76,14 @@ pub(super) fn reconcile_package_expected_doctest_failures(
     diagnostics: Vec<Diagnostic>,
     expected_failures: &BTreeMap<String, SourceSpan>,
 ) -> Vec<Diagnostic> {
-    if expected_failures.is_empty() {
-        return diagnostics;
-    }
-
-    let mut matched = BTreeSet::new();
-    let mut kept = Vec::new();
-    for diagnostic in diagnostics {
-        if let Some(span) = &diagnostic.span
-            && diagnostic.severity == Severity::Error
-            && diagnostic.kind == DiagnosticKind::Parse
-            && expected_failures.contains_key(span.file.as_str())
-        {
-            matched.insert(span.file.as_str().to_string());
-            continue;
-        }
-        kept.push(diagnostic);
-    }
-
-    for (path, span) in expected_failures {
-        if matched.contains(path) {
-            continue;
-        }
-        kept.push(Diagnostic::new(
-            "doctest.expected_failure_missing",
-            Severity::Error,
-            DiagnosticKind::Doc,
-            "negative doctest produced no parse diagnostics",
-            Some(span.clone()),
-            veln_diagnostics::JsonValue::object([(
-                "kind",
-                veln_diagnostics::JsonValue::string("doctest_metadata"),
-            )]),
-        ));
-    }
-    kept
+    reconcile_expected_doctest_failures_with(
+        diagnostics,
+        expected_failures,
+        "negative doctest produced no parse diagnostics",
+        |diagnostic| {
+            diagnostic.severity == Severity::Error && diagnostic.kind == DiagnosticKind::Parse
+        },
+    )
 }
 
 pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> GeneratedDoctestSource {
@@ -412,7 +400,7 @@ pub(super) fn public_doctest_gate_lines(
     for target_line in public_documentation_lines(tree) {
         let mut block_lines = Vec::new();
         collect_doc_block_before(&original_lines, target_line, &mut block_lines);
-        if doc_lines_are_adr_lite(block_lines.iter().map(|(_, line)| *line)) {
+        if documentation_lines_are_adr_lite(block_lines.iter().map(|(_, line)| *line)) {
             continue;
         }
         for (line_number, line) in block_lines {

@@ -460,50 +460,23 @@ fn duration_seconds(duration: Duration) -> String {
     format!("{}.{:09}", nanos / 1_000_000_000, nanos % 1_000_000_000)
 }
 
-const HOST_EFFECT_LABELS: &[&str] = &[
-    "stdio",
-    "fs",
-    "net",
-    "db",
-    "time",
-    "random",
-    "process",
-    "concurrency",
-];
-
 fn retained_user_effect_diagnostic(
     module: &veln_ast::SurfaceModule,
     core: Option<&veln_core::CheckedProgram>,
     entry: &str,
     kind: FunctionKind,
 ) -> Option<Diagnostic> {
-    let function = module
-        .functions
-        .iter()
-        .find(|function| function.kind == kind && function.name.as_deref() == Some(entry))?;
-    let effects = core
-        .and_then(|core| {
-            core.functions
-                .iter()
-                .find(|core_function| core_function.node_id == function.node_id)
-        })
-        .map(|core_function| &core_function.effects)?;
-    let effect = effects
-        .iter()
-        .find(|effect| !HOST_EFFECT_LABELS.contains(&effect.as_str()))?;
-    Some(Diagnostic::new(
-        "effect.unhandled_user",
-        Severity::Error,
-        DiagnosticKind::Effect,
-        format!("runnable entry retains user-defined effect `{effect}`"),
-        Some(function.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("effect")),
-            ("node_id", JsonValue::string(function.node_id.display("fn"))),
-            ("effect", JsonValue::string(effect.clone())),
-            ("boundary", JsonValue::string("run_entry")),
-        ]),
-    ))
+    super::retained_user_effect_diagnostic(
+        module,
+        core,
+        entry,
+        super::RunnableEntryDiagnostic {
+            kind,
+            subject: "entry",
+            node_kind: "fn",
+            boundary: "run_entry",
+        },
+    )
 }
 
 fn run_human(

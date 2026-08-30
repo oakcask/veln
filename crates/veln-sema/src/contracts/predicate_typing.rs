@@ -256,35 +256,12 @@ pub(super) fn split_top_level_operator<'a>(
     predicate: &'a str,
     operator: &str,
 ) -> Option<(&'a str, &'a str)> {
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
-    for (index, ch) in predicate.char_indices().rev() {
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            continue;
-        }
-        match ch {
-            '"' => in_string = true,
-            ')' => depth += 1,
-            '(' => depth = depth.saturating_sub(1),
-            _ if depth == 0 && contract_operator_at(predicate, index, operator) => {
-                let left = predicate[..index].trim();
-                let right = predicate[index + operator.len()..].trim();
-                if !left.is_empty() && !right.is_empty() {
-                    return Some((left, right));
-                }
-            }
-            _ => {}
-        }
-    }
-    None
+    crate::predicate_text::split_top_level_operator_where(
+        predicate,
+        operator,
+        contract_operator_at,
+        |_, _| true,
+    )
 }
 
 pub(super) fn contract_operator_at(text: &str, index: usize, operator: &str) -> bool {
@@ -341,58 +318,12 @@ pub(super) fn split_top_level_keyword_operator<'a>(
 }
 
 pub(super) fn split_top_level_keyword<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
-    let mut clauses = Vec::new();
-    let mut start = 0;
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut cursor = 0;
-
-    while cursor < predicate.len() {
-        let ch = predicate[cursor..]
-            .chars()
-            .next()
-            .expect("cursor should stay on a char boundary");
-        let end = cursor + ch.len_utf8();
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            cursor = end;
-            continue;
-        }
-        match ch {
-            '"' => in_string = true,
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            _ if depth == 0 && predicate[cursor..].starts_with(keyword) => {
-                let keyword_end = cursor + keyword.len();
-                if is_keyword_boundary(predicate, cursor, keyword_end) {
-                    clauses.push(predicate[start..cursor].trim());
-                    start = keyword_end;
-                    cursor = keyword_end;
-                    continue;
-                }
-            }
-            _ => {}
-        }
-        cursor = end;
-    }
-
-    clauses.push(predicate[start..].trim());
-    clauses
+    crate::predicate_text::split_top_level_keyword_raw(predicate, keyword)
+        .into_iter()
+        .map(str::trim)
+        .collect()
 }
 
 pub(super) fn is_keyword_boundary(text: &str, start: usize, end: usize) -> bool {
-    let before = text[..start].chars().next_back();
-    let after = text[end..].chars().next();
-    before.is_none_or(|ch| !is_ident_continue(ch)) && after.is_none_or(|ch| !is_ident_continue(ch))
-}
-
-pub(super) fn is_ident_continue(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || ch == '_'
+    crate::predicate_text::is_identifier_word_boundary(text, start, end)
 }

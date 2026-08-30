@@ -1,4 +1,5 @@
 use super::*;
+use veln_diagnostics::source_span_to_json;
 
 pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
     validate_manifest_exports_with_checked_source_paths(project, &BTreeSet::new())
@@ -349,7 +350,7 @@ fn duplicate_manifest_export_diagnostic(
             "message",
             JsonValue::string(format!("The first export for `{module_name}` is here.")),
         ),
-        ("span", source_span_json(first_span)),
+        ("span", source_span_to_json(first_span)),
     ]));
     diagnostic
 }
@@ -413,26 +414,4 @@ fn is_package_relative_path(path: &str) -> bool {
                 Component::ParentDir | Component::RootDir | Component::Prefix(_)
             )
         })
-}
-
-fn source_span_json(span: &SourceSpan) -> JsonValue {
-    JsonValue::object([
-        ("file", JsonValue::string(span.file.as_str())),
-        (
-            "start",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.start.line as i64)),
-                ("column", JsonValue::Number(span.start.column as i64)),
-                ("offset", JsonValue::Number(span.start.offset as i64)),
-            ]),
-        ),
-        (
-            "end",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.end.line as i64)),
-                ("column", JsonValue::Number(span.end.column as i64)),
-                ("offset", JsonValue::Number(span.end.offset as i64)),
-            ]),
-        ),
-    ])
 }

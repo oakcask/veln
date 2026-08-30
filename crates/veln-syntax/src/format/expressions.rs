@@ -52,11 +52,7 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             args,
             ..
         } => {
-            let args = args
-                .iter()
-                .map(|arg| format_expr_at_indent(arg, indent))
-                .collect::<Vec<_>>()
-                .join(", ");
+            let args = format_expr_args(args, indent);
             format!("perform {}::{}({args})", effect.join("::"), operation)
         }
         ExprKind::Handle {
@@ -65,11 +61,7 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             args,
             ..
         } => {
-            let args = args
-                .iter()
-                .map(|arg| format_expr_at_indent(arg, indent))
-                .collect::<Vec<_>>()
-                .join(", ");
+            let args = format_expr_args(args, indent);
             format!(
                 "handle {} with {}({args})",
                 format_expr_at_indent(body, indent),
@@ -141,15 +133,18 @@ fn format_hole_expr(name: Option<&str>, satisfy: Option<&crate::SatisfyClause>) 
 }
 
 fn format_call_expr(callee: &Expr, args: &[Expr], prec: u8, indent: usize) -> String {
-    let args = args
-        .iter()
-        .map(|arg| format_expr_at_indent(arg, indent))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let args = format_expr_args(args, indent);
     format!(
         "{}({args})",
         format_expr_prec(callee, prec, ExprSide::Left, indent)
     )
+}
+
+fn format_expr_args(args: &[Expr], indent: usize) -> String {
+    args.iter()
+        .map(|arg| format_expr_at_indent(arg, indent))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn format_record_expr(fields: &[crate::RecordField], indent: usize) -> String {

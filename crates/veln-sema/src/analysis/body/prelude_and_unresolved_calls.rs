@@ -122,7 +122,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn infer_unresolved_call(&mut self, callee: &Expr, args: &[Expr]) -> Type {
-        if let Some((segments, type_args)) = callee_name_path_and_type_args(callee)
+        if let Some((segments, type_args)) = callee.callee_name_path_and_type_args()
             && !known_concurrency_type_arg_overflow(segments, type_args)
         {
             let recovered = matches!(segments, [name] if self

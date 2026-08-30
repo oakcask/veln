@@ -8,6 +8,7 @@ pub(crate) mod signatures;
 mod standard_environment;
 mod symbols;
 
+pub(crate) use effect_call_resolution::companion_access_targets;
 use effect_call_resolution::*;
 use effect_inference::{
     EffectDependencyNode, infer_function_and_private_handler_effects,
@@ -48,7 +49,7 @@ use veln_ast::{
     PublicAliasKind, RecordField, SchemaDecl, SchemaField, SurfaceModule, TypeDecl, UseDecl,
     Visibility, lower_surface_ast_with_module_identity,
 };
-use veln_project::classify_companion_source;
+use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::adt::{self, AdtRegistry};

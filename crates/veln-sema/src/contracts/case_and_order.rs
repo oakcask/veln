@@ -234,11 +234,7 @@ pub(super) fn has_strict_order_bound(
     left: &str,
     right: &str,
 ) -> bool {
-    clauses.iter().enumerate().any(|(index, clause)| {
-        index != excluded_index
-            && order_bound_shape(clause)
-                .is_some_and(|bound| bound.strict && bound.left == left && bound.right == right)
-    })
+    has_order_bound(clauses, excluded_index, left, right, true)
 }
 
 pub(super) fn has_inclusive_order_bound(
@@ -247,10 +243,21 @@ pub(super) fn has_inclusive_order_bound(
     left: &str,
     right: &str,
 ) -> bool {
+    has_order_bound(clauses, excluded_index, left, right, false)
+}
+
+fn has_order_bound(
+    clauses: &[&str],
+    excluded_index: usize,
+    left: &str,
+    right: &str,
+    strict: bool,
+) -> bool {
     clauses.iter().enumerate().any(|(index, clause)| {
         index != excluded_index
-            && order_bound_shape(clause)
-                .is_some_and(|bound| !bound.strict && bound.left == left && bound.right == right)
+            && order_bound_shape(clause).is_some_and(|bound| {
+                bound.strict == strict && bound.left == left && bound.right == right
+            })
     })
 }
 

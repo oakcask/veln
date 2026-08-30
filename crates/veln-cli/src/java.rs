@@ -578,25 +578,16 @@ fn create_cache_compile_dir(cache_root: &Path, key: &str) -> io::Result<PathBuf>
         .unwrap_or_default()
         .as_nanos();
     let base = cache_root.join(format!("{key}.tmp-{}-{nanos}", std::process::id()));
-    for attempt in 0..100 {
-        let candidate = if attempt == 0 {
-            base.clone()
-        } else {
+    create_unique_dir(
+        base,
+        |attempt| {
             cache_root.join(format!(
                 "{key}.tmp-{}-{nanos}-{attempt}",
                 std::process::id()
             ))
-        };
-        match fs::create_dir(&candidate) {
-            Ok(()) => return Ok(candidate),
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
-            Err(error) => return Err(error),
-        }
-    }
-    Err(io::Error::new(
-        io::ErrorKind::AlreadyExists,
+        },
         "could not allocate cache compile directory",
-    ))
+    )
 }
 
 fn jvm_class_cache_key(program: &veln_backend_jvm::JvmProgram) -> String {
@@ -618,11 +609,25 @@ pub(crate) fn create_build_dir(prefix: &str) -> io::Result<PathBuf> {
         .unwrap_or_default()
         .as_nanos();
     let base = env::temp_dir().join(format!("{prefix}-{}-{nanos}", std::process::id()));
+    create_unique_dir(
+        base,
+        |attempt| {
+            env::temp_dir().join(format!("{prefix}-{}-{nanos}-{attempt}", std::process::id()))
+        },
+        "could not allocate build directory",
+    )
+}
+
+fn create_unique_dir(
+    base: PathBuf,
+    retry_candidate: impl Fn(usize) -> PathBuf,
+    exhausted_message: &'static str,
+) -> io::Result<PathBuf> {
     for attempt in 0..100 {
         let candidate = if attempt == 0 {
             base.clone()
         } else {
-            env::temp_dir().join(format!("{prefix}-{}-{nanos}-{attempt}", std::process::id()))
+            retry_candidate(attempt)
         };
         match fs::create_dir(&candidate) {
             Ok(()) => return Ok(candidate),
@@ -632,7 +637,7 @@ pub(crate) fn create_build_dir(prefix: &str) -> io::Result<PathBuf> {
     }
     Err(io::Error::new(
         io::ErrorKind::AlreadyExists,
-        "could not allocate build directory",
+        exhausted_message,
     ))
 }
 

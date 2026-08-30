@@ -43,6 +43,22 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
     adts: &AdtRegistry,
     text: &str,
 ) -> Option<Type> {
+    format_neutral_schema_field_type_for_traversal(
+        module,
+        schema,
+        adts,
+        text,
+        FormatNeutralSchemaTraversal::Decode,
+    )
+}
+
+fn format_neutral_schema_field_type_for_traversal(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    adts: &AdtRegistry,
+    text: &str,
+    traversal: FormatNeutralSchemaTraversal,
+) -> Option<Type> {
     let ty = parse_type_annotation(text).ok()?;
     if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
         module,
@@ -50,7 +66,7 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
         adts,
         &ty,
         &mut FormatNeutralSchemaTraversalState::default(),
-        FormatNeutralSchemaTraversal::Decode,
+        traversal,
     ) {
         return Some(ty);
     }
@@ -60,7 +76,7 @@ pub(crate) fn format_neutral_schema_field_type_for_schema(
         return format_neutral_schema_composition_value_type(
             module,
             target,
-            FormatNeutralSchemaTraversal::Decode,
+            traversal,
             &mut Vec::new(),
         );
     }
@@ -121,28 +137,13 @@ pub(crate) fn format_neutral_schema_encode_field_type_for_schema(
     adts: &AdtRegistry,
     text: &str,
 ) -> Option<Type> {
-    let ty = parse_type_annotation(text).ok()?;
-    if let Some(ty) = format_neutral_schema_visible_shape_type_for_schema(
+    format_neutral_schema_field_type_for_traversal(
         module,
-        schema.module_name.as_deref(),
+        schema,
         adts,
-        &ty,
-        &mut FormatNeutralSchemaTraversalState::default(),
+        text,
         FormatNeutralSchemaTraversal::Encode,
-    ) {
-        return Some(ty);
-    }
-    if let Some(target) = schema_field_target(module, schema, text)
-        && target.format.is_none()
-    {
-        return format_neutral_schema_composition_value_type(
-            module,
-            target,
-            FormatNeutralSchemaTraversal::Encode,
-            &mut Vec::new(),
-        );
-    }
-    None
+    )
 }
 
 pub(crate) fn format_neutral_schema_encode_field_is_source_adt_candidate(text: &str) -> bool {

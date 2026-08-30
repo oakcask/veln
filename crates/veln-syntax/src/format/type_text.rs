@@ -236,46 +236,32 @@ fn exact_bracket_inner(text: &str) -> Option<&str> {
 }
 
 fn split_top_level_once(text: &str, delimiter: char) -> Option<(&str, &str)> {
+    let cursor = top_level_delimiter_indices(text, delimiter).next()?;
+    Some((
+        text[..cursor].trim(),
+        text[cursor + delimiter.len_utf8()..].trim(),
+    ))
+}
+
+fn top_level_delimiter_indices(text: &str, delimiter: char) -> impl Iterator<Item = usize> + '_ {
     let mut depth = 0usize;
-    let mut cursor = 0usize;
-    while cursor < text.len() {
-        let ch = text[cursor..]
-            .chars()
-            .next()
-            .expect("cursor should stay on a char boundary");
+    text.char_indices().filter_map(move |(cursor, ch)| {
         match ch {
             '(' | '[' | '{' | '<' => depth += 1,
             ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
-            _ if ch == delimiter && depth == 0 => {
-                return Some((text[..cursor].trim(), text[cursor + ch.len_utf8()..].trim()));
-            }
-            _ => {}
+            _ if ch == delimiter && depth == 0 => return Some(cursor),
+            _ => return None,
         }
-        cursor += ch.len_utf8();
-    }
-    None
+        None
+    })
 }
 
 fn split_top_level_args(text: &str) -> Vec<String> {
     let mut args = Vec::new();
     let mut start = 0usize;
-    let mut depth = 0usize;
-    let mut cursor = 0usize;
-    while cursor < text.len() {
-        let ch = text[cursor..]
-            .chars()
-            .next()
-            .expect("cursor should stay on a char boundary");
-        match ch {
-            '(' | '[' | '{' | '<' => depth += 1,
-            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
-            ',' if depth == 0 => {
-                args.push(text[start..cursor].trim().to_string());
-                start = cursor + ch.len_utf8();
-            }
-            _ => {}
-        }
-        cursor += ch.len_utf8();
+    for cursor in top_level_delimiter_indices(text, ',') {
+        args.push(text[start..cursor].trim().to_string());
+        start = cursor + ','.len_utf8();
     }
     args.push(text[start..].trim().to_string());
     args

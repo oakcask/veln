@@ -43,6 +43,19 @@ type PrivateSlotOmissions = (Vec<bool>, bool);
 type PrivateSlotMap = BTreeMap<FunctionKey, PrivateSlotOmissions>;
 type PrivateReferenceMap = BTreeMap<FunctionKey, BTreeSet<FunctionKey>>;
 
+fn function_ast_map(module: &SurfaceModule) -> FunctionAstMap<'_> {
+    module
+        .functions
+        .iter()
+        .filter_map(|function| {
+            Some((
+                (function.module_name.clone(), function.name.clone()?),
+                function,
+            ))
+        })
+        .collect()
+}
+
 pub(super) fn function_signature_params(
     function: &veln_ast::Function,
 ) -> (Vec<Type>, Option<Type>) {

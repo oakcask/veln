@@ -1,37 +1,13 @@
 use super::unification::{
-    core_named_part, core_named_parts2, core_payload_type_from_args, fill_core_type_parameters,
-    fill_type_parameters, named_part, named_parts2, payload_type_from_args,
+    core_payload_type_from_args, fill_core_type_parameters, fill_type_parameters, named_part,
+    named_parts2, payload_type_from_args,
 };
-use super::{AdtConstructor, AdtDescriptor, CoreType, Type};
+use super::{AdtConstructor, CoreType, Type};
 #[cfg(test)]
 use super::{
-    InvalidStandardSymbolCase, build_builtin_descriptors, validate_adt_lookup_descriptors,
+    AdtDescriptor, InvalidStandardSymbolCase, build_builtin_descriptors,
+    validate_adt_lookup_descriptors,
 };
-
-pub(crate) fn adt_args<'a>(ty: &'a Type, descriptor: &AdtDescriptor) -> Option<&'a [Type]> {
-    match ty {
-        Type::Named { name, args }
-            if name == &descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
-        {
-            Some(args)
-        }
-        _ => None,
-    }
-}
-
-pub(crate) fn core_adt_args<'a>(
-    ty: &'a CoreType,
-    descriptor: &AdtDescriptor,
-) -> Option<&'a [CoreType]> {
-    match ty {
-        CoreType::Named { name, args }
-            if name == &descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
-        {
-            Some(args)
-        }
-        _ => None,
-    }
-}
 
 pub(crate) fn constructed_type(constructor: AdtConstructor<'_>, payloads: &[Type]) -> Type {
     let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
@@ -154,7 +130,7 @@ pub(crate) fn option_part(ty: &Type) -> Option<&Type> {
 }
 
 pub(crate) fn core_option_part(ty: &CoreType) -> Option<&CoreType> {
-    core_named_part(ty, "Option", 1)
+    named_part(ty, "Option", 1)
 }
 
 pub(crate) fn result_parts(ty: &Type) -> Option<(&Type, &Type)> {
@@ -162,7 +138,7 @@ pub(crate) fn result_parts(ty: &Type) -> Option<(&Type, &Type)> {
 }
 
 pub(crate) fn core_result_parts(ty: &CoreType) -> Option<(&CoreType, &CoreType)> {
-    core_named_parts2(ty, "Result")
+    named_parts2(ty, "Result")
 }
 
 pub(crate) fn list_part(ty: &Type) -> Option<&Type> {
@@ -170,7 +146,7 @@ pub(crate) fn list_part(ty: &Type) -> Option<&Type> {
 }
 
 pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
-    core_named_part(ty, "List", 1)
+    named_part(ty, "List", 1)
 }
 
 #[cfg(test)]

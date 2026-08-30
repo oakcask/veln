@@ -420,40 +420,36 @@ fn line_col_json(line_col: LineCol) -> JsonValue {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::repair::test_candidate;
 
-    fn candidate(start: usize, end: usize) -> RepairCandidate {
-        RepairCandidate {
-            repair_id: "repair-1".to_string(),
-            source_candidate_id: "symbol-1".to_string(),
-            name: "value".to_string(),
-            application_policy: APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE.to_string(),
-            application_status: APPLICATION_STATUS_UNAPPLIED.to_string(),
-            edit_summary: "Replace hole with `value`".to_string(),
-            edits: vec![RepairEdit {
-                file: "main.veln".to_string(),
-                start: LineCol {
-                    line: 1,
-                    column: start + 1,
-                    offset: start,
-                },
-                end: LineCol {
-                    line: 1,
-                    column: end + 1,
-                    offset: end,
-                },
-                replacement: "value".to_string(),
-            }],
-            verification_command: None,
-            source: JsonValue::Null,
-            input_repair_id: None,
-            requires_current_match: false,
-        }
+    fn saved_candidate(span: JsonValue) -> JsonValue {
+        JsonValue::object([
+            ("repair_id", JsonValue::string("repair-7")),
+            ("source_candidate_id", JsonValue::string("symbol-1")),
+            ("name", JsonValue::string("value")),
+            (
+                "application_policy",
+                JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
+            ),
+            (
+                "application_status",
+                JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+            ),
+            (
+                "edit",
+                JsonValue::object([
+                    ("kind", JsonValue::string("replace")),
+                    ("span", span),
+                    ("replacement", JsonValue::string("value")),
+                ]),
+            ),
+        ])
     }
 
     #[test]
     fn find_candidate_by_id_reports_ambiguous_source_candidate_ids() {
-        let first = candidate(0, 6);
-        let mut second = candidate(8, 14);
+        let first = test_candidate(0, 6);
+        let mut second = test_candidate(8, 14);
         second.repair_id = "repair-2".to_string();
 
         assert!(matches!(
@@ -517,42 +513,19 @@ mod tests {
 
     #[test]
     fn saved_command_candidate_preserves_input_repair_id_for_selection() {
-        let saved = JsonValue::object([
-            ("repair_id", JsonValue::string("repair-7")),
-            ("source_candidate_id", JsonValue::string("symbol-1")),
-            ("name", JsonValue::string("value")),
-            (
-                "application_policy",
-                JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
-            ),
-            (
-                "application_status",
-                JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
-            ),
-            (
-                "edit",
-                JsonValue::object([
-                    ("kind", JsonValue::string("replace")),
-                    (
-                        "span",
-                        span_json(
-                            "main.veln",
-                            LineCol {
-                                line: 2,
-                                column: 3,
-                                offset: 27,
-                            },
-                            LineCol {
-                                line: 2,
-                                column: 9,
-                                offset: 33,
-                            },
-                        ),
-                    ),
-                    ("replacement", JsonValue::string("value")),
-                ]),
-            ),
-        ]);
+        let saved = saved_candidate(span_json(
+            "main.veln",
+            LineCol {
+                line: 2,
+                column: 3,
+                offset: 27,
+            },
+            LineCol {
+                line: 2,
+                column: 9,
+                offset: 33,
+            },
+        ));
         let candidate = RepairCandidate::from_saved_command(0, &saved)
             .expect("saved command candidate should load");
 
@@ -564,48 +537,7 @@ mod tests {
 
     #[test]
     fn saved_command_candidate_accepts_decimal_integer_span_tokens() {
-        let saved = JsonValue::object([
-            ("repair_id", JsonValue::string("repair-7")),
-            ("source_candidate_id", JsonValue::string("symbol-1")),
-            ("name", JsonValue::string("value")),
-            (
-                "application_policy",
-                JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
-            ),
-            (
-                "application_status",
-                JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
-            ),
-            (
-                "edit",
-                JsonValue::object([
-                    ("kind", JsonValue::string("replace")),
-                    (
-                        "span",
-                        JsonValue::object([
-                            ("file", JsonValue::string("main.veln")),
-                            (
-                                "start",
-                                JsonValue::object([
-                                    ("line", JsonValue::Decimal("2".to_string())),
-                                    ("column", JsonValue::Decimal("3".to_string())),
-                                    ("offset", JsonValue::Decimal("27".to_string())),
-                                ]),
-                            ),
-                            (
-                                "end",
-                                JsonValue::object([
-                                    ("line", JsonValue::Decimal("2".to_string())),
-                                    ("column", JsonValue::Decimal("9".to_string())),
-                                    ("offset", JsonValue::Decimal("33".to_string())),
-                                ]),
-                            ),
-                        ]),
-                    ),
-                    ("replacement", JsonValue::string("value")),
-                ]),
-            ),
-        ]);
+        let saved = saved_candidate(decimal_span("2"));
 
         let candidate = RepairCandidate::from_saved_command(0, &saved)
             .expect("saved command candidate should load");
@@ -617,53 +549,34 @@ mod tests {
     #[test]
     fn saved_command_candidate_rejects_non_integer_decimal_span_tokens() {
         for token in ["1.0", "1e0"] {
-            let saved = JsonValue::object([
-                ("repair_id", JsonValue::string("repair-7")),
-                ("source_candidate_id", JsonValue::string("symbol-1")),
-                ("name", JsonValue::string("value")),
-                (
-                    "application_policy",
-                    JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
-                ),
-                (
-                    "application_status",
-                    JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
-                ),
-                (
-                    "edit",
-                    JsonValue::object([
-                        ("kind", JsonValue::string("replace")),
-                        (
-                            "span",
-                            JsonValue::object([
-                                ("file", JsonValue::string("main.veln")),
-                                (
-                                    "start",
-                                    JsonValue::object([
-                                        ("line", JsonValue::Decimal(token.to_string())),
-                                        ("column", JsonValue::Decimal("3".to_string())),
-                                        ("offset", JsonValue::Decimal("27".to_string())),
-                                    ]),
-                                ),
-                                (
-                                    "end",
-                                    JsonValue::object([
-                                        ("line", JsonValue::Decimal("2".to_string())),
-                                        ("column", JsonValue::Decimal("9".to_string())),
-                                        ("offset", JsonValue::Decimal("33".to_string())),
-                                    ]),
-                                ),
-                            ]),
-                        ),
-                        ("replacement", JsonValue::string("value")),
-                    ]),
-                ),
-            ]);
+            let saved = saved_candidate(decimal_span(token));
 
             assert!(
                 RepairCandidate::from_saved_command(0, &saved).is_none(),
                 "non-integer decimal token {token} should not load"
             );
         }
+    }
+
+    fn decimal_span(start_line: &str) -> JsonValue {
+        JsonValue::object([
+            ("file", JsonValue::string("main.veln")),
+            (
+                "start",
+                JsonValue::object([
+                    ("line", JsonValue::Decimal(start_line.to_string())),
+                    ("column", JsonValue::Decimal("3".to_string())),
+                    ("offset", JsonValue::Decimal("27".to_string())),
+                ]),
+            ),
+            (
+                "end",
+                JsonValue::object([
+                    ("line", JsonValue::Decimal("2".to_string())),
+                    ("column", JsonValue::Decimal("9".to_string())),
+                    ("offset", JsonValue::Decimal("33".to_string())),
+                ]),
+            ),
+        ])
     }
 }

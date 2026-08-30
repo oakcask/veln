@@ -290,32 +290,6 @@ pub(super) fn push_recursive_dispatch_payload_blocker(
     ));
 }
 
-pub(super) fn schema_dispatch_has_recursive_payload(
-    module: &SurfaceModule,
-    schema: &SchemaDecl,
-    field: &SchemaField,
-    dispatch: &SchemaDispatchSpec,
-) -> bool {
-    dispatch.cases.iter().any(|case| {
-        matches!(
-            &case.payload,
-            SchemaDispatchCasePayload::Schema { schema_name }
-                    if recursive_dispatch_payload_case_is_eligible(
-                        module,
-                        schema,
-                        field,
-                        dispatch,
-                        schema_name,
-                    ) || recursive_dispatch_decode_only_payload_case_is_eligible(
-                        module,
-                        schema,
-                        dispatch,
-                        schema_name,
-                    )
-        )
-    })
-}
-
 pub(super) fn reconcile_schema_dispatch_payload_types(
     context: SchemaDispatchFieldContext<'_>,
     payload_types: &SchemaDispatchPayloadTypes,

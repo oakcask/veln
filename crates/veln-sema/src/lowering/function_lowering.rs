@@ -246,19 +246,7 @@ impl<'a> CoreLowerer<'a> {
     ) {
         match &pattern.kind {
             PatternKind::Binding(name) => {
-                self.bindings.push(CoreBinding {
-                    name: name.clone(),
-                    ty: ty.clone(),
-                });
-                body.push(CoreStmt {
-                    node_id,
-                    kind: CoreStmtKind::Let {
-                        name: name.clone(),
-                        ty,
-                        expr,
-                    },
-                    span: span.clone(),
-                });
+                self.bind_pattern_value(node_id, span, name, ty, expr, body);
             }
             PatternKind::Wildcard => {
                 body.push(CoreStmt {
@@ -309,19 +297,14 @@ impl<'a> CoreLowerer<'a> {
     ) {
         match &pattern.kind {
             PatternKind::Binding(name) => {
-                self.bindings.push(CoreBinding {
-                    name: name.clone(),
-                    ty: ty.clone(),
-                });
-                body.push(CoreStmt {
-                    node_id: pattern.node_id,
-                    kind: CoreStmtKind::Let {
-                        name: name.clone(),
-                        ty: ty.clone(),
-                        expr: value,
-                    },
-                    span: pattern.span.clone(),
-                });
+                self.bind_pattern_value(
+                    pattern.node_id,
+                    &pattern.span,
+                    name,
+                    ty.clone(),
+                    value,
+                    body,
+                );
             }
             PatternKind::Record(fields) => {
                 for field in fields {
@@ -367,6 +350,30 @@ impl<'a> CoreLowerer<'a> {
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => {}
         }
+    }
+
+    fn bind_pattern_value(
+        &mut self,
+        node_id: veln_ast::NodeId,
+        span: &veln_source::SourceSpan,
+        name: &str,
+        ty: CoreType,
+        expr: CoreExpr,
+        body: &mut Vec<CoreStmt>,
+    ) {
+        self.bindings.push(CoreBinding {
+            name: name.to_string(),
+            ty: ty.clone(),
+        });
+        body.push(CoreStmt {
+            node_id,
+            kind: CoreStmtKind::Let {
+                name: name.to_string(),
+                ty,
+                expr,
+            },
+            span: span.clone(),
+        });
     }
 
     pub(super) fn lower_constructor_pattern_binding(

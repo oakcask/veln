@@ -1,30 +1,12 @@
 use veln_ast::ContractKind;
-use veln_diagnostics::JsonValue;
+use veln_diagnostics::{JsonValue, source_span_to_json};
 use veln_source::SourceSpan;
 
 use crate::contracts::contract_kind_text;
 use crate::semantic_model::EffectUse;
 
 pub(crate) fn span_json(span: &SourceSpan) -> JsonValue {
-    JsonValue::object([
-        ("file", JsonValue::string(span.file.as_str())),
-        (
-            "start",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.start.line as i64)),
-                ("column", JsonValue::Number(span.start.column as i64)),
-                ("offset", JsonValue::Number(span.start.offset as i64)),
-            ]),
-        ),
-        (
-            "end",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.end.line as i64)),
-                ("column", JsonValue::Number(span.end.column as i64)),
-                ("offset", JsonValue::Number(span.end.offset as i64)),
-            ]),
-        ),
-    ])
+    source_span_to_json(span)
 }
 
 pub(crate) fn type_details(

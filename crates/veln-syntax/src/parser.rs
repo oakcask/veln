@@ -32,6 +32,31 @@ fn is_contextual_identifier(kind: TokenKind) -> bool {
     )
 }
 
+fn binary_operator(kind: TokenKind, allow_pipeline: bool) -> Option<(BinaryOp, u8, u8)> {
+    match kind {
+        TokenKind::PipeGreater if allow_pipeline => Some((BinaryOp::PipeGreater, 1, 2)),
+        TokenKind::Or => Some((BinaryOp::Or, 3, 4)),
+        TokenKind::And => Some((BinaryOp::And, 5, 6)),
+        TokenKind::Pipe => Some((BinaryOp::BitwiseOr, 7, 8)),
+        TokenKind::Caret => Some((BinaryOp::BitwiseXor, 9, 10)),
+        TokenKind::Ampersand => Some((BinaryOp::BitwiseAnd, 11, 12)),
+        TokenKind::EqualEqual => Some((BinaryOp::Equal, 13, 14)),
+        TokenKind::BangEqual => Some((BinaryOp::NotEqual, 13, 14)),
+        TokenKind::Less => Some((BinaryOp::Less, 15, 16)),
+        TokenKind::LessEqual => Some((BinaryOp::LessEqual, 15, 16)),
+        TokenKind::Greater => Some((BinaryOp::Greater, 15, 16)),
+        TokenKind::GreaterEqual => Some((BinaryOp::GreaterEqual, 15, 16)),
+        TokenKind::ShiftLeft => Some((BinaryOp::ShiftLeft, 17, 18)),
+        TokenKind::ShiftRight => Some((BinaryOp::ShiftRight, 17, 18)),
+        TokenKind::ShiftRightLogical => Some((BinaryOp::ShiftRightLogical, 17, 18)),
+        TokenKind::Plus => Some((BinaryOp::Add, 19, 20)),
+        TokenKind::Minus => Some((BinaryOp::Subtract, 19, 20)),
+        TokenKind::Star => Some((BinaryOp::Multiply, 21, 22)),
+        TokenKind::Slash => Some((BinaryOp::Divide, 21, 22)),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ParseOutput {
     pub tree: SyntaxTree,
@@ -96,6 +121,55 @@ struct DiagnosticRequest {
     strategy: RecoveryStrategy,
     anchor: Option<&'static str>,
     repair_candidates: Vec<ParseRepairCandidate>,
+}
+
+fn diagnostic_at_token(
+    source: &SourceFile,
+    token: &Token,
+    request: DiagnosticRequest,
+) -> ParseDiagnostic {
+    ParseDiagnostic {
+        id: request.id,
+        message: request.message,
+        span: Some(source.span(token.range)),
+        parser_context: request.parser_context,
+        unexpected: UnexpectedToken {
+            kind: token.kind.label().to_string(),
+            text: token.text.clone(),
+        },
+        expected: request.expected,
+        recovery: Recovery {
+            strategy: request.strategy,
+            anchor: request.anchor.map(str::to_string),
+            dropped_token_count: 0,
+        },
+        repair_candidates: request.repair_candidates,
+    }
+}
+
+fn invalid_expression_token_diagnostic(
+    source: &SourceFile,
+    token: &Token,
+    parser_context: &'static str,
+    recovery_anchor: &'static str,
+) -> ParseDiagnostic {
+    ParseDiagnostic {
+        id: "parse.invalid_token",
+        message: "invalid token in expression".to_string(),
+        span: Some(source.span(token.range)),
+        parser_context,
+        unexpected: UnexpectedToken {
+            kind: token.kind.label().to_string(),
+            text: token.text.clone(),
+        },
+        expected: vec!["expression"],
+        recovery: Recovery {
+            strategy: RecoveryStrategy::SkipToken,
+            anchor: Some(recovery_anchor.to_string()),
+            dropped_token_count: 1,
+        },
+        repair_candidates: Vec::new(),
+    }
 }
 
 impl RecoveryStrategy {
@@ -534,6 +608,107 @@ struct ContractPredicateParser<'a> {
     cursor: usize,
     diagnostics: Vec<ParseDiagnostic>,
 }
+
+trait TokenCursor {
+    fn token_slice(&self) -> &[Token];
+    fn cursor_index(&self) -> usize;
+    fn cursor_index_mut(&mut self) -> &mut usize;
+    fn source_file(&self) -> &SourceFile;
+    fn diagnostics_mut(&mut self) -> &mut Vec<ParseDiagnostic>;
+
+    fn holds_at_eof(&self) -> bool {
+        false
+    }
+
+    fn eat(&mut self, kind: TokenKind) -> Option<Token> {
+        self.at(kind).then(|| self.bump())
+    }
+
+    fn at(&self, kind: TokenKind) -> bool {
+        self.token_slice()
+            .get(self.cursor_index())
+            .is_some_and(|token| token.kind == kind)
+    }
+
+    fn peek_kind(&self, offset: usize) -> Option<TokenKind> {
+        self.token_slice()
+            .get(self.cursor_index() + offset)
+            .map(|token| token.kind)
+    }
+
+    fn at_ident_text(&self, text: &str) -> bool {
+        self.token_slice()
+            .get(self.cursor_index())
+            .is_some_and(|token| token.kind == TokenKind::Ident && token.text == text)
+    }
+
+    fn current(&self) -> &Token {
+        &self.token_slice()[self.cursor_index()]
+    }
+
+    fn previous(&self) -> Option<&Token> {
+        self.cursor_index()
+            .checked_sub(1)
+            .and_then(|index| self.token_slice().get(index))
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.cursor_index() >= self.token_slice().len()
+    }
+
+    fn eat_newlines(&mut self) {
+        while self.at(TokenKind::Newline) {
+            self.bump();
+        }
+    }
+
+    fn bump(&mut self) -> Token {
+        let token = self.current().clone();
+        if !self.holds_at_eof() || token.kind != TokenKind::Eof {
+            *self.cursor_index_mut() += 1;
+        }
+        token
+    }
+
+    fn error_at_token(&mut self, token: &Token, request: DiagnosticRequest) {
+        let diagnostic = diagnostic_at_token(self.source_file(), token, request);
+        self.diagnostics_mut().push(diagnostic);
+    }
+}
+
+macro_rules! impl_token_cursor {
+    ($parser:ident, $holds_at_eof:literal) => {
+        impl TokenCursor for $parser<'_> {
+            fn token_slice(&self) -> &[Token] {
+                self.tokens.as_ref()
+            }
+
+            fn cursor_index(&self) -> usize {
+                self.cursor
+            }
+
+            fn cursor_index_mut(&mut self) -> &mut usize {
+                &mut self.cursor
+            }
+
+            fn source_file(&self) -> &SourceFile {
+                self.source
+            }
+
+            fn diagnostics_mut(&mut self) -> &mut Vec<ParseDiagnostic> {
+                &mut self.diagnostics
+            }
+
+            fn holds_at_eof(&self) -> bool {
+                $holds_at_eof
+            }
+        }
+    };
+}
+
+impl_token_cursor!(Parser, true);
+impl_token_cursor!(ExprParser, false);
+impl_token_cursor!(ContractPredicateParser, false);
 
 fn lhs_range(expr: &Expr) -> TextRange {
     TextRange::new(expr.span.start.offset, expr.span.end.offset)

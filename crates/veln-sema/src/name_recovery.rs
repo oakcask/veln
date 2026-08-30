@@ -35,3 +35,16 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
         .cloned()
         .collect()
 }
+
+pub(crate) fn normal_imported_use_for_path<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    let module_path = segments.join("::");
+    module.uses.iter().find(|use_decl| {
+        !use_decl_has_invalid_module_segment(module, use_decl)
+            && use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
+}

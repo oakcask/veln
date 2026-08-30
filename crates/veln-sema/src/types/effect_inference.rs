@@ -17,6 +17,27 @@ struct FunctionEffectContext<'a> {
     companion_effect_access_targets: &'a BTreeMap<String, CompanionAccessTarget>,
 }
 
+impl FunctionEffectContext<'_> {
+    fn expression_context<'a>(
+        &'a self,
+        current_module: Option<&'a str>,
+        bindings: &'a [Binding],
+    ) -> ExprEffectContext<'a> {
+        ExprEffectContext {
+            uses: self.uses,
+            current_module,
+            bindings,
+            functions: self.functions,
+            effects_by_function: self.effects_by_function,
+            effects_by_module_path: self.effects_by_module_path,
+            companion_access_targets: self.companion_access_targets,
+            companion_effect_access_targets: self.companion_effect_access_targets,
+            user_effects: self.user_effects,
+            handlers: self.handlers,
+        }
+    }
+}
+
 struct HandlerEffectContext<'a> {
     module: &'a SurfaceModule,
     uses: &'a [UseDecl],
@@ -373,18 +394,7 @@ fn insert_handler_effect_dependencies(
     }) else {
         return;
     };
-    let mut bindings = decl
-        .params
-        .iter()
-        .enumerate()
-        .filter(|(_, param)| valid_value_binding_name(&param.name))
-        .map(|(index, param)| {
-            Binding::new(
-                param.name.clone(),
-                handler.params.get(index).cloned().unwrap_or(Type::Unknown),
-            )
-        })
-        .collect::<Vec<_>>();
+    let mut bindings = handler_parameter_bindings(decl, handler);
     for clause in &decl.operation_clauses {
         let binding_count = bindings.len();
         bindings.extend(
@@ -394,18 +404,7 @@ fn insert_handler_effect_dependencies(
                 .filter(|param| valid_value_binding_name(&param.name))
                 .map(|param| Binding::new(param.name.clone(), Type::Unknown)),
         );
-        let expr_context = ExprEffectContext {
-            uses: context.uses,
-            current_module: handler.module_name.as_deref(),
-            bindings: &bindings,
-            functions: context.functions,
-            effects_by_function: context.effects_by_function,
-            effects_by_module_path: context.effects_by_module_path,
-            companion_access_targets: context.companion_access_targets,
-            companion_effect_access_targets: context.companion_effect_access_targets,
-            user_effects: context.user_effects,
-            handlers: context.handlers,
-        };
+        let expr_context = context.expression_context(handler.module_name.as_deref(), &bindings);
         let mut dependencies = BTreeSet::new();
         collect_expr_effect_dependencies(&clause.body, &expr_context, &mut dependencies);
         for dependency in dependencies {
@@ -446,18 +445,7 @@ fn collect_private_handler_effects(
         else {
             continue;
         };
-        let mut bindings = decl
-            .params
-            .iter()
-            .enumerate()
-            .filter(|(_, param)| valid_value_binding_name(&param.name))
-            .map(|(index, param)| {
-                Binding::new(
-                    param.name.clone(),
-                    handler.params.get(index).cloned().unwrap_or(Type::Unknown),
-                )
-            })
-            .collect::<Vec<_>>();
+        let mut bindings = handler_parameter_bindings(decl, handler);
         bindings.extend(
             clause
                 .params
@@ -495,18 +483,34 @@ fn collect_private_handler_effects(
     inferred
 }
 
+fn handler_parameter_bindings(
+    declaration: &HandlerDecl,
+    signature: &HandlerSignature,
+) -> Vec<Binding> {
+    declaration
+        .params
+        .iter()
+        .enumerate()
+        .filter(|(_, param)| valid_value_binding_name(&param.name))
+        .map(|(index, param)| {
+            Binding::new(
+                param.name.clone(),
+                signature
+                    .params
+                    .get(index)
+                    .cloned()
+                    .unwrap_or(Type::Unknown),
+            )
+        })
+        .collect()
+}
+
 fn collect_function_body_effects(
     function: &Function,
     context: &FunctionEffectContext<'_>,
 ) -> Vec<String> {
     #[cfg(test)]
     effect_inference_counters::record_function_body_collection();
-    let mut bindings = function
-        .params
-        .iter()
-        .filter(|param| valid_value_binding_name(&param.name))
-        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
-        .collect::<Vec<_>>();
     let function_key = (
         function.module_name.clone(),
         function.name.clone().unwrap_or_default(),
@@ -516,46 +520,9 @@ fn collect_function_body_effects(
         .get(&function_key)
         .cloned()
         .unwrap_or_default();
-    for line in &function.body {
-        match &line.kind {
-            BodyLineKind::Let {
-                pattern,
-                annotation,
-                expr,
-            } => {
-                let expr_context = ExprEffectContext {
-                    uses: context.uses,
-                    current_module: function.module_name.as_deref(),
-                    bindings: &bindings,
-                    functions: context.functions,
-                    effects_by_function: context.effects_by_function,
-                    effects_by_module_path: context.effects_by_module_path,
-                    companion_access_targets: context.companion_access_targets,
-                    companion_effect_access_targets: context.companion_effect_access_targets,
-                    user_effects: context.user_effects,
-                    handlers: context.handlers,
-                };
-                collect_expr_effects(expr, &expr_context, &mut inferred);
-                let ty = parse_type_or_unknown(annotation.as_deref());
-                collect_pattern_bindings(pattern, &ty, &mut bindings);
-            }
-            BodyLineKind::Expr { expr } => {
-                let expr_context = ExprEffectContext {
-                    uses: context.uses,
-                    current_module: function.module_name.as_deref(),
-                    bindings: &bindings,
-                    functions: context.functions,
-                    effects_by_function: context.effects_by_function,
-                    effects_by_module_path: context.effects_by_module_path,
-                    companion_access_targets: context.companion_access_targets,
-                    companion_effect_access_targets: context.companion_effect_access_targets,
-                    user_effects: context.user_effects,
-                    handlers: context.handlers,
-                };
-                collect_expr_effects(expr, &expr_context, &mut inferred);
-            }
-        }
-    }
+    visit_function_body_expressions(function, context, |expr, expr_context| {
+        collect_expr_effects(expr, expr_context, &mut inferred);
+    });
     inferred
 }
 
@@ -564,12 +531,18 @@ fn function_effect_dependencies(
     context: &FunctionEffectContext<'_>,
 ) -> BTreeSet<EffectDependencyNode> {
     let mut dependencies = BTreeSet::new();
-    let mut bindings = function
-        .params
-        .iter()
-        .filter(|param| valid_value_binding_name(&param.name))
-        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
-        .collect::<Vec<_>>();
+    visit_function_body_expressions(function, context, |expr, expr_context| {
+        collect_expr_effect_dependencies(expr, expr_context, &mut dependencies);
+    });
+    dependencies
+}
+
+fn visit_function_body_expressions(
+    function: &Function,
+    context: &FunctionEffectContext<'_>,
+    mut visit: impl FnMut(&Expr, &ExprEffectContext<'_>),
+) {
+    let mut bindings = function_parameter_bindings(function);
     for line in &function.body {
         match &line.kind {
             BodyLineKind::Let {
@@ -577,40 +550,19 @@ fn function_effect_dependencies(
                 annotation,
                 expr,
             } => {
-                let expr_context = ExprEffectContext {
-                    uses: context.uses,
-                    current_module: function.module_name.as_deref(),
-                    bindings: &bindings,
-                    functions: context.functions,
-                    effects_by_function: context.effects_by_function,
-                    effects_by_module_path: context.effects_by_module_path,
-                    companion_access_targets: context.companion_access_targets,
-                    companion_effect_access_targets: context.companion_effect_access_targets,
-                    user_effects: context.user_effects,
-                    handlers: context.handlers,
-                };
-                collect_expr_effect_dependencies(expr, &expr_context, &mut dependencies);
+                let expr_context =
+                    context.expression_context(function.module_name.as_deref(), &bindings);
+                visit(expr, &expr_context);
                 let ty = parse_type_or_unknown(annotation.as_deref());
                 collect_pattern_bindings(pattern, &ty, &mut bindings);
             }
             BodyLineKind::Expr { expr } => {
-                let expr_context = ExprEffectContext {
-                    uses: context.uses,
-                    current_module: function.module_name.as_deref(),
-                    bindings: &bindings,
-                    functions: context.functions,
-                    effects_by_function: context.effects_by_function,
-                    effects_by_module_path: context.effects_by_module_path,
-                    companion_access_targets: context.companion_access_targets,
-                    companion_effect_access_targets: context.companion_effect_access_targets,
-                    user_effects: context.user_effects,
-                    handlers: context.handlers,
-                };
-                collect_expr_effect_dependencies(expr, &expr_context, &mut dependencies);
+                let expr_context =
+                    context.expression_context(function.module_name.as_deref(), &bindings);
+                visit(expr, &expr_context);
             }
         }
     }
-    dependencies
 }
 
 pub(crate) fn canonical_user_effect_label(

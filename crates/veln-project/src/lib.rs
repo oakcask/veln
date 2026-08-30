@@ -12,8 +12,9 @@ mod snapshot;
 mod tests;
 
 pub use companion::{
-    CompanionSource, CompanionSourceKind, classify_companion_source, companion_analysis_inputs,
-    explicit_companion_inputs, is_companion_source_path, production_analysis_inputs,
+    CompanionSource, CompanionSourceKind, classify_companion_source, companion_access_target,
+    companion_analysis_inputs, explicit_companion_inputs, is_companion_source_path,
+    production_analysis_inputs,
 };
 pub use discovery::discover_source_paths;
 pub use lockfile::{

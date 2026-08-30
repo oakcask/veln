@@ -73,56 +73,7 @@ pub(in crate::analysis) fn split_top_level_keyword<'a>(
     predicate: &'a str,
     keyword: &str,
 ) -> Vec<&'a str> {
-    let mut clauses = Vec::new();
-    let mut start = 0;
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut cursor = 0;
-
-    while cursor < predicate.len() {
-        let ch = predicate[cursor..]
-            .chars()
-            .next()
-            .expect("cursor should stay on a char boundary");
-        let end = cursor + ch.len_utf8();
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            cursor = end;
-            continue;
-        }
-        match ch {
-            '"' => in_string = true,
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            _ if depth == 0 && predicate[cursor..].starts_with(keyword) => {
-                let keyword_end = cursor + keyword.len();
-                if is_word_boundary(predicate, cursor, keyword_end) {
-                    clauses.push(&predicate[start..cursor]);
-                    start = keyword_end;
-                    cursor = keyword_end;
-                    continue;
-                }
-            }
-            _ => {}
-        }
-        cursor = end;
-    }
-
-    clauses.push(&predicate[start..]);
-    clauses
-}
-
-pub(in crate::analysis) fn is_word_boundary(text: &str, start: usize, end: usize) -> bool {
-    let before = text[..start].chars().next_back();
-    let after = text[end..].chars().next();
-    before.is_none_or(|ch| !is_ident_continue(ch)) && after.is_none_or(|ch| !is_ident_continue(ch))
+    crate::predicate_text::split_top_level_keyword_raw(predicate, keyword)
 }
 
 pub(in crate::analysis) fn normalized_predicate_clause(predicate: &str) -> String {
@@ -258,42 +209,13 @@ pub(in crate::analysis) fn replace_identifier(
     target: &str,
     replacement: &str,
 ) -> String {
-    let mut output = String::with_capacity(predicate.len());
-    let mut chars = predicate.char_indices().peekable();
-    while let Some((start, ch)) = chars.next() {
-        if ch == '"' {
-            output.push(ch);
-            let mut escaped = false;
-            for (_, string_ch) in chars.by_ref() {
-                output.push(string_ch);
-                if escaped {
-                    escaped = false;
-                } else if string_ch == '\\' {
-                    escaped = true;
-                } else if string_ch == '"' {
-                    break;
-                }
-            }
-        } else if is_ident_start(ch) {
-            let mut end = start + ch.len_utf8();
-            while let Some((next, next_ch)) = chars.peek().copied() {
-                if !is_ident_continue(next_ch) {
-                    break;
-                }
-                chars.next();
-                end = next + next_ch.len_utf8();
-            }
-            let ident = &predicate[start..end];
-            if ident == target && is_value_identifier_position(predicate, start, end) {
-                output.push_str(replacement);
-            } else {
-                output.push_str(ident);
-            }
+    crate::predicate_text::rewrite_identifiers(predicate, true, |identifier, is_value, output| {
+        if identifier == target && is_value {
+            output.push_str(replacement);
         } else {
-            output.push(ch);
+            output.push_str(identifier);
         }
-    }
-    output
+    })
 }
 
 pub(in crate::analysis) fn is_value_identifier_position(
@@ -301,32 +223,15 @@ pub(in crate::analysis) fn is_value_identifier_position(
     start: usize,
     end: usize,
 ) -> bool {
-    !predicate[..start].ends_with('.')
-        && !predicate[..start].ends_with("::")
-        && !predicate[end..].starts_with("::")
+    crate::predicate_text::is_value_identifier_position(predicate, start, end)
 }
 
 pub(in crate::analysis) fn is_ident_start(ch: char) -> bool {
-    ch.is_ascii_alphabetic() || ch == '_'
+    crate::predicate_text::is_ident_start(ch)
 }
 
 pub(in crate::analysis) fn is_ident_continue(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || ch == '_'
-}
-
-pub(in crate::analysis) fn callee_name_path_and_type_args(
-    callee: &Expr,
-) -> Option<(&[String], Option<&[String]>)> {
-    match &callee.kind {
-        ExprKind::NamePath(segments) => Some((segments, None)),
-        ExprKind::TypeApply { callee, type_args } => {
-            let ExprKind::NamePath(segments) = &callee.kind else {
-                return None;
-            };
-            Some((segments, Some(type_args.as_slice())))
-        }
-        _ => None,
-    }
+    crate::predicate_text::is_ident_continue(ch)
 }
 
 pub(in crate::analysis) fn function_returns_result(ty: &Type) -> Option<(&Type, &Type)> {
@@ -370,34 +275,14 @@ pub(in crate::analysis) fn contract_call_result_feeds_boolean_predicate(
     let Some(call_depth) = paren_depth_before(predicate, start) else {
         return false;
     };
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
-    for (index, ch) in predicate.char_indices() {
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            continue;
-        }
-        match ch {
-            '"' => in_string = true,
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            _ if (index < start || index >= end)
-                && depth <= call_depth
-                && predicate[index..].starts_with_comparison_operator() =>
-            {
-                return true;
-            }
-            _ => {}
-        }
-    }
-    false
+    let mut found = false;
+    crate::predicate_text::visit_unquoted_characters(predicate, |index, _, depth| {
+        found = (index < start || index >= end)
+            && depth <= call_depth
+            && predicate[index..].starts_with_comparison_operator();
+        found
+    });
+    found
 }
 
 pub(in crate::analysis) fn contract_call_result_has_field_access(
@@ -408,31 +293,16 @@ pub(in crate::analysis) fn contract_call_result_has_field_access(
 }
 
 pub(in crate::analysis) fn paren_depth_before(text: &str, offset: usize) -> Option<usize> {
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
-    for (index, ch) in text.char_indices() {
+    let mut depth_at_offset = None;
+    let final_depth = crate::predicate_text::visit_unquoted_characters(text, |index, _, depth| {
         if index >= offset {
-            return Some(depth);
+            depth_at_offset = Some(depth);
+            true
+        } else {
+            false
         }
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            continue;
-        }
-        match ch {
-            '"' => in_string = true,
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            _ => {}
-        }
-    }
-    Some(depth)
+    });
+    Some(depth_at_offset.unwrap_or(final_depth))
 }
 
 pub(in crate::analysis) trait StartsWithComparisonOperator {

@@ -7,10 +7,11 @@ use veln_syntax::{
     EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
     ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, HandlerDecl as SyntaxHandlerDecl,
     HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, ModuleDecl as SyntaxModule,
-    Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
-    PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
-    RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
-    TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
+    Param as SyntaxParam, Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind,
+    PrefixOp as SyntaxPrefixOp, PublicAliasDecl as SyntaxPublicAlias,
+    PublicAliasKind as SyntaxPublicAliasKind, RecordField as SyntaxRecordField,
+    SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl,
+    UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
@@ -302,18 +303,7 @@ impl AstBuilder {
             node_id: self.alloc(),
             name: operation.name.clone(),
             name_span: operation.name_span.clone(),
-            params: operation
-                .params
-                .iter()
-                .map(|param| Param {
-                    node_id: self.alloc(),
-                    name: param.name.clone(),
-                    ty: param.ty.clone(),
-                    ty_span: param.ty_span.clone(),
-                    is_variadic: param.is_variadic,
-                    span: param.span.clone(),
-                })
-                .collect(),
+            params: self.lower_params(&operation.params),
             return_type: operation.return_type.clone(),
             span: operation.span.clone(),
         }
@@ -332,18 +322,7 @@ impl AstBuilder {
                 SyntaxVisibility::Private => Visibility::Private,
             },
             name: handler.name.clone(),
-            params: handler
-                .params
-                .iter()
-                .map(|param| Param {
-                    node_id: self.alloc(),
-                    name: param.name.clone(),
-                    ty: param.ty.clone(),
-                    ty_span: param.ty_span.clone(),
-                    is_variadic: param.is_variadic,
-                    span: param.span.clone(),
-                })
-                .collect(),
+            params: self.lower_params(&handler.params),
             effect: handler.effect.clone(),
             effect_span: handler.effect_span.clone(),
             effects: handler.effects.clone(),
@@ -495,18 +474,7 @@ impl AstBuilder {
                     name: binder.name.clone(),
                     span: binder.span.clone(),
                 }),
-            params: function
-                .params
-                .iter()
-                .map(|param| Param {
-                    node_id: self.alloc(),
-                    name: param.name.clone(),
-                    ty: param.ty.clone(),
-                    ty_span: param.ty_span.clone(),
-                    is_variadic: param.is_variadic,
-                    span: param.span.clone(),
-                })
-                .collect(),
+            params: self.lower_params(&function.params),
             return_binding: function
                 .return_binding
                 .as_ref()
@@ -562,5 +530,19 @@ impl AstBuilder {
                 .collect(),
             span: function.span.clone(),
         }
+    }
+
+    fn lower_params(&mut self, params: &[SyntaxParam]) -> Vec<Param> {
+        params
+            .iter()
+            .map(|param| Param {
+                node_id: self.alloc(),
+                name: param.name.clone(),
+                ty: param.ty.clone(),
+                ty_span: param.ty_span.clone(),
+                is_variadic: param.is_variadic,
+                span: param.span.clone(),
+            })
+            .collect()
     }
 }

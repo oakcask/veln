@@ -12,6 +12,7 @@ mod effects;
 mod lowering;
 mod name_recovery;
 mod pipeline;
+mod predicate_text;
 mod prelude;
 mod repair_candidates;
 mod schema;

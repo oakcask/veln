@@ -1,6 +1,20 @@
 use super::*;
 
 impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
+    fn emit_schema_field_list(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+        emit_field: impl FnMut(&mut Self, &mut MethodCode, usize),
+    ) {
+        self.emit_object_array(code, schema.fields.len(), emit_field);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
     pub(super) fn emit_schema_validate_call(
         &mut self,
         code: &mut MethodCode,
@@ -81,18 +95,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+        self.emit_schema_field_list(code, schema, |_, code, index| {
             if schema.fields[index].little_endian {
                 code.getstatic("java/lang/Boolean", "TRUE", "Ljava/lang/Boolean;");
             } else {
                 code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
             }
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
     }
 
     pub(super) fn emit_schema_repeat_count_fields(
@@ -100,20 +109,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
-            code.ldc_string(
-                schema.fields[index]
-                    .repeat
-                    .as_ref()
-                    .map(|repeat| repeat.count_field.as_str())
-                    .unwrap_or(""),
-            );
+        self.emit_schema_repeat_string_values(code, schema, |repeat| {
+            Some(repeat.count_field.as_str())
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
     }
 
     pub(super) fn emit_schema_repeat_widths(
@@ -121,20 +119,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
-            let width = schema.fields[index]
-                .repeat
-                .as_ref()
-                .map(|repeat| repeat.width as i64)
-                .unwrap_or(0);
-            code.ldc_long(width);
-            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-        });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
+        self.emit_schema_repeat_long_values(code, schema, 0, |repeat| Some(repeat.width as i64));
     }
 
     pub(super) fn emit_schema_repeat_max_values(
@@ -142,20 +127,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
-            let max_value = schema.fields[index]
-                .repeat
-                .as_ref()
-                .map(|repeat| repeat.max_value)
-                .unwrap_or(0);
-            code.ldc_long(max_value);
-            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-        });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
+        self.emit_schema_repeat_long_values(code, schema, 0, |repeat| Some(repeat.max_value));
     }
 
     pub(super) fn emit_schema_repeat_little_endian_values(
@@ -163,7 +135,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+        self.emit_schema_field_list(code, schema, |_, code, index| {
             if schema.fields[index]
                 .repeat
                 .as_ref()
@@ -174,11 +146,6 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
             }
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
     }
 
     pub(super) fn emit_schema_repeat_reserved_values(
@@ -186,13 +153,27 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
+        self.emit_schema_repeat_long_values(code, schema, -1, |repeat| {
+            repeat
+                .reserved_bits
+                .as_ref()
+                .map(|reserved| reserved.expected_value)
+        });
+    }
+
+    fn emit_schema_repeat_long_values(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+        default: i64,
+        value: impl Fn(&veln_ir::IrSchemaRepeat) -> Option<i64>,
+    ) {
         self.emit_object_array(code, schema.fields.len(), |_, code, index| {
             let value = schema.fields[index]
                 .repeat
                 .as_ref()
-                .and_then(|repeat| repeat.reserved_bits.as_ref())
-                .map(|reserved| reserved.expected_value)
-                .unwrap_or(-1);
+                .and_then(&value)
+                .unwrap_or(default);
             code.ldc_long(value);
             code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
         });
@@ -208,20 +189,26 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+        self.emit_schema_repeat_string_values(code, schema, |repeat| {
+            repeat.byte_view_length_field.as_deref()
+        });
+    }
+
+    fn emit_schema_repeat_string_values(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+        value: impl for<'repeat> Fn(&'repeat veln_ir::IrSchemaRepeat) -> Option<&'repeat str>,
+    ) {
+        self.emit_schema_field_list(code, schema, |_, code, index| {
             code.ldc_string(
                 schema.fields[index]
                     .repeat
                     .as_ref()
-                    .and_then(|repeat| repeat.byte_view_length_field.as_deref())
+                    .and_then(&value)
                     .unwrap_or(""),
             );
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
     }
 
     pub(super) fn emit_schema_repeat_schema_specs(
@@ -359,27 +346,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
-            let cases = schema.fields[index]
-                .dispatch
-                .as_ref()
-                .map(|dispatch| dispatch.cases.as_slice())
-                .unwrap_or(&[]);
-            this.emit_object_array(code, cases.len(), |_, code, case_index| {
-                code.ldc_long(cases[case_index].tag);
-                code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-            });
-            code.invokestatic(
-                &this.program.options.runtime_class,
-                "list",
-                "([Ljava/lang/Object;)Ljava/util/List;",
-            );
+        self.emit_schema_dispatch_case_values(code, schema, |_, code, case| {
+            code.ldc_long(case.tag);
+            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
     }
 
     pub(super) fn emit_schema_dispatch_length_fields(
@@ -416,27 +386,10 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
-            let cases = schema.fields[index]
-                .dispatch
-                .as_ref()
-                .map(|dispatch| dispatch.cases.as_slice())
-                .unwrap_or(&[]);
-            this.emit_object_array(code, cases.len(), |_, code, case_index| {
-                code.ldc_long(cases[case_index].width as i64);
-                code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-            });
-            code.invokestatic(
-                &this.program.options.runtime_class,
-                "list",
-                "([Ljava/lang/Object;)Ljava/util/List;",
-            );
+        self.emit_schema_dispatch_case_values(code, schema, |_, code, case| {
+            code.ldc_long(case.width as i64);
+            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
     }
 
     pub(super) fn emit_schema_dispatch_case_little_endian_values(
@@ -444,36 +397,38 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
     ) {
-        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
-            let cases = schema.fields[index]
-                .dispatch
-                .as_ref()
-                .map(|dispatch| dispatch.cases.as_slice())
-                .unwrap_or(&[]);
-            this.emit_object_array(code, cases.len(), |_, code, case_index| {
-                if cases[case_index].little_endian {
-                    code.getstatic("java/lang/Boolean", "TRUE", "Ljava/lang/Boolean;");
-                } else {
-                    code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
-                }
-            });
-            code.invokestatic(
-                &this.program.options.runtime_class,
-                "list",
-                "([Ljava/lang/Object;)Ljava/util/List;",
-            );
+        self.emit_schema_dispatch_case_values(code, schema, |_, code, case| {
+            if case.little_endian {
+                code.getstatic("java/lang/Boolean", "TRUE", "Ljava/lang/Boolean;");
+            } else {
+                code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
+            }
         });
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "list",
-            "([Ljava/lang/Object;)Ljava/util/List;",
-        );
     }
 
     pub(super) fn emit_schema_dispatch_case_schema_specs(
         &mut self,
         code: &mut MethodCode,
         schema: &IrSchemaDecodeSpec,
+    ) {
+        self.emit_schema_dispatch_case_values(code, schema, |this, code, case| {
+            if let Some(payload_schema) = case.payload_schema.as_ref() {
+                this.emit_schema_metadata(code, payload_schema);
+            } else if let Some(reserved_bits) = case.reserved_bits.as_ref() {
+                code.ldc_string(&format!("reserved:{}", reserved_bits.expected_value));
+            } else if let Some(payload_schema_name) = case.payload_schema_name.as_ref() {
+                code.ldc_string(payload_schema_name);
+            } else {
+                code.ldc_string("");
+            }
+        });
+    }
+
+    fn emit_schema_dispatch_case_values(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+        mut emit_case: impl FnMut(&mut Self, &mut MethodCode, &IrSchemaDecodeDispatchCase),
     ) {
         self.emit_object_array(code, schema.fields.len(), |this, code, index| {
             let cases = schema.fields[index]
@@ -482,17 +437,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 .map(|dispatch| dispatch.cases.as_slice())
                 .unwrap_or(&[]);
             this.emit_object_array(code, cases.len(), |this, code, case_index| {
-                if let Some(payload_schema) = cases[case_index].payload_schema.as_ref() {
-                    this.emit_schema_metadata(code, payload_schema);
-                } else if let Some(reserved_bits) = cases[case_index].reserved_bits.as_ref() {
-                    code.ldc_string(&format!("reserved:{}", reserved_bits.expected_value));
-                } else if let Some(payload_schema_name) =
-                    cases[case_index].payload_schema_name.as_ref()
-                {
-                    code.ldc_string(payload_schema_name);
-                } else {
-                    code.ldc_string("");
-                }
+                emit_case(this, code, &cases[case_index]);
             });
             code.invokestatic(
                 &this.program.options.runtime_class,

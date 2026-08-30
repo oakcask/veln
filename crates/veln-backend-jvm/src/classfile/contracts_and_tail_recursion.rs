@@ -227,41 +227,43 @@ pub(super) fn object_method_descriptor(arg_count: usize) -> String {
 }
 
 pub(crate) fn split_contract_binary<'a>(text: &'a str, op: &str) -> Option<(&'a str, &'a str)> {
+    let bytes = text.as_bytes();
+    let mut split = None;
+    for_each_contract_top_level_character(text, |index, _| {
+        if index + op.len() <= text.len() && contract_operator_at(bytes, index, op.as_bytes()) {
+            let left = text[..index].trim();
+            let right = text[index + op.len()..].trim();
+            if !left.is_empty() && !right.is_empty() {
+                split = Some((left, right));
+            }
+        }
+    });
+    split
+}
+
+fn for_each_contract_top_level_character(text: &str, mut visit: impl FnMut(usize, char)) {
     let mut depth = 0usize;
     let mut in_string = false;
     let mut escaped = false;
-    let bytes = text.as_bytes();
-    let mut index = 0usize;
-    let mut split = None;
-    while index + op.len() <= text.len() {
-        let ch = text[index..].chars().next()?;
+    for (index, character) in text.char_indices() {
         if in_string {
             if escaped {
                 escaped = false;
-            } else if ch == '\\' {
+            } else if character == '\\' {
                 escaped = true;
-            } else if ch == '"' {
+            } else if character == '"' {
                 in_string = false;
             }
-            index += ch.len_utf8();
             continue;
         }
-        match ch {
+        match character {
             '"' => in_string = true,
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
-            _ if depth == 0 && contract_operator_at(bytes, index, op.as_bytes()) => {
-                let left = text[..index].trim();
-                let right = text[index + op.len()..].trim();
-                if !left.is_empty() && !right.is_empty() {
-                    split = Some((left, right));
-                }
-            }
+            _ if depth == 0 => visit(index, character),
             _ => {}
         }
-        index += ch.len_utf8();
     }
-    split
 }
 
 fn contract_operator_at(text: &[u8], index: usize, operator: &[u8]) -> bool {
@@ -335,42 +337,16 @@ pub(super) fn parse_contract_call(text: &str) -> Option<(&str, Vec<&str>)> {
 
 fn split_contract_args(text: &str) -> Vec<&str> {
     let mut args = Vec::new();
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
     let mut start = 0usize;
-    let mut index = 0usize;
-    while index < text.len() {
-        let ch = text[index..]
-            .chars()
-            .next()
-            .expect("index should stay on a character boundary");
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
+    for_each_contract_top_level_character(text, |index, character| {
+        if character == ',' {
+            let arg = text[start..index].trim();
+            if !arg.is_empty() {
+                args.push(arg);
             }
-            index += ch.len_utf8();
-            continue;
+            start = index + 1;
         }
-        match ch {
-            '"' => in_string = true,
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            ',' if depth == 0 => {
-                let arg = text[start..index].trim();
-                if !arg.is_empty() {
-                    args.push(arg);
-                }
-                start = index + 1;
-            }
-            _ => {}
-        }
-        index += ch.len_utf8();
-    }
+    });
     let arg = text[start..].trim();
     if !arg.is_empty() {
         args.push(arg);

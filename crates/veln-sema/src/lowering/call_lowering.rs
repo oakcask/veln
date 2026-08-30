@@ -179,7 +179,7 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let Some((segments, type_args)) = callee_name_path_and_type_args(callee)
+        if let Some((segments, type_args)) = callee.callee_name_path_and_type_args()
             && is_concurrency_call(segments)
             && matches!(callee.kind, ExprKind::TypeApply { .. })
         {
@@ -525,7 +525,7 @@ impl<'a> CoreLowerer<'a> {
             );
         }
         let expected_constructor_type = expected
-            .and_then(|expected| adt::core_adt_args(expected, constructor.descriptor))
+            .and_then(|expected| adt::adt_args(expected, constructor.descriptor))
             .is_some();
         let mut inferred_type_args =
             vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];

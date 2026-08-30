@@ -26,7 +26,17 @@ impl<'a> Parser<'a> {
         context: &'static str,
         expected: &'static str,
     ) -> (Option<String>, Option<SourceSpan>) {
-        if is_contextual_identifier(self.current().kind) || self.at(TokenKind::Hole) {
+        self.expect_name(context, expected, true)
+    }
+
+    pub(super) fn expect_name(
+        &mut self,
+        context: &'static str,
+        expected: &'static str,
+        allow_hole: bool,
+    ) -> (Option<String>, Option<SourceSpan>) {
+        if is_contextual_identifier(self.current().kind) || (allow_hole && self.at(TokenKind::Hole))
+        {
             let token = self.bump();
             let span = self.source.span(token.range);
             (Some(token.text), Some(span))
@@ -127,26 +137,6 @@ impl<'a> Parser<'a> {
         );
     }
 
-    pub(super) fn error_at_token(&mut self, token: &Token, request: DiagnosticRequest) {
-        self.diagnostics.push(ParseDiagnostic {
-            id: request.id,
-            message: request.message,
-            span: Some(self.source.span(token.range)),
-            parser_context: request.parser_context,
-            unexpected: UnexpectedToken {
-                kind: token.kind.label().to_string(),
-                text: token.text.clone(),
-            },
-            expected: request.expected,
-            recovery: Recovery {
-                strategy: request.strategy,
-                anchor: request.anchor.map(str::to_string),
-                dropped_token_count: 0,
-            },
-            repair_candidates: request.repair_candidates,
-        });
-    }
-
     pub(super) fn synchronize_to_item(&mut self) {
         let start = self.cursor;
         while !self.at(TokenKind::Eof)
@@ -180,12 +170,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn eat_newlines(&mut self) {
-        while self.at(TokenKind::Newline) {
-            self.bump();
-        }
-    }
-
     pub(super) fn skip_to_next_line(&mut self) {
         while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
             self.bump();
@@ -195,49 +179,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn eat(&mut self, kind: TokenKind) -> Option<Token> {
-        if self.at(kind) {
-            Some(self.bump())
-        } else {
-            None
-        }
-    }
-
-    pub(super) fn at(&self, kind: TokenKind) -> bool {
-        self.current().kind == kind
-    }
-
     pub(super) fn peek_at(&self, kind: TokenKind) -> bool {
         self.tokens
             .get(self.cursor + 1)
             .is_some_and(|token| token.kind == kind)
-    }
-
-    pub(super) fn peek_kind(&self, offset: usize) -> Option<TokenKind> {
-        self.tokens
-            .get(self.cursor + offset)
-            .map(|token| token.kind)
-    }
-
-    pub(super) fn at_ident_text(&self, text: &str) -> bool {
-        self.at(TokenKind::Ident) && self.current().text == text
-    }
-
-    pub(super) fn current(&self) -> &Token {
-        &self.tokens[self.cursor]
-    }
-
-    pub(super) fn previous(&self) -> Option<&Token> {
-        self.cursor
-            .checked_sub(1)
-            .and_then(|index| self.tokens.get(index))
-    }
-
-    pub(super) fn bump(&mut self) -> Token {
-        let token = self.current().clone();
-        if token.kind != TokenKind::Eof {
-            self.cursor += 1;
-        }
-        token
     }
 }

@@ -34,25 +34,11 @@ test("accepts the PR template sections with optional stack preface", () => {
 
 test("accepts a breaking PR title when the description explains the breaking change", () => {
   const result = validatePullRequestDescription(
-    [
-      "## Intent",
-      "",
-      "Replace the compatibility aliases with the semantic fields.",
-      "",
-      "## Consequences",
-      "",
+    breakingDescription([
       "Consumers must read the semantic diagnostic fields.",
       "",
       "BREAKING CHANGE: Generated diagnostics no longer emit the old numbered aliases.",
-      "",
-      "## Risks",
-      "",
-      "Downstream callers may still read the removed aliases.",
-      "",
-      "## Compliance and Revisit Triggers",
-      "",
-      "Semantic assertions enforce the contract. Revisit it if consumers need aliases.",
-    ].join("\n"),
+    ]),
     { title: "refactor(core)!: remove legacy diagnostic aliases" },
   );
 
@@ -61,23 +47,9 @@ test("accepts a breaking PR title when the description explains the breaking cha
 
 test("rejects a breaking PR title without a BREAKING CHANGE line", () => {
   const result = validatePullRequestDescription(
-    [
-      "## Intent",
-      "",
-      "Replace the compatibility aliases with the semantic fields.",
-      "",
-      "## Consequences",
-      "",
-      "Consumers must read the semantic diagnostic fields.",
-      "",
-      "## Risks",
-      "",
-      "This is a breaking API cleanup.",
-      "",
-      "## Compliance and Revisit Triggers",
-      "",
-      "Semantic assertions enforce the contract. Revisit it if consumers need aliases.",
-    ].join("\n"),
+    breakingDescription("Consumers must read the semantic diagnostic fields.", {
+      risks: "This is a breaking API cleanup.",
+    }),
     { title: "refactor(core)!: remove legacy diagnostic aliases" },
   );
 
@@ -89,23 +61,7 @@ test("rejects a breaking PR title without a BREAKING CHANGE line", () => {
 
 test("rejects an empty BREAKING CHANGE line for a breaking PR title", () => {
   const result = validatePullRequestDescription(
-    [
-      "## Intent",
-      "",
-      "Replace the compatibility aliases with the semantic fields.",
-      "",
-      "## Consequences",
-      "",
-      "BREAKING CHANGE:",
-      "",
-      "## Risks",
-      "",
-      "Downstream callers may still read the removed aliases.",
-      "",
-      "## Compliance and Revisit Triggers",
-      "",
-      "Semantic assertions enforce the contract. Revisit it if consumers need aliases.",
-    ].join("\n"),
+    breakingDescription("BREAKING CHANGE:"),
     { title: "refactor(core)!: remove legacy diagnostic aliases" },
   );
 
@@ -114,6 +70,30 @@ test("rejects an empty BREAKING CHANGE line for a breaking PR title", () => {
     "PRs marked breaking with ! in the title must include a BREAKING CHANGE: line describing the compatibility impact.",
   ]);
 });
+
+function breakingDescription(
+  consequences,
+  { risks = "Downstream callers may still read the removed aliases." } = {},
+) {
+  const consequenceLines = Array.isArray(consequences) ? consequences : [consequences];
+  return [
+    "## Intent",
+    "",
+    "Replace the compatibility aliases with the semantic fields.",
+    "",
+    "## Consequences",
+    "",
+    ...consequenceLines,
+    "",
+    "## Risks",
+    "",
+    risks,
+    "",
+    "## Compliance and Revisit Triggers",
+    "",
+    "Semantic assertions enforce the contract. Revisit it if consumers need aliases.",
+  ].join("\n");
+}
 
 test("rejects the old summary and tests section format", () => {
   const result = validatePullRequestDescription(

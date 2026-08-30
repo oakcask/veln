@@ -8,26 +8,8 @@ use super::*;
 
 #[test]
 fn discovered_selection_uses_test_file_pattern() {
-    let module = SurfaceModule {
-        module: None,
-        uses: Vec::new(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: Vec::new(),
-        invalid_names: Vec::new(),
-    };
-    let project = Project {
-        root: PathBuf::new(),
-        manifest: None,
-        files: vec![
-            SourceFile::new("main.veln", ""),
-            SourceFile::new("main_test.veln", ""),
-        ],
-    };
+    let module = empty_surface_module();
+    let project = main_and_test_project();
 
     let test_files = selected_test_files(&project, &module, None);
     let selection = TestSelection::new(&project, &test_files, false);
@@ -62,26 +44,8 @@ fn discovered_selection_includes_same_file_test_declarations() {
 
 #[test]
 fn explicit_selection_includes_non_test_files() {
-    let module = SurfaceModule {
-        module: None,
-        uses: Vec::new(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: Vec::new(),
-        invalid_names: Vec::new(),
-    };
-    let project = Project {
-        root: PathBuf::new(),
-        manifest: None,
-        files: vec![
-            SourceFile::new("main.veln", ""),
-            SourceFile::new("main_test.veln", ""),
-        ],
-    };
+    let module = empty_surface_module();
+    let project = main_and_test_project();
 
     let selected_roots = BTreeSet::from(["main.veln".to_string(), "main_test.veln".to_string()]);
     let test_files = selected_test_files(&project, &module, Some(&selected_roots));
@@ -118,11 +82,7 @@ fn dependency_graph_selects_tests_that_import_selected_source() {
             ),
         ),
     ]);
-    let explicit_roots = BTreeSet::from(["math.veln".to_string()]);
-    let source_roots = BTreeSet::from(["math.veln".to_string()]);
-
-    let plan =
-        dependency_aware_selection_plan(&project, &module, &explicit_roots, &source_roots, 0);
+    let plan = selected_math_source_plan(&project, &module);
 
     assert_eq!(
         plan.analysis_targets,
@@ -135,18 +95,7 @@ fn dependency_graph_selects_tests_that_import_selected_source() {
             "math.veln".to_string(),
         ]))
     );
-    assert_eq!(
-        plan.metadata.confidence,
-        Some(TestSelectionConfidence::Complete)
-    );
-    assert_eq!(
-        plan.metadata.reason,
-        Some(TestSelectionReason::DependencyGraph)
-    );
-    assert_eq!(
-        plan.metadata.notes,
-        vec!["added 1 test source by dependency graph"]
-    );
+    assert_complete_dependency_graph(&plan.metadata, "added 1 test source by dependency graph");
 }
 
 #[test]
@@ -156,11 +105,7 @@ fn dependency_graph_widens_when_selected_source_has_no_module_identity() {
         SourceFile::new("alpha_test.veln", "test alpha() -> ()\n  ()\nend\n"),
         SourceFile::new("beta_test.veln", "test beta() -> ()\n  ()\nend\n"),
     ]);
-    let explicit_roots = BTreeSet::from(["math.veln".to_string()]);
-    let source_roots = BTreeSet::from(["math.veln".to_string()]);
-
-    let plan =
-        dependency_aware_selection_plan(&project, &module, &explicit_roots, &source_roots, 0);
+    let plan = selected_math_source_plan(&project, &module);
 
     assert_eq!(
         plan.analysis_targets,
@@ -219,17 +164,9 @@ fn dependency_graph_upgrades_convention_selection_to_complete() {
     let plan =
         dependency_aware_selection_plan(&project, &module, &explicit_roots, &source_roots, 1);
 
-    assert_eq!(
-        plan.metadata.confidence,
-        Some(TestSelectionConfidence::Complete)
-    );
-    assert_eq!(
-        plan.metadata.reason,
-        Some(TestSelectionReason::DependencyGraph)
-    );
-    assert_eq!(
-        plan.metadata.notes,
-        vec!["added 1 test file by source-to-test convention"]
+    assert_complete_dependency_graph(
+        &plan.metadata,
+        "added 1 test file by source-to-test convention",
     );
 }
 
@@ -483,4 +420,41 @@ fn derived_module_name(source: &SourceFile) -> String {
         .strip_suffix(".veln")
         .expect("selection tests use .veln source paths")
         .replace('/', "::")
+}
+
+fn empty_surface_module() -> SurfaceModule {
+    SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    }
+}
+
+fn main_and_test_project() -> Project {
+    Project {
+        root: PathBuf::new(),
+        manifest: None,
+        files: vec![
+            SourceFile::new("main.veln", ""),
+            SourceFile::new("main_test.veln", ""),
+        ],
+    }
+}
+
+fn assert_complete_dependency_graph(metadata: &TestSelectionMetadata, note: &str) {
+    assert_eq!(metadata.confidence, Some(TestSelectionConfidence::Complete));
+    assert_eq!(metadata.reason, Some(TestSelectionReason::DependencyGraph));
+    assert_eq!(metadata.notes, vec![note.to_string()]);
+}
+
+fn selected_math_source_plan(project: &Project, module: &SurfaceModule) -> TestSelectionPlan {
+    let roots = BTreeSet::from(["math.veln".to_string()]);
+    dependency_aware_selection_plan(project, module, &roots, &roots, 0)
 }

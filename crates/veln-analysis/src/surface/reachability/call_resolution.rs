@@ -239,12 +239,7 @@ pub(super) fn resolve_function_reference(
                     && bare_target_visible(target, current_module, uses)
                     && recovery_target_accepts_arg_count(target, arg_count)
             })
-            .map(|target| ReachableFunction {
-                kind: FunctionKind::Function,
-                name: target.target_name.clone(),
-                module_name: target.target_module_name.clone(),
-                node_id: Some(target.target_node_id),
-            })
+            .map(reachable_function_from_target)
             .collect(),
         [_, .., name] => {
             let Some(use_decl) =
@@ -265,15 +260,19 @@ pub(super) fn resolve_function_reference(
                         companion_access_targets,
                     ) && recovery_target_accepts_arg_count(target, arg_count)
                 })
-                .map(|target| ReachableFunction {
-                    kind: FunctionKind::Function,
-                    name: target.target_name.clone(),
-                    module_name: target.target_module_name.clone(),
-                    node_id: Some(target.target_node_id),
-                })
+                .map(reachable_function_from_target)
                 .collect()
         }
         _ => Vec::new(),
+    }
+}
+
+fn reachable_function_from_target(target: &FunctionTarget) -> ReachableFunction {
+    ReachableFunction {
+        kind: FunctionKind::Function,
+        name: target.target_name.clone(),
+        module_name: target.target_module_name.clone(),
+        node_id: Some(target.target_node_id),
     }
 }
 
@@ -341,13 +340,7 @@ pub(super) fn companion_function_access_targets(
     inputs
         .functions()
         .filter_map(|function| {
-            let companion = classify_companion_source(function.span.file.as_str())?;
-            let companion_module = function.module_name.clone()?;
-            let target_module = companion
-                .target_path
-                .strip_suffix(".veln")?
-                .replace('/', "::");
-            Some((companion_module, target_module))
+            companion_access_target(function.span.file.as_str(), function.module_name.as_deref())
         })
         .collect()
 }
