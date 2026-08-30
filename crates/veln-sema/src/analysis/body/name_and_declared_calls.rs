@@ -14,25 +14,7 @@ impl<'a> FunctionChecker<'a> {
             &self.environment.uses,
         ) {
             ConstructorLookup::Found(constructor) => {
-                let inferred = expected
-                    .and_then(|expected| {
-                        unification::adt_args(&expected.ty, constructor.descriptor)
-                            .map(|_| expected.ty.clone())
-                    })
-                    .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
-                if type_contains_unknown(&inferred)
-                    && ((expected.is_none() && constructor.variant.kind != AdtVariantKind::ListNil)
-                        || (expected.is_some()
-                            && constructor.variant.kind == AdtVariantKind::ListNil))
-                {
-                    self.push_ambiguous_constructor_type(
-                        expr.node_id,
-                        expr.span.clone(),
-                        &segments.join("::"),
-                        &inferred,
-                    );
-                }
-                inferred
+                self.infer_nullary_constructor_name(segments, expr, expected, constructor)
             }
             ConstructorLookup::Ambiguous => {
                 self.push_ambiguous_name(
@@ -43,84 +25,120 @@ impl<'a> FunctionChecker<'a> {
                 );
                 Type::Unknown
             }
-            ConstructorLookup::Missing => match segments {
-                [name] => {
-                    if let Some(ty) = self.infer_local_binding_name(name, expected) {
-                        ty
-                    } else if self.bare_prelude_import_is_ambiguous(name) {
-                        self.push_ambiguous_unqualified_function_import(
-                            expr.node_id,
-                            expr.span.clone(),
-                            name,
-                            "value",
-                        );
-                        Type::Unknown
-                    } else {
-                        match self
-                            .environment
-                            .unqualified_function(name, self.function.module_name.as_deref())
-                        {
-                            FunctionLookup::Found(function) => function.ty(),
-                            FunctionLookup::Ambiguous => {
-                                self.push_ambiguous_unqualified_function_import(
-                                    expr.node_id,
-                                    expr.span.clone(),
-                                    name,
-                                    "value",
-                                );
-                                Type::Unknown
-                            }
-                            FunctionLookup::Missing => {
-                                if let Some(function) =
-                                    self.environment.local_function_value_recovery(
-                                        name,
-                                        self.function.module_name.as_deref(),
-                                    )
-                                {
-                                    function.ty()
-                                } else if self.environment.local_value_recovery_candidate_count(
-                                    name,
-                                    self.function.module_name.as_deref(),
-                                ) + self.invalid_local_binding_recovery_count(name)
-                                    == 1
-                                {
-                                    Type::Unknown
-                                } else {
-                                    self.push_unresolved_name(
-                                        expr.node_id,
-                                        expr.span.clone(),
-                                        name,
-                                        "value",
-                                    );
-                                    Type::Unknown
-                                }
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    if let Some(function) = self
-                        .environment
-                        .function_path_for_value(segments, self.function.module_name.as_deref())
-                    {
-                        return function.ty();
-                    }
-                    if self
-                        .environment
-                        .quarantined_import_value_recovery_candidate_count(
-                            segments,
-                            self.function.module_name.as_deref(),
-                        )
-                        == 1
-                    {
-                        return Type::Unknown;
-                    }
-                    let symbol = segments.join("::");
-                    self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
-                    Type::Unknown
-                }
-            },
+            ConstructorLookup::Missing => self.infer_non_constructor_name(segments, expr, expected),
         }
+    }
+
+    fn infer_nullary_constructor_name(
+        &mut self,
+        segments: &[String],
+        expr: &Expr,
+        expected: Option<&ExpectedType>,
+        constructor: AdtConstructor<'_>,
+    ) -> Type {
+        let inferred = expected
+            .and_then(|expected| {
+                unification::adt_args(&expected.ty, constructor.descriptor)
+                    .map(|_| expected.ty.clone())
+            })
+            .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
+        if type_contains_unknown(&inferred)
+            && ((expected.is_none() && constructor.variant.kind != AdtVariantKind::ListNil)
+                || (expected.is_some() && constructor.variant.kind == AdtVariantKind::ListNil))
+        {
+            self.push_ambiguous_constructor_type(
+                expr.node_id,
+                expr.span.clone(),
+                &segments.join("::"),
+                &inferred,
+            );
+        }
+        inferred
+    }
+
+    fn infer_non_constructor_name(
+        &mut self,
+        segments: &[String],
+        expr: &Expr,
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        match segments {
+            [name] => self.infer_bare_name(name, expr, expected),
+            _ => self.infer_qualified_function_value(segments, expr),
+        }
+    }
+
+    fn infer_bare_name(
+        &mut self,
+        name: &str,
+        expr: &Expr,
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        if let Some(ty) = self.infer_local_binding_name(name, expected) {
+            return ty;
+        }
+        if self.bare_prelude_import_is_ambiguous(name) {
+            return self.ambiguous_function_value(name, expr);
+        }
+        match self
+            .environment
+            .unqualified_function(name, self.function.module_name.as_deref())
+        {
+            FunctionLookup::Found(function) => function.ty(),
+            FunctionLookup::Ambiguous => self.ambiguous_function_value(name, expr),
+            FunctionLookup::Missing => self.infer_recovered_bare_name(name, expr),
+        }
+    }
+
+    fn ambiguous_function_value(&mut self, name: &str, expr: &Expr) -> Type {
+        self.push_ambiguous_unqualified_function_import(
+            expr.node_id,
+            expr.span.clone(),
+            name,
+            "value",
+        );
+        Type::Unknown
+    }
+
+    fn infer_recovered_bare_name(&mut self, name: &str, expr: &Expr) -> Type {
+        if let Some(function) = self
+            .environment
+            .local_function_value_recovery(name, self.function.module_name.as_deref())
+        {
+            return function.ty();
+        }
+        if self
+            .environment
+            .local_value_recovery_candidate_count(name, self.function.module_name.as_deref())
+            + self.invalid_local_binding_recovery_count(name)
+            == 1
+        {
+            return Type::Unknown;
+        }
+        self.push_unresolved_name(expr.node_id, expr.span.clone(), name, "value");
+        Type::Unknown
+    }
+
+    fn infer_qualified_function_value(&mut self, segments: &[String], expr: &Expr) -> Type {
+        if let Some(function) = self
+            .environment
+            .function_path_for_value(segments, self.function.module_name.as_deref())
+        {
+            return function.ty();
+        }
+        if self
+            .environment
+            .quarantined_import_value_recovery_candidate_count(
+                segments,
+                self.function.module_name.as_deref(),
+            )
+            == 1
+        {
+            return Type::Unknown;
+        }
+        let symbol = segments.join("::");
+        self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
+        Type::Unknown
     }
 
     pub(super) fn infer_local_binding_name(

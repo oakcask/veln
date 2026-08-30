@@ -22,6 +22,36 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
 }
 
 #[test]
+fn local_binding_value_shadows_same_named_function() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn callback(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+            "pub fn main(callback: String) -> String\n",
+            "  callback\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(&expr.kind, CoreExprKind::Local(name) if name == "callback"));
+}
+
+#[test]
 fn resolves_qualified_calls_through_import_aliases() {
     let main_source = SourceFile::new(
         "main.veln",
