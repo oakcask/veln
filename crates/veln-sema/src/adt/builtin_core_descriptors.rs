@@ -1,4 +1,12 @@
-use super::*;
+use veln_ast::Visibility;
+
+use crate::semantic_model::Type;
+use crate::source_less_names::SourceLessNameClass;
+
+use super::descriptors::{
+    AdtDescriptor, AdtPayloadField, AdtPayloadType, AdtVariantDescriptor, AdtVariantKind,
+    ResultPropagationDescriptor,
+};
 
 pub(super) fn core_builtin_descriptors() -> Vec<AdtDescriptor> {
     vec![

@@ -1,7 +1,15 @@
-use super::*;
+use veln_ast::{SurfaceModule, Visibility};
+
+use crate::semantic_model::Type;
+use crate::source_less_names::{InvalidStandardSymbolReason, SourceLessNameClass};
 use crate::standard_symbols::{
     StandardSymbolDescriptor, StandardSymbolKind, StandardSymbolStability,
 };
+
+use super::descriptors::{AdtDescriptor, AdtVariantDescriptor, AdtVariantKind};
+use super::lookup_validation::validate_adt_lookup_descriptors;
+use super::registry::{AdtRegistry, ConstructorLookup, constructor_lookup_counters};
+use super::type_operations::{raw_builtin_descriptors_for_test, validate_builtin_adt_descriptors};
 
 const INVALID_STANDARD_SYMBOLS: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
     module: Some("Std"),
@@ -142,6 +150,38 @@ fn source_less_provider_inventory_names_builtin_adt_lookup_routes() {
     };
     assert_eq!(constructor.descriptor.type_name, "Option");
     assert_eq!(constructor.variant.name, "Some");
+}
+
+#[test]
+fn validated_registry_indexes_descriptor_and_constructor_owners() {
+    let descriptor = AdtDescriptor {
+        type_name: "Owned".to_string(),
+        name_class: SourceLessNameClass::Type,
+        module_name: Some("example".to_string()),
+        type_parameters: Vec::new(),
+        variants: vec![AdtVariantDescriptor {
+            name: "OwnedValue".to_string(),
+            name_class: SourceLessNameClass::Constructor,
+            kind: AdtVariantKind::Source,
+            payload_fields: Vec::new(),
+            coverage_case: "OwnedValue".to_string(),
+            visibility: Visibility::Public,
+        }],
+        diagnostic_name: "owned".to_string(),
+        propagation: None,
+        visibility: Visibility::Public,
+    };
+    let registry = AdtRegistry::from_validated_parts_for_test(
+        vec![descriptor],
+        std::collections::BTreeMap::new(),
+    )
+    .expect("descriptor should publish");
+
+    assert_eq!(registry.descriptors()[0].type_name, "Owned");
+    assert!(matches!(
+        registry.constructor(&path(&["OwnedValue"]), Some("example"), &[]),
+        ConstructorLookup::Found(_)
+    ));
 }
 
 #[test]

@@ -1,5 +1,6 @@
 use super::*;
-use crate::adt::{AdtPayloadType, ConstructorLookup};
+use crate::adt::descriptors::AdtPayloadType;
+use crate::adt::registry::ConstructorLookup;
 use crate::semantic_model::Type;
 use crate::types::environment::TypeEnvironment;
 use std::collections::BTreeSet;

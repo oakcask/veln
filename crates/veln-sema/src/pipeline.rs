@@ -260,7 +260,8 @@ fn invalid_name_is_valid_constructor_pattern(
             current_module,
             &environment.uses,
         ),
-        crate::adt::ConstructorLookup::Found(_) | crate::adt::ConstructorLookup::Ambiguous
+        crate::adt::registry::ConstructorLookup::Found(_)
+            | crate::adt::registry::ConstructorLookup::Ambiguous
     )
 }
 

@@ -1,4 +1,9 @@
-use super::*;
+use veln_ast::Visibility;
+
+use crate::semantic_model::Type;
+use crate::source_less_names::SourceLessNameClass;
+
+use super::descriptors::{AdtPayloadField, AdtPayloadType, AdtVariantDescriptor, AdtVariantKind};
 
 pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
     vec![

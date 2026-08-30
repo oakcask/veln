@@ -195,7 +195,7 @@ fn published_adt_registry_seeds_application_lookup() {
     );
     assert!(matches!(
         application_adts.constructor(&path("Boxed", "Boxed"), None, &[]),
-        crate::adt::ConstructorLookup::Found(_)
+        crate::adt::registry::ConstructorLookup::Found(_)
     ));
 }
 

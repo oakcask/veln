@@ -1,4 +1,8 @@
-use super::{AdtDescriptor, AdtPayloadType, CoreType, Type};
+use veln_core::CoreType;
+
+use crate::semantic_model::Type;
+
+use super::descriptors::{AdtDescriptor, AdtPayloadType};
 
 pub(super) fn payload_type_from_args(
     ty: &Type,

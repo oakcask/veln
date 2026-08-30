@@ -500,7 +500,7 @@ impl<'a> CoreLowerer<'a> {
         expr: &Expr,
         args: &[Expr],
         expected: Option<&CoreType>,
-        constructor: adt::AdtConstructor,
+        constructor: AdtConstructor,
     ) -> CoreExpr {
         let expected_count = constructor.variant.payload_fields.len();
         if args.len() != expected_count {
@@ -525,7 +525,7 @@ impl<'a> CoreLowerer<'a> {
             );
         }
         let expected_constructor_type = expected
-            .and_then(|expected| adt::adt_args(expected, constructor.descriptor))
+            .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
             .is_some();
         let mut inferred_type_args =
             vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];

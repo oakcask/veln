@@ -6,11 +6,11 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         args: &[Expr],
         expected: Option<&ExpectedType>,
-        constructor: adt::AdtConstructor,
+        constructor: AdtConstructor,
     ) -> Type {
         let mut actual_args = Vec::new();
         let expected_constructor_type = expected
-            .and_then(|expected| adt::adt_args(&expected.ty, constructor.descriptor))
+            .and_then(|expected| unification::adt_args(&expected.ty, constructor.descriptor))
             .is_some();
         let mut inferred_type_args =
             vec![Type::Unknown; constructor.descriptor.type_parameters.len()];

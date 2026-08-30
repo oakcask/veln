@@ -34,8 +34,8 @@ pub(crate) fn tail_expr_can_use_expected(
         ExprKind::NamePath(segments) => {
             matches!(
                 adts.nullary_constructor(segments, current_module, uses),
-                crate::adt::ConstructorLookup::Found(constructor)
-                    if adt::adt_args(expected, constructor.descriptor).is_some()
+                ConstructorLookup::Found(constructor)
+                    if unification::adt_args(expected, constructor.descriptor).is_some()
             )
         }
         ExprKind::Call { callee, .. } => {
@@ -44,8 +44,8 @@ pub(crate) fn tail_expr_can_use_expected(
             };
             matches!(
                 adts.constructor(segments, current_module, uses),
-                crate::adt::ConstructorLookup::Found(constructor)
-                    if adt::adt_args(expected, constructor.descriptor).is_some()
+                ConstructorLookup::Found(constructor)
+                    if unification::adt_args(expected, constructor.descriptor).is_some()
             )
         }
         ExprKind::Match { arms, .. } => arms
@@ -399,7 +399,7 @@ pub(crate) fn infer_match_scrutinee_type_from_constructor_patterns(
     uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> MatchScrutineePatternInference {
-    let mut inferred: Option<(crate::adt::AdtConstructor<'_>, Vec<Type>)> = None;
+    let mut inferred: Option<(AdtConstructor<'_>, Vec<Type>)> = None;
 
     for arm in arms {
         let PatternKind::Constructor { name, args } = &arm.pattern.kind else {
@@ -519,7 +519,7 @@ pub(crate) fn infer_pattern_type_from_constructor_patterns(
 }
 
 pub(crate) fn unique_constructor_descriptor_names(
-    constructors: &[crate::adt::AdtConstructor<'_>],
+    constructors: &[AdtConstructor<'_>],
 ) -> Vec<String> {
     let mut names = Vec::new();
     for constructor in constructors {
@@ -532,8 +532,8 @@ pub(crate) fn unique_constructor_descriptor_names(
 }
 
 pub(crate) fn same_constructor_descriptor(
-    left: &crate::adt::AdtConstructor<'_>,
-    right: &crate::adt::AdtConstructor<'_>,
+    left: &AdtConstructor<'_>,
+    right: &AdtConstructor<'_>,
 ) -> bool {
     left.descriptor.type_name == right.descriptor.type_name
         && left.descriptor.module_name == right.descriptor.module_name
@@ -567,12 +567,12 @@ pub(crate) fn infer_private_signature_name_type(
     returns_by_path: &BTreeMap<(Option<String>, String), Type>,
     adts: &AdtRegistry,
 ) -> Type {
-    if let crate::adt::ConstructorLookup::Found(constructor) =
+    if let ConstructorLookup::Found(constructor) =
         adts.nullary_constructor(segments, current_module, uses)
     {
         return expected
             .and_then(|expected| {
-                adt::adt_args(expected, constructor.descriptor).map(|_| expected.clone())
+                unification::adt_args(expected, constructor.descriptor).map(|_| expected.clone())
             })
             .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
     }
@@ -630,7 +630,7 @@ pub(crate) fn infer_private_signature_call_type(
     context: &PrivateSignatureInferContext<'_>,
 ) -> Type {
     if let ExprKind::NamePath(segments) = &callee.kind {
-        if let crate::adt::ConstructorLookup::Found(constructor) =
+        if let ConstructorLookup::Found(constructor) =
             context
                 .adts
                 .constructor(segments, context.current_module, context.uses)
@@ -640,7 +640,7 @@ pub(crate) fn infer_private_signature_call_type(
                 .map(|arg| context.infer(arg, None))
                 .collect::<Vec<_>>();
             if expected
-                .and_then(|expected| adt::adt_args(expected, constructor.descriptor))
+                .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
                 .is_some()
             {
                 return expected.cloned().unwrap_or(Type::Unknown);

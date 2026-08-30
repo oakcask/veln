@@ -2,12 +2,20 @@ use super::unification::{
     core_payload_type_from_args, fill_core_type_parameters, fill_type_parameters, named_part,
     named_parts2, payload_type_from_args,
 };
-use super::{AdtConstructor, CoreType, Type};
+use veln_core::CoreType;
+
+use crate::semantic_model::Type;
+
+use super::descriptors::AdtConstructor;
 #[cfg(test)]
-use super::{
-    AdtDescriptor, InvalidStandardSymbolCase, build_builtin_descriptors,
-    validate_adt_lookup_descriptors,
-};
+use crate::source_less_names::InvalidStandardSymbolCase;
+
+#[cfg(test)]
+use super::builtin_descriptors::build_builtin_descriptors;
+#[cfg(test)]
+use super::descriptors::AdtDescriptor;
+#[cfg(test)]
+use super::lookup_validation::validate_adt_lookup_descriptors;
 
 pub(crate) fn constructed_type(constructor: AdtConstructor<'_>, payloads: &[Type]) -> Type {
     let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];

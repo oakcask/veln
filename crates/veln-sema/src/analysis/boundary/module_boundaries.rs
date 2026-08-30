@@ -1,4 +1,4 @@
-use crate::adt;
+use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
 use crate::name_recovery::use_decl_has_invalid_module_segment;

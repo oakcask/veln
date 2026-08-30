@@ -2,7 +2,9 @@
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
-use crate::adt::{AdtDescriptor, AdtRegistry, build_builtin_descriptors};
+use crate::adt::builtin_descriptors::build_builtin_descriptors;
+use crate::adt::descriptors::AdtDescriptor;
+use crate::adt::registry::AdtRegistry;
 use crate::builtin_type_syntax::{
     BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxDescriptor, BuiltinTypeSyntaxRegistry,
 };
