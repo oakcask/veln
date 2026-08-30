@@ -503,4 +503,8 @@ identifier-casing remainder.
 This proposal is complete when all acceptance rows pass, all repository-owned
 Veln sources follow the remaining naming contract, and the implemented behavior is
 stated under `docs/specification/` and routed to checked examples under
-`examples/specification/`.
+`examples/specification/`. The completion change must also update
+[the proposal catalog](README.md): remove identifier casing from `Ready`, and
+move the saved workspace function-reference slice in
+[Agent Language Services](agent-language-services.md) from `Blocked` to
+`Ready`.
