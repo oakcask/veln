@@ -58,26 +58,11 @@ impl<'a> ExprParser<'a> {
             "perform expression is missing `(`",
             vec!["("],
         );
-        let mut args = Vec::new();
-        while !self.at(TokenKind::RParen) && !self.is_at_end() {
-            args.push(self.parse_expr(0));
-            if self.eat(TokenKind::Comma).is_some() {
-                continue;
-            }
-            if self.at(TokenKind::RParen) || self.is_at_end() {
-                break;
-            }
-            self.error_current(
-                "parse.perform_argument",
-                "perform argument is missing `,` or `)`",
-                vec![",", ")"],
-                RecoveryStrategy::InsertToken,
-                Some(","),
-            );
-        }
-        let end = self
-            .eat(TokenKind::RParen)
-            .map_or_else(|| args.last().map_or(start, lhs_range), |token| token.range);
+        let (args, end) = self.parse_parenthesized_arguments(
+            start,
+            "parse.perform_argument",
+            "perform argument is missing `,` or `)`",
+        );
         Expr {
             span: self.source.span(start.cover(end)),
             kind: ExprKind::Perform {
@@ -109,26 +94,10 @@ impl<'a> ExprParser<'a> {
             "handle expression is missing handler context arguments",
             vec!["("],
         );
-        let mut args = Vec::new();
-        while !self.at(TokenKind::RParen) && !self.is_at_end() {
-            args.push(self.parse_expr(0));
-            if self.eat(TokenKind::Comma).is_some() {
-                continue;
-            }
-            if self.at(TokenKind::RParen) || self.is_at_end() {
-                break;
-            }
-            self.error_current(
-                "parse.handle_argument",
-                "handler context argument is missing `,` or `)`",
-                vec![",", ")"],
-                RecoveryStrategy::InsertToken,
-                Some(","),
-            );
-        }
-        let end = self.eat(TokenKind::RParen).map_or_else(
-            || args.last().map_or(handler_end, lhs_range),
-            |token| token.range,
+        let (args, end) = self.parse_parenthesized_arguments(
+            handler_end,
+            "parse.handle_argument",
+            "handler context argument is missing `,` or `)`",
         );
         Expr {
             span: self.source.span(start.cover(end)),
@@ -139,6 +108,36 @@ impl<'a> ExprParser<'a> {
                 args,
             },
         }
+    }
+
+    fn parse_parenthesized_arguments(
+        &mut self,
+        fallback_end: TextRange,
+        diagnostic_id: &'static str,
+        missing_separator_message: &'static str,
+    ) -> (Vec<Expr>, TextRange) {
+        let mut arguments = Vec::new();
+        while !self.at(TokenKind::RParen) && !self.is_at_end() {
+            arguments.push(self.parse_expr(0));
+            if self.eat(TokenKind::Comma).is_some() {
+                continue;
+            }
+            if self.at(TokenKind::RParen) || self.is_at_end() {
+                break;
+            }
+            self.error_current(
+                diagnostic_id,
+                missing_separator_message,
+                vec![",", ")"],
+                RecoveryStrategy::InsertToken,
+                Some(","),
+            );
+        }
+        let end = self.eat(TokenKind::RParen).map_or_else(
+            || arguments.last().map_or(fallback_end, lhs_range),
+            |token| token.range,
+        );
+        (arguments, end)
     }
 
     pub(super) fn parse_schema_decode_primary(&mut self, token: Token) -> Expr {

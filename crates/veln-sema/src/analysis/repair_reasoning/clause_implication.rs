@@ -164,14 +164,14 @@ pub(in crate::analysis) fn strict_int_lower_bound_implies_adjacent_inclusive(
     wanted: &NormalizedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    repair_operands_equivalent(required.right, wanted.right, equivalences)
-        && repair_numeric_order_literal(required.left).is_some_and(|required_literal| {
-            required_literal.is_integer()
-                && repair_numeric_order_literal(wanted.left).is_some_and(|wanted_literal| {
-                    wanted_literal.is_integer()
-                        && Some(wanted_literal) == required_literal.add_int(1)
-                })
-        })
+    integer_bound_offset_implies(
+        required.right,
+        wanted.right,
+        required.left,
+        wanted.left,
+        1,
+        equivalences,
+    )
 }
 
 pub(in crate::analysis) fn strict_int_upper_bound_implies_adjacent_inclusive(
@@ -179,14 +179,14 @@ pub(in crate::analysis) fn strict_int_upper_bound_implies_adjacent_inclusive(
     wanted: &NormalizedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    repair_operands_equivalent(required.left, wanted.left, equivalences)
-        && repair_numeric_order_literal(required.right).is_some_and(|required_literal| {
-            required_literal.is_integer()
-                && repair_numeric_order_literal(wanted.right).is_some_and(|wanted_literal| {
-                    wanted_literal.is_integer()
-                        && Some(wanted_literal) == required_literal.add_int(-1)
-                })
-        })
+    integer_bound_offset_implies(
+        required.left,
+        wanted.left,
+        required.right,
+        wanted.right,
+        -1,
+        equivalences,
+    )
 }
 
 pub(in crate::analysis) fn inclusive_int_lower_bound_implies_adjacent_strict(
@@ -194,14 +194,14 @@ pub(in crate::analysis) fn inclusive_int_lower_bound_implies_adjacent_strict(
     wanted: &NormalizedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    repair_operands_equivalent(required.right, wanted.right, equivalences)
-        && repair_numeric_order_literal(required.left).is_some_and(|required_literal| {
-            required_literal.is_integer()
-                && repair_numeric_order_literal(wanted.left).is_some_and(|wanted_literal| {
-                    wanted_literal.is_integer()
-                        && Some(wanted_literal) == required_literal.add_int(-1)
-                })
-        })
+    integer_bound_offset_implies(
+        required.right,
+        wanted.right,
+        required.left,
+        wanted.left,
+        -1,
+        equivalences,
+    )
 }
 
 pub(in crate::analysis) fn inclusive_int_upper_bound_implies_adjacent_strict(
@@ -209,14 +209,35 @@ pub(in crate::analysis) fn inclusive_int_upper_bound_implies_adjacent_strict(
     wanted: &NormalizedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    repair_operands_equivalent(required.left, wanted.left, equivalences)
-        && repair_numeric_order_literal(required.right).is_some_and(|required_literal| {
-            required_literal.is_integer()
-                && repair_numeric_order_literal(wanted.right).is_some_and(|wanted_literal| {
-                    wanted_literal.is_integer()
-                        && Some(wanted_literal) == required_literal.add_int(1)
-                })
-        })
+    integer_bound_offset_implies(
+        required.left,
+        wanted.left,
+        required.right,
+        wanted.right,
+        1,
+        equivalences,
+    )
+}
+
+fn integer_bound_offset_implies(
+    required_comparison_operand: &str,
+    wanted_comparison_operand: &str,
+    required_literal_text: &str,
+    wanted_literal_text: &str,
+    offset: i128,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    repair_operands_equivalent(
+        required_comparison_operand,
+        wanted_comparison_operand,
+        equivalences,
+    ) && repair_numeric_order_literal(required_literal_text).is_some_and(|required_literal| {
+        required_literal.is_integer()
+            && repair_numeric_order_literal(wanted_literal_text).is_some_and(|wanted_literal| {
+                wanted_literal.is_integer()
+                    && Some(wanted_literal) == required_literal.add_int(offset)
+            })
+    })
 }
 
 pub(in crate::analysis) fn required_predicate_set_statically_implies_predicate(
@@ -295,6 +316,17 @@ pub(in crate::analysis) fn disjunctive_branch_set_implies_disjunctive_predicate(
     required_predicates: &[String],
     wanted_disjuncts: &[String],
 ) -> bool {
+    every_disjunctive_branch_implies(required_predicates, |branch_clauses| {
+        wanted_disjuncts
+            .iter()
+            .any(|wanted| repair_clause_set_implies_clause(branch_clauses, wanted))
+    })
+}
+
+fn every_disjunctive_branch_implies(
+    required_predicates: &[String],
+    branch_implies: impl Fn(&[String]) -> bool,
+) -> bool {
     required_predicates
         .iter()
         .enumerate()
@@ -304,9 +336,7 @@ pub(in crate::analysis) fn disjunctive_branch_set_implies_disjunctive_predicate(
                 && disjuncts.into_iter().all(|disjunct| {
                     let branch_clauses =
                         branch_required_clauses(required_predicates, disjunctive_index, disjunct);
-                    wanted_disjuncts
-                        .iter()
-                        .any(|wanted| repair_clause_set_implies_clause(&branch_clauses, wanted))
+                    branch_implies(&branch_clauses)
                 })
         })
 }
@@ -493,18 +523,9 @@ pub(in crate::analysis) fn disjunctive_branch_set_implies_clause(
     required_predicates: &[String],
     wanted: &str,
 ) -> bool {
-    required_predicates
-        .iter()
-        .enumerate()
-        .any(|(disjunctive_index, predicate)| {
-            let disjuncts = repair_relevant_or_clauses(predicate);
-            disjuncts.len() > 1
-                && disjuncts.into_iter().all(|disjunct| {
-                    let branch_clauses =
-                        branch_required_clauses(required_predicates, disjunctive_index, disjunct);
-                    repair_clause_set_implies_clause(&branch_clauses, wanted)
-                })
-        })
+    every_disjunctive_branch_implies(required_predicates, |branch_clauses| {
+        repair_clause_set_implies_clause(branch_clauses, wanted)
+    })
 }
 
 pub(in crate::analysis) fn branch_required_clauses(

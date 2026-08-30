@@ -7,6 +7,19 @@ impl TypeEnvironment {
         current_module: Option<&str>,
         arg_count: usize,
     ) -> usize {
+        self.quarantined_import_function_recovery_candidate_count(
+            segments,
+            current_module,
+            Some(arg_count),
+        )
+    }
+
+    fn quarantined_import_function_recovery_candidate_count(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        arg_count: Option<usize>,
+    ) -> usize {
         let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
         else {
             return 0;
@@ -15,7 +28,8 @@ impl TypeEnvironment {
         self.functions_named(name)
             .filter(|function| {
                 function.module_name.as_deref() == Some(module_name)
-                    && function_signature_accepts_arg_count(function, arg_count)
+                    && arg_count
+                        .is_none_or(|count| function_signature_accepts_arg_count(function, count))
                     && function.visibility == Visibility::Public
                     && !self.imported_codec_helper_is_hidden(function, use_decl)
             })
@@ -27,18 +41,7 @@ impl TypeEnvironment {
         segments: &[String],
         current_module: Option<&str>,
     ) -> usize {
-        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
-        else {
-            return 0;
-        };
-        let module_name = use_decl.name.as_str();
-        self.functions_named(name)
-            .filter(|function| {
-                function.module_name.as_deref() == Some(module_name)
-                    && function.visibility == Visibility::Public
-                    && !self.imported_codec_helper_is_hidden(function, use_decl)
-            })
-            .count()
+        self.quarantined_import_function_recovery_candidate_count(segments, current_module, None)
     }
 
     pub(super) fn quarantined_import_effect_recovery_candidate_count(

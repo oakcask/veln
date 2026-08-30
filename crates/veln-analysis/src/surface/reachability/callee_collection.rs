@@ -221,7 +221,7 @@ pub(super) fn collect_function_callees(
             collect_function_callees(callee, context, local_bindings, callees);
         }
         ExprKind::Call { callee, args } => {
-            if let Some(segments) = callee_name_path(callee) {
+            if let Some(segments) = callee.callee_name_path() {
                 collect_function_name_reference(
                     segments,
                     context,
@@ -327,36 +327,19 @@ pub(super) fn collect_pattern_bindings(
     function_shape: Option<FunctionShape>,
     bindings: &mut Vec<LocalBinding>,
 ) {
-    match &pattern.kind {
-        PatternKind::Binding(name) => bindings.push(LocalBinding {
+    if let PatternKind::Binding(name) = &pattern.kind {
+        bindings.push(LocalBinding {
             name: name.clone(),
             function_shape,
-        }),
-        PatternKind::Record(fields) => {
-            for field in fields {
-                collect_pattern_bindings(&field.pattern, None, bindings);
-            }
-        }
-        PatternKind::Constructor { args, .. } => {
-            for arg in args {
-                collect_pattern_bindings(arg, None, bindings);
-            }
-        }
-        PatternKind::Wildcard
-        | PatternKind::StringLiteral(_)
-        | PatternKind::IntLiteral(_)
-        | PatternKind::FloatLiteral(_)
-        | PatternKind::BoolLiteral(_)
-        | PatternKind::Unit => {}
+        });
+        return;
     }
-}
-
-pub(super) fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
-    match &callee.kind {
-        ExprKind::NamePath(segments) => Some(segments),
-        ExprKind::TypeApply { callee, .. } => callee_name_path(callee),
-        _ => None,
-    }
+    pattern.for_each_binding(&mut |name| {
+        bindings.push(LocalBinding {
+            name: name.to_string(),
+            function_shape: None,
+        });
+    });
 }
 
 pub(super) fn collect_opaque_function_value_callees(

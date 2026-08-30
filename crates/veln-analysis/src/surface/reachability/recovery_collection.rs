@@ -123,8 +123,8 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 }
             }
             ExprKind::Call { callee, args } => {
-                if let Some(segments) = callee_name_path(callee) {
-                    if !matches!(segments.as_slice(), [name] if local_bindings.iter().rev().any(|binding| binding == name))
+                if let Some(segments) = callee.callee_name_path() {
+                    if !matches!(segments, [name] if local_bindings.iter().rev().any(|binding| binding == name))
                     {
                         self.select_call_name(segments, current_module, args.len(), spans);
                     }

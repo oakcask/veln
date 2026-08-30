@@ -27,6 +27,16 @@ pub fn classify_companion_source(path: &str) -> Option<CompanionSource> {
     })
 }
 
+pub fn companion_access_target(path: &str, module_name: Option<&str>) -> Option<(String, String)> {
+    let companion = classify_companion_source(path)?;
+    let companion_module = module_name?.to_string();
+    let target_module = companion
+        .target_path
+        .strip_suffix(".veln")?
+        .replace('/', "::");
+    Some((companion_module, target_module))
+}
+
 pub fn is_companion_source_path(path: &str) -> bool {
     classify_companion_source(path).is_some()
 }
@@ -89,4 +99,22 @@ fn project_relative_path(root: &Path, path: &Path) -> String {
         .map_or_else(|_| path.to_path_buf(), PathBuf::from)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn companion_access_target_uses_source_path_and_declared_module() {
+        assert_eq!(
+            companion_access_target("net/client.test.veln", Some("net::client_test")),
+            Some(("net::client_test".to_string(), "net::client".to_string()))
+        );
+        assert_eq!(
+            companion_access_target("net/client.veln", Some("net::client")),
+            None
+        );
+        assert_eq!(companion_access_target("net/client.test.veln", None), None);
+    }
 }

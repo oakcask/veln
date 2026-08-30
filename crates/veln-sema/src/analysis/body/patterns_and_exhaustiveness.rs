@@ -286,33 +286,7 @@ impl<'a> FunctionChecker<'a> {
         ) else {
             return;
         };
-        let actual = adt::constructed_type_from_args(
-            constructor,
-            &vec![Type::Unknown; constructor.descriptor.type_parameters.len()],
-        );
-        self.diagnostics.push(Diagnostic::new(
-            "type.mismatch",
-            Severity::Error,
-            DiagnosticKind::Type,
-            format!(
-                "expected `{}`, but found `{}`",
-                scrutinee_type.render(),
-                actual.render()
-            ),
-            Some(pattern.span.clone()),
-            type_details(
-                pattern.node_id.display("pattern"),
-                scrutinee_type.render(),
-                actual.render(),
-                "inferred_expression",
-                "constructor_pattern",
-                "constructor_pattern",
-                [
-                    self.function.node_id.display("fn"),
-                    pattern.node_id.display("pattern"),
-                ],
-            ),
-        ));
+        self.report_constructor_type_mismatch(pattern, scrutinee_type, constructor);
     }
 
     pub(super) fn report_invalid_qualified_constructor_pattern_mismatch(
@@ -347,6 +321,15 @@ impl<'a> FunctionChecker<'a> {
         ) else {
             return;
         };
+        self.report_constructor_type_mismatch(pattern, scrutinee_type, constructor);
+    }
+
+    fn report_constructor_type_mismatch(
+        &mut self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+        constructor: adt::AdtConstructor<'_>,
+    ) {
         let actual = adt::constructed_type_from_args(
             constructor,
             &vec![Type::Unknown; constructor.descriptor.type_parameters.len()],

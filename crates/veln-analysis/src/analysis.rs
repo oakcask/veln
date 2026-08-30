@@ -19,9 +19,9 @@ use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
 use crate::surface::{
-    CapturedDependencyProject, ReachabilityCache, load_embedded_standard_surface_module_for_names,
-    load_surface_modules, load_surface_modules_with_captured_dependencies,
-    reachable_entry_module_with_standard_cache,
+    CapturedDependencyProject, LoadedSurfaceModules, ReachabilityCache,
+    load_embedded_standard_surface_module_for_names, load_surface_modules,
+    load_surface_modules_with_captured_dependencies, reachable_entry_module_with_standard_cache,
 };
 
 static STANDARD_ENVIRONMENTS: OnceLock<StandardEnvironmentCache> = OnceLock::new();
@@ -156,9 +156,27 @@ fn analyze_project_with_standard_environment_and_timings(
 }
 
 fn analyze_project_with_standard_provider(
+    project: Project,
+    doctest_mode: DoctestMode,
+    timings: Option<&mut Vec<AnalysisTiming>>,
+    standard_for_module: impl FnOnce(
+        &BTreeSet<String>,
+    ) -> Result<ReusableStandardInput, Box<Diagnostic>>,
+) -> ProjectAnalysis {
+    analyze_project_with_surface_and_standard_provider(
+        project,
+        doctest_mode,
+        timings,
+        load_surface_modules,
+        standard_for_module,
+    )
+}
+
+fn analyze_project_with_surface_and_standard_provider(
     mut project: Project,
     doctest_mode: DoctestMode,
     mut timings: Option<&mut Vec<AnalysisTiming>>,
+    load_surface: impl FnOnce(&Project) -> (LoadedSurfaceModules, Vec<Diagnostic>),
     standard_for_module: impl FnOnce(
         &BTreeSet<String>,
     ) -> Result<ReusableStandardInput, Box<Diagnostic>>,
@@ -179,7 +197,7 @@ fn analyze_project_with_standard_provider(
         expected_doctest_failures = doctests.expected_failures;
     }
 
-    let (loaded, parse_diagnostics) = load_surface_modules(&project);
+    let (loaded, parse_diagnostics) = load_surface(&project);
     source_diagnostics.extend(parse_diagnostics);
     record_timing(&mut timings, "surface_parse_lower", surface_start.elapsed());
 
@@ -266,68 +284,17 @@ pub fn checked_project_diagnostics_with_captured_dependencies(
 }
 
 fn analyze_project_with_captured_dependencies(
-    mut project: Project,
+    project: Project,
     doctest_mode: DoctestMode,
     dependencies: &[CapturedDependencyProject],
 ) -> ProjectAnalysis {
-    let doctests = match doctest_mode {
-        DoctestMode::Include => Some(doctest_sources(&project.files)),
-        DoctestMode::Exclude => None,
-    };
-    let mut source_diagnostics = Vec::new();
-    let mut doctest_expectations = BTreeMap::new();
-    let mut expected_doctest_failures = BTreeMap::new();
-
-    if let Some(doctests) = doctests {
-        source_diagnostics.extend(doctests.diagnostics);
-        project.files.extend(doctests.sources);
-        doctest_expectations = doctests.expectations;
-        expected_doctest_failures = doctests.expected_failures;
-    }
-
-    let (loaded, parse_diagnostics) =
-        load_surface_modules_with_captured_dependencies(&project, dependencies);
-    source_diagnostics.extend(parse_diagnostics);
-
-    let standard = match standard_environment_for_modules(&loaded.selected_standard_module_names) {
-        Ok(standard) => standard,
-        Err(diagnostic) => {
-            let selected_standard = Arc::new(load_embedded_standard_surface_module_for_names(
-                &loaded.selected_standard_module_names,
-            ));
-            return ProjectAnalysis {
-                project,
-                module: loaded.application,
-                selected_standard,
-                selected_standard_module_names: loaded.selected_standard_module_names,
-                doctest_expectations,
-                source_diagnostics,
-                semantic_diagnostics: Vec::new(),
-                checked: lowered_internal_failure(*diagnostic),
-                expected_doctest_failures,
-                reachability_cache: ReachabilityCache::default(),
-            };
-        }
-    };
-    let (semantic_diagnostics, checked) =
-        check_project_surface_module_with_standard_modules_environment(
-            &loaded.application,
-            &loaded.selected_standard_module_names,
-            &standard.environment,
-        );
-
-    ProjectAnalysis {
+    analyze_project_with_surface_and_standard_provider(
         project,
-        module: loaded.application,
-        selected_standard: standard.module,
-        selected_standard_module_names: loaded.selected_standard_module_names,
-        doctest_expectations,
-        source_diagnostics,
-        semantic_diagnostics,
-        checked,
-        expected_doctest_failures,
-        reachability_cache: ReachabilityCache::default(),
-    }
+        doctest_mode,
+        None,
+        |project| load_surface_modules_with_captured_dependencies(project, dependencies),
+        standard_environment_for_modules,
+    )
 }
 
 impl ProjectAnalysis {

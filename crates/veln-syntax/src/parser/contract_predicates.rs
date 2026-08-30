@@ -259,27 +259,7 @@ impl<'a> ContractPredicateParser<'a> {
     }
 
     pub(super) fn current_binary_op(&self) -> Option<(BinaryOp, u8, u8)> {
-        match self.tokens.get(self.cursor)?.kind {
-            TokenKind::Or => Some((BinaryOp::Or, 3, 4)),
-            TokenKind::And => Some((BinaryOp::And, 5, 6)),
-            TokenKind::Pipe => Some((BinaryOp::BitwiseOr, 7, 8)),
-            TokenKind::Caret => Some((BinaryOp::BitwiseXor, 9, 10)),
-            TokenKind::Ampersand => Some((BinaryOp::BitwiseAnd, 11, 12)),
-            TokenKind::EqualEqual => Some((BinaryOp::Equal, 13, 14)),
-            TokenKind::BangEqual => Some((BinaryOp::NotEqual, 13, 14)),
-            TokenKind::Less => Some((BinaryOp::Less, 15, 16)),
-            TokenKind::LessEqual => Some((BinaryOp::LessEqual, 15, 16)),
-            TokenKind::Greater => Some((BinaryOp::Greater, 15, 16)),
-            TokenKind::GreaterEqual => Some((BinaryOp::GreaterEqual, 15, 16)),
-            TokenKind::ShiftLeft => Some((BinaryOp::ShiftLeft, 17, 18)),
-            TokenKind::ShiftRight => Some((BinaryOp::ShiftRight, 17, 18)),
-            TokenKind::ShiftRightLogical => Some((BinaryOp::ShiftRightLogical, 17, 18)),
-            TokenKind::Plus => Some((BinaryOp::Add, 19, 20)),
-            TokenKind::Minus => Some((BinaryOp::Subtract, 19, 20)),
-            TokenKind::Star => Some((BinaryOp::Multiply, 21, 22)),
-            TokenKind::Slash => Some((BinaryOp::Divide, 21, 22)),
-            _ => None,
-        }
+        binary_operator(self.tokens.get(self.cursor)?.kind, false)
     }
 
     pub(super) fn error_current(
@@ -311,33 +291,5 @@ impl<'a> ContractPredicateParser<'a> {
             },
             repair_candidates: Vec::new(),
         });
-    }
-
-    pub(super) fn eat(&mut self, kind: TokenKind) -> Option<Token> {
-        if self.at(kind) {
-            Some(self.bump())
-        } else {
-            None
-        }
-    }
-
-    pub(super) fn at(&self, kind: TokenKind) -> bool {
-        self.tokens
-            .get(self.cursor)
-            .is_some_and(|token| token.kind == kind)
-    }
-
-    pub(super) fn current(&self) -> &Token {
-        &self.tokens[self.cursor]
-    }
-
-    pub(super) fn is_at_end(&self) -> bool {
-        self.cursor >= self.tokens.len()
-    }
-
-    pub(super) fn bump(&mut self) -> Token {
-        let token = self.current().clone();
-        self.cursor += 1;
-        token
     }
 }

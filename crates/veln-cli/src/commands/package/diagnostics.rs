@@ -175,22 +175,7 @@ pub(super) fn unavailable_mirror_dependency_diagnostic(
     dependency: &ManifestDependency,
     mirror_field: &ManifestField,
 ) -> Diagnostic {
-    Diagnostic::new(
-        "package.mirror_unavailable",
-        Severity::Error,
-        DiagnosticKind::Module,
-        format!(
-            "mirror dependency `{}` is not available at `{}`",
-            dependency.package, mirror_field.value
-        ),
-        Some(mirror_field.value_span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("package_lock")),
-            ("field", JsonValue::string("dependencies.mirror")),
-            ("package", JsonValue::string(dependency.package.clone())),
-            ("path", JsonValue::string(mirror_field.value.clone())),
-        ]),
-    )
+    unavailable_local_dependency_diagnostic(dependency, mirror_field, "mirror")
 }
 
 pub(super) fn unavailable_git_dependency_diagnostic(
@@ -198,22 +183,15 @@ pub(super) fn unavailable_git_dependency_diagnostic(
     git_field: &ManifestField,
     reason: &str,
 ) -> Diagnostic {
-    Diagnostic::new(
+    git_dependency_failure_diagnostic(
+        dependency,
+        git_field,
+        reason,
         "package.git_unavailable",
-        Severity::Error,
-        DiagnosticKind::Module,
         format!(
             "git dependency `{}` is not available at `{}`",
             dependency.package, git_field.value
         ),
-        Some(git_field.value_span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("package_lock")),
-            ("field", JsonValue::string("dependencies.git")),
-            ("package", JsonValue::string(dependency.package.clone())),
-            ("url", JsonValue::string(git_field.value.clone())),
-            ("reason", JsonValue::string(reason)),
-        ]),
     )
 }
 
@@ -221,20 +199,35 @@ pub(super) fn unavailable_vendor_dependency_diagnostic(
     dependency: &ManifestDependency,
     vendor_field: &ManifestField,
 ) -> Diagnostic {
+    unavailable_local_dependency_diagnostic(dependency, vendor_field, "vendor")
+}
+
+fn unavailable_local_dependency_diagnostic(
+    dependency: &ManifestDependency,
+    source_field: &ManifestField,
+    source_kind: &'static str,
+) -> Diagnostic {
     Diagnostic::new(
-        "package.vendor_unavailable",
+        match source_kind {
+            "mirror" => "package.mirror_unavailable",
+            "vendor" => "package.vendor_unavailable",
+            _ => unreachable!("unsupported local dependency source kind"),
+        },
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "vendor dependency `{}` is not available at `{}`",
-            dependency.package, vendor_field.value
+            "{source_kind} dependency `{}` is not available at `{}`",
+            dependency.package, source_field.value
         ),
-        Some(vendor_field.value_span.clone()),
+        Some(source_field.value_span.clone()),
         JsonValue::object([
             ("phase", JsonValue::string("package_lock")),
-            ("field", JsonValue::string("dependencies.vendor")),
+            (
+                "field",
+                JsonValue::string(format!("dependencies.{source_kind}")),
+            ),
             ("package", JsonValue::string(dependency.package.clone())),
-            ("path", JsonValue::string(vendor_field.value.clone())),
+            ("path", JsonValue::string(source_field.value.clone())),
         ]),
     )
 }
@@ -244,14 +237,30 @@ pub(super) fn git_materialization_diagnostic(
     git_field: &ManifestField,
     reason: &str,
 ) -> Diagnostic {
-    Diagnostic::new(
+    git_dependency_failure_diagnostic(
+        dependency,
+        git_field,
+        reason,
         "package.git_materialization_failed",
-        Severity::Error,
-        DiagnosticKind::Module,
         format!(
             "git dependency `{}` could not be materialized from `{}`",
             dependency.package, git_field.value
         ),
+    )
+}
+
+fn git_dependency_failure_diagnostic(
+    dependency: &ManifestDependency,
+    git_field: &ManifestField,
+    reason: &str,
+    id: &'static str,
+    message: String,
+) -> Diagnostic {
+    Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Module,
+        message,
         Some(git_field.value_span.clone()),
         JsonValue::object([
             ("phase", JsonValue::string("package_lock")),
@@ -267,21 +276,14 @@ pub(super) fn dependency_missing_manifest_diagnostic(
     dependency: &ManifestDependency,
     source_field: &ManifestField,
 ) -> Diagnostic {
-    Diagnostic::new(
+    dependency_source_diagnostic(
         "package.dependency_missing_manifest",
-        Severity::Error,
-        DiagnosticKind::Module,
         format!(
             "dependency `{}` has no veln.toml at `{}`",
             dependency.package, source_field.value
         ),
-        Some(source_field.value_span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("package_lock")),
-            ("field", JsonValue::string("dependencies")),
-            ("package", JsonValue::string(dependency.package.clone())),
-            ("source", JsonValue::string(source_field.value.clone())),
-        ]),
+        dependency,
+        source_field,
     )
 }
 
@@ -290,14 +292,28 @@ pub(super) fn dependency_io_diagnostic(
     source_field: &ManifestField,
     error: std::io::Error,
 ) -> Diagnostic {
-    Diagnostic::new(
+    dependency_source_diagnostic(
         "package.dependency_read_failed",
-        Severity::Error,
-        DiagnosticKind::Module,
         format!(
             "dependency `{}` could not be read: {error}",
             dependency.package
         ),
+        dependency,
+        source_field,
+    )
+}
+
+fn dependency_source_diagnostic(
+    id: &'static str,
+    message: String,
+    dependency: &ManifestDependency,
+    source_field: &ManifestField,
+) -> Diagnostic {
+    Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Module,
+        message,
         Some(source_field.value_span.clone()),
         JsonValue::object([
             ("phase", JsonValue::string("package_lock")),
@@ -420,26 +436,4 @@ pub(super) fn package_name_mismatch_diagnostic(
         ]));
     }
     diagnostic
-}
-
-pub(super) fn span_json(span: &SourceSpan) -> JsonValue {
-    JsonValue::object([
-        ("file", JsonValue::string(span.file.as_str())),
-        (
-            "start",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.start.line as i64)),
-                ("column", JsonValue::Number(span.start.column as i64)),
-                ("offset", JsonValue::Number(span.start.offset as i64)),
-            ]),
-        ),
-        (
-            "end",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.end.line as i64)),
-                ("column", JsonValue::Number(span.end.column as i64)),
-                ("offset", JsonValue::Number(span.end.offset as i64)),
-            ]),
-        ),
-    ])
 }

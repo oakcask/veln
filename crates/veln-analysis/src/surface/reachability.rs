@@ -5,7 +5,7 @@ use veln_ast::{
     BodyLine, BodyLineKind, CodecImplementationKind, Expr, ExprKind, Function, FunctionKind,
     Pattern, PatternKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility,
 };
-use veln_project::classify_companion_source;
+use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{TokenKind, lex};
 
@@ -42,19 +42,7 @@ pub(crate) fn reachable_entry_module_with_cache(
     cache: &ReachabilityCache,
 ) -> SurfaceModule {
     let inputs = ReachabilityInputs::combined(module);
-    let reachability_index = cache
-        .function_targets
-        .get_or_init(|| reachable_function_targets(&inputs));
-    let companion_access_targets = companion_function_access_targets(&inputs);
-    let reachable = reachable_functions(
-        &inputs,
-        entry,
-        entry_kind,
-        reachability_index,
-        &companion_access_targets,
-        cache,
-    );
-    module_with_reachable_functions(&inputs, &reachable)
+    reachable_module_for_inputs(inputs, entry, entry_kind, &cache.function_targets, cache)
 }
 
 pub(crate) fn reachable_entry_module_with_standard_cache(
@@ -65,9 +53,23 @@ pub(crate) fn reachable_entry_module_with_standard_cache(
     cache: &ReachabilityCache,
 ) -> SurfaceModule {
     let inputs = ReachabilityInputs::separated(standard_module, application_module);
-    let reachability_index = cache
-        .separated_function_targets
-        .get_or_init(|| reachable_function_targets(&inputs));
+    reachable_module_for_inputs(
+        inputs,
+        entry,
+        entry_kind,
+        &cache.separated_function_targets,
+        cache,
+    )
+}
+
+fn reachable_module_for_inputs(
+    inputs: ReachabilityInputs<'_>,
+    entry: &str,
+    entry_kind: FunctionKind,
+    target_cache: &OnceCell<ReachabilityIndex>,
+    cache: &ReachabilityCache,
+) -> SurfaceModule {
+    let reachability_index = target_cache.get_or_init(|| reachable_function_targets(&inputs));
     let companion_access_targets = companion_function_access_targets(&inputs);
     let reachable = reachable_functions(
         &inputs,

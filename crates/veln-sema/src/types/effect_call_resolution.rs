@@ -17,8 +17,8 @@ pub(super) fn instantiate_call_effect_rows(
 }
 
 pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_>) -> Option<Type> {
-    let segments = callee_name_path(expr)?;
-    match segments.as_slice() {
+    let segments = expr.callee_name_path()?;
+    match segments {
         [name] => context
             .bindings
             .iter()
@@ -49,14 +49,6 @@ pub(super) fn function_type_for_expr(expr: &Expr, context: &ExprEffectContext<'_
     }
 }
 
-pub(super) fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
-    match &callee.kind {
-        ExprKind::NamePath(segments) => Some(segments),
-        ExprKind::TypeApply { callee, .. } => callee_name_path(callee),
-        _ => None,
-    }
-}
-
 pub(super) fn concurrency_effects_for_call(
     segments: &[String],
     args: &[Expr],
@@ -67,20 +59,20 @@ pub(super) fn concurrency_effects_for_call(
         .map(|effect| (*effect).to_string())
         .collect::<Vec<_>>();
     if matches!(segments, [module, name] if module == "task" && matches!(name.as_str(), "spawn" | "spawn_with"))
-        && let Some(job_effects) = args
-            .first()
-            .and_then(callee_name_path)
-            .and_then(|segments| {
-                effects_for_callee_path(
-                    segments,
-                    context.uses,
-                    context.current_module,
-                    context.bindings,
-                    context.effects_by_function,
-                    context.effects_by_module_path,
-                    context.companion_access_targets,
-                )
-            })
+        && let Some(job_effects) =
+            args.first()
+                .and_then(Expr::callee_name_path)
+                .and_then(|segments| {
+                    effects_for_callee_path(
+                        segments,
+                        context.uses,
+                        context.current_module,
+                        context.bindings,
+                        context.effects_by_function,
+                        context.effects_by_module_path,
+                        context.companion_access_targets,
+                    )
+                })
     {
         for effect in job_effects {
             push_unique_effect(&mut effects, effect);
@@ -167,30 +159,19 @@ pub(super) fn imported_handler_is_visible(
             }))
 }
 
-pub(super) fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
-    module
-        .functions
-        .iter()
-        .filter_map(|function| {
-            companion_access_target(function.span.file.as_str(), function.module_name.as_deref())
-        })
-        .chain(module.schemas.iter().filter_map(|schema| {
-            companion_access_target(schema.span.file.as_str(), schema.module_name.as_deref())
-        }))
-        .collect()
-}
-
-pub(super) fn companion_access_target(
-    path: &str,
-    module_name: Option<&str>,
-) -> Option<(String, String)> {
-    let companion = classify_companion_source(path)?;
-    let companion_module = module_name?.to_string();
-    let target_module = companion
-        .target_path
-        .strip_suffix(".veln")?
-        .replace('/', "::");
-    Some((companion_module, target_module))
+pub(crate) fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {
+    collect_companion_access_targets(
+        module
+            .functions
+            .iter()
+            .map(|function| (function.span.file.as_str(), function.module_name.as_deref()))
+            .chain(
+                module
+                    .schemas
+                    .iter()
+                    .map(|schema| (schema.span.file.as_str(), schema.module_name.as_deref())),
+            ),
+    )
 }
 
 pub(super) fn companion_access_target_infos(
@@ -236,35 +217,30 @@ pub(super) fn companion_access_target_info(
 pub(super) fn companion_function_access_targets(
     module: &SurfaceModule,
 ) -> BTreeMap<String, String> {
-    module
-        .functions
-        .iter()
-        .filter_map(|function| {
-            let companion = classify_companion_source(function.span.file.as_str())?;
-            let companion_module = function.module_name.clone()?;
-            let target_module = companion
-                .target_path
-                .strip_suffix(".veln")?
-                .replace('/', "::");
-            Some((companion_module, target_module))
-        })
-        .collect()
+    collect_companion_access_targets(
+        module
+            .functions
+            .iter()
+            .map(|function| (function.span.file.as_str(), function.module_name.as_deref())),
+    )
 }
 
 pub(super) fn companion_access_targets_for_signatures(
     functions: &[FunctionSignature],
 ) -> BTreeMap<String, String> {
-    functions
-        .iter()
-        .filter_map(|function| {
-            let companion = classify_companion_source(function.span.file.as_str())?;
-            let companion_module = function.module_name.clone()?;
-            let target_module = companion
-                .target_path
-                .strip_suffix(".veln")?
-                .replace('/', "::");
-            Some((companion_module, target_module))
-        })
+    collect_companion_access_targets(
+        functions
+            .iter()
+            .map(|function| (function.span.file.as_str(), function.module_name.as_deref())),
+    )
+}
+
+fn collect_companion_access_targets<'a>(
+    declarations: impl IntoIterator<Item = (&'a str, Option<&'a str>)>,
+) -> BTreeMap<String, String> {
+    declarations
+        .into_iter()
+        .filter_map(|(path, module_name)| companion_access_target(path, module_name))
         .collect()
 }
 

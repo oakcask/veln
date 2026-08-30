@@ -164,38 +164,43 @@ fn companion_public_declaration_diagnostic(
 }
 
 fn missing_companion_target_diagnostic(source: &SourceFile, target_path: &str) -> Diagnostic {
-    let mut diagnostic = Diagnostic::new(
+    companion_target_diagnostic(
         "module.companion_missing_target",
-        Severity::Error,
-        DiagnosticKind::Module,
         format!(
             "test companion `{}` has no matching target `{target_path}`",
             source.path().as_str()
         ),
-        Some(source.span(TextRange::new(0, 0))),
-        JsonValue::object([
-            ("phase", JsonValue::string("module")),
-            ("field", JsonValue::string("companion_target")),
-            ("companion_path", JsonValue::string(source.path().as_str())),
-            ("target_path", JsonValue::string(target_path)),
-        ]),
-    );
-    diagnostic.related.push(JsonValue::object([(
-        "message",
-        JsonValue::string("Create the target source beside the companion or rename the companion."),
-    )]));
-    diagnostic
+        source,
+        target_path,
+        "Create the target source beside the companion or rename the companion.",
+    )
 }
 
 fn chained_companion_diagnostic(source: &SourceFile, target_path: &str) -> Diagnostic {
-    let mut diagnostic = Diagnostic::new(
+    companion_target_diagnostic(
         "module.chained_companion",
-        Severity::Error,
-        DiagnosticKind::Module,
         format!(
             "test companion `{}` cannot target another companion `{target_path}`",
             source.path().as_str()
         ),
+        source,
+        target_path,
+        "Use exactly one `.test.veln` suffix for a test companion.",
+    )
+}
+
+fn companion_target_diagnostic(
+    code: &'static str,
+    message: String,
+    source: &SourceFile,
+    target_path: &str,
+    repair: &'static str,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        code,
+        Severity::Error,
+        DiagnosticKind::Module,
+        message,
         Some(source.span(TextRange::new(0, 0))),
         JsonValue::object([
             ("phase", JsonValue::string("module")),
@@ -204,10 +209,9 @@ fn chained_companion_diagnostic(source: &SourceFile, target_path: &str) -> Diagn
             ("target_path", JsonValue::string(target_path)),
         ]),
     );
-    diagnostic.related.push(JsonValue::object([(
-        "message",
-        JsonValue::string("Use exactly one `.test.veln` suffix for a test companion."),
-    )]));
+    diagnostic
+        .related
+        .push(JsonValue::object([("message", JsonValue::string(repair))]));
     diagnostic
 }
 

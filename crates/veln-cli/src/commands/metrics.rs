@@ -57,20 +57,7 @@ pub(crate) fn metrics(
                     },
                 )
             }
-            Err(diagnostics) => {
-                let has_errors = has_error(&diagnostics);
-                let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
-                if json {
-                    println!("{}", envelope.to_json());
-                } else {
-                    print_human_stderr(&envelope)?;
-                }
-                Ok(if has_errors {
-                    ExitCode::from(1)
-                } else {
-                    ExitCode::SUCCESS
-                })
-            }
+            Err(diagnostics) => report_metrics_failure(json, diagnostics),
         };
     }
 
@@ -88,21 +75,26 @@ pub(crate) fn metrics(
                 ExitCode::SUCCESS
             })
         }
-        Err(diagnostics) => {
-            let has_errors = has_error(&diagnostics);
-            let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
-            if json {
-                println!("{}", envelope.to_json());
-            } else {
-                print_human_stderr(&envelope)?;
-            }
-            Ok(if has_errors {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            })
-        }
+        Err(diagnostics) => report_metrics_failure(json, diagnostics),
     }
+}
+
+fn report_metrics_failure(
+    json: bool,
+    diagnostics: Vec<veln_diagnostics::Diagnostic>,
+) -> Result<ExitCode, String> {
+    let has_errors = has_error(&diagnostics);
+    let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
+    if json {
+        println!("{}", envelope.to_json());
+    } else {
+        print_human_stderr(&envelope)?;
+    }
+    Ok(if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    })
 }
 
 fn write_metrics_baseline(

@@ -1,4 +1,6 @@
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_diagnostics::{
+    Diagnostic, DiagnosticKind, JsonValue, Severity, source_span_to_json as span_json,
+};
 use veln_syntax::{ParseDiagnostic, ParseRepairCandidate, ParseRepairEdit};
 
 pub fn parse_diagnostic_to_envelope(diagnostic: &ParseDiagnostic) -> Diagnostic {
@@ -125,27 +127,5 @@ fn parse_repair_edit_json(edit: &ParseRepairEdit) -> JsonValue {
         ("kind", JsonValue::string("replace")),
         ("span", span_json(&edit.span)),
         ("replacement", JsonValue::string(edit.replacement.clone())),
-    ])
-}
-
-fn span_json(span: &veln_source::SourceSpan) -> JsonValue {
-    JsonValue::object([
-        ("file", JsonValue::string(span.file.as_str())),
-        (
-            "start",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.start.line as i64)),
-                ("column", JsonValue::Number(span.start.column as i64)),
-                ("offset", JsonValue::Number(span.start.offset as i64)),
-            ]),
-        ),
-        (
-            "end",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.end.line as i64)),
-                ("column", JsonValue::Number(span.end.column as i64)),
-                ("offset", JsonValue::Number(span.end.offset as i64)),
-            ]),
-        ),
     ])
 }

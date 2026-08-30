@@ -54,13 +54,28 @@ pub(super) fn collect_expr_effect_dependencies(
     .collect(expr);
 }
 
+trait ExprEffectTraversal {
+    fn collect(&mut self, expr: &Expr);
+
+    fn collect_pair(&mut self, first: &Expr, second: &Expr) {
+        self.collect(first);
+        self.collect(second);
+    }
+
+    fn collect_all(&mut self, expressions: &[Expr]) {
+        for expression in expressions {
+            self.collect(expression);
+        }
+    }
+}
+
 struct ExprEffectDependencyCollector<'context, 'data, 'output> {
     context: &'context ExprEffectContext<'data>,
     dependencies: &'output mut BTreeSet<EffectDependencyNode>,
 }
 
 impl ExprEffectDependencyCollector<'_, '_, '_> {
-    fn collect(&mut self, expr: &Expr) {
+    fn collect_expr(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
             ExprKind::Handle {
@@ -118,7 +133,7 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
     }
 
     fn collect_call(&mut self, callee: &Expr, args: &[Expr]) {
-        if let Some(segments) = callee_name_path(callee) {
+        if let Some(segments) = callee.callee_name_path() {
             self.collect_name_path(segments);
         } else {
             self.collect(callee);
@@ -166,16 +181,11 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
             )));
         }
     }
+}
 
-    fn collect_pair(&mut self, first: &Expr, second: &Expr) {
-        self.collect(first);
-        self.collect(second);
-    }
-
-    fn collect_all(&mut self, expressions: &[Expr]) {
-        for expression in expressions {
-            self.collect(expression);
-        }
+impl ExprEffectTraversal for ExprEffectDependencyCollector<'_, '_, '_> {
+    fn collect(&mut self, expr: &Expr) {
+        self.collect_expr(expr);
     }
 }
 
@@ -193,7 +203,7 @@ struct ExprEffectCollector<'context, 'data, 'output> {
 }
 
 impl ExprEffectCollector<'_, '_, '_> {
-    fn collect(&mut self, expr: &Expr) {
+    fn collect_expr(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
             ExprKind::SchemaDecode { input, base, .. } => self.collect_pair(input, base),
@@ -232,7 +242,7 @@ impl ExprEffectCollector<'_, '_, '_> {
     }
 
     fn collect_call(&mut self, callee: &Expr, args: &[Expr]) {
-        let Some(segments) = callee_name_path(callee) else {
+        let Some(segments) = callee.callee_name_path() else {
             self.collect(callee);
             self.collect_all(args);
             return;
@@ -245,7 +255,7 @@ impl ExprEffectCollector<'_, '_, '_> {
             for effect in effects {
                 push_unique_effect(self.inferred, effect);
             }
-        } else if let [name] = segments.as_slice()
+        } else if let [name] = segments
             && let Some(effects) = lexical_effects_for_bare_callee(
                 name,
                 self.context.bindings,
@@ -313,17 +323,6 @@ impl ExprEffectCollector<'_, '_, '_> {
         self.push_all(&handler_effects);
     }
 
-    fn collect_pair(&mut self, first: &Expr, second: &Expr) {
-        self.collect(first);
-        self.collect(second);
-    }
-
-    fn collect_all(&mut self, expressions: &[Expr]) {
-        for expression in expressions {
-            self.collect(expression);
-        }
-    }
-
     fn collect_record_fields(&mut self, fields: &[RecordField]) {
         for field in fields {
             self.collect(&field.expr);
@@ -361,5 +360,11 @@ impl ExprEffectCollector<'_, '_, '_> {
         for effect in effects {
             push_unique_effect(self.inferred, effect);
         }
+    }
+}
+
+impl ExprEffectTraversal for ExprEffectCollector<'_, '_, '_> {
+    fn collect(&mut self, expr: &Expr) {
+        self.collect_expr(expr);
     }
 }

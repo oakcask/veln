@@ -1,29 +1,5 @@
+use super::type_operations::adt_args;
 use super::{AdtDescriptor, AdtPayloadType, CoreType, Type};
-
-fn descriptor_args<'a>(ty: &'a Type, descriptor: &AdtDescriptor) -> Option<&'a [Type]> {
-    match ty {
-        Type::Named { name, args }
-            if name == &descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
-        {
-            Some(args)
-        }
-        _ => None,
-    }
-}
-
-fn core_descriptor_args<'a>(
-    ty: &'a CoreType,
-    descriptor: &AdtDescriptor,
-) -> Option<&'a [CoreType]> {
-    match ty {
-        CoreType::Named { name, args }
-            if name == &descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
-        {
-            Some(args)
-        }
-        _ => None,
-    }
-}
 
 pub(super) fn payload_type_from_args(
     ty: &Type,
@@ -31,12 +7,10 @@ pub(super) fn payload_type_from_args(
     payload: &AdtPayloadType,
 ) -> Option<Type> {
     match payload {
-        AdtPayloadType::TypeParameter(index) => {
-            descriptor_args(ty, descriptor)?.get(*index).cloned()
-        }
+        AdtPayloadType::TypeParameter(index) => adt_args(ty, descriptor)?.get(*index).cloned(),
         AdtPayloadType::SelfType => Some(ty.clone()),
         AdtPayloadType::Concrete(template) => {
-            let args = descriptor_args(ty, descriptor)?;
+            let args = adt_args(ty, descriptor)?;
             Some(substitute_type_parameters(template, args))
         }
     }
@@ -48,12 +22,10 @@ pub(super) fn core_payload_type_from_args(
     payload: &AdtPayloadType,
 ) -> Option<CoreType> {
     match payload {
-        AdtPayloadType::TypeParameter(index) => {
-            core_descriptor_args(ty, descriptor)?.get(*index).cloned()
-        }
+        AdtPayloadType::TypeParameter(index) => adt_args(ty, descriptor)?.get(*index).cloned(),
         AdtPayloadType::SelfType => Some(ty.clone()),
         AdtPayloadType::Concrete(template) => {
-            let args = core_descriptor_args(ty, descriptor)?;
+            let args = adt_args(ty, descriptor)?;
             Some(substitute_core_type_parameters(
                 &core_type_template(template),
                 args,
@@ -221,7 +193,7 @@ pub(super) fn merge_core_type_slot(slot: &mut CoreType, actual: &CoreType) {
 }
 
 pub(super) fn unify_self_type(args: &mut [Type], descriptor: &AdtDescriptor, actual: &Type) {
-    let Some(actual_args) = descriptor_args(actual, descriptor) else {
+    let Some(actual_args) = adt_args(actual, descriptor) else {
         return;
     };
     for (index, actual_arg) in actual_args.iter().enumerate() {
@@ -234,7 +206,7 @@ pub(super) fn unify_core_self_type(
     descriptor: &AdtDescriptor,
     actual: &CoreType,
 ) {
-    let Some(actual_args) = core_descriptor_args(actual, descriptor) else {
+    let Some(actual_args) = adt_args(actual, descriptor) else {
         return;
     };
     for (index, actual_arg) in actual_args.iter().enumerate() {
@@ -431,57 +403,43 @@ pub(super) fn core_type_template(ty: &Type) -> CoreType {
     }
 }
 
-pub(super) fn named_part<'a>(ty: &'a Type, name: &str, arity: usize) -> Option<&'a Type> {
-    let Type::Named {
-        name: ty_name,
-        args,
-    } = ty
-    else {
-        return None;
-    };
-    (ty_name == name && args.len() == arity)
-        .then(|| args.first())
-        .flatten()
+pub(crate) trait NamedTypeArguments: Sized {
+    fn named_type_arguments(&self) -> Option<(&str, &[Self])>;
 }
 
-pub(super) fn core_named_part<'a>(
-    ty: &'a CoreType,
+impl NamedTypeArguments for Type {
+    fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
+        let Self::Named { name, args } = self else {
+            return None;
+        };
+        Some((name, args))
+    }
+}
+
+impl NamedTypeArguments for CoreType {
+    fn named_type_arguments(&self) -> Option<(&str, &[Self])> {
+        let Self::Named { name, args } = self else {
+            return None;
+        };
+        Some((name, args))
+    }
+}
+
+pub(super) fn named_part<'a, T: NamedTypeArguments>(
+    ty: &'a T,
     name: &str,
     arity: usize,
-) -> Option<&'a CoreType> {
-    let CoreType::Named {
-        name: ty_name,
-        args,
-    } = ty
-    else {
-        return None;
-    };
+) -> Option<&'a T> {
+    let (ty_name, args) = ty.named_type_arguments()?;
     (ty_name == name && args.len() == arity)
         .then(|| args.first())
         .flatten()
 }
 
-pub(super) fn named_parts2<'a>(ty: &'a Type, name: &str) -> Option<(&'a Type, &'a Type)> {
-    let Type::Named {
-        name: ty_name,
-        args,
-    } = ty
-    else {
-        return None;
-    };
-    (ty_name == name && args.len() == 2).then(|| (&args[0], &args[1]))
-}
-
-pub(super) fn core_named_parts2<'a>(
-    ty: &'a CoreType,
+pub(super) fn named_parts2<'a, T: NamedTypeArguments>(
+    ty: &'a T,
     name: &str,
-) -> Option<(&'a CoreType, &'a CoreType)> {
-    let CoreType::Named {
-        name: ty_name,
-        args,
-    } = ty
-    else {
-        return None;
-    };
+) -> Option<(&'a T, &'a T)> {
+    let (ty_name, args) = ty.named_type_arguments()?;
     (ty_name == name && args.len() == 2).then(|| (&args[0], &args[1]))
 }

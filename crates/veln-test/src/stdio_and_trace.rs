@@ -238,13 +238,7 @@ pub(super) fn fixture_hex_details<'a>(
                 ("end", JsonValue::Number(text_end)),
             ]),
         ),
-        (
-            "byte_offset",
-            JsonValue::object([
-                ("kind", JsonValue::string("ByteOffset")),
-                ("value", JsonValue::Number(byte_offset)),
-            ]),
-        ),
+        ("byte_offset", byte_offset_value(byte_offset)),
         ("nibble_position", JsonValue::string(nibble)),
         (
             "nearby_context",
@@ -260,31 +254,14 @@ pub(super) fn fixture_hex_details<'a>(
 pub(super) fn byte_diagnostic_details<'a>(
     fields: &mut impl Iterator<Item = &'a str>,
 ) -> Option<JsonValue> {
-    let id = fields.next()?.to_string();
-    let byte_offset = fields.next()?.parse::<i64>().ok()?;
-    let field_path_count = fields.next()?.parse::<usize>().ok()?;
-    let mut field_path = Vec::with_capacity(field_path_count);
-    for _ in 0..field_path_count {
-        let kind = fields.next()?.to_string();
-        let name = decode_hex_text(fields.next()?)?;
-        field_path.push(JsonValue::object([
-            ("kind", JsonValue::string(kind)),
-            ("name", JsonValue::string(name)),
-        ]));
-    }
+    let (id, byte_offset, field_path) = byte_diagnostic_header(fields)?;
     let expected_count = fields.next()?.parse::<i64>().ok()?;
     let available_count = fields.next()?.parse::<i64>().ok()?;
     let readiness = fields.next()?.to_string();
     Some(JsonValue::object([
         ("kind", JsonValue::string("byte_diagnostic")),
         ("id", JsonValue::string(id)),
-        (
-            "byte_offset",
-            JsonValue::object([
-                ("kind", JsonValue::string("ByteOffset")),
-                ("value", JsonValue::Number(byte_offset)),
-            ]),
-        ),
+        ("byte_offset", byte_offset_value(byte_offset)),
         ("field_path", JsonValue::array(field_path)),
         ("expected_count", JsonValue::Number(expected_count)),
         ("available_count", JsonValue::Number(available_count)),
@@ -295,45 +272,16 @@ pub(super) fn byte_diagnostic_details<'a>(
 pub(super) fn byte_diagnostic_v2_details<'a>(
     fields: &mut impl Iterator<Item = &'a str>,
 ) -> Option<JsonValue> {
-    let id = fields.next()?.to_string();
-    let byte_offset = fields.next()?.parse::<i64>().ok()?;
-    let field_path_count = fields.next()?.parse::<usize>().ok()?;
-    let mut field_path = Vec::with_capacity(field_path_count);
-    for _ in 0..field_path_count {
-        let kind = fields.next()?.to_string();
-        let name = decode_hex_text(fields.next()?)?;
-        field_path.push(JsonValue::object([
-            ("kind", JsonValue::string(kind)),
-            ("name", JsonValue::string(name)),
-        ]));
-    }
-    let detail_count = fields.next()?.parse::<usize>().ok()?;
-    let mut entries = vec![
-        ("kind".to_string(), JsonValue::string("byte_diagnostic")),
-        ("id".to_string(), JsonValue::string(id)),
-        (
-            "byte_offset".to_string(),
-            JsonValue::object([
-                ("kind", JsonValue::string("ByteOffset")),
-                ("value", JsonValue::Number(byte_offset)),
-            ]),
-        ),
-        ("field_path".to_string(), JsonValue::array(field_path)),
-    ];
-    for _ in 0..detail_count {
-        let key = fields.next()?.to_string();
-        let value_kind = fields.next()?;
-        let value = fields.next()?;
-        let json_value = match value_kind {
-            "number" => JsonValue::Number(value.parse::<i64>().ok()?),
-            "string" => JsonValue::string(decode_hex_text(value)?),
-            "byte_preview" => byte_preview_value(value)?,
-            "byte_preview_v2" => byte_preview_v2_value(value)?,
-            _ => return None,
-        };
-        entries.push((key, json_value));
-    }
-    Some(JsonValue::Object(entries))
+    let (id, byte_offset, field_path) = byte_diagnostic_header(fields)?;
+    finish_dynamic_diagnostic(
+        fields,
+        vec![
+            ("kind".to_string(), JsonValue::string("byte_diagnostic")),
+            ("id".to_string(), JsonValue::string(id)),
+            ("byte_offset".to_string(), byte_offset_value(byte_offset)),
+            ("field_path".to_string(), JsonValue::array(field_path)),
+        ],
+    )
 }
 
 pub(super) fn byte_preview_value(encoded_hex_text: &str) -> Option<JsonValue> {
@@ -390,32 +338,14 @@ pub(super) fn protocol_diagnostic_details<'a>(
 ) -> Option<JsonValue> {
     let id = fields.next()?.to_string();
     let byte_offset = fields.next()?.parse::<i64>().ok()?;
-    let detail_count = fields.next()?.parse::<usize>().ok()?;
-    let mut entries = vec![
-        ("kind".to_string(), JsonValue::string("protocol_diagnostic")),
-        ("id".to_string(), JsonValue::string(id)),
-        (
-            "byte_offset".to_string(),
-            JsonValue::object([
-                ("kind", JsonValue::string("ByteOffset")),
-                ("value", JsonValue::Number(byte_offset)),
-            ]),
-        ),
-    ];
-    for _ in 0..detail_count {
-        let key = fields.next()?.to_string();
-        let value_kind = fields.next()?;
-        let value = fields.next()?;
-        let json_value = match value_kind {
-            "number" => JsonValue::Number(value.parse::<i64>().ok()?),
-            "string" => JsonValue::string(decode_hex_text(value)?),
-            "byte_preview" => byte_preview_value(value)?,
-            "byte_preview_v2" => byte_preview_v2_value(value)?,
-            _ => return None,
-        };
-        entries.push((key, json_value));
-    }
-    Some(JsonValue::Object(entries))
+    finish_dynamic_diagnostic(
+        fields,
+        vec![
+            ("kind".to_string(), JsonValue::string("protocol_diagnostic")),
+            ("id".to_string(), JsonValue::string(id)),
+            ("byte_offset".to_string(), byte_offset_value(byte_offset)),
+        ],
+    )
 }
 
 pub(super) fn value_diagnostic_details<'a>(
@@ -423,8 +353,42 @@ pub(super) fn value_diagnostic_details<'a>(
 ) -> Option<JsonValue> {
     let id = fields.next()?.to_string();
     let field_path_count = fields.next()?.parse::<usize>().ok()?;
-    let mut field_path = Vec::with_capacity(field_path_count);
-    for _ in 0..field_path_count {
+    let field_path = diagnostic_field_path(fields, field_path_count)?;
+    finish_dynamic_diagnostic(
+        fields,
+        vec![
+            ("kind".to_string(), JsonValue::string("value_diagnostic")),
+            ("id".to_string(), JsonValue::string(id)),
+            ("field_path".to_string(), JsonValue::array(field_path)),
+        ],
+    )
+}
+
+fn byte_diagnostic_header<'a>(
+    fields: &mut impl Iterator<Item = &'a str>,
+) -> Option<(String, i64, Vec<JsonValue>)> {
+    let id = fields.next()?.to_string();
+    let byte_offset = fields.next()?.parse::<i64>().ok()?;
+    let field_path_count = fields.next()?.parse::<usize>().ok()?;
+    let field_path = diagnostic_field_path(fields, field_path_count)?;
+    Some((id, byte_offset, field_path))
+}
+
+fn finish_dynamic_diagnostic<'a>(
+    fields: &mut impl Iterator<Item = &'a str>,
+    mut entries: Vec<(String, JsonValue)>,
+) -> Option<JsonValue> {
+    let detail_count = fields.next()?.parse::<usize>().ok()?;
+    append_diagnostic_details(fields, detail_count, &mut entries)?;
+    Some(JsonValue::Object(entries))
+}
+
+fn diagnostic_field_path<'a>(
+    fields: &mut impl Iterator<Item = &'a str>,
+    count: usize,
+) -> Option<Vec<JsonValue>> {
+    let mut field_path = Vec::with_capacity(count);
+    for _ in 0..count {
         let kind = fields.next()?.to_string();
         let name = decode_hex_text(fields.next()?)?;
         field_path.push(JsonValue::object([
@@ -432,13 +396,22 @@ pub(super) fn value_diagnostic_details<'a>(
             ("name", JsonValue::string(name)),
         ]));
     }
-    let detail_count = fields.next()?.parse::<usize>().ok()?;
-    let mut entries = vec![
-        ("kind".to_string(), JsonValue::string("value_diagnostic")),
-        ("id".to_string(), JsonValue::string(id)),
-        ("field_path".to_string(), JsonValue::array(field_path)),
-    ];
-    for _ in 0..detail_count {
+    Some(field_path)
+}
+
+fn byte_offset_value(byte_offset: i64) -> JsonValue {
+    JsonValue::object([
+        ("kind", JsonValue::string("ByteOffset")),
+        ("value", JsonValue::Number(byte_offset)),
+    ])
+}
+
+fn append_diagnostic_details<'a>(
+    fields: &mut impl Iterator<Item = &'a str>,
+    count: usize,
+    entries: &mut Vec<(String, JsonValue)>,
+) -> Option<()> {
+    for _ in 0..count {
         let key = fields.next()?.to_string();
         let value_kind = fields.next()?;
         let value = fields.next()?;
@@ -451,7 +424,7 @@ pub(super) fn value_diagnostic_details<'a>(
         };
         entries.push((key, json_value));
     }
-    Some(JsonValue::Object(entries))
+    Some(())
 }
 
 pub(super) fn hex_digit(character: char) -> Option<u8> {

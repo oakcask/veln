@@ -64,7 +64,7 @@ pub(super) fn doctest_doc_block_before(source: &SourceFile, target_line: usize) 
         index -= 1;
     }
     docs.reverse();
-    if doc_lines_are_adr_lite(docs.iter().copied()) {
+    if documentation_lines_are_adr_lite(docs.iter().copied()) {
         return String::new();
     }
     docs.join("\n")

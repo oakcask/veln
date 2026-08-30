@@ -198,6 +198,21 @@ fn reserved_bits_max_value(bit_width: i64) -> Option<i64> {
     Some((1_i64 << bit_width) - 1)
 }
 
+fn reserved_group_visible_field_widths(
+    first_visible_field: &veln_ast::SchemaField,
+    second_visible_field: &veln_ast::SchemaField,
+) -> Option<(u8, u8)> {
+    if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
+        || exact_width_schema_primitive_little_endian(&second_visible_field.ty)
+    {
+        return None;
+    }
+    Some((
+        exact_width_schema_primitive_bit_width(&first_visible_field.ty)?,
+        exact_width_schema_primitive_bit_width(&second_visible_field.ty)?,
+    ))
+}
+
 fn supported_prefix_reserved_group(
     first_visible_field: &veln_ast::SchemaField,
     second_visible_field: &veln_ast::SchemaField,
@@ -207,16 +222,8 @@ fn supported_prefix_reserved_group(
     if bit_width <= 0 || bit_width > 57 {
         return false;
     }
-    if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
-        || exact_width_schema_primitive_little_endian(&second_visible_field.ty)
-    {
-        return false;
-    }
-    let Some(first_bit_width) = exact_width_schema_primitive_bit_width(&first_visible_field.ty)
-    else {
-        return false;
-    };
-    let Some(second_bit_width) = exact_width_schema_primitive_bit_width(&second_visible_field.ty)
+    let Some((first_bit_width, second_bit_width)) =
+        reserved_group_visible_field_widths(first_visible_field, second_visible_field)
     else {
         return false;
     };
@@ -254,16 +261,8 @@ fn supported_suffix_reserved_group(
     if bit_width <= 0 || bit_width > 7 {
         return false;
     }
-    if exact_width_schema_primitive_little_endian(&first_visible_field.ty)
-        || exact_width_schema_primitive_little_endian(&second_visible_field.ty)
-    {
-        return false;
-    }
-    let Some(first_bit_width) = exact_width_schema_primitive_bit_width(&first_visible_field.ty)
-    else {
-        return false;
-    };
-    let Some(second_bit_width) = exact_width_schema_primitive_bit_width(&second_visible_field.ty)
+    let Some((first_bit_width, second_bit_width)) =
+        reserved_group_visible_field_widths(first_visible_field, second_visible_field)
     else {
         return false;
     };

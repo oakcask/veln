@@ -230,21 +230,7 @@ pub(super) fn lowercase_schema_primitive_diagnostic_with_message(
     reason: &'static str,
     message: String,
 ) -> Diagnostic {
-    let mut details = vec![
-        ("phase", JsonValue::string("schema")),
-        ("node_id", JsonValue::string(node_id)),
-        ("primitive", JsonValue::string(primitive.to_string())),
-        ("reason", JsonValue::string(reason)),
-    ];
-    if let Some(schema) = schema {
-        details.push((
-            "schema",
-            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
-        ));
-    }
-    if let Some(field) = field {
-        details.push(("field", JsonValue::string(field.name.clone())));
-    }
+    let details = schema_primitive_details(primitive, schema, field, node_id, reason);
     Diagnostic::new(
         "schema.lowercase_primitive",
         Severity::Error,
@@ -323,6 +309,26 @@ pub(in crate::analysis) fn exact_width_schema_primitive_diagnostic(
     span: SourceSpan,
     reason: &'static str,
 ) -> Diagnostic {
+    let details = schema_primitive_details(primitive, schema, field, node_id, reason);
+    Diagnostic::new(
+        "schema.exact_width_primitive",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "binary schema primitive `{primitive}` can only be used in a `format binary` schema field"
+        ),
+        Some(span),
+        JsonValue::object(details),
+    )
+}
+
+fn schema_primitive_details(
+    primitive: &str,
+    schema: Option<&SchemaDecl>,
+    field: Option<&SchemaField>,
+    node_id: String,
+    reason: &'static str,
+) -> Vec<(&'static str, JsonValue)> {
     let mut details = vec![
         ("phase", JsonValue::string("schema")),
         ("node_id", JsonValue::string(node_id)),
@@ -338,16 +344,7 @@ pub(in crate::analysis) fn exact_width_schema_primitive_diagnostic(
     if let Some(field) = field {
         details.push(("field", JsonValue::string(field.name.clone())));
     }
-    Diagnostic::new(
-        "schema.exact_width_primitive",
-        Severity::Error,
-        DiagnosticKind::Type,
-        format!(
-            "binary schema primitive `{primitive}` can only be used in a `format binary` schema field"
-        ),
-        Some(span),
-        JsonValue::object(details),
-    )
+    details
 }
 
 pub(super) fn reserved_bits_primitive(
@@ -417,24 +414,13 @@ pub(super) fn reserved_bits_format_diagnostic(
     schema: &SchemaDecl,
     field: &SchemaField,
 ) -> Diagnostic {
-    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
     Diagnostic::new(
         "schema.reserved_bits_primitive",
         Severity::Error,
         DiagnosticKind::Type,
         "`ReservedBits` can only be used in a `format binary` schema field",
         Some(field.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("schema")),
-            (
-                "node_id",
-                JsonValue::string(field.node_id.display("schema-field")),
-            ),
-            ("schema", JsonValue::string(schema_name)),
-            ("field", JsonValue::string(field.name.clone())),
-            ("primitive", JsonValue::string("ReservedBits")),
-            ("reason", JsonValue::string("non_binary_format")),
-        ]),
+        reserved_bits_field_details(schema, field, "non_binary_format"),
     )
 }
 
@@ -443,7 +429,6 @@ pub(super) fn reserved_bits_argument_diagnostic(
     field: &SchemaField,
     reason: ReservedBitsArgumentReason,
 ) -> Diagnostic {
-    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
     let reason_text = match reason {
         ReservedBitsArgumentReason::Arity => "argument_count",
         ReservedBitsArgumentReason::Literal => "non_literal_argument",
@@ -462,18 +447,29 @@ pub(super) fn reserved_bits_argument_diagnostic(
         DiagnosticKind::Type,
         message,
         Some(field.span.clone()),
-        JsonValue::object([
-            ("phase", JsonValue::string("schema")),
-            (
-                "node_id",
-                JsonValue::string(field.node_id.display("schema-field")),
-            ),
-            ("schema", JsonValue::string(schema_name)),
-            ("field", JsonValue::string(field.name.clone())),
-            ("primitive", JsonValue::string("ReservedBits")),
-            ("reason", JsonValue::string(reason_text)),
-        ]),
+        reserved_bits_field_details(schema, field, reason_text),
     )
+}
+
+fn reserved_bits_field_details(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reason: &'static str,
+) -> JsonValue {
+    JsonValue::object([
+        ("phase", JsonValue::string("schema")),
+        (
+            "node_id",
+            JsonValue::string(field.node_id.display("schema-field")),
+        ),
+        (
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+        ),
+        ("field", JsonValue::string(field.name.clone())),
+        ("primitive", JsonValue::string("ReservedBits")),
+        ("reason", JsonValue::string(reason)),
+    ])
 }
 
 pub(super) fn reserved_bits_encode_shape_diagnostic(

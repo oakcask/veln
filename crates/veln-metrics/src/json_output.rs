@@ -572,28 +572,6 @@ pub(super) fn json_string(value: &JsonValue) -> Option<&str> {
     }
 }
 
-pub(super) fn span_to_json(span: &SourceSpan) -> JsonValue {
-    JsonValue::object([
-        ("file", JsonValue::string(span.file.as_str())),
-        (
-            "start",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.start.line as i64)),
-                ("column", JsonValue::Number(span.start.column as i64)),
-                ("offset", JsonValue::Number(span.start.offset as i64)),
-            ]),
-        ),
-        (
-            "end",
-            JsonValue::object([
-                ("line", JsonValue::Number(span.end.line as i64)),
-                ("column", JsonValue::Number(span.end.column as i64)),
-                ("offset", JsonValue::Number(span.end.offset as i64)),
-            ]),
-        ),
-    ])
-}
-
 pub(super) fn metrics_io_diagnostic(message: String) -> Diagnostic {
     Diagnostic {
         id: "metrics.discovery".to_string(),

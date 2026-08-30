@@ -31,6 +31,24 @@ pub struct IrSchemaDecodeField {
     pub reserved_bits: Option<IrSchemaReservedBits>,
 }
 
+impl IrSchemaDecodeField {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            width: 0,
+            max_value: 0,
+            little_endian: false,
+            predicate: None,
+            length_field: None,
+            length_multiple: None,
+            repeat: None,
+            payload_schema: None,
+            dispatch: None,
+            reserved_bits: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IrSchemaRepeat {
     pub count_field: String,

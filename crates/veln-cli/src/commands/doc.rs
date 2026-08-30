@@ -12,11 +12,14 @@ use veln_project::{
     ManifestField, Project, ProjectManifest, classify_companion_source, production_analysis_inputs,
     read_manifest,
 };
-use veln_source::{SourceFile, TextRange};
+use veln_source::SourceFile;
 use veln_syntax::{
     AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, PublicAliasDecl,
-    PublicAliasKind, SchemaDecl, SyntaxItem, TypeDecl, TypeVariantDecl, Visibility,
-    canonical_type_text, parse,
+    PublicAliasKind, SchemaDecl, SyntaxItem, TypeDecl, Visibility,
+    declaration_type_signature as type_signature,
+    declaration_variant_signature as variant_signature,
+    documentation_block_before as doc_block_before, extract_documentation_schema_references, parse,
+    render_documentation_lines as rendered_doc_lines,
 };
 
 use crate::diagnostics::{print_human_stderr, tool_info};
@@ -367,101 +370,8 @@ fn push_contracts(out: &mut String, contracts: &[ContractClause]) {
     out.push('\n');
 }
 
-fn doc_block_before(source: &SourceFile, target_line: usize) -> Vec<String> {
-    if target_line <= 1 {
-        return Vec::new();
-    }
-    let lines = source.text().lines().collect::<Vec<_>>();
-    let mut index = target_line - 2;
-    let mut docs = Vec::new();
-
-    while let Some(line) = lines.get(index) {
-        let trimmed = line.trim_start();
-        if let Some(content) = trimmed.strip_prefix("##") {
-            docs.push(content.trim_start().to_string());
-        } else {
-            break;
-        }
-        if index == 0 {
-            break;
-        }
-        index -= 1;
-    }
-
-    docs.reverse();
-    if docs
-        .iter()
-        .find(|line| !line.trim().is_empty())
-        .is_some_and(|line| matches!(line.trim(), "@adr" | "@adr-lite"))
-    {
-        return Vec::new();
-    }
-    docs
-}
-
-fn rendered_doc_lines(lines: Vec<String>) -> Vec<String> {
-    let mut rendered = Vec::new();
-    let mut in_veln_fence = false;
-    for line in lines {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("```") {
-            in_veln_fence =
-                trimmed.starts_with("```veln") && !trimmed.starts_with("```veln-output");
-            rendered.push(line);
-            continue;
-        }
-        if in_veln_fence && line.starts_with("> ") {
-            continue;
-        }
-        rendered.push(line);
-    }
-    rendered
-}
-
 fn function_signature(function: &FunctionDecl) -> String {
-    let mut signature = String::from("fn ");
-    signature.push_str(function.name.as_deref().unwrap_or("<anonymous>"));
-    signature.push('(');
-    signature.push_str(
-        &function
-            .params
-            .iter()
-            .map(|param| match &param.ty {
-                Some(ty) if param.is_variadic => {
-                    format!("{}: ...{}", param.name, canonical_type_text(ty))
-                }
-                Some(ty) => format!("{}: {}", param.name, canonical_type_text(ty)),
-                None => param.name.clone(),
-            })
-            .collect::<Vec<_>>()
-            .join(", "),
-    );
-    signature.push(')');
-    if let Some(return_type) = &function.return_type {
-        signature.push_str(" -> ");
-        if let Some(binding) = &function.return_binding {
-            signature.push_str(&binding.name);
-            signature.push_str(": ");
-        }
-        signature.push_str(&canonical_type_text(return_type));
-    }
-    if let Some(effects) = &function.effects {
-        signature.push_str(" effects [");
-        signature.push_str(&effects.join(", "));
-        signature.push(']');
-    }
-    signature
-}
-
-fn type_signature(type_decl: &TypeDecl) -> String {
-    let mut signature = String::from("type ");
-    signature.push_str(type_decl.name.as_deref().unwrap_or("<anonymous>"));
-    if !type_decl.params.is_empty() {
-        signature.push('<');
-        signature.push_str(&type_decl.params.join(", "));
-        signature.push('>');
-    }
-    signature
+    veln_syntax::declaration_function_signature(function, false)
 }
 
 fn alias_signature(alias: &PublicAliasDecl) -> String {
@@ -481,29 +391,6 @@ fn schema_signature(schema: &SchemaDecl) -> String {
     let mut signature = String::from("schema ");
     signature.push_str(schema.name.as_deref().unwrap_or("<anonymous>"));
     signature
-}
-
-fn variant_signature(variant: &TypeVariantDecl) -> String {
-    let name = variant.name.as_deref().unwrap_or("<anonymous>");
-    if variant.fields.is_empty() {
-        return name.to_string();
-    }
-    if variant.fields.iter().all(|field| !field.name.is_empty()) {
-        let fields = variant
-            .fields
-            .iter()
-            .map(|field| format!("{}: {}", field.name, canonical_type_text(&field.ty)))
-            .collect::<Vec<_>>()
-            .join(", ");
-        return format!("{name} {{ {fields} }}");
-    }
-    let fields = variant
-        .fields
-        .iter()
-        .map(|field| canonical_type_text(&field.ty))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{name}({fields})")
 }
 
 fn contract_kind_text(kind: ContractKind) -> &'static str {

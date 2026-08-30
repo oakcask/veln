@@ -37,40 +37,46 @@ trait SignatureType: Clone + PartialEq {
     }
 }
 
+macro_rules! common_signature_type_methods {
+    () => {
+        fn unknown() -> Self {
+            Self::Unknown
+        }
+
+        fn int() -> Self {
+            Self::int()
+        }
+
+        fn unit() -> Self {
+            Self::unit()
+        }
+
+        fn named(name: &str, args: Vec<Self>) -> Self {
+            Self::named(name, args)
+        }
+
+        fn record(fields: Vec<(String, Self)>) -> Self {
+            Self::Record(fields)
+        }
+
+        fn named_args(&self, expected_name: &str) -> Option<&[Self]> {
+            match self {
+                Self::Named { name, args } if name == expected_name => Some(args),
+                _ => None,
+            }
+        }
+
+        fn record_field(&self, field_name: &str) -> Option<&Self> {
+            Self::record_field(self, field_name)
+        }
+    };
+}
+
 impl SignatureType for Type {
-    fn unknown() -> Self {
-        Self::Unknown
-    }
-
-    fn int() -> Self {
-        Self::int()
-    }
-
-    fn unit() -> Self {
-        Self::unit()
-    }
-
-    fn named(name: &str, args: Vec<Self>) -> Self {
-        Self::named(name, args)
-    }
-
-    fn record(fields: Vec<(String, Self)>) -> Self {
-        Self::Record(fields)
-    }
+    common_signature_type_methods!();
 
     fn function(params: Vec<Self>, return_type: Self, effects: Vec<String>) -> Self {
         Self::function(params, return_type, effects)
-    }
-
-    fn named_args(&self, expected_name: &str) -> Option<&[Self]> {
-        match self {
-            Self::Named { name, args } if name == expected_name => Some(args),
-            _ => None,
-        }
-    }
-
-    fn record_field(&self, field_name: &str) -> Option<&Self> {
-        Self::record_field(self, field_name)
     }
 
     fn function_parts(&self) -> Option<(&[Self], &Self)> {
@@ -83,25 +89,7 @@ impl SignatureType for Type {
 }
 
 impl SignatureType for CoreType {
-    fn unknown() -> Self {
-        Self::Unknown
-    }
-
-    fn int() -> Self {
-        Self::int()
-    }
-
-    fn unit() -> Self {
-        Self::unit()
-    }
-
-    fn named(name: &str, args: Vec<Self>) -> Self {
-        Self::named(name, args)
-    }
-
-    fn record(fields: Vec<(String, Self)>) -> Self {
-        Self::Record(fields)
-    }
+    common_signature_type_methods!();
 
     fn function(params: Vec<Self>, return_type: Self, effects: Vec<String>) -> Self {
         Self::Function {
@@ -110,17 +98,6 @@ impl SignatureType for CoreType {
             return_type: Box::new(return_type),
             effects,
         }
-    }
-
-    fn named_args(&self, expected_name: &str) -> Option<&[Self]> {
-        match self {
-            Self::Named { name, args } if name == expected_name => Some(args),
-            _ => None,
-        }
-    }
-
-    fn record_field(&self, field_name: &str) -> Option<&Self> {
-        Self::record_field(self, field_name)
     }
 
     fn function_parts(&self) -> Option<(&[Self], &Self)> {

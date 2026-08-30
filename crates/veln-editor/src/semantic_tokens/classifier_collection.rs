@@ -1,5 +1,11 @@
 use super::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EffectNameBoundary {
+    BeforeEffects,
+    ThroughRightBracket,
+}
+
 impl<'a> Classifier<'a> {
     pub(super) fn new(
         source: &'a SourceFile,
@@ -135,22 +141,12 @@ impl<'a> Classifier<'a> {
     fn collect_handler_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
         self.params.clear();
         self.locals.clear();
-        while self.at(TokenKind::Pub) || self.at(TokenKind::Handler) {
-            let token = &self.tokens[self.cursor];
-            semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
-            self.cursor += 1;
-            self.skip_trivia();
-        }
-        if self.at(TokenKind::Ident) {
-            let token = &self.tokens[self.cursor];
-            semantic_tokens.push(self.modified(
-                token,
-                SemanticTokenType::Function,
-                &[SemanticTokenModifier::Declaration],
-            ));
-            self.cursor += 1;
-            self.skip_trivia();
-        }
+        self.collect_named_declaration_header(
+            semantic_tokens,
+            TokenKind::Handler,
+            SemanticTokenType::Function,
+            true,
+        );
         if self.eat(TokenKind::LParen, semantic_tokens) {
             self.collect_parameters(semantic_tokens);
         }
@@ -166,10 +162,7 @@ impl<'a> Classifier<'a> {
                 self.cursor += 1;
                 self.collect_effect_list(semantic_tokens);
             } else {
-                if let Some(classified) = self.classify_current_token() {
-                    semantic_tokens.push(classified);
-                }
-                self.cursor += 1;
+                self.collect_plain_token(semantic_tokens);
             }
         }
         while self.at(TokenKind::Newline) {
@@ -207,10 +200,7 @@ impl<'a> Classifier<'a> {
             .get(self.cursor)
             .is_some_and(|token| token.kind != TokenKind::Eof && token.range.start < body_end)
         {
-            if let Some(classified) = self.classify_current_token() {
-                semantic_tokens.push(classified);
-            }
-            self.cursor += 1;
+            self.collect_plain_token(semantic_tokens);
         }
     }
 
@@ -246,9 +236,20 @@ impl<'a> Classifier<'a> {
     }
 
     fn collect_handler_operation_parameters(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.collect_parameter_list(semantic_tokens, false);
+    }
+
+    fn collect_parameter_list(
+        &mut self,
+        semantic_tokens: &mut Vec<SemanticToken>,
+        require_type_separator: bool,
+    ) {
         while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
             let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident {
+            if token.kind == TokenKind::Ident
+                && (!require_type_separator
+                    || self.next_significant_kind() == Some(TokenKind::Colon))
+            {
                 self.params.insert(token.text.clone());
                 semantic_tokens.push(self.modified(
                     token,
@@ -260,34 +261,35 @@ impl<'a> Classifier<'a> {
                 ));
                 self.cursor += 1;
             } else {
-                if let Some(classified) = self.classify_current_token() {
-                    semantic_tokens.push(classified);
-                }
-                self.cursor += 1;
+                self.collect_plain_token(semantic_tokens);
             }
         }
         self.eat(TokenKind::RParen, semantic_tokens);
     }
 
     fn collect_effect_path(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
-        while !self.at(TokenKind::Newline)
-            && !self.at(TokenKind::Effects)
-            && !self.at(TokenKind::Eof)
-        {
-            let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident {
-                semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
-            } else if let Some(classified) = self.classify_current_token() {
-                semantic_tokens.push(classified);
-            }
-            self.cursor += 1;
-        }
+        self.collect_effect_names(semantic_tokens, EffectNameBoundary::BeforeEffects);
     }
 
     fn collect_schema_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
         self.params.clear();
         self.locals.clear();
-        while self.at(TokenKind::Pub) || self.at(TokenKind::Schema) {
+        self.collect_named_declaration_header(
+            semantic_tokens,
+            TokenKind::Schema,
+            SemanticTokenType::Type,
+            false,
+        );
+    }
+
+    fn collect_named_declaration_header(
+        &mut self,
+        semantic_tokens: &mut Vec<SemanticToken>,
+        declaration_keyword: TokenKind,
+        declaration_type: SemanticTokenType,
+        skip_name_trivia: bool,
+    ) {
+        while self.at(TokenKind::Pub) || self.at(declaration_keyword) {
             let token = &self.tokens[self.cursor];
             semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
             self.cursor += 1;
@@ -297,27 +299,18 @@ impl<'a> Classifier<'a> {
             let token = &self.tokens[self.cursor];
             semantic_tokens.push(self.modified(
                 token,
-                SemanticTokenType::Type,
+                declaration_type,
                 &[SemanticTokenModifier::Declaration],
             ));
             self.cursor += 1;
+            if skip_name_trivia {
+                self.skip_trivia();
+            }
         }
     }
 
     fn collect_module_name(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident {
-                semantic_tokens.push(self.modified(
-                    token,
-                    SemanticTokenType::Namespace,
-                    &[SemanticTokenModifier::Declaration],
-                ));
-            } else if let Some(classified) = self.classify_current_token() {
-                semantic_tokens.push(classified);
-            }
-            self.cursor += 1;
-        }
+        self.collect_namespace_line(semantic_tokens, |_, token| token.kind == TokenKind::Ident);
     }
 
     fn collect_use_name(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -331,9 +324,17 @@ impl<'a> Classifier<'a> {
             }
         }
 
+        self.collect_namespace_line(semantic_tokens, |index, _| Some(index) == alias);
+    }
+
+    fn collect_namespace_line(
+        &mut self,
+        semantic_tokens: &mut Vec<SemanticToken>,
+        is_declaration: impl Fn(usize, &Token) -> bool,
+    ) {
         while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
             let token = &self.tokens[self.cursor];
-            if Some(self.cursor) == alias {
+            if is_declaration(self.cursor, token) {
                 semantic_tokens.push(self.modified(
                     token,
                     SemanticTokenType::Namespace,
@@ -380,29 +381,7 @@ impl<'a> Classifier<'a> {
     }
 
     fn collect_parameters(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
-        while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
-            let token = &self.tokens[self.cursor];
-            if token.kind == TokenKind::Ident
-                && self.next_significant_kind() == Some(TokenKind::Colon)
-            {
-                self.params.insert(token.text.clone());
-                semantic_tokens.push(self.modified(
-                    token,
-                    SemanticTokenType::Parameter,
-                    &[
-                        SemanticTokenModifier::Declaration,
-                        SemanticTokenModifier::Readonly,
-                    ],
-                ));
-                self.cursor += 1;
-            } else {
-                if let Some(classified) = self.classify_current_token() {
-                    semantic_tokens.push(classified);
-                }
-                self.cursor += 1;
-            }
-        }
-        self.eat(TokenKind::RParen, semantic_tokens);
+        self.collect_parameter_list(semantic_tokens, true);
     }
 
     fn collect_return_and_effects(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -434,16 +413,24 @@ impl<'a> Classifier<'a> {
                 self.cursor += 1;
                 self.collect_effect_list(semantic_tokens);
             } else {
-                if let Some(classified) = self.classify_current_token() {
-                    semantic_tokens.push(classified);
-                }
-                self.cursor += 1;
+                self.collect_plain_token(semantic_tokens);
             }
         }
     }
 
     fn collect_effect_list(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.collect_effect_names(semantic_tokens, EffectNameBoundary::ThroughRightBracket);
+    }
+
+    fn collect_effect_names(
+        &mut self,
+        semantic_tokens: &mut Vec<SemanticToken>,
+        boundary: EffectNameBoundary,
+    ) {
         while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            if boundary == EffectNameBoundary::BeforeEffects && self.at(TokenKind::Effects) {
+                break;
+            }
             let token = &self.tokens[self.cursor];
             if token.kind == TokenKind::Ident {
                 semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
@@ -451,7 +438,9 @@ impl<'a> Classifier<'a> {
                 semantic_tokens.push(classified);
             }
             self.cursor += 1;
-            if token.kind == TokenKind::RBracket {
+            if boundary == EffectNameBoundary::ThroughRightBracket
+                && token.kind == TokenKind::RBracket
+            {
                 break;
             }
         }

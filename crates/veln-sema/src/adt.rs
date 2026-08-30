@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
-use veln_project::classify_companion_source;
+use veln_project::companion_access_target;
 
 use crate::builtin_type_syntax::{BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxRegistry};
 use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
@@ -622,7 +622,7 @@ use type_operations::raw_builtin_descriptors_for_test;
 #[cfg(test)]
 pub(crate) use type_operations::validate_builtin_adt_descriptors;
 pub(crate) use type_operations::{
-    adt_args, constructed_type, constructed_type_from_args, core_adt_args, core_constructed_type,
+    adt_args, constructed_type, constructed_type_from_args, core_constructed_type,
     core_constructed_type_from_args, core_list_part, core_list_type, core_option_part,
     core_option_type, core_payload_type, core_payload_type_with_args, core_result_parts,
     core_result_type, list_part, list_type, merge_core_type_args_from_payload,

@@ -6,7 +6,8 @@ use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
     ContractObligationStatus, IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind,
     IrFunction, IrHandlerProvider, IrMatchArm, IrPattern, IrPatternField, IrPatternKind,
-    IrRecordField, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
+    IrRecordField, IrSchemaDecodeDispatchCase, IrSchemaDecodeSpec, IrStmt, IrStmtKind,
+    TypedProgram,
 };
 use veln_literals::parse_integer_literal;
 
@@ -175,10 +176,7 @@ impl<'a> ClassfileEmitter<'a> {
         let try_end = code.mark();
         code.op(0xb1);
 
-        self.emit_entry_contract_failure_handler(&mut code, try_start, try_end);
-        self.emit_entry_runtime_failure_handler(&mut code, try_start, try_end);
-        self.add_entry_main_method(&mut class, code);
-        class.finish()
+        self.finish_entry_class(class, code, try_start, try_end)
     }
 
     fn emit_test_entry_class(&self, entry_functions: &[String]) -> Vec<u8> {
@@ -230,6 +228,16 @@ impl<'a> ClassfileEmitter<'a> {
         let try_end = code.mark();
         code.op(0xb1);
 
+        self.finish_entry_class(class, code, try_start, try_end)
+    }
+
+    fn finish_entry_class(
+        &self,
+        mut class: ClassBuilder,
+        mut code: MethodCode,
+        try_start: usize,
+        try_end: usize,
+    ) -> Vec<u8> {
         self.emit_entry_contract_failure_handler(&mut code, try_start, try_end);
         self.emit_entry_runtime_failure_handler(&mut code, try_start, try_end);
         self.add_entry_main_method(&mut class, code);
@@ -404,27 +412,7 @@ impl<'a> ClassfileEmitter<'a> {
         try_start: usize,
         try_end: usize,
     ) {
-        let handler = code.mark();
-        code.astore(2);
-        code.aload(2);
-        code.invokestatic(
-            &self.options.runtime_class,
-            "recordContractFailure",
-            &format!("(L{}$ContractFailure;)V", self.options.runtime_class),
-        );
-        code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
-        code.aload(2);
-        code.invokevirtual("java/lang/Throwable", "getMessage", "()Ljava/lang/String;");
-        code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");
-        code.push_i32(1);
-        code.invokestatic("java/lang/System", "exit", "(I)V");
-        code.op(0xb1);
-        code.exceptions.push(ExceptionHandler {
-            start_pc: try_start,
-            end_pc: try_end,
-            handler_pc: handler,
-            catch_type: self.runtime_nested("ContractFailure"),
-        });
+        self.emit_entry_failure_handler(code, try_start, try_end, "ContractFailure", true);
     }
 
     fn emit_entry_runtime_failure_handler(
@@ -433,8 +421,27 @@ impl<'a> ClassfileEmitter<'a> {
         try_start: usize,
         try_end: usize,
     ) {
+        self.emit_entry_failure_handler(code, try_start, try_end, "RuntimeFailure", false);
+    }
+
+    fn emit_entry_failure_handler(
+        &self,
+        code: &mut MethodCode,
+        try_start: usize,
+        try_end: usize,
+        failure_class: &str,
+        record_contract_failure: bool,
+    ) {
         let handler = code.mark();
         code.astore(2);
+        if record_contract_failure {
+            code.aload(2);
+            code.invokestatic(
+                &self.options.runtime_class,
+                "recordContractFailure",
+                &format!("(L{}$ContractFailure;)V", self.options.runtime_class),
+            );
+        }
         code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
         code.aload(2);
         code.invokevirtual("java/lang/Throwable", "getMessage", "()Ljava/lang/String;");
@@ -446,7 +453,7 @@ impl<'a> ClassfileEmitter<'a> {
             start_pc: try_start,
             end_pc: try_end,
             handler_pc: handler,
-            catch_type: self.runtime_nested("RuntimeFailure"),
+            catch_type: self.runtime_nested(failure_class),
         });
     }
 

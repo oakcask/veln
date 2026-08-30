@@ -1,4 +1,5 @@
 use super::*;
+use crate::effect_rows::EffectRowSubstitutions;
 
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_name_path(
@@ -209,15 +210,7 @@ impl<'a> FunctionChecker<'a> {
         };
         let instantiated_effects =
             self.check_call_arguments(args, &params, variadic.as_deref(), &origin);
-        for effect in &instantiate_effect_rows(&origin.effects, &instantiated_effects) {
-            self.inferred_effects.push(EffectUse {
-                effect: effect.clone(),
-                node_id: expr.node_id,
-                span: expr.span.clone(),
-                kind: "direct_call",
-                symbol: origin.symbol.clone(),
-            });
-        }
+        self.record_call_effects(expr, &origin, &instantiated_effects);
         Some(*return_type)
     }
 
@@ -325,7 +318,17 @@ impl<'a> FunctionChecker<'a> {
         let instantiated_effects =
             self.check_call_arguments(args, &params, variadic.as_ref(), &origin);
 
-        for effect in &instantiate_effect_rows(&origin.effects, &instantiated_effects) {
+        self.record_call_effects(expr, &origin, &instantiated_effects);
+        Some(return_type)
+    }
+
+    fn record_call_effects(
+        &mut self,
+        expr: &Expr,
+        origin: &CallOrigin,
+        instantiated_effects: &EffectRowSubstitutions,
+    ) {
+        for effect in &instantiate_effect_rows(&origin.effects, instantiated_effects) {
             self.inferred_effects.push(EffectUse {
                 effect: effect.clone(),
                 node_id: expr.node_id,
@@ -334,7 +337,6 @@ impl<'a> FunctionChecker<'a> {
                 symbol: origin.symbol.clone(),
             });
         }
-        Some(return_type)
     }
 
     pub(super) fn declared_call_is_standard_prelude(&self, callee: &Expr) -> bool {

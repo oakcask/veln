@@ -40,14 +40,21 @@ pub(crate) fn prelude_signature_with_input(
 ) -> Option<(Vec<Type>, Type)> {
     let descriptor = prelude_symbol(name)?;
     let expected = ExpectedPreludeParts::from_expected_and_input(expected, input);
+    resolved_prelude_signature(descriptor, &expected)
+}
+
+fn resolved_prelude_signature(
+    descriptor: &StandardSymbolDescriptor,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
     prelude_float_signature(descriptor.name)
         .or_else(|| prelude_byte_signature(descriptor.name))
         .or_else(|| prelude_string_signature(descriptor.name))
-        .or_else(|| prelude_vec_signature(descriptor.name, &expected))
-        .or_else(|| prelude_list_signature(descriptor.name, &expected))
-        .or_else(|| prelude_dict_signature(descriptor.name, &expected))
-        .or_else(|| prelude_option_signature(descriptor.name, &expected))
-        .or_else(|| prelude_result_signature(descriptor.name, &expected))
+        .or_else(|| prelude_vec_signature(descriptor.name, expected))
+        .or_else(|| prelude_list_signature(descriptor.name, expected))
+        .or_else(|| prelude_dict_signature(descriptor.name, expected))
+        .or_else(|| prelude_option_signature(descriptor.name, expected))
+        .or_else(|| prelude_result_signature(descriptor.name, expected))
         .or_else(|| compiler_adapter_callback_signature(descriptor))
 }
 
@@ -64,15 +71,7 @@ pub(crate) fn qualified_prelude_builtin_signature_with_input(
     }
     let descriptor = compiler_adapter_symbol(name)?;
     let expected = ExpectedPreludeParts::from_expected_and_input(expected, input);
-    let (params, return_type) = prelude_float_signature(descriptor.name)
-        .or_else(|| prelude_byte_signature(descriptor.name))
-        .or_else(|| prelude_string_signature(descriptor.name))
-        .or_else(|| prelude_vec_signature(descriptor.name, &expected))
-        .or_else(|| prelude_list_signature(descriptor.name, &expected))
-        .or_else(|| prelude_dict_signature(descriptor.name, &expected))
-        .or_else(|| prelude_option_signature(descriptor.name, &expected))
-        .or_else(|| prelude_result_signature(descriptor.name, &expected))
-        .or_else(|| compiler_adapter_callback_signature(descriptor))?;
+    let (params, return_type) = resolved_prelude_signature(descriptor, &expected)?;
     Some((name.clone(), params, return_type))
 }
 

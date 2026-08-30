@@ -306,30 +306,25 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         name: &[String],
         args: &[IrPattern],
     ) {
-        let fail = code.new_label();
-        let done = code.new_label();
-        value.emit_load(code);
-        code.ldc_string(&name.join("::"));
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            "isAdt",
-            "(Ljava/lang/Object;Ljava/lang/String;)Z",
-        );
-        code.branch_to(0x99, fail);
-        for (index, pattern) in args.iter().enumerate() {
-            let inner_value = ValueRef::AdtPayload {
-                base: Box::new(value.clone()),
-                index,
-                runtime: self.program.options.runtime_class.clone(),
-            };
-            self.emit_pattern_condition(code, pattern, inner_value);
+        self.emit_boolean_condition(code, |this, code, fail| {
+            value.emit_load(code);
+            code.ldc_string(&name.join("::"));
+            code.invokestatic(
+                &this.program.options.runtime_class,
+                "isAdt",
+                "(Ljava/lang/Object;Ljava/lang/String;)Z",
+            );
             code.branch_to(0x99, fail);
-        }
-        code.push_i32(1);
-        code.branch_to(0xa7, done);
-        code.bind(fail);
-        code.push_i32(0);
-        code.bind(done);
+            for (index, pattern) in args.iter().enumerate() {
+                let inner_value = ValueRef::AdtPayload {
+                    base: Box::new(value.clone()),
+                    index,
+                    runtime: this.program.options.runtime_class.clone(),
+                };
+                this.emit_pattern_condition(code, pattern, inner_value);
+                code.branch_to(0x99, fail);
+            }
+        });
     }
 
     pub(super) fn emit_constructor_inner_condition(
@@ -340,22 +335,44 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         getter: &str,
         inner: &IrPattern,
     ) {
+        self.emit_constructor_components_condition(code, value, test, &[(getter, inner)]);
+    }
+
+    fn emit_constructor_components_condition(
+        &mut self,
+        code: &mut MethodCode,
+        value: ValueRef,
+        test: &str,
+        components: &[(&str, &IrPattern)],
+    ) {
+        self.emit_boolean_condition(code, |this, code, fail| {
+            value.emit_load(code);
+            code.invokestatic(
+                &this.program.options.runtime_class,
+                test,
+                "(Ljava/lang/Object;)Z",
+            );
+            code.branch_to(0x99, fail);
+            for (getter, pattern) in components {
+                let inner_value = ValueRef::RuntimeUnary {
+                    base: Box::new(value.clone()),
+                    method: (*getter).to_string(),
+                    runtime: this.program.options.runtime_class.clone(),
+                };
+                this.emit_pattern_condition(code, pattern, inner_value);
+                code.branch_to(0x99, fail);
+            }
+        });
+    }
+
+    fn emit_boolean_condition(
+        &mut self,
+        code: &mut MethodCode,
+        emit_checks: impl FnOnce(&mut Self, &mut MethodCode, usize),
+    ) {
         let fail = code.new_label();
         let done = code.new_label();
-        value.emit_load(code);
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            test,
-            "(Ljava/lang/Object;)Z",
-        );
-        code.branch_to(0x99, fail);
-        let inner_value = ValueRef::RuntimeUnary {
-            base: Box::new(value),
-            method: getter.to_string(),
-            runtime: self.program.options.runtime_class.clone(),
-        };
-        self.emit_pattern_condition(code, inner, inner_value);
-        code.branch_to(0x99, fail);
+        emit_checks(self, code, fail);
         code.push_i32(1);
         code.branch_to(0xa7, done);
         code.bind(fail);
@@ -371,29 +388,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         left: (&str, &IrPattern),
         right: (&str, &IrPattern),
     ) {
-        let fail = code.new_label();
-        let done = code.new_label();
-        value.emit_load(code);
-        code.invokestatic(
-            &self.program.options.runtime_class,
-            test,
-            "(Ljava/lang/Object;)Z",
-        );
-        code.branch_to(0x99, fail);
-        for (getter, pattern) in [left, right] {
-            let inner_value = ValueRef::RuntimeUnary {
-                base: Box::new(value.clone()),
-                method: getter.to_string(),
-                runtime: self.program.options.runtime_class.clone(),
-            };
-            self.emit_pattern_condition(code, pattern, inner_value);
-            code.branch_to(0x99, fail);
-        }
-        code.push_i32(1);
-        code.branch_to(0xa7, done);
-        code.bind(fail);
-        code.push_i32(0);
-        code.bind(done);
+        self.emit_constructor_components_condition(code, value, test, &[left, right]);
     }
 
     pub(super) fn emit_pattern_bindings(

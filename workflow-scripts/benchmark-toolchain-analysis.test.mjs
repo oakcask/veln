@@ -182,14 +182,7 @@ test("requires every acceptance threshold to pass", () => {
 
 test("fails acceptance and suppresses performance thresholds for noisy runs", () => {
   const result = {
-    workloads: [
-      workload("http2_core", 9, 3, 1, true, { baselineNoisy: true }),
-      workload("http2_connection", 12, 4, 1, true),
-      workload("generated_1", 1, 1, 1, true),
-      workload("generated_2", 1, 1, 2.5, true),
-      workload("generated_3", 1, 1, 6.25, true),
-      workload("http2_core_toolchain_case", 1, 1.3, 1, true),
-    ],
+    workloads: thresholdWorkloads({ coreOptions: { baselineNoisy: true } }),
   };
 
   const decisions = thresholdDecisions(result);
@@ -208,14 +201,7 @@ test("fails acceptance and suppresses performance thresholds for noisy runs", ()
 
 test("suppresses performance thresholds when functional outputs differ", () => {
   const result = {
-    workloads: [
-      workload("http2_core", 9, 3, 1, true),
-      workload("http2_connection", 12, 4, 1, false),
-      workload("generated_1", 1, 1, 1, true),
-      workload("generated_2", 1, 1, 2.5, true),
-      workload("generated_3", 1, 1, 6.25, true),
-      workload("http2_core_toolchain_case", 1, 1.3, 1, true),
-    ],
+    workloads: thresholdWorkloads({ connectionOutputsEqual: false }),
   };
 
   const decisions = thresholdDecisions(result);
@@ -231,6 +217,17 @@ test("suppresses performance thresholds when functional outputs differ", () => {
   ]);
   assert.equal(passesBenchmarkThresholds(decisions), false);
 });
+
+function thresholdWorkloads({ coreOptions = {}, connectionOutputsEqual = true } = {}) {
+  return [
+    workload("http2_core", 9, 3, 1, true, coreOptions),
+    workload("http2_connection", 12, 4, 1, connectionOutputsEqual),
+    workload("generated_1", 1, 1, 1, true),
+    workload("generated_2", 1, 1, 2.5, true),
+    workload("generated_3", 1, 1, 6.25, true),
+    workload("http2_core_toolchain_case", 1, 1.3, 1, true),
+  ];
+}
 
 test("writes deterministic machine-readable JSON", () => {
   assert.equal(

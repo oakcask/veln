@@ -401,6 +401,29 @@ pub struct Expr {
     pub span: SourceSpan,
 }
 
+impl Expr {
+    pub fn callee_name_path(&self) -> Option<&[String]> {
+        match &self.kind {
+            ExprKind::NamePath(segments) => Some(segments),
+            ExprKind::TypeApply { callee, .. } => callee.callee_name_path(),
+            _ => None,
+        }
+    }
+
+    pub fn callee_name_path_and_type_args(&self) -> Option<(&[String], Option<&[String]>)> {
+        match &self.kind {
+            ExprKind::NamePath(segments) => Some((segments, None)),
+            ExprKind::TypeApply { callee, type_args } => {
+                let ExprKind::NamePath(segments) = &callee.kind else {
+                    return None;
+                };
+                Some((segments, Some(type_args)))
+            }
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ExprKind {
     Missing,
@@ -519,6 +542,30 @@ pub struct Pattern {
     pub node_id: NodeId,
     pub kind: PatternKind,
     pub span: SourceSpan,
+}
+
+impl Pattern {
+    pub fn for_each_binding(&self, visitor: &mut impl FnMut(&str)) {
+        match &self.kind {
+            PatternKind::Binding(name) => visitor(name),
+            PatternKind::Record(fields) => {
+                for field in fields {
+                    field.pattern.for_each_binding(visitor);
+                }
+            }
+            PatternKind::Constructor { args, .. } => {
+                for argument in args {
+                    argument.for_each_binding(visitor);
+                }
+            }
+            PatternKind::Wildcard
+            | PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit => {}
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

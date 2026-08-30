@@ -5,7 +5,9 @@ use veln_core::CoreType;
 use crate::adt;
 use crate::semantic_model::{CallOrigin, Type};
 use crate::source_less_lookup::qualified_symbol;
-use crate::standard_symbols::{StandardSignature, StandardType, effect_strings};
+use crate::standard_symbols::{
+    StandardSignature, StandardSymbolDescriptor, StandardType, effect_strings,
+};
 use crate::type_lowering::core_type;
 
 mod concurrency;
@@ -27,31 +29,23 @@ const NET_CONCURRENCY_EFFECTS: &[&str] = &["net", "concurrency"];
 const NET_TIME_CONCURRENCY_EFFECTS: &[&str] = &["net", "time", "concurrency"];
 
 pub(crate) fn stdio_signature(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
-    let symbol = qualified_symbol(segments)?;
-    if !symbol.effects.contains(&"stdio") {
-        return None;
-    }
-    let module = symbol.module?;
-    Some(CallOrigin {
-        node_id: callee.node_id,
-        span: callee.span.clone(),
-        symbol: format!("{module}::{}", symbol.name),
-        effects: effect_strings(symbol),
-    })
+    qualified_effect_origin(segments, callee, "stdio")
 }
 
 pub(crate) fn concurrency_origin(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
+    qualified_effect_origin(segments, callee, "concurrency")
+}
+
+fn qualified_effect_origin(
+    segments: &[String],
+    callee: &Expr,
+    required_effect: &str,
+) -> Option<CallOrigin> {
     let symbol = qualified_symbol(segments)?;
-    if !symbol.effects.contains(&"concurrency") {
+    if !symbol.effects.contains(&required_effect) {
         return None;
     }
-    let module = symbol.module?;
-    Some(CallOrigin {
-        node_id: callee.node_id,
-        span: callee.span.clone(),
-        symbol: format!("{module}::{}", symbol.name),
-        effects: effect_strings(symbol),
-    })
+    call_origin(symbol, callee)
 }
 
 pub(crate) fn concurrency_effects(segments: &[String]) -> Option<&'static [&'static str]> {
@@ -85,6 +79,10 @@ pub(crate) fn standard_library_origin(segments: &[String], callee: &Expr) -> Opt
     {
         return None;
     }
+    call_origin(symbol, callee)
+}
+
+fn call_origin(symbol: &StandardSymbolDescriptor, callee: &Expr) -> Option<CallOrigin> {
     let module = symbol.module?;
     Some(CallOrigin {
         node_id: callee.node_id,

@@ -225,24 +225,9 @@ fn lower_handler_clause_functions(
 }
 
 fn callee_symbol(callee: &Expr) -> Option<String> {
-    match &callee.kind {
-        ExprKind::NamePath(segments) => Some(segments.join("::")),
-        ExprKind::TypeApply { callee, .. } => callee_symbol(callee),
-        _ => None,
-    }
-}
-
-fn callee_name_path_and_type_args(callee: &Expr) -> Option<(&[String], Option<&[String]>)> {
-    match &callee.kind {
-        ExprKind::NamePath(segments) => Some((segments, None)),
-        ExprKind::TypeApply { callee, type_args } => {
-            let ExprKind::NamePath(segments) = &callee.kind else {
-                return None;
-            };
-            Some((segments, Some(type_args.as_slice())))
-        }
-        _ => None,
-    }
+    callee
+        .callee_name_path()
+        .map(|segments| segments.join("::"))
 }
 
 fn expected_concurrency_type_arg_count(segments: &[String]) -> Option<usize> {

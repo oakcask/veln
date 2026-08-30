@@ -1,5 +1,12 @@
 use super::{Diagnostic, ProtocolDiagnosticContext, note_json, push_byte_preview_note};
 
+struct HpackFixtureObservation {
+    header_block_size: i64,
+    first_byte: i64,
+    expected_fixture: String,
+    codec_module: String,
+}
+
 impl ProtocolDiagnosticContext<'_> {
     pub(super) fn project_hpack_fixture_rule(&self) -> Option<Diagnostic> {
         let message = match self.id.as_str() {
@@ -34,35 +41,27 @@ impl ProtocolDiagnosticContext<'_> {
     }
 
     fn project_hpack_fixture_message(&self, message: &str) -> Option<Diagnostic> {
-        let observed_size = self.number("observed_header_block_size")?;
-        let observed_first_byte = self.number("observed_first_byte")?;
-        let expected_fixture = self.string("expected_fixture")?;
-        let codec_module = self.string("codec_module")?;
+        let observation = self.hpack_fixture_observation()?;
         let mut diagnostic =
             self.diagnostic(format!("{message} at byte offset {}", self.byte_offset));
         if self.id == "hpack.static.unsupported_index" {
             diagnostic.related.push(note_json(format!(
-                "HPACK static decoder `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+                "HPACK static decoder `{}` observed header block size {} and first byte {}.",
+                observation.codec_module, observation.header_block_size, observation.first_byte
             )));
         } else {
             diagnostic.related.push(note_json(format!(
-                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+                "HPACK fixture codec `{}` observed header block size {} and first byte {}.",
+                observation.codec_module, observation.header_block_size, observation.first_byte
             )));
         }
-        push_byte_preview_note(&mut diagnostic, self.entries);
-        diagnostic
-            .related
-            .push(note_json(format!("Expected {expected_fixture}.")));
-        Some(diagnostic)
+        Some(self.finish_hpack_fixture_diagnostic(diagnostic, &observation.expected_fixture))
     }
 
     fn project_hpack_dynamic_index_rule(&self) -> Option<Diagnostic> {
-        let observed_size = self.number("observed_header_block_size")?;
-        let observed_first_byte = self.number("observed_first_byte")?;
+        let observation = self.hpack_fixture_observation()?;
         let requested_index = self.number("requested_dynamic_index")?;
         let entry_count = self.number("dynamic_table_entry_count")?;
-        let expected_fixture = self.string("expected_fixture")?;
-        let codec_module = self.string("codec_module")?;
         let mut diagnostic = self.diagnostic(format!(
             "HPACK dynamic index out of range at byte offset {}",
             self.byte_offset
@@ -71,22 +70,16 @@ impl ProtocolDiagnosticContext<'_> {
             "HPACK dynamic index {requested_index} was requested, but the fixture dynamic table currently contains {entry_count} entry/entries."
         )));
         diagnostic.related.push(note_json(format!(
-            "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            "HPACK fixture codec `{}` observed header block size {} and first byte {}.",
+            observation.codec_module, observation.header_block_size, observation.first_byte
         )));
-        push_byte_preview_note(&mut diagnostic, self.entries);
-        diagnostic
-            .related
-            .push(note_json(format!("Expected {expected_fixture}.")));
-        Some(diagnostic)
+        Some(self.finish_hpack_fixture_diagnostic(diagnostic, &observation.expected_fixture))
     }
 
     fn project_hpack_dynamic_name_rule(&self) -> Option<Diagnostic> {
-        let observed_size = self.number("observed_header_block_size")?;
-        let observed_first_byte = self.number("observed_first_byte")?;
+        let observation = self.hpack_fixture_observation()?;
         let requested_index = self.number("requested_dynamic_index")?;
         let entry_count = self.number("dynamic_table_entry_count")?;
-        let expected_fixture = self.string("expected_fixture")?;
-        let codec_module = self.string("codec_module")?;
         let message = match self.id.as_str() {
             "hpack.fixture.dynamic_name_continuation_missing" => {
                 "HPACK dynamic-name continuation is missing a fixture table entry"
@@ -105,24 +98,18 @@ impl ProtocolDiagnosticContext<'_> {
             "HPACK dynamic-name continuation requested dynamic index {requested_index}, and the fixture dynamic table currently contains {entry_count} entry/entries."
         )));
         diagnostic.related.push(note_json(format!(
-            "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            "HPACK fixture codec `{}` observed header block size {} and first byte {}.",
+            observation.codec_module, observation.header_block_size, observation.first_byte
         )));
-        push_byte_preview_note(&mut diagnostic, self.entries);
-        diagnostic
-            .related
-            .push(note_json(format!("Expected {expected_fixture}.")));
-        Some(diagnostic)
+        Some(self.finish_hpack_fixture_diagnostic(diagnostic, &observation.expected_fixture))
     }
 
     fn project_hpack_table_size_update_rule(&self) -> Option<Diagnostic> {
-        let observed_size = self.number("observed_header_block_size")?;
-        let observed_first_byte = self.number("observed_first_byte")?;
+        let observation = self.hpack_fixture_observation()?;
         let observed_update_size = self.number("observed_header_table_size")?;
         let frame_kind = self.number("frame_kind")?;
         let frame = self.frame_ref()?;
         let active_state = self.string("active_state")?;
-        let expected_fixture = self.string("expected_fixture")?;
-        let codec_module = self.string("codec_module")?;
         let message = match self.id.as_str() {
             "hpack.fixture.table_size_update_not_at_start" => {
                 "HPACK table-size update appears after a header field"
@@ -146,12 +133,30 @@ impl ProtocolDiagnosticContext<'_> {
             frame.stream_ref, frame.stream_id
         )));
         diagnostic.related.push(note_json(format!(
-            "HPACK fixture codec `{codec_module}` observed header block size {observed_size}, first byte {observed_first_byte}, and active state {active_state}."
+            "HPACK fixture codec `{}` observed header block size {}, first byte {}, and active state {active_state}.",
+            observation.codec_module, observation.header_block_size, observation.first_byte
         )));
+        Some(self.finish_hpack_fixture_diagnostic(diagnostic, &observation.expected_fixture))
+    }
+
+    fn hpack_fixture_observation(&self) -> Option<HpackFixtureObservation> {
+        Some(HpackFixtureObservation {
+            header_block_size: self.number("observed_header_block_size")?,
+            first_byte: self.number("observed_first_byte")?,
+            expected_fixture: self.string("expected_fixture")?,
+            codec_module: self.string("codec_module")?,
+        })
+    }
+
+    fn finish_hpack_fixture_diagnostic(
+        &self,
+        mut diagnostic: Diagnostic,
+        expected_fixture: &str,
+    ) -> Diagnostic {
         push_byte_preview_note(&mut diagnostic, self.entries);
         diagnostic
             .related
             .push(note_json(format!("Expected {expected_fixture}.")));
-        Some(diagnostic)
+        diagnostic
     }
 }

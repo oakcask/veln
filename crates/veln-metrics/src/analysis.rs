@@ -262,19 +262,7 @@ pub(super) fn evaluate_metrics_check(
     report: MetricsReport,
     policy: MetricsPolicy,
 ) -> MetricsCheckReport {
-    let violations = if policy.deny_cycles {
-        report
-            .cycles
-            .iter()
-            .map(|cycle| MetricsPolicyViolation {
-                policy: "deny_cycles".to_string(),
-                cycle_members: cycle.members.clone(),
-                path: cycle.path.clone(),
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let violations = cycle_violations(&report, &policy, |_| true);
     MetricsCheckReport {
         report,
         policy,
@@ -289,20 +277,9 @@ pub(super) fn evaluate_metrics_check_with_baseline(
     baseline: MetricsBaseline,
     baseline_path: String,
 ) -> MetricsCheckReport {
-    let violations = if policy.deny_cycles {
-        report
-            .cycles
-            .iter()
-            .filter(|cycle| !baseline_allows_cycle(&report, cycle, &baseline))
-            .map(|cycle| MetricsPolicyViolation {
-                policy: "deny_cycles".to_string(),
-                cycle_members: cycle.members.clone(),
-                path: cycle.path.clone(),
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let violations = cycle_violations(&report, &policy, |cycle| {
+        !baseline_allows_cycle(&report, cycle, &baseline)
+    });
     let current_subjects = report
         .modules
         .iter()
@@ -343,6 +320,26 @@ pub(super) fn evaluate_metrics_check_with_baseline(
             stale_subjects,
         }),
     }
+}
+
+fn cycle_violations(
+    report: &MetricsReport,
+    policy: &MetricsPolicy,
+    include: impl Fn(&DependencyCycle) -> bool,
+) -> Vec<MetricsPolicyViolation> {
+    if !policy.deny_cycles {
+        return Vec::new();
+    }
+    report
+        .cycles
+        .iter()
+        .filter(|cycle| include(cycle))
+        .map(|cycle| MetricsPolicyViolation {
+            policy: "deny_cycles".to_string(),
+            cycle_members: cycle.members.clone(),
+            path: cycle.path.clone(),
+        })
+        .collect()
 }
 
 pub(super) fn baseline_allows_cycle(

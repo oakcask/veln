@@ -1,11 +1,10 @@
 use super::*;
-use crate::name_recovery::use_decl_has_invalid_module_segment;
+use crate::name_recovery::normal_imported_use_for_path;
 
 mod binary;
 mod format_neutral;
 mod schema_encode;
 
-use binary::normal_imported_use_for_path;
 pub(crate) use binary::*;
 use binary::{
     schema_decode_value_type_inner, schema_encode_dispatch_case_type, schema_repeat_payload_type,
@@ -96,7 +95,16 @@ fn codec_with_signature(
     let function = functions.iter().find(|function| {
         function.name == function_name && function.module_name == codec.module_name
     })?;
-    Some(CodecCallSignature {
+    Some(codec_call_signature(codec, function, name, boundary))
+}
+
+fn codec_call_signature(
+    codec: &CodecDecl,
+    function: &FunctionSignature,
+    name: String,
+    boundary: CodecCallBoundary,
+) -> CodecCallSignature {
+    CodecCallSignature {
         name,
         target_name: function.target_name.clone(),
         boundary,
@@ -107,7 +115,7 @@ fn codec_with_signature(
         effects: function.effects.clone(),
         node_id: codec.node_id,
         span: codec.span.clone(),
-    })
+    }
 }
 
 fn codec_derive_decode_signature(
@@ -122,18 +130,12 @@ fn codec_derive_decode_signature(
     let function = functions.iter().find(|function| {
         function.name == step_name && function.module_name == schema.module_name
     })?;
-    Some(CodecCallSignature {
+    Some(codec_call_signature(
+        codec,
+        function,
         name,
-        target_name: function.target_name.clone(),
-        boundary: CodecCallBoundary::Direct,
-        module_name: codec.module_name.clone(),
-        visibility: codec.visibility,
-        params: function.params.clone(),
-        return_type: function.return_type.clone(),
-        effects: function.effects.clone(),
-        node_id: codec.node_id,
-        span: codec.span.clone(),
-    })
+        CodecCallBoundary::Direct,
+    ))
 }
 
 fn codec_derive_encode_signatures(

@@ -10,29 +10,52 @@ use super::module_boundaries::{
     unresolved_alias_diagnostic,
 };
 
+type SeenNames = BTreeMap<(Option<String>, String), (String, SourceSpan)>;
+
+fn record_name(
+    seen: &mut SeenNames,
+    diagnostics: &mut Vec<Diagnostic>,
+    module_name: Option<&str>,
+    name: &str,
+    namespace: &'static str,
+    subject: &'static str,
+    node_id: String,
+    span: &SourceSpan,
+) {
+    let key = (module_name.map(str::to_owned), name.to_string());
+    if let Some((first_node_id, first_span)) = seen.get(&key) {
+        diagnostics.push(duplicate_name_diagnostic(
+            name,
+            namespace,
+            subject,
+            node_id,
+            span.clone(),
+            first_node_id.clone(),
+            first_span,
+        ));
+    } else {
+        seen.insert(key, (node_id, span.clone()));
+    }
+}
+
 pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen = SeenNames::new();
 
     for function in &module.functions {
         let Some(name) = &function.name else {
             continue;
         };
-        let key = (function.module_name.clone(), name.clone());
-        let node_id = function.node_id.display(function.kind.node_prefix());
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
-            diagnostics.push(duplicate_name_diagnostic(
-                name,
-                "function",
-                "function declaration",
-                node_id,
-                function.span.clone(),
-                first_node_id.clone(),
-                first_span,
-            ));
-        } else {
-            seen.insert(key, (node_id, function.span.clone()));
-        }
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            function.module_name.as_deref(),
+            name,
+            "function",
+            "function declaration",
+            function.node_id.display(function.kind.node_prefix()),
+            &function.span,
+        );
     }
     for alias in module
         .aliases
@@ -42,21 +65,16 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         let Some(name) = &alias.name else {
             continue;
         };
-        let key = (alias.module_name.clone(), name.clone());
-        let node_id = alias.node_id.display("alias");
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
-            diagnostics.push(duplicate_name_diagnostic(
-                name,
-                "function",
-                "function alias",
-                node_id,
-                alias.span.clone(),
-                first_node_id.clone(),
-                first_span,
-            ));
-        } else {
-            seen.insert(key, (node_id, alias.span.clone()));
-        }
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            alias.module_name.as_deref(),
+            name,
+            "function",
+            "function alias",
+            alias.node_id.display("alias"),
+            &alias.span,
+        );
     }
 
     diagnostics
@@ -64,27 +82,22 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
 
 pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen = SeenNames::new();
 
     for type_decl in &module.types {
         let Some(name) = &type_decl.name else {
             continue;
         };
-        let key = (type_decl.module_name.clone(), name.clone());
-        let node_id = type_decl.node_id.display("type");
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
-            diagnostics.push(duplicate_name_diagnostic(
-                name,
-                "type",
-                "type declaration",
-                node_id,
-                type_decl.span.clone(),
-                first_node_id.clone(),
-                first_span,
-            ));
-        } else {
-            seen.insert(key, (node_id, type_decl.span.clone()));
-        }
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            type_decl.module_name.as_deref(),
+            name,
+            "type",
+            "type declaration",
+            type_decl.node_id.display("type"),
+            &type_decl.span,
+        );
     }
     for alias in module
         .aliases
@@ -94,21 +107,16 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
         let Some(name) = &alias.name else {
             continue;
         };
-        let key = (alias.module_name.clone(), name.clone());
-        let node_id = alias.node_id.display("alias");
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
-            diagnostics.push(duplicate_name_diagnostic(
-                name,
-                "type",
-                "type alias",
-                node_id,
-                alias.span.clone(),
-                first_node_id.clone(),
-                first_span,
-            ));
-        } else {
-            seen.insert(key, (node_id, alias.span.clone()));
-        }
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            alias.module_name.as_deref(),
+            name,
+            "type",
+            "type alias",
+            alias.node_id.display("alias"),
+            &alias.span,
+        );
     }
 
     diagnostics
@@ -116,50 +124,38 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
 
 pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen = SeenNames::new();
 
     for effect in &module.effects {
         let Some(name) = &effect.name else {
             continue;
         };
-        let key = (effect.module_name.clone(), name.clone());
-        let node_id = effect.node_id.display("effect");
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
-            diagnostics.push(duplicate_name_diagnostic(
-                name,
-                "effect",
-                "effect declaration",
-                node_id,
-                effect.span.clone(),
-                first_node_id.clone(),
-                first_span,
-            ));
-        } else {
-            seen.insert(key, (node_id, effect.span.clone()));
-        }
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            effect.module_name.as_deref(),
+            name,
+            "effect",
+            "effect declaration",
+            effect.node_id.display("effect"),
+            &effect.span,
+        );
 
-        let mut operations = BTreeMap::<String, (String, SourceSpan)>::new();
+        let mut operations = SeenNames::new();
         for operation in &effect.operations {
             let Some(operation_name) = &operation.name else {
                 continue;
             };
-            let operation_node_id = operation.node_id.display("operation");
-            if let Some((first_node_id, first_span)) = operations.get(operation_name) {
-                diagnostics.push(duplicate_name_diagnostic(
-                    operation_name,
-                    "operation",
-                    "effect operation declaration",
-                    operation_node_id,
-                    operation.name_span.clone(),
-                    first_node_id.clone(),
-                    first_span,
-                ));
-            } else {
-                operations.insert(
-                    operation_name.clone(),
-                    (operation_node_id, operation.name_span.clone()),
-                );
-            }
+            record_name(
+                &mut operations,
+                &mut diagnostics,
+                None,
+                operation_name,
+                "operation",
+                "effect operation declaration",
+                operation.node_id.display("operation"),
+                &operation.name_span,
+            );
         }
     }
 
@@ -168,27 +164,22 @@ pub(crate) fn check_duplicate_effect_names(module: &SurfaceModule) -> Vec<Diagno
 
 pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen = SeenNames::new();
 
     for schema in &module.schemas {
         let Some(name) = &schema.name else {
             continue;
         };
-        let key = (schema.module_name.clone(), name.clone());
-        let node_id = schema.node_id.display("schema");
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
-            diagnostics.push(duplicate_name_diagnostic(
-                name,
-                "schema",
-                "schema declaration",
-                node_id,
-                schema.span.clone(),
-                first_node_id.clone(),
-                first_span,
-            ));
-        } else {
-            seen.insert(key, (node_id, schema.span.clone()));
-        }
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            schema.module_name.as_deref(),
+            name,
+            "schema",
+            "schema declaration",
+            schema.node_id.display("schema"),
+            &schema.span,
+        );
     }
     for alias in module
         .aliases
@@ -198,21 +189,16 @@ pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagno
         let Some(name) = &alias.name else {
             continue;
         };
-        let key = (alias.module_name.clone(), name.clone());
-        let node_id = alias.node_id.display("alias");
-        if let Some((first_node_id, first_span)) = seen.get(&key) {
-            diagnostics.push(duplicate_name_diagnostic(
-                name,
-                "schema",
-                "schema alias",
-                node_id,
-                alias.span.clone(),
-                first_node_id.clone(),
-                first_span,
-            ));
-        } else {
-            seen.insert(key, (node_id, alias.span.clone()));
-        }
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            alias.module_name.as_deref(),
+            name,
+            "schema",
+            "schema alias",
+            alias.node_id.display("alias"),
+            &alias.span,
+        );
     }
 
     diagnostics

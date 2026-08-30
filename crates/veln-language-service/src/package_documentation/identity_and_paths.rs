@@ -52,21 +52,6 @@ pub(super) fn source_uri(identity: &str, digest: &str, source_path: &str) -> Str
     uri
 }
 
-pub(super) fn encoded_segment(segment: &str) -> String {
-    const HEX: &[u8; 16] = b"0123456789ABCDEF";
-    let mut output = String::new();
-    for byte in segment.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
-            output.push(char::from(byte));
-        } else {
-            output.push('%');
-            output.push(char::from(HEX[usize::from(byte >> 4)]));
-            output.push(char::from(HEX[usize::from(byte & 0x0f)]));
-        }
-    }
-    output
-}
-
 pub(super) fn is_package_relative_path(path: &str) -> bool {
     let path = std::path::Path::new(path);
     !path.is_absolute()

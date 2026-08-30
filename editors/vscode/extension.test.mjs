@@ -121,16 +121,7 @@ test("maps all LSP diagnostic severities", () => {
 });
 
 test("syncs open documents with didOpen and later didChange", () => {
-  const { exports, spawnedProcesses } = loadExtension();
-  const server = new exports._test.VelnLanguageServer(
-    "veln",
-    ["lsp"],
-    "project",
-    new FakeOutputChannel(),
-    "off",
-    () => {},
-    () => {},
-  );
+  const { server, spawnedProcesses } = loadLanguageServer();
   const document = fakeDocument({
     uri: "file://main.veln",
     version: 1,
@@ -151,16 +142,7 @@ test("syncs open documents with didOpen and later didChange", () => {
 });
 
 test("follows a dependency definition through the virtual document request", async () => {
-  const { exports, spawnedProcesses } = loadExtension();
-  const server = new exports._test.VelnLanguageServer(
-    "veln",
-    ["lsp"],
-    "project",
-    new FakeOutputChannel(),
-    "off",
-    () => {},
-    () => {},
-  );
+  const { exports, server, spawnedProcesses } = loadLanguageServer();
   const document = fakeDocument({
     uri: "file://project/main.veln",
     version: 1,
@@ -526,6 +508,20 @@ test("clears diagnostics when the server exits", () => {
 
   assert.equal(cleared, true);
 });
+
+function loadLanguageServer() {
+  const fixture = loadExtension();
+  const server = new fixture.exports._test.VelnLanguageServer(
+    "veln",
+    ["lsp"],
+    "project",
+    new FakeOutputChannel(),
+    "off",
+    () => {},
+    () => {},
+  );
+  return { ...fixture, server };
+}
 
 function loadExtension(options = {}) {
   const vscode = fakeVscode(options);

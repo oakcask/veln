@@ -231,46 +231,38 @@ impl<'a> ExprParser<'a> {
 
     pub(super) fn parse_record_pattern(&mut self) -> Pattern {
         let start = self.bump().range;
-        let mut fields = Vec::new();
-        while !self.at(TokenKind::RBrace) && !self.is_at_end() {
-            let field_start = self.current().range;
-            let name = if self.at(TokenKind::Ident) {
-                self.bump().text
-            } else {
-                self.error_current(
+        let (fields, end) = self.parse_braced_items(
+            start,
+            |this| {
+                let field_start = this.current().range;
+                let name = if this.at(TokenKind::Ident) {
+                    this.bump().text
+                } else {
+                    this.error_current(
+                        "parse.pattern",
+                        "record pattern field is missing a name",
+                        vec!["field name"],
+                        RecoveryStrategy::SkipToken,
+                        None,
+                    );
+                    this.bump();
+                    String::new()
+                };
+                this.expect_expr_token(
+                    TokenKind::Colon,
                     "parse.pattern",
-                    "record pattern field is missing a name",
-                    vec!["field name"],
-                    RecoveryStrategy::SkipToken,
-                    None,
+                    "record pattern field is missing `:`",
+                    vec![":"],
                 );
-                self.bump();
-                String::new()
-            };
-            self.expect_expr_token(
-                TokenKind::Colon,
-                "parse.pattern",
-                "record pattern field is missing `:`",
-                vec![":"],
-            );
-            let pattern = self.parse_pattern();
-            let span = self.source.span(field_start.cover(pattern_range(&pattern)));
-            fields.push(PatternField {
-                name,
-                pattern,
-                span,
-            });
-            if self.eat(TokenKind::Comma).is_none() {
-                break;
-            }
-        }
-        let end = self.eat(TokenKind::RBrace).map_or_else(
-            || {
-                fields.last().map_or(start, |field| {
-                    TextRange::new(field.span.start.offset, field.span.end.offset)
-                })
+                let pattern = this.parse_pattern();
+                let span = this.source.span(field_start.cover(pattern_range(&pattern)));
+                PatternField {
+                    name,
+                    pattern,
+                    span,
+                }
             },
-            |token| token.range,
+            |field| TextRange::new(field.span.start.offset, field.span.end.offset),
         );
         Pattern {
             kind: PatternKind::Record(fields),

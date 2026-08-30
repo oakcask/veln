@@ -5,6 +5,19 @@ fn parse(args: &[&str]) -> Result<Command, String> {
     Command::parse(args.iter().map(|arg| arg.to_string()).collect())
 }
 
+fn parsed_test(args: &[&str]) -> (bool, Option<usize>, Vec<PathBuf>) {
+    let command = parse(args).expect("test command should parse");
+    let Command::Test {
+        json,
+        jobs,
+        targets,
+    } = command
+    else {
+        panic!("expected test command");
+    };
+    (json, jobs, targets)
+}
+
 #[test]
 fn top_level_parser_handles_help_and_version_aliases() {
     assert!(matches!(parse(&[]).unwrap(), Command::Help { .. }));
@@ -307,17 +320,7 @@ fn subcommands_return_help_for_help_flags() {
 
 #[test]
 fn test_parser_accepts_json_and_targets() {
-    let command =
-        parse(&["test", "--json", "src/main.veln", "tests"]).expect("test command should parse");
-
-    let Command::Test {
-        json,
-        jobs,
-        targets,
-    } = command
-    else {
-        panic!("expected test command");
-    };
+    let (json, jobs, targets) = parsed_test(&["test", "--json", "src/main.veln", "tests"]);
 
     assert!(json);
     assert_eq!(jobs, None);
@@ -329,25 +332,12 @@ fn test_parser_accepts_json_and_targets() {
 
 #[test]
 fn test_parser_accepts_jobs_spellings_and_placement() {
-    let command = parse(&["test", "--json", "src/main.veln", "-j", "2"])
-        .expect("short jobs flag after a target should parse");
-    let Command::Test {
-        json,
-        jobs,
-        targets,
-    } = command
-    else {
-        panic!("expected test command");
-    };
+    let (json, jobs, targets) = parsed_test(&["test", "--json", "src/main.veln", "-j", "2"]);
     assert!(json);
     assert_eq!(jobs, Some(2));
     assert_eq!(targets, [PathBuf::from("src/main.veln")]);
 
-    let command = parse(&["test", "--jobs", "3", "src/main.veln", "tests"])
-        .expect("long jobs flag should parse");
-    let Command::Test { jobs, targets, .. } = command else {
-        panic!("expected test command");
-    };
+    let (_, jobs, targets) = parsed_test(&["test", "--jobs", "3", "src/main.veln", "tests"]);
     assert_eq!(jobs, Some(3));
     assert_eq!(
         targets,
@@ -357,16 +347,7 @@ fn test_parser_accepts_jobs_spellings_and_placement() {
 
 #[test]
 fn test_parser_treats_jobs_after_separator_as_target() {
-    let command = parse(&["test", "--json", "--", "--jobs", "2"])
-        .expect("jobs after separator should be a target");
-    let Command::Test {
-        json,
-        jobs,
-        targets,
-    } = command
-    else {
-        panic!("expected test command");
-    };
+    let (json, jobs, targets) = parsed_test(&["test", "--json", "--", "--jobs", "2"]);
 
     assert!(json);
     assert_eq!(jobs, None);

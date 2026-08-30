@@ -14,34 +14,19 @@ pub(super) struct NumericLiteralBound {
 }
 
 pub(super) fn has_exclusive_numeric_literal_bounds_top_level_and(predicate: &str) -> bool {
-    let bounds = flattened_keyword_clauses(predicate, "and")
-        .into_iter()
-        .filter_map(numeric_literal_bound_shape)
-        .collect::<Vec<_>>();
-    if bounds.len() < 2 {
-        return false;
-    }
-
-    bounds.iter().enumerate().any(|(index, left)| {
-        bounds.iter().skip(index + 1).any(|right| {
-            left.subject == right.subject
-                && matches!(
-                    (left.kind, right.kind),
-                    (
-                        NumericLiteralBoundKind::Lower,
-                        NumericLiteralBoundKind::Upper
-                    ) | (
-                        NumericLiteralBoundKind::Upper,
-                        NumericLiteralBoundKind::Lower
-                    )
-                )
-                && literal_bounds_do_not_overlap(left, right)
-        })
-    })
+    has_complementary_numeric_literal_bounds(predicate, "and", literal_bounds_do_not_overlap)
 }
 
 pub(super) fn has_covering_numeric_literal_bounds_top_level_or(predicate: &str) -> bool {
-    let bounds = flattened_keyword_clauses(predicate, "or")
+    has_complementary_numeric_literal_bounds(predicate, "or", literal_bounds_cover_all_values)
+}
+
+fn has_complementary_numeric_literal_bounds(
+    predicate: &str,
+    keyword: &str,
+    relationship: impl Fn(&NumericLiteralBound, &NumericLiteralBound) -> bool,
+) -> bool {
+    let bounds = flattened_keyword_clauses(predicate, keyword)
         .into_iter()
         .filter_map(numeric_literal_bound_shape)
         .collect::<Vec<_>>();
@@ -62,7 +47,7 @@ pub(super) fn has_covering_numeric_literal_bounds_top_level_or(predicate: &str) 
                         NumericLiteralBoundKind::Lower
                     )
                 )
-                && literal_bounds_cover_all_values(left, right)
+                && relationship(left, right)
         })
     })
 }
@@ -112,10 +97,8 @@ pub(super) fn literal_bounds_do_not_overlap(
     left: &NumericLiteralBound,
     right: &NumericLiteralBound,
 ) -> bool {
-    let (lower, upper) = match (left.kind, right.kind) {
-        (NumericLiteralBoundKind::Lower, NumericLiteralBoundKind::Upper) => (left, right),
-        (NumericLiteralBoundKind::Upper, NumericLiteralBoundKind::Lower) => (right, left),
-        _ => return false,
+    let Some((lower, upper)) = oriented_literal_bounds(left, right) else {
+        return false;
     };
     lower.value > upper.value
         || (lower.value == upper.value && (!lower.inclusive || !upper.inclusive))
@@ -125,13 +108,22 @@ pub(super) fn literal_bounds_cover_all_values(
     left: &NumericLiteralBound,
     right: &NumericLiteralBound,
 ) -> bool {
-    let (lower, upper) = match (left.kind, right.kind) {
-        (NumericLiteralBoundKind::Lower, NumericLiteralBoundKind::Upper) => (left, right),
-        (NumericLiteralBoundKind::Upper, NumericLiteralBoundKind::Lower) => (right, left),
-        _ => return false,
+    let Some((lower, upper)) = oriented_literal_bounds(left, right) else {
+        return false;
     };
     lower.value < upper.value
         || (lower.value == upper.value && (lower.inclusive || upper.inclusive))
+}
+
+fn oriented_literal_bounds<'a>(
+    left: &'a NumericLiteralBound,
+    right: &'a NumericLiteralBound,
+) -> Option<(&'a NumericLiteralBound, &'a NumericLiteralBound)> {
+    match (left.kind, right.kind) {
+        (NumericLiteralBoundKind::Lower, NumericLiteralBoundKind::Upper) => Some((left, right)),
+        (NumericLiteralBoundKind::Upper, NumericLiteralBoundKind::Lower) => Some((right, left)),
+        _ => None,
+    }
 }
 
 pub(super) struct LiteralEqualityShape {
@@ -292,11 +284,7 @@ pub(super) fn numeric_literal_bounds_imply(predicate: &str, wanted: &OrderBoundS
     let Some(wanted) = numeric_literal_bound_shape_from_order_bound(wanted) else {
         return false;
     };
-    let equality_edges = flattened_keyword_clauses(predicate, "and")
-        .into_iter()
-        .filter_map(equality_shape)
-        .flat_map(|(left, right)| [(left.clone(), right.clone()), (right, left)])
-        .collect::<Vec<_>>();
+    let equality_edges = equality_edges(predicate);
     flattened_keyword_clauses(predicate, "and")
         .into_iter()
         .filter_map(numeric_literal_bound_shape)
@@ -330,11 +318,7 @@ pub(super) fn numeric_literal_bounds_imply_disequality(
     left: &str,
     right: &str,
 ) -> bool {
-    let equality_edges = flattened_keyword_clauses(predicate, "and")
-        .into_iter()
-        .filter_map(equality_shape)
-        .flat_map(|(left, right)| [(left.clone(), right.clone()), (right, left)])
-        .collect::<Vec<_>>();
+    let equality_edges = equality_edges(predicate);
     let Some((wanted_subject, wanted_value)) =
         numeric_literal_disequality_subject_value(left, right)
     else {
@@ -348,6 +332,14 @@ pub(super) fn numeric_literal_bounds_imply_disequality(
             equality_edges_imply(&equality_edges, &required.subject, &wanted_subject)
                 && numeric_literal_bound_excludes_value(&required, wanted_value)
         })
+}
+
+fn equality_edges(predicate: &str) -> Vec<(String, String)> {
+    flattened_keyword_clauses(predicate, "and")
+        .into_iter()
+        .filter_map(equality_shape)
+        .flat_map(|(left, right)| [(left.clone(), right.clone()), (right, left)])
+        .collect()
 }
 
 pub(super) fn numeric_literal_disequality_subject_value(
@@ -431,6 +423,26 @@ pub(super) fn equality_disequality_edges_imply_disequality(
 }
 
 pub(super) fn equality_edges_imply(edges: &[(String, String)], left: &str, right: &str) -> bool {
+    graph_edges_imply(edges, left, right)
+}
+
+trait GraphEdge {
+    fn endpoints(&self) -> Option<(&str, &str)>;
+}
+
+impl GraphEdge for (String, String) {
+    fn endpoints(&self) -> Option<(&str, &str)> {
+        Some((&self.0, &self.1))
+    }
+}
+
+impl GraphEdge for OrderBoundShape {
+    fn endpoints(&self) -> Option<(&str, &str)> {
+        (!self.strict).then_some((&self.left, &self.right))
+    }
+}
+
+fn graph_edges_imply(edges: &[impl GraphEdge], left: &str, right: &str) -> bool {
     if left == right {
         return true;
     }
@@ -444,11 +456,15 @@ pub(super) fn equality_edges_imply(edges: &[(String, String)], left: &str, right
         }
         visited.push(current.clone());
 
-        for (_, edge_right) in edges.iter().filter(|(edge_left, _)| edge_left == &current) {
+        for (_, edge_right) in edges
+            .iter()
+            .filter_map(|edge| edge.endpoints())
+            .filter(|(edge_left, _)| edge_left == &current)
+        {
             if edge_right == right {
                 return true;
             }
-            stack.push(edge_right.clone());
+            stack.push(edge_right.to_string());
         }
     }
 
@@ -514,25 +530,5 @@ pub(super) fn order_bound_edges_imply_non_strict(
     left: &str,
     right: &str,
 ) -> bool {
-    let mut stack = vec![left.to_string()];
-    let mut visited = Vec::new();
-
-    while let Some(current) = stack.pop() {
-        if visited.iter().any(|node| node == &current) {
-            continue;
-        }
-        visited.push(current.clone());
-
-        for edge in edges
-            .iter()
-            .filter(|edge| !edge.strict && edge.left == current)
-        {
-            if edge.right == right {
-                return true;
-            }
-            stack.push(edge.right.clone());
-        }
-    }
-
-    false
+    graph_edges_imply(edges, left, right)
 }

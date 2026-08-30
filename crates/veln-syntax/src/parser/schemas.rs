@@ -194,15 +194,7 @@ impl<'a> Parser<'a> {
         where_token: Token,
     ) -> SchemaFieldWhereClause {
         let start = where_token.range;
-        let mut end = start;
-        let mut parts = Vec::new();
-        let mut predicate_tokens = Vec::new();
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            let token = self.bump();
-            end = token.range;
-            parts.push(token.text.clone());
-            predicate_tokens.push(token);
-        }
+        let (parts, predicate_tokens, _, end) = self.collect_line_parts_and_tokens();
         if predicate_tokens.is_empty() {
             self.error_current(
                 "parse.schema_field_where",
@@ -249,15 +241,7 @@ impl<'a> Parser<'a> {
                 Some("format"),
             );
         }
-        let mut end = start;
-        let mut parts = Vec::new();
-        let mut predicate_tokens = Vec::new();
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            let token = self.bump();
-            end = token.range;
-            parts.push(token.text.clone());
-            predicate_tokens.push(token);
-        }
+        let (parts, predicate_tokens, _, end) = self.collect_line_parts_and_tokens();
         if predicate_tokens.is_empty() {
             self.error_current(
                 "parse.schema_validation",

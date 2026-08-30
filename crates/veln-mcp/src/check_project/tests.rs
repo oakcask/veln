@@ -33,110 +33,58 @@ fn stable_capture_retries_manifest_source_and_path_set_changes_only_three_times(
     let cases = [
         (
             "manifest",
-            vec![
-                captured_project(vec![("main.veln", clean_source())], Some("name = \"a\"\n")),
-                captured_project(vec![("main.veln", clean_source())], Some("name = \"b\"\n")),
-                captured_project(vec![("main.veln", clean_source())], Some("name = \"a\"\n")),
-                captured_project(vec![("main.veln", clean_source())], Some("name = \"b\"\n")),
-                captured_project(vec![("main.veln", clean_source())], Some("name = \"a\"\n")),
-                captured_project(vec![("main.veln", clean_source())], Some("name = \"b\"\n")),
-            ],
+            alternating_captures(
+                || captured_project(vec![("main.veln", clean_source())], Some("name = \"a\"\n")),
+                || captured_project(vec![("main.veln", clean_source())], Some("name = \"b\"\n")),
+            ),
         ),
         (
             "source",
-            vec![
-                captured_project(vec![("main.veln", "fn main() -> Int\n  1\nend\n")], None),
-                captured_project(vec![("main.veln", "fn main() -> Int\n  2\nend\n")], None),
-                captured_project(vec![("main.veln", "fn main() -> Int\n  1\nend\n")], None),
-                captured_project(vec![("main.veln", "fn main() -> Int\n  2\nend\n")], None),
-                captured_project(vec![("main.veln", "fn main() -> Int\n  1\nend\n")], None),
-                captured_project(vec![("main.veln", "fn main() -> Int\n  2\nend\n")], None),
-            ],
+            alternating_captures(
+                || captured_project(vec![("main.veln", "fn main() -> Int\n  1\nend\n")], None),
+                || captured_project(vec![("main.veln", "fn main() -> Int\n  2\nend\n")], None),
+            ),
         ),
         (
             "path set",
-            vec![
-                captured_project(vec![("a.veln", clean_source())], None),
-                captured_project(
-                    vec![("a.veln", clean_source()), ("b.veln", clean_source())],
-                    None,
-                ),
-                captured_project(vec![("a.veln", clean_source())], None),
-                captured_project(
-                    vec![("a.veln", clean_source()), ("b.veln", clean_source())],
-                    None,
-                ),
-                captured_project(vec![("a.veln", clean_source())], None),
-                captured_project(
-                    vec![("a.veln", clean_source()), ("b.veln", clean_source())],
-                    None,
-                ),
-            ],
+            alternating_captures(
+                || captured_project(vec![("a.veln", clean_source())], None),
+                || {
+                    captured_project(
+                        vec![("a.veln", clean_source()), ("b.veln", clean_source())],
+                        None,
+                    )
+                },
+            ),
         ),
         (
             "locally materialized git dependency",
-            vec![
-                captured_project_with_dependencies(
-                    vec![("main.veln", clean_source())],
-                    Some(git_dependency_manifest()),
-                    vec![captured_dependency(
-                        "dep",
-                        "https://example.invalid/dep.git",
-                        vec![("lib.veln", clean_source())],
-                        Some("name = \"dep\"\n"),
-                    )],
-                ),
-                captured_project_with_dependencies(
-                    vec![("main.veln", clean_source())],
-                    Some(git_dependency_manifest()),
-                    vec![captured_dependency(
-                        "dep",
-                        "https://example.invalid/dep.git",
-                        vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
-                        Some("name = \"dep\"\n"),
-                    )],
-                ),
-                captured_project_with_dependencies(
-                    vec![("main.veln", clean_source())],
-                    Some(git_dependency_manifest()),
-                    vec![captured_dependency(
-                        "dep",
-                        "https://example.invalid/dep.git",
-                        vec![("lib.veln", clean_source())],
-                        Some("name = \"dep\"\n"),
-                    )],
-                ),
-                captured_project_with_dependencies(
-                    vec![("main.veln", clean_source())],
-                    Some(git_dependency_manifest()),
-                    vec![captured_dependency(
-                        "dep",
-                        "https://example.invalid/dep.git",
-                        vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
-                        Some("name = \"dep\"\n"),
-                    )],
-                ),
-                captured_project_with_dependencies(
-                    vec![("main.veln", clean_source())],
-                    Some(git_dependency_manifest()),
-                    vec![captured_dependency(
-                        "dep",
-                        "https://example.invalid/dep.git",
-                        vec![("lib.veln", clean_source())],
-                        Some("name = \"dep\"\n"),
-                    )],
-                ),
-                captured_project_with_dependencies(
-                    vec![("main.veln", clean_source())],
-                    Some(git_dependency_manifest()),
-                    vec![captured_dependency(
-                        "dep",
-                        "https://example.invalid/dep.git",
-                        vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
-                        Some("name = \"dep\"\n"),
-                    )],
-                ),
-            ],
+            alternating_captures(
+                || {
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(git_dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "https://example.invalid/dep.git",
+                            vec![("lib.veln", clean_source())],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    )
+                },
+                || {
+                    captured_project_with_dependencies(
+                        vec![("main.veln", clean_source())],
+                        Some(git_dependency_manifest()),
+                        vec![captured_dependency(
+                            "dep",
+                            "https://example.invalid/dep.git",
+                            vec![("lib.veln", "fn answer() -> Int\n  2\nend\n")],
+                            Some("name = \"dep\"\n"),
+                        )],
+                    )
+                },
+            ),
         ),
     ];
 
@@ -150,44 +98,34 @@ fn stable_capture_retries_manifest_source_and_path_set_changes_only_three_times(
 
 #[test]
 fn navigation_capture_retries_descendant_boundary_changes_as_one_attempt() {
-    let mut captures = [
-        captured_navigation_source(
-            captured_project(vec![("main.veln", clean_source())], Some("")),
-            "nested/main.veln",
-            navigation_boundary_key("name = \"a\"\n"),
-        ),
-        captured_navigation_source(
-            captured_project(vec![("main.veln", clean_source())], Some("")),
-            "nested/main.veln",
-            navigation_boundary_key("name = \"b\"\n"),
-        ),
-        captured_navigation_source(
-            captured_project(vec![("main.veln", clean_source())], Some("")),
-            "nested/main.veln",
-            navigation_boundary_key("name = \"a\"\n"),
-        ),
-        captured_navigation_source(
-            captured_project(vec![("main.veln", clean_source())], Some("")),
-            "nested/main.veln",
-            navigation_boundary_key("name = \"b\"\n"),
-        ),
-        captured_navigation_source(
-            captured_project(vec![("main.veln", clean_source())], Some("")),
-            "nested/main.veln",
-            navigation_boundary_key("name = \"a\"\n"),
-        ),
-        captured_navigation_source(
-            captured_project(vec![("main.veln", clean_source())], Some("")),
-            "nested/main.veln",
-            navigation_boundary_key("name = \"b\"\n"),
-        ),
-    ]
+    let mut captures = alternating_captures(
+        || {
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"a\"\n"),
+            )
+        },
+        || {
+            captured_navigation_source(
+                captured_project(vec![("main.veln", clean_source())], Some("")),
+                "nested/main.veln",
+                navigation_boundary_key("name = \"b\"\n"),
+            )
+        },
+    )
     .into_iter();
 
     let result = capture_stable_navigation_source_with(|| Ok(captures.next().unwrap()));
 
     assert!(matches!(result, Err(CaptureError::Changed)));
     assert!(captures.next().is_none());
+}
+
+fn alternating_captures<T>(mut first: impl FnMut() -> T, mut second: impl FnMut() -> T) -> Vec<T> {
+    (0..SNAPSHOT_ATTEMPTS)
+        .flat_map(|_| [first(), second()])
+        .collect()
 }
 
 fn navigation_boundary_key(boundary_text: &str) -> Value {

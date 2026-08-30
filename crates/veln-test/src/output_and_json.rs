@@ -126,14 +126,6 @@ pub(super) fn test_summary_to_json(cases: &[TestCase], suite_errors: &[SuiteErro
     ])
 }
 
-pub(super) fn source_span_to_json(span: &SourceSpan) -> JsonValue {
-    JsonValue::object([
-        ("file", JsonValue::string(span.file.as_str())),
-        ("start", line_col_to_json(span.start)),
-        ("end", line_col_to_json(span.end)),
-    ])
-}
-
 pub(super) fn source_span_range_to_json(span: &SourceSpan) -> JsonValue {
     JsonValue::object([
         ("start", line_col_to_json(span.start)),

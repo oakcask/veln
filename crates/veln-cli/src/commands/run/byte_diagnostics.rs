@@ -107,21 +107,14 @@ fn incomplete_input_diagnostic(
     id: &str,
     byte_offset: i64,
 ) -> Option<Diagnostic> {
-    let expected_count = json_number(entries, "expected_count")?;
-    let available_count = json_number(entries, "available_count")?;
-    let readiness = json_string(entries, "readiness")?;
-    let mut diagnostic = runtime_byte_diagnostic(
+    closed_input_diagnostic(
+        details,
+        entries,
         id,
         format!("missing byte at byte offset {byte_offset}"),
-        details,
-    );
-    diagnostic.related.push(note_json(format!(
-        "pending readiness is `{readiness}` because input is closed."
-    )));
-    diagnostic.related.push(note_json(format!(
-        "Fixed-width read expected {expected_count} byte(s); {available_count} byte(s) were available."
-    )));
-    Some(diagnostic)
+        "Fixed-width read",
+        false,
+    )
 }
 
 fn byte_range_out_of_bounds_diagnostic(
@@ -132,16 +125,16 @@ fn byte_range_out_of_bounds_diagnostic(
 ) -> Option<Diagnostic> {
     let requested_count = json_number(entries, "requested_count")?;
     let available_count = json_number(entries, "available_count")?;
-    let mut diagnostic = runtime_byte_diagnostic(
+    Some(runtime_byte_diagnostic_with_notes(
+        details,
+        entries,
         id,
         format!("byte range out of bounds at byte offset {byte_offset}"),
-        details,
-    );
-    diagnostic.related.push(note_json(format!(
-        "Byte range requested {requested_count} byte(s); {available_count} byte(s) were available from the offset."
-    )));
-    push_byte_preview_note(&mut diagnostic, entries);
-    Some(diagnostic)
+        [format!(
+            "Byte range requested {requested_count} byte(s); {available_count} byte(s) were available from the offset."
+        )],
+        true,
+    ))
 }
 
 fn fixed_field_mismatch_diagnostic(
@@ -152,16 +145,16 @@ fn fixed_field_mismatch_diagnostic(
 ) -> Option<Diagnostic> {
     let expected_value = json_number(entries, "expected_value")?;
     let actual_value = json_number(entries, "actual_value")?;
-    let mut diagnostic = runtime_byte_diagnostic(
+    Some(runtime_byte_diagnostic_with_notes(
+        details,
+        entries,
         id,
         format!("fixed field mismatch at byte offset {byte_offset}"),
-        details,
-    );
-    diagnostic.related.push(note_json(format!(
-        "Fixed field expected value {expected_value}; actual value was {actual_value}."
-    )));
-    push_byte_preview_note(&mut diagnostic, entries);
-    Some(diagnostic)
+        [format!(
+            "Fixed field expected value {expected_value}; actual value was {actual_value}."
+        )],
+        true,
+    ))
 }
 
 fn truncated_field_diagnostic(
@@ -170,22 +163,56 @@ fn truncated_field_diagnostic(
     id: &str,
     byte_offset: i64,
 ) -> Option<Diagnostic> {
+    closed_input_diagnostic(
+        details,
+        entries,
+        id,
+        format!("truncated schema field at byte offset {byte_offset}"),
+        "Schema field",
+        true,
+    )
+}
+
+fn closed_input_diagnostic(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    summary: String,
+    read_subject: &str,
+    include_byte_preview: bool,
+) -> Option<Diagnostic> {
     let expected_count = json_number(entries, "expected_count")?;
     let available_count = json_number(entries, "available_count")?;
     let readiness = json_string(entries, "readiness")?;
-    let mut diagnostic = runtime_byte_diagnostic(
-        id,
-        format!("truncated schema field at byte offset {byte_offset}"),
+    Some(runtime_byte_diagnostic_with_notes(
         details,
-    );
-    diagnostic.related.push(note_json(format!(
-        "pending readiness is `{readiness}` because input is closed."
-    )));
-    diagnostic.related.push(note_json(format!(
-        "Schema field expected {expected_count} byte(s); {available_count} byte(s) were available."
-    )));
-    push_byte_preview_note(&mut diagnostic, entries);
-    Some(diagnostic)
+        entries,
+        id,
+        summary,
+        [
+            format!("pending readiness is `{readiness}` because input is closed."),
+            format!(
+                "{read_subject} expected {expected_count} byte(s); {available_count} byte(s) were available."
+            ),
+        ],
+        include_byte_preview,
+    ))
+}
+
+fn runtime_byte_diagnostic_with_notes(
+    details: &JsonValue,
+    entries: &[(String, JsonValue)],
+    id: &str,
+    summary: String,
+    notes: impl IntoIterator<Item = String>,
+    include_byte_preview: bool,
+) -> Diagnostic {
+    let mut diagnostic = runtime_byte_diagnostic(id, summary, details);
+    diagnostic.related.extend(notes.into_iter().map(note_json));
+    if include_byte_preview {
+        push_byte_preview_note(&mut diagnostic, entries);
+    }
+    diagnostic
 }
 
 fn length_out_of_bounds_diagnostic(

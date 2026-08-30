@@ -1,11 +1,5 @@
 use super::*;
 
-#[derive(Clone, Debug)]
-struct DocSchemaReference {
-    target: String,
-    span: veln_source::SourceSpan,
-}
-
 #[derive(Clone, Copy, Debug)]
 enum DocSchemaResolution {
     Resolved,
@@ -48,7 +42,7 @@ pub(super) fn doc_schema_reference_diagnostics(
     diagnostics
 }
 
-fn doc_schema_references(source: &SourceFile) -> Vec<DocSchemaReference> {
+fn doc_schema_references(source: &SourceFile) -> Vec<veln_syntax::DocumentationSchemaReference> {
     let lines = source.text().split_inclusive('\n').collect::<Vec<_>>();
     let mut references = Vec::new();
     let mut line_start = 0;
@@ -57,57 +51,13 @@ fn doc_schema_references(source: &SourceFile) -> Vec<DocSchemaReference> {
         let indent_len = line.len() - trimmed.len();
         if let Some(content) = trimmed.strip_prefix("##") {
             let content_start = line_start + indent_len + "##".len();
-            references.extend(extract_doc_schema_references(
+            references.extend(extract_documentation_schema_references(
                 source,
                 content,
                 content_start,
             ));
         }
         line_start += line.len();
-    }
-    references
-}
-
-fn extract_doc_schema_references(
-    source: &SourceFile,
-    text: &str,
-    text_start: usize,
-) -> Vec<DocSchemaReference> {
-    let mut references = Vec::new();
-    let mut cursor = 0;
-    while let Some(relative_start) = text[cursor..].find("{@schema") {
-        let marker_start = cursor + relative_start;
-        let after_marker = marker_start + "{@schema".len();
-        let Some(next) = text[after_marker..].chars().next() else {
-            break;
-        };
-        if !next.is_whitespace() {
-            cursor = after_marker;
-            continue;
-        }
-
-        let after_space = after_marker
-            + text[after_marker..]
-                .char_indices()
-                .find(|(_, ch)| !ch.is_whitespace())
-                .map_or(0, |(index, _)| index);
-        let Some(relative_end) = text[after_space..].find('}') else {
-            break;
-        };
-        let marker_end = after_space + relative_end;
-        let target_text = &text[after_space..marker_end];
-        let leading_trim = target_text.len() - target_text.trim_start().len();
-        let trailing_trim = target_text.trim_end().len();
-        let target = target_text.trim().to_string();
-        if !target.is_empty() {
-            let start = text_start + after_space + leading_trim;
-            let end = text_start + after_space + trailing_trim;
-            references.push(DocSchemaReference {
-                target,
-                span: source.span(TextRange::new(start, end)),
-            });
-        }
-        cursor = marker_end + 1;
     }
     references
 }

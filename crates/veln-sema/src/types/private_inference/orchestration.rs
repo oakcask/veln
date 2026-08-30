@@ -59,16 +59,7 @@ pub(crate) fn infer_private_function_call_site_signature_types(
     adts: &AdtRegistry,
 ) {
     let uses = normal_use_decls(module);
-    let function_by_path = module
-        .functions
-        .iter()
-        .filter_map(|function| {
-            Some((
-                (function.module_name.clone(), function.name.clone()?),
-                function,
-            ))
-        })
-        .collect::<BTreeMap<_, _>>();
+    let function_by_path = function_ast_map(module);
     let initial_omitted_private_slots = omitted_private_slots_that_can_change(module, functions);
     if initial_omitted_private_slots.is_empty() {
         return;
@@ -137,14 +128,7 @@ pub(crate) fn omitted_private_returns_that_can_change(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
 ) -> BTreeSet<FunctionKey> {
-    module
-        .functions
-        .iter()
-        .filter(|function| {
-            function.kind == FunctionKind::Function
-                && function.visibility == Visibility::Private
-                && function.return_type.is_none()
-        })
+    omitted_private_return_functions(module)
         .filter_map(|function| {
             let key = private_function_key(function)?;
             let can_change = signature_for_key(functions, &key)
@@ -195,19 +179,19 @@ pub(crate) fn omitted_private_slots_that_can_change(
 pub(crate) fn modules_with_private_slot_omissions(
     omitted_private_slots: &PrivateSlotMap,
 ) -> BTreeSet<Option<String>> {
-    omitted_private_slots
-        .keys()
-        .map(|key| key.0.clone())
-        .collect()
+    modules_with_private_omissions(omitted_private_slots.keys())
 }
 
 pub(crate) fn modules_with_private_return_omissions(
     omitted_private_returns: &BTreeSet<FunctionKey>,
 ) -> BTreeSet<Option<String>> {
-    omitted_private_returns
-        .iter()
-        .map(|key| key.0.clone())
-        .collect()
+    modules_with_private_omissions(omitted_private_returns.iter())
+}
+
+fn modules_with_private_omissions<'a>(
+    keys: impl IntoIterator<Item = &'a FunctionKey>,
+) -> BTreeSet<Option<String>> {
+    keys.into_iter().map(|key| key.0.clone()).collect()
 }
 
 pub(crate) fn omitted_private_returns_requiring_prelude_pass(
@@ -216,14 +200,7 @@ pub(crate) fn omitted_private_returns_requiring_prelude_pass(
     uses: &[UseDecl],
     adts: &AdtRegistry,
 ) -> BTreeSet<FunctionKey> {
-    module
-        .functions
-        .iter()
-        .filter(|function| {
-            function.kind == FunctionKind::Function
-                && function.visibility == Visibility::Private
-                && function.return_type.is_none()
-        })
+    omitted_private_return_functions(module)
         .filter_map(|function| {
             let key = private_function_key(function)?;
             let signature = signature_for_key(functions, &key)?;
@@ -232,6 +209,14 @@ pub(crate) fn omitted_private_returns_requiring_prelude_pass(
             .then_some(key)
         })
         .collect()
+}
+
+fn omitted_private_return_functions(module: &SurfaceModule) -> impl Iterator<Item = &Function> {
+    module.functions.iter().filter(|function| {
+        function.kind == FunctionKind::Function
+            && function.visibility == Visibility::Private
+            && function.return_type.is_none()
+    })
 }
 
 pub(crate) fn private_reference_map(

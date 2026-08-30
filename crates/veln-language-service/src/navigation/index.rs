@@ -96,26 +96,14 @@ impl SymbolIndex {
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {
         self.functions
             .iter()
-            .find(|symbol| {
-                symbol.name == name
-                    && symbol.package.is_none()
-                    && symbol.declaration.span.file == selection.file
-                    && symbol.declaration.span.start.offset == selection.start.offset
-                    && symbol.declaration.span.end.offset == selection.end.offset
-            })
+            .find(|symbol| declaration_matches(name, selection, &symbol.name, symbol.package.as_deref(), &symbol.declaration.span))
             .cloned()
     }
 
     fn type_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<TypeSymbol> {
         self.types
             .iter()
-            .find(|symbol| {
-                symbol.name == name
-                    && symbol.package.is_none()
-                    && symbol.declaration.span.file == selection.file
-                    && symbol.declaration.span.start.offset == selection.start.offset
-                    && symbol.declaration.span.end.offset == selection.end.offset
-            })
+            .find(|symbol| declaration_matches(name, selection, &symbol.name, symbol.package.as_deref(), &symbol.declaration.span))
             .cloned()
     }
 
@@ -126,13 +114,7 @@ impl SymbolIndex {
     ) -> Option<ConstructorSymbol> {
         self.constructors
             .iter()
-            .find(|symbol| {
-                symbol.name == name
-                    && symbol.package.is_none()
-                    && symbol.declaration.span.file == selection.file
-                    && symbol.declaration.span.start.offset == selection.start.offset
-                    && symbol.declaration.span.end.offset == selection.end.offset
-            })
+            .find(|symbol| declaration_matches(name, selection, &symbol.name, symbol.package.as_deref(), &symbol.declaration.span))
             .cloned()
     }
 
@@ -287,7 +269,7 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        let mut candidates = self.constructors.iter().filter(|symbol| {
+        self.unique_constructor_matching(|symbol| {
             symbol.name == name
                 && !symbol.standard_prelude
                 && symbol.package.is_none()
@@ -295,9 +277,7 @@ impl SymbolIndex {
                 && (file.uses.contains(&symbol.module)
                     || self.constructor_reexport_visible_from(file, symbol, None))
                 && visible_workspace_constructor_from(file, symbol)
-        });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        })
     }
 
     fn imported_package_constructor_for_bare_call(
@@ -305,7 +285,7 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<ConstructorSymbol> {
-        let mut candidates = self.constructors.iter().filter(|symbol| {
+        self.unique_constructor_matching(|symbol| {
             symbol.name == name
                 && !symbol.standard_prelude
                 && symbol.public
@@ -314,7 +294,14 @@ impl SymbolIndex {
                         .contains(&(symbol.module.clone(), package.clone()))
                         || self.constructor_reexport_visible_from(file, symbol, Some(package))
                 })
-        });
+        })
+    }
+
+    fn unique_constructor_matching(
+        &self,
+        predicate: impl Fn(&ConstructorSymbol) -> bool,
+    ) -> Option<ConstructorSymbol> {
+        let mut candidates = self.constructors.iter().filter(|symbol| predicate(symbol));
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
     }
@@ -570,4 +557,18 @@ impl SymbolIndex {
             None => self.constructor_for_bare_call(file, name),
         }
     }
+}
+
+fn declaration_matches(
+    expected_name: &str,
+    selection: &SourceSpan,
+    actual_name: &str,
+    package: Option<&str>,
+    declaration: &SourceSpan,
+) -> bool {
+    actual_name == expected_name
+        && package.is_none()
+        && declaration.file == selection.file
+        && declaration.start.offset == selection.start.offset
+        && declaration.end.offset == selection.end.offset
 }

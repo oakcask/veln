@@ -377,14 +377,11 @@ pub(in crate::analysis) fn boolean_literal_comparison_implies_atom(
     let Some(required) = ParsedRepairComparison::parse(required) else {
         return false;
     };
-    let Some((required_atom, required_truth)) = boolean_literal_comparison_truth(&required) else {
-        return false;
-    };
-    let Some((wanted_atom, wanted_truth)) = boolean_atom_truth(wanted_atom) else {
-        return false;
-    };
-    required_truth == wanted_truth
-        && repair_operands_equivalent(required_atom, wanted_atom, equivalences)
+    boolean_truth_implies(
+        boolean_literal_comparison_truth(&required),
+        boolean_atom_truth(wanted_atom),
+        equivalences,
+    )
 }
 
 pub(in crate::analysis) fn boolean_atom_implies_literal_comparison(
@@ -392,14 +389,11 @@ pub(in crate::analysis) fn boolean_atom_implies_literal_comparison(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some((required_atom, required_truth)) = boolean_atom_truth(required_atom) else {
-        return false;
-    };
-    let Some((wanted_atom, wanted_truth)) = boolean_literal_comparison_truth(wanted) else {
-        return false;
-    };
-    required_truth == wanted_truth
-        && repair_operands_equivalent(required_atom, wanted_atom, equivalences)
+    boolean_truth_implies(
+        boolean_atom_truth(required_atom),
+        boolean_literal_comparison_truth(wanted),
+        equivalences,
+    )
 }
 
 pub(in crate::analysis) fn boolean_literal_comparison_implies_comparison(
@@ -407,10 +401,21 @@ pub(in crate::analysis) fn boolean_literal_comparison_implies_comparison(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some((required_atom, required_truth)) = boolean_literal_comparison_truth(required) else {
-        return false;
-    };
-    let Some((wanted_atom, wanted_truth)) = boolean_literal_comparison_truth(wanted) else {
+    boolean_truth_implies(
+        boolean_literal_comparison_truth(required),
+        boolean_literal_comparison_truth(wanted),
+        equivalences,
+    )
+}
+
+fn boolean_truth_implies(
+    required: Option<(&str, bool)>,
+    wanted: Option<(&str, bool)>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let (Some((required_atom, required_truth)), Some((wanted_atom, wanted_truth))) =
+        (required, wanted)
+    else {
         return false;
     };
     required_truth == wanted_truth

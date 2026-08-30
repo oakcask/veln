@@ -31,24 +31,7 @@ impl<'a> Parser<'a> {
         expected: &'static str,
         allow_hole_segment: bool,
     ) -> (Option<String>, Option<SourceSpan>) {
-        if allow_hole_segment {
-            return self.expect_covered_name(context, expected);
-        }
-        if is_contextual_identifier(self.current().kind) {
-            let token = self.bump();
-            let span = self.source.span(token.range);
-            (Some(token.text), Some(span))
-        } else {
-            self.error_current(
-                "parse.expected_identifier",
-                format!("expected {expected}"),
-                context,
-                vec![expected],
-                RecoveryStrategy::InsertToken,
-                None,
-            );
-            (None, None)
-        }
+        self.expect_name(context, expected, allow_hole_segment)
     }
 
     pub(super) fn collect_type_until(
@@ -163,16 +146,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn collect_until_newline(&mut self) -> (String, Vec<Token>, TextRange) {
-        let start = self.current().range;
-        let mut end = start;
-        let mut parts = Vec::new();
-        let mut tokens = Vec::new();
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
-            let token = self.bump();
-            end = token.range;
-            parts.push(token.text.clone());
-            tokens.push(token);
-        }
+        let (parts, tokens, start, mut end) = self.collect_line_parts_and_tokens();
         if self.at(TokenKind::Newline) {
             end = self.bump().range;
         }
@@ -190,6 +164,22 @@ impl<'a> Parser<'a> {
             tokens,
             start.cover(end),
         )
+    }
+
+    pub(super) fn collect_line_parts_and_tokens(
+        &mut self,
+    ) -> (Vec<String>, Vec<Token>, TextRange, TextRange) {
+        let start = self.current().range;
+        let mut end = start;
+        let mut parts = Vec::new();
+        let mut tokens = Vec::new();
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            let token = self.bump();
+            end = token.range;
+            parts.push(token.text.clone());
+            tokens.push(token);
+        }
+        (parts, tokens, start, end)
     }
 
     pub(super) fn parse_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
@@ -253,23 +243,12 @@ impl<'a> Parser<'a> {
             let token = self.bump();
             end = token.range;
             if token.kind == TokenKind::Invalid {
-                self.diagnostics.push(ParseDiagnostic {
-                    id: "parse.invalid_token",
-                    message: "invalid token in expression".to_string(),
-                    span: Some(self.source.span(token.range)),
-                    parser_context: context,
-                    unexpected: UnexpectedToken {
-                        kind: token.kind.label().to_string(),
-                        text: token.text.clone(),
-                    },
-                    expected: vec!["expression"],
-                    recovery: Recovery {
-                        strategy: RecoveryStrategy::SkipToken,
-                        anchor: Some("end".to_string()),
-                        dropped_token_count: 1,
-                    },
-                    repair_candidates: Vec::new(),
-                });
+                self.diagnostics.push(invalid_expression_token_diagnostic(
+                    self.source,
+                    &token,
+                    context,
+                    "end",
+                ));
                 continue;
             }
             if token.kind == TokenKind::Match
@@ -324,23 +303,12 @@ impl<'a> Parser<'a> {
                 _ => {}
             }
             if token.kind == TokenKind::Invalid {
-                self.diagnostics.push(ParseDiagnostic {
-                    id: "parse.invalid_token",
-                    message: "invalid token in expression".to_string(),
-                    span: Some(self.source.span(token.range)),
-                    parser_context: context,
-                    unexpected: UnexpectedToken {
-                        kind: token.kind.label().to_string(),
-                        text: token.text.clone(),
-                    },
-                    expected: vec!["expression"],
-                    recovery: Recovery {
-                        strategy: RecoveryStrategy::SkipToken,
-                        anchor: Some("newline".to_string()),
-                        dropped_token_count: 1,
-                    },
-                    repair_candidates: Vec::new(),
-                });
+                self.diagnostics.push(invalid_expression_token_diagnostic(
+                    self.source,
+                    &token,
+                    context,
+                    "newline",
+                ));
             } else if token.kind != TokenKind::Newline {
                 tokens.push(token);
             } else {

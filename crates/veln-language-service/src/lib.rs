@@ -2,7 +2,10 @@
 
 mod navigation;
 mod package_documentation;
+mod uri_encoding;
 mod virtual_source;
+
+use uri_encoding::encoded_uri_segment;
 
 pub use navigation::{
     NavigationLocation, NavigationResult, NavigationSource, RenameFailure, RenameNameClass,

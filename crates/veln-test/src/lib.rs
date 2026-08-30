@@ -8,7 +8,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::process::Output;
 
 use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
-use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
+use veln_diagnostics::{
+    Diagnostic, DiagnosticKind, JsonValue, Severity, diagnostic_to_json, source_span_to_json,
+};
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 
 mod runtime_expectation;
@@ -130,6 +132,20 @@ pub fn reconcile_expected_doctest_failures(
     diagnostics: Vec<Diagnostic>,
     expected_failures: &BTreeMap<String, SourceSpan>,
 ) -> Vec<Diagnostic> {
+    reconcile_expected_doctest_failures_with(
+        diagnostics,
+        expected_failures,
+        "negative doctest produced no error diagnostics",
+        |diagnostic| diagnostic.severity == Severity::Error,
+    )
+}
+
+pub fn reconcile_expected_doctest_failures_with(
+    diagnostics: Vec<Diagnostic>,
+    expected_failures: &BTreeMap<String, SourceSpan>,
+    missing_message: &'static str,
+    matches_expected_failure: impl Fn(&Diagnostic) -> bool,
+) -> Vec<Diagnostic> {
     if expected_failures.is_empty() {
         return diagnostics;
     }
@@ -138,7 +154,7 @@ pub fn reconcile_expected_doctest_failures(
     let mut kept = Vec::new();
     for diagnostic in diagnostics {
         if let Some(span) = &diagnostic.span
-            && diagnostic.severity == Severity::Error
+            && matches_expected_failure(&diagnostic)
             && expected_failures.contains_key(span.file.as_str())
         {
             matched.insert(span.file.as_str().to_string());
@@ -155,7 +171,7 @@ pub fn reconcile_expected_doctest_failures(
             "doctest.expected_failure_missing",
             Severity::Error,
             DiagnosticKind::Doc,
-            "negative doctest produced no error diagnostics",
+            missing_message,
             Some(span.clone()),
             JsonValue::object([("kind", JsonValue::string("doctest_metadata"))]),
         ));

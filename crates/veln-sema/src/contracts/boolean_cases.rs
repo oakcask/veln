@@ -326,17 +326,37 @@ pub(super) fn has_factored_case_split_covered_by_complements(predicate: &str) ->
 }
 
 pub(super) fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
-    let disjuncts = flattened_keyword_clauses(predicate, "or");
-    if disjuncts.len() < 3 {
+    has_partial_case_split(
+        predicate,
+        "or",
+        non_static_conjuncts,
+        AssignmentPolarity::Matching,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum AssignmentPolarity {
+    Matching,
+    Opposite,
+}
+
+fn has_partial_case_split(
+    predicate: &str,
+    outer_keyword: &str,
+    inner_clauses: for<'a> fn(&'a str) -> Vec<&'a str>,
+    assignment_polarity: AssignmentPolarity,
+) -> bool {
+    let outer_clauses = flattened_keyword_clauses(predicate, outer_keyword);
+    if outer_clauses.len() < 3 {
         return false;
     }
     let mut bases: Vec<&str> = Vec::new();
-    for disjunct in &disjuncts {
-        for conjunct in non_static_conjuncts(disjunct) {
+    for outer_clause in &outer_clauses {
+        for inner_clause in inner_clauses(outer_clause) {
             if bases.iter().all(|base| {
-                !same_predicate(base, conjunct) && !complementary_predicates(base, conjunct)
+                !same_predicate(base, inner_clause) && !complementary_predicates(base, inner_clause)
             }) {
-                bases.push(conjunct);
+                bases.push(inner_clause);
                 if bases.len() > MAX_PARTIAL_CASE_SPLIT_ATOMS {
                     return false;
                 }
@@ -350,17 +370,22 @@ pub(super) fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
     let Some(assignment_count) = 1usize.checked_shl(bases.len() as u32) else {
         return false;
     };
-    let mut covered = vec![false; assignment_count];
-    let mut covered_count = 0;
-    for disjunct in disjuncts {
-        let Some(assignments) = partial_case_split_covered_assignments(disjunct, &bases) else {
+    let mut accounted_for = vec![false; assignment_count];
+    let mut accounted_for_count = 0;
+    for outer_clause in outer_clauses {
+        let Some(assignments) = partial_case_split_assignments(
+            outer_clause,
+            &bases,
+            inner_clauses,
+            assignment_polarity,
+        ) else {
             continue;
         };
         for assignment in assignments {
-            if !covered[assignment] {
-                covered[assignment] = true;
-                covered_count += 1;
-                if covered_count == assignment_count {
+            if !accounted_for[assignment] {
+                accounted_for[assignment] = true;
+                accounted_for_count += 1;
+                if accounted_for_count == assignment_count {
                     return true;
                 }
             }
@@ -369,15 +394,17 @@ pub(super) fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
     false
 }
 
-pub(super) fn partial_case_split_covered_assignments(
-    disjunct: &str,
+fn partial_case_split_assignments(
+    outer_clause: &str,
     bases: &[&str],
+    inner_clauses: for<'a> fn(&'a str) -> Vec<&'a str>,
+    assignment_polarity: AssignmentPolarity,
 ) -> Option<Vec<usize>> {
     let mut polarities = vec![None; bases.len()];
-    for conjunct in non_static_conjuncts(disjunct) {
+    for inner_clause in inner_clauses(outer_clause) {
         let mut matched = false;
         for (index, base) in bases.iter().enumerate() {
-            if let Some(polarity) = predicate_polarity_against(conjunct, base) {
+            if let Some(polarity) = predicate_polarity_against(inner_clause, base) {
                 if polarities[index].is_some() {
                     return None;
                 }
@@ -402,7 +429,8 @@ pub(super) fn partial_case_split_covered_assignments(
                 continue;
             };
             let bit = 1usize << index;
-            if (assignment & bit != 0) != *expected {
+            let polarity_matches = (assignment & bit != 0) == *expected;
+            if polarity_matches != matches!(assignment_polarity, AssignmentPolarity::Matching) {
                 continue 'assignments;
             }
         }
@@ -412,87 +440,10 @@ pub(super) fn partial_case_split_covered_assignments(
 }
 
 pub(super) fn has_partial_case_split_top_level_and(predicate: &str) -> bool {
-    let conjuncts = flattened_keyword_clauses(predicate, "and");
-    if conjuncts.len() < 3 {
-        return false;
-    }
-    let mut bases: Vec<&str> = Vec::new();
-    for conjunct in &conjuncts {
-        for disjunct in non_static_disjuncts(conjunct) {
-            if bases.iter().all(|base| {
-                !same_predicate(base, disjunct) && !complementary_predicates(base, disjunct)
-            }) {
-                bases.push(disjunct);
-                if bases.len() > MAX_PARTIAL_CASE_SPLIT_ATOMS {
-                    return false;
-                }
-            }
-        }
-    }
-    if bases.len() < 2 {
-        return false;
-    }
-
-    let Some(assignment_count) = 1usize.checked_shl(bases.len() as u32) else {
-        return false;
-    };
-    let mut rejected = vec![false; assignment_count];
-    let mut rejected_count = 0;
-    for conjunct in conjuncts {
-        let Some(assignments) = partial_case_split_rejected_assignments(conjunct, &bases) else {
-            continue;
-        };
-        for assignment in assignments {
-            if !rejected[assignment] {
-                rejected[assignment] = true;
-                rejected_count += 1;
-                if rejected_count == assignment_count {
-                    return true;
-                }
-            }
-        }
-    }
-    false
-}
-
-pub(super) fn partial_case_split_rejected_assignments(
-    conjunct: &str,
-    bases: &[&str],
-) -> Option<Vec<usize>> {
-    let mut polarities = vec![None; bases.len()];
-    for disjunct in non_static_disjuncts(conjunct) {
-        let mut matched = false;
-        for (index, base) in bases.iter().enumerate() {
-            if let Some(polarity) = predicate_polarity_against(disjunct, base) {
-                if polarities[index].is_some() {
-                    return None;
-                }
-                polarities[index] = Some(polarity);
-                matched = true;
-                break;
-            }
-        }
-        if !matched {
-            return None;
-        }
-    }
-    if polarities.iter().all(Option::is_none) {
-        return None;
-    }
-
-    let assignment_count = 1usize << bases.len();
-    let mut rejected = Vec::new();
-    'assignments: for assignment in 0..assignment_count {
-        for (index, rejected_polarity) in polarities.iter().enumerate() {
-            let Some(rejected_polarity) = rejected_polarity else {
-                continue;
-            };
-            let bit = 1usize << index;
-            if (assignment & bit != 0) == *rejected_polarity {
-                continue 'assignments;
-            }
-        }
-        rejected.push(assignment);
-    }
-    Some(rejected)
+    has_partial_case_split(
+        predicate,
+        "and",
+        non_static_disjuncts,
+        AssignmentPolarity::Opposite,
+    )
 }

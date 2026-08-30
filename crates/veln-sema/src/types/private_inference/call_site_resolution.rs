@@ -251,19 +251,13 @@ pub(crate) fn update_private_signature_param(
     inferred: Type,
     changed: &mut bool,
 ) {
-    let Some(signature) = functions
-        .iter_mut()
-        .find(|function| function.module_name == key.0 && function.name == key.1)
-    else {
+    let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
     let Some(current) = signature.params.get_mut(index) else {
         return;
     };
-    if type_has_unknown(current) {
-        *current = inferred;
-        *changed = true;
-    }
+    update_unknown_private_signature_type(current, inferred, changed);
 }
 
 pub(crate) fn update_private_signature_variadic(
@@ -272,19 +266,13 @@ pub(crate) fn update_private_signature_variadic(
     inferred: Type,
     changed: &mut bool,
 ) {
-    let Some(signature) = functions
-        .iter_mut()
-        .find(|function| function.module_name == key.0 && function.name == key.1)
-    else {
+    let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
     let Some(current) = signature.variadic.as_mut() else {
         return;
     };
-    if type_has_unknown(current) {
-        *current = inferred;
-        *changed = true;
-    }
+    update_unknown_private_signature_type(current, inferred, changed);
 }
 
 pub(crate) fn update_private_signature_return(
@@ -293,14 +281,24 @@ pub(crate) fn update_private_signature_return(
     inferred: Type,
     changed: &mut bool,
 ) {
-    let Some(signature) = functions
-        .iter_mut()
-        .find(|function| function.module_name == key.0 && function.name == key.1)
-    else {
+    let Some(signature) = private_signature_mut(functions, key) else {
         return;
     };
-    if type_has_unknown(&signature.return_type) {
-        signature.return_type = inferred;
+    update_unknown_private_signature_type(&mut signature.return_type, inferred, changed);
+}
+
+fn private_signature_mut<'a>(
+    functions: &'a mut [FunctionSignature],
+    key: &FunctionKey,
+) -> Option<&'a mut FunctionSignature> {
+    functions
+        .iter_mut()
+        .find(|function| function.module_name == key.0 && function.name == key.1)
+}
+
+fn update_unknown_private_signature_type(current: &mut Type, inferred: Type, changed: &mut bool) {
+    if type_has_unknown(current) {
+        *current = inferred;
         *changed = true;
     }
 }

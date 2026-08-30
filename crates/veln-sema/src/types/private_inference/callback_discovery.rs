@@ -6,16 +6,7 @@ pub(crate) fn infer_private_prelude_callback_return_types(
     adts: &AdtRegistry,
 ) {
     let uses = normal_use_decls(module);
-    let function_by_path = module
-        .functions
-        .iter()
-        .filter_map(|function| {
-            Some((
-                (function.module_name.clone(), function.name.clone()?),
-                function,
-            ))
-        })
-        .collect::<BTreeMap<_, _>>();
+    let function_by_path = function_ast_map(module);
     let mut returns_by_path = functions
         .iter()
         .map(|function| {
@@ -93,12 +84,7 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
     #[cfg(test)]
     private_inference_counters::record_prelude_callback_scan();
 
-    let mut bindings = function
-        .params
-        .iter()
-        .filter(|param| valid_value_binding_name(&param.name))
-        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
-        .collect::<Vec<_>>();
+    let mut bindings = function_parameter_bindings(function);
     let declared_return = function
         .return_type
         .as_deref()
@@ -127,31 +113,15 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
                         changed,
                     },
                 );
-                let initializer_private_function = annotation_type
-                    .is_none()
-                    .then(|| {
-                        private_same_module_call_target(
-                            expr,
-                            function.module_name.as_deref(),
-                            function_by_path,
-                        )
-                    })
-                    .flatten();
-                let ty = annotation_type.unwrap_or_else(|| {
-                    infer_private_signature_expr_type(
-                        expr,
-                        None,
-                        function.module_name.as_deref(),
-                        uses,
-                        &bindings,
-                        returns_by_path,
-                        adts,
-                    )
-                });
-                collect_let_pattern_bindings(
+                collect_private_callback_let_bindings(
                     pattern,
-                    &ty,
-                    initializer_private_function,
+                    expr,
+                    annotation_type,
+                    function.module_name.as_deref(),
+                    uses,
+                    function_by_path,
+                    returns_by_path,
+                    adts,
                     &mut bindings,
                 );
             }
@@ -240,12 +210,7 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
     #[cfg(test)]
     private_inference_counters::record_prelude_callback_discovery_scan();
 
-    let mut bindings = function
-        .params
-        .iter()
-        .filter(|param| valid_value_binding_name(&param.name))
-        .map(|param| Binding::new(param.name.clone(), function_body_param_type(param)))
-        .collect::<Vec<_>>();
+    let mut bindings = function_parameter_bindings(function);
     let declared_return = function
         .return_type
         .as_deref()
@@ -276,31 +241,15 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
                 ) {
                     return true;
                 }
-                let initializer_private_function = annotation_type
-                    .is_none()
-                    .then(|| {
-                        private_same_module_call_target(
-                            expr,
-                            function.module_name.as_deref(),
-                            function_by_path,
-                        )
-                    })
-                    .flatten();
-                let ty = annotation_type.unwrap_or_else(|| {
-                    infer_private_signature_expr_type(
-                        expr,
-                        None,
-                        function.module_name.as_deref(),
-                        uses,
-                        &bindings,
-                        returns_by_path,
-                        adts,
-                    )
-                });
-                collect_let_pattern_bindings(
+                collect_private_callback_let_bindings(
                     pattern,
-                    &ty,
-                    initializer_private_function,
+                    expr,
+                    annotation_type,
+                    function.module_name.as_deref(),
+                    uses,
+                    function_by_path,
+                    returns_by_path,
+                    adts,
                     &mut bindings,
                 );
             }
@@ -325,6 +274,35 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
         }
     }
     false
+}
+
+fn collect_private_callback_let_bindings(
+    pattern: &Pattern,
+    expression: &Expr,
+    annotation_type: Option<Type>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    function_by_path: &FunctionAstMap<'_>,
+    returns_by_path: &FunctionReturnMap,
+    adts: &AdtRegistry,
+    bindings: &mut Vec<Binding>,
+) {
+    let initializer_private_function = annotation_type
+        .is_none()
+        .then(|| private_same_module_call_target(expression, current_module, function_by_path))
+        .flatten();
+    let ty = annotation_type.unwrap_or_else(|| {
+        infer_private_signature_expr_type(
+            expression,
+            None,
+            current_module,
+            uses,
+            bindings,
+            returns_by_path,
+            adts,
+        )
+    });
+    collect_let_pattern_bindings(pattern, &ty, initializer_private_function, bindings);
 }
 
 pub(crate) fn private_prelude_callback_expr_references_slot(
@@ -489,44 +467,19 @@ pub(crate) fn private_prelude_callback_call_references_slot(
     expected: Option<&Type>,
     context: &PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
-    let ExprKind::NamePath(segments) = &callee.kind else {
+    let Some(params) = private_prelude_callback_call_params(
+        callee,
+        args,
+        expected,
+        context.current_module,
+        context.uses,
+        context.bindings,
+        context.function_by_path,
+        context.returns_by_path,
+        context.adts,
+    ) else {
         return false;
     };
-    let Some(name) =
-        private_prelude_constraint_name(segments, context.current_module, context.function_by_path)
-    else {
-        return false;
-    };
-    let input_type = private_prelude_input_arg(args, name).map(|arg| {
-        infer_private_signature_expr_type(
-            arg,
-            None,
-            context.current_module,
-            context.uses,
-            context.bindings,
-            context.returns_by_path,
-            context.adts,
-        )
-    });
-    let Some((mut params, _)) =
-        crate::prelude::prelude_signature_with_input(name, expected, input_type.as_ref())
-    else {
-        return false;
-    };
-    if name == "vec_try_map_with" {
-        let context_type = args.first().map(|arg| {
-            infer_private_signature_expr_type(
-                arg,
-                None,
-                context.current_module,
-                context.uses,
-                context.bindings,
-                context.returns_by_path,
-                context.adts,
-            )
-        });
-        apply_vec_try_map_with_context_param(&mut params, context_type);
-    }
     args.iter()
         .zip(params.iter())
         .any(|(arg, param)| private_prelude_callback_arg_references_slot(arg, param, context))

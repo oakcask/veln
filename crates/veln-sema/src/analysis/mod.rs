@@ -106,24 +106,7 @@ fn private_companion_effect_target_diagnostic(
             ("reason", JsonValue::string("companion_target_mismatch")),
         ]),
     );
-    diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("companion_target")),
-        (
-            "message",
-            JsonValue::string(format!(
-                "This test companion may access private effects only from target module `{}`.",
-                access.target_module
-            )),
-        ),
-        (
-            "companion_path",
-            JsonValue::string(access.companion_path.clone()),
-        ),
-        (
-            "companion_target_module",
-            JsonValue::string(access.target_module.clone()),
-        ),
-    ]));
+    add_companion_target_related(&mut diagnostic, access, "effects");
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("effect_declaration")),
         (
@@ -181,13 +164,21 @@ fn private_companion_handler_target_diagnostic(
             ("reason", JsonValue::string("companion_target_mismatch")),
         ]),
     );
+    add_companion_target_related(&mut diagnostic, access, "handlers");
+    diagnostic
+}
+
+fn add_companion_target_related(
+    diagnostic: &mut Diagnostic,
+    access: &CompanionAccessTarget,
+    private_subject: &str,
+) {
     diagnostic.related.push(JsonValue::object([
         ("kind", JsonValue::string("companion_target")),
         (
             "message",
             JsonValue::string(format!(
-                "This test companion may access private handlers only from target module `{}`.",
-                access.target_module
+                "This test companion may access private {private_subject} only from target module `{}`.", access.target_module
             )),
         ),
         (
@@ -199,5 +190,4 @@ fn private_companion_handler_target_diagnostic(
             JsonValue::string(access.target_module.clone()),
         ),
     ]));
-    diagnostic
 }

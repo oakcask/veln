@@ -23,6 +23,18 @@ pub(crate) enum SchemaDispatchCasePayload {
     Schema { schema_name: String },
 }
 
+pub(crate) fn schema_dispatch_has_schema_payload_where(
+    dispatch: &SchemaDispatchSpec,
+    mut predicate: impl FnMut(&str) -> bool,
+) -> bool {
+    dispatch.cases.iter().any(|case| {
+        matches!(
+            &case.payload,
+            SchemaDispatchCasePayload::Schema { schema_name } if predicate(schema_name)
+        )
+    })
+}
+
 pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatchSpec> {
     let inner = schema_call_inner(ty, "Dispatch")?;
     let mut args = split_top_level_args(inner).into_iter().peekable();
@@ -43,17 +55,7 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
     if length_field.is_some() {
         args.next();
     }
-    let cases = args
-        .map(|arg| {
-            let (tag, primitive) = arg.split_once("=>")?;
-            let tag = parse_schema_tag(tag.trim())?;
-            let payload = schema_dispatch_case_payload(primitive.trim())?;
-            Some(SchemaDispatchCase { tag, payload })
-        })
-        .collect::<Option<Vec<_>>>()?;
-    if cases.is_empty() {
-        return None;
-    }
+    let cases = schema_dispatch_cases(args)?;
     Some(SchemaDispatchSpec {
         tag_field,
         length_field,
@@ -72,7 +74,20 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
     {
         return None;
     }
+    let cases = schema_dispatch_cases(args)?;
+    Some(SchemaDispatchSpec {
+        tag_field,
+        length_field: Some(length_field),
+        preserves_unknown: true,
+        cases,
+    })
+}
+
+fn schema_dispatch_cases<'a>(
+    args: impl IntoIterator<Item = &'a str>,
+) -> Option<Vec<SchemaDispatchCase>> {
     let cases = args
+        .into_iter()
         .map(|arg| {
             let (tag, primitive) = arg.split_once("=>")?;
             let tag = parse_schema_tag(tag.trim())?;
@@ -83,12 +98,7 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
     if cases.is_empty() {
         return None;
     }
-    Some(SchemaDispatchSpec {
-        tag_field,
-        length_field: Some(length_field),
-        preserves_unknown: true,
-        cases,
-    })
+    Some(cases)
 }
 
 fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload> {

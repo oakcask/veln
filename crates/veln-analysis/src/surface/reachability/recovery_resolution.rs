@@ -190,16 +190,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         arg_count: Option<usize>,
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
-        let candidates = self
-            .visible_constructor_variants(segments, current_module)
-            .into_iter()
-            .filter(|(type_decl, variant)| {
-                Self::constructor_recovery_candidate(type_decl, variant, arg_count)
-            })
-            .map(|(type_decl, variant)| {
-                ReachableRecoveryCandidate::new(self.constructor_recovery_spans(type_decl, variant))
-            })
-            .collect::<Vec<_>>();
+        let candidates = self.constructor_recovery_candidates(segments, current_module, arg_count);
         push_unique_constructor_recovery_spans(candidates, spans);
     }
 
@@ -253,29 +244,20 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Vec<&'a Function> {
-        let target = visible_path_target(&self.uses, segments, current_module);
-        let Some(leaf) = path_leaf(segments).map(str::to_string) else {
-            return Vec::new();
-        };
-        self.functions_by_name
-            .get(&(target.clone(), leaf))
-            .into_iter()
-            .flatten()
-            .copied()
-            .inspect(|_| {
-                #[cfg(test)]
-                reachability_counters::record_recovery_selector_candidate_scan();
-            })
-            .filter(move |function| {
+        self.visible_named_candidates(
+            &self.functions_by_name,
+            segments,
+            current_module,
+            |function, target| {
                 function.kind == FunctionKind::Function
                     && declaration_visible(
                         function.module_name.as_deref(),
                         function.visibility,
-                        target.as_deref(),
+                        target,
                         current_module,
                     )
-            })
-            .collect()
+            },
+        )
     }
 
     pub(super) fn visible_aliases(
@@ -284,29 +266,20 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         current_module: Option<&str>,
         kind: PublicAliasKind,
     ) -> Vec<&'a veln_ast::PublicAlias> {
-        let target = visible_path_target(&self.uses, segments, current_module);
-        let Some(leaf) = path_leaf(segments).map(str::to_string) else {
-            return Vec::new();
-        };
-        self.aliases_by_name
-            .get(&(target.clone(), leaf))
-            .into_iter()
-            .flatten()
-            .copied()
-            .inspect(|_| {
-                #[cfg(test)]
-                reachability_counters::record_recovery_selector_candidate_scan();
-            })
-            .filter(move |alias| {
+        self.visible_named_candidates(
+            &self.aliases_by_name,
+            segments,
+            current_module,
+            |alias, target| {
                 alias.kind == kind
                     && declaration_visible(
                         alias.module_name.as_deref(),
                         Visibility::Public,
-                        target.as_deref(),
+                        target,
                         current_module,
                     )
-            })
-            .collect()
+            },
+        )
     }
 
     pub(super) fn visible_types(
@@ -314,28 +287,19 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Vec<&'a veln_ast::TypeDecl> {
-        let target = visible_path_target(&self.uses, segments, current_module);
-        let Some(leaf) = path_leaf(segments).map(str::to_string) else {
-            return Vec::new();
-        };
-        self.types_by_name
-            .get(&(target.clone(), leaf))
-            .into_iter()
-            .flatten()
-            .copied()
-            .inspect(|_| {
-                #[cfg(test)]
-                reachability_counters::record_recovery_selector_candidate_scan();
-            })
-            .filter(move |type_decl| {
+        self.visible_named_candidates(
+            &self.types_by_name,
+            segments,
+            current_module,
+            |type_decl, target| {
                 declaration_visible(
                     type_decl.module_name.as_deref(),
                     type_decl.visibility,
-                    target.as_deref(),
+                    target,
                     current_module,
                 )
-            })
-            .collect()
+            },
+        )
     }
 
     pub(super) fn visible_constructor_variants(
@@ -343,11 +307,33 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         segments: &[String],
         current_module: Option<&str>,
     ) -> Vec<(&'a veln_ast::TypeDecl, &'a veln_ast::TypeVariantDecl)> {
+        self.visible_named_candidates(
+            &self.constructors_by_name,
+            segments,
+            current_module,
+            |(type_decl, _), target| {
+                declaration_visible(
+                    type_decl.module_name.as_deref(),
+                    type_decl.visibility,
+                    target,
+                    current_module,
+                )
+            },
+        )
+    }
+
+    fn visible_named_candidates<T: Copy>(
+        &self,
+        index: &HashMap<(Option<String>, String), Vec<T>>,
+        segments: &[String],
+        current_module: Option<&str>,
+        mut visible: impl FnMut(T, Option<&str>) -> bool,
+    ) -> Vec<T> {
         let target = visible_path_target(&self.uses, segments, current_module);
         let Some(leaf) = path_leaf(segments).map(str::to_string) else {
             return Vec::new();
         };
-        self.constructors_by_name
+        index
             .get(&(target.clone(), leaf))
             .into_iter()
             .flatten()
@@ -356,14 +342,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 #[cfg(test)]
                 reachability_counters::record_recovery_selector_candidate_scan();
             })
-            .filter(move |(type_decl, _)| {
-                declaration_visible(
-                    type_decl.module_name.as_deref(),
-                    type_decl.visibility,
-                    target.as_deref(),
-                    current_module,
-                )
-            })
+            .filter(|candidate| visible(*candidate, target.as_deref()))
             .collect()
     }
 
@@ -485,25 +464,7 @@ pub(super) fn dedup_reachable_invalid_name_spans(spans: &mut Vec<ReachableInvali
 }
 
 pub(super) fn collect_pattern_binding_names(pattern: &Pattern, bindings: &mut Vec<String>) {
-    match &pattern.kind {
-        PatternKind::Binding(name) => bindings.push(name.clone()),
-        PatternKind::Constructor { args, .. } => {
-            for arg in args {
-                collect_pattern_binding_names(arg, bindings);
-            }
-        }
-        PatternKind::Record(fields) => {
-            for field in fields {
-                collect_pattern_binding_names(&field.pattern, bindings);
-            }
-        }
-        PatternKind::Wildcard
-        | PatternKind::StringLiteral(_)
-        | PatternKind::IntLiteral(_)
-        | PatternKind::FloatLiteral(_)
-        | PatternKind::BoolLiteral(_)
-        | PatternKind::Unit => {}
-    }
+    pattern.for_each_binding(&mut |name| bindings.push(name.to_string()));
 }
 
 pub(super) fn span_contains(container: &SourceSpan, span: &SourceSpan) -> bool {
