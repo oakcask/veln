@@ -87,6 +87,18 @@ pub(super) fn reconcile_package_expected_doctest_failures(
 }
 
 pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> GeneratedDoctestSource {
+    let visible_lines = normalized_generated_doctest_lines(source);
+    let (declarations, statements) =
+        split_generated_doctest_visible_lines(source.path().as_str(), &visible_lines);
+
+    if declarations.is_empty() {
+        unchanged_generated_doctest_source(source, visible_lines.len())
+    } else {
+        wrapped_generated_doctest_source(source, declarations, statements)
+    }
+}
+
+fn normalized_generated_doctest_lines(source: &SourceFile) -> Vec<IndexedDoctestLine> {
     let mut visible_lines = source
         .text()
         .lines()
@@ -110,29 +122,27 @@ pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> Gener
     {
         visible_lines.pop();
     }
+    visible_lines
+}
 
-    let (declarations, statements) =
-        split_generated_doctest_visible_lines(source.path().as_str(), &visible_lines);
-
-    if declarations.is_empty() {
-        let line_origins = (0..visible_lines.len())
-            .map(|index| {
-                (
-                    index + 2,
-                    DoctestSourceLineOrigin {
-                        original_span: source
-                            .span(generated_doctest_body_line_range(source, index + 2)),
-                        generated_content_column: 3,
-                    },
-                )
-            })
-            .collect();
-        return GeneratedDoctestSource {
-            source: source.clone(),
-            line_origins,
-        };
+fn unchanged_generated_doctest_source(
+    source: &SourceFile,
+    visible_line_count: usize,
+) -> GeneratedDoctestSource {
+    let line_origins = (0..visible_line_count)
+        .map(|index| (index + 2, generated_doctest_line_origin(source, index, 3)))
+        .collect();
+    GeneratedDoctestSource {
+        source: source.clone(),
+        line_origins,
     }
+}
 
+fn wrapped_generated_doctest_source(
+    source: &SourceFile,
+    declarations: Vec<IndexedDoctestLine>,
+    statements: Vec<IndexedDoctestLine>,
+) -> GeneratedDoctestSource {
     let mut text = String::new();
     let mut line_origins = BTreeMap::new();
     let mut generated_line = 1;
@@ -141,11 +151,7 @@ pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> Gener
         text.push('\n');
         line_origins.insert(
             generated_line,
-            DoctestSourceLineOrigin {
-                original_span: source
-                    .span(generated_doctest_body_line_range(source, line.index + 2)),
-                generated_content_column: 1,
-            },
+            generated_doctest_line_origin(source, line.index, 1),
         );
         generated_line += 1;
     }
@@ -161,11 +167,11 @@ pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> Gener
         }
         line_origins.insert(
             generated_line,
-            DoctestSourceLineOrigin {
-                original_span: source
-                    .span(generated_doctest_body_line_range(source, line.index + 2)),
-                generated_content_column: if line.text.is_empty() { 1 } else { 3 },
-            },
+            generated_doctest_line_origin(
+                source,
+                line.index,
+                if line.text.is_empty() { 1 } else { 3 },
+            ),
         );
         generated_line += 1;
     }
@@ -173,6 +179,20 @@ pub(super) fn generated_doctest_static_gate_source(source: &SourceFile) -> Gener
     GeneratedDoctestSource {
         source: SourceFile::new(source.path().as_str(), text),
         line_origins,
+    }
+}
+
+fn generated_doctest_line_origin(
+    source: &SourceFile,
+    visible_line_index: usize,
+    generated_content_column: usize,
+) -> DoctestSourceLineOrigin {
+    DoctestSourceLineOrigin {
+        original_span: source.span(generated_doctest_body_line_range(
+            source,
+            visible_line_index + 2,
+        )),
+        generated_content_column,
     }
 }
 

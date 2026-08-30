@@ -1,6 +1,49 @@
 use super::*;
 
 #[test]
+fn generated_static_gate_preserves_declaration_and_statement_origins() {
+    let source = SourceFile::new(
+        "sample.veln",
+        concat!(
+            "test original() -> ()\n",
+            "  fn sample() -> Int\n",
+            "    1\n",
+            "  end\n",
+            "  sample()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let generated = generated_doctest_static_gate_source(&source);
+
+    assert_eq!(
+        generated.source.text(),
+        concat!(
+            "fn sample() -> Int\n",
+            "  1\n",
+            "end\n",
+            "test doctest_body() -> () effects [stdio]\n",
+            "  sample()\n",
+            "  ()\n",
+            "end\n",
+        )
+    );
+    let origins = generated
+        .line_origins
+        .iter()
+        .map(|(generated_line, origin)| {
+            (
+                *generated_line,
+                origin.original_span.start.line,
+                origin.generated_content_column,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(origins, vec![(1, 2, 1), (2, 3, 1), (3, 4, 1), (5, 5, 3)]);
+}
+
+#[test]
 fn executable_specification_fixture_observes_manifest_gate_failure() {
     let result = generate_fixture("package-catalog-manifest-gate");
 
