@@ -119,6 +119,35 @@ fn omitted_private_signature_chain_skips_unrelated_annotated_modules() {
 }
 
 #[test]
+fn omitted_private_reference_index_finds_calls_nested_in_collections() {
+    private_inference_counters::reset();
+    let source = SourceFile::new(
+        "target.veln",
+        concat!(
+            "mod target\n",
+            "fn identity(value)\n",
+            "  value\n",
+            "end\n",
+            "\n",
+            "fn main() -> {items: Vec<Int>}\n",
+            "  {items: [identity(1)]}\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules(vec![source]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let counters = private_inference_counters::snapshot();
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+    assert_eq!(
+        counters.private_reference_candidate_scans, 1,
+        "{counters:#?}"
+    );
+    assert_eq!(counters.private_reference_index_scans, 2, "{counters:#?}");
+}
+
+#[test]
 fn omitted_private_signature_chain_skips_unrelated_annotated_functions_in_same_module() {
     private_inference_counters::reset();
     let mut source = String::from(
