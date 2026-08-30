@@ -11,7 +11,9 @@ use veln_ast::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
-use crate::adt::{self, AdtVariantKind, ConstructorLookup};
+use crate::adt::descriptors::{AdtConstructor, AdtVariantKind};
+use crate::adt::registry::ConstructorLookup;
+use crate::adt::{type_operations as adt, unification};
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text,
     contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,

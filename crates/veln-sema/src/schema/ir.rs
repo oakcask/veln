@@ -6,7 +6,7 @@ use veln_ir::{
     IrSchemaRepeat, IrSchemaReservedBits,
 };
 
-use crate::adt::AdtRegistry;
+use crate::adt::registry::AdtRegistry;
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,

@@ -5,7 +5,7 @@ use veln_core::{CoreCallTarget, CoreType};
 use veln_source::SourceFile;
 use veln_syntax::parse;
 
-use crate::adt;
+use crate::adt::type_operations as adt;
 use crate::semantic_model::Type;
 use crate::source_less_lookup::{
     compiler_adapter_symbol, prelude_builtin_module, prelude_symbol, standard_module,

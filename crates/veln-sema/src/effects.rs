@@ -2,7 +2,7 @@ use veln_ast::Expr;
 
 use veln_core::CoreType;
 
-use crate::adt;
+use crate::adt::type_operations as adt;
 use crate::semantic_model::{CallOrigin, Type};
 use crate::source_less_lookup::qualified_symbol;
 use crate::standard_symbols::{

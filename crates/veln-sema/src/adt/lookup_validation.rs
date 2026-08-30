@@ -1,4 +1,20 @@
-use super::*;
+use std::collections::{BTreeMap, BTreeSet};
+
+use veln_ast::{SurfaceModule, TypeDecl, UseDecl, Visibility};
+use veln_project::companion_access_target;
+
+use crate::builtin_type_syntax::{BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxRegistry};
+use crate::semantic_model::Type;
+use crate::source_less_names::{
+    InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
+    validate_source_less_lookup_segment,
+};
+use crate::standard_names::PRELUDE_MODULE;
+use crate::type_annotation_parser::parse_type_annotation_with_arity;
+
+use super::descriptors::{
+    AdtDescriptor, AdtPayloadField, AdtPayloadType, AdtVariantDescriptor, AdtVariantKind,
+};
 
 pub(crate) fn validate_adt_lookup_descriptors(
     provider: &'static str,

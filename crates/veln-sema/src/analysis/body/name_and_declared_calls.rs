@@ -16,7 +16,7 @@ impl<'a> FunctionChecker<'a> {
             ConstructorLookup::Found(constructor) => {
                 let inferred = expected
                     .and_then(|expected| {
-                        adt::adt_args(&expected.ty, constructor.descriptor)
+                        unification::adt_args(&expected.ty, constructor.descriptor)
                             .map(|_| expected.ty.clone())
                     })
                     .unwrap_or_else(|| adt::constructed_type(constructor, &[]));

@@ -344,7 +344,9 @@ impl<'a> CoreLowerer<'a> {
         ) {
             ConstructorLookup::Found(constructor) => {
                 let ty = expected
-                    .filter(|expected| adt::adt_args(*expected, constructor.descriptor).is_some())
+                    .filter(|expected| {
+                        unification::adt_args(*expected, constructor.descriptor).is_some()
+                    })
                     .cloned()
                     .unwrap_or_else(|| adt::core_constructed_type(constructor, &[]));
                 Some(self.core_expr(expr, ty, core_nullary_constructor_kind(constructor)))

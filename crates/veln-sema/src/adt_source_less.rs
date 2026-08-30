@@ -1,6 +1,6 @@
 use veln_ast::SurfaceModule;
 
-use crate::adt::AdtRegistry;
+use crate::adt::registry::AdtRegistry;
 
 impl AdtRegistry {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {

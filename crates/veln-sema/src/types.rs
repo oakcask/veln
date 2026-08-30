@@ -52,7 +52,9 @@ use veln_ast::{
 use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
-use crate::adt::{self, AdtRegistry};
+use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
+use crate::adt::registry::AdtRegistry;
+use crate::adt::type_operations as adt;
 use crate::effects::{
     concurrency_effects, is_stdio_call, prelude_effects, standard_library_effects,
 };

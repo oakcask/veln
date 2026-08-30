@@ -423,7 +423,7 @@ fn format_neutral_schema_source_adt_type(
             .all(|(index, _field)| {
                 let Some(payload_ty) = adt::payload_type(
                     &descriptor_ty,
-                    adt::AdtConstructor {
+                    AdtConstructor {
                         descriptor,
                         variant,
                     },
@@ -453,7 +453,7 @@ fn format_neutral_schema_source_adt_type(
     supported.then_some(descriptor_ty)
 }
 
-fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &adt::AdtDescriptor) -> Type {
+fn format_neutral_schema_descriptor_type(ty: &Type, descriptor: &AdtDescriptor) -> Type {
     let Type::Named { args, .. } = ty else {
         return ty.clone();
     };
@@ -465,7 +465,7 @@ fn format_neutral_schema_source_adt_descriptor<'a>(
     current_module: Option<&str>,
     adts: &'a AdtRegistry,
     ty: &Type,
-) -> Option<&'a adt::AdtDescriptor> {
+) -> Option<&'a AdtDescriptor> {
     let Type::Named { name, args } = ty else {
         return None;
     };

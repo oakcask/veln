@@ -328,7 +328,7 @@ impl<'a> FunctionChecker<'a> {
         &mut self,
         pattern: &Pattern,
         scrutinee_type: &Type,
-        constructor: adt::AdtConstructor<'_>,
+        constructor: AdtConstructor<'_>,
     ) {
         let actual = adt::constructed_type_from_args(
             constructor,

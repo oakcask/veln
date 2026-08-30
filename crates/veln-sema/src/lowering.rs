@@ -11,7 +11,9 @@ use veln_core::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_literals::parse_integer_literal;
 
-use crate::adt::{self, AdtVariantKind, ConstructorLookup};
+use crate::adt::descriptors::{AdtConstructor, AdtVariantKind};
+use crate::adt::registry::ConstructorLookup;
+use crate::adt::{type_operations as adt, unification};
 use crate::call_resolution::CoreCallSignature;
 use crate::contracts::contract_predicate_is_statically_true;
 use crate::effects::{core_concurrency_signature, is_concurrency_call};
@@ -300,7 +302,7 @@ fn core_type_contains_unknown(ty: &CoreType) -> bool {
     }
 }
 
-fn constructor_arity_reason(constructor: adt::AdtConstructor) -> &'static str {
+fn constructor_arity_reason(constructor: AdtConstructor) -> &'static str {
     match constructor.descriptor.type_name.as_str() {
         "Option" => "option_constructor_arity_mismatch",
         "Result" => "result_constructor_arity_mismatch",
@@ -308,7 +310,7 @@ fn constructor_arity_reason(constructor: adt::AdtConstructor) -> &'static str {
     }
 }
 
-fn core_nullary_constructor_kind(constructor: adt::AdtConstructor) -> CoreExprKind {
+fn core_nullary_constructor_kind(constructor: AdtConstructor) -> CoreExprKind {
     match constructor.variant.kind {
         AdtVariantKind::OptionNone => CoreExprKind::OptionNone,
         AdtVariantKind::ListNil => CoreExprKind::ListNil,
@@ -324,7 +326,7 @@ fn core_nullary_constructor_kind(constructor: adt::AdtConstructor) -> CoreExprKi
 }
 
 fn core_payload_constructor_kind(
-    constructor: adt::AdtConstructor,
+    constructor: AdtConstructor,
     mut payloads: Vec<CoreExpr>,
 ) -> CoreExprKind {
     match constructor.variant.kind {

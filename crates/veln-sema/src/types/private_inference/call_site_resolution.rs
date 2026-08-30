@@ -24,13 +24,13 @@ pub(crate) fn private_call_site_non_target_params(
     expected: Option<&Type>,
     context: &PrivateCallSiteExprContext<'_, '_>,
 ) -> Vec<Type> {
-    if let crate::adt::ConstructorLookup::Found(constructor) = context.constraints.adts.constructor(
+    if let ConstructorLookup::Found(constructor) = context.constraints.adts.constructor(
         segments,
         context.current_module,
         context.constraints.uses,
     ) {
         return expected
-            .and_then(|expected| adt::adt_args(expected, constructor.descriptor))
+            .and_then(|expected| unification::adt_args(expected, constructor.descriptor))
             .map(|_| {
                 constructor
                     .variant

@@ -7,9 +7,13 @@ use super::runtime_peer_limit_variants::runtime_peer_limit_variants;
 use super::runtime_protocol_variants::runtime_protocol_variants;
 use super::runtime_root_descriptors::runtime_root_descriptors;
 use super::runtime_support_descriptors::runtime_support_descriptors;
-use super::{
+use veln_ast::Visibility;
+
+use crate::semantic_model::Type;
+use crate::source_less_names::SourceLessNameClass;
+
+use super::descriptors::{
     AdtDescriptor, AdtPayloadField, AdtPayloadType, AdtVariantDescriptor, AdtVariantKind,
-    SourceLessNameClass, Type, Visibility,
 };
 
 pub(crate) fn build_builtin_descriptors() -> Vec<AdtDescriptor> {
