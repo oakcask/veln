@@ -18,7 +18,8 @@ also states it.
 
 ## Ready
 
-No proposal target is currently ready.
+- The remaining identifier-casing work is ready for implementation:
+  [identifier-casing.md](identifier-casing.md).
 
 Only proposals and subsections listed in this section are selectable targets.
 
