@@ -102,8 +102,8 @@ through a registry-external module spelling.
   and public type-annotation reference lookup, and they pin published module
   key consumption for standard `prelude` helper lookup, core prelude helper
   lookup, prelude effect lookup, and `prelude_builtin` qualified helper
-  lookup. The Rust CI release registry test keeps source-less publication
-  validation checked in release builds.
+  lookup. The ordinary Rust test suite keeps source-less publication
+  validation checked.
 - Public CLI fixtures are not practical for invalid compiler-provided
   descriptor input because that input is not expressible as Veln source or as
   a public command-line option. Serializer and adapter tests consume the
