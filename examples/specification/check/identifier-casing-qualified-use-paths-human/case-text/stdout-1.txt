@@ -16,6 +16,8 @@ main.veln:71:34: error[name.invalid_case]: module name `Prelude` must start with
 main.veln:75:45: error[name.invalid_case]: type name `option` must start with an ASCII uppercase letter
 main.veln:79:43: error[name.invalid_case]: type name `int` must start with an ASCII uppercase letter
 main.veln:84:20: error[name.invalid_case]: constructor name `some` must start with an ASCII uppercase letter
+main.veln:88:3: error[name.invalid_case]: module name `Prelude` must start with an ASCII lowercase letter
+main.veln:92:12: error[name.invalid_case]: function name `Byte` must start with an ASCII lowercase letter
 consumer.veln:20:3: error[name.unresolved]: unresolved value `foo::bar::Double`
 main.veln:27:3: error[type.match_non_exhaustive]: match is missing case Made(_)
   note: main.veln:27:9: Scrutinee has type `Sample`.
@@ -29,4 +31,4 @@ main.veln:58:3: error[type.match_non_exhaustive]: match is missing case Some(_)
   note: main.veln:58:9: Scrutinee has type `Option<Int>`.
 main.veln:65:3: error[type.match_non_exhaustive]: match is missing case Some(_)
   note: main.veln:65:9: Scrutinee has type `Option<Int>`.
-main.veln:87:64: error[effect.unknown]: function type effect `logging::audit` is not known
+main.veln:95:64: error[effect.unknown]: function type effect `logging::audit` is not known

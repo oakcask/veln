@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 26
+length = 28
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -241,17 +241,41 @@ path = "diagnostics.17.details.segment_index"
 equals = 2
 
 [[json_assert]]
-path = "diagnostics.18.id"
+path = "diagnostics.18.details.name"
+equals = "Prelude"
+
+[[json_assert]]
+path = "diagnostics.18.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.18.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.19.details.name"
+equals = "Byte"
+
+[[json_assert]]
+path = "diagnostics.19.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.19.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.20.id"
 equals = "name.unresolved"
 
 [[json_assert]]
-path = "diagnostics.18.details.namespace"
+path = "diagnostics.20.details.namespace"
 equals = "value"
 
 [[json_assert]]
-path = "diagnostics.25.id"
+path = "diagnostics.27.id"
 equals = "effect.unknown"
 
 [[json_assert]]
-path = "diagnostics.25.details.effect"
+path = "diagnostics.27.details.effect"
 equals = "logging::audit"

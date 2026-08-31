@@ -288,6 +288,9 @@ fn classified_qualified_path_segments(
     environment: &TypeEnvironment,
 ) -> Vec<QualifiedPathSegment> {
     let mut segments = valid_qualified_path_segments(module, environment);
+    segments.extend(recovered_qualified_type_segments(module, environment));
+    segments.extend(recovered_qualified_module_segments(module, environment));
+    segments.extend(recovered_qualified_function_segments(module, environment));
     let classified_keys = segments
         .iter()
         .map(classified_segment_key)
@@ -302,9 +305,6 @@ fn classified_qualified_path_segments(
             })
             .filter_map(|invalid| classified_invalid_path_segment(invalid, module, environment)),
     );
-    segments.extend(recovered_qualified_type_segments(module, environment));
-    segments.extend(recovered_qualified_module_segments(module, environment));
-    segments.extend(recovered_qualified_function_segments(module, environment));
     segments.sort_by_key(|segment| (segment.span.start.offset, segment.span.end.offset));
     segments.dedup_by(|left, right| {
         left.role == right.role

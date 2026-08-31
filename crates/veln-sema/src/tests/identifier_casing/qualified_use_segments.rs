@@ -476,6 +476,39 @@ fn generated_declaration_type_carriers_classify_invalid_segments() {
     }
 }
 
+#[test]
+fn generated_invalid_module_qualified_calls_reuse_classified_segments() {
+    for count in [400, 800, 1600] {
+        let source = SourceFile::new("main.veln", generated_invalid_module_qualified_calls(count));
+        let helper = SourceFile::new(
+            "helper.veln",
+            concat!("pub fn make() -> Int\n", "  1\n", "end\n"),
+        );
+        let module = merged_modules_with_names([("main", source), ("helper", helper)]);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+                .count(),
+            count,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            classified_project_qualified_path_segments(&module)
+                .into_iter()
+                .filter(|segment| {
+                    segment.role == veln_ast::NameClass::Module
+                        && segment.evidence
+                            == veln_ast::QualifiedPathSegmentEvidence::UniqueRecovery
+                })
+                .count(),
+            count,
+        );
+    }
+}
+
 fn generated_unresolved_qualified_calls(count: usize) -> String {
     let mut source = String::new();
     for index in 0..count {
@@ -492,6 +525,16 @@ fn generated_declaration_type_carriers(count: usize) -> String {
         source.push_str(&format!("  Case{index}(Helper::Item)\n"));
     }
     source.push_str("end\n\nfn main() -> Int\n  0\nend\n");
+    source
+}
+
+fn generated_invalid_module_qualified_calls(count: usize) -> String {
+    let mut source = String::from("use helper\n\n");
+    for index in 0..count {
+        source.push_str(&format!(
+            "fn case_{index}() -> Int\n  Helper::make()\nend\n"
+        ));
+    }
     source
 }
 

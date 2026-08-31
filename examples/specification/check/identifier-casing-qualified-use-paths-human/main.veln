@@ -84,6 +84,14 @@ fn prelude_constructor_leaf_invalid() -> prelude::Option<Int>
   prelude::Option::some(1)
 end
 
+fn prelude_function_prefix_invalid() -> Byte
+  Prelude::byte(1)
+end
+
+fn prelude_function_leaf_invalid() -> Byte
+  prelude::Byte(1)
+end
+
 fn function_type_effect_boundary(callback: fn() -> () effects [logging::audit]) -> ()
   callback()
 end
