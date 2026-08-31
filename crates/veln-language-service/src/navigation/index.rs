@@ -229,9 +229,10 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<TypeSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         let mut candidates = self.types.iter().filter(|symbol| {
             symbol.name == name
-                && symbol.module == qualifier
+                && qualified_modules.iter().any(|module| module == &symbol.module)
                 && match &symbol.package {
                     Some(package) => file
                         .external_uses
@@ -314,12 +315,13 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<FunctionSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         self.functions
             .iter()
             .find(|symbol| match &symbol.package {
                 Some(package) => {
                     symbol.name == name
-                        && symbol.module == qualifier
+                        && qualified_modules.iter().any(|module| module == &symbol.module)
                         && (symbol.standard_prelude
                             || file
                                 .external_uses
@@ -327,7 +329,7 @@ impl SymbolIndex {
                 }
                 None => {
                     symbol.name == name
-                        && symbol.module == qualifier
+                        && qualified_modules.iter().any(|module| module == &symbol.module)
                         && file.uses.contains(&symbol.module)
                         && (symbol.public
                             || file
@@ -413,11 +415,17 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<ConstructorSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         self.constructors
             .iter()
             .find(|symbol| {
                 symbol.name == name
-                    && (constructor_qualifier_matches(symbol, qualifier)
+                    && (qualified_modules
+                        .iter()
+                        .any(|module| constructor_qualifier_matches(symbol, module))
+                        || qualified_modules.iter().any(|module| {
+                            module == &format!("{}::{}", symbol.module, symbol.type_name)
+                        })
                         || (qualifier == symbol.type_name && symbol.module == file.module)
                         || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
                     && match &symbol.package {
@@ -594,7 +602,11 @@ impl SymbolIndex {
                     .as_ref()
                     .is_some_and(|target| target == &symbol.module))
         {
-            return qualified_references(&file.source, &symbol.module, &symbol.name);
+            return self
+                .qualifiers_for_module(file, &symbol.module, symbol.package.as_deref())
+                .into_iter()
+                .flat_map(|qualifier| qualified_references(&file.source, &qualifier, &symbol.name))
+                .collect();
         }
         Vec::new()
     }
@@ -679,6 +691,66 @@ impl SymbolIndex {
             Some(qualifier) => self.constructor_for_qualified_call(file, &qualifier, name),
             None => self.constructor_for_bare_call(file, name),
         }
+    }
+
+    fn qualified_module_candidates(&self, file: &IndexedFile, qualifier: &str) -> Vec<String> {
+        let mut modules = vec![qualifier.to_string()];
+        if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
+            modules.push(module);
+        }
+        if let Some((module, _package)) =
+            resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
+        {
+            modules.push(module);
+        }
+        modules
+    }
+
+    fn qualifiers_for_module(
+        &self,
+        file: &IndexedFile,
+        module: &str,
+        package: Option<&str>,
+    ) -> Vec<String> {
+        let mut qualifiers = vec![module.to_string()];
+        match package {
+            Some(package) => qualifiers.extend(file.external_import_aliases.iter().filter_map(
+                |(alias, (target_module, target_package))| {
+                    (target_module == module && target_package == package).then(|| alias.clone())
+                },
+            )),
+            None => qualifiers.extend(file.import_aliases.iter().filter_map(|(alias, target)| {
+                (target == module).then(|| alias.clone())
+            })),
+        }
+        qualifiers
+    }
+}
+
+fn resolve_qualified_alias(aliases: &BTreeMap<String, String>, qualifier: &str) -> Option<String> {
+    let mut parts = qualifier.split("::");
+    let alias = parts.next()?;
+    let module = aliases.get(alias)?;
+    let rest = parts.collect::<Vec<_>>();
+    if rest.is_empty() {
+        Some(module.clone())
+    } else {
+        Some(format!("{}::{}", module, rest.join("::")))
+    }
+}
+
+fn resolve_external_qualified_alias(
+    aliases: &BTreeMap<String, (String, String)>,
+    qualifier: &str,
+) -> Option<(String, String)> {
+    let mut parts = qualifier.split("::");
+    let alias = parts.next()?;
+    let (module, package) = aliases.get(alias)?;
+    let rest = parts.collect::<Vec<_>>();
+    if rest.is_empty() {
+        Some((module.clone(), package.clone()))
+    } else {
+        Some((format!("{}::{}", module, rest.join("::")), package.clone()))
     }
 }
 

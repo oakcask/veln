@@ -61,6 +61,15 @@ impl TypeEnvironment {
         })
     }
 
+    pub(crate) fn quarantined_import_type_path_uses_nested_alias(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        self.quarantined_import_for_segments(segments, current_module)
+            .is_some_and(|(use_decl, _)| use_decl.name.contains("::"))
+    }
+
     pub(super) fn quarantined_import_effect_recovery_candidate_count(
         &self,
         segments: &[String],

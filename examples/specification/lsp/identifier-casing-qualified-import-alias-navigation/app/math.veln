@@ -1,0 +1,7 @@
+pub type Item
+  pub Ready(Int)
+end
+
+pub fn double(value: Int) -> Int
+  value + value
+end

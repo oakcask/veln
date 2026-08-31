@@ -347,7 +347,10 @@ fn canonical_type_name_without_descriptor(
                     descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
                         && descriptor.visibility == Visibility::Public
                 })
-                .map_or_else(|| Some(name.to_string()), |_| None)
+                .map_or_else(
+                    || (!use_decl.name.contains("::")).then(|| name.to_string()),
+                    |_| None,
+                )
         }
         _ => Some(name.to_string()),
     }

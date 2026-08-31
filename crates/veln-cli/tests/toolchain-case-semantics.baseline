@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"eaabe8945b15d0730b5b01f7c4b04d39dc8029fb"
+source_git_tree	"3795fc1919a973b987633519ab569437283eb012"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1637
+case_count	1638
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -12576,6 +12576,72 @@ field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2234,"s
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
 case_digest	"4ff275a7fdde595a6230a21f9890de7a1c9d5609eb4f86ec4fbcc2a2fc3b9e03"
+case	"examples/specification/lsp/identifier-casing-qualified-import-alias-navigation"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	4
+field	expectations.lsp_assertions[0].id	2
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/range/start/line"
+field	expectations.lsp_assertions[10].equals	1
+field	expectations.lsp_assertions[10].id	10
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/result/range/start/line"
+field	expectations.lsp_assertions[11].equals	6
+field	expectations.lsp_assertions[11].id	10
+field	expectations.lsp_assertions[11].operation	"equals"
+field	expectations.lsp_assertions[11].path	"/result/range/start/character"
+field	expectations.lsp_assertions[12].id	11
+field	expectations.lsp_assertions[12].length	3
+field	expectations.lsp_assertions[12].operation	"length"
+field	expectations.lsp_assertions[12].path	"/result"
+field	expectations.lsp_assertions[1].equals	7
+field	expectations.lsp_assertions[1].id	2
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/result/range/start/character"
+field	expectations.lsp_assertions[2].id	3
+field	expectations.lsp_assertions[2].length	2
+field	expectations.lsp_assertions[2].operation	"length"
+field	expectations.lsp_assertions[2].path	"/result"
+field	expectations.lsp_assertions[3].equals	3
+field	expectations.lsp_assertions[3].id	4
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/result/start/line"
+field	expectations.lsp_assertions[4].equals	26
+field	expectations.lsp_assertions[4].id	4
+field	expectations.lsp_assertions[4].operation	"equals"
+field	expectations.lsp_assertions[4].path	"/result/start/character"
+field	expectations.lsp_assertions[5].equals	0
+field	expectations.lsp_assertions[5].id	6
+field	expectations.lsp_assertions[5].operation	"equals"
+field	expectations.lsp_assertions[5].path	"/result/range/start/line"
+field	expectations.lsp_assertions[6].equals	9
+field	expectations.lsp_assertions[6].id	6
+field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].path	"/result/range/start/character"
+field	expectations.lsp_assertions[7].id	7
+field	expectations.lsp_assertions[7].length	5
+field	expectations.lsp_assertions[7].operation	"length"
+field	expectations.lsp_assertions[7].path	"/result"
+field	expectations.lsp_assertions[8].equals	2
+field	expectations.lsp_assertions[8].id	8
+field	expectations.lsp_assertions[8].operation	"equals"
+field	expectations.lsp_assertions[8].path	"/result/start/line"
+field	expectations.lsp_assertions[9].equals	19
+field	expectations.lsp_assertions[9].id	8
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/result/start/character"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"app/math.veln"
+field	expectations.stdout.contains[1]	"main.veln"
+field	expectations.stdout.contains[2]	"\"newText\":\"twice\""
+field	expectations.stdout.contains[3]	"\"newText\":\"Entry\""
+field	expectations.stdout.contains[4]	"\"newText\":\"Done\""
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2890,"sha256":"9d4ce5fb71c05c7a48b49d9618d4538cf658a5e2e13d30ead73bc8dce00ea6dd"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"forbidden"
+case_digest	"c9e54214cac83e3653877fdf686efeea7c7737b7c70ed6651dc0918dcf5ec583"
 case	"examples/specification/lsp/identifier-casing-qualified-module-type-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52044,4 +52110,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"0441607d19b229a1b9b2d47663b36534efc1090e8204e627d6fa2e27ee86540d"
+aggregate_digest	"e7df24fb885b10d0787a99a4632702dc5931c4aa027fa00f005274f73d9d54f5"

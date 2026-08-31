@@ -208,21 +208,13 @@ whether a casing diagnostic blocks an artifact.
 ### Diagnostic Locations
 
 The exact lexer-token span is authoritative for each written remaining-scope
-name. A qualified source name retains one authoritative span per segment. The
-parser, checker, human and JSON diagnostics, and language services use those
-retained spans. They do not derive a name span by rescanning source text or
-slicing a whole-declaration span. A synthetic missing token introduced during
-parser recovery has no name to validate.
-
-Each resolved qualified occurrence retains a semantic role for every segment.
-The shared resolver classifies the longest module or import-alias prefix, an
-optional type qualifier, and the final member required by the source position.
-Only a role that is fixed by syntax, successful resolution, or one unique
-recovery link receives a casing diagnostic. An unresolved or ambiguous
-intermediate segment is not guessed from its position or spelling. A leaf whose
-role is fixed by syntax or alias kind is validated even when its target is
-unresolved. Checking and every language-service operation consume the same
-classified segment records.
+name. The current qualified-use segment span and classification contract is
+specified by [Name Resolution](../specification/name-resolution.md),
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), and
+[Editor Support](../specification/editor-support.md). This proposal keeps only
+the not-yet-current module identity and future explicit import-alias span
+boundaries here. A synthetic missing token introduced during parser recovery
+has no name to validate.
 
 An implicit import alias derived from the final import-path segment is current
 behavior specified by
@@ -297,8 +289,9 @@ initializer when the current specification resolves the initializer to an
 outer binding or function. This proposal removes constructor-versus-value
 collisions; it does not change value-versus-value shadowing.
 
-Checking, lowering, definition, references, prepare-rename, and rename must use
-the same name class. LSP and MCP must not add adapter-specific exceptions.
+For remaining proposal surfaces, checking, lowering, definition, references,
+prepare-rename, and rename must use the same name class. LSP and MCP must not
+add adapter-specific exceptions.
 
 ### Remaining Invalid-Name Recovery
 

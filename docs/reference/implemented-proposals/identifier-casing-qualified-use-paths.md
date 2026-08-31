@@ -33,7 +33,10 @@ checked
 `identifier-casing-qualified-prelude-navigation`, and
 `identifier-casing-qualified-function-navigation` LSP examples fix the
 definition, references, prepare-rename, rename, immutable package symbol, and
-unsupported segment-selection boundaries for qualified path segments.
+unsupported segment-selection boundaries for qualified path segments. The
+checked `identifier-casing-qualified-import-alias-navigation` LSP example
+fixes the same operations for nested module paths reached through an implicit
+import alias.
 
 ## Scope
 
@@ -61,8 +64,9 @@ failures.
 The language service selects supported type, constructor, function, and
 package prelude symbols through the retained segment ranges. Module-only
 qualified public functions, constructor-qualified type segments, imported
-module-and-type constructor paths, and their constructor leaves support
-definition, references,
+module-and-type constructor paths, nested module paths reached through an
+implicit import alias, and their constructor leaves support definition,
+references,
 prepare-rename, rename, and class-changing rename rejection according to the
 current rename contract. Standard-library package symbols return package
 definition locations, no workspace references, no prepare-rename range, and

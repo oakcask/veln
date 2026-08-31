@@ -321,6 +321,66 @@
     }
 
     #[test]
+    fn nested_import_alias_qualified_segments_share_navigation() {
+        let sources = vec![
+            source(
+                "app/math.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub fn double(value: Int) -> Int\n",
+                    "  value + value\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use app::math\n\n",
+                    "fn make() -> math::Item\n",
+                    "  math::Item::Ready(math::double(1))\n",
+                    "end\n\n",
+                    "fn read(input: math::Item) -> Int\n",
+                    "  match input\n",
+                    "    math::Item::Ready(value) => value\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let function = query(sources.clone(), "main.veln", 4, 27).unwrap();
+        assert_eq!(function.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function.definition, "app/math.veln", 5, 8);
+        assert_eq!(locations(&function.references), [("main.veln", 4, 27)]);
+        assert!(validate_rename(&function, "twice").is_ok());
+
+        let ty = query(sources.clone(), "main.veln", 3, 20).unwrap();
+        assert_eq!(ty.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&ty.definition, "app/math.veln", 1, 10);
+        assert_eq!(
+            locations(&ty.references),
+            [
+                ("main.veln", 3, 20),
+                ("main.veln", 4, 9),
+                ("main.veln", 7, 22),
+                ("main.veln", 9, 11),
+            ]
+        );
+        assert!(validate_rename(&ty, "Entry").is_ok());
+
+        let constructor = query(sources, "main.veln", 9, 17).unwrap();
+        assert_eq!(constructor.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&constructor.definition, "app/math.veln", 2, 7);
+        assert_eq!(
+            locations(&constructor.references),
+            [("main.veln", 4, 15), ("main.veln", 9, 17)]
+        );
+        assert!(validate_rename(&constructor, "Done").is_ok());
+    }
+
+    #[test]
     fn declaration_type_path_carriers_share_navigation() {
         let sources = vec![
             source("helper.veln", "pub type Item\nend\n"),

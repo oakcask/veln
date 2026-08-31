@@ -138,11 +138,13 @@ fn lower_prefix_op(op: SyntaxPrefixOp) -> PrefixOp {
 }
 
 fn import_alias(name: &str) -> String {
-    if name.contains("::") {
-        name.to_string()
-    } else {
-        name.split('.').next_back().unwrap_or(name).to_string()
-    }
+    name.rsplit("::")
+        .next()
+        .unwrap_or(name)
+        .rsplit('.')
+        .next()
+        .unwrap_or(name)
+        .to_string()
 }
 
 fn lower_binary_op(op: SyntaxBinaryOp) -> BinaryOp {

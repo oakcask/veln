@@ -345,6 +345,8 @@ struct IndexedFile {
     companion_target_module: Option<String>,
     uses: BTreeSet<String>,
     external_uses: BTreeSet<(String, String)>,
+    import_aliases: BTreeMap<String, String>,
+    external_import_aliases: BTreeMap<String, (String, String)>,
     invalid_declaration_names: Vec<SourceSpan>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     origin: IndexedOrigin,

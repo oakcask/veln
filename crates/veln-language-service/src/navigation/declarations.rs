@@ -27,7 +27,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
     let module = explicit_module_name(source.text())
         .or_else(|| module_name_from_path(&path))
         .unwrap_or_default();
-    let (uses, external_uses) = use_modules(source.text());
+    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
     let parsed = parse(&source);
     let invalid_declaration_names = invalid_declaration_name_spans(&parsed);
     let tokens = lex(&source).tokens;
@@ -38,6 +38,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
         companion_target_module,
         uses,
         external_uses,
+        import_aliases,
+        external_import_aliases,
         invalid_declaration_names,
         classified_path_segments: Vec::new(),
         origin: IndexedOrigin::Workspace,
@@ -58,7 +60,7 @@ fn index_dependency_sources(
         let module = explicit_module_name(text)
             .or_else(|| module_name_from_path(source.path()))
             .unwrap_or_default();
-        let (uses, external_uses) = use_modules(text);
+        let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
         let parsed = parse(&source_file);
         let invalid_declaration_names = invalid_declaration_name_spans(&parsed);
         let tokens = lex(&source_file).tokens;
@@ -69,6 +71,8 @@ fn index_dependency_sources(
             companion_target_module: None,
             uses,
             external_uses,
+            import_aliases,
+            external_import_aliases,
             invalid_declaration_names,
             classified_path_segments: Vec::new(),
             origin: IndexedOrigin::Package {

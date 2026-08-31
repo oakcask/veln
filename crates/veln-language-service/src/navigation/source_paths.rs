@@ -109,9 +109,18 @@ fn module_name_from_path(path: &str) -> Option<String> {
     Some(path.strip_suffix(".veln")?.replace('/', "::"))
 }
 
-fn use_modules(text: &str) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
+fn use_modules(
+    text: &str,
+) -> (
+    BTreeSet<String>,
+    BTreeSet<(String, String)>,
+    BTreeMap<String, String>,
+    BTreeMap<String, (String, String)>,
+) {
     let mut local = BTreeSet::new();
     let mut external = BTreeSet::new();
+    let mut local_aliases = BTreeMap::new();
+    let mut external_aliases = BTreeMap::new();
     for line in text.lines() {
         let Some(rest) = line.trim_start().strip_prefix("use ") else {
             continue;
@@ -119,18 +128,26 @@ fn use_modules(text: &str) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
         let Some(module) = leading_module_path(rest) else {
             continue;
         };
+        let module_name = module.to_string();
+        let alias = module_name
+            .rsplit("::")
+            .next()
+            .unwrap_or(module_name.as_str())
+            .to_string();
         let suffix = rest[module.len()..].trim();
         if let Some(package) = suffix
             .strip_prefix("from ")
             .and_then(|value| value.strip_prefix('"'))
             .and_then(|value| value.split_once('"').map(|(package, _)| package))
         {
-            external.insert((module.to_string(), package.to_string()));
+            external.insert((module_name.clone(), package.to_string()));
+            external_aliases.insert(alias, (module_name, package.to_string()));
         } else {
-            local.insert(module.to_string());
+            local.insert(module_name.clone());
+            local_aliases.insert(alias, module_name);
         }
     }
-    (local, external)
+    (local, external, local_aliases, external_aliases)
 }
 
 fn workspace_location(span: SourceSpan) -> NavigationLocation {

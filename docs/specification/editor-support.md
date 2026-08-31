@@ -249,6 +249,12 @@ symbol. The executable
 module-only qualified public function imported from another workspace source
 across definition, references, prepare-rename, rename, invalid replacement
 rejection, and no-symbol selection for the module segment. Qualified segment
+selections also resolve an implicit import alias to the same module identity
+used by checking. The executable
+`identifier-casing-qualified-import-alias-navigation` LSP example covers
+nested module import alias paths across definition, references,
+prepare-rename, and rename for qualified type, constructor, and function
+segments. Qualified segment
 selections use the semantic qualified-segment records that also drive
 qualified-use casing diagnostics. Definition, references, prepare-rename, and
 rename therefore use the same retained token range and role classification.
