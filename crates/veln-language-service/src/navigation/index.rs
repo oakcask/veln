@@ -41,11 +41,12 @@ impl SymbolIndex {
             .text()
             .get(selection.start.offset..selection.end.offset)?
             .to_string();
-        let symbol = self.symbol_for_selection(file, tokens, token_index, &name, &selection)?;
+        let selected = self.symbol_for_selection(file, tokens, token_index, &name, &selection)?;
         Some(SymbolRequest {
             index: self,
-            symbol,
+            symbol: selected.symbol,
             selection,
+            classified_path_segment: selected.classified_path_segment,
         })
     }
 
@@ -56,11 +57,11 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
         selection: &SourceSpan,
-    ) -> Option<Symbol> {
+    ) -> Option<SelectedNavigationSymbol> {
         if let Some(symbol) =
             handler_operation_clause_symbol(file, tokens, token_index, name, selection)
         {
-            return Some(Symbol::Local(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Local(symbol)));
         }
 
         if is_handler_operation_clause_operation_name(tokens, token_index) {
@@ -68,36 +69,39 @@ impl SymbolIndex {
         }
 
         if let Some(symbol) = self.function_declared_at(name, selection) {
-            return Some(Symbol::Function(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Function(symbol)));
         }
 
         if let Some(symbol) = self.type_declared_at(name, selection) {
-            return Some(Symbol::Type(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Type(symbol)));
         }
 
         if let Some(symbol) = self.constructor_declared_at(name, selection) {
-            return Some(Symbol::Constructor(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Constructor(symbol)));
         }
 
         if let Some(segment) =
             self.classified_qualified_segment(file, tokens, token_index, name, selection)
         {
-            let _ = segment.role();
-            return segment.into_symbol();
+            return segment.into_selected_symbol();
         }
 
         if !is_call_target_token(tokens, token_index) {
             if is_type_reference_token(&file.source, name, selection) {
                 return self
                     .visible_type_for_reference(file, tokens, token_index, name)
-                    .map(Symbol::Type);
+                    .map(Symbol::Type)
+                    .map(SelectedNavigationSymbol::bare);
             }
             return None;
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
-            return self.symbol_for_bare_call(file, tokens, token_index, name);
+            return self
+                .symbol_for_bare_call(file, tokens, token_index, name)
+                .map(SelectedNavigationSymbol::bare);
         };
         self.symbol_for_qualified_call(file, &qualifier, name)
+            .map(SelectedNavigationSymbol::bare)
     }
 
     fn classified_qualified_segment(

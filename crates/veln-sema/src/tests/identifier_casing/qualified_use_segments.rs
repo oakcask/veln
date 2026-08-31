@@ -22,6 +22,7 @@ fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
             "  let nested_first = Foo::bar::double(3)\n",
             "  let nested_middle = foo::Bar::double(3)\n",
             "  let nested_leaf = foo::bar::Double(3)\n",
+            "  let nested_value = foo::bar::Double\n",
             "end\n",
         ),
     );
@@ -81,6 +82,7 @@ fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
             ("Foo", "module", Some(0), 15, 22),
             ("Bar", "module", Some(1), 16, 28),
             ("Double", "function", Some(2), 17, 31),
+            ("Double", "value_binding", Some(2), 18, 32),
         ],
         "{diagnostics:#?}"
     );

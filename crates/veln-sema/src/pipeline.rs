@@ -230,23 +230,7 @@ fn check_invalid_name_casing(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<Diagnostic> {
-    let mut invalid_names = module
-        .invalid_names
-        .iter()
-        .filter_map(|invalid| classified_invalid_name(invalid, module, environment))
-        .collect::<Vec<_>>();
-    invalid_names.extend(recovered_qualified_type_segment_invalid_names(
-        module,
-        environment,
-    ));
-    invalid_names.extend(recovered_qualified_module_segment_invalid_names(
-        module,
-        environment,
-    ));
-    invalid_names.extend(recovered_qualified_function_segment_invalid_names(
-        module,
-        environment,
-    ));
+    let mut invalid_names = classified_invalid_names(module, environment);
     invalid_names.sort_by_key(|invalid| (invalid.span.start.offset, invalid.span.end.offset));
     invalid_names.dedup_by(|left, right| {
         left.class == right.class
@@ -258,22 +242,92 @@ fn check_invalid_name_casing(
     invalid_names.iter().map(invalid_name_diagnostic).collect()
 }
 
-fn classified_invalid_name(
-    invalid: &InvalidName,
+fn classified_invalid_names(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> Option<InvalidName> {
-    if invalid.occurrence != NameOccurrence::PathSegment {
-        return (!invalid_name_is_valid_constructor_pattern(invalid, module, environment))
-            .then(|| invalid.clone());
-    }
-    let segment = classified_invalid_path_segment(invalid, module, environment)?;
-    if name_satisfies_class(&invalid.name, segment.role) {
-        return None;
-    }
-    let mut classified = invalid.clone();
-    classified.class = segment.role;
-    Some(classified)
+) -> Vec<InvalidName> {
+    let classified_segments = classified_qualified_path_segments(module, environment);
+    let mut invalid_names = module
+        .invalid_names
+        .iter()
+        .filter(|invalid| invalid.occurrence != NameOccurrence::PathSegment)
+        .filter(|invalid| !invalid_name_is_valid_constructor_pattern(invalid, module, environment))
+        .cloned()
+        .collect::<Vec<_>>();
+    invalid_names.extend(
+        classified_segments
+            .into_iter()
+            .filter(|segment| !name_satisfies_class(&segment.name, segment.role))
+            .map(|segment| {
+                let enclosing_function_span = enclosing_function_span_for_segment(module, &segment);
+                InvalidName {
+                    name: segment.name,
+                    class: segment.role,
+                    occurrence: segment.occurrence,
+                    span: segment.span,
+                    enclosing_function_span,
+                    segment_index: Some(segment.segment_index),
+                }
+            }),
+    );
+    invalid_names
+}
+
+fn classified_qualified_path_segments(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<QualifiedPathSegment> {
+    let mut segments = module
+        .invalid_names
+        .iter()
+        .filter(|invalid| invalid.occurrence == NameOccurrence::PathSegment)
+        .filter_map(|invalid| classified_invalid_path_segment(invalid, module, environment))
+        .collect::<Vec<_>>();
+    segments.extend(recovered_qualified_type_segments(module, environment));
+    segments.extend(recovered_qualified_module_segments(module, environment));
+    segments.extend(recovered_qualified_function_segments(module, environment));
+    segments.sort_by_key(|segment| (segment.span.start.offset, segment.span.end.offset));
+    segments.dedup_by(|left, right| {
+        left.role == right.role
+            && left.occurrence == right.occurrence
+            && left.span.file == right.span.file
+            && left.span.start.offset == right.span.start.offset
+            && left.span.end.offset == right.span.end.offset
+    });
+    segments
+}
+
+fn enclosing_function_span_for_segment(
+    module: &SurfaceModule,
+    segment: &QualifiedPathSegment,
+) -> Option<veln_source::SourceSpan> {
+    module
+        .invalid_names
+        .iter()
+        .find(|invalid| {
+            invalid.occurrence == NameOccurrence::PathSegment
+                && invalid.segment_index == Some(segment.segment_index)
+                && invalid.span.file == segment.span.file
+                && invalid.span.start.offset == segment.span.start.offset
+                && invalid.span.end.offset == segment.span.end.offset
+        })
+        .and_then(|invalid| invalid.enclosing_function_span.clone())
+        .or_else(|| function_span_for_segment(module, &segment.span))
+}
+
+fn function_span_for_segment(
+    module: &SurfaceModule,
+    span: &veln_source::SourceSpan,
+) -> Option<veln_source::SourceSpan> {
+    module
+        .functions
+        .iter()
+        .find(|function| {
+            function.span.file == span.file
+                && function.span.start.offset <= span.start.offset
+                && function.span.end.offset >= span.end.offset
+        })
+        .map(|function| function.span.clone())
 }
 
 fn classified_invalid_path_segment(
@@ -674,10 +728,10 @@ fn invalid_segment_is_constructor_type_qualifier_in_pattern(
     }
 }
 
-fn recovered_qualified_type_segment_invalid_names(
+fn recovered_qualified_type_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> Vec<InvalidName> {
+) -> Vec<QualifiedPathSegment> {
     let mut invalid = Vec::new();
     for function in &module.functions {
         for line in &function.body {
@@ -702,23 +756,62 @@ fn recovered_qualified_type_segment_invalid_names(
         }
     }
     invalid
+        .into_iter()
+        .map(|invalid| {
+            invalid_name_to_classified_segment(
+                &invalid,
+                QualifiedPathSegmentEvidence::UniqueRecovery,
+            )
+        })
+        .collect()
 }
 
-fn recovered_qualified_module_segment_invalid_names(
+fn recovered_qualified_module_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> Vec<InvalidName> {
-    recovered_qualified_segment_invalid_names(module, environment, push_recovered_module_segment)
+) -> Vec<QualifiedPathSegment> {
+    recovered_qualified_segments(module, environment, push_recovered_module_segment)
 }
 
-fn recovered_qualified_function_segment_invalid_names(
+fn recovered_qualified_function_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> Vec<InvalidName> {
-    recovered_qualified_segment_invalid_names(module, environment, push_recovered_function_segment)
+) -> Vec<QualifiedPathSegment> {
+    let mut invalid = Vec::new();
+    for function in &module.functions {
+        for line in &function.body {
+            collect_recovered_qualified_function_segments_from_body_line(
+                line,
+                function.module_name.as_deref(),
+                &function.span,
+                environment,
+                &mut invalid,
+            );
+        }
+    }
+    for handler in &module.handlers {
+        for clause in &handler.operation_clauses {
+            collect_recovered_qualified_function_segments_from_expr(
+                &clause.body,
+                handler.module_name.as_deref(),
+                &handler.span,
+                environment,
+                &mut invalid,
+            );
+        }
+    }
+    invalid
+        .into_iter()
+        .map(|invalid| {
+            invalid_name_to_classified_segment(
+                &invalid,
+                QualifiedPathSegmentEvidence::UniqueRecovery,
+            )
+        })
+        .collect()
 }
 
-fn recovered_qualified_segment_invalid_names(
+fn recovered_qualified_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
     push: fn(
@@ -729,7 +822,7 @@ fn recovered_qualified_segment_invalid_names(
         &TypeEnvironment,
         &mut Vec<InvalidName>,
     ),
-) -> Vec<InvalidName> {
+) -> Vec<QualifiedPathSegment> {
     let mut invalid = Vec::new();
     for function in &module.functions {
         for line in &function.body {
@@ -756,6 +849,30 @@ fn recovered_qualified_segment_invalid_names(
         }
     }
     invalid
+        .into_iter()
+        .map(|invalid| {
+            invalid_name_to_classified_segment(
+                &invalid,
+                QualifiedPathSegmentEvidence::UniqueRecovery,
+            )
+        })
+        .collect()
+}
+
+fn invalid_name_to_classified_segment(
+    invalid: &InvalidName,
+    evidence: QualifiedPathSegmentEvidence,
+) -> QualifiedPathSegment {
+    QualifiedPathSegment {
+        name: invalid.name.clone(),
+        role: invalid.class,
+        occurrence: invalid.occurrence,
+        span: invalid.span.clone(),
+        segment_index: invalid
+            .segment_index
+            .expect("classified path segment has segment index"),
+        evidence,
+    }
 }
 
 fn collect_recovered_qualified_segments_from_body_line(
@@ -864,6 +981,120 @@ fn collect_recovered_qualified_segments_from_expr(
                 push,
                 invalid,
             );
+        }
+        _ => {}
+    }
+}
+
+fn collect_recovered_qualified_function_segments_from_body_line(
+    line: &veln_ast::BodyLine,
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    invalid: &mut Vec<InvalidName>,
+) {
+    match &line.kind {
+        veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
+            collect_recovered_qualified_function_segments_from_expr(
+                expr,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+    }
+}
+
+fn collect_recovered_qualified_function_segments_from_expr(
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    invalid: &mut Vec<InvalidName>,
+) {
+    match &expr.kind {
+        veln_ast::ExprKind::Call { callee, args } => {
+            if let veln_ast::ExprKind::NamePath {
+                segments,
+                segment_spans,
+            } = &callee.kind
+            {
+                push_recovered_function_segment(
+                    segments,
+                    segment_spans,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+            collect_recovered_qualified_function_segments_from_expr(
+                callee,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            for arg in args {
+                collect_recovered_qualified_function_segments_from_expr(
+                    arg,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::TypeApply { callee, .. }
+        | veln_ast::ExprKind::FieldAccess { base: callee, .. }
+        | veln_ast::ExprKind::Try(callee)
+        | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
+            collect_recovered_qualified_function_segments_from_expr(
+                callee,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::Binary { left, right, .. } => {
+            collect_recovered_qualified_function_segments_from_expr(
+                left,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            collect_recovered_qualified_function_segments_from_expr(
+                right,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::Record(fields) => {
+            for field in fields {
+                collect_recovered_qualified_function_segments_from_expr(
+                    &field.expr,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::List(items) | veln_ast::ExprKind::Perform { args: items, .. } => {
+            for item in items {
+                collect_recovered_qualified_function_segments_from_expr(
+                    item,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
         }
         _ => {}
     }

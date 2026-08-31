@@ -15,3 +15,7 @@ end
 fn nested_module_leaf_invalid() -> Int
   foo::bar::Double(3)
 end
+
+fn nested_module_value_leaf_invalid() -> fn(Int) -> Int
+  foo::bar::Double
+end

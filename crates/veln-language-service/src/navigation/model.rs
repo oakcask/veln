@@ -110,6 +110,7 @@ pub struct NavigationLocation {
 pub struct NavigationResult {
     pub selected_symbol: SelectedSymbol,
     pub selection: SourceSpan,
+    pub classified_path_segment: Option<QualifiedPathSegment>,
     pub definition: NavigationLocation,
     pub references: Vec<SourceSpan>,
 }
@@ -146,6 +147,7 @@ pub fn navigate(
     Some(NavigationResult {
         selected_symbol,
         selection: request.selection,
+        classified_path_segment: request.classified_path_segment,
         definition,
         references,
     })
@@ -259,13 +261,37 @@ struct ClassifiedNavigationSegment {
 }
 
 impl ClassifiedNavigationSegment {
-    fn role(&self) -> NameClass {
-        self.segment.role
+    fn into_selected_symbol(self) -> Option<SelectedNavigationSymbol> {
+        let Self { segment, symbol } = self;
+        debug_assert_eq!(segment.role, self_role_for_symbol(symbol.as_ref())?);
+        Some(SelectedNavigationSymbol {
+            symbol: symbol?,
+            classified_path_segment: Some(segment),
+        })
     }
+}
 
-    fn into_symbol(self) -> Option<Symbol> {
-        let Self { segment: _, symbol } = self;
-        symbol
+#[derive(Debug)]
+struct SelectedNavigationSymbol {
+    symbol: Symbol,
+    classified_path_segment: Option<QualifiedPathSegment>,
+}
+
+impl SelectedNavigationSymbol {
+    fn bare(symbol: Symbol) -> Self {
+        Self {
+            symbol,
+            classified_path_segment: None,
+        }
+    }
+}
+
+fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
+    match symbol? {
+        Symbol::Type(_) => Some(NameClass::Type),
+        Symbol::Function(_) => Some(NameClass::Function),
+        Symbol::Constructor(_) => Some(NameClass::Constructor),
+        Symbol::Local(_) => None,
     }
 }
 
@@ -284,6 +310,7 @@ struct SymbolRequest {
     index: Arc<SymbolIndex>,
     symbol: Symbol,
     selection: SourceSpan,
+    classified_path_segment: Option<QualifiedPathSegment>,
 }
 
 #[derive(Clone, Debug)]

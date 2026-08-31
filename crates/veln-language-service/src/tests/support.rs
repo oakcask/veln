@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use veln_project::{capture_package_snapshot, parse_manifest_text};
 use veln_source::SourceSpan;
+use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};
 
 use super::*;
 
@@ -36,6 +37,28 @@ static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
             (location.span.start.line, location.span.start.column),
             (line, column)
         );
+    }
+
+    fn assert_classified_segment(
+        result: &NavigationResult,
+        name: &str,
+        role: NameClass,
+        evidence: QualifiedPathSegmentEvidence,
+        segment_index: usize,
+        line: usize,
+        column: usize,
+    ) {
+        let segment = result
+            .classified_path_segment
+            .as_ref()
+            .expect("navigation result has classified path segment");
+        assert_eq!(segment.name, name);
+        assert_eq!(segment.role, role);
+        assert_eq!(segment.occurrence, NameOccurrence::PathSegment);
+        assert_eq!(segment.evidence, evidence);
+        assert_eq!(segment.segment_index, segment_index);
+        assert_eq!((segment.span.start.line, segment.span.start.column), (line, column));
+        assert_eq!(segment.span, result.selection);
     }
 
     fn locations(spans: &[SourceSpan]) -> Vec<(&str, usize, usize)> {

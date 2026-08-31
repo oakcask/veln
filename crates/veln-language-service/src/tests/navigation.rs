@@ -376,10 +376,28 @@
         let valid_type = query(sources.clone(), "main.veln", 7, 33).unwrap();
         assert_eq!(valid_type.selected_symbol.kind, SymbolKind::Type);
         assert_location(&valid_type.definition, "helper.veln", 1, 10);
+        assert_classified_segment(
+            &valid_type,
+            "Item",
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Resolved,
+            1,
+            7,
+            33,
+        );
 
         let valid_constructor = query(sources, "main.veln", 7, 39).unwrap();
         assert_eq!(valid_constructor.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&valid_constructor.definition, "helper.veln", 2, 7);
+        assert_classified_segment(
+            &valid_constructor,
+            "Ready",
+            NameClass::Constructor,
+            QualifiedPathSegmentEvidence::Resolved,
+            2,
+            7,
+            39,
+        );
     }
 
     #[test]

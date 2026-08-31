@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 12
+length = 14
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -110,11 +110,11 @@ equals = 2
 
 [[json_assert]]
 path = "diagnostics.7.details.name"
-equals = "made"
+equals = "Double"
 
 [[json_assert]]
 path = "diagnostics.7.details.name_class"
-equals = "constructor"
+equals = "value_binding"
 
 [[json_assert]]
 path = "diagnostics.7.details.segment_index"
@@ -122,31 +122,31 @@ equals = 2
 
 [[json_assert]]
 path = "diagnostics.8.details.name"
-equals = "Prelude"
+equals = "made"
 
 [[json_assert]]
 path = "diagnostics.8.details.name_class"
-equals = "module"
+equals = "constructor"
 
 [[json_assert]]
 path = "diagnostics.8.details.segment_index"
-equals = 0
+equals = 2
 
 [[json_assert]]
 path = "diagnostics.9.details.name"
-equals = "option"
+equals = "Prelude"
 
 [[json_assert]]
 path = "diagnostics.9.details.name_class"
-equals = "type"
+equals = "module"
 
 [[json_assert]]
 path = "diagnostics.9.details.segment_index"
-equals = 1
+equals = 0
 
 [[json_assert]]
 path = "diagnostics.10.details.name"
-equals = "int"
+equals = "option"
 
 [[json_assert]]
 path = "diagnostics.10.details.name_class"
@@ -158,12 +158,32 @@ equals = 1
 
 [[json_assert]]
 path = "diagnostics.11.details.name"
-equals = "some"
+equals = "int"
 
 [[json_assert]]
 path = "diagnostics.11.details.name_class"
-equals = "constructor"
+equals = "type"
 
 [[json_assert]]
 path = "diagnostics.11.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.12.details.name"
+equals = "some"
+
+[[json_assert]]
+path = "diagnostics.12.details.name_class"
+equals = "constructor"
+
+[[json_assert]]
+path = "diagnostics.12.details.segment_index"
 equals = 2
+
+[[json_assert]]
+path = "diagnostics.13.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.13.details.namespace"
+equals = "value"
