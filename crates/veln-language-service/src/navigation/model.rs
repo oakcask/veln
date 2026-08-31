@@ -263,7 +263,7 @@ struct ClassifiedNavigationSegment {
 impl ClassifiedNavigationSegment {
     fn into_selected_symbol(self) -> Option<SelectedNavigationSymbol> {
         let Self { segment, symbol } = self;
-        debug_assert_eq!(segment.role, self_role_for_symbol(symbol.as_ref())?);
+        debug_assert!(segment_role_matches_symbol(&segment, symbol.as_ref()?));
         Some(SelectedNavigationSymbol {
             symbol: symbol?,
             classified_path_segment: Some(segment),
@@ -293,6 +293,16 @@ fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
         Symbol::Constructor(_) => Some(NameClass::Constructor),
         Symbol::Local(_) => None,
     }
+}
+
+fn segment_role_matches_symbol(segment: &QualifiedPathSegment, symbol: &Symbol) -> bool {
+    if self_role_for_symbol(Some(symbol)).is_some_and(|role| role == segment.role) {
+        return true;
+    }
+    matches!(
+        (segment.role, symbol),
+        (NameClass::ValueBinding, Symbol::Function(_))
+    )
 }
 
 #[derive(Clone, Debug)]

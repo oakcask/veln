@@ -4,6 +4,10 @@ fn main() -> Int
   helper::compute()
 end
 
+fn callback() -> fn() -> Int
+  helper::compute
+end
+
 fn again() -> Int
   helper::compute()
 end

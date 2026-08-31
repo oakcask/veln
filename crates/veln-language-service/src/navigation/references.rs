@@ -24,21 +24,6 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
         .collect()
 }
 
-fn qualified_references(source: &SourceFile, module: &str, name: &str) -> Vec<SourceSpan> {
-    let tokens = lex(source).tokens;
-    let module_segments = module.split("::").collect::<Vec<_>>();
-    tokens
-        .iter()
-        .enumerate()
-        .filter(|(index, token)| {
-            token.text == name
-                && is_call_target_token(&tokens, *index)
-                && qualified_reference_matches(&tokens, *index, &module_segments)
-        })
-        .map(|(_, token)| source.span(token.range))
-        .collect()
-}
-
 fn type_reference_spans(
     source: &SourceFile,
     tokens: &[Token],
@@ -289,4 +274,3 @@ fn is_type_reference_token_text(token: &Token, name: &str) -> bool {
             .next()
             .is_some_and(|initial| initial.is_ascii_uppercase())
 }
-

@@ -248,7 +248,10 @@ symbol. The executable
 `identifier-casing-qualified-function-navigation` LSP example covers a
 module-only qualified public function imported from another workspace source
 across definition, references, prepare-rename, rename, invalid replacement
-rejection, and no-symbol selection for the module segment. Qualified segment
+rejection, and no-symbol selection for the module segment. It covers both
+qualified function calls and qualified function value references; the value
+reference keeps its `value_binding` occurrence role while selecting the
+function declaration for navigation and rename validation. Qualified segment
 selections also resolve an implicit import alias to the same module identity
 used by checking. The executable
 `identifier-casing-qualified-import-alias-navigation` LSP example covers

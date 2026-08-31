@@ -666,7 +666,7 @@ fn collect_valid_expr_path_segments(
         || qualified_prelude_signature(segments, None).is_some()
         || qualified_prelude_builtin_signature_with_input(segments, None, None).is_some()
     {
-        push_module_prefix_and_leaf(segments, segment_spans, NameClass::Function, output);
+        push_module_prefix_and_leaf(segments, segment_spans, NameClass::ValueBinding, output);
         return;
     }
     if matches!(

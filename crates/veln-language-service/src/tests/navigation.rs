@@ -341,6 +341,9 @@
                     "fn make() -> math::Item\n",
                     "  math::Item::Ready(math::double(1))\n",
                     "end\n\n",
+                    "fn callback() -> fn(Int) -> Int\n",
+                    "  app::math::double\n",
+                    "end\n\n",
                     "fn read(input: math::Item) -> Int\n",
                     "  match input\n",
                     "    math::Item::Ready(value) => value\n",
@@ -353,8 +356,35 @@
         let function = query(sources.clone(), "main.veln", 4, 27).unwrap();
         assert_eq!(function.selected_symbol.kind, SymbolKind::Function);
         assert_location(&function.definition, "app/math.veln", 5, 8);
-        assert_eq!(locations(&function.references), [("main.veln", 4, 27)]);
+        assert_eq!(
+            locations(&function.references),
+            [("main.veln", 4, 27), ("main.veln", 8, 14)]
+        );
         assert!(validate_rename(&function, "twice").is_ok());
+
+        let function_value = query(sources.clone(), "main.veln", 8, 16).unwrap();
+        assert_eq!(function_value.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function_value.definition, "app/math.veln", 5, 8);
+        assert_classified_segment(
+            &function_value,
+            "double",
+            NameClass::ValueBinding,
+            QualifiedPathSegmentEvidence::Resolved,
+            2,
+            8,
+            14,
+        );
+        assert_eq!(
+            locations(&function_value.references),
+            [("main.veln", 4, 27), ("main.veln", 8, 14)]
+        );
+        assert!(validate_rename(&function_value, "twice").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&function_value, "Twice").unwrap_err(),
+            RenameNameClass::Function,
+            "Twice",
+            RenameRequiredInitial::AsciiLowercase,
+        );
 
         let ty = query(sources.clone(), "main.veln", 3, 20).unwrap();
         assert_eq!(ty.selected_symbol.kind, SymbolKind::Type);
@@ -364,18 +394,18 @@
             [
                 ("main.veln", 3, 20),
                 ("main.veln", 4, 9),
-                ("main.veln", 7, 22),
-                ("main.veln", 9, 11),
+                ("main.veln", 11, 22),
+                ("main.veln", 13, 11),
             ]
         );
         assert!(validate_rename(&ty, "Entry").is_ok());
 
-        let constructor = query(sources, "main.veln", 9, 17).unwrap();
+        let constructor = query(sources, "main.veln", 13, 17).unwrap();
         assert_eq!(constructor.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&constructor.definition, "app/math.veln", 2, 7);
         assert_eq!(
             locations(&constructor.references),
-            [("main.veln", 4, 15), ("main.veln", 9, 17)]
+            [("main.veln", 4, 15), ("main.veln", 13, 17)]
         );
         assert!(validate_rename(&constructor, "Done").is_ok());
     }
@@ -462,6 +492,7 @@
                     "  let nested_first = Foo::bar::double(3)\n",
                     "  let nested_middle = foo::Bar::double(3)\n",
                     "  let nested_leaf = foo::bar::Double(3)\n",
+                    "  let nested_value = foo::bar::Double\n",
                     "end\n",
                 ),
             ),
@@ -480,6 +511,7 @@
             (11, 22),
             (12, 28),
             (13, 31),
+            (14, 32),
         ] {
             assert!(
                 query(sources.clone(), "main.veln", line, column).is_none(),

@@ -125,11 +125,14 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
         "main.veln",
         concat!(
             "use helper\n",
+            "use app::math\n",
             "\n",
             "fn main(input: helper::Item) -> prelude::Option<Int>\n",
             "  let made: helper::Item = helper::Item::Ready(1)\n",
             "  let maybe = prelude::byte(1)\n",
             "  let number = helper::make()\n",
+            "  let callback = helper::make\n",
+            "  let nested_callback = app::math::double\n",
             "  match made\n",
             "    helper::Item::Ready(value) -> value\n",
             "  end\n",
@@ -148,7 +151,16 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
             "end\n",
         ),
     );
-    let module = merged_modules_with_names([("main", main), ("helper", helper)]);
+    let nested = SourceFile::new(
+        "app/math.veln",
+        concat!(
+            "pub fn double(value: Int) -> Int\n",
+            "  value + value\n",
+            "end\n"
+        ),
+    );
+    let module =
+        merged_modules_with_names([("main", main), ("helper", helper), ("app::math", nested)]);
 
     let observed = classified_project_qualified_path_segments(&module)
         .into_iter()
@@ -173,7 +185,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "module",
                 veln_ast::QualifiedPathSegmentEvidence::Syntax,
                 0,
-                3,
+                4,
                 16,
             ),
             (
@@ -181,7 +193,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "type",
                 veln_ast::QualifiedPathSegmentEvidence::Syntax,
                 1,
-                3,
+                4,
                 24,
             ),
             (
@@ -189,7 +201,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "module",
                 veln_ast::QualifiedPathSegmentEvidence::Syntax,
                 0,
-                3,
+                4,
                 33,
             ),
             (
@@ -197,7 +209,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "type",
                 veln_ast::QualifiedPathSegmentEvidence::Syntax,
                 1,
-                3,
+                4,
                 42,
             ),
             (
@@ -205,7 +217,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "module",
                 veln_ast::QualifiedPathSegmentEvidence::Syntax,
                 0,
-                4,
+                5,
                 13,
             ),
             (
@@ -213,7 +225,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "type",
                 veln_ast::QualifiedPathSegmentEvidence::Syntax,
                 1,
-                4,
+                5,
                 21,
             ),
             (
@@ -221,7 +233,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "module",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 0,
-                4,
+                5,
                 28,
             ),
             (
@@ -229,7 +241,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "type",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 1,
-                4,
+                5,
                 36,
             ),
             (
@@ -237,7 +249,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "constructor",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 2,
-                4,
+                5,
                 42,
             ),
             (
@@ -245,7 +257,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "module",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 0,
-                5,
+                6,
                 15,
             ),
             (
@@ -253,7 +265,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "function",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 1,
-                5,
+                6,
                 24,
             ),
             (
@@ -261,7 +273,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "module",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 0,
-                6,
+                7,
                 16,
             ),
             (
@@ -269,7 +281,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "function",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 1,
-                6,
+                7,
                 24,
             ),
             (
@@ -278,6 +290,46 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 0,
                 8,
+                18,
+            ),
+            (
+                "make".to_string(),
+                "value_binding",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                1,
+                8,
+                26,
+            ),
+            (
+                "app".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                0,
+                9,
+                25,
+            ),
+            (
+                "math".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                1,
+                9,
+                30,
+            ),
+            (
+                "double".to_string(),
+                "value_binding",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                2,
+                9,
+                36,
+            ),
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                0,
+                11,
                 5,
             ),
             (
@@ -285,7 +337,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "type",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 1,
-                8,
+                11,
                 13,
             ),
             (
@@ -293,7 +345,7 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
                 "constructor",
                 veln_ast::QualifiedPathSegmentEvidence::Resolved,
                 2,
-                8,
+                11,
                 19,
             ),
         ],

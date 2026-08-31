@@ -12,6 +12,14 @@ fn same_span(left: &SourceSpan, right: &SourceSpan) -> bool {
         && left.end.offset == right.end.offset
 }
 
+fn same_function(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
+    left.package == right.package
+        && left.module == right.module
+        && left.name == right.name
+        && left.standard_prelude == right.standard_prelude
+        && left.declaration == right.declaration
+}
+
 fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
     left.package == right.package
         && left.module == right.module

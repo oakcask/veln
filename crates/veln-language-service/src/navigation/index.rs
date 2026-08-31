@@ -149,6 +149,13 @@ impl SymbolIndex {
                         .and_then(|qualifier| self.function_for_qualified_call(file, &qualifier, name))
                         .map(Symbol::Function)
                 }
+                NameClass::ValueBinding => {
+                    qualifier_for_token(tokens, token_index)
+                        .and_then(|qualifier| {
+                            self.function_for_qualified_call(file, &qualifier, name)
+                        })
+                        .map(Symbol::Function)
+                }
                 _ => None,
             };
             return Some(ClassifiedNavigationSegment {
@@ -605,7 +612,9 @@ impl SymbolIndex {
             return self
                 .qualifiers_for_module(file, &symbol.module, symbol.package.as_deref())
                 .into_iter()
-                .flat_map(|qualifier| qualified_references(&file.source, &qualifier, &symbol.name))
+                .flat_map(|qualifier| {
+                    self.qualified_function_references(file, &qualifier, symbol)
+                })
                 .collect();
         }
         Vec::new()
@@ -615,6 +624,33 @@ impl SymbolIndex {
         self.files
             .iter()
             .flat_map(|file| self.references_in_file(file, symbol))
+            .collect()
+    }
+
+    fn qualified_function_references(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        symbol: &FunctionSymbol,
+    ) -> Vec<SourceSpan> {
+        let tokens = lex(&file.source).tokens;
+        let module_segments = qualifier.split("::").collect::<Vec<_>>();
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                token.text == symbol.name
+                    && qualified_reference_matches(&tokens, *index, &module_segments)
+                    && (is_call_target_token(&tokens, *index)
+                        || file.classified_path_segments.iter().any(|segment| {
+                            segment.role == NameClass::ValueBinding
+                                && same_span(&segment.span, &file.source.span(token.range))
+                        }))
+                    && self
+                        .function_for_qualified_call(file, qualifier, &token.text)
+                        .is_some_and(|candidate| same_function(&candidate, symbol))
+            })
+            .map(|(_, token)| file.source.span(token.range))
             .collect()
     }
 

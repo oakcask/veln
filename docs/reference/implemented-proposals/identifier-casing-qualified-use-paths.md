@@ -63,15 +63,17 @@ failures.
 
 The language service selects supported type, constructor, function, and
 package prelude symbols through the retained segment ranges. Module-only
-qualified public functions, constructor-qualified type segments, imported
-module-and-type constructor paths, nested module paths reached through an
-implicit import alias, and their constructor leaves support definition,
-references,
+qualified public function calls and function value references,
+constructor-qualified type segments, imported module-and-type constructor
+paths, nested module paths reached through an implicit import alias, and their
+constructor leaves support definition, references,
 prepare-rename, rename, and class-changing rename rejection according to the
-current rename contract. Standard-library package symbols return package
-definition locations, no workspace references, no prepare-rename range, and
-empty rename edits. Module segments and other unsupported segment roles have
-no selected symbol.
+current rename contract. A qualified function value reference keeps the
+`value_binding` occurrence role while selecting the function declaration for
+navigation and function-class rename validation. Standard-library package
+symbols return package definition locations, no workspace references, no
+prepare-rename range, and empty rename edits. Module segments and other
+unsupported segment roles have no selected symbol.
 
 ## Completion
 
