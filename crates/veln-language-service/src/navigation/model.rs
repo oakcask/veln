@@ -93,8 +93,8 @@ pub enum RenameFailureKind {
         required_initial: RenameRequiredInitial,
     },
     Conflict {
-        conflicting_declaration: NavigationLocation,
-        affected_scope: RenameAffectedScope,
+        conflicting_declaration: Box<NavigationLocation>,
+        affected_scope: Box<RenameAffectedScope>,
     },
 }
 
@@ -174,8 +174,8 @@ pub fn validate_rename_in_snapshot(
             symbol_class,
             requested_name: requested_name.to_string(),
             kind: RenameFailureKind::Conflict {
-                conflicting_declaration,
-                affected_scope,
+                conflicting_declaration: Box::new(conflicting_declaration),
+                affected_scope: Box::new(affected_scope),
             },
         });
     }
