@@ -1,0 +1,5 @@
+use foo::bar
+
+fn nested_module_only_function_path() -> Int
+  foo::bar::double(3)
+end

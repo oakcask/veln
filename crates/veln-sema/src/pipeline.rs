@@ -234,12 +234,394 @@ fn check_invalid_name_casing(
         .filter(|invalid| {
             !invalid_type_segment_lacks_constructor_role(invalid, module, environment)
         })
+        .filter(|invalid| {
+            !invalid_constructor_segment_lacks_constructor_role(invalid, module, environment)
+        })
+        .filter(|invalid| !invalid_value_segment_lacks_value_role(invalid, module, environment))
         .collect::<Vec<_>>();
     invalid_names.sort_by_key(|invalid| (invalid.span.start.offset, invalid.span.end.offset));
     invalid_names
         .into_iter()
         .map(invalid_name_diagnostic)
         .collect()
+}
+
+fn invalid_value_segment_lacks_value_role(
+    invalid: &InvalidName,
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> bool {
+    if !matches!(invalid.class, NameClass::Module | NameClass::ValueBinding)
+        || invalid.occurrence != NameOccurrence::PathSegment
+        || invalid.segment_index.is_none()
+    {
+        return false;
+    }
+    module.functions.iter().any(|function| {
+        function.body.iter().any(|line| {
+            invalid_value_segment_lacks_value_role_in_body_line(
+                invalid,
+                line,
+                function.module_name.as_deref(),
+                environment,
+            )
+        })
+    })
+}
+
+fn invalid_value_segment_lacks_value_role_in_body_line(
+    invalid: &InvalidName,
+    line: &veln_ast::BodyLine,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &line.kind {
+        veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+            invalid_value_segment_lacks_value_role_in_pattern(
+                invalid,
+                pattern,
+                current_module,
+                environment,
+            ) || invalid_value_segment_lacks_value_role_in_expr(
+                invalid,
+                expr,
+                current_module,
+                environment,
+            )
+        }
+        veln_ast::BodyLineKind::Expr { expr } => invalid_value_segment_lacks_value_role_in_expr(
+            invalid,
+            expr,
+            current_module,
+            environment,
+        ),
+    }
+}
+
+fn invalid_value_segment_lacks_value_role_in_pattern(
+    invalid: &InvalidName,
+    pattern: &veln_ast::Pattern,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &pattern.kind {
+        veln_ast::PatternKind::Constructor { args, .. } => args.iter().any(|arg| {
+            invalid_value_segment_lacks_value_role_in_pattern(
+                invalid,
+                arg,
+                current_module,
+                environment,
+            )
+        }),
+        veln_ast::PatternKind::Record(fields) => fields.iter().any(|field| {
+            invalid_value_segment_lacks_value_role_in_pattern(
+                invalid,
+                &field.pattern,
+                current_module,
+                environment,
+            )
+        }),
+        _ => false,
+    }
+}
+
+fn invalid_value_segment_lacks_value_role_in_expr(
+    invalid: &InvalidName,
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &expr.kind {
+        veln_ast::ExprKind::NamePath {
+            segments,
+            segment_spans,
+        } => invalid_value_segment_lacks_value_role_for_path(
+            invalid,
+            segments,
+            segment_spans,
+            current_module,
+            environment,
+        ),
+        veln_ast::ExprKind::Call { callee, args } => {
+            invalid_value_segment_lacks_value_role_in_expr(
+                invalid,
+                callee,
+                current_module,
+                environment,
+            ) || args.iter().any(|arg| {
+                invalid_value_segment_lacks_value_role_in_expr(
+                    invalid,
+                    arg,
+                    current_module,
+                    environment,
+                )
+            })
+        }
+        veln_ast::ExprKind::Record(fields) => fields.iter().any(|field| {
+            invalid_value_segment_lacks_value_role_in_expr(
+                invalid,
+                &field.expr,
+                current_module,
+                environment,
+            )
+        }),
+        veln_ast::ExprKind::List(items) => items.iter().any(|item| {
+            invalid_value_segment_lacks_value_role_in_expr(
+                invalid,
+                item,
+                current_module,
+                environment,
+            )
+        }),
+        veln_ast::ExprKind::Match { scrutinee, arms } => {
+            invalid_value_segment_lacks_value_role_in_expr(
+                invalid,
+                scrutinee,
+                current_module,
+                environment,
+            ) || arms.iter().any(|arm| {
+                invalid_value_segment_lacks_value_role_in_pattern(
+                    invalid,
+                    &arm.pattern,
+                    current_module,
+                    environment,
+                ) || invalid_value_segment_lacks_value_role_in_expr(
+                    invalid,
+                    &arm.expr,
+                    current_module,
+                    environment,
+                )
+            })
+        }
+        _ => false,
+    }
+}
+
+fn invalid_value_segment_lacks_value_role_for_path(
+    invalid: &InvalidName,
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let Some(index) = invalid.segment_index else {
+        return false;
+    };
+    let Some(span) = segment_spans.get(index) else {
+        return false;
+    };
+    if span.file != invalid.span.file
+        || span.start.offset != invalid.span.start.offset
+        || span.end.offset != invalid.span.end.offset
+    {
+        return false;
+    }
+    matches!(
+        environment
+            .adts
+            .nullary_constructor(segments, current_module, &environment.uses),
+        crate::adt::registry::ConstructorLookup::Found(_)
+            | crate::adt::registry::ConstructorLookup::Ambiguous
+    )
+}
+
+fn invalid_constructor_segment_lacks_constructor_role(
+    invalid: &InvalidName,
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> bool {
+    if !matches!(invalid.class, NameClass::Constructor | NameClass::Function)
+        || invalid.occurrence != NameOccurrence::PathSegment
+        || invalid.segment_index.is_none()
+    {
+        return false;
+    }
+    module.functions.iter().any(|function| {
+        function.body.iter().any(|line| {
+            invalid_constructor_segment_lacks_constructor_role_in_body_line(
+                invalid,
+                line,
+                function.module_name.as_deref(),
+                environment,
+            )
+        })
+    })
+}
+
+fn invalid_constructor_segment_lacks_constructor_role_in_body_line(
+    invalid: &InvalidName,
+    line: &veln_ast::BodyLine,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &line.kind {
+        veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+            invalid_constructor_segment_lacks_constructor_role_in_pattern(
+                invalid,
+                pattern,
+                current_module,
+                environment,
+            ) || invalid_constructor_segment_lacks_constructor_role_in_expr(
+                invalid,
+                expr,
+                current_module,
+                environment,
+            )
+        }
+        veln_ast::BodyLineKind::Expr { expr } => {
+            invalid_constructor_segment_lacks_constructor_role_in_expr(
+                invalid,
+                expr,
+                current_module,
+                environment,
+            )
+        }
+    }
+}
+
+fn invalid_constructor_segment_lacks_constructor_role_in_pattern(
+    invalid: &InvalidName,
+    pattern: &veln_ast::Pattern,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &pattern.kind {
+        veln_ast::PatternKind::Constructor { args, .. } => args.iter().any(|arg| {
+            invalid_constructor_segment_lacks_constructor_role_in_pattern(
+                invalid,
+                arg,
+                current_module,
+                environment,
+            )
+        }),
+        veln_ast::PatternKind::Record(fields) => fields.iter().any(|field| {
+            invalid_constructor_segment_lacks_constructor_role_in_pattern(
+                invalid,
+                &field.pattern,
+                current_module,
+                environment,
+            )
+        }),
+        _ => false,
+    }
+}
+
+fn invalid_constructor_segment_lacks_constructor_role_in_expr(
+    invalid: &InvalidName,
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &expr.kind {
+        veln_ast::ExprKind::NamePath {
+            segments,
+            segment_spans,
+        } => invalid_constructor_segment_lacks_constructor_role_for_path(
+            invalid,
+            segments,
+            segment_spans,
+            current_module,
+            environment,
+        ),
+        veln_ast::ExprKind::Call { callee, args } => {
+            invalid_constructor_segment_lacks_constructor_role_in_expr(
+                invalid,
+                callee,
+                current_module,
+                environment,
+            ) || args.iter().any(|arg| {
+                invalid_constructor_segment_lacks_constructor_role_in_expr(
+                    invalid,
+                    arg,
+                    current_module,
+                    environment,
+                )
+            })
+        }
+        veln_ast::ExprKind::Record(fields) => fields.iter().any(|field| {
+            invalid_constructor_segment_lacks_constructor_role_in_expr(
+                invalid,
+                &field.expr,
+                current_module,
+                environment,
+            )
+        }),
+        veln_ast::ExprKind::List(items) => items.iter().any(|item| {
+            invalid_constructor_segment_lacks_constructor_role_in_expr(
+                invalid,
+                item,
+                current_module,
+                environment,
+            )
+        }),
+        veln_ast::ExprKind::Match { scrutinee, arms } => {
+            invalid_constructor_segment_lacks_constructor_role_in_expr(
+                invalid,
+                scrutinee,
+                current_module,
+                environment,
+            ) || arms.iter().any(|arm| {
+                invalid_constructor_segment_lacks_constructor_role_in_pattern(
+                    invalid,
+                    &arm.pattern,
+                    current_module,
+                    environment,
+                ) || invalid_constructor_segment_lacks_constructor_role_in_expr(
+                    invalid,
+                    &arm.expr,
+                    current_module,
+                    environment,
+                )
+            })
+        }
+        _ => false,
+    }
+}
+
+fn invalid_constructor_segment_lacks_constructor_role_for_path(
+    invalid: &InvalidName,
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let Some(index) = invalid.segment_index else {
+        return false;
+    };
+    if index + 1 != segments.len() {
+        return false;
+    }
+    let Some(span) = segment_spans.get(index) else {
+        return false;
+    };
+    if span.file != invalid.span.file
+        || span.start.offset != invalid.span.start.offset
+        || span.end.offset != invalid.span.end.offset
+    {
+        return false;
+    }
+    match invalid.class {
+        NameClass::Constructor => {
+            environment
+                .function_path(segments, current_module)
+                .is_some()
+                || !environment
+                    .codec_call_path(segments, current_module)
+                    .is_empty()
+        }
+        NameClass::Function => {
+            matches!(
+                environment
+                    .adts
+                    .constructor(segments, current_module, &environment.uses),
+                crate::adt::registry::ConstructorLookup::Found(_)
+                    | crate::adt::registry::ConstructorLookup::Ambiguous
+            ) || !environment
+                .codec_call_path(segments, current_module)
+                .is_empty()
+        }
+        NameClass::Type | NameClass::Module | NameClass::ValueBinding => false,
+    }
 }
 
 fn invalid_type_segment_lacks_constructor_role(
@@ -303,14 +685,22 @@ fn invalid_type_segment_lacks_constructor_role_in_pattern(
     environment: &TypeEnvironment,
 ) -> bool {
     match &pattern.kind {
-        veln_ast::PatternKind::Constructor { args, .. } => args.iter().any(|arg| {
-            invalid_type_segment_lacks_constructor_role_in_pattern(
+        veln_ast::PatternKind::Constructor { name, args } => {
+            invalid_type_segment_lacks_constructor_role_for_pattern_path(
                 invalid,
-                arg,
+                name,
+                pattern,
                 current_module,
                 environment,
-            )
-        }),
+            ) || args.iter().any(|arg| {
+                invalid_type_segment_lacks_constructor_role_in_pattern(
+                    invalid,
+                    arg,
+                    current_module,
+                    environment,
+                )
+            })
+        }
         veln_ast::PatternKind::Record(fields) => fields.iter().any(|field| {
             invalid_type_segment_lacks_constructor_role_in_pattern(
                 invalid,
@@ -321,6 +711,40 @@ fn invalid_type_segment_lacks_constructor_role_in_pattern(
         }),
         _ => false,
     }
+}
+
+fn invalid_type_segment_lacks_constructor_role_for_pattern_path(
+    invalid: &InvalidName,
+    segments: &[String],
+    pattern: &veln_ast::Pattern,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let Some(index) = invalid.segment_index else {
+        return false;
+    };
+    if index >= segments.len()
+        || segments[index] != invalid.name
+        || invalid.span.file != pattern.span.file
+        || invalid.span.start.offset < pattern.span.start.offset
+        || pattern.span.end.offset < invalid.span.end.offset
+    {
+        return false;
+    }
+    if path_resolves_as_constructor(segments, current_module, environment) {
+        return true;
+    }
+    if segments.len() < 3 || index + 2 != segments.len() {
+        return false;
+    }
+    let mut corrected = segments.to_vec();
+    corrected[index] = uppercase_initial(&invalid.name);
+    !path_resolves_as_constructor(&corrected, current_module, environment)
+        && environment.quarantined_import_constructor_recovery_candidate_count(
+            &corrected,
+            current_module,
+            None,
+        ) != 1
 }
 
 fn invalid_type_segment_lacks_constructor_role_in_expr(
@@ -405,9 +829,6 @@ fn invalid_type_segment_lacks_constructor_role_for_path(
     let Some(index) = invalid.segment_index else {
         return false;
     };
-    if segments.len() < 3 || index + 2 != segments.len() {
-        return false;
-    }
     let Some(span) = segment_spans.get(index) else {
         return false;
     };
@@ -417,19 +838,37 @@ fn invalid_type_segment_lacks_constructor_role_for_path(
     {
         return false;
     }
+    if path_resolves_as_constructor(segments, current_module, environment) {
+        return true;
+    }
+    if segments.len() < 3 {
+        return false;
+    }
+    if index + 2 != segments.len() {
+        return false;
+    }
     let mut corrected = segments.to_vec();
     corrected[index] = uppercase_initial(&invalid.name);
-    !matches!(
+    !path_resolves_as_constructor(&corrected, current_module, environment)
+        && environment.quarantined_import_constructor_recovery_candidate_count(
+            &corrected,
+            current_module,
+            None,
+        ) != 1
+}
+
+fn path_resolves_as_constructor(
+    segments: &[String],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    matches!(
         environment
             .adts
-            .constructor(&corrected, current_module, &environment.uses),
+            .constructor(segments, current_module, &environment.uses),
         crate::adt::registry::ConstructorLookup::Found(_)
             | crate::adt::registry::ConstructorLookup::Ambiguous
-    ) && environment.quarantined_import_constructor_recovery_candidate_count(
-        &corrected,
-        current_module,
-        None,
-    ) != 1
+    )
 }
 
 fn uppercase_initial(name: &str) -> String {

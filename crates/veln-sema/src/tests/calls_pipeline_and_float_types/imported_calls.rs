@@ -106,6 +106,64 @@ fn resolves_qualified_calls_through_import_aliases() {
 }
 
 #[test]
+fn nested_module_only_function_paths_keep_function_leaf_role() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use foo::bar\n",
+            "pub fn main() -> Int\n",
+            "  foo::bar::double(3)\n",
+            "end\n",
+        ),
+    );
+    let helper_source = SourceFile::new(
+        "bar.veln",
+        concat!(
+            "mod foo::bar\n",
+            "pub fn double(value: Int) -> Int\n",
+            "  value + value\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let helper = lower_surface_ast(&parse(&helper_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: main.types.into_iter().chain(helper.types).collect(),
+        functions: main.functions.into_iter().chain(helper.functions).collect(),
+        invalid_names: main
+            .invalid_names
+            .into_iter()
+            .chain(helper.invalid_names)
+            .collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, .. } = &expr.kind else {
+        panic!("qualified call should lower as a call");
+    };
+    assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
+}
+
+#[test]
 fn resolves_qualified_function_values_through_import_aliases() {
     let main_source = SourceFile::new(
         "main.veln",
