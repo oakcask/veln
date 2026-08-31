@@ -87,7 +87,11 @@ Qualified-use path casing diagnostics for module-only, module-and-type, and
 `prelude`-qualified expression, pattern, and type paths are specified by
 [Name Resolution](../specification/name-resolution.md) and checked by the
 `identifier-casing-qualified-use-paths-json` and
-`identifier-casing-qualified-use-paths-human` examples. Editor navigation for
+`identifier-casing-qualified-use-paths-human` examples. The
+`identifier-casing-qualified-use-recovery-controls-json` and
+`identifier-casing-qualified-use-recovery-controls-human` examples check the
+same-source type-qualifier recovery and unresolved-control boundaries. Editor
+navigation for
 constructor-qualified type segments, imported module-and-type constructor
 paths, `prelude`-qualified function and type paths, and module-only qualified
 public functions is specified by

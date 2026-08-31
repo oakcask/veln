@@ -1,0 +1,2 @@
+main.veln:6:3: error[name.invalid_case]: type name `sample` must start with an ASCII uppercase letter
+main.veln:10:3: error[name.unresolved]: unresolved call_target `Foo::bar`

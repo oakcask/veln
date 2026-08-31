@@ -1,0 +1,11 @@
+type Sample
+  Made(Int)
+end
+
+fn recovered() -> Sample
+  sample::Made(1)
+end
+
+fn unresolved() -> Int
+  Foo::bar()
+end

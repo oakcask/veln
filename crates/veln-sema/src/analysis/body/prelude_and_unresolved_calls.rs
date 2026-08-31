@@ -189,6 +189,19 @@ impl<'a> FunctionChecker<'a> {
         segment_spans: &[SourceSpan],
         arg_count: usize,
     ) -> bool {
+        if self.corrected_recorded_invalid_call_target_resolves(segments, segment_spans, arg_count)
+        {
+            return true;
+        }
+        self.corrected_type_qualified_constructor_resolves(segments, arg_count)
+    }
+
+    fn corrected_recorded_invalid_call_target_resolves(
+        &self,
+        segments: &[String],
+        segment_spans: &[SourceSpan],
+        arg_count: usize,
+    ) -> bool {
         let Some(invalid) = self.environment.invalid_cased_path_segment(
             segments,
             segment_spans,
@@ -231,6 +244,41 @@ impl<'a> FunctionChecker<'a> {
             || qualified_prelude_signature(&corrected, None).is_some()
             || qualified_prelude_builtin_signature_with_input(&corrected, None, None).is_some()
             || self.corrected_prelude_constructor_resolves(&corrected)
+    }
+
+    fn corrected_type_qualified_constructor_resolves(
+        &self,
+        segments: &[String],
+        arg_count: usize,
+    ) -> bool {
+        if segments.len() < 2 {
+            return false;
+        }
+        let type_index = segments.len() - 2;
+        if segments[type_index]
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_uppercase)
+        {
+            return false;
+        }
+        let mut corrected = segments.to_vec();
+        corrected[type_index] = uppercase_initial(&segments[type_index]);
+        matches!(
+            self.environment.adts.constructor(
+                &corrected,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ),
+            ConstructorLookup::Found(_)
+        ) || self
+            .environment
+            .quarantined_import_constructor_recovery_candidate_count(
+                &corrected,
+                self.function.module_name.as_deref(),
+                Some(arg_count),
+            )
+            == 1
     }
 
     fn corrected_prelude_constructor_resolves(&self, corrected: &[String]) -> bool {

@@ -10,13 +10,18 @@ update-when: Qualified-use path identifier casing evidence, sibling identifier-c
 
 Qualified expression, pattern, and type paths now use the source identifier
 casing diagnostic contract for every written segment whose role is fixed by
-the path form. Current behavior is specified by
+syntax, successful resolution, or one unique recovery link. Current behavior
+is specified by
 [Name Resolution](../../specification/name-resolution.md),
 [Check JSON And Diagnostics](../../specification/diagnostics-json.md), and
 [Editor Support](../../specification/editor-support.md). The checked
 `identifier-casing-qualified-use-paths-json` and
 `identifier-casing-qualified-use-paths-human` examples fix the JSON and human
-command behavior. The checked `identifier-casing-qualified-use-navigation`,
+command behavior for the main path matrix. The checked
+`identifier-casing-qualified-use-recovery-controls-json` and
+`identifier-casing-qualified-use-recovery-controls-human` examples fix the
+same-source recovery and unresolved-control boundaries. The checked
+`identifier-casing-qualified-use-navigation`,
 `identifier-casing-qualified-module-type-navigation`,
 `identifier-casing-qualified-prelude-navigation`, and
 `identifier-casing-qualified-function-navigation` LSP examples fix the
@@ -27,12 +32,14 @@ unsupported segment-selection boundaries for qualified path segments.
 
 The implemented slice retains one token span for each written expression and
 type path segment through parsing, AST lowering, and AST wire round trips.
-Module-only function and value paths validate qualifier segments as `module`
-and validate the final segment as `function` for calls or `value_binding` for
-value references. Module-and-type constructor paths validate module
-qualifiers as `module`, the type qualifier as `type`, and the final segment
-as `constructor`. Prelude-qualified type and constructor paths use the same
-module, type, and constructor classes.
+Module-only function and value paths validate resolved or recovered qualifier
+segments as `module` and validate the final segment as `function` for calls or
+`value_binding` for value references. Module-and-type constructor paths
+validate resolved or recovered module qualifiers as `module`, the type
+qualifier as `type`, and the final segment as `constructor`.
+Prelude-qualified type and constructor paths use the same module, type, and
+constructor classes. Unresolved or ambiguous intermediate segments are not
+classified from spelling alone.
 
 Each invalid role-fixed segment emits `name.invalid_case` with `phase: name`,
 `origin: source`, `occurrence: path_segment`, the exact written segment

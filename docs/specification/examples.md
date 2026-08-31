@@ -173,6 +173,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-type-mismatch-json/`,
   `../../examples/specification/check/identifier-casing-qualified-use-paths-json/`,
   `../../examples/specification/check/identifier-casing-qualified-use-paths-human/`,
+  `../../examples/specification/check/identifier-casing-qualified-use-recovery-controls-json/`,
+  `../../examples/specification/check/identifier-casing-qualified-use-recovery-controls-human/`,
   `../../examples/specification/check/identifier-casing-qualified-handler-boundaries-json/`,
   `../../examples/specification/check/identifier-casing-qualified-handler-boundaries-human/`,
   `../../examples/specification/check/identifier-casing-source-path-json/`,

@@ -14,6 +14,7 @@ use crate::analysis::{
     check_test_declaration_boundary,
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
+use crate::prelude::{qualified_prelude_builtin_signature_with_input, qualified_prelude_signature};
 use crate::schema;
 use crate::source_less_lookup::validate_source_less_lookup_registries;
 use crate::types::{
@@ -241,12 +242,368 @@ fn check_invalid_name_casing(
             !invalid_function_segment_lacks_function_role(invalid, module, environment)
         })
         .filter(|invalid| !invalid_value_segment_lacks_value_role(invalid, module, environment))
+        .cloned()
         .collect::<Vec<_>>();
+    invalid_names.extend(recovered_qualified_type_segment_invalid_names(
+        module,
+        environment,
+    ));
     invalid_names.sort_by_key(|invalid| (invalid.span.start.offset, invalid.span.end.offset));
-    invalid_names
-        .into_iter()
-        .map(invalid_name_diagnostic)
-        .collect()
+    invalid_names.dedup_by(|left, right| {
+        left.class == right.class
+            && left.occurrence == right.occurrence
+            && left.span.file == right.span.file
+            && left.span.start.offset == right.span.start.offset
+            && left.span.end.offset == right.span.end.offset
+    });
+    invalid_names.iter().map(invalid_name_diagnostic).collect()
+}
+
+fn recovered_qualified_type_segment_invalid_names(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<InvalidName> {
+    let mut invalid = Vec::new();
+    for function in &module.functions {
+        for line in &function.body {
+            collect_recovered_qualified_type_segments_from_body_line(
+                line,
+                function.module_name.as_deref(),
+                &function.span,
+                environment,
+                &mut invalid,
+            );
+        }
+    }
+    for handler in &module.handlers {
+        for clause in &handler.operation_clauses {
+            collect_recovered_qualified_type_segments_from_expr(
+                &clause.body,
+                handler.module_name.as_deref(),
+                &handler.span,
+                environment,
+                &mut invalid,
+            );
+        }
+    }
+    invalid
+}
+
+fn collect_recovered_qualified_type_segments_from_body_line(
+    line: &veln_ast::BodyLine,
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    invalid: &mut Vec<InvalidName>,
+) {
+    match &line.kind {
+        veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                expr,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+    }
+}
+
+fn collect_recovered_qualified_type_segments_from_expr(
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    invalid: &mut Vec<InvalidName>,
+) {
+    match &expr.kind {
+        veln_ast::ExprKind::Call { callee, args } => {
+            if let veln_ast::ExprKind::NamePath {
+                segments,
+                segment_spans,
+            } = &callee.kind
+            {
+                push_recovered_qualified_type_segment(
+                    segments,
+                    segment_spans,
+                    Some(args.len()),
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+            collect_recovered_qualified_type_segments_from_expr(
+                callee,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            for arg in args {
+                collect_recovered_qualified_type_segments_from_expr(
+                    arg,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::NamePath {
+            segments,
+            segment_spans,
+        } => {
+            push_recovered_qualified_type_segment(
+                segments,
+                segment_spans,
+                None,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::TypeApply { callee, .. }
+        | veln_ast::ExprKind::FieldAccess { base: callee, .. }
+        | veln_ast::ExprKind::Try(callee)
+        | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                callee,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::Binary { left, right, .. } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                left,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            collect_recovered_qualified_type_segments_from_expr(
+                right,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                condition,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            collect_recovered_qualified_type_segments_from_expr(
+                then_branch,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            for branch in else_if_branches {
+                collect_recovered_qualified_type_segments_from_expr(
+                    &branch.condition,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+                collect_recovered_qualified_type_segments_from_expr(
+                    &branch.expr,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+            collect_recovered_qualified_type_segments_from_expr(
+                else_branch,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::Record(fields) => {
+            for field in fields {
+                collect_recovered_qualified_type_segments_from_expr(
+                    &field.expr,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_recovered_qualified_type_segments_from_expr(
+                    &entry.key,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+                collect_recovered_qualified_type_segments_from_expr(
+                    &entry.value,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::List(items) | veln_ast::ExprKind::Perform { args: items, .. } => {
+            for item in items {
+                collect_recovered_qualified_type_segments_from_expr(
+                    item,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::Handle { body, args, .. } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                body,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            for arg in args {
+                collect_recovered_qualified_type_segments_from_expr(
+                    arg,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::SchemaDecode { input, base, .. } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                input,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            collect_recovered_qualified_type_segments_from_expr(
+                base,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::SchemaEncode { value, .. } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                value,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::Match { scrutinee, arms } => {
+            collect_recovered_qualified_type_segments_from_expr(
+                scrutinee,
+                current_module,
+                enclosing_function_span,
+                environment,
+                invalid,
+            );
+            for arm in arms {
+                collect_recovered_qualified_type_segments_from_expr(
+                    &arm.expr,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::Missing
+        | veln_ast::ExprKind::Hole { .. }
+        | veln_ast::ExprKind::StringLiteral(_)
+        | veln_ast::ExprKind::IntLiteral(_)
+        | veln_ast::ExprKind::FloatLiteral(_)
+        | veln_ast::ExprKind::BoolLiteral(_)
+        | veln_ast::ExprKind::Unit => {}
+    }
+}
+
+fn push_recovered_qualified_type_segment(
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    arg_count: Option<usize>,
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    invalid: &mut Vec<InvalidName>,
+) {
+    if segments.len() < 2 {
+        return;
+    }
+    let type_index = segments.len() - 2;
+    let type_name = &segments[type_index];
+    if type_name
+        .as_bytes()
+        .first()
+        .is_some_and(u8::is_ascii_uppercase)
+    {
+        return;
+    }
+    let Some(span) = segment_spans.get(type_index) else {
+        return;
+    };
+    let mut corrected = segments.to_vec();
+    corrected[type_index] = uppercase_initial(type_name);
+    let recovered = match arg_count {
+        Some(arg_count) => {
+            matches!(
+                environment
+                    .adts
+                    .constructor(&corrected, current_module, &environment.uses),
+                crate::adt::registry::ConstructorLookup::Found(_)
+            ) || environment.quarantined_import_constructor_recovery_candidate_count(
+                &corrected,
+                current_module,
+                Some(arg_count),
+            ) == 1
+        }
+        None => matches!(
+            environment
+                .adts
+                .nullary_constructor(&corrected, current_module, &environment.uses),
+            crate::adt::registry::ConstructorLookup::Found(_)
+        ),
+    };
+    if !recovered {
+        return;
+    }
+    invalid.push(InvalidName {
+        name: type_name.clone(),
+        class: NameClass::Type,
+        occurrence: NameOccurrence::PathSegment,
+        span: span.clone(),
+        enclosing_function_span: Some(enclosing_function_span.clone()),
+        segment_index: Some(type_index),
+    });
 }
 
 fn invalid_function_segment_lacks_function_role(
@@ -705,7 +1062,7 @@ fn invalid_value_segment_lacks_value_role_for_path(
         return false;
     }
     if invalid.class == NameClass::Module {
-        return type_qualified_constructor_path(invalid, segments, current_module, environment);
+        return !module_segment_role_is_fixed(invalid, segments, current_module, environment);
     }
     if !path_resolves_as_value(segments, current_module, environment)
         && !lowercase_corrected_value_path_resolves(invalid, segments, current_module, environment)
@@ -719,6 +1076,64 @@ fn invalid_value_segment_lacks_value_role_for_path(
         crate::adt::registry::ConstructorLookup::Found(_)
             | crate::adt::registry::ConstructorLookup::Ambiguous
     )
+}
+
+fn module_segment_role_is_fixed(
+    invalid: &InvalidName,
+    segments: &[String],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let Some(index) = invalid.segment_index else {
+        return false;
+    };
+    if index + 1 >= segments.len() {
+        return false;
+    }
+    if type_qualified_constructor_path(invalid, segments, current_module, environment)
+        || path_resolves_as_value(segments, current_module, environment)
+        || environment
+            .function_path(segments, current_module)
+            .is_some()
+        || !environment
+            .codec_call_path(segments, current_module)
+            .is_empty()
+        || environment.quarantined_import_value_recovery_candidate_count(segments, current_module)
+            == 1
+        || environment.quarantined_import_constructor_recovery_candidate_count(
+            segments,
+            current_module,
+            None,
+        ) == 1
+        || qualified_prelude_signature(segments, None).is_some()
+        || qualified_prelude_builtin_signature_with_input(segments, None, None).is_some()
+    {
+        return true;
+    }
+    let mut corrected = segments.to_vec();
+    corrected[index] = lowercase_initial(&invalid.name);
+    path_resolves_as_value(&corrected, current_module, environment)
+        || matches!(
+            environment
+                .adts
+                .constructor(&corrected, current_module, &environment.uses),
+            crate::adt::registry::ConstructorLookup::Found(_)
+        )
+        || environment
+            .function_path(&corrected, current_module)
+            .is_some()
+        || !environment
+            .codec_call_path(&corrected, current_module)
+            .is_empty()
+        || environment.quarantined_import_value_recovery_candidate_count(&corrected, current_module)
+            == 1
+        || environment.quarantined_import_constructor_recovery_candidate_count(
+            &corrected,
+            current_module,
+            None,
+        ) == 1
+        || qualified_prelude_signature(&corrected, None).is_some()
+        || qualified_prelude_builtin_signature_with_input(&corrected, None, None).is_some()
 }
 
 fn type_qualified_constructor_path(

@@ -287,7 +287,7 @@ fn unresolved_three_segment_call_does_not_guess_intermediate_type_role() {
             .iter()
             .map(|diagnostic| diagnostic.message.as_str())
             .collect::<Vec<_>>(),
-        ["module name `Missing` must start with an ASCII lowercase letter"],
+        Vec::<&str>::new(),
         "{diagnostics:#?}"
     );
 }

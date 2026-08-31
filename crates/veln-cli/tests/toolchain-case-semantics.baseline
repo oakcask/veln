@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"a8229e21a7c46bc4a24bb4f2c596f70e05c3c1aa"
+source_git_tree	"6cfa8817abfc846eb7775ac71e12112be6ea95d3"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1633
+case_count	1635
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6963,6 +6963,49 @@ field	invocation.command[6]	"foo/bar.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"9f3bbe498f8aa190b369bd27eb906e957e657e7f397b475abdfd7b8f7a5cdba8"
+case	"examples/specification/check/identifier-casing-qualified-use-recovery-controls-human"
+field	expectations.exit	1
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"text"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"ef7a7bb2f725930716f7261a1ac8b9f2cf05c6211cdee788d6ad62415a037eaa"
+case	"examples/specification/check/identifier-casing-qualified-use-recovery-controls-json"
+field	expectations.exit	1
+field	expectations.json_assertions[0].length	2
+field	expectations.json_assertions[0].operation	"length"
+field	expectations.json_assertions[0].path	"diagnostics"
+field	expectations.json_assertions[1].equals	"name.invalid_case"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"diagnostics.0.id"
+field	expectations.json_assertions[2].equals	"path_segment"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.details.occurrence"
+field	expectations.json_assertions[3].equals	"sample"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.details.name"
+field	expectations.json_assertions[4].equals	"type"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.0.details.name_class"
+field	expectations.json_assertions[5].equals	0
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.0.details.segment_index"
+field	expectations.json_assertions[6].equals	"name.unresolved"
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.1.id"
+field	expectations.json_assertions[7].equals	"Foo::bar"
+field	expectations.json_assertions[7].operation	"equals"
+field	expectations.json_assertions[7].path	"diagnostics.1.details.symbol"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"fa0e6b1766fea75402383ad7b1a3294453065ff5530409907d1a59a99f775953"
 case	"examples/specification/check/identifier-casing-source-path-cycle-isolation-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -51764,4 +51807,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e022aca2084e32da6670db3437b5fdd87842e03e91379ad105944446a9de1b62"
+aggregate_digest	"2fbf9bc5be644172b421d8d1b0b0acd59d6d66b2fbf2b89762e61b74276c199f"

@@ -5,4 +5,5 @@ mod binding_recovery;
 mod constructor_patterns;
 mod handler_boundaries;
 mod import_aliases;
+mod qualified_use_segments;
 mod source_names;
