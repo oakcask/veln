@@ -25,6 +25,15 @@ use crate::types::{
     prepare_reusable_standard_environment,
 };
 
+type RecoveredQualifiedSegmentPush = fn(
+    &[String],
+    &[veln_source::SourceSpan],
+    Option<&str>,
+    &veln_source::SourceSpan,
+    &TypeEnvironment,
+    &mut Vec<InvalidName>,
+);
+
 #[derive(Clone, Debug)]
 pub struct LoweredSurfaceModule {
     pub diagnostics: Vec<Diagnostic>,
@@ -1250,14 +1259,7 @@ fn recovered_qualified_function_segments(
 fn recovered_qualified_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-    push: fn(
-        &[String],
-        &[veln_source::SourceSpan],
-        Option<&str>,
-        &veln_source::SourceSpan,
-        &TypeEnvironment,
-        &mut Vec<InvalidName>,
-    ),
+    push: RecoveredQualifiedSegmentPush,
 ) -> Vec<QualifiedPathSegment> {
     let mut invalid = Vec::new();
     for function in &module.functions {
@@ -1316,14 +1318,7 @@ fn collect_recovered_qualified_segments_from_body_line(
     current_module: Option<&str>,
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
-    push: fn(
-        &[String],
-        &[veln_source::SourceSpan],
-        Option<&str>,
-        &veln_source::SourceSpan,
-        &TypeEnvironment,
-        &mut Vec<InvalidName>,
-    ),
+    push: RecoveredQualifiedSegmentPush,
     invalid: &mut Vec<InvalidName>,
 ) {
     match &line.kind {
@@ -1345,14 +1340,7 @@ fn collect_recovered_qualified_segments_from_expr(
     current_module: Option<&str>,
     enclosing_function_span: &veln_source::SourceSpan,
     environment: &TypeEnvironment,
-    push: fn(
-        &[String],
-        &[veln_source::SourceSpan],
-        Option<&str>,
-        &veln_source::SourceSpan,
-        &TypeEnvironment,
-        &mut Vec<InvalidName>,
-    ),
+    push: RecoveredQualifiedSegmentPush,
     invalid: &mut Vec<InvalidName>,
 ) {
     match &expr.kind {
@@ -2643,13 +2631,13 @@ fn invalid_constructor_segment_has_function_role_for_path(
     }
     let mut corrected = segments.to_vec();
     corrected[index] = lowercase_initial(&invalid.name);
-    for prefix_index in 0..index {
-        if corrected[prefix_index]
+    for segment in corrected.iter_mut().take(index) {
+        if segment
             .as_bytes()
             .first()
             .is_some_and(u8::is_ascii_uppercase)
         {
-            corrected[prefix_index] = lowercase_initial(&corrected[prefix_index]);
+            *segment = lowercase_initial(segment);
         }
     }
     environment
@@ -2661,30 +2649,12 @@ fn invalid_constructor_segment_has_function_role_for_path(
 }
 
 fn invalid_constructor_segment_has_function_role_in_pattern(
-    invalid: &InvalidName,
-    pattern: &veln_ast::Pattern,
+    _invalid: &InvalidName,
+    _pattern: &veln_ast::Pattern,
     _current_module: Option<&str>,
     _environment: &TypeEnvironment,
 ) -> bool {
-    match &pattern.kind {
-        veln_ast::PatternKind::Constructor { args, .. } => args.iter().any(|arg| {
-            invalid_constructor_segment_has_function_role_in_pattern(
-                invalid,
-                arg,
-                _current_module,
-                _environment,
-            )
-        }),
-        veln_ast::PatternKind::Record(fields) => fields.iter().any(|field| {
-            invalid_constructor_segment_has_function_role_in_pattern(
-                invalid,
-                &field.pattern,
-                _current_module,
-                _environment,
-            )
-        }),
-        _ => false,
-    }
+    false
 }
 
 fn invalid_constructor_segment_lacks_constructor_role_in_body_line(

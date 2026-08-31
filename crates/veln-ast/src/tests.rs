@@ -145,6 +145,7 @@ fn let_line(function: &Function, index: usize) -> (&Pattern, &Option<String>, &E
         pattern,
         annotation,
         expr,
+        ..
     } = &function.body[index].kind
     else {
         panic!("expected let line");
