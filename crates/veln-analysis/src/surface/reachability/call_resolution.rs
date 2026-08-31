@@ -291,8 +291,30 @@ pub(super) fn imported_use_for_path<'a>(
     let module_path = segments.join("::");
     uses.iter().copied().find(|use_decl| {
         use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
+            && (use_decl.name == module_path
+                || simple_import_alias_matches(use_decl, &module_path)
+                || standard_package_relative_import_matches(use_decl, &module_path, current_module))
     })
+}
+
+fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
+    use_decl.alias == module_path
+        && (!use_decl.name.contains("::")
+            || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
+}
+
+fn standard_package_relative_import_matches(
+    use_decl: &UseDecl,
+    module_path: &str,
+    current_module: Option<&str>,
+) -> bool {
+    (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        || (use_decl.package.is_none()
+            && current_module.is_some_and(|module| module.starts_with("std::"))))
+        && use_decl
+            .name
+            .strip_prefix("std::")
+            .is_some_and(|package_relative| package_relative == module_path)
 }
 
 pub(super) fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bool {
