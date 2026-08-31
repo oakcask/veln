@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"dd2cecc1253cedbf1e20fb7365c70409e38756bc"
+source_git_tree	"1db15ee815514be73770adbbbcee3cbf9563a673"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1638
@@ -13072,10 +13072,52 @@ field	expectations.lsp_assertions[3].equals	"entry"
 field	expectations.lsp_assertions[3].id	6
 field	expectations.lsp_assertions[3].operation	"equals"
 field	expectations.lsp_assertions[3].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[40].id	20
+field	expectations.lsp_assertions[40].operation	"missing"
+field	expectations.lsp_assertions[40].path	"/error"
+field	expectations.lsp_assertions[41].equals	-32602
+field	expectations.lsp_assertions[41].id	21
+field	expectations.lsp_assertions[41].operation	"equals"
+field	expectations.lsp_assertions[41].path	"/error/code"
+field	expectations.lsp_assertions[42].equals	"rename.conflict"
+field	expectations.lsp_assertions[42].id	21
+field	expectations.lsp_assertions[42].operation	"equals"
+field	expectations.lsp_assertions[42].path	"/error/data/code"
+field	expectations.lsp_assertions[43].equals	"function"
+field	expectations.lsp_assertions[43].id	21
+field	expectations.lsp_assertions[43].operation	"equals"
+field	expectations.lsp_assertions[43].path	"/error/data/details/symbol_class"
+field	expectations.lsp_assertions[44].equals	"conflict"
+field	expectations.lsp_assertions[44].id	21
+field	expectations.lsp_assertions[44].operation	"equals"
+field	expectations.lsp_assertions[44].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[45].id	21
+field	expectations.lsp_assertions[45].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[45].path	"/error/data/details/conflicting_declaration/uri"
+field	expectations.lsp_assertions[45].workspace_file_uri	"shadowing.veln"
+field	expectations.lsp_assertions[46].equals	15
+field	expectations.lsp_assertions[46].id	21
+field	expectations.lsp_assertions[46].operation	"equals"
+field	expectations.lsp_assertions[46].path	"/error/data/details/conflicting_declaration/range/start/line"
+field	expectations.lsp_assertions[47].equals	6
+field	expectations.lsp_assertions[47].id	21
+field	expectations.lsp_assertions[47].operation	"equals"
+field	expectations.lsp_assertions[47].path	"/error/data/details/conflicting_declaration/range/start/character"
+field	expectations.lsp_assertions[48].equals	"lexical"
+field	expectations.lsp_assertions[48].id	21
+field	expectations.lsp_assertions[48].operation	"equals"
+field	expectations.lsp_assertions[48].path	"/error/data/details/affected_scope/kind"
+field	expectations.lsp_assertions[49].equals	"shadowing.veln"
+field	expectations.lsp_assertions[49].id	21
+field	expectations.lsp_assertions[49].operation	"equals"
+field	expectations.lsp_assertions[49].path	"/error/data/details/affected_scope/file"
 field	expectations.lsp_assertions[4].equals	"ascii_uppercase"
 field	expectations.lsp_assertions[4].id	6
 field	expectations.lsp_assertions[4].operation	"equals"
 field	expectations.lsp_assertions[4].path	"/error/data/details/required_initial"
+field	expectations.lsp_assertions[50].id	21
+field	expectations.lsp_assertions[50].operation	"missing"
+field	expectations.lsp_assertions[50].path	"/result"
 field	expectations.lsp_assertions[5].equals	"constructor"
 field	expectations.lsp_assertions[5].id	7
 field	expectations.lsp_assertions[5].operation	"equals"
@@ -13098,25 +13140,29 @@ field	expectations.lsp_assertions[9].operation	"equals"
 field	expectations.lsp_assertions[9].path	"/error/data/details/requested_name"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"newText\":\"Entry\""
+field	expectations.stdout.contains[10]	"\"line\":5,\"character\":15"
+field	expectations.stdout.contains[11]	"\"line\":7,\"character\":15"
+field	expectations.stdout.contains[12]	"right.veln"
+field	expectations.stdout.contains[13]	"shadowing.veln"
 field	expectations.stdout.contains[1]	"\"newText\":\"Created\""
 field	expectations.stdout.contains[2]	"\"newText\":\"adapt\""
 field	expectations.stdout.contains[3]	"\"newText\":\"input\""
 field	expectations.stdout.contains[4]	"\"newText\":\"RightEntry\""
 field	expectations.stdout.contains[5]	"\"newText\":\"Available\""
-field	expectations.stdout.contains[6]	"\"line\":8,\"character\":2"
-field	expectations.stdout.contains[7]	"\"line\":25,\"character\":2"
-field	expectations.stdout.contains[8]	"\"line\":30,\"character\":4"
-field	expectations.stdout.contains[9]	"right.veln"
+field	expectations.stdout.contains[6]	"\"newText\":\"value\""
+field	expectations.stdout.contains[7]	"\"line\":8,\"character\":2"
+field	expectations.stdout.contains[8]	"\"line\":25,\"character\":2"
+field	expectations.stdout.contains[9]	"\"line\":30,\"character\":4"
 field	expectations.stdout.not_contains[0]	"\"line\":35,\"character\":7"
 field	expectations.stdout.not_contains[1]	"\"line\":36,\"character\":2"
 field	expectations.stdout.not_contains[2]	"\"line\":3,\"character\":20"
 field	expectations.stdout.not_contains[3]	"left.veln\":[{\"range\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4226,"sha256":"aafc70e0c266d7a9ccc58a1bc7188ca10f1eb4e52678b367057d68abfdbdd00f"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":4691,"sha256":"30c7ac3cf7b2c452306859e9709d5d77a38bb58b565232d39440d6479d1bc8b9"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"615d4fe6b9bcc16a56b2bb7d3fed244148046c7a7b3e5e919607bbd299d0e313"
+case_digest	"9baf39ab754f1cb98aa4358a435b05fcfc93bc40fd57cf3cc3e1105ffab1255d"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52225,4 +52271,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b8f3ee85dff3ef99354794c6d5b49eb9b3054c67233660c80e9466b1b99f4332"
+aggregate_digest	"77d9e840c5081e62e42e41bff4090cc48fbb158d209a2dd42e4664090e2caae0"
