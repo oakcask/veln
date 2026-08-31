@@ -1,0 +1,64 @@
+name: test / source surface
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test--source-surface.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/veln-cli/tests/toolchain_cases/**
+      - crates/veln-cli/tests/toolchain_harness/manifest_syntax/**
+      - crates/veln-cli/tests/toolchain_harness/manifest_syntax.rs
+      - crates/veln-cli/toolchain_case_inventory.rs
+      - crates/veln-project/**
+      - crates/veln-source/**
+      - docs/specification/source-surface-executable.pl
+      - docs/specification/source-surface-fixtures/**
+      - docs/specification/source-surface.md
+      - examples/specification/**
+      - rust-toolchain.toml
+      - tools/veln-repo-toolchain-cases/**
+      - workflow-scripts/check-source-surface-executable.mjs
+  pull_request:
+    paths:
+      - .github/workflows/test--source-surface.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/veln-cli/tests/toolchain_cases/**
+      - crates/veln-cli/tests/toolchain_harness/manifest_syntax/**
+      - crates/veln-cli/tests/toolchain_harness/manifest_syntax.rs
+      - crates/veln-cli/toolchain_case_inventory.rs
+      - crates/veln-project/**
+      - crates/veln-source/**
+      - docs/specification/source-surface-executable.pl
+      - docs/specification/source-surface-fixtures/**
+      - docs/specification/source-surface.md
+      - examples/specification/**
+      - rust-toolchain.toml
+      - tools/veln-repo-toolchain-cases/**
+      - workflow-scripts/check-source-surface-executable.mjs
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "26"
+
+jobs:
+  test-source-surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install SWI-Prolog for executable source-surface checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends swi-prolog-nox
+      - name: Verify executable source-surface fixtures and generated grammar
+        run: node workflow-scripts/check-source-surface-executable.mjs
+      - name: Reject accepted Veln sources missing from the executable grammar
+        run: cargo run --locked -p veln-repo-toolchain-cases -- .

@@ -9,7 +9,6 @@ on:
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
       - docs/**/*.md
-      - docs/specification/source-surface-executable.pl
       - scripts/agent-test
       - .github/workflows/test--rust.yaml
       - workflow-scripts/**/*.mjs
@@ -19,7 +18,6 @@ on:
       - .github/workflows/workflow--test-scripts.yaml
       - AGENTS.md
       - docs/**/*.md
-      - docs/specification/source-surface-executable.pl
       - scripts/agent-test
       - .github/workflows/test--rust.yaml
       - workflow-scripts/**/*.mjs
@@ -42,12 +40,6 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
-      - name: Install SWI-Prolog for executable source-surface checks
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends swi-prolog-nox
-      - name: Verify executable source-surface spec and generated grammar
-        run: node workflow-scripts/check-source-surface-executable.mjs
       - name: Validate frontmatter in changed documentation
         env:
           DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

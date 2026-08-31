@@ -1,0 +1,15 @@
+[package]
+name = "veln-repo-toolchain-cases"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-project.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "veln-repo-toolchain-cases"
+path = "src/main.rs"
