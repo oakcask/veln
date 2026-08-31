@@ -21,6 +21,13 @@ command behavior for the main path matrix. The checked
 `identifier-casing-qualified-use-recovery-controls-json` and
 `identifier-casing-qualified-use-recovery-controls-human` examples fix the
 same-source recovery and unresolved-control boundaries. The checked
+`identifier-casing-declaration-type-carriers-json` and
+`identifier-casing-declaration-type-carriers-human` examples fix declaration
+type-carrier spans. The checked
+`identifier-casing-qualified-handler-boundaries-json` and
+`identifier-casing-qualified-handler-boundaries-human` examples fix handler
+context parameter type paths and handler operation clause call targets. The
+checked
 `identifier-casing-qualified-use-navigation`,
 `identifier-casing-qualified-module-type-navigation`,
 `identifier-casing-qualified-prelude-navigation`, and
