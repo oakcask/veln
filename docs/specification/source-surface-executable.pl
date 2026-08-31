@@ -33,6 +33,11 @@ check_fixtures :-
 
 accepted_fixture(Path) :-
     fixture_path(accepted, Path).
+accepted_fixture(Path) :-
+    accepted_toolchain_fixture(Path).
+
+accepted_toolchain_fixture('examples/specification/check/source-surface/main.veln').
+accepted_toolchain_fixture('examples/specification/check/if-expression-syntax/main.veln').
 
 rejected_fixture(Path) :-
     fixture_path(rejected, Path).

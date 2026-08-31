@@ -421,6 +421,11 @@ use `schema.repeat_reference`, `schema.byte_view_reference`, or
 
 ## Executable Grammar
 
+The executable grammar checks its focused accepted and rejected fixtures. It
+also accepts the source files from the `check/source-surface` and
+`check/if-expression-syntax` toolchain cases. Those cases independently
+require the Veln toolchain to accept the same files without diagnostics.
+
 <!-- source-surface-grammar:start -->
 ```text
 Module        ::= UseDecl* Item*
