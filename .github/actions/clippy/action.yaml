@@ -27,9 +27,11 @@ runs:
         touch -d @1 Cargo.toml Cargo.lock rust-toolchain.toml
     - name: Check Clippy lints
       shell: bash
+      env:
+        CARGO_INCREMENTAL: "0"
       run: cargo clippy --locked --workspace --all-targets -- -D warnings
-    - name: Save Clippy build cache
-      if: steps.clippy-build-cache.outputs.cache-hit != 'true'
+    - name: Save main Clippy build cache
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.clippy-build-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: target
