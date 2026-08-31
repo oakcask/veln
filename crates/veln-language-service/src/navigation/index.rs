@@ -51,6 +51,312 @@ impl SymbolIndex {
         })
     }
 
+    fn rename_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        match result.selected_symbol.kind.rename_name_class() {
+            RenameNameClass::Type => self.type_rename_conflict(result, requested_name),
+            RenameNameClass::Constructor => self.constructor_rename_conflict(result, requested_name),
+            RenameNameClass::Function => self.function_rename_conflict(result, requested_name),
+            RenameNameClass::ValueBinding => self.local_rename_conflict(result, requested_name),
+        }
+    }
+
+    fn type_rename_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let selected = self.selected_type(result)?;
+        self.types
+            .iter()
+            .find(|candidate| {
+                candidate.package.is_none()
+                    && candidate.module == selected.module
+                    && candidate.name == requested_name
+                    && !same_type(candidate, &selected)
+            })
+            .map(|candidate| {
+                (
+                    candidate.declaration.clone(),
+                    RenameAffectedScope::Module {
+                        name: selected.module.clone(),
+                    },
+                )
+            })
+            .or_else(|| {
+                self.affected_spans(result)
+                    .into_iter()
+                    .find_map(|span| {
+                        let (file, token_index) = self.file_token_for_span(span)?;
+                        let conflict = self
+                            .visible_type_for_reference(file, &file.tokens, token_index, requested_name)
+                            .filter(|candidate| !same_type(candidate, &selected))?;
+                        Some((
+                            conflict.declaration,
+                            RenameAffectedScope::Module {
+                                name: file.module.clone(),
+                            },
+                        ))
+                    })
+            })
+    }
+
+    fn constructor_rename_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let selected = self.selected_constructor(result)?;
+        self.constructors
+            .iter()
+            .find(|candidate| {
+                candidate.package.is_none()
+                    && candidate.module == selected.module
+                    && candidate.type_name == selected.type_name
+                    && candidate.name == requested_name
+                    && !same_constructor(candidate, &selected)
+            })
+            .map(|candidate| {
+                (
+                    candidate.declaration.clone(),
+                    RenameAffectedScope::Module {
+                        name: selected.module.clone(),
+                    },
+                )
+            })
+            .or_else(|| {
+                self.affected_spans(result)
+                    .into_iter()
+                    .find_map(|span| {
+                        let (file, token_index) = self.file_token_for_span(span)?;
+                        let conflict = self
+                            .constructor_symbol_for_call(
+                                file,
+                                &file.tokens,
+                                token_index,
+                                requested_name,
+                            )
+                            .filter(|candidate| !same_constructor(candidate, &selected))?;
+                        Some((
+                            conflict.declaration,
+                            RenameAffectedScope::Module {
+                                name: file.module.clone(),
+                            },
+                        ))
+                    })
+            })
+    }
+
+    fn function_rename_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let selected = self.selected_function(result)?;
+        self.functions
+            .iter()
+            .find(|candidate| {
+                candidate.package.is_none()
+                    && candidate.module == selected.module
+                    && candidate.name == requested_name
+                    && !same_function(candidate, &selected)
+            })
+            .map(|candidate| {
+                (
+                    candidate.declaration.clone(),
+                    RenameAffectedScope::Module {
+                        name: selected.module.clone(),
+                    },
+                )
+            })
+            .or_else(|| {
+                self.affected_spans(result)
+                    .into_iter()
+                    .find_map(|span| {
+                        let (file, token_index) = self.file_token_for_span(span)?;
+                        if local_binding_shadows_call_target(&file.tokens, token_index, requested_name)
+                        {
+                            return self.local_conflict_in_file(file, requested_name, span);
+                        }
+                        if let Some(conflict) = self
+                            .constructor_symbol_for_call(
+                                file,
+                                &file.tokens,
+                                token_index,
+                                requested_name,
+                            )
+                        {
+                            return Some((
+                                conflict.declaration,
+                                RenameAffectedScope::Module {
+                                    name: file.module.clone(),
+                                },
+                            ));
+                        }
+                        let conflict = match qualifier_for_token(&file.tokens, token_index) {
+                            Some(qualifier) => {
+                                self.function_for_qualified_call(file, &qualifier, requested_name)
+                            }
+                            None => self.symbol_for_bare_call(
+                                file,
+                                &file.tokens,
+                                token_index,
+                                requested_name,
+                            )
+                            .and_then(|symbol| match symbol {
+                                Symbol::Function(symbol) => Some(symbol),
+                                _ => None,
+                            }),
+                        }
+                        .filter(|candidate| !same_function(candidate, &selected))?;
+                        Some((
+                            conflict.declaration,
+                            RenameAffectedScope::Module {
+                                name: file.module.clone(),
+                            },
+                        ))
+                    })
+            })
+    }
+
+    fn local_rename_conflict(
+        &self,
+        result: &NavigationResult,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let selected = self.selected_local(result)?;
+        let file = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == selected.scope_file)?;
+        let scope = RenameAffectedScope::Lexical {
+            file: selected.scope_file.clone(),
+            start_offset: selected.scope_start,
+            end_offset: selected.scope_end,
+        };
+        handler_operation_clause_bindings(file, &file.tokens)
+            .into_iter()
+            .find(|binding| {
+                binding.name == requested_name
+                    && !same_span(&binding.declaration, &selected.declaration)
+                    && binding.start < selected.scope_end
+                    && selected.scope_start < binding.end
+            })
+            .map(|binding| (workspace_location(binding.declaration), scope.clone()))
+            .or_else(|| {
+                local_bindings(&file.tokens, selected.scope_start, selected.scope_end)
+                    .into_iter()
+                    .find(|binding| binding.name == requested_name)
+                    .map(|binding| {
+                        let span = span_for_name_at_or_before(file, requested_name, binding.start)
+                            .unwrap_or_else(|| selected.declaration.clone());
+                        (workspace_location(span), scope)
+                    })
+            })
+    }
+
+    fn selected_type(&self, result: &NavigationResult) -> Option<TypeSymbol> {
+        self.types
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && symbol.declaration == result.selected_symbol.declaration
+            })
+            .cloned()
+    }
+
+    fn selected_constructor(&self, result: &NavigationResult) -> Option<ConstructorSymbol> {
+        self.constructors
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && symbol.declaration == result.selected_symbol.declaration
+            })
+            .cloned()
+    }
+
+    fn selected_function(&self, result: &NavigationResult) -> Option<FunctionSymbol> {
+        self.functions
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && symbol.declaration == result.selected_symbol.declaration
+            })
+            .cloned()
+    }
+
+    fn selected_local(&self, result: &NavigationResult) -> Option<LocalSymbol> {
+        let NavigationSource::Workspace = result.selected_symbol.declaration.source else {
+            return None;
+        };
+        self.files.iter().find_map(|file| {
+            handler_operation_clause_bindings(file, &file.tokens)
+                .into_iter()
+                .find(|binding| same_span(&binding.declaration, &result.selected_symbol.declaration.span))
+                .map(|binding| LocalSymbol {
+                    name: binding.name,
+                    declaration: binding.declaration,
+                    scope_file: file.source.path().as_str().to_string(),
+                    scope_start: binding.start,
+                    scope_end: binding.end,
+                    kind: binding.kind,
+                })
+        })
+    }
+
+    fn affected_spans<'a>(&self, result: &'a NavigationResult) -> Vec<&'a SourceSpan> {
+        std::iter::once(&result.definition.span)
+            .chain(&result.references)
+            .collect()
+    }
+
+    fn file_token_for_span<'a>(&'a self, span: &SourceSpan) -> Option<(&'a IndexedFile, usize)> {
+        let file = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == span.file.as_str())?;
+        let token_index = file.tokens.iter().position(|token| {
+            token.range.start == span.start.offset && token.range.end == span.end.offset
+        })?;
+        Some((file, token_index))
+    }
+
+    fn local_conflict_in_file(
+        &self,
+        file: &IndexedFile,
+        requested_name: &str,
+        span: &SourceSpan,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        function_scopes(&file.tokens)
+            .into_iter()
+            .find(|scope| {
+                span.start.offset >= scope.body_start
+                    && span.start.offset < scope.end
+                    && scope.shadows(requested_name, &file.tokens, self.token_index_for_span(file, span).unwrap_or(0))
+            })
+            .map(|scope| {
+                let conflict = span_for_name_before_offset(file, requested_name, span.start.offset)
+                    .unwrap_or_else(|| span.clone());
+                (
+                    workspace_location(conflict),
+                    RenameAffectedScope::Lexical {
+                        file: file.source.path().as_str().to_string(),
+                        start_offset: scope.body_start,
+                        end_offset: scope.end,
+                    },
+                )
+            })
+    }
+
+    fn token_index_for_span(&self, file: &IndexedFile, span: &SourceSpan) -> Option<usize> {
+        file.tokens.iter().position(|token| {
+            token.range.start == span.start.offset && token.range.end == span.end.offset
+        })
+    }
+
     fn symbol_for_selection(
         &self,
         file: &IndexedFile,
@@ -794,6 +1100,34 @@ fn resolve_external_qualified_alias(
     } else {
         Some((format!("{}::{}", module, rest.join("::")), package.clone()))
     }
+}
+
+fn span_for_name_before_offset(
+    file: &IndexedFile,
+    name: &str,
+    offset: usize,
+) -> Option<SourceSpan> {
+    file.tokens
+        .iter()
+        .rev()
+        .find(|token| {
+            token.kind == TokenKind::Ident && token.text == name && token.range.start < offset
+        })
+        .map(|token| file.source.span(token.range))
+}
+
+fn span_for_name_at_or_before(
+    file: &IndexedFile,
+    name: &str,
+    offset: usize,
+) -> Option<SourceSpan> {
+    file.tokens
+        .iter()
+        .rev()
+        .find(|token| {
+            token.kind == TokenKind::Ident && token.text == name && token.range.start <= offset
+        })
+        .map(|token| file.source.span(token.range))
 }
 
 fn declaration_matches(

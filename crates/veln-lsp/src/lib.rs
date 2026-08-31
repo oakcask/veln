@@ -13,7 +13,8 @@ use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::Diagnostic;
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, SourcePosition, navigate, validate_rename,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, SourcePosition, navigate,
+    validate_rename_in_snapshot,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -289,12 +290,12 @@ impl Server {
             else {
                 return response(&id, "{\"changes\":{}}");
             };
-            match validate_rename(&request.result, &new_name) {
+            match validate_rename_in_snapshot(&request.snapshot, &request.result, &new_name) {
                 Ok(()) => response(
                     &id,
                     &workspace_edit_json(&request.root, &request.result, &new_name),
                 ),
-                Err(failure) => rename_failure_response(&id, &failure),
+                Err(failure) => rename_failure_response(&id, &request.root, &failure),
             }
         })
         .into_iter()
@@ -426,6 +427,7 @@ impl Server {
         )?;
         Some(NavigationRequest {
             root: visible_root.to_path_buf(),
+            snapshot: snapshot.clone(),
             result,
         })
     }

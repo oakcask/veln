@@ -84,7 +84,30 @@ pub struct RenameFailure {
     pub code: &'static str,
     pub symbol_class: RenameNameClass,
     pub requested_name: String,
-    pub required_initial: RenameRequiredInitial,
+    pub kind: RenameFailureKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RenameFailureKind {
+    InvalidCase {
+        required_initial: RenameRequiredInitial,
+    },
+    Conflict {
+        conflicting_declaration: NavigationLocation,
+        affected_scope: RenameAffectedScope,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RenameAffectedScope {
+    Module {
+        name: String,
+    },
+    Lexical {
+        file: String,
+        start_offset: usize,
+        end_offset: usize,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -121,16 +144,42 @@ pub fn validate_rename(
 ) -> Result<(), RenameFailure> {
     let symbol_class = result.selected_symbol.kind.rename_name_class();
     let required_initial = symbol_class.required_initial();
-    if required_initial.accepts(requested_name) {
-        Ok(())
-    } else {
-        Err(RenameFailure {
+    if !required_initial.accepts(requested_name) {
+        return Err(RenameFailure {
             code: "rename.invalid_case",
             symbol_class,
             requested_name: requested_name.to_string(),
-            required_initial,
-        })
+            kind: RenameFailureKind::InvalidCase { required_initial },
+        });
     }
+    Ok(())
+}
+
+pub fn validate_rename_in_snapshot(
+    snapshot: &EffectiveProjectSnapshot,
+    result: &NavigationResult,
+    requested_name: &str,
+) -> Result<(), RenameFailure> {
+    validate_rename(result, requested_name)?;
+    let symbol_class = result.selected_symbol.kind.rename_name_class();
+    if requested_name == result.selected_symbol.name {
+        return Ok(());
+    }
+    if let Some((conflicting_declaration, affected_scope)) = snapshot
+        .navigation_index()
+        .rename_conflict(result, requested_name)
+    {
+        return Err(RenameFailure {
+            code: "rename.conflict",
+            symbol_class,
+            requested_name: requested_name.to_string(),
+            kind: RenameFailureKind::Conflict {
+                conflicting_declaration,
+                affected_scope,
+            },
+        });
+    }
+    Ok(())
 }
 
 pub fn navigate(

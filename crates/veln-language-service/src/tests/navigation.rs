@@ -189,6 +189,142 @@
     }
 
     #[test]
+    fn rename_validation_rejects_same_namespace_conflicts_for_supported_classes() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "type Item\n",
+                "  Value(value: Int)\n",
+                "  Ready\n",
+                "  Waiting\n",
+                "end\n\n",
+                "type Entry\n",
+                "  Existing\n",
+                "end\n\n",
+                "effect Choose\n",
+                "  pick(value: Bool, other: Bool) -> Bool\n",
+                "end\n\n",
+                "handler choose() handles Choose\n",
+                "  pick(value, other) => value\n",
+                "end\n\n",
+                "fn convert(input: Item) -> Item\n",
+                "  Value(1)\n",
+                "end\n\n",
+                "fn adapt(input: Item) -> Item\n",
+                "  input\n",
+                "end\n",
+            ),
+        )]);
+
+        let cases = [
+            (
+                1,
+                6,
+                "Entry",
+                RenameNameClass::Type,
+                "main.veln",
+                7,
+                6,
+            ),
+            (
+                3,
+                3,
+                "Waiting",
+                RenameNameClass::Constructor,
+                "main.veln",
+                4,
+                3,
+            ),
+            (
+                19,
+                4,
+                "adapt",
+                RenameNameClass::Function,
+                "main.veln",
+                23,
+                4,
+            ),
+            (
+                16,
+                8,
+                "other",
+                RenameNameClass::ValueBinding,
+                "main.veln",
+                16,
+                15,
+            ),
+        ];
+
+        for (line, column, requested, class, path, conflict_line, conflict_column) in cases {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_rename_conflict(
+                validate_rename_in_snapshot(&snapshot, &result, requested).unwrap_err(),
+                class,
+                requested,
+                path,
+                conflict_line,
+                conflict_column,
+            );
+        }
+    }
+
+    #[test]
+    fn rename_validation_preserves_non_conflicting_same_class_renames() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Item\n  Left\nend\n"),
+            source("right.veln", "pub type Other\n  Right\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn read(value: left::Item) -> left::Item\n",
+                    "  value\n",
+                    "end\n\n",
+                    "fn shadow_control(value: Int) -> Int\n",
+                    "  let entry = value\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "main.veln", 4, 24).unwrap();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "Entry").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_rejects_provable_multi_scope_ambiguity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Item\n  Left\nend\n"),
+            source("right.veln", "pub type Entry\n  Right\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn local(value: left::Item) -> left::Item\n",
+                    "  value\n",
+                    "end\n\n",
+                    "fn imported(value: Item) -> Item\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 10).unwrap();
+
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "Entry").unwrap_err(),
+            RenameNameClass::Type,
+            "Entry",
+            "right.veln",
+            1,
+            10,
+        );
+    }
+
+    #[test]
     fn type_references_cover_syntax_retained_type_roles() {
         let result = query(
             vec![source(

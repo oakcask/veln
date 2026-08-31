@@ -211,14 +211,20 @@ class-changing replacement returns JSON-RPC invalid params with code `-32602`.
 The error payload preserves the shared `rename.invalid_case` code and includes
 the selected symbol class, requested name, and required initial class. The
 request returns no workspace edits in that failure response. A rename request
+that would create a same-namespace duplicate or a provable ambiguity in an
+affected module or lexical scope returns JSON-RPC invalid params with code
+`-32602`. The error payload preserves the shared `rename.conflict` code and
+includes the selected symbol class, requested name, conflicting declaration
+location, and affected scope. The request returns no workspace edits in that
+failure response. A rename request
 without a selected supported workspace symbol returns an empty workspace-edit
 `changes` object, and prepare-rename for the same position returns `null`.
 The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
-class-changing failures for the four supported rename classes, plus
-source-declared nullary constructor uses, same-spelled non-type namespace
-exclusion, ambiguous imported type rejection, and qualified type identity
-preservation for type rename.
+class-changing failures for the four supported rename classes, predictable
+conflict rejection, source-declared nullary constructor uses, same-spelled
+non-type namespace exclusion, ambiguous imported type rejection, and qualified
+type identity preservation for type rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay
