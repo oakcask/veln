@@ -510,6 +510,7 @@ impl AstBuilder {
                         annotation,
                         expr,
                         span,
+                        ..
                     } => BodyLine {
                         node_id: self.alloc(),
                         kind: BodyLineKind::Let {

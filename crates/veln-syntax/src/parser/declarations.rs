@@ -324,10 +324,13 @@ impl<'a> Parser<'a> {
         let params = self.parse_params_in_context("effect_operation", true);
         self.expect(TokenKind::RParen, "effect_operation", vec![")"]);
         let return_type = if self.eat(TokenKind::Arrow).is_some() {
-            Some(self.collect_return_type_until(
-                "effect_operation",
-                &[TokenKind::Newline, TokenKind::Eof],
-            ))
+            Some(
+                self.collect_return_type_until(
+                    "effect_operation",
+                    &[TokenKind::Newline, TokenKind::Eof],
+                )
+                .0,
+            )
         } else {
             self.error_current(
                 "parse.effect_operation_return",
@@ -491,6 +494,7 @@ impl<'a> Parser<'a> {
                 name_span: name_span.unwrap_or_else(|| self.source.span(start)),
                 ty: None,
                 ty_span: None,
+                ty_paths: Vec::new(),
                 is_variadic: false,
                 span: self.source.span(start),
             });

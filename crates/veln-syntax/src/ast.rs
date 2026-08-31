@@ -228,6 +228,7 @@ pub struct FunctionDecl {
     pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
     pub return_type_span: Option<SourceSpan>,
+    pub return_type_paths: Vec<TypePathSegments>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub contracts: Vec<ContractClause>,
@@ -260,6 +261,7 @@ pub struct Param {
     pub name_span: SourceSpan,
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
+    pub ty_paths: Vec<TypePathSegments>,
     pub is_variadic: bool,
     pub span: SourceSpan,
 }
@@ -289,6 +291,7 @@ pub enum BodyLine {
     Let {
         pattern: Pattern,
         annotation: Option<String>,
+        annotation_paths: Vec<TypePathSegments>,
         expr: Expr,
         span: SourceSpan,
     },
@@ -296,6 +299,12 @@ pub enum BodyLine {
         expr: Expr,
         span: SourceSpan,
     },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypePathSegments {
+    pub segments: Vec<String>,
+    pub segment_spans: Vec<SourceSpan>,
 }
 
 #[derive(Clone, Debug)]

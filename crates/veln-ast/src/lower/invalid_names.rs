@@ -103,12 +103,7 @@ pub(super) fn collect_invalid_function_names(
             enclosing.clone(),
             None,
         );
-        collect_invalid_type_path_names(
-            param.ty.as_deref(),
-            param.ty_span.as_ref(),
-            invalid,
-            enclosing.clone(),
-        );
+        collect_invalid_type_path_names(&param.ty_paths, invalid, enclosing.clone());
     }
     if let Some(binding) = &function.return_binding {
         push_invalid_name(
@@ -121,31 +116,17 @@ pub(super) fn collect_invalid_function_names(
             None,
         );
     }
-    collect_invalid_type_path_names(
-        function.return_type.as_deref(),
-        function.return_type_span.as_ref(),
-        invalid,
-        enclosing.clone(),
-    );
+    collect_invalid_type_path_names(&function.return_type_paths, invalid, enclosing.clone());
     for line in &function.body {
         match line {
             SyntaxBodyLine::Let {
                 pattern,
-                annotation,
+                annotation_paths,
                 expr,
-                span,
                 ..
             } => {
                 collect_invalid_pattern_names(pattern, invalid, enclosing.clone());
-                collect_invalid_type_path_names(
-                    annotation.as_deref(),
-                    annotation
-                        .as_ref()
-                        .map(|annotation| inferred_let_annotation_span(annotation, expr, span))
-                        .as_ref(),
-                    invalid,
-                    enclosing.clone(),
-                );
+                collect_invalid_type_path_names(annotation_paths, invalid, enclosing.clone());
                 collect_invalid_expr_names(expr, invalid, enclosing.clone());
             }
             SyntaxBodyLine::Expr { expr, .. } => {
@@ -156,99 +137,28 @@ pub(super) fn collect_invalid_function_names(
 }
 
 fn collect_invalid_type_path_names(
-    ty: Option<&str>,
-    span: Option<&SourceSpan>,
+    paths: &[veln_syntax::TypePathSegments],
     invalid: &mut Vec<InvalidName>,
     enclosing: Option<SourceSpan>,
 ) {
-    let (Some(ty), Some(span)) = (ty, span) else {
-        return;
-    };
-    let Some((segments, segment_spans)) = type_name_path_segments(ty, span) else {
-        return;
-    };
-    if segments.len() <= 1 {
-        return;
-    }
-    for index in 0..segments.len() {
-        let class = if index + 1 == segments.len() {
-            NameClass::Type
-        } else {
-            NameClass::Module
-        };
-        push_invalid_name(
-            invalid,
-            Some(&segments[index]),
-            segment_spans.get(index),
-            class,
-            NameOccurrence::PathSegment,
-            enclosing.clone(),
-            Some(index),
-        );
-    }
-}
-
-fn type_name_path_segments(ty: &str, span: &SourceSpan) -> Option<(Vec<String>, Vec<SourceSpan>)> {
-    if !ty.contains("::") {
-        return None;
-    }
-    let mut segments = Vec::new();
-    let mut spans = Vec::new();
-    let bytes = ty.as_bytes();
-    let mut cursor = 0usize;
-    while cursor < bytes.len() {
-        if !is_ident_start(bytes[cursor]) {
-            cursor += 1;
-            continue;
-        }
-        let start = cursor;
-        cursor += 1;
-        while cursor < bytes.len() && is_ident_continue(bytes[cursor]) {
-            cursor += 1;
-        }
-        let end = cursor;
-        let preceded_by_path = start >= 2 && &ty[start - 2..start] == "::";
-        let followed_by_path = ty.get(end..end + 2) == Some("::");
-        if preceded_by_path || followed_by_path {
-            segments.push(ty[start..end].to_string());
-            spans.push(offset_span_within(span, start, end));
+    for path in paths {
+        for index in 0..path.segments.len() {
+            let class = if index + 1 == path.segments.len() {
+                NameClass::Type
+            } else {
+                NameClass::Module
+            };
+            push_invalid_name(
+                invalid,
+                Some(&path.segments[index]),
+                path.segment_spans.get(index),
+                class,
+                NameOccurrence::PathSegment,
+                enclosing.clone(),
+                Some(index),
+            );
         }
     }
-    (segments.len() > 1).then_some((segments, spans))
-}
-
-fn is_ident_start(byte: u8) -> bool {
-    byte.is_ascii_alphabetic() || byte == b'_'
-}
-
-fn is_ident_continue(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_'
-}
-
-fn offset_span_within(span: &SourceSpan, start: usize, end: usize) -> SourceSpan {
-    let mut next = span.clone();
-    next.start.offset = span.start.offset + start;
-    next.end.offset = span.start.offset + end;
-    next.start.column = span.start.column + start;
-    next.end.column = span.start.column + end;
-    next
-}
-
-fn inferred_let_annotation_span(
-    annotation: &str,
-    expr: &SyntaxExpr,
-    line_span: &SourceSpan,
-) -> SourceSpan {
-    let annotation_end = expr.span.start.offset.saturating_sub(3);
-    let annotation_start = annotation_end.saturating_sub(annotation.len());
-    let mut span = line_span.clone();
-    span.start.offset = annotation_start;
-    span.end.offset = annotation_end;
-    span.start.line = expr.span.start.line;
-    span.end.line = expr.span.start.line;
-    span.start.column = expr.span.start.column.saturating_sub(2 + annotation.len());
-    span.end.column = expr.span.start.column.saturating_sub(2);
-    span
 }
 
 pub(super) fn collect_invalid_handler_names(

@@ -59,6 +59,7 @@ impl<'a> Parser<'a> {
             return_binding: return_decl.binding,
             return_type: return_decl.ty,
             return_type_span: return_decl.ty_span,
+            return_type_paths: return_decl.ty_paths,
             effects: return_decl.effects,
             effect_spans: return_decl.effect_spans,
             contracts,
@@ -147,7 +148,7 @@ impl<'a> Parser<'a> {
         kind: FunctionKind,
     ) -> FunctionReturn {
         let return_context = Self::return_context(kind);
-        let (binding, ty, ty_span) = if self.eat(TokenKind::Arrow).is_some() {
+        let (binding, ty, ty_span, ty_paths) = if self.eat(TokenKind::Arrow).is_some() {
             let return_binding =
                 if matches!(self.current().kind, TokenKind::Ident | TokenKind::Hole)
                     && self.peek_at(TokenKind::Colon)
@@ -162,7 +163,7 @@ impl<'a> Parser<'a> {
                     None
                 };
             let return_type_start = self.current().range;
-            let return_type = self.collect_return_type_until(
+            let (return_type, return_type_paths) = self.collect_return_type_until(
                 return_context,
                 &[TokenKind::Effects, TokenKind::Newline, TokenKind::Eof],
             );
@@ -170,9 +171,14 @@ impl<'a> Parser<'a> {
                 .previous()
                 .map_or(return_type_start, |token| token.range);
             let return_type_span = self.source.span(return_type_start.cover(return_type_end));
-            (return_binding, Some(return_type), Some(return_type_span))
+            (
+                return_binding,
+                Some(return_type),
+                Some(return_type_span),
+                return_type_paths,
+            )
         } else {
-            (None, None, None)
+            (None, None, None, Vec::new())
         };
         let (effects, effect_spans) = if self.eat(TokenKind::Effects).is_some() {
             let labels = self.parse_effect_list();
@@ -185,6 +191,7 @@ impl<'a> Parser<'a> {
             binding,
             ty,
             ty_span,
+            ty_paths,
             effects,
             effect_spans,
         }
@@ -246,17 +253,19 @@ impl<'a> Parser<'a> {
             let (name, name_span) = self.expect_covered_name(context, "parameter name");
             let mut is_variadic = false;
             let mut ty_span = None;
+            let mut ty_paths = Vec::new();
             let ty = self.eat(TokenKind::Colon).map(|colon| {
                 if self.eat_variadic_marker() {
                     is_variadic = true;
                 }
                 let ty_start = self.current().range;
-                let ty = self.collect_type_until(
+                let (ty, paths) = self.collect_type_paths_until(
                     context,
                     &[TokenKind::Comma, TokenKind::RParen, TokenKind::Eof],
                 );
                 let ty_end = self.previous().map_or(colon.range, |token| token.range);
                 ty_span = Some(self.source.span(ty_start.cover(ty_end)));
+                ty_paths = paths;
                 ty
             });
             if require_types && ty.is_none() {
@@ -284,6 +293,7 @@ impl<'a> Parser<'a> {
                 name_span: name_span.unwrap_or_else(|| self.source.span(start)),
                 ty,
                 ty_span,
+                ty_paths,
                 is_variadic,
                 span: self.source.span(start.cover(end)),
             });
@@ -399,19 +409,21 @@ impl<'a> Parser<'a> {
         if self.at(TokenKind::Let) {
             self.bump();
             let pattern = self.parse_let_pattern();
-            let annotation = if self.eat(TokenKind::Colon).is_some() {
-                Some(self.collect_type_until(
+            let (annotation, annotation_paths) = if self.eat(TokenKind::Colon).is_some() {
+                let (annotation, paths) = self.collect_type_paths_until(
                     "let_statement",
                     &[TokenKind::Equal, TokenKind::Newline, TokenKind::Eof],
-                ))
+                );
+                (Some(annotation), paths)
             } else {
-                None
+                (None, Vec::new())
             };
             self.expect(TokenKind::Equal, "let_statement", vec!["="]);
             let (expr, end) = self.parse_expr_for_body_line("let_statement");
             BodyLine::Let {
                 pattern,
                 annotation,
+                annotation_paths,
                 expr,
                 span: self.source.span(start.cover(end)),
             }

@@ -23,15 +23,15 @@ fn type_leaf_invalid(input: modType::Sample) -> Int
   end
 end
 
-fn prelude_prefix_invalid(input: Prelude::Option<Int>) -> Int
+fn prelude_prefix_invalid(input: Prelude :: Option < Int >) -> Int
   0
 end
 
-fn prelude_middle_invalid(input: prelude::option<Int>) -> Int
+fn prelude_middle_invalid(input: prelude :: option < Int >) -> Int
   0
 end
 
-fn prelude_leaf_invalid(input: prelude::int) -> Int
+fn prelude_leaf_invalid(input: prelude :: int) -> Int
   0
 end
 
