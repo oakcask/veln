@@ -40,10 +40,9 @@ artifact exclusion, and the `check` and `run` selection boundary. The completed
 implementation record is
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 
-The remaining proposal work covers module identities, qualified-use segment
-casing beyond constructor-pattern leaves, recovery navigation, repair rename,
-and rename conflict prediction. The completed public alias target-leaf casing
-boundary is specified by
+The remaining proposal work covers module identities, recovery navigation,
+repair rename, and rename conflict prediction. The completed public alias
+target-leaf casing boundary is specified by
 [Names And Effects](../specification/names-effects.md) and checked by the
 `identifier-casing-public-alias-targets-json` and
 `identifier-casing-public-alias-targets-human` examples. Its completion record
@@ -96,9 +95,11 @@ public functions is specified by
 `identifier-casing-qualified-use-navigation`,
 `identifier-casing-qualified-module-type-navigation`,
 `identifier-casing-qualified-prelude-navigation`, and
-`identifier-casing-qualified-function-navigation` examples. The remaining
-qualified-use proposal scope covers recovery navigation beyond those compiler
-and language-service diagnostics.
+`identifier-casing-qualified-function-navigation` examples. Their completion
+record is
+[Identifier Casing Qualified Use Paths](../reference/implemented-proposals/identifier-casing-qualified-use-paths.md).
+The remaining qualified-use proposal scope covers recovery navigation beyond
+those compiler and language-service diagnostics.
 
 The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
@@ -145,6 +146,13 @@ constructor-pattern leaf boundary. Its completion record is
 Written import-path segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
 [Check JSON And Diagnostics](../specification/diagnostics-json.md).
+Qualified-use path casing diagnostics and the covered qualified-use
+language-service operations are specified by
+[Name Resolution](../specification/name-resolution.md),
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), and
+[Editor Support](../specification/editor-support.md). Their completion record
+is
+[Identifier Casing Qualified Use Paths](../reference/implemented-proposals/identifier-casing-qualified-use-paths.md).
 Source-path-derived module identity segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
 [Check JSON And Diagnostics](../specification/diagnostics-json.md), and
@@ -160,12 +168,11 @@ incomplete.
 The remaining proposal keeps the same class initials: type and constructor
 roles require an ASCII uppercase initial, and module, function, and
 value-binding roles require an ASCII lowercase initial. The remaining work
-applies those initials to these not-yet-current surfaces:
+applies those initials to this not-yet-current surface:
 
 | Surface | Proposed rule |
 | --- | --- |
 | Module identities | Every written module identity and explicit import alias starts with an ASCII lowercase letter. |
-| Qualified uses | Every written segment with a syntax-fixed or resolution-fixed role satisfies that role's name class. Unresolved or ambiguous intermediate segments are not guessed from spelling. |
 
 Name lookup remains case-sensitive. Identifiers outside the current
 specification and the remaining surfaces above keep their existing casing
@@ -244,8 +251,8 @@ the written path. Source-path occurrences are current behavior specified by
 The implemented source foundation quarantines invalid source declarations,
 bindings, and public alias targets for `check`, `run`, and LSP single-file
 diagnostics. The remaining rules in this section are proposal scope where they
-require module identity validation, qualified-use segment validation,
-navigation, rename, or the deferred language-service selection boundary.
+require module identity validation, recovery navigation, repair rename, rename
+conflict prediction, or the deferred language-service selection boundary.
 
 For sources without casing diagnostics, ordinary expression calls and
 constructor patterns use these candidate classes. Dedicated schema, effect,
@@ -272,8 +279,9 @@ The decomposition validates every role-classified written segment. It does not
 treat every prefix as a module and does not infer an unresolved intermediate
 role from capitalization alone.
 
-The qualified constructor-pattern leaf boundary is now current behavior,
-specified by [Name Resolution](../specification/name-resolution.md) and
+The qualified constructor-pattern leaf boundary and role-fixed qualified-use
+path casing diagnostics are now current behavior, specified by
+[Name Resolution](../specification/name-resolution.md) and
 [Types](../specification/types.md). The remaining qualified-use proposal scope
 does not reinterpret lowercase qualified constructor patterns as value
 bindings.
@@ -294,9 +302,10 @@ the same name class. LSP and MCP must not add adapter-specific exceptions.
 quarantined recovery for source declarations and bindings selected by `check`,
 `run`, LSP single-file diagnostics, workspace snapshot and open-document
 overlay selection, and exact companion source and target boundaries. The
-remaining proposal defines how that recovery model extends to qualified-use
-roles, remaining companion cases for invalid module or qualified roles, and
-recovery navigation. Source-path-derived module identity failures are current
+remaining proposal defines how that recovery model extends to remaining
+qualified-use recovery links, remaining companion cases for invalid module or
+qualified roles, and recovery navigation. Source-path-derived module identity
+failures are current
 behavior specified by [Name Resolution](../specification/name-resolution.md)
 and [Check JSON And Diagnostics](../specification/diagnostics-json.md); this
 proposal covers their unimplemented interactions with graph, artifact, and
@@ -402,11 +411,11 @@ Current LSP rename validates selected valid workspace type, constructor,
 function, and value-binding symbols before it produces edits. That implemented
 behavior is specified by [Editor Support](../specification/editor-support.md).
 For type-role references, the current boundary rejects ambiguous bare imported
-type selections and preserves qualified type identity before returning rename
-edits. The remaining rename proposal covers repair rename through quarantined
+type selections, preserves qualified type identity before returning rename
+edits, and covers the implemented qualified-use path segment selections named
+above. The remaining rename proposal covers repair rename through quarantined
 invalid-name recovery records, predictable conflict rejection, source-path
-module rename exclusion, MCP error mapping, and the deferred module and
-qualified-use surfaces.
+module rename exclusion, MCP error mapping, and deferred module surfaces.
 
 A repair rename edits the declaration and every occurrence linked to the same
 unique recovery symbol, including an occurrence whose initial-derived valid
@@ -438,10 +447,9 @@ loaded and unloaded direct dependencies, are specified by
 [Names And Effects](../specification/names-effects.md). The implicit-prelude
 selection boundary is complete and recorded in
 [Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md).
-The remaining proposal scope is limited to module identity, qualified-use,
-recovery navigation, repair rename, rename conflict prediction, MCP rename
-mapping, and deferred language-service consumers listed in the acceptance
-model.
+The remaining proposal scope is limited to module identity, recovery
+navigation, repair rename, rename conflict prediction, MCP rename mapping, and
+deferred language-service consumers listed in the acceptance model.
 
 No backend receives a remaining-scope module identity or recovery record with
 an invalid case. The planned command fixtures are authoritative for the exact
@@ -455,9 +463,9 @@ selection boundary when command behavior differs.
 - Remove callable-binding-versus-constructor precedence from valid programs.
 - Preserve current visibility, ambiguity, and value-shadowing rules within
   each name class.
-- Extend the current source foundation to the remaining module, qualified-use,
-  selection, recovery navigation, repair rename, rename conflict prediction,
-  and MCP rename mapping surfaces.
+- Extend the current source foundation to the remaining module, selection,
+  recovery navigation, repair rename, rename conflict prediction, and MCP
+  rename mapping surfaces.
 
 ## Non-Goals
 
@@ -504,7 +512,6 @@ identifier-casing remainder.
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
-| Complete language-service operations for remaining qualified-use prelude segments and unsupported module/type segment selections. | Definition, references, prepare-rename, and rename observe the same role decomposition as checking for every supported selected segment, without guessing unresolved intermediate roles. Unsupported segment roles return no selected symbol. | Language-service definition, reference, prepare-rename, and rename decision table for remaining qualified-use prelude and unsupported segment selections. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |

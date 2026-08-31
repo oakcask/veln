@@ -38,9 +38,11 @@ otherwise resolves.
 
 ## Completion
 
-This slice is complete. It does not add module-identity casing, non-leaf
-qualified-use segment casing, recovery navigation, rename behavior, or any
+This slice is complete. It does not add module-identity casing, recovery
+navigation, rename behavior, or any
 casing rule for schema-alias targets, schema names, effects, handlers,
 operations, fields, type parameters, or holes. Source-less registry validation
 is completed separately in
 [Identifier Casing Source-Less Symbols](identifier-casing-source-less-symbols.md).
+Qualified-use path casing is completed separately in
+[Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).

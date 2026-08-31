@@ -46,7 +46,7 @@ bindings and the match-arm body still receive normal checking.
 
 ## Completion
 
-This slice is complete. It does not complete module-identity casing,
-constructor-call qualified-use leaf casing, non-leaf qualified-use segment
-casing, recovery navigation, repair rename, rename conflict prediction, or
-MCP rename mapping.
+This slice is complete. It does not complete module-identity casing, recovery
+navigation, repair rename, rename conflict prediction, or MCP rename mapping.
+Qualified-use path casing is completed separately in
+[Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).
