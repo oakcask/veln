@@ -113,7 +113,9 @@ through a registry-external module spelling.
 
 This record completes only the source-less lookup descriptor acceptance row of
 the identifier-casing proposal. Module identity, recovery navigation, repair
-rename, rename conflict prediction, MCP rename mapping, and remaining
-language-service consumer rows remain proposal scope. Qualified-use path
-casing is completed separately in
+rename, MCP rename mapping, and remaining language-service consumer rows
+remain proposal scope. Qualified-use path casing is completed separately in
 [Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).
+LSP rename conflict rejection for valid selected workspace symbols is completed
+separately in
+[Identifier Casing Rename Conflicts](identifier-casing-rename-conflicts.md).

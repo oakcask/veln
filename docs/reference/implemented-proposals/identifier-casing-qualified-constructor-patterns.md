@@ -47,6 +47,8 @@ bindings and the match-arm body still receive normal checking.
 ## Completion
 
 This slice is complete. It does not complete module-identity casing, recovery
-navigation, repair rename, rename conflict prediction, or MCP rename mapping.
+navigation, repair rename, or MCP rename mapping. LSP rename conflict
+rejection for valid selected workspace symbols is completed separately in
+[Identifier Casing Rename Conflicts](identifier-casing-rename-conflicts.md).
 Qualified-use path casing is completed separately in
 [Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).
