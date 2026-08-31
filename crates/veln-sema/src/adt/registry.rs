@@ -3,14 +3,16 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use veln_ast::{PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 use veln_core::CoreType;
 
-use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
+use crate::name_recovery::{
+    normal_use_decls, public_alias_has_invalid_target_leaf, use_decl_matches_import_path,
+};
 use crate::semantic_model::Type;
 use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantDescriptor};
 use super::lookup_validation::{
-    companion_access_targets, constructor_matches_visible_path, same_descriptor, source_descriptor,
-    validate_adt_lookup_descriptors,
+    companion_access_targets, constructor_matches_visible_path, imported_module_path_matches,
+    same_descriptor, source_descriptor, validate_adt_lookup_descriptors,
 };
 
 #[derive(Clone, Debug)]
@@ -176,6 +178,15 @@ impl AdtRegistry {
             descriptor.module_name.as_deref() == module_name
                 && descriptor.type_parameters.len() == args.len()
         })
+    }
+
+    pub(crate) fn descriptor_for_type_prefer_module(
+        &self,
+        ty: &Type,
+        module_name: Option<&str>,
+    ) -> Option<&AdtDescriptor> {
+        self.descriptor_for_type_in_module(ty, module_name)
+            .or_else(|| self.descriptor_for_type(ty))
     }
 
     pub(crate) fn descriptor_for_type_path(
@@ -369,6 +380,9 @@ impl AdtRegistry {
         {
             return descriptor.module_name.as_deref() == Some(module_name);
         }
+        if imported_descriptor_path_matches(descriptor, segments, current_module, uses) {
+            return true;
+        }
         segments.len() <= 2
             && uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == current_module
@@ -451,6 +465,27 @@ fn prefer_current_module_constructors<'a>(
     });
 }
 
+fn imported_descriptor_path_matches(
+    descriptor: &AdtDescriptor,
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    let Some(type_index) = descriptor_type_segment_index(descriptor, segments) else {
+        return false;
+    };
+    imported_module_path_matches(descriptor, &segments[..type_index], uses, current_module)
+}
+
+fn descriptor_type_segment_index(descriptor: &AdtDescriptor, segments: &[String]) -> Option<usize> {
+    segments
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(index, segment)| (segment == &descriptor.type_name).then_some(index))
+        .filter(|index| *index > 0)
+}
+
 fn descriptor_allows_expected_constructor_disambiguation(descriptor: &AdtDescriptor) -> bool {
     matches!(
         descriptor.module_name.as_deref(),
@@ -502,11 +537,13 @@ fn descriptor_for_alias_target<'a>(
         [name] => descriptors
             .iter()
             .find(|descriptor| descriptor.type_name == *name),
-        [alias, name] => {
+        [_, .., name] => {
+            let import_path = &segments[..segments.len() - 1];
+            let module_path = import_path.join("::");
             let module_name = uses
                 .iter()
                 .find(|use_decl| {
-                    use_decl.module_name.as_deref() == current_module && use_decl.alias == *alias
+                    use_decl_matches_import_path(use_decl, &module_path, current_module)
                 })
                 .map(|use_decl| use_decl.name.as_str())?;
             descriptors.iter().find(|descriptor| {

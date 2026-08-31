@@ -1,0 +1,281 @@
+command = ["check", "--json", "main.veln", "modOnly.veln", "modType.veln", "consumer.veln", "foo/bar.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 28
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "path_segment"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "ModOnly"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "Value"
+
+[[json_assert]]
+path = "diagnostics.1.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.1.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "Foo"
+
+[[json_assert]]
+path = "diagnostics.2.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.2.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.3.details.name"
+equals = "ModType"
+
+[[json_assert]]
+path = "diagnostics.3.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.3.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.4.details.name"
+equals = "Bar"
+
+[[json_assert]]
+path = "diagnostics.4.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.4.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.5.details.name"
+equals = "sample"
+
+[[json_assert]]
+path = "diagnostics.5.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.5.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.6.details.name"
+equals = "Double"
+
+[[json_assert]]
+path = "diagnostics.6.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.6.details.segment_index"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.7.details.name"
+equals = "Double"
+
+[[json_assert]]
+path = "diagnostics.7.details.name_class"
+equals = "value_binding"
+
+[[json_assert]]
+path = "diagnostics.7.details.segment_index"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.8.details.name"
+equals = "made"
+
+[[json_assert]]
+path = "diagnostics.8.details.name_class"
+equals = "constructor"
+
+[[json_assert]]
+path = "diagnostics.8.details.segment_index"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.9.details.name"
+equals = "made"
+
+[[json_assert]]
+path = "diagnostics.9.details.name_class"
+equals = "constructor"
+
+[[json_assert]]
+path = "diagnostics.9.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.10.details.name"
+equals = "ModType"
+
+[[json_assert]]
+path = "diagnostics.10.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.10.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.11.details.name"
+equals = "sample"
+
+[[json_assert]]
+path = "diagnostics.11.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.11.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.12.details.name"
+equals = "Prelude"
+
+[[json_assert]]
+path = "diagnostics.12.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.12.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.13.details.name"
+equals = "some"
+
+[[json_assert]]
+path = "diagnostics.13.details.name_class"
+equals = "constructor"
+
+[[json_assert]]
+path = "diagnostics.13.details.segment_index"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.14.details.name"
+equals = "Prelude"
+
+[[json_assert]]
+path = "diagnostics.14.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.14.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.15.details.name"
+equals = "option"
+
+[[json_assert]]
+path = "diagnostics.15.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.15.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.16.details.name"
+equals = "int"
+
+[[json_assert]]
+path = "diagnostics.16.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.16.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.17.details.name"
+equals = "some"
+
+[[json_assert]]
+path = "diagnostics.17.details.name_class"
+equals = "constructor"
+
+[[json_assert]]
+path = "diagnostics.17.details.segment_index"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.18.details.name"
+equals = "Prelude"
+
+[[json_assert]]
+path = "diagnostics.18.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.18.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.19.details.name"
+equals = "Byte"
+
+[[json_assert]]
+path = "diagnostics.19.details.name_class"
+equals = "function"
+
+[[json_assert]]
+path = "diagnostics.19.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.20.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.20.details.namespace"
+equals = "value"
+
+[[json_assert]]
+path = "diagnostics.27.id"
+equals = "effect.unknown"
+
+[[json_assert]]
+path = "diagnostics.27.details.effect"
+equals = "logging::audit"

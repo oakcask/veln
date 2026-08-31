@@ -1,0 +1,70 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[stdout]
+contains = ["\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/", "/prelude.veln\"", "\"id\":3,\"result\":[]", "\"id\":4,\"result\":null", "\"id\":5,\"result\":{\"changes\":{}}", "\"id\":6,\"result\":null", "\"id\":7,\"result\":[]", "\"id\":8,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/", "\"id\":9,\"result\":[]", "\"id\":10,\"result\":null", "\"id\":11,\"result\":{\"changes\":{}}", "\"id\":12,\"result\":null"]
+not_contains = ["target/debug"]
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/referencesProvider"
+equals = true
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/renameProvider/prepareProvider"
+equals = true
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 11
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+equals = null

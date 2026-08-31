@@ -520,6 +520,7 @@ fn format_body_line(line: &BodyLine) -> (usize, String) {
             annotation,
             expr,
             span,
+            ..
         } => {
             let mut content = String::from("let ");
             content.push_str(&format_pattern(pattern));

@@ -8,7 +8,7 @@ use crate::{
     NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
     PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl, SchemaField,
     SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl,
-    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 const MAGIC: &[u8; 8] = b"VLNAST1\n";

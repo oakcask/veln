@@ -87,6 +87,7 @@ pub struct EffectOperationDecl {
     pub name_span: SourceSpan,
     pub params: Vec<Param>,
     pub return_type: Option<String>,
+    pub return_type_paths: Vec<TypePathSegments>,
     pub span: SourceSpan,
 }
 
@@ -138,6 +139,7 @@ pub enum TypeVariantFieldDelimiter {
 pub struct TypeVariantField {
     pub name: String,
     pub ty: String,
+    pub ty_paths: Vec<TypePathSegments>,
     pub span: SourceSpan,
 }
 
@@ -162,6 +164,7 @@ pub struct SchemaFormatClause {
 pub struct SchemaField {
     pub name: String,
     pub ty: String,
+    pub ty_paths: Vec<TypePathSegments>,
     pub where_clause: Option<SchemaFieldWhereClause>,
     pub span: SourceSpan,
 }
@@ -228,6 +231,7 @@ pub struct FunctionDecl {
     pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
     pub return_type_span: Option<SourceSpan>,
+    pub return_type_paths: Vec<TypePathSegments>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub contracts: Vec<ContractClause>,
@@ -260,6 +264,7 @@ pub struct Param {
     pub name_span: SourceSpan,
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
+    pub ty_paths: Vec<TypePathSegments>,
     pub is_variadic: bool,
     pub span: SourceSpan,
 }
@@ -289,6 +294,7 @@ pub enum BodyLine {
     Let {
         pattern: Pattern,
         annotation: Option<String>,
+        annotation_paths: Vec<TypePathSegments>,
         expr: Expr,
         span: SourceSpan,
     },
@@ -296,6 +302,12 @@ pub enum BodyLine {
         expr: Expr,
         span: SourceSpan,
     },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypePathSegments {
+    pub segments: Vec<String>,
+    pub segment_spans: Vec<SourceSpan>,
 }
 
 #[derive(Clone, Debug)]
@@ -311,7 +323,10 @@ pub enum ExprKind {
         name: Option<String>,
         satisfy: Option<SatisfyClause>,
     },
-    NamePath(Vec<String>),
+    NamePath {
+        segments: Vec<String>,
+        segment_spans: Vec<SourceSpan>,
+    },
     StringLiteral(String),
     IntLiteral(String),
     FloatLiteral(String),

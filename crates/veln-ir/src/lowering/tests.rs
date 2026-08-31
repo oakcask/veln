@@ -161,7 +161,7 @@ fn core_pattern(pattern: &Pattern) -> CorePattern {
             PatternKind::Record(fields) => {
                 CorePatternKind::Record(fields.iter().map(core_pattern_field).collect::<Vec<_>>())
             }
-            PatternKind::Constructor { name, args } => CorePatternKind::Constructor {
+            PatternKind::Constructor { name, args, .. } => CorePatternKind::Constructor {
                 name: name.clone(),
                 args: args.iter().map(core_pattern).collect(),
             },

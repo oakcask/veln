@@ -1,4 +1,5 @@
 use super::*;
+use veln_ast::NameOccurrence;
 
 mod effect_handlers;
 mod facts;
@@ -21,6 +22,7 @@ pub(crate) struct TypeEnvironment {
     codec_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
+    invalid_names: Vec<InvalidName>,
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
@@ -28,6 +30,34 @@ pub(crate) struct TypeEnvironment {
 }
 
 impl TypeEnvironment {
+    pub(crate) fn invalid_cased_path_segment<'a>(
+        &'a self,
+        segments: &[String],
+        segment_spans: &[SourceSpan],
+        enclosing_function_span: &SourceSpan,
+    ) -> Option<&'a InvalidName> {
+        self.invalid_names.iter().find(|invalid| {
+            invalid.occurrence == NameOccurrence::PathSegment
+                && invalid
+                    .enclosing_function_span
+                    .as_ref()
+                    .is_some_and(|span| {
+                        span.file == enclosing_function_span.file
+                            && span.start.offset == enclosing_function_span.start.offset
+                            && span.end.offset == enclosing_function_span.end.offset
+                    })
+                && invalid
+                    .segment_index
+                    .is_some_and(|index| index < segments.len() && index < segment_spans.len())
+                && invalid.segment_index.is_some_and(|index| {
+                    invalid.name == segments[index]
+                        && invalid.span.file == segment_spans[index].file
+                        && invalid.span.start.offset == segment_spans[index].start.offset
+                        && invalid.span.end.offset == segment_spans[index].end.offset
+                })
+        })
+    }
+
     fn functions_named(&self, name: &str) -> impl Iterator<Item = &FunctionSignature> {
         self.functions_by_name
             .get(name)

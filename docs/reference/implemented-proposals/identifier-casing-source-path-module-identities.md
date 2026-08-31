@@ -74,6 +74,7 @@ failure.
 This slice is complete for source-path-derived module identities, including
 generated-source origin metadata and manifest export paths. It does not
 complete written module identity syntax, explicit import-alias syntax,
-non-import qualified-use segment casing, test dependency selection, partial
-artifact analysis, recovery navigation, repair rename, rename conflict
-prediction, or MCP rename mapping.
+test dependency selection, partial artifact analysis, recovery navigation,
+repair rename, rename conflict prediction, or MCP rename mapping.
+Qualified-use path casing is completed separately in
+[Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).

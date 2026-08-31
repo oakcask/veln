@@ -52,6 +52,9 @@ pub(super) fn collect_invalid_type_names(
             None,
             None,
         );
+        for field in &variant.fields {
+            collect_invalid_type_path_names(&field.ty_paths, invalid, None);
+        }
     }
 }
 
@@ -103,6 +106,7 @@ pub(super) fn collect_invalid_function_names(
             enclosing.clone(),
             None,
         );
+        collect_invalid_type_path_names(&param.ty_paths, invalid, enclosing.clone());
     }
     if let Some(binding) = &function.return_binding {
         push_invalid_name(
@@ -115,15 +119,47 @@ pub(super) fn collect_invalid_function_names(
             None,
         );
     }
+    collect_invalid_type_path_names(&function.return_type_paths, invalid, enclosing.clone());
     for line in &function.body {
         match line {
-            SyntaxBodyLine::Let { pattern, expr, .. } => {
+            SyntaxBodyLine::Let {
+                pattern,
+                annotation_paths,
+                expr,
+                ..
+            } => {
                 collect_invalid_pattern_names(pattern, invalid, enclosing.clone());
+                collect_invalid_type_path_names(annotation_paths, invalid, enclosing.clone());
                 collect_invalid_expr_names(expr, invalid, enclosing.clone());
             }
             SyntaxBodyLine::Expr { expr, .. } => {
                 collect_invalid_expr_names(expr, invalid, enclosing.clone());
             }
+        }
+    }
+}
+
+fn collect_invalid_type_path_names(
+    paths: &[veln_syntax::TypePathSegments],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    for path in paths {
+        for index in 0..path.segments.len() {
+            let class = if index + 1 == path.segments.len() {
+                NameClass::Type
+            } else {
+                NameClass::Module
+            };
+            push_invalid_name(
+                invalid,
+                Some(&path.segments[index]),
+                path.segment_spans.get(index),
+                class,
+                NameOccurrence::PathSegment,
+                enclosing.clone(),
+                Some(index),
+            );
         }
     }
 }
@@ -142,6 +178,7 @@ pub(super) fn collect_invalid_handler_names(
             None,
             None,
         );
+        collect_invalid_type_path_names(&param.ty_paths, invalid, None);
     }
     for clause in &handler.operation_clauses {
         for param in &clause.params {
@@ -154,8 +191,30 @@ pub(super) fn collect_invalid_handler_names(
                 None,
                 None,
             );
+            collect_invalid_type_path_names(&param.ty_paths, invalid, None);
         }
         collect_invalid_expr_names(&clause.body, invalid, None);
+    }
+}
+
+pub(super) fn collect_invalid_effect_names(
+    effect: &SyntaxEffectDecl,
+    invalid: &mut Vec<InvalidName>,
+) {
+    for operation in &effect.operations {
+        for param in &operation.params {
+            collect_invalid_type_path_names(&param.ty_paths, invalid, None);
+        }
+        collect_invalid_type_path_names(&operation.return_type_paths, invalid, None);
+    }
+}
+
+pub(super) fn collect_invalid_schema_names(
+    schema: &SyntaxSchemaDecl,
+    invalid: &mut Vec<InvalidName>,
+) {
+    for field in &schema.fields {
+        collect_invalid_type_path_names(&field.ty_paths, invalid, None);
     }
 }
 
@@ -184,19 +243,7 @@ fn collect_invalid_pattern_names(
             name_spans,
             args,
         } => {
-            if name.len() > 1
-                && let Some((leaf, span)) = name.last().zip(name_spans.last())
-            {
-                push_invalid_name(
-                    invalid,
-                    Some(leaf),
-                    Some(span),
-                    NameClass::Constructor,
-                    NameOccurrence::PathSegment,
-                    enclosing.clone(),
-                    Some(name.len() - 1),
-                );
-            }
+            collect_invalid_constructor_path_names(name, name_spans, invalid, enclosing.clone());
             if let [name] = name.as_slice()
                 && args.is_empty()
             {
@@ -248,21 +295,13 @@ fn collect_invalid_expr_names(
             collect_invalid_expr_names(callee, invalid, enclosing);
         }
         SyntaxExprKind::Call { callee, args } => {
-            collect_invalid_expr_names(callee, invalid, enclosing.clone());
-            for arg in args {
-                collect_invalid_expr_names(arg, invalid, enclosing.clone());
-            }
+            collect_invalid_call_callee_names(callee, invalid, enclosing.clone());
+            collect_invalid_expr_list(args, invalid, enclosing);
         }
-        SyntaxExprKind::Perform { args, .. } => {
-            for arg in args {
-                collect_invalid_expr_names(arg, invalid, enclosing.clone());
-            }
-        }
+        SyntaxExprKind::Perform { args, .. } => collect_invalid_expr_list(args, invalid, enclosing),
         SyntaxExprKind::Handle { body, args, .. } => {
             collect_invalid_expr_names(body, invalid, enclosing.clone());
-            for arg in args {
-                collect_invalid_expr_names(arg, invalid, enclosing.clone());
-            }
+            collect_invalid_expr_list(args, invalid, enclosing);
         }
         SyntaxExprKind::SchemaDecode { input, base, .. } => {
             collect_invalid_expr_names(input, invalid, enclosing.clone());
@@ -272,27 +311,14 @@ fn collect_invalid_expr_names(
             collect_invalid_expr_names(value, invalid, enclosing);
         }
         SyntaxExprKind::Record(fields) => {
-            for field in fields {
-                collect_invalid_expr_names(&field.expr, invalid, enclosing.clone());
-            }
+            collect_invalid_record_field_expr_names(fields, invalid, enclosing);
         }
         SyntaxExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_invalid_expr_names(&entry.key, invalid, enclosing.clone());
-                collect_invalid_expr_names(&entry.value, invalid, enclosing.clone());
-            }
+            collect_invalid_dict_entry_expr_names(entries, invalid, enclosing);
         }
-        SyntaxExprKind::List(items) => {
-            for item in items {
-                collect_invalid_expr_names(item, invalid, enclosing.clone());
-            }
-        }
+        SyntaxExprKind::List(items) => collect_invalid_expr_list(items, invalid, enclosing),
         SyntaxExprKind::Match { scrutinee, arms } => {
-            collect_invalid_expr_names(scrutinee, invalid, enclosing.clone());
-            for arm in arms {
-                collect_invalid_pattern_names(&arm.pattern, invalid, enclosing.clone());
-                collect_invalid_expr_names(&arm.expr, invalid, enclosing.clone());
-            }
+            collect_invalid_match_expr_names(scrutinee, arms, invalid, enclosing);
         }
         SyntaxExprKind::If {
             condition,
@@ -300,27 +326,197 @@ fn collect_invalid_expr_names(
             else_if_branches,
             else_branch,
         } => {
-            collect_invalid_expr_names(condition, invalid, enclosing.clone());
-            collect_invalid_expr_names(then_branch, invalid, enclosing.clone());
-            for branch in else_if_branches {
-                collect_invalid_expr_names(&branch.condition, invalid, enclosing.clone());
-                collect_invalid_expr_names(&branch.expr, invalid, enclosing.clone());
-            }
-            collect_invalid_expr_names(else_branch, invalid, enclosing);
+            collect_invalid_if_expr_names(
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+                invalid,
+                enclosing,
+            );
         }
         SyntaxExprKind::Binary { left, right, .. } => {
             collect_invalid_expr_names(left, invalid, enclosing.clone());
             collect_invalid_expr_names(right, invalid, enclosing);
         }
-        SyntaxExprKind::Missing
-        | SyntaxExprKind::Hole { .. }
-        | SyntaxExprKind::NamePath(_)
-        | SyntaxExprKind::StringLiteral(_)
+        SyntaxExprKind::NamePath {
+            segments,
+            segment_spans,
+        } => {
+            collect_invalid_value_path_names(
+                segments,
+                segment_spans,
+                invalid,
+                enclosing.clone(),
+                NameClass::ValueBinding,
+            );
+        }
+        SyntaxExprKind::StringLiteral(_)
         | SyntaxExprKind::IntLiteral(_)
         | SyntaxExprKind::FloatLiteral(_)
         | SyntaxExprKind::BoolLiteral(_)
+        | SyntaxExprKind::Missing
+        | SyntaxExprKind::Hole { .. }
         | SyntaxExprKind::Unit => {}
     }
+}
+
+fn collect_invalid_expr_list(
+    exprs: &[SyntaxExpr],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    for expr in exprs {
+        collect_invalid_expr_names(expr, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_record_field_expr_names(
+    fields: &[SyntaxRecordField],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    for field in fields {
+        collect_invalid_expr_names(&field.expr, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_dict_entry_expr_names(
+    entries: &[SyntaxDictEntry],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    for entry in entries {
+        collect_invalid_expr_names(&entry.key, invalid, enclosing.clone());
+        collect_invalid_expr_names(&entry.value, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_match_expr_names(
+    scrutinee: &SyntaxExpr,
+    arms: &[SyntaxMatchArm],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    collect_invalid_expr_names(scrutinee, invalid, enclosing.clone());
+    for arm in arms {
+        collect_invalid_pattern_names(&arm.pattern, invalid, enclosing.clone());
+        collect_invalid_expr_names(&arm.expr, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_if_expr_names(
+    condition: &SyntaxExpr,
+    then_branch: &SyntaxExpr,
+    else_if_branches: &[SyntaxIfBranch],
+    else_branch: &SyntaxExpr,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    collect_invalid_expr_names(condition, invalid, enclosing.clone());
+    collect_invalid_expr_names(then_branch, invalid, enclosing.clone());
+    for branch in else_if_branches {
+        collect_invalid_expr_names(&branch.condition, invalid, enclosing.clone());
+        collect_invalid_expr_names(&branch.expr, invalid, enclosing.clone());
+    }
+    collect_invalid_expr_names(else_branch, invalid, enclosing);
+}
+
+fn collect_invalid_call_callee_names(
+    callee: &SyntaxExpr,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    match &callee.kind {
+        SyntaxExprKind::NamePath {
+            segments,
+            segment_spans,
+        } if constructor_path_is_role_fixed(segments) => {
+            collect_invalid_constructor_path_names(segments, segment_spans, invalid, enclosing);
+        }
+        SyntaxExprKind::NamePath {
+            segments,
+            segment_spans,
+        } => {
+            collect_invalid_value_path_names(
+                segments,
+                segment_spans,
+                invalid,
+                enclosing,
+                NameClass::Function,
+            );
+        }
+        _ => collect_invalid_expr_names(callee, invalid, enclosing),
+    }
+}
+
+fn collect_invalid_constructor_path_names(
+    segments: &[String],
+    segment_spans: &[SourceSpan],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    if segments.len() <= 1 {
+        return;
+    }
+    for index in 0..segments.len() {
+        let class = if index + 1 == segments.len() {
+            NameClass::Constructor
+        } else if index + 2 == segments.len() {
+            NameClass::Type
+        } else {
+            NameClass::Module
+        };
+        push_invalid_name(
+            invalid,
+            Some(&segments[index]),
+            segment_spans.get(index),
+            class,
+            NameOccurrence::PathSegment,
+            enclosing.clone(),
+            Some(index),
+        );
+    }
+}
+
+fn collect_invalid_value_path_names(
+    segments: &[String],
+    segment_spans: &[SourceSpan],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+    leaf_class: NameClass,
+) {
+    if segments.len() <= 1 {
+        return;
+    }
+    for index in 0..segments.len() {
+        let class = if index + 1 == segments.len() {
+            leaf_class
+        } else {
+            NameClass::Module
+        };
+        push_invalid_name(
+            invalid,
+            Some(&segments[index]),
+            segment_spans.get(index),
+            class,
+            NameOccurrence::PathSegment,
+            enclosing.clone(),
+            Some(index),
+        );
+    }
+}
+
+fn constructor_path_is_role_fixed(segments: &[String]) -> bool {
+    segments.len() >= 3
+        || matches!(segments, [type_name, constructor] if type_name
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_uppercase)
+            && constructor
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_uppercase))
 }
 
 fn push_invalid_name(

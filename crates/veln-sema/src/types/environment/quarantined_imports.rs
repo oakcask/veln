@@ -44,6 +44,32 @@ impl TypeEnvironment {
         self.quarantined_import_function_recovery_candidate_count(segments, current_module, None)
     }
 
+    pub(crate) fn quarantined_import_type_path_lacks_visible_leaf(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        let Some((use_decl, name)) = self.quarantined_import_for_segments(segments, current_module)
+        else {
+            return false;
+        };
+        let module_name = Some(use_decl.name.as_str());
+        !self.type_symbols.iter().any(|symbol| {
+            symbol.name == name
+                && symbol.module_name.as_deref() == module_name
+                && self.symbol_is_visible(symbol, module_name, current_module)
+        })
+    }
+
+    pub(crate) fn quarantined_import_type_path_uses_nested_alias(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> bool {
+        self.quarantined_import_for_segments(segments, current_module)
+            .is_some_and(|(use_decl, _)| use_decl.name.contains("::"))
+    }
+
     pub(super) fn quarantined_import_effect_recovery_candidate_count(
         &self,
         segments: &[String],

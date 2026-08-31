@@ -1,0 +1,97 @@
+use modOnly
+use modType
+
+fn module_prefix_invalid() -> Int
+  ModOnly::value()
+end
+
+fn module_leaf_invalid() -> Int
+  modOnly::Value()
+end
+
+fn type_prefix_invalid() -> modType::Sample
+  ModType::Sample::Made(1)
+end
+
+fn type_middle_invalid() -> modType::Sample
+  modType::sample::Made(1)
+end
+
+fn type_leaf_invalid(input: modType::Sample) -> Int
+  match input
+    modType::Sample::made(value) => value
+  end
+end
+
+fn pattern_module_prefix_invalid(input: modType::Sample) -> Int
+  match input
+    ModType::Made(value) => value
+  end
+end
+
+fn pattern_module_leaf_invalid(input: modType::Sample) -> Int
+  match input
+    modType::made(value) => value
+  end
+end
+
+fn pattern_type_prefix_invalid(input: modType::Sample) -> Int
+  match input
+    ModType::Sample::Made(value) => value
+  end
+end
+
+fn pattern_type_middle_invalid(input: modType::Sample) -> Int
+  match input
+    modType::sample::Made(value) => value
+  end
+end
+
+fn pattern_prelude_prefix_invalid(input: prelude::Option<Int>) -> Int
+  match input
+    Prelude::Option::Some(value) => value
+    prelude::None => 0
+  end
+end
+
+fn pattern_prelude_middle_invalid(input: prelude::Option<Int>) -> Int
+  match input
+    prelude::option::Some(value) => value
+    prelude::None => 0
+  end
+end
+
+fn pattern_prelude_leaf_invalid(input: prelude::Option<Int>) -> Int
+  match input
+    prelude::Option::some(value) => value
+    prelude::None => 0
+  end
+end
+
+fn prelude_prefix_invalid(input: Prelude :: Option < Int >) -> Int
+  0
+end
+
+fn prelude_middle_invalid(input: prelude :: option < Int >) -> Int
+  0
+end
+
+fn prelude_leaf_invalid(input: prelude :: int) -> Int
+  0
+end
+
+fn prelude_constructor_leaf_invalid() -> prelude::Option<Int>
+  prelude::Option::some(1)
+end
+
+fn prelude_function_prefix_invalid() -> Byte
+  Prelude::byte(1)
+end
+
+fn prelude_function_leaf_invalid() -> Byte
+  prelude::Byte(1)
+end
+
+fn function_type_effect_boundary(callback: fn() -> () effects [logging::audit]) -> ()
+  callback()
+end

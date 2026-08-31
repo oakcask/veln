@@ -26,7 +26,7 @@ fn parses_and_formats_match_expression() {
     };
     assert!(matches!(
         &scrutinee.kind,
-        ExprKind::NamePath(segments) if segments == &vec!["value".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["value".to_string()]
     ));
     assert_eq!(arms.len(), 2);
     assert_eq!(format_tree(&output.tree), source.text());

@@ -153,7 +153,7 @@ fn visit_private_expr_references(
                 visitor,
             )
         }
-        ExprKind::NamePath(_)
+        ExprKind::NamePath { .. }
         | ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
@@ -345,7 +345,7 @@ pub(crate) fn private_expr_reference_target(
     function_by_path: &FunctionAstMap<'_>,
     bindings: &[Binding],
 ) -> Option<FunctionKey> {
-    let ExprKind::NamePath(segments) = &expr.kind else {
+    let ExprKind::NamePath { segments, .. } = &expr.kind else {
         return None;
     };
     private_reference_name_path_target(segments, current_module, function_by_path, bindings)

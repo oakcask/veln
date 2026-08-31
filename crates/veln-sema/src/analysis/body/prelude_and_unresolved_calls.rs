@@ -1,4 +1,6 @@
 use super::*;
+use crate::source_less_lookup::standard_module;
+use veln_ast::NameClass;
 
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_prelude_call(
@@ -7,7 +9,7 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
-        let ExprKind::NamePath(segments) = &callee.kind else {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return None;
         };
         let (name, params, return_type) = if let [name] = segments.as_slice() {
@@ -152,7 +154,7 @@ impl<'a> FunctionChecker<'a> {
                         Some(args.len()),
                     )
                     == 1;
-            if !recovered {
+            if !recovered && !self.call_target_has_invalid_cased_recovery(callee, args.len()) {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(
                     callee.node_id,
@@ -166,6 +168,178 @@ impl<'a> FunctionChecker<'a> {
             self.infer_expr(arg, None);
         }
         Type::Unknown
+    }
+
+    fn call_target_has_invalid_cased_recovery(&self, callee: &Expr, arg_count: usize) -> bool {
+        match &callee.kind {
+            ExprKind::NamePath {
+                segments,
+                segment_spans,
+            } => self.corrected_invalid_call_target_resolves(segments, segment_spans, arg_count),
+            ExprKind::TypeApply { callee, .. } => {
+                self.call_target_has_invalid_cased_recovery(callee, arg_count)
+            }
+            _ => false,
+        }
+    }
+
+    fn corrected_invalid_call_target_resolves(
+        &self,
+        segments: &[String],
+        segment_spans: &[SourceSpan],
+        arg_count: usize,
+    ) -> bool {
+        if self.corrected_recorded_invalid_call_target_resolves(segments, segment_spans, arg_count)
+        {
+            return true;
+        }
+        if self.corrected_module_or_function_segment_resolves(segments, arg_count) {
+            return true;
+        }
+        self.corrected_type_qualified_constructor_resolves(segments, arg_count)
+    }
+
+    fn corrected_module_or_function_segment_resolves(
+        &self,
+        segments: &[String],
+        arg_count: usize,
+    ) -> bool {
+        if segments.len() < 2 {
+            return false;
+        }
+        for index in 0..segments.len() {
+            if !segments[index]
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_uppercase)
+            {
+                continue;
+            }
+            let mut corrected = segments.to_vec();
+            corrected[index] = lowercase_initial(&segments[index]);
+            if self.corrected_call_target_resolves(&corrected, arg_count) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn corrected_call_target_resolves(&self, corrected: &[String], arg_count: usize) -> bool {
+        self.environment
+            .function_path_for_value(corrected, self.function.module_name.as_deref())
+            .is_some()
+            || !self
+                .environment
+                .codec_call_path(corrected, self.function.module_name.as_deref())
+                .is_empty()
+            || self
+                .environment
+                .quarantined_import_call_recovery_candidate_count(
+                    corrected,
+                    self.function.module_name.as_deref(),
+                    arg_count,
+                )
+                == 1
+    }
+
+    fn corrected_recorded_invalid_call_target_resolves(
+        &self,
+        segments: &[String],
+        segment_spans: &[SourceSpan],
+        arg_count: usize,
+    ) -> bool {
+        let Some(invalid) = self.environment.invalid_cased_path_segment(
+            segments,
+            segment_spans,
+            &self.function.span,
+        ) else {
+            return false;
+        };
+        let Some(index) = invalid.segment_index else {
+            return false;
+        };
+        let mut corrected = segments.to_vec();
+        corrected[index] = corrected_initial_for_class(&invalid.name, invalid.class);
+        self.environment
+            .function_path_for_value(&corrected, self.function.module_name.as_deref())
+            .is_some()
+            || matches!(
+                self.environment.adts.constructor(
+                    &corrected,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ),
+                ConstructorLookup::Found(_)
+            )
+            || self
+                .environment
+                .quarantined_import_call_recovery_candidate_count(
+                    &corrected,
+                    self.function.module_name.as_deref(),
+                    arg_count,
+                )
+                == 1
+            || self
+                .environment
+                .quarantined_import_constructor_recovery_candidate_count(
+                    &corrected,
+                    self.function.module_name.as_deref(),
+                    Some(arg_count),
+                )
+                == 1
+            || qualified_prelude_signature(&corrected, None).is_some()
+            || qualified_prelude_builtin_signature_with_input(&corrected, None, None).is_some()
+            || self.corrected_prelude_constructor_resolves(&corrected)
+    }
+
+    fn corrected_type_qualified_constructor_resolves(
+        &self,
+        segments: &[String],
+        arg_count: usize,
+    ) -> bool {
+        if segments.len() < 2 {
+            return false;
+        }
+        let type_index = segments.len() - 2;
+        if segments[type_index]
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_uppercase)
+        {
+            return false;
+        }
+        let mut corrected = segments.to_vec();
+        corrected[type_index] = uppercase_initial(&segments[type_index]);
+        matches!(
+            self.environment.adts.constructor(
+                &corrected,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ),
+            ConstructorLookup::Found(_)
+        ) || self
+            .environment
+            .quarantined_import_constructor_recovery_candidate_count(
+                &corrected,
+                self.function.module_name.as_deref(),
+                Some(arg_count),
+            )
+            == 1
+    }
+
+    fn corrected_prelude_constructor_resolves(&self, corrected: &[String]) -> bool {
+        let [module, constructor @ ..] = corrected else {
+            return false;
+        };
+        module == standard_module()
+            && matches!(
+                self.environment.adts.constructor(
+                    constructor,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ),
+                ConstructorLookup::Found(_)
+            )
     }
 
     pub(super) fn infer_field_access(
@@ -249,7 +423,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn bare_call_is_ambiguous(&self, callee: &Expr) -> bool {
-        let ExprKind::NamePath(segments) = &callee.kind else {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return false;
         };
         let [name] = segments.as_slice() else {
@@ -384,4 +558,29 @@ impl<'a> FunctionChecker<'a> {
         }
         self.diagnostics.push(diagnostic);
     }
+}
+
+fn corrected_initial_for_class(name: &str, class: NameClass) -> String {
+    match class {
+        NameClass::Type | NameClass::Constructor => uppercase_initial(name),
+        NameClass::Module | NameClass::Function | NameClass::ValueBinding => {
+            lowercase_initial(name)
+        }
+    }
+}
+
+fn uppercase_initial(name: &str) -> String {
+    let Some((_, first)) = name.char_indices().next() else {
+        return String::new();
+    };
+    let rest = &name[first.len_utf8()..];
+    first.to_ascii_uppercase().to_string() + rest
+}
+
+fn lowercase_initial(name: &str) -> String {
+    let Some((_, first)) = name.char_indices().next() else {
+        return String::new();
+    };
+    let rest = &name[first.len_utf8()..];
+    first.to_ascii_lowercase().to_string() + rest
 }

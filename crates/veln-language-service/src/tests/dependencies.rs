@@ -76,6 +76,55 @@
     }
 
     #[test]
+    fn standard_library_prelude_qualified_type_segments_share_navigation() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub type Vec\n  pub Empty\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "pub fn main(items: prelude::Vec<Int>) -> prelude::Vec<Int>\n  items\nend\n",
+        )])
+        .with_standard_library(standard_library);
+
+        let module_selection = SourcePosition {
+            source: SourcePath::new("main.veln"),
+            line: 1,
+            column: 22,
+        };
+        assert!(navigate(&snapshot, module_selection).is_none());
+
+        let result = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 30,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+        assert_eq!(locations(&result.references), [("main.veln", 1, 29), ("main.veln", 1, 51)]);
+        let NavigationSource::Package { uri } = &result.definition.source else {
+            panic!("standard prelude type definition did not use a package location");
+        };
+        assert!(uri.starts_with("veln-pkg:///std/snapshot/"), "{uri}");
+        assert!(uri.ends_with("/prelude.veln"), "{uri}");
+        assert!(validate_rename(&result, "Items").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&result, "items").unwrap_err(),
+            RenameNameClass::Type,
+            "items",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
     fn standard_library_bare_prelude_fallback_respects_local_shadowing() {
         let standard_library = standard_library_snapshot(
             &[(
@@ -589,4 +638,3 @@
             assert_eq!(project.resolve_virtual_source(&uri), Some(expected));
         }
     }
-

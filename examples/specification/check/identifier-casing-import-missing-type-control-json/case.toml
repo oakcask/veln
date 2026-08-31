@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 2
+length = 3
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -22,6 +22,10 @@ equals = "module.unresolved_import"
 
 [[json_assert]]
 path = "diagnostics.1.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.2.id"
 equals = "name.invalid_case"
 
 [[diagnostics]]
@@ -45,3 +49,14 @@ message = "module name `HTTP` must start with an ASCII lowercase letter"
 file = "app.veln"
 line = 1
 column = 14
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `HTTP` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "app.veln"
+line = 3
+column = 16

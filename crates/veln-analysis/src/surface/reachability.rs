@@ -289,6 +289,11 @@ fn invalid_name_is_reachable(
     invalid: &veln_ast::InvalidName,
     reachable_spans: &[ReachableInvalidNameSpan],
 ) -> bool {
+    if invalid.occurrence == veln_ast::NameOccurrence::PathSegment {
+        return reachable_spans.iter().any(|reachable| {
+            matches!(reachable, ReachableInvalidNameSpan::Name(span) if span == &invalid.span)
+        });
+    }
     if let Some(span) = &invalid.enclosing_function_span {
         return reachable_spans
             .iter()

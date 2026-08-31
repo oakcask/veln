@@ -90,6 +90,23 @@ pub struct InvalidName {
     pub segment_index: Option<usize>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct QualifiedPathSegment {
+    pub name: String,
+    pub role: NameClass,
+    pub occurrence: NameOccurrence,
+    pub span: SourceSpan,
+    pub segment_index: usize,
+    pub evidence: QualifiedPathSegmentEvidence,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QualifiedPathSegmentEvidence {
+    Syntax,
+    Resolved,
+    UniqueRecovery,
+}
+
 #[derive(Clone, Debug)]
 pub struct HandlerDecl {
     pub node_id: NodeId,
@@ -192,6 +209,7 @@ pub struct EffectOperationDecl {
     pub name_span: SourceSpan,
     pub params: Vec<Param>,
     pub return_type: Option<String>,
+    pub return_type_paths: Vec<TypePathSegments>,
     pub span: SourceSpan,
 }
 
@@ -220,6 +238,7 @@ pub struct TypeVariantField {
     pub node_id: NodeId,
     pub name: String,
     pub ty: String,
+    pub ty_paths: Vec<TypePathSegments>,
     pub span: SourceSpan,
 }
 
@@ -247,6 +266,7 @@ pub struct SchemaField {
     pub node_id: NodeId,
     pub name: String,
     pub ty: String,
+    pub ty_paths: Vec<TypePathSegments>,
     pub where_clause: Option<SchemaFieldWhereClause>,
     pub span: SourceSpan,
 }
@@ -309,6 +329,7 @@ pub struct Function {
     pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
     pub return_type_span: Option<SourceSpan>,
+    pub return_type_paths: Vec<TypePathSegments>,
     pub effects: Option<Vec<String>>,
     pub effect_spans: Option<Vec<SourceSpan>>,
     pub contracts: Vec<Contract>,
@@ -349,8 +370,15 @@ pub struct Param {
     pub name: String,
     pub ty: Option<String>,
     pub ty_span: Option<SourceSpan>,
+    pub ty_paths: Vec<TypePathSegments>,
     pub is_variadic: bool,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypePathSegments {
+    pub segments: Vec<String>,
+    pub segment_spans: Vec<SourceSpan>,
 }
 
 #[derive(Clone, Debug)]
@@ -387,6 +415,7 @@ pub enum BodyLineKind {
     Let {
         pattern: Pattern,
         annotation: Option<String>,
+        annotation_paths: Vec<TypePathSegments>,
         expr: Expr,
     },
     Expr {
@@ -404,7 +433,7 @@ pub struct Expr {
 impl Expr {
     pub fn callee_name_path(&self) -> Option<&[String]> {
         match &self.kind {
-            ExprKind::NamePath(segments) => Some(segments),
+            ExprKind::NamePath { segments, .. } => Some(segments),
             ExprKind::TypeApply { callee, .. } => callee.callee_name_path(),
             _ => None,
         }
@@ -412,9 +441,9 @@ impl Expr {
 
     pub fn callee_name_path_and_type_args(&self) -> Option<(&[String], Option<&[String]>)> {
         match &self.kind {
-            ExprKind::NamePath(segments) => Some((segments, None)),
+            ExprKind::NamePath { segments, .. } => Some((segments, None)),
             ExprKind::TypeApply { callee, type_args } => {
-                let ExprKind::NamePath(segments) = &callee.kind else {
+                let ExprKind::NamePath { segments, .. } = &callee.kind else {
                     return None;
                 };
                 Some((segments, Some(type_args)))
@@ -431,7 +460,10 @@ pub enum ExprKind {
         name: Option<String>,
         satisfy: Option<SatisfyClause>,
     },
-    NamePath(Vec<String>),
+    NamePath {
+        segments: Vec<String>,
+        segment_spans: Vec<SourceSpan>,
+    },
     StringLiteral(String),
     IntLiteral(String),
     FloatLiteral(String),
@@ -580,6 +612,7 @@ pub enum PatternKind {
     Record(Vec<PatternField>),
     Constructor {
         name: Vec<String>,
+        name_spans: Vec<SourceSpan>,
         args: Vec<Pattern>,
     },
 }

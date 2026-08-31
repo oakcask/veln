@@ -316,7 +316,7 @@ impl<'a> CoreLowerer<'a> {
                     self.pattern_bindings(&field.pattern, field_type)
                 })
                 .collect(),
-            PatternKind::Constructor { name, args } => {
+            PatternKind::Constructor { name, args, .. } => {
                 let Some(descriptor) = self
                     .environment
                     .adts
@@ -383,7 +383,7 @@ impl<'a> CoreLowerer<'a> {
                         })
                         .collect(),
                 ),
-                PatternKind::Constructor { name, args } => {
+                PatternKind::Constructor { name, args, .. } => {
                     let constructor = scrutinee_type
                         .and_then(|ty| self.environment.adts.descriptor_for_core_type(ty))
                         .and_then(|descriptor| {

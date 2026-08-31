@@ -95,6 +95,7 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let annotation_type = annotation
                     .as_deref()
@@ -223,6 +224,7 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let annotation_type = annotation
                     .as_deref()
@@ -324,7 +326,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
     expected: Option<&Type>,
     context: &PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
-    if let ExprKind::NamePath(segments) = &expr.kind
+    if let ExprKind::NamePath { segments, .. } = &expr.kind
         && expected.is_some_and(|expected| {
             private_callback_return_constraint_can_update(segments, expected, context)
         })
@@ -336,7 +338,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
             let direct_reference =
                 private_prelude_callback_call_references_slot(callee, args, expected, context);
             direct_reference
-                || !matches!(callee.kind, ExprKind::NamePath(_))
+                || !matches!(callee.kind, ExprKind::NamePath { .. })
                     && private_prelude_callback_expr_references_slot(callee, None, context)
                 || args
                     .iter()
@@ -357,7 +359,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
             private_prelude_callback_control_flow_references_slot(expr, expected, context)
         }
-        ExprKind::NamePath(_)
+        ExprKind::NamePath { .. }
         | ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
@@ -517,7 +519,7 @@ pub(crate) fn private_prelude_callback_arg_references_slot(
     context: &PrivatePreludeCallbackReferenceContext<'_>,
 ) -> bool {
     match &expr.kind {
-        ExprKind::NamePath(segments) => {
+        ExprKind::NamePath { segments, .. } => {
             private_callback_return_constraint_can_update(segments, expected, context)
         }
         _ => private_prelude_callback_expr_references_slot(expr, Some(expected), context),

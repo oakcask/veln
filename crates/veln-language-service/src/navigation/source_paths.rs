@@ -54,6 +54,17 @@ fn qualified_reference_matches(
         .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
 }
 
+fn next_path_segment_index(tokens: &[Token], index: usize) -> Option<usize> {
+    let separator_index = next_non_layout_index(tokens, index)?;
+    if tokens[separator_index].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let segment_index = next_non_layout_index(tokens, separator_index)?;
+    (tokens[segment_index].kind == TokenKind::Ident
+        && is_identifier(&tokens[segment_index].text))
+    .then_some(segment_index)
+}
+
 fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
     next_non_layout_index(tokens, index).map(|index| &tokens[index])
 }
@@ -98,9 +109,18 @@ fn module_name_from_path(path: &str) -> Option<String> {
     Some(path.strip_suffix(".veln")?.replace('/', "::"))
 }
 
-fn use_modules(text: &str) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
+type UseModuleIndexes = (
+    BTreeSet<String>,
+    BTreeSet<(String, String)>,
+    BTreeMap<String, String>,
+    BTreeMap<String, (String, String)>,
+);
+
+fn use_modules(text: &str) -> UseModuleIndexes {
     let mut local = BTreeSet::new();
     let mut external = BTreeSet::new();
+    let mut local_aliases = BTreeMap::new();
+    let mut external_aliases = BTreeMap::new();
     for line in text.lines() {
         let Some(rest) = line.trim_start().strip_prefix("use ") else {
             continue;
@@ -108,18 +128,26 @@ fn use_modules(text: &str) -> (BTreeSet<String>, BTreeSet<(String, String)>) {
         let Some(module) = leading_module_path(rest) else {
             continue;
         };
+        let module_name = module.to_string();
+        let alias = module_name
+            .rsplit("::")
+            .next()
+            .unwrap_or(module_name.as_str())
+            .to_string();
         let suffix = rest[module.len()..].trim();
         if let Some(package) = suffix
             .strip_prefix("from ")
             .and_then(|value| value.strip_prefix('"'))
             .and_then(|value| value.split_once('"').map(|(package, _)| package))
         {
-            external.insert((module.to_string(), package.to_string()));
+            external.insert((module_name.clone(), package.to_string()));
+            external_aliases.insert(alias, (module_name, package.to_string()));
         } else {
-            local.insert(module.to_string());
+            local.insert(module_name.clone());
+            local_aliases.insert(alias, module_name);
         }
     }
-    (local, external)
+    (local, external, local_aliases, external_aliases)
 }
 
 fn workspace_location(span: SourceSpan) -> NavigationLocation {

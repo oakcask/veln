@@ -4,6 +4,7 @@ use veln_ast::{SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_project::companion_access_target;
 
 use crate::builtin_type_syntax::{BUILTIN_TYPE_SYNTAX_DESCRIPTORS, BuiltinTypeSyntaxRegistry};
+use crate::name_recovery::use_decl_matches_import_path;
 use crate::semantic_model::Type;
 use crate::source_less_names::{
     InvalidStandardSymbolCase, InvalidStandardSymbolReason, SourceLessNameClass,
@@ -260,8 +261,34 @@ pub(super) fn constructor_matches_visible_path(
                 && (standard_prelude_alias_matches(descriptor, alias)
                     || import_alias_matches(descriptor, alias, uses, current_module))
         }
+        [_, _, .., type_name, name] => {
+            name == &variant.name
+                && type_name == &descriptor.type_name
+                && imported_module_path_matches(
+                    descriptor,
+                    &segments[..segments.len() - 2],
+                    uses,
+                    current_module,
+                )
+        }
         _ => false,
     }
+}
+
+pub(super) fn imported_module_path_matches(
+    descriptor: &AdtDescriptor,
+    module_segments: &[String],
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+) -> bool {
+    let Some(module_name) = descriptor.module_name.as_deref() else {
+        return false;
+    };
+    let module_path = module_segments.join("::");
+    uses.iter().any(|use_decl| {
+        use_decl_matches_import_path(use_decl, &module_path, current_module)
+            && use_decl.name == module_name
+    })
 }
 
 pub(super) fn companion_access_targets(module: &SurfaceModule) -> BTreeMap<String, String> {

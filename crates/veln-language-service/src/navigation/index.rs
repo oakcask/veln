@@ -14,6 +14,7 @@ impl SymbolIndex {
         for dependency in dependencies.into_iter().chain(standard_library) {
             index_dependency_sources(&mut files, &mut declarations, dependency);
         }
+        attach_classified_path_segments(&mut files);
         Self {
             functions: declarations.functions,
             types: declarations.types,
@@ -41,11 +42,12 @@ impl SymbolIndex {
             .text()
             .get(selection.start.offset..selection.end.offset)?
             .to_string();
-        let symbol = self.symbol_for_selection(file, tokens, token_index, &name, &selection)?;
+        let selected = self.symbol_for_selection(file, tokens, token_index, &name, &selection)?;
         Some(SymbolRequest {
             index: self,
-            symbol,
+            symbol: selected.symbol,
             selection,
+            classified_path_segment: selected.classified_path_segment,
         })
     }
 
@@ -56,11 +58,11 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
         selection: &SourceSpan,
-    ) -> Option<Symbol> {
+    ) -> Option<SelectedNavigationSymbol> {
         if let Some(symbol) =
             handler_operation_clause_symbol(file, tokens, token_index, name, selection)
         {
-            return Some(Symbol::Local(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Local(symbol)));
         }
 
         if is_handler_operation_clause_operation_name(tokens, token_index) {
@@ -68,29 +70,100 @@ impl SymbolIndex {
         }
 
         if let Some(symbol) = self.function_declared_at(name, selection) {
-            return Some(Symbol::Function(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Function(symbol)));
         }
 
         if let Some(symbol) = self.type_declared_at(name, selection) {
-            return Some(Symbol::Type(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Type(symbol)));
         }
 
         if let Some(symbol) = self.constructor_declared_at(name, selection) {
-            return Some(Symbol::Constructor(symbol));
+            return Some(SelectedNavigationSymbol::bare(Symbol::Constructor(symbol)));
+        }
+
+        if let Some(segment) =
+            self.classified_qualified_segment(file, tokens, token_index, name, selection)
+            && let Some(selected) = segment.into_selected_symbol()
+        {
+            return Some(selected);
+        }
+
+        if is_qualified_path_token(tokens, token_index)
+            && !is_call_target_token(tokens, token_index)
+        {
+            return None;
         }
 
         if !is_call_target_token(tokens, token_index) {
             if is_type_reference_token(&file.source, name, selection) {
                 return self
                     .visible_type_for_reference(file, tokens, token_index, name)
-                    .map(Symbol::Type);
+                    .map(Symbol::Type)
+                    .map(SelectedNavigationSymbol::bare);
             }
             return None;
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
-            return self.symbol_for_bare_call(file, tokens, token_index, name);
+            return self
+                .symbol_for_bare_call(file, tokens, token_index, name)
+                .map(SelectedNavigationSymbol::bare);
         };
         self.symbol_for_qualified_call(file, &qualifier, name)
+            .map(SelectedNavigationSymbol::bare)
+    }
+
+    fn classified_qualified_segment(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<ClassifiedNavigationSegment> {
+        if previous_non_layout_token(tokens, token_index)
+            .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+            && next_non_layout_token(tokens, token_index)
+                .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+        {
+            return None;
+        }
+
+        if let Some(segment) = file
+            .classified_path_segments
+            .iter()
+            .find(|segment| same_span(&segment.span, selection))
+        {
+            let symbol = match segment.role {
+                NameClass::Type => self
+                    .visible_type_for_reference(file, tokens, token_index, name)
+                    .map(Symbol::Type),
+                NameClass::Constructor => {
+                    qualifier_for_token(tokens, token_index)
+                        .and_then(|qualifier| {
+                            self.constructor_for_qualified_call(file, &qualifier, name)
+                        })
+                        .map(Symbol::Constructor)
+                }
+                NameClass::Function => {
+                    qualifier_for_token(tokens, token_index)
+                        .and_then(|qualifier| self.function_for_qualified_call(file, &qualifier, name))
+                        .map(Symbol::Function)
+                }
+                NameClass::ValueBinding => {
+                    qualifier_for_token(tokens, token_index)
+                        .and_then(|qualifier| {
+                            self.function_for_qualified_call(file, &qualifier, name)
+                        })
+                        .map(Symbol::Function)
+                }
+                _ => None,
+            };
+            return Some(ClassifiedNavigationSegment {
+                segment: segment.clone(),
+                symbol,
+            });
+        }
+        None
     }
 
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {
@@ -148,7 +221,8 @@ impl SymbolIndex {
                 && match &symbol.package {
                     Some(package) => file
                         .external_uses
-                        .contains(&(symbol.module.clone(), package.clone())),
+                        .contains(&(symbol.module.clone(), package.clone()))
+                        || symbol.standard_prelude,
                     None => symbol.module != file.module && file.uses.contains(&symbol.module),
                 }
         });
@@ -162,18 +236,43 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<TypeSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         let mut candidates = self.types.iter().filter(|symbol| {
             symbol.name == name
-                && symbol.module == qualifier
+                && qualified_modules.iter().any(|module| module == &symbol.module)
                 && match &symbol.package {
                     Some(package) => file
                         .external_uses
-                        .contains(&(symbol.module.clone(), package.clone())),
+                        .contains(&(symbol.module.clone(), package.clone()))
+                        || symbol.standard_prelude,
                     None => symbol.module == file.module || file.uses.contains(&symbol.module),
                 }
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn type_for_constructor_qualifier_token(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        let constructor_index = next_path_segment_index(tokens, token_index)?;
+        let qualifier = qualifier_for_token(tokens, token_index)
+            .map(|prefix| format!("{prefix}::{name}"))
+            .unwrap_or_else(|| name.to_string());
+        let constructor =
+            self.constructor_for_qualified_call(file, &qualifier, &tokens[constructor_index].text)?;
+        self.types
+            .iter()
+            .find(|symbol| {
+                symbol.module == constructor.module
+                    && symbol.name == constructor.type_name
+                    && symbol.package == constructor.package
+            })
+            .cloned()
     }
 
     fn symbol_for_bare_call(
@@ -213,12 +312,23 @@ impl SymbolIndex {
         if let Some(symbol) = self.constructor_for_qualified_call(file, qualifier, name) {
             return Some(Symbol::Constructor(symbol));
         }
+        self.function_for_qualified_call(file, qualifier, name)
+            .map(Symbol::Function)
+    }
+
+    fn function_for_qualified_call(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<FunctionSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         self.functions
             .iter()
             .find(|symbol| match &symbol.package {
                 Some(package) => {
                     symbol.name == name
-                        && symbol.module == qualifier
+                        && qualified_modules.iter().any(|module| module == &symbol.module)
                         && (symbol.standard_prelude
                             || file
                                 .external_uses
@@ -226,16 +336,16 @@ impl SymbolIndex {
                 }
                 None => {
                     symbol.name == name
-                        && symbol.module == qualifier
+                        && qualified_modules.iter().any(|module| module == &symbol.module)
                         && file.uses.contains(&symbol.module)
-                        && file
-                            .companion_target_module
-                            .as_ref()
-                            .is_some_and(|target| target == &symbol.module)
+                        && (symbol.public
+                            || file
+                                .companion_target_module
+                                .as_ref()
+                                .is_some_and(|target| target == &symbol.module))
                 }
             })
             .cloned()
-            .map(Symbol::Function)
     }
 
     fn constructor_for_bare_call(
@@ -312,11 +422,18 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<ConstructorSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         self.constructors
             .iter()
             .find(|symbol| {
                 symbol.name == name
-                    && (constructor_qualifier_matches(symbol, qualifier)
+                    && (qualified_modules
+                        .iter()
+                        .any(|module| constructor_qualifier_matches(symbol, module))
+                        || qualified_modules.iter().any(|module| {
+                            module == &format!("{}::{}", symbol.module, symbol.type_name)
+                        })
+                        || (qualifier == symbol.type_name && symbol.module == file.module)
                         || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
                     && match &symbol.package {
                         Some(package) => {
@@ -486,12 +603,19 @@ impl SymbolIndex {
             return call_references(&file.source, &symbol.name);
         }
         if file.uses.contains(&symbol.module)
-            && file
-                .companion_target_module
-                .as_ref()
-                .is_some_and(|target| target == &symbol.module)
+            && (symbol.public
+                || file
+                    .companion_target_module
+                    .as_ref()
+                    .is_some_and(|target| target == &symbol.module))
         {
-            return qualified_references(&file.source, &symbol.module, &symbol.name);
+            return self
+                .qualifiers_for_module(file, &symbol.module, symbol.package.as_deref())
+                .into_iter()
+                .flat_map(|qualifier| {
+                    self.qualified_function_references(file, &qualifier, symbol)
+                })
+                .collect();
         }
         Vec::new()
     }
@@ -503,21 +627,68 @@ impl SymbolIndex {
             .collect()
     }
 
+    fn qualified_function_references(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        symbol: &FunctionSymbol,
+    ) -> Vec<SourceSpan> {
+        let tokens = lex(&file.source).tokens;
+        let module_segments = qualifier.split("::").collect::<Vec<_>>();
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                token.text == symbol.name
+                    && qualified_reference_matches(&tokens, *index, &module_segments)
+                    && (is_call_target_token(&tokens, *index)
+                        || file.classified_path_segments.iter().any(|segment| {
+                            segment.role == NameClass::ValueBinding
+                                && same_span(&segment.span, &file.source.span(token.range))
+                        }))
+                    && self
+                        .function_for_qualified_call(file, qualifier, &token.text)
+                        .is_some_and(|candidate| same_function(&candidate, symbol))
+            })
+            .map(|(_, token)| file.source.span(token.range))
+            .collect()
+    }
+
     fn type_references(&self, symbol: &TypeSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
             .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
             .flat_map(|file| {
                 let tokens = lex(&file.source).tokens;
-                type_reference_spans(&file.source, &tokens, &symbol.name)
+                let mut spans = type_reference_spans(&file.source, &tokens, &symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
                         self.visible_type_for_reference(file, &tokens, token_index, &symbol.name)
                             .is_some_and(|candidate| same_type(&candidate, symbol))
                             .then_some(span)
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                spans.extend(self.constructor_type_qualifier_references(file, &tokens, symbol));
+                spans
             })
+            .collect()
+    }
+
+    fn constructor_type_qualifier_references(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        symbol: &TypeSymbol,
+    ) -> Vec<SourceSpan> {
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(_, token)| token.kind == TokenKind::Ident && token.text == symbol.name)
+            .filter(|(index, token)| {
+                self.type_for_constructor_qualifier_token(file, tokens, *index, &token.text)
+                    .is_some_and(|candidate| same_type(&candidate, symbol))
+            })
+            .map(|(_, token)| file.source.span(token.range))
             .collect()
     }
 
@@ -557,6 +728,72 @@ impl SymbolIndex {
             None => self.constructor_for_bare_call(file, name),
         }
     }
+
+    fn qualified_module_candidates(&self, file: &IndexedFile, qualifier: &str) -> Vec<String> {
+        let mut modules = vec![qualifier.to_string()];
+        if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
+            modules.push(module);
+        }
+        if let Some((module, _package)) =
+            resolve_external_qualified_alias(&file.external_import_aliases, qualifier)
+        {
+            modules.push(module);
+        }
+        modules
+    }
+
+    fn qualifiers_for_module(
+        &self,
+        file: &IndexedFile,
+        module: &str,
+        package: Option<&str>,
+    ) -> Vec<String> {
+        let mut qualifiers = vec![module.to_string()];
+        match package {
+            Some(package) => qualifiers.extend(
+                file.external_import_aliases
+                    .iter()
+                    .filter(|(_, (target_module, target_package))| {
+                        target_module == module && target_package == package
+                    })
+                    .map(|(alias, _)| alias.clone()),
+            ),
+            None => qualifiers.extend(
+                file.import_aliases
+                    .iter()
+                    .filter(|(_, target)| *target == module)
+                    .map(|(alias, _)| alias.clone()),
+            ),
+        }
+        qualifiers
+    }
+}
+
+fn resolve_qualified_alias(aliases: &BTreeMap<String, String>, qualifier: &str) -> Option<String> {
+    let mut parts = qualifier.split("::");
+    let alias = parts.next()?;
+    let module = aliases.get(alias)?;
+    let rest = parts.collect::<Vec<_>>();
+    if rest.is_empty() {
+        Some(module.clone())
+    } else {
+        Some(format!("{}::{}", module, rest.join("::")))
+    }
+}
+
+fn resolve_external_qualified_alias(
+    aliases: &BTreeMap<String, (String, String)>,
+    qualifier: &str,
+) -> Option<(String, String)> {
+    let mut parts = qualifier.split("::");
+    let alias = parts.next()?;
+    let (module, package) = aliases.get(alias)?;
+    let rest = parts.collect::<Vec<_>>();
+    if rest.is_empty() {
+        Some((module.clone(), package.clone()))
+    } else {
+        Some((format!("{}::{}", module, rest.join("::")), package.clone()))
+    }
 }
 
 fn declaration_matches(
@@ -571,4 +808,11 @@ fn declaration_matches(
         && declaration.file == selection.file
         && declaration.start.offset == selection.start.offset
         && declaration.end.offset == selection.end.offset
+}
+
+fn is_qualified_path_token(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+        || next_non_layout_token(tokens, index)
+            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
 }

@@ -48,7 +48,11 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `identifier-casing-import-private-schema-boundary-json`, and
   `identifier-casing-import-effect-cascade-boundary-json`,
   `identifier-casing-import-handler-cascade-boundary-json`,
-  `identifier-casing-import-order-json`, and
+  `identifier-casing-import-order-json`,
+  `identifier-casing-qualified-use-paths-json`,
+  `identifier-casing-declaration-type-carriers-json`,
+  `identifier-casing-qualified-use-recovery-controls-json`,
+  `identifier-casing-qualified-handler-boundaries-json`, and
   `identifier-casing-import-alias-run-boundary-json` define exact spans,
   detail values, diagnostic ordering, and non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less
@@ -135,8 +139,13 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-schema-cascade-boundary-json`,
 `identifier-casing-import-private-schema-boundary-json`,
 `identifier-casing-import-effect-cascade-boundary-json`,
-`identifier-casing-import-handler-cascade-boundary-json`, and
-`identifier-casing-import-order-json` cases. Source-path-derived module
+`identifier-casing-import-handler-cascade-boundary-json`,
+`identifier-casing-import-order-json`,
+`identifier-casing-qualified-use-paths-json`,
+`identifier-casing-declaration-type-carriers-json`,
+`identifier-casing-qualified-use-recovery-controls-json`, and
+`identifier-casing-qualified-handler-boundaries-json` cases.
+Source-path-derived module
 identity casing is checked by `identifier-casing-source-path-json` and
 `identifier-casing-exported-source-path-json`; parse-failure coexistence,
 human output, lowercase-initial structural failures, and chained companion

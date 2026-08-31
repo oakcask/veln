@@ -46,6 +46,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-qualified-constructor-patterns.md](identifier-casing-qualified-constructor-patterns.md).
 - Identifier casing import paths:
   [identifier-casing-import-paths.md](identifier-casing-import-paths.md).
+- Identifier casing qualified use paths:
+  [identifier-casing-qualified-use-paths.md](identifier-casing-qualified-use-paths.md).
 - Identifier casing source path module identities:
   [identifier-casing-source-path-module-identities.md](identifier-casing-source-path-module-identities.md).
 - Common JSON assertion operation parity:

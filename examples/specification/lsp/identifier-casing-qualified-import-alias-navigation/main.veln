@@ -1,0 +1,11 @@
+use app::math
+
+fn make() -> app::math::Item
+  app::math::Item::Ready(app::math::double(1))
+end
+
+fn read(input: app::math::Item) -> Int
+  match input
+    app::math::Item::Ready(value) => value
+  end
+end

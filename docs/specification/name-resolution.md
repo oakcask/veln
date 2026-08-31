@@ -121,6 +121,48 @@ Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
 prelude-qualified lookup.
+Qualified use paths validate every segment whose role is fixed by syntax,
+successful resolution, or one unique recovery link. Module-only function and
+value paths validate each resolved or recovered qualifier segment as `module`
+and the final segment as `function` for calls or `value_binding` for value
+references. Module-and-type constructor paths validate resolved or recovered
+qualifier segments as `module`, the type qualifier as `type`, and the final
+segment as `constructor`. Prelude-qualified function calls validate `prelude`
+as the module segment and the final segment as `function`. Prelude-qualified
+type paths validate `prelude` as the module segment and the final type segment
+as `type`; prelude-qualified constructor paths validate `prelude`, the type
+qualifier, and the constructor segment with the same module, type, and
+constructor roles. Qualified type paths in function parameters, function
+returns, local annotations, handler parameters, handler operation parameter
+types, effect operation parameter and return types, ADT positional payload
+fields, ADT record payload fields, and schema fields use the same segment
+records. Qualified nominal effect paths inside function type
+`effects [...]` annotations are effect paths, not qualified type paths, and do
+not produce source identifier casing diagnostics. An unresolved or
+ambiguous intermediate segment is not assigned a role from spelling alone.
+Each invalid role-fixed segment reports `name.invalid_case` at the exact
+segment token span with occurrence `path_segment` and the zero-based
+`segment_index`. A call-target diagnostic whose only cause is the resolved or
+uniquely recovered invalid segment that owns that use is suppressed. Missing
+targets, private imported targets, and recovery links that would cross an
+import boundary still report `name.unresolved`. The
+`identifier-casing-qualified-use-paths-json` example checks module-only,
+nested module-only, module-and-type, and prelude-qualified expression,
+pattern, and type paths with each role invalid in turn. The
+`identifier-casing-qualified-use-paths-human` example checks the matching
+human diagnostic spans and cascade suppression. The
+`identifier-casing-qualified-use-recovery-controls-json` and
+`identifier-casing-qualified-use-recovery-controls-human` examples check that
+same-source type-qualifier recovery reports the recovered type segment and
+that a completely unresolved qualified call does not receive a guessed module
+segment diagnostic. The
+`identifier-casing-qualified-handler-boundaries-json` and
+`identifier-casing-qualified-handler-boundaries-human` examples check handler
+context parameter type paths and handler operation clause call targets. The
+`identifier-casing-declaration-type-carriers-json` and
+`identifier-casing-declaration-type-carriers-human` examples check ADT
+positional payload fields, ADT record payload fields, effect operation
+parameter and return types, and schema field carrier spans.
 Qualified constructor patterns keep constructor syntax. A qualified
 constructor pattern whose final segment starts with an ASCII lowercase letter
 reports `name.invalid_case` at that final segment with occurrence

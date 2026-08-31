@@ -180,3 +180,157 @@ fn import_path_casing_diagnostics_follow_source_order_with_declarations() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn let_annotation_reports_qualified_type_path_segments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(input: Int) -> Int\n",
+            "  let value: prelude::option = input\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[0].message,
+        "type name `option` must start with an ASCII uppercase letter"
+    );
+    assert_diagnostic_span(&diagnostics[0], 2, 23, 2, 29);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"occurrence\":\"path_segment\""));
+    assert!(details.contains("\"name_class\":\"type\""));
+    assert!(details.contains("\"segment_index\":1"));
+}
+
+#[test]
+fn function_type_effect_paths_do_not_report_type_segment_casing() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "end\n",
+            "\n",
+            "fn emit() -> () effects [Audit]\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "fn main(callback: fn() -> prelude::Option<Int> effects [Logging::audit]) -> fn() -> prelude::Option<Int> effects [Tracing::audit]\n",
+            "  let stored: fn() -> prelude::Option<Int> effects [Callback::audit] = callback\n",
+            "  stored\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        Vec::<&str>::new(),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn spaced_type_annotations_report_retained_qualified_segment_spans() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(input: Prelude :: Option<Int>) -> prelude :: int\n",
+            "  let value: prelude :: option = 1\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "module name `Prelude` must start with an ASCII lowercase letter",
+            "type name `int` must start with an ASCII uppercase letter",
+            "type name `option` must start with an ASCII uppercase letter",
+        ],
+        "{diagnostics:#?}"
+    );
+    assert_invalid_case_source_slice(&source, &diagnostics[0], "Prelude");
+    assert_diagnostic_span(&diagnostics[0], 1, 16, 1, 23);
+    assert_invalid_case_source_slice(&source, &diagnostics[1], "int");
+    assert_diagnostic_span(&diagnostics[1], 1, 54, 1, 57);
+    assert_invalid_case_source_slice(&source, &diagnostics[2], "option");
+    assert_diagnostic_span(&diagnostics[2], 2, 25, 2, 31);
+
+    for diagnostic in &diagnostics {
+        let details = diagnostic.details.to_json();
+        assert!(details.contains("\"occurrence\":\"path_segment\""));
+    }
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"segment_index\":0")
+    );
+    assert!(
+        diagnostics[1]
+            .details
+            .to_json()
+            .contains("\"segment_index\":1")
+    );
+    assert!(
+        diagnostics[2]
+            .details
+            .to_json()
+            .contains("\"segment_index\":1")
+    );
+}
+
+#[test]
+fn unresolved_three_segment_call_does_not_guess_intermediate_type_role() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("fn main() -> Int\n", "  Missing::bad::Value()\n", "end\n",),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        Vec::<&str>::new(),
+        "{diagnostics:#?}"
+    );
+}
+
+fn assert_invalid_case_source_slice(source: &SourceFile, diagnostic: &Diagnostic, expected: &str) {
+    let span = diagnostic.span.as_ref().expect("name diagnostic span");
+    assert_eq!(
+        &source.text()[span.start.offset..span.end.offset],
+        expected,
+        "{diagnostic:#?}"
+    );
+}

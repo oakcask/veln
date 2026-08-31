@@ -1,0 +1,15 @@
+effect Ask
+  value() -> Int
+end
+
+handler ask(seed: Missing::Thing) handles Ask
+  value() => missing::Thing()
+end
+
+fn body() -> Int effects [Ask]
+  perform Ask::value()
+end
+
+pub fn main() -> Int
+  handle body() with ask()
+end

@@ -30,7 +30,7 @@ fn parses_decode_as_an_explicit_module_member_name() {
     assert!(matches!(
         &expr.kind,
         ExprKind::Call { callee, .. }
-            if matches!(&callee.kind, ExprKind::NamePath(segments)
+            if matches!(&callee.kind, ExprKind::NamePath { segments, .. }
                 if segments == &vec!["http2".to_string(), "frame".to_string(), "decode".to_string()])
     ));
 }

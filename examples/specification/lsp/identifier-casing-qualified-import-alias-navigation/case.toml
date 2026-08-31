@@ -1,0 +1,80 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[stdout]
+contains = [
+  "app/math.veln",
+  "main.veln",
+  "\"newText\":\"twice\"",
+  "\"newText\":\"Entry\"",
+  "\"newText\":\"Done\"",
+]
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/line"
+equals = 4
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/character"
+equals = 7
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/line"
+equals = 3
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/character"
+equals = 36
+
+[[lsp_assert]]
+id = 6
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 6
+path = "/result/range/start/character"
+equals = 9
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+length = 5
+
+[[lsp_assert]]
+id = 8
+path = "/result/start/line"
+equals = 2
+
+[[lsp_assert]]
+id = 8
+path = "/result/start/character"
+equals = 24
+
+[[lsp_assert]]
+id = 10
+path = "/result/range/start/line"
+equals = 1
+
+[[lsp_assert]]
+id = 10
+path = "/result/range/start/character"
+equals = 6
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+length = 3

@@ -110,6 +110,7 @@ pub struct NavigationLocation {
 pub struct NavigationResult {
     pub selected_symbol: SelectedSymbol,
     pub selection: SourceSpan,
+    pub classified_path_segment: Option<QualifiedPathSegment>,
     pub definition: NavigationLocation,
     pub references: Vec<SourceSpan>,
 }
@@ -146,6 +147,7 @@ pub fn navigate(
     Some(NavigationResult {
         selected_symbol,
         selection: request.selection,
+        classified_path_segment: request.classified_path_segment,
         definition,
         references,
     })
@@ -238,6 +240,7 @@ struct TypeSymbol {
     declaration: NavigationLocation,
     package: Option<String>,
     public: bool,
+    standard_prelude: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -249,6 +252,57 @@ struct ConstructorSymbol {
     package: Option<String>,
     public: bool,
     standard_prelude: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ClassifiedNavigationSegment {
+    segment: QualifiedPathSegment,
+    symbol: Option<Symbol>,
+}
+
+impl ClassifiedNavigationSegment {
+    fn into_selected_symbol(self) -> Option<SelectedNavigationSymbol> {
+        let Self { segment, symbol } = self;
+        debug_assert!(segment_role_matches_symbol(&segment, symbol.as_ref()?));
+        Some(SelectedNavigationSymbol {
+            symbol: symbol?,
+            classified_path_segment: Some(segment),
+        })
+    }
+}
+
+#[derive(Debug)]
+struct SelectedNavigationSymbol {
+    symbol: Symbol,
+    classified_path_segment: Option<QualifiedPathSegment>,
+}
+
+impl SelectedNavigationSymbol {
+    fn bare(symbol: Symbol) -> Self {
+        Self {
+            symbol,
+            classified_path_segment: None,
+        }
+    }
+}
+
+fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
+    match symbol? {
+        Symbol::Type(_) => Some(NameClass::Type),
+        Symbol::Function(_) => Some(NameClass::Function),
+        Symbol::Constructor(_) => Some(NameClass::Constructor),
+        Symbol::Local(_) => None,
+    }
+}
+
+fn segment_role_matches_symbol(segment: &QualifiedPathSegment, symbol: &Symbol) -> bool {
+    if self_role_for_symbol(Some(symbol)).is_some_and(|role| role == segment.role) {
+        return true;
+    }
+    matches!(
+        (segment.role, symbol),
+        (NameClass::ValueBinding, Symbol::Function(_))
+    )
 }
 
 #[derive(Clone, Debug)]
@@ -266,6 +320,7 @@ struct SymbolRequest {
     index: Arc<SymbolIndex>,
     symbol: Symbol,
     selection: SourceSpan,
+    classified_path_segment: Option<QualifiedPathSegment>,
 }
 
 #[derive(Clone, Debug)]
@@ -300,7 +355,10 @@ struct IndexedFile {
     companion_target_module: Option<String>,
     uses: BTreeSet<String>,
     external_uses: BTreeSet<(String, String)>,
+    import_aliases: BTreeMap<String, String>,
+    external_import_aliases: BTreeMap<String, (String, String)>,
     invalid_declaration_names: Vec<SourceSpan>,
+    classified_path_segments: Vec<QualifiedPathSegment>,
     origin: IndexedOrigin,
 }
 

@@ -65,7 +65,7 @@ pub(crate) fn type_call_signature(
     current_module: Option<&str>,
 ) -> Option<TypeCallSignature> {
     match &callee.kind {
-        ExprKind::NamePath(segments) => type_name_path_call_signature(
+        ExprKind::NamePath { segments, .. } => type_name_path_call_signature(
             callee,
             segments,
             TypeNamePathCallContext {
@@ -90,7 +90,7 @@ pub(crate) fn core_call_signature(
     environment: &TypeEnvironment,
     current_module: Option<&str>,
 ) -> Option<CoreCallSignature> {
-    let ExprKind::NamePath(segments) = &callee.kind else {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
     };
     core_name_path_call_signature(
@@ -638,7 +638,7 @@ fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {
     let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
         return None;
     };
-    let ExprKind::NamePath(segments) = &callee.kind else {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
     };
     Some((segments, type_args))

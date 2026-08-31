@@ -45,7 +45,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, DictEntry, EffectDecl, Expr,
-    ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, MatchArm, PublicAlias,
+    ExprKind, Function, FunctionKind, HandlerDecl, IfBranch, InvalidName, MatchArm, PublicAlias,
     PublicAliasKind, RecordField, SchemaDecl, SchemaField, SurfaceModule, TypeDecl, UseDecl,
     Visibility, lower_surface_ast_with_module_identity,
 };
@@ -347,7 +347,10 @@ fn canonical_type_name_without_descriptor(
                     descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
                         && descriptor.visibility == Visibility::Public
                 })
-                .map_or_else(|| Some(name.to_string()), |_| None)
+                .map_or_else(
+                    || (!use_decl.name.contains("::")).then(|| name.to_string()),
+                    |_| None,
+                )
         }
         _ => Some(name.to_string()),
     }

@@ -440,6 +440,7 @@ dependencies = [
  "veln-ast",
  "veln-diagnostics",
  "veln-project",
+ "veln-sema",
  "veln-source",
  "veln-syntax",
  "veln-test",

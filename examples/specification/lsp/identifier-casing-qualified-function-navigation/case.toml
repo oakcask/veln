@@ -1,0 +1,142 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[stdout]
+contains = [
+  "\"newText\":\"calculate\"",
+  "\"id\":10,\"result\":{\"changes\":{\"file://",
+  "\"id\":12,\"result\":[]",
+  "\"id\":13,\"result\":null",
+  "\"id\":14,\"result\":{\"changes\":{}}",
+  "helper.veln",
+  "main.veln",
+]
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/character"
+equals = 7
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/end/character"
+equals = 14
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range/start/line"
+equals = 3
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/range/start/line"
+equals = 7
+
+[[lsp_assert]]
+id = 3
+path = "/result/3/range/start/line"
+equals = 11
+
+[[lsp_assert]]
+id = 7
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 7
+path = "/result/range/start/character"
+equals = 7
+
+[[lsp_assert]]
+id = 7
+path = "/result/range/end/character"
+equals = 14
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 8
+path = "/result/2/range/start/line"
+equals = 7
+
+[[lsp_assert]]
+id = 9
+path = "/result/start/line"
+equals = 7
+
+[[lsp_assert]]
+id = 9
+path = "/result/start/character"
+equals = 10
+
+[[lsp_assert]]
+id = 9
+path = "/result/end/character"
+equals = 17
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/line"
+equals = 3
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/character"
+equals = 10
+
+[[lsp_assert]]
+id = 4
+path = "/result/end/character"
+equals = 17
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/code"
+equals = "rename.invalid_case"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/symbol_class"
+equals = "function"
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 13
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 14
+path = "/result/changes"
+equals = {}

@@ -10,8 +10,9 @@ use crate::{
     HandlerDecl, HandlerOperationClauseDecl, IfBranch, MatchArm, ModuleDecl, Param, Pattern,
     PatternField, PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField,
     SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause,
-    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
-    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
+    SchemaValidationClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypePathSegments,
+    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility,
+    lex,
 };
 
 mod body_and_types;
@@ -216,6 +217,7 @@ struct FunctionReturn {
     binding: Option<crate::ResultBinding>,
     ty: Option<String>,
     ty_span: Option<SourceSpan>,
+    ty_paths: Vec<TypePathSegments>,
     effects: Option<Vec<String>>,
     effect_spans: Option<Vec<SourceSpan>>,
 }

@@ -1,7 +1,7 @@
 use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
-use crate::name_recovery::use_decl_has_invalid_module_segment;
+use crate::name_recovery::{resolved_import_module_name, use_decl_has_invalid_module_segment};
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_annotation;
@@ -31,7 +31,7 @@ pub(super) fn function_target<'a>(
                 function.kind == FunctionKind::Function
                     && function.name.as_deref() == Some(name)
                     && function.name.as_deref().is_some_and(valid_function_name)
-                    && function.module_name.as_deref() == Some(module_name)
+                    && function.module_name.as_deref() == Some(module_name.as_str())
             })
         }
         _ => None,
@@ -57,7 +57,7 @@ pub(super) fn type_target<'a>(
             module.types.iter().find(|type_decl| {
                 type_decl.name.as_deref() == Some(name)
                     && type_decl.name.as_deref().is_some_and(valid_type_name)
-                    && type_decl.module_name.as_deref() == Some(module_name)
+                    && type_decl.module_name.as_deref() == Some(module_name.as_str())
             })
         }
         _ => None,
@@ -72,13 +72,13 @@ pub(super) fn valid_type_name(name: &str) -> bool {
     name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
 }
 
-pub(super) fn normal_imported_module_for_path<'a>(
-    module: &'a SurfaceModule,
+pub(super) fn normal_imported_module_for_path(
+    module: &SurfaceModule,
     segments: &[String],
     current_module: Option<&str>,
-) -> Option<&'a str> {
+) -> Option<String> {
     normal_imported_use_for_path(module, segments, current_module)
-        .map(|use_decl| use_decl.name.as_str())
+        .map(|use_decl| resolved_import_module_name(use_decl, current_module))
 }
 
 pub(super) fn quarantined_imported_use_for_path<'a>(
@@ -162,7 +162,8 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen =
+        BTreeMap::<(Option<String>, String, String, Option<String>), (String, SourceSpan)>::new();
 
     for use_decl in module
         .uses
@@ -170,7 +171,12 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
         let node_id = use_decl.node_id.display("use");
-        let key = (use_decl.module_name.clone(), use_decl.alias.clone());
+        let key = (
+            use_decl.module_name.clone(),
+            use_decl.alias.clone(),
+            use_decl.name.clone(),
+            use_decl.package.clone(),
+        );
         if let Some((first_node_id, first_span)) = seen.get(&key) {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,

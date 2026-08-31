@@ -123,6 +123,13 @@ impl<'a> Reader<'a> {
         })
     }
 
+    fn type_path_segments(&mut self) -> Result<TypePathSegments, String> {
+        Ok(TypePathSegments {
+            segments: self.vec(Self::string)?,
+            segment_spans: self.vec(Self::span)?,
+        })
+    }
+
     fn surface_module(&mut self) -> Result<SurfaceModule, String> {
         Ok(SurfaceModule {
             module: self.option(Self::module_header)?,
@@ -243,6 +250,7 @@ impl<'a> Reader<'a> {
             name_span: self.span()?,
             params: self.vec(Self::param)?,
             return_type: self.option(Self::string)?,
+            return_type_paths: self.vec(Self::type_path_segments)?,
             span: self.span()?,
         })
     }
@@ -301,6 +309,7 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             name: self.string()?,
             ty: self.string()?,
+            ty_paths: self.vec(Self::type_path_segments)?,
             span: self.span()?,
         })
     }
@@ -331,6 +340,7 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             name: self.string()?,
             ty: self.string()?,
+            ty_paths: self.vec(Self::type_path_segments)?,
             where_clause: self.option(Self::schema_field_where)?,
             span: self.span()?,
         })
@@ -404,6 +414,7 @@ impl<'a> Reader<'a> {
             return_binding: self.option(Self::result_binding)?,
             return_type: self.option(Self::string)?,
             return_type_span: self.option(Self::span)?,
+            return_type_paths: self.vec(Self::type_path_segments)?,
             effects: self.option(|reader| reader.vec(Self::string))?,
             effect_spans: self.option(|reader| reader.vec(Self::span))?,
             contracts: self.vec(Self::contract)?,
@@ -433,6 +444,7 @@ impl<'a> Reader<'a> {
             name: self.string()?,
             ty: self.option(Self::string)?,
             ty_span: self.option(Self::span)?,
+            ty_paths: self.vec(Self::type_path_segments)?,
             is_variadic: self.bool()?,
             span: self.span()?,
         })
@@ -470,6 +482,7 @@ impl<'a> Reader<'a> {
             0 => BodyLineKind::Let {
                 pattern: self.pattern()?,
                 annotation: self.option(Self::string)?,
+                annotation_paths: self.vec(Self::type_path_segments)?,
                 expr: self.expr()?,
             },
             1 => BodyLineKind::Expr { expr: self.expr()? },

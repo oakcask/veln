@@ -70,7 +70,8 @@ targets, and other independently provable failures remain reported.
 ## Completion
 
 This slice is complete. It does not add source-path-derived module identity
-casing, explicit import-alias casing, non-import qualified-use segment casing,
-recovery navigation, definition, references, prepare-rename, repair rename,
-rename conflict prediction, MCP rename mapping, or source migration beyond
-the focused executable examples.
+casing, explicit import-alias casing, recovery navigation, definition,
+references, prepare-rename, repair rename, rename conflict prediction, MCP
+rename mapping, or source migration beyond the focused executable examples.
+Non-import qualified-use path casing is completed separately in
+[Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).

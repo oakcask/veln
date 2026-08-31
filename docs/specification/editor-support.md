@@ -230,6 +230,37 @@ The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding exclusion across
 definition, references, prepare-rename, and rename for declaration positions
 and in-scope uses.
+The executable `identifier-casing-qualified-use-navigation` LSP example covers
+constructor-qualified type segments across definition, references,
+prepare-rename, and rename. The selected segment keeps the type rename casing
+class, and rename edits use the retained segment ranges in expression and
+pattern paths. The executable
+`identifier-casing-qualified-module-type-navigation` LSP example covers the
+same operations for imported module-and-type constructor paths. The module
+segment has no selected symbol, while the type segment selects the imported
+type, the constructor segment selects the imported constructor, and both keep
+their rename casing class. The executable
+`identifier-casing-qualified-prelude-navigation` LSP example covers
+`prelude`-qualified function and type paths. Standard-library package symbols
+return package definition locations, no workspace references, no prepare-rename
+range, and empty rename edits; their `prelude` module segment has no selected
+symbol. The executable
+`identifier-casing-qualified-function-navigation` LSP example covers a
+module-only qualified public function imported from another workspace source
+across definition, references, prepare-rename, rename, invalid replacement
+rejection, and no-symbol selection for the module segment. It covers both
+qualified function calls and qualified function value references; the value
+reference keeps its `value_binding` occurrence role while selecting the
+function declaration for navigation and rename validation. Qualified segment
+selections also resolve an implicit import alias to the same module identity
+used by checking. The executable
+`identifier-casing-qualified-import-alias-navigation` LSP example covers
+nested module import alias paths across definition, references,
+prepare-rename, and rename for qualified type, constructor, and function
+segments. Qualified segment
+selections use the semantic qualified-segment records that also drive
+qualified-use casing diagnostics. Definition, references, prepare-rename, and
+rename therefore use the same retained token range and role classification.
 For a workspace symbol, references and rename edits include only workspace
 source locations. Sources loaded only as dependency package snapshots do not
 produce `file:` locations for workspace references or workspace edits, even

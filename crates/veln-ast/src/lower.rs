@@ -6,12 +6,12 @@ use veln_syntax::{
     DictEntry as SyntaxDictEntry, EffectDecl as SyntaxEffectDecl,
     EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
     ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, HandlerDecl as SyntaxHandlerDecl,
-    HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, ModuleDecl as SyntaxModule,
-    Param as SyntaxParam, Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind,
-    PrefixOp as SyntaxPrefixOp, PublicAliasDecl as SyntaxPublicAlias,
-    PublicAliasKind as SyntaxPublicAliasKind, RecordField as SyntaxRecordField,
-    SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl,
-    UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
+    HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, IfBranch as SyntaxIfBranch,
+    MatchArm as SyntaxMatchArm, ModuleDecl as SyntaxModule, Param as SyntaxParam,
+    Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
+    PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
+    RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
+    TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
@@ -21,15 +21,16 @@ use crate::{
     MatchArm, ModuleHeader, NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl,
     SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
-    TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 mod expressions;
 mod invalid_names;
 
 use invalid_names::{
-    collect_invalid_alias_name, collect_invalid_function_names, collect_invalid_handler_names,
-    collect_invalid_type_names, collect_invalid_use_name,
+    collect_invalid_alias_name, collect_invalid_effect_names, collect_invalid_function_names,
+    collect_invalid_handler_names, collect_invalid_schema_names, collect_invalid_type_names,
+    collect_invalid_use_name,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -85,6 +86,7 @@ impl AstBuilder {
                     functions.push(self.lower_function(function, module_name.clone()));
                 }
                 SyntaxItem::Effect(effect) => {
+                    collect_invalid_effect_names(effect, &mut invalid_names);
                     effects.push(self.lower_effect_decl(effect, module_name.clone()));
                 }
                 SyntaxItem::Handler(handler) => {
@@ -96,6 +98,7 @@ impl AstBuilder {
                     types.push(self.lower_type_decl(type_decl, module_name.clone()));
                 }
                 SyntaxItem::Schema(schema) => {
+                    collect_invalid_schema_names(schema, &mut invalid_names);
                     schemas.push(self.lower_schema_decl(schema, module_name.clone()));
                 }
                 SyntaxItem::Codec(codec) => {
@@ -135,11 +138,13 @@ fn lower_prefix_op(op: SyntaxPrefixOp) -> PrefixOp {
 }
 
 fn import_alias(name: &str) -> String {
-    if name.contains("::") {
-        name.to_string()
-    } else {
-        name.split('.').next_back().unwrap_or(name).to_string()
-    }
+    name.rsplit("::")
+        .next()
+        .unwrap_or(name)
+        .rsplit('.')
+        .next()
+        .unwrap_or(name)
+        .to_string()
 }
 
 fn lower_binary_op(op: SyntaxBinaryOp) -> BinaryOp {
@@ -263,6 +268,7 @@ impl AstBuilder {
                             node_id: self.alloc(),
                             name: field.name.clone(),
                             ty: field.ty.clone(),
+                            ty_paths: self.lower_type_paths(&field.ty_paths),
                             span: field.span.clone(),
                         })
                         .collect(),
@@ -305,6 +311,7 @@ impl AstBuilder {
             name_span: operation.name_span.clone(),
             params: self.lower_params(&operation.params),
             return_type: operation.return_type.clone(),
+            return_type_paths: self.lower_type_paths(&operation.return_type_paths),
             span: operation.span.clone(),
         }
     }
@@ -352,6 +359,7 @@ impl AstBuilder {
                     name: param.name.clone(),
                     ty: None,
                     ty_span: None,
+                    ty_paths: Vec::new(),
                     is_variadic: false,
                     span: param.span.clone(),
                 })
@@ -386,6 +394,7 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     name: field.name.clone(),
                     ty: field.ty.clone(),
+                    ty_paths: self.lower_type_paths(&field.ty_paths),
                     where_clause: field.where_clause.as_ref().map(|where_clause| {
                         SchemaFieldWhereClause {
                             node_id: self.alloc(),
@@ -485,6 +494,7 @@ impl AstBuilder {
                 }),
             return_type: function.return_type.clone(),
             return_type_span: function.return_type_span.clone(),
+            return_type_paths: self.lower_type_paths(&function.return_type_paths),
             effects: function.effects.clone(),
             effect_spans: function.effect_spans.clone(),
             contracts: function
@@ -508,13 +518,16 @@ impl AstBuilder {
                     SyntaxBodyLine::Let {
                         pattern,
                         annotation,
+                        annotation_paths,
                         expr,
                         span,
+                        ..
                     } => BodyLine {
                         node_id: self.alloc(),
                         kind: BodyLineKind::Let {
                             pattern: self.lower_pattern(pattern),
                             annotation: annotation.clone(),
+                            annotation_paths: self.lower_type_paths(annotation_paths),
                             expr: self.lower_expr(expr),
                         },
                         span: span.clone(),
@@ -540,8 +553,22 @@ impl AstBuilder {
                 name: param.name.clone(),
                 ty: param.ty.clone(),
                 ty_span: param.ty_span.clone(),
+                ty_paths: self.lower_type_paths(&param.ty_paths),
                 is_variadic: param.is_variadic,
                 span: param.span.clone(),
+            })
+            .collect()
+    }
+
+    fn lower_type_paths(
+        &mut self,
+        paths: &[veln_syntax::TypePathSegments],
+    ) -> Vec<TypePathSegments> {
+        paths
+            .iter()
+            .map(|path| TypePathSegments {
+                segments: path.segments.clone(),
+                segment_spans: path.segment_spans.clone(),
             })
             .collect()
     }

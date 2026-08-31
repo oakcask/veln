@@ -34,12 +34,13 @@ impl<'a> Parser<'a> {
         self.expect_name(context, expected, allow_hole_segment)
     }
 
-    pub(super) fn collect_type_until(
+    pub(super) fn collect_type_paths_until(
         &mut self,
         _context: &'static str,
         stop: &[TokenKind],
-    ) -> String {
+    ) -> (String, Vec<TypePathSegments>) {
         let mut parts = Vec::new();
+        let mut tokens = Vec::new();
         let mut depth = 0usize;
         while !self.at(TokenKind::Eof) {
             if depth == 0 && stop.iter().any(|kind| self.at(*kind)) {
@@ -58,17 +59,22 @@ impl<'a> Parser<'a> {
                 }
                 _ => {}
             }
-            parts.push(self.bump().text);
+            let token = self.bump();
+            parts.push(token.text.clone());
+            tokens.push(token);
         }
-        normalize_type_text(parts)
+        (
+            normalize_type_text(parts),
+            self.type_paths_from_tokens(&tokens),
+        )
     }
 
     pub(super) fn collect_return_type_until(
         &mut self,
         context: &'static str,
         stop: &[TokenKind],
-    ) -> String {
-        let mut ty = self.collect_type_until(context, stop);
+    ) -> (String, Vec<TypePathSegments>) {
+        let (mut ty, paths) = self.collect_type_paths_until(context, stop);
         if return_type_can_take_effects(&ty)
             && self.at(TokenKind::Effects)
             && (self.after_effect_clause_is(TokenKind::Effects)
@@ -81,7 +87,7 @@ impl<'a> Parser<'a> {
                 ty.push_str(&effects);
             }
         }
-        ty
+        (ty, paths)
     }
 
     pub(super) fn after_effect_clause_is(&self, expected: TokenKind) -> bool {
@@ -324,4 +330,71 @@ impl<'a> Parser<'a> {
         self.diagnostics.extend(diagnostics);
         (expr, start.cover(end))
     }
+    fn type_paths_from_tokens(&self, tokens: &[Token]) -> Vec<TypePathSegments> {
+        let mut paths = Vec::new();
+        let mut cursor = 0usize;
+        while cursor < tokens.len() {
+            if tokens[cursor].kind == TokenKind::Effects {
+                cursor = skip_effect_clause(tokens, cursor);
+                continue;
+            }
+            if !is_type_path_segment(&tokens[cursor])
+                || tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon)
+            {
+                cursor += 1;
+                continue;
+            }
+
+            let mut segments = vec![tokens[cursor].text.clone()];
+            let mut segment_spans = vec![self.source.span(tokens[cursor].range)];
+            cursor += 2;
+            while let Some(token) = tokens.get(cursor) {
+                if !is_type_path_segment(token) {
+                    break;
+                }
+                segments.push(token.text.clone());
+                segment_spans.push(self.source.span(token.range));
+                cursor += 1;
+                if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::DoubleColon) {
+                    break;
+                }
+                cursor += 1;
+            }
+
+            if segments.len() > 1 {
+                paths.push(TypePathSegments {
+                    segments,
+                    segment_spans,
+                });
+            }
+        }
+        paths
+    }
+}
+
+fn skip_effect_clause(tokens: &[Token], cursor: usize) -> usize {
+    let mut cursor = cursor + 1;
+    if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::LBracket) {
+        return cursor;
+    }
+    cursor += 1;
+    let mut depth = 1usize;
+    while let Some(token) = tokens.get(cursor) {
+        match token.kind {
+            TokenKind::LBracket => depth += 1,
+            TokenKind::RBracket => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return cursor + 1;
+                }
+            }
+            _ => {}
+        }
+        cursor += 1;
+    }
+    cursor
+}
+
+fn is_type_path_segment(token: &Token) -> bool {
+    matches!(token.kind, TokenKind::Ident | TokenKind::Hole)
 }

@@ -1,5 +1,12 @@
 use super::*;
 
+struct MatchCoverageProgress {
+    catches_all: bool,
+    covered: Vec<String>,
+    invalid_recovery_covered: Vec<String>,
+    proving_arms: Vec<(String, SourceSpan)>,
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn check_match_exhaustiveness(
         &mut self,
@@ -8,26 +15,62 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         arms: &[MatchArm],
     ) {
-        let Some(domain) = MatchDomain::from_type(scrutinee_type, self.environment) else {
+        let Some(domain) = MatchDomain::from_type(
+            scrutinee_type,
+            self.environment,
+            self.function.module_name.as_deref(),
+        ) else {
             return;
         };
+        let progress = self.match_coverage_progress(&domain, scrutinee_type, arms);
+        if progress.catches_all {
+            return;
+        }
+        let Some(missing_case) = self.missing_match_case(
+            &domain,
+            scrutinee_type,
+            &progress.covered,
+            &progress.invalid_recovery_covered,
+        ) else {
+            return;
+        };
+        self.report_match_non_exhaustive(
+            expr,
+            scrutinee,
+            scrutinee_type,
+            missing_case,
+            progress.proving_arms,
+        );
+    }
+
+    fn match_coverage_progress(
+        &self,
+        domain: &MatchDomain,
+        scrutinee_type: &Type,
+        arms: &[MatchArm],
+    ) -> MatchCoverageProgress {
         let mut covered = Vec::new();
         let mut invalid_recovery_covered = Vec::new();
         let mut proving_arms = Vec::new();
         for arm in arms {
             let coverage = match_pattern_coverage(
                 &arm.pattern,
-                &domain,
+                domain,
                 scrutinee_type,
                 self.environment,
                 self.function.module_name.as_deref(),
             );
             if coverage.catches_all {
-                return;
+                return MatchCoverageProgress {
+                    catches_all: true,
+                    covered: Vec::new(),
+                    invalid_recovery_covered: Vec::new(),
+                    proving_arms: Vec::new(),
+                };
             }
             invalid_recovery_covered.extend(invalid_qualified_constructor_recovery_cases(
                 &arm.pattern,
-                &domain,
+                domain,
                 scrutinee_type,
                 self.environment,
                 self.function.module_name.as_deref(),
@@ -39,16 +82,40 @@ impl<'a> FunctionChecker<'a> {
                 }
             }
         }
+        MatchCoverageProgress {
+            catches_all: false,
+            covered,
+            invalid_recovery_covered,
+            proving_arms,
+        }
+    }
 
-        let cases = domain.cases(scrutinee_type, self.environment);
-        let Some(missing_case) = cases
+    fn missing_match_case(
+        &self,
+        domain: &MatchDomain,
+        scrutinee_type: &Type,
+        covered: &[String],
+        invalid_recovery_covered: &[String],
+    ) -> Option<String> {
+        let cases = domain.cases(
+            scrutinee_type,
+            self.environment,
+            self.function.module_name.as_deref(),
+        );
+        cases
             .iter()
             .find(|case| !covered.contains(case) && !invalid_recovery_covered.contains(case))
             .cloned()
-        else {
-            return;
-        };
+    }
 
+    fn report_match_non_exhaustive(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        scrutinee_type: &Type,
+        missing_case: String,
+        proving_arms: Vec<(String, SourceSpan)>,
+    ) {
         let mut diagnostic = Diagnostic::new(
             "type.match_non_exhaustive",
             Severity::Error,
@@ -125,7 +192,7 @@ impl<'a> FunctionChecker<'a> {
                 scrutinee_type,
                 recover_unknown_bare_constructor,
             ),
-            PatternKind::Constructor { name, args } => {
+            PatternKind::Constructor { name, args, .. } => {
                 if invalid_qualified_constructor_pattern(name) {
                     self.report_invalid_qualified_constructor_pattern_mismatch(
                         pattern,
@@ -243,7 +310,10 @@ impl<'a> FunctionChecker<'a> {
         args: &[Pattern],
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
-        let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type) else {
+        let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+            scrutinee_type,
+            self.function.module_name.as_deref(),
+        ) else {
             return self.unknown_pattern_bindings(args);
         };
         if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
@@ -295,7 +365,10 @@ impl<'a> FunctionChecker<'a> {
         name: &[String],
         scrutinee_type: &Type,
     ) {
-        let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type) else {
+        let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+            scrutinee_type,
+            self.function.module_name.as_deref(),
+        ) else {
             return;
         };
         let Some(recovered) = initial_uppercase_qualified_constructor_name(name) else {

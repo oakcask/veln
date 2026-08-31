@@ -29,7 +29,10 @@ impl<'a> Reader<'a> {
                 name: self.option(Self::string)?,
                 satisfy: self.option(Self::satisfy)?,
             }),
-            2 => Ok(ExprKind::NamePath(self.vec(Self::string)?)),
+            2 => Ok(ExprKind::NamePath {
+                segments: self.vec(Self::string)?,
+                segment_spans: self.vec(Self::span)?,
+            }),
             3 => Ok(ExprKind::StringLiteral(self.string()?)),
             4 => Ok(ExprKind::IntLiteral(self.string()?)),
             5 => Ok(ExprKind::FloatLiteral(self.string()?)),
@@ -226,6 +229,7 @@ impl<'a> Reader<'a> {
             7 => Ok(PatternKind::Record(self.vec(Self::pattern_field)?)),
             8 => Ok(PatternKind::Constructor {
                 name: self.vec(Self::string)?,
+                name_spans: self.vec(Self::span)?,
                 args: self.vec(Self::pattern)?,
             }),
             value => Err(format!("invalid pattern kind tag {value}")),

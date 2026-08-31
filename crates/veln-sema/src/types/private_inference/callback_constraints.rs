@@ -150,7 +150,7 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
             collect_private_prelude_callback_expr_constraints(left, expected, context);
             collect_private_prelude_callback_expr_constraints(right, expected, context);
         }
-        ExprKind::NamePath(segments) => {
+        ExprKind::NamePath { segments, .. } => {
             if let Some(expected) = expected {
                 collect_private_callback_return_constraint_for_segments(
                     segments, expected, context,
@@ -202,7 +202,7 @@ pub(crate) fn private_prelude_callback_call_params(
     context: &PrivateSignatureInferContext<'_>,
     function_by_path: &FunctionAstMap<'_>,
 ) -> Option<Vec<Type>> {
-    let ExprKind::NamePath(segments) = &callee.kind else {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
     };
     let name = private_prelude_constraint_name(segments, context.current_module, function_by_path)?;
@@ -268,7 +268,7 @@ pub(crate) fn collect_private_callback_return_constraint(
     if type_has_unknown(return_type) {
         return;
     }
-    let ExprKind::NamePath(segments) = &arg.kind else {
+    let ExprKind::NamePath { segments, .. } = &arg.kind else {
         return;
     };
     collect_private_callback_return_constraint_for_segments(segments, expected_callback, context);

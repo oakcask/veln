@@ -1,0 +1,16 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":33}}},
+  {"jsonrpc":"2.0","id":3,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":33},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":33}}},
+  {"jsonrpc":"2.0","id":5,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":33},"newName":"Items"}},
+  {"jsonrpc":"2.0","id":6,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":21}}},
+  {"jsonrpc":"2.0","id":7,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":0,"character":21},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":8,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":5,"character":12}}},
+  {"jsonrpc":"2.0","id":9,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":5,"character":12},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":10,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":5,"character":12}}},
+  {"jsonrpc":"2.0","id":11,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":5,"character":12},"newName":"bytes"}},
+  {"jsonrpc":"2.0","id":12,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":5,"character":4}}},
+  {"jsonrpc":"2.0","id":13,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

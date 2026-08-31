@@ -11,7 +11,7 @@ impl Writer {
         match value {
             ExprKind::Missing
             | ExprKind::Hole { .. }
-            | ExprKind::NamePath(_)
+            | ExprKind::NamePath { .. }
             | ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
             | ExprKind::FloatLiteral(_)
@@ -42,9 +42,13 @@ impl Writer {
                 self.option(name, |writer, value| writer.string(value));
                 self.option(satisfy, Self::satisfy);
             }
-            ExprKind::NamePath(path) => {
+            ExprKind::NamePath {
+                segments,
+                segment_spans,
+            } => {
                 self.u8(2);
-                self.vec(path, |writer, value| writer.string(value));
+                self.vec(segments, |writer, value| writer.string(value));
+                self.vec(segment_spans, Self::span);
             }
             ExprKind::StringLiteral(value) => {
                 self.u8(3);
@@ -303,9 +307,14 @@ impl Writer {
                 self.u8(7);
                 self.vec(fields, Self::pattern_field);
             }
-            PatternKind::Constructor { name, args } => {
+            PatternKind::Constructor {
+                name,
+                name_spans,
+                args,
+            } => {
                 self.u8(8);
                 self.vec(name, |writer, value| writer.string(value));
+                self.vec(name_spans, Self::span);
                 self.vec(args, Self::pattern);
             }
         }

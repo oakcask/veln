@@ -231,6 +231,348 @@
     }
 
     #[test]
+    fn type_references_cover_constructor_qualified_type_segments() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Item\n",
+                "  Some(Int)\n",
+                "  None\n",
+                "end\n\n",
+                "fn make() -> Item\n",
+                "  Item::Some(1)\n",
+                "end\n\n",
+                "fn observe(input: Item) -> Int\n",
+                "  match input\n",
+                "    Item::None => 0\n",
+                "    Item::Some(value) => value\n",
+                "  end\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 6).unwrap();
+
+        assert_eq!(declaration.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            locations(&declaration.references),
+            [
+                ("main.veln", 6, 14),
+                ("main.veln", 7, 3),
+                ("main.veln", 10, 19),
+                ("main.veln", 12, 5),
+                ("main.veln", 13, 5),
+            ]
+        );
+
+        let qualifier = query(sources, "main.veln", 7, 4).unwrap();
+        assert_eq!(qualifier.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&qualifier.definition, "main.veln", 1, 6);
+        assert!(validate_rename(&qualifier, "Entry").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&qualifier, "entry").unwrap_err(),
+            RenameNameClass::Type,
+            "entry",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
+    fn imported_constructor_qualified_type_segments_share_navigation() {
+        let sources = vec![
+            source("helper.veln", "pub type Entry\n  pub Some(Int)\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use helper\n\n",
+                    "fn make() -> helper::Entry\n",
+                    "  helper::Entry::Some(1)\n",
+                    "end\n\n",
+                    "fn read(input: helper::Entry) -> Int\n",
+                    "  match input\n",
+                    "    helper::Entry::Some(value) => value\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        assert!(query(sources.clone(), "main.veln", 3, 15).is_none());
+
+        let qualifier = query(sources, "main.veln", 4, 12).unwrap();
+        assert_eq!(qualifier.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&qualifier.definition, "helper.veln", 1, 10);
+        assert_eq!(
+            locations(&qualifier.references),
+            [
+                ("main.veln", 3, 22),
+                ("main.veln", 4, 11),
+                ("main.veln", 7, 24),
+                ("main.veln", 9, 13),
+            ]
+        );
+        assert!(validate_rename(&qualifier, "Item").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&qualifier, "item").unwrap_err(),
+            RenameNameClass::Type,
+            "item",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
+    fn nested_import_alias_qualified_segments_share_navigation() {
+        let sources = vec![
+            source(
+                "app/math.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub fn double(value: Int) -> Int\n",
+                    "  value + value\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use app::math\n\n",
+                    "fn make() -> math::Item\n",
+                    "  math::Item::Ready(math::double(1))\n",
+                    "end\n\n",
+                    "fn callback() -> fn(Int) -> Int\n",
+                    "  app::math::double\n",
+                    "end\n\n",
+                    "fn read(input: math::Item) -> Int\n",
+                    "  match input\n",
+                    "    math::Item::Ready(value) => value\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let function = query(sources.clone(), "main.veln", 4, 27).unwrap();
+        assert_eq!(function.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function.definition, "app/math.veln", 5, 8);
+        assert_eq!(
+            locations(&function.references),
+            [("main.veln", 4, 27), ("main.veln", 8, 14)]
+        );
+        assert!(validate_rename(&function, "twice").is_ok());
+
+        let function_value = query(sources.clone(), "main.veln", 8, 16).unwrap();
+        assert_eq!(function_value.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function_value.definition, "app/math.veln", 5, 8);
+        assert_classified_segment(
+            &function_value,
+            "double",
+            NameClass::ValueBinding,
+            QualifiedPathSegmentEvidence::Resolved,
+            2,
+            8,
+            14,
+        );
+        assert_eq!(
+            locations(&function_value.references),
+            [("main.veln", 4, 27), ("main.veln", 8, 14)]
+        );
+        assert!(validate_rename(&function_value, "twice").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&function_value, "Twice").unwrap_err(),
+            RenameNameClass::Function,
+            "Twice",
+            RenameRequiredInitial::AsciiLowercase,
+        );
+
+        let ty = query(sources.clone(), "main.veln", 3, 20).unwrap();
+        assert_eq!(ty.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&ty.definition, "app/math.veln", 1, 10);
+        assert_eq!(
+            locations(&ty.references),
+            [
+                ("main.veln", 3, 20),
+                ("main.veln", 4, 9),
+                ("main.veln", 11, 22),
+                ("main.veln", 13, 11),
+            ]
+        );
+        assert!(validate_rename(&ty, "Entry").is_ok());
+
+        let constructor = query(sources, "main.veln", 13, 17).unwrap();
+        assert_eq!(constructor.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&constructor.definition, "app/math.veln", 2, 7);
+        assert_eq!(
+            locations(&constructor.references),
+            [("main.veln", 4, 15), ("main.veln", 13, 17)]
+        );
+        assert!(validate_rename(&constructor, "Done").is_ok());
+    }
+
+    #[test]
+    fn declaration_type_path_carriers_share_navigation() {
+        let sources = vec![
+            source("helper.veln", "pub type Item\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use helper\n\n",
+                    "type Box\n",
+                    "  Wrap(helper::Item)\n",
+                    "  Record { item: helper::Item }\n",
+                    "end\n\n",
+                    "effect Store\n",
+                    "  fetch(input: helper::Item) -> helper::Item\n",
+                    "end\n\n",
+                    "fn read(input: helper::Item) -> helper::Item\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let result = query(sources, "main.veln", 4, 17).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&result.definition, "helper.veln", 1, 10);
+        assert_classified_segment(
+            &result,
+            "Item",
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Syntax,
+            1,
+            4,
+            16,
+        );
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 4, 16),
+                ("main.veln", 5, 26),
+                ("main.veln", 9, 24),
+                ("main.veln", 9, 41),
+                ("main.veln", 12, 24),
+                ("main.veln", 12, 41),
+            ]
+        );
+        assert!(validate_rename(&result, "Entry").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&result, "entry").unwrap_err(),
+            RenameNameClass::Type,
+            "entry",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
+    fn invalid_qualified_use_segments_do_not_get_independent_navigation_roles() {
+        let sources = vec![
+            source(
+                "helper.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub fn make() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use helper\n\n",
+                    "use foo::bar\n\n",
+                    "fn main(flag: helper::Item) -> Int\n",
+                    "  let a: Helper::Item = helper::Item::ready(1)\n",
+                    "  let b: helper::item = helper::Item::Ready(1)\n",
+                    "  let c = Helper::make()\n",
+                    "  helper::Make()\n",
+                    "  let nested = foo::bar::double(3)\n",
+                    "  let nested_first = Foo::bar::double(3)\n",
+                    "  let nested_middle = foo::Bar::double(3)\n",
+                    "  let nested_leaf = foo::bar::Double(3)\n",
+                    "  let nested_value = foo::bar::Double\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "foo/bar.veln",
+                "pub fn double(value: Int) -> Int\n  value + value\nend\n",
+            ),
+        ];
+
+        for (line, column) in [
+            (6, 10),
+            (6, 39),
+            (7, 18),
+            (8, 11),
+            (9, 11),
+            (11, 22),
+            (12, 28),
+            (13, 31),
+            (14, 32),
+        ] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "invalid qualified segment unexpectedly navigated at {line}:{column}"
+            );
+        }
+
+        let valid_type = query(sources.clone(), "main.veln", 7, 33).unwrap();
+        assert_eq!(valid_type.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&valid_type.definition, "helper.veln", 1, 10);
+        assert_classified_segment(
+            &valid_type,
+            "Item",
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Resolved,
+            1,
+            7,
+            33,
+        );
+
+        let valid_annotation_type = query(sources.clone(), "main.veln", 5, 24).unwrap();
+        assert_eq!(valid_annotation_type.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&valid_annotation_type.definition, "helper.veln", 1, 10);
+        assert_classified_segment(
+            &valid_annotation_type,
+            "Item",
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Syntax,
+            1,
+            5,
+            23,
+        );
+
+        let valid_function = query(sources.clone(), "main.veln", 10, 28).unwrap();
+        assert_eq!(valid_function.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&valid_function.definition, "foo/bar.veln", 1, 8);
+        assert_classified_segment(
+            &valid_function,
+            "double",
+            NameClass::Function,
+            QualifiedPathSegmentEvidence::Resolved,
+            2,
+            10,
+            26,
+        );
+
+        let valid_constructor = query(sources, "main.veln", 7, 39).unwrap();
+        assert_eq!(valid_constructor.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&valid_constructor.definition, "helper.veln", 2, 7);
+        assert_classified_segment(
+            &valid_constructor,
+            "Ready",
+            NameClass::Constructor,
+            QualifiedPathSegmentEvidence::Resolved,
+            2,
+            7,
+            39,
+        );
+    }
+
+    #[test]
     fn rename_validation_preserves_constructor_case_class() {
         let result = query(
             vec![source(
@@ -568,4 +910,3 @@
             assert!(uri.ends_with(path), "{uri}");
         }
     }
-

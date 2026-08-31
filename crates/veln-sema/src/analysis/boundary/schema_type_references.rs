@@ -259,7 +259,7 @@ pub(super) fn schema_for_type_name<'a>(
             )?;
             module.schemas.iter().find(|schema| {
                 schema.name.as_deref() == Some(name)
-                    && schema.module_name.as_deref() == Some(module_name)
+                    && schema.module_name.as_deref() == Some(module_name.as_str())
             })
         }
         _ => None,

@@ -549,6 +549,7 @@ fn visit_function_body_expressions(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let expr_context =
                     context.expression_context(function.module_name.as_deref(), &bindings);

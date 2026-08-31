@@ -7,6 +7,7 @@ impl<'a> FunctionChecker<'a> {
                 pattern,
                 annotation,
                 expr,
+                ..
             } => self.check_let_line(line, pattern, annotation.as_deref(), expr),
             BodyLineKind::Expr { expr } => self.check_expr_line(index, line, expr),
         }

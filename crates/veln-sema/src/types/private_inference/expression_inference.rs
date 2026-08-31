@@ -31,7 +31,7 @@ pub(crate) fn tail_expr_can_use_expected(
                     .iter()
                     .all(|field| expected.record_field(&field.name).is_some())
         }
-        ExprKind::NamePath(segments) => {
+        ExprKind::NamePath { segments, .. } => {
             matches!(
                 adts.nullary_constructor(segments, current_module, uses),
                 ConstructorLookup::Found(constructor)
@@ -39,7 +39,7 @@ pub(crate) fn tail_expr_can_use_expected(
             )
         }
         ExprKind::Call { callee, .. } => {
-            let ExprKind::NamePath(segments) = &callee.kind else {
+            let ExprKind::NamePath { segments, .. } = &callee.kind else {
                 return false;
             };
             matches!(
@@ -82,6 +82,7 @@ pub(crate) fn infer_private_function_tail_type(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let annotation_type = annotation
                     .as_deref()
@@ -167,7 +168,7 @@ pub(crate) fn infer_private_signature_expr_type(
         ExprKind::FloatLiteral(_) => Type::float(),
         ExprKind::BoolLiteral(_) => Type::bool(),
         ExprKind::Unit => Type::unit(),
-        ExprKind::NamePath(segments) => infer_private_signature_name_type(
+        ExprKind::NamePath { segments, .. } => infer_private_signature_name_type(
             segments,
             expected,
             current_module,
@@ -402,7 +403,7 @@ pub(crate) fn infer_match_scrutinee_type_from_constructor_patterns(
     let mut inferred: Option<(AdtConstructor<'_>, Vec<Type>)> = None;
 
     for arm in arms {
-        let PatternKind::Constructor { name, args } = &arm.pattern.kind else {
+        let PatternKind::Constructor { name, args, .. } = &arm.pattern.kind else {
             continue;
         };
         if invalid_qualified_constructor_pattern(name) {
@@ -487,7 +488,7 @@ pub(crate) fn infer_pattern_type_from_constructor_patterns(
                 })
                 .collect(),
         )),
-        PatternKind::Constructor { name, args } => {
+        PatternKind::Constructor { name, args, .. } => {
             if invalid_qualified_constructor_pattern(name) {
                 return None;
             }
@@ -629,7 +630,7 @@ pub(crate) fn infer_private_signature_call_type(
     expected: Option<&Type>,
     context: &PrivateSignatureInferContext<'_>,
 ) -> Type {
-    if let ExprKind::NamePath(segments) = &callee.kind {
+    if let ExprKind::NamePath { segments, .. } = &callee.kind {
         if let ConstructorLookup::Found(constructor) =
             context
                 .adts

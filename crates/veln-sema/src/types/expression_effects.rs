@@ -121,7 +121,7 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
                 self.collect(else_branch);
             }
             ExprKind::Binary { left, right, .. } => self.collect_pair(left, right),
-            ExprKind::NamePath(segments) => self.collect_name_path(segments),
+            ExprKind::NamePath { segments, .. } => self.collect_name_path(segments),
             ExprKind::Missing
             | ExprKind::Hole { .. }
             | ExprKind::StringLiteral(_)
@@ -232,7 +232,7 @@ impl ExprEffectCollector<'_, '_, '_> {
             ExprKind::Binary { left, right, .. } => self.collect_pair(left, right),
             ExprKind::Missing
             | ExprKind::Hole { .. }
-            | ExprKind::NamePath(_)
+            | ExprKind::NamePath { .. }
             | ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
             | ExprKind::FloatLiteral(_)

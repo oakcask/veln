@@ -35,6 +35,10 @@ fn collect_function_node_ids(function: &Function, ids: &mut Vec<u32>) {
 
 fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
     ids.push(expr.node_id.as_u32());
+    collect_expr_child_node_ids(expr, ids);
+}
+
+fn collect_expr_child_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
     match &expr.kind {
         ExprKind::Call { callee, args } => {
             collect_expr_node_ids(callee, ids);
@@ -61,47 +65,20 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
         ExprKind::SchemaEncode { value, .. } => collect_expr_node_ids(value, ids),
         ExprKind::FieldAccess { base, .. } => collect_expr_node_ids(base, ids),
         ExprKind::Try(expr) => collect_expr_node_ids(expr, ids),
-        ExprKind::Record(fields) => {
-            for field in fields {
-                ids.push(field.node_id.as_u32());
-                collect_expr_node_ids(&field.expr, ids);
-            }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                ids.push(entry.node_id.as_u32());
-                collect_expr_node_ids(&entry.key, ids);
-                collect_expr_node_ids(&entry.value, ids);
-            }
-        }
+        ExprKind::Record(fields) => collect_record_field_node_ids(fields, ids),
+        ExprKind::Dict(entries) => collect_dict_entry_node_ids(entries, ids),
         ExprKind::List(items) => {
             for item in items {
                 collect_expr_node_ids(item, ids);
             }
         }
-        ExprKind::Match { scrutinee, arms } => {
-            collect_expr_node_ids(scrutinee, ids);
-            for arm in arms {
-                ids.push(arm.node_id.as_u32());
-                collect_pattern_node_ids(&arm.pattern, ids);
-                collect_expr_node_ids(&arm.expr, ids);
-            }
-        }
+        ExprKind::Match { scrutinee, arms } => collect_match_node_ids(scrutinee, arms, ids),
         ExprKind::If {
             condition,
             then_branch,
             else_if_branches,
             else_branch,
-        } => {
-            collect_expr_node_ids(condition, ids);
-            collect_expr_node_ids(then_branch, ids);
-            for branch in else_if_branches {
-                ids.push(branch.node_id.as_u32());
-                collect_expr_node_ids(&branch.condition, ids);
-                collect_expr_node_ids(&branch.expr, ids);
-            }
-            collect_expr_node_ids(else_branch, ids);
-        }
+        } => collect_if_node_ids(condition, then_branch, else_if_branches, else_branch, ids),
         ExprKind::Prefix { expr, .. } => collect_expr_node_ids(expr, ids),
         ExprKind::Binary { left, right, .. } => {
             collect_expr_node_ids(left, ids);
@@ -109,13 +86,54 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
+        | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
+}
+
+fn collect_record_field_node_ids(fields: &[crate::RecordField], ids: &mut Vec<u32>) {
+    for field in fields {
+        ids.push(field.node_id.as_u32());
+        collect_expr_node_ids(&field.expr, ids);
+    }
+}
+
+fn collect_dict_entry_node_ids(entries: &[crate::DictEntry], ids: &mut Vec<u32>) {
+    for entry in entries {
+        ids.push(entry.node_id.as_u32());
+        collect_expr_node_ids(&entry.key, ids);
+        collect_expr_node_ids(&entry.value, ids);
+    }
+}
+
+fn collect_match_node_ids(scrutinee: &Expr, arms: &[crate::MatchArm], ids: &mut Vec<u32>) {
+    collect_expr_node_ids(scrutinee, ids);
+    for arm in arms {
+        ids.push(arm.node_id.as_u32());
+        collect_pattern_node_ids(&arm.pattern, ids);
+        collect_expr_node_ids(&arm.expr, ids);
+    }
+}
+
+fn collect_if_node_ids(
+    condition: &Expr,
+    then_branch: &Expr,
+    else_if_branches: &[crate::IfBranch],
+    else_branch: &Expr,
+    ids: &mut Vec<u32>,
+) {
+    collect_expr_node_ids(condition, ids);
+    collect_expr_node_ids(then_branch, ids);
+    for branch in else_if_branches {
+        ids.push(branch.node_id.as_u32());
+        collect_expr_node_ids(&branch.condition, ids);
+        collect_expr_node_ids(&branch.expr, ids);
+    }
+    collect_expr_node_ids(else_branch, ids);
 }
 
 fn collect_pattern_node_ids(pattern: &Pattern, ids: &mut Vec<u32>) {

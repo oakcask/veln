@@ -145,6 +145,7 @@ fn let_line(function: &Function, index: usize) -> (&Pattern, &Option<String>, &E
         pattern,
         annotation,
         expr,
+        ..
     } = &function.body[index].kind
     else {
         panic!("expected let line");
@@ -429,7 +430,7 @@ fn lowers_function_metadata_contracts_and_let_lines() {
 
     assert!(matches!(
         &expr_line(function, 1).kind,
-        ExprKind::NamePath(segments) if segments == &vec!["message".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["message".to_string()]
     ));
 }
 
@@ -462,7 +463,7 @@ fn lowers_nested_expression_edge_cases() {
         } if matches!(
             &expr.kind,
             ExprKind::Try(inner)
-                if matches!(&inner.kind, ExprKind::NamePath(segments) if segments == &vec!["input".to_string()])
+                if matches!(&inner.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["input".to_string()])
         )
     ));
 
@@ -487,13 +488,13 @@ fn lowers_nested_expression_edge_cases() {
         panic!("expected pipe expression");
     };
     assert!(
-        matches!(&left.kind, ExprKind::NamePath(segments) if segments == &vec!["data".to_string()])
+        matches!(&left.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["data".to_string()])
     );
     let ExprKind::Call { callee, args } = &right.kind else {
         panic!("expected call on right side of pipe");
     };
     assert!(
-        matches!(&callee.kind, ExprKind::NamePath(segments) if segments == &vec!["sink".to_string()])
+        matches!(&callee.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["sink".to_string()])
     );
     assert!(matches!(&args[0].kind, ExprKind::StringLiteral(value) if value == "\"ok\""));
     assert!(matches!(&args[1].kind, ExprKind::Unit));
@@ -531,12 +532,12 @@ fn preserves_if_expression_as_surface_ast_node() {
     };
 
     assert!(
-        matches!(&condition.kind, ExprKind::NamePath(segments) if segments == &vec!["first".to_string()])
+        matches!(&condition.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["first".to_string()])
     );
     assert!(matches!(&then_branch.kind, ExprKind::IntLiteral(value) if value == "1"));
     assert_eq!(else_if_branches.len(), 1);
     assert!(
-        matches!(&else_if_branches[0].condition.kind, ExprKind::NamePath(segments) if segments == &vec!["second".to_string()])
+        matches!(&else_if_branches[0].condition.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["second".to_string()])
     );
     assert!(matches!(&else_if_branches[0].expr.kind, ExprKind::IntLiteral(value) if value == "2"));
     assert!(matches!(&else_branch.kind, ExprKind::IntLiteral(value) if value == "3"));

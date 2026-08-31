@@ -5,7 +5,7 @@ impl<'a> CoreLowerer<'a> {
         match &expr.kind {
             ExprKind::Missing => self.lower_missing_expr(expr, expected),
             ExprKind::Hole { name, .. } => self.lower_hole_expr(expr, expected, name),
-            ExprKind::NamePath(segments) => self.lower_name_path(expr, segments, expected),
+            ExprKind::NamePath { segments, .. } => self.lower_name_path(expr, segments, expected),
             ExprKind::StringLiteral(value) => self.lower_string_literal(expr, value),
             ExprKind::IntLiteral(value) => self.lower_int_literal(expr, value),
             ExprKind::FloatLiteral(value) => self.lower_float_literal(expr, value),
@@ -252,7 +252,7 @@ impl<'a> CoreLowerer<'a> {
             self.lower_expr(right, None);
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
-        if !matches!(callee.kind, ExprKind::NamePath(_)) {
+        if !matches!(callee.kind, ExprKind::NamePath { .. }) {
             self.blockers.push(CoreBlocker::UnsupportedExpression {
                 node_id: right.node_id,
                 reason: "pipeline_target_not_named_call".to_string(),
@@ -290,7 +290,7 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::IntLiteral(_) => Some(CoreType::int()),
             ExprKind::FloatLiteral(_) => Some(CoreType::float()),
             ExprKind::BoolLiteral(_) => Some(CoreType::bool()),
-            ExprKind::NamePath(segments) => match segments.as_slice() {
+            ExprKind::NamePath { segments, .. } => match segments.as_slice() {
                 [name] => self
                     .bindings
                     .iter()
