@@ -70,17 +70,11 @@ impl SymbolIndex {
         requested_name: &str,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let selected = self.selected_type(result)?;
-        self.types
-            .iter()
-            .find(|candidate| {
-                candidate.package.is_none()
-                    && candidate.module == selected.module
-                    && candidate.name == requested_name
-                    && !same_type(candidate, &selected)
-            })
+        self.local_type_namespace_conflict(&selected.module, requested_name)
+            .filter(|candidate| !candidate.is_selected_type(&selected))
             .map(|candidate| {
                 (
-                    candidate.declaration.clone(),
+                    candidate.declaration(),
                     RenameAffectedScope::Module {
                         name: selected.module.clone(),
                     },
@@ -98,9 +92,9 @@ impl SymbolIndex {
                                 token_index,
                                 requested_name,
                             )
-                            .filter(|candidate| !same_type(candidate, &selected))?;
+                            .filter(|candidate| !candidate.is_selected_type(&selected))?;
                         Some((
-                            conflict.declaration,
+                            conflict.declaration(),
                             RenameAffectedScope::Module {
                                 name: file.module.clone(),
                             },
@@ -538,11 +532,109 @@ impl SymbolIndex {
         tokens: &[Token],
         token_index: usize,
         name: &str,
-    ) -> Option<TypeSymbol> {
+    ) -> Option<TypeConflictCandidate> {
         if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
-            return self.first_visible_type_for_qualified_reference(file, &qualifier, name);
+            return self.first_visible_type_namespace_for_qualified_reference(file, &qualifier, name);
         }
-        self.first_visible_type_for_bare_reference(file, name)
+        self.first_visible_type_namespace_for_bare_reference(file, name)
+    }
+
+    fn local_type_namespace_conflict(
+        &self,
+        module: &str,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        self.types
+            .iter()
+            .find(|symbol| symbol.name == name && symbol.module == module && symbol.package.is_none())
+            .cloned()
+            .map(TypeConflictCandidate::Type)
+            .or_else(|| {
+                self.type_aliases
+                    .iter()
+                    .find(|symbol| {
+                        symbol.name == name && symbol.module == module && symbol.package.is_none()
+                    })
+                    .cloned()
+                    .map(TypeConflictCandidate::Alias)
+            })
+    }
+
+    fn first_visible_type_namespace_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        self.first_local_type_namespace_for_bare_reference(file, name)
+            .or_else(|| {
+                self.types
+                    .iter()
+                    .find(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
+                    .cloned()
+                    .map(TypeConflictCandidate::Type)
+            })
+            .or_else(|| {
+                self.type_aliases
+                    .iter()
+                    .find(|symbol| visible_imported_type_alias_for_bare_reference(file, symbol, name))
+                    .cloned()
+                    .map(TypeConflictCandidate::Alias)
+            })
+    }
+
+    fn first_local_type_namespace_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        self.types
+            .iter()
+            .find(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            })
+            .cloned()
+            .map(TypeConflictCandidate::Type)
+            .or_else(|| {
+                self.type_aliases
+                    .iter()
+                    .find(|symbol| {
+                        symbol.name == name
+                            && symbol.module == file.module
+                            && symbol.package.is_none()
+                    })
+                    .cloned()
+                    .map(TypeConflictCandidate::Alias)
+            })
+    }
+
+    fn first_visible_type_namespace_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeConflictCandidate> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        self.types
+            .iter()
+            .find(|symbol| {
+                visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
+            })
+            .cloned()
+            .map(TypeConflictCandidate::Type)
+            .or_else(|| {
+                self.type_aliases
+                    .iter()
+                    .find(|symbol| {
+                        visible_type_alias_for_qualified_reference(
+                            file,
+                            symbol,
+                            &qualified_modules,
+                            name,
+                        )
+                    })
+                    .cloned()
+                    .map(TypeConflictCandidate::Alias)
+            })
     }
 
     fn visible_type_for_bare_reference(
@@ -559,21 +651,6 @@ impl SymbolIndex {
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
-    }
-
-    fn first_visible_type_for_bare_reference(
-        &self,
-        file: &IndexedFile,
-        name: &str,
-    ) -> Option<TypeSymbol> {
-        self.first_local_type_for_bare_reference(file, name)
-            .cloned()
-            .or_else(|| {
-                self.types
-                    .iter()
-                    .find(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
-                    .cloned()
-            })
     }
 
     fn first_local_type_for_bare_reference(
@@ -606,19 +683,6 @@ impl SymbolIndex {
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
-    }
-
-    fn first_visible_type_for_qualified_reference(
-        &self,
-        file: &IndexedFile,
-        qualifier: &str,
-        name: &str,
-    ) -> Option<TypeSymbol> {
-        let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        self.types
-            .iter()
-            .find(|symbol| visible_type_for_qualified_reference(file, symbol, &qualified_modules, name))
-            .cloned()
     }
 
     fn type_for_constructor_qualifier_token(
@@ -1225,9 +1289,45 @@ fn visible_imported_type_for_bare_reference(
         }
 }
 
+fn visible_imported_type_alias_for_bare_reference(
+    file: &IndexedFile,
+    symbol: &TypeAliasSymbol,
+    name: &str,
+) -> bool {
+    symbol.name == name
+        && match &symbol.package {
+            Some(package) => {
+                file.external_uses
+                    .contains(&(symbol.module.clone(), package.clone()))
+                    || symbol.standard_prelude
+            }
+            None => symbol.module != file.module && file.uses.contains(&symbol.module),
+        }
+}
+
 fn visible_type_for_qualified_reference(
     file: &IndexedFile,
     symbol: &TypeSymbol,
+    qualified_modules: &[String],
+    name: &str,
+) -> bool {
+    symbol.name == name
+        && qualified_modules
+            .iter()
+            .any(|module| module == &symbol.module)
+        && match &symbol.package {
+            Some(package) => {
+                file.external_uses
+                    .contains(&(symbol.module.clone(), package.clone()))
+                    || symbol.standard_prelude
+            }
+            None => symbol.module == file.module || file.uses.contains(&symbol.module),
+        }
+}
+
+fn visible_type_alias_for_qualified_reference(
+    file: &IndexedFile,
+    symbol: &TypeAliasSymbol,
     qualified_modules: &[String],
     name: &str,
 ) -> bool {

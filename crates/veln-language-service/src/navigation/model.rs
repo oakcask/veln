@@ -358,10 +358,33 @@ fn segment_role_matches_symbol(segment: &QualifiedPathSegment, symbol: &Symbol) 
 struct TypeAliasSymbol {
     module: String,
     name: String,
+    declaration: NavigationLocation,
     target_module: Option<String>,
     target_name: String,
     package: Option<String>,
     standard_prelude: bool,
+}
+
+#[derive(Clone, Debug)]
+enum TypeConflictCandidate {
+    Type(TypeSymbol),
+    Alias(TypeAliasSymbol),
+}
+
+impl TypeConflictCandidate {
+    fn declaration(&self) -> NavigationLocation {
+        match self {
+            Self::Type(symbol) => symbol.declaration.clone(),
+            Self::Alias(symbol) => symbol.declaration.clone(),
+        }
+    }
+
+    fn is_selected_type(&self, selected: &TypeSymbol) -> bool {
+        match self {
+            Self::Type(symbol) => same_type(symbol, selected),
+            Self::Alias(_) => false,
+        }
+    }
 }
 
 #[derive(Debug)]

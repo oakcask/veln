@@ -283,3 +283,58 @@ equals = "shadowing.veln"
 id = 21
 path = "/result"
 missing = true
+
+[[lsp_assert]]
+id = 22
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/details/symbol_class"
+equals = "type"
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/details/requested_name"
+equals = "Entry"
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "type_alias.veln"
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/details/conflicting_declaration/range/start/line"
+equals = 8
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/details/conflicting_declaration/range/start/character"
+equals = 9
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/details/affected_scope/kind"
+equals = "module"
+
+[[lsp_assert]]
+id = 22
+path = "/error/data/details/affected_scope/name"
+equals = "type_alias"
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 23
+path = "/error"
+missing = true

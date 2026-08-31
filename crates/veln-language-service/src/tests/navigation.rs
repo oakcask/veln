@@ -269,10 +269,51 @@
     }
 
     #[test]
+    fn rename_validation_rejects_type_conflict_with_public_type_alias() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  Value\n",
+                    "end\n\n",
+                    "type Existing\n",
+                    "  Present\n",
+                    "end\n\n",
+                    "pub type Entry = Existing\n",
+                ),
+            ),
+            source("control.veln", "pub type Unrelated = Int\n"),
+        ]);
+        let result = query_snapshot(&snapshot, "main.veln", 1, 6).unwrap();
+
+        let failure = validate_rename_in_snapshot(&snapshot, &result, "Entry").unwrap_err();
+
+        assert_eq!(failure.code, "rename.conflict");
+        assert_eq!(failure.symbol_class, RenameNameClass::Type);
+        assert_eq!(failure.requested_name, "Entry");
+        let RenameFailureKind::Conflict {
+            conflicting_declaration,
+            affected_scope,
+        } = failure.kind
+        else {
+            panic!("rename failure was not a conflict");
+        };
+        assert_location(&conflicting_declaration, "main.veln", 9, 10);
+        assert_eq!(
+            *affected_scope,
+            RenameAffectedScope::Module {
+                name: "main".to_string(),
+            }
+        );
+    }
+
+    #[test]
     fn rename_validation_preserves_non_conflicting_same_class_renames() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("left.veln", "pub type Item\n  Left\nend\n"),
             source("right.veln", "pub type Other\n  Right\nend\n"),
+            source("aliases.veln", "pub type Entry = Other\n"),
             source(
                 "main.veln",
                 concat!(
