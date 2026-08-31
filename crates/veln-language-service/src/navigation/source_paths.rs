@@ -109,14 +109,14 @@ fn module_name_from_path(path: &str) -> Option<String> {
     Some(path.strip_suffix(".veln")?.replace('/', "::"))
 }
 
-fn use_modules(
-    text: &str,
-) -> (
+type UseModuleIndexes = (
     BTreeSet<String>,
     BTreeSet<(String, String)>,
     BTreeMap<String, String>,
     BTreeMap<String, (String, String)>,
-) {
+);
+
+fn use_modules(text: &str) -> UseModuleIndexes {
     let mut local = BTreeSet::new();
     let mut external = BTreeSet::new();
     let mut local_aliases = BTreeMap::new();

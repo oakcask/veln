@@ -714,14 +714,20 @@ impl SymbolIndex {
     ) -> Vec<String> {
         let mut qualifiers = vec![module.to_string()];
         match package {
-            Some(package) => qualifiers.extend(file.external_import_aliases.iter().filter_map(
-                |(alias, (target_module, target_package))| {
-                    (target_module == module && target_package == package).then(|| alias.clone())
-                },
-            )),
-            None => qualifiers.extend(file.import_aliases.iter().filter_map(|(alias, target)| {
-                (target == module).then(|| alias.clone())
-            })),
+            Some(package) => qualifiers.extend(
+                file.external_import_aliases
+                    .iter()
+                    .filter(|(_, (target_module, target_package))| {
+                        target_module == module && target_package == package
+                    })
+                    .map(|(alias, _)| alias.clone()),
+            ),
+            None => qualifiers.extend(
+                file.import_aliases
+                    .iter()
+                    .filter(|(_, target)| *target == module)
+                    .map(|(alias, _)| alias.clone()),
+            ),
         }
         qualifiers
     }
