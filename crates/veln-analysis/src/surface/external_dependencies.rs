@@ -99,9 +99,10 @@ pub(super) fn load_external_dependency_package(
         .iter()
         .filter(|candidate| candidate.package.as_deref() == Some(package))
     {
+        let module_path = external_import_export_module_path(external_use);
         if !exported_modules
             .iter()
-            .any(|module_name| module_name == &external_import_module_path(external_use))
+            .any(|module_name| module_name == &module_path)
         {
             diagnostics.push(unexported_external_module_diagnostic(external_use));
         }
@@ -283,7 +284,7 @@ fn unavailable_external_package_diagnostic(use_decl: &UseDecl) -> Diagnostic {
             ("package", JsonValue::string(package)),
             (
                 "module_path",
-                JsonValue::string(external_import_module_path(use_decl)),
+                JsonValue::string(external_import_export_module_path(use_decl)),
             ),
         ]),
     )
@@ -291,7 +292,7 @@ fn unavailable_external_package_diagnostic(use_decl: &UseDecl) -> Diagnostic {
 
 fn unexported_external_module_diagnostic(use_decl: &UseDecl) -> Diagnostic {
     let package = use_decl.package.as_deref().unwrap_or_default();
-    let module_path = external_import_module_path(use_decl);
+    let module_path = external_import_export_module_path(use_decl);
     Diagnostic::new(
         "module.unexported_import",
         Severity::Error,
@@ -311,10 +312,23 @@ pub(super) fn external_import_module_path(use_decl: &UseDecl) -> String {
     use_decl.name.clone()
 }
 
+fn external_import_export_module_path(use_decl: &UseDecl) -> String {
+    let module_path = external_import_module_path(use_decl);
+    let Some(package) = use_decl.package.as_deref() else {
+        return module_path;
+    };
+    let prefix = format!("{package}::");
+    module_path
+        .strip_prefix(&prefix)
+        .unwrap_or(module_path.as_str())
+        .to_string()
+}
+
 pub(super) fn standard_export_module_path(use_decl: &UseDecl) -> String {
-    external_import_module_path(use_decl)
+    let module_path = external_import_export_module_path(use_decl);
+    module_path
         .strip_prefix("std::")
-        .unwrap_or(use_decl.name.as_str())
+        .unwrap_or(module_path.as_str())
         .to_string()
 }
 
