@@ -27,6 +27,9 @@ handler bindings, handler annotations, handler clause expressions, and import
 recovery isolation. The `identifier-casing-import-alias-run-boundary-json` case
 checks that an invalid implicit import alias remains a diagnostic blocker while
 the imported target body is quarantined from runtime type failures. The
+`identifier-casing-qualified-type-import-isolation-json` case checks that an
+invalid qualified type path segment reached by the selected run entry also
+uses the shared diagnostic envelope and stops before backend execution. The
 `identifier-casing-unselected-import-path-json` and
 `identifier-casing-unused-import-path-json` cases check that an invalid written
 import path outside the selected entry closure, or unused by that closure, does
