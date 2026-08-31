@@ -613,12 +613,15 @@ fn collect_valid_call_path_segments(
     if segments.len() < 2 {
         return;
     }
+    if !environment
+        .codec_call_path(segments, current_module)
+        .is_empty()
+    {
+        return;
+    }
     if environment
         .function_path(segments, current_module)
         .is_some()
-        || !environment
-            .codec_call_path(segments, current_module)
-            .is_empty()
         || qualified_prelude_signature(segments, None).is_some()
         || qualified_prelude_builtin_signature_with_input(segments, None, None).is_some()
     {
@@ -1902,12 +1905,15 @@ fn push_recovered_function_segment(
     };
     let mut corrected = segments.to_vec();
     corrected[index] = lowercase_initial(name);
+    if !environment
+        .codec_call_path(segments, current_module)
+        .is_empty()
+    {
+        return;
+    }
     if environment
         .function_path(&corrected, current_module)
         .is_none()
-        && environment
-            .codec_call_path(&corrected, current_module)
-            .is_empty()
     {
         return;
     }
@@ -2017,7 +2023,7 @@ fn invalid_function_segment_lacks_function_role_in_expr(
     current_module: Option<&str>,
     environment: &TypeEnvironment,
 ) -> bool {
-    invalid_segment_lacks_role_in_expr(
+    invalid_segment_lacks_call_role_in_expr(
         invalid,
         expr,
         current_module,
@@ -2049,6 +2055,24 @@ fn invalid_segment_lacks_role_in_expr(
         pattern_predicate,
     }
     .expr(expr)
+}
+
+fn invalid_segment_lacks_call_role_in_expr(
+    invalid: &InvalidName,
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+    path_predicate: ExprPathRolePredicate,
+    pattern_predicate: PatternRolePredicate,
+) -> bool {
+    RoleExprScan {
+        invalid,
+        current_module,
+        environment,
+        path_predicate,
+        pattern_predicate,
+    }
+    .call_role_expr(expr)
 }
 
 struct RoleExprScan<'a> {
@@ -2105,6 +2129,103 @@ impl RoleExprScan<'_> {
 
     fn call(&self, callee: &veln_ast::Expr, args: &[veln_ast::Expr]) -> bool {
         self.expr(callee) || self.any_expr(args.iter())
+    }
+
+    fn call_role_expr(&self, expr: &veln_ast::Expr) -> bool {
+        match &expr.kind {
+            veln_ast::ExprKind::Call { callee, args } => {
+                self.call_role_callee(callee) || self.any_call_role_expr(args.iter())
+            }
+            veln_ast::ExprKind::TypeApply { callee, .. }
+            | veln_ast::ExprKind::FieldAccess { base: callee, .. }
+            | veln_ast::ExprKind::Try(callee)
+            | veln_ast::ExprKind::Prefix { expr: callee, .. } => self.call_role_expr(callee),
+            veln_ast::ExprKind::Binary { left, right, .. } => self.call_role_binary(left, right),
+            veln_ast::ExprKind::If {
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+            } => self.call_role_if_expr(condition, then_branch, else_if_branches, else_branch),
+            veln_ast::ExprKind::Record(fields) => {
+                self.any_call_role_expr(fields.iter().map(|field| &field.expr))
+            }
+            veln_ast::ExprKind::List(items) | veln_ast::ExprKind::Perform { args: items, .. } => {
+                self.any_call_role_expr(items.iter())
+            }
+            veln_ast::ExprKind::Dict(entries) => entries
+                .iter()
+                .any(|entry| self.call_role_binary(&entry.key, &entry.value)),
+            veln_ast::ExprKind::Handle { body, args, .. } => {
+                self.call_role_expr(body) || self.any_call_role_expr(args.iter())
+            }
+            veln_ast::ExprKind::SchemaDecode { input, base, .. } => {
+                self.call_role_binary(input, base)
+            }
+            veln_ast::ExprKind::SchemaEncode { value, .. } => self.call_role_expr(value),
+            veln_ast::ExprKind::Match { scrutinee, arms } => {
+                self.call_role_match_expr(scrutinee, arms)
+            }
+            _ => false,
+        }
+    }
+
+    fn call_role_callee(&self, callee: &veln_ast::Expr) -> bool {
+        match &callee.kind {
+            veln_ast::ExprKind::NamePath {
+                segments,
+                segment_spans,
+            } => (self.path_predicate)(
+                self.invalid,
+                segments,
+                segment_spans,
+                self.current_module,
+                self.environment,
+            ),
+            veln_ast::ExprKind::TypeApply { callee, .. }
+            | veln_ast::ExprKind::FieldAccess { base: callee, .. }
+            | veln_ast::ExprKind::Try(callee)
+            | veln_ast::ExprKind::Prefix { expr: callee, .. } => self.call_role_callee(callee),
+            _ => self.call_role_expr(callee),
+        }
+    }
+
+    fn call_role_binary(&self, left: &veln_ast::Expr, right: &veln_ast::Expr) -> bool {
+        self.call_role_expr(left) || self.call_role_expr(right)
+    }
+
+    fn call_role_if_expr(
+        &self,
+        condition: &veln_ast::Expr,
+        then_branch: &veln_ast::Expr,
+        else_if_branches: &[veln_ast::IfBranch],
+        else_branch: &veln_ast::Expr,
+    ) -> bool {
+        self.call_role_binary(condition, then_branch)
+            || else_if_branches
+                .iter()
+                .any(|branch| self.call_role_binary(&branch.condition, &branch.expr))
+            || self.call_role_expr(else_branch)
+    }
+
+    fn call_role_match_expr(
+        &self,
+        scrutinee: &veln_ast::Expr,
+        arms: &[veln_ast::MatchArm],
+    ) -> bool {
+        self.call_role_expr(scrutinee)
+            || arms.iter().any(|arm| {
+                (self.pattern_predicate)(
+                    self.invalid,
+                    &arm.pattern,
+                    self.current_module,
+                    self.environment,
+                ) || self.call_role_expr(&arm.expr)
+            })
+    }
+
+    fn any_call_role_expr<'a>(&self, mut exprs: impl Iterator<Item = &'a veln_ast::Expr>) -> bool {
+        exprs.any(|expr| self.call_role_expr(expr))
     }
 
     fn binary(&self, left: &veln_ast::Expr, right: &veln_ast::Expr) -> bool {

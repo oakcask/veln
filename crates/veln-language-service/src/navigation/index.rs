@@ -83,11 +83,14 @@ impl SymbolIndex {
 
         if let Some(segment) =
             self.classified_qualified_segment(file, tokens, token_index, name, selection)
+            && let Some(selected) = segment.into_selected_symbol()
         {
-            return segment.into_selected_symbol();
+            return Some(selected);
         }
 
-        if is_qualified_path_token(tokens, token_index) {
+        if is_qualified_path_token(tokens, token_index)
+            && !is_call_target_token(tokens, token_index)
+        {
             return None;
         }
 

@@ -542,4 +542,3 @@ fn companion_private_function_rename_keeps_target_references_after_else_if() {
         responses[0]
     );
 }
-

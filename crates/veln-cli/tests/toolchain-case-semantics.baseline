@@ -6049,11 +6049,18 @@ field	expectations.diagnostics[1].severity	"error"
 field	expectations.diagnostics[1].span.column	14
 field	expectations.diagnostics[1].span.file	"app.veln"
 field	expectations.diagnostics[1].span.line	1
+field	expectations.diagnostics[2].id	"name.invalid_case"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"module name `HTTP` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.column	16
+field	expectations.diagnostics[2].span.file	"app.veln"
+field	expectations.diagnostics[2].span.line	3
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
 field	expectations.json_assertions[0].operation	"equals"
 field	expectations.json_assertions[0].path	"status"
-field	expectations.json_assertions[1].length	2
+field	expectations.json_assertions[1].length	3
 field	expectations.json_assertions[1].operation	"length"
 field	expectations.json_assertions[1].path	"diagnostics"
 field	expectations.json_assertions[2].equals	"module.unresolved_import"
@@ -6062,6 +6069,9 @@ field	expectations.json_assertions[2].path	"diagnostics.0.id"
 field	expectations.json_assertions[3].equals	"name.invalid_case"
 field	expectations.json_assertions[3].operation	"equals"
 field	expectations.json_assertions[3].path	"diagnostics.1.id"
+field	expectations.json_assertions[4].equals	"name.invalid_case"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.2.id"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.format	"json"
 field	invocation.command[0]	"check"
@@ -6069,7 +6079,7 @@ field	invocation.command[1]	"--json"
 field	invocation.command[2]	"app.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"62cc54ea7a7d3849b32fdfa0c7b25bd5552cb770b94c4e7738192452d0d6e73b"
+case_digest	"accbe7e4965adde619e14eee536e7e97c70bd160fac13869af56c6c7ba86f35b"
 case	"examples/specification/check/identifier-casing-import-missing-type-export-json"
 field	expectations.diagnostics[0].id	"name.invalid_case"
 field	expectations.diagnostics[0].kind	"name"
@@ -51950,4 +51960,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"70a93ab0632dd83ea1cfac50597f3a8d8082cfa36c9473e82db7dfed01e4ce41"
+aggregate_digest	"dfb4effcc4818fafc753449a95c7d7bf0fbbc319066615c0321e2c5697690921"
