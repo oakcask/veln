@@ -12,6 +12,9 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/index.rs");
+include!("navigation/rename_conflicts.rs");
+include!("navigation/symbol_lookup.rs");
+include!("navigation/symbol_references.rs");
 include!("navigation/declarations.rs");
 include!("navigation/handler_bindings.rs");
 include!("navigation/references.rs");
