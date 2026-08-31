@@ -459,7 +459,7 @@ fn collect_invalid_constructor_path_names(
     for index in 0..segments.len() {
         let class = if index + 1 == segments.len() {
             NameClass::Constructor
-        } else if index + 2 == segments.len() && constructor_path_is_role_fixed(segments) {
+        } else if index + 2 == segments.len() {
             NameClass::Type
         } else {
             NameClass::Module

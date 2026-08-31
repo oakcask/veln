@@ -54,6 +54,17 @@ fn qualified_reference_matches(
         .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
 }
 
+fn next_path_segment_index(tokens: &[Token], index: usize) -> Option<usize> {
+    let separator_index = next_non_layout_index(tokens, index)?;
+    if tokens[separator_index].kind != TokenKind::DoubleColon {
+        return None;
+    }
+    let segment_index = next_non_layout_index(tokens, separator_index)?;
+    (tokens[segment_index].kind == TokenKind::Ident
+        && is_identifier(&tokens[segment_index].text))
+    .then_some(segment_index)
+}
+
 fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
     next_non_layout_index(tokens, index).map(|index| &tokens[index])
 }

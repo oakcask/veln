@@ -231,6 +231,53 @@
     }
 
     #[test]
+    fn type_references_cover_constructor_qualified_type_segments() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "type Item\n",
+                "  Some(Int)\n",
+                "  None\n",
+                "end\n\n",
+                "fn make() -> Item\n",
+                "  Item::Some(1)\n",
+                "end\n\n",
+                "fn observe(input: Item) -> Int\n",
+                "  match input\n",
+                "    Item::None => 0\n",
+                "    Item::Some(value) => value\n",
+                "  end\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 6).unwrap();
+
+        assert_eq!(declaration.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            locations(&declaration.references),
+            [
+                ("main.veln", 6, 14),
+                ("main.veln", 7, 3),
+                ("main.veln", 10, 19),
+                ("main.veln", 12, 5),
+                ("main.veln", 13, 5),
+            ]
+        );
+
+        let qualifier = query(sources, "main.veln", 7, 4).unwrap();
+        assert_eq!(qualifier.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&qualifier.definition, "main.veln", 1, 6);
+        assert!(validate_rename(&qualifier, "Entry").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&qualifier, "entry").unwrap_err(),
+            RenameNameClass::Type,
+            "entry",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
     fn rename_validation_preserves_constructor_case_class() {
         let result = query(
             vec![source(
@@ -568,4 +615,3 @@
             assert!(uri.ends_with(path), "{uri}");
         }
     }
-

@@ -1,0 +1,94 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[stdout]
+contains = ["\"newText\":\"Entry\"", "\"range\":{\"start\":{\"line\":0,\"character\":5},\"end\":{\"line\":0,\"character\":9}}"]
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/referencesProvider"
+equals = true
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/renameProvider/prepareProvider"
+equals = true
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/character"
+equals = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/end/character"
+equals = 9
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 6
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range/start/line"
+equals = 5
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/range/start/line"
+equals = 6
+
+[[lsp_assert]]
+id = 3
+path = "/result/3/range/start/line"
+equals = 9
+
+[[lsp_assert]]
+id = 3
+path = "/result/4/range/start/line"
+equals = 11
+
+[[lsp_assert]]
+id = 3
+path = "/result/5/range/start/line"
+equals = 12
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/line"
+equals = 11
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/character"
+equals = 4
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/code"
+equals = "rename.invalid_case"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/symbol_class"
+equals = "type"
+
+[[lsp_assert]]
+id = 6
+path = "/error/data/details/required_initial"
+equals = "ascii_uppercase"

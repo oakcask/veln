@@ -230,6 +230,11 @@ The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding exclusion across
 definition, references, prepare-rename, and rename for declaration positions
 and in-scope uses.
+The executable `identifier-casing-qualified-use-navigation` LSP example covers
+constructor-qualified type segments across definition, references,
+prepare-rename, and rename. The selected segment keeps the type rename casing
+class, and rename edits use the retained segment ranges in expression and
+pattern paths.
 For a workspace symbol, references and rename edits include only workspace
 source locations. Sources loaded only as dependency package snapshots do not
 produce `file:` locations for workspace references or workspace edits, even

@@ -37,15 +37,6 @@ impl TypeEnvironment {
             .map(|index| &self.functions[*index])
     }
 
-    pub(crate) fn has_invalid_path_segment_in_span(&self, span: &veln_source::SourceSpan) -> bool {
-        self.invalid_names.iter().any(|invalid| {
-            invalid.occurrence == NameOccurrence::PathSegment
-                && invalid.span.file == span.file
-                && span.start.offset <= invalid.span.start.offset
-                && invalid.span.end.offset <= span.end.offset
-        })
-    }
-
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         Self::from_module_with_base(module, None)
     }

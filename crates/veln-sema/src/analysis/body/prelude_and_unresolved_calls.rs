@@ -152,11 +152,7 @@ impl<'a> FunctionChecker<'a> {
                         Some(args.len()),
                     )
                     == 1;
-            if !recovered
-                && !self
-                    .environment
-                    .has_invalid_path_segment_in_span(&callee.span)
-            {
+            if !recovered {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(
                     callee.node_id,

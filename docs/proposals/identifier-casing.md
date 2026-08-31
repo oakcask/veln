@@ -87,9 +87,12 @@ boundaries. Their completion record is
 Qualified-use path casing diagnostics for module-only, module-and-type, and
 `prelude`-qualified expression, pattern, and type paths are specified by
 [Name Resolution](../specification/name-resolution.md) and checked by the
-`identifier-casing-qualified-use-paths-json` example. The remaining
-qualified-use proposal scope covers shared language-service decision-table
-coverage and recovery navigation beyond those compiler diagnostics.
+`identifier-casing-qualified-use-paths-json` example. Editor navigation for
+constructor-qualified type segments is specified by
+[Editor Support](../specification/editor-support.md) and checked by the
+`identifier-casing-qualified-use-navigation` example. The remaining
+qualified-use proposal scope covers recovery navigation beyond those compiler
+and language-service diagnostics.
 
 The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
@@ -495,7 +498,7 @@ identifier-casing remainder.
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
-| Make language-service operations consume the qualified-use segment classification for module-only, module-and-type, and prelude-qualified paths. | Definition, references, prepare-rename, and rename observe the same role decomposition as checking for every supported selected segment, without guessing unresolved intermediate roles. | Language-service definition, reference, prepare-rename, and rename decision table for qualified-use segments. |
+| Complete language-service operations for remaining qualified-use module and prelude segments. | Definition, references, prepare-rename, and rename observe the same role decomposition as checking for every supported selected segment, without guessing unresolved intermediate roles. | Language-service definition, reference, prepare-rename, and rename decision table for remaining qualified-use segments. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified, module-derived, navigation, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair navigation where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, definition, reference, and rename cases. |

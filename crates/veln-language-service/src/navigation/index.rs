@@ -80,6 +80,11 @@ impl SymbolIndex {
         }
 
         if !is_call_target_token(tokens, token_index) {
+            if let Some(symbol) =
+                self.type_for_constructor_qualifier_token(file, tokens, token_index, name)
+            {
+                return Some(Symbol::Type(symbol));
+            }
             if is_type_reference_token(&file.source, name, selection) {
                 return self
                     .visible_type_for_reference(file, tokens, token_index, name)
@@ -174,6 +179,29 @@ impl SymbolIndex {
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn type_for_constructor_qualifier_token(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        let constructor_index = next_path_segment_index(tokens, token_index)?;
+        let qualifier = qualifier_for_token(tokens, token_index)
+            .map(|prefix| format!("{prefix}::{name}"))
+            .unwrap_or_else(|| name.to_string());
+        let constructor =
+            self.constructor_for_qualified_call(file, &qualifier, &tokens[constructor_index].text)?;
+        self.types
+            .iter()
+            .find(|symbol| {
+                symbol.module == constructor.module
+                    && symbol.name == constructor.type_name
+                    && symbol.package == constructor.package
+            })
+            .cloned()
     }
 
     fn symbol_for_bare_call(
@@ -317,6 +345,7 @@ impl SymbolIndex {
             .find(|symbol| {
                 symbol.name == name
                     && (constructor_qualifier_matches(symbol, qualifier)
+                        || (qualifier == symbol.type_name && symbol.module == file.module)
                         || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
                     && match &symbol.package {
                         Some(package) => {
@@ -509,14 +538,34 @@ impl SymbolIndex {
             .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
             .flat_map(|file| {
                 let tokens = lex(&file.source).tokens;
-                type_reference_spans(&file.source, &tokens, &symbol.name)
+                let mut spans = type_reference_spans(&file.source, &tokens, &symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
                         self.visible_type_for_reference(file, &tokens, token_index, &symbol.name)
                             .is_some_and(|candidate| same_type(&candidate, symbol))
                             .then_some(span)
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                spans.extend(self.constructor_type_qualifier_references(file, &tokens, symbol));
+                spans
+            })
+            .collect()
+    }
+
+    fn constructor_type_qualifier_references(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        symbol: &TypeSymbol,
+    ) -> Vec<SourceSpan> {
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(_, token)| token.kind == TokenKind::Ident && token.text == symbol.name)
+            .filter_map(|(index, token)| {
+                self.type_for_constructor_qualifier_token(file, tokens, index, &token.text)
+                    .is_some_and(|candidate| same_type(&candidate, symbol))
+                    .then(|| file.source.span(token.range))
             })
             .collect()
     }

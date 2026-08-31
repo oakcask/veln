@@ -230,12 +230,42 @@ fn check_invalid_name_casing(
         .invalid_names
         .iter()
         .filter(|invalid| !invalid_name_is_valid_constructor_pattern(invalid, module, environment))
+        .filter(|invalid| !invalid_name_repeats_quarantined_import_alias(invalid, module))
         .collect::<Vec<_>>();
     invalid_names.sort_by_key(|invalid| (invalid.span.start.offset, invalid.span.end.offset));
     invalid_names
         .into_iter()
         .map(invalid_name_diagnostic)
         .collect()
+}
+
+fn invalid_name_repeats_quarantined_import_alias(
+    invalid: &InvalidName,
+    module: &SurfaceModule,
+) -> bool {
+    if invalid.class != NameClass::Module
+        || invalid.occurrence != NameOccurrence::PathSegment
+        || invalid.segment_index != Some(0)
+    {
+        return false;
+    }
+    if module.uses.iter().any(|use_decl| {
+        use_decl.span.file == invalid.span.file
+            && use_decl.span.start.offset <= invalid.span.start.offset
+            && invalid.span.end.offset <= use_decl.span.end.offset
+    }) {
+        return false;
+    }
+    module.uses.iter().any(|use_decl| {
+        let alias = use_decl
+            .name
+            .rsplit("::")
+            .next()
+            .unwrap_or(use_decl.name.as_str());
+        crate::name_recovery::use_decl_has_invalid_module_segment(module, use_decl)
+            && use_decl.span.file == invalid.span.file
+            && (use_decl.alias == invalid.name || alias == invalid.name)
+    })
 }
 
 fn invalid_name_is_valid_constructor_pattern(
