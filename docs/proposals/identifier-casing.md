@@ -89,9 +89,13 @@ Qualified-use path casing diagnostics for module-only, module-and-type, and
 [Name Resolution](../specification/name-resolution.md) and checked by the
 `identifier-casing-qualified-use-paths-json` and
 `identifier-casing-qualified-use-paths-human` examples. Editor navigation for
-constructor-qualified type segments and module-only qualified public functions
-is specified by [Editor Support](../specification/editor-support.md) and
-checked by the `identifier-casing-qualified-use-navigation` and
+constructor-qualified type segments, imported module-and-type constructor
+paths, `prelude`-qualified function and type paths, and module-only qualified
+public functions is specified by
+[Editor Support](../specification/editor-support.md) and checked by the
+`identifier-casing-qualified-use-navigation`,
+`identifier-casing-qualified-module-type-navigation`,
+`identifier-casing-qualified-prelude-navigation`, and
 `identifier-casing-qualified-function-navigation` examples. The remaining
 qualified-use proposal scope covers recovery navigation beyond those compiler
 and language-service diagnostics.

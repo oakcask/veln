@@ -1,0 +1,7 @@
+pub fn typed(input: prelude::StreamInput) -> prelude::StreamInput
+  input
+end
+
+pub fn called(value: Int) -> Result<Byte, String>
+  prelude::byte(value)
+end

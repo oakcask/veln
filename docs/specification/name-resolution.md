@@ -132,7 +132,10 @@ paths validate `prelude`, the type qualifier, and the constructor segment with
 the same module, type, and constructor roles. Each invalid role-fixed segment
 reports `name.invalid_case` at the exact segment token span with occurrence
 `path_segment` and the zero-based `segment_index`. A call-target diagnostic
-whose only cause is one of these invalid path segments is suppressed. The
+whose only cause is the resolved or uniquely recovered invalid segment that
+owns that use is suppressed. Missing targets, private imported targets, and
+recovery links that would cross an import boundary still report
+`name.unresolved`. The
 `identifier-casing-qualified-use-paths-json` example checks module-only,
 module-and-type, and prelude-qualified expression, pattern, and type paths
 with each role invalid in turn. The

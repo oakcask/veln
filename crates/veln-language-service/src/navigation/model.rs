@@ -238,6 +238,7 @@ struct TypeSymbol {
     declaration: NavigationLocation,
     package: Option<String>,
     public: bool,
+    standard_prelude: bool,
 }
 
 #[derive(Clone, Debug)]

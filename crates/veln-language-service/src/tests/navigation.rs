@@ -278,6 +278,49 @@
     }
 
     #[test]
+    fn imported_constructor_qualified_type_segments_share_navigation() {
+        let sources = vec![
+            source("helper.veln", "pub type Entry\n  pub Some(Int)\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use helper\n\n",
+                    "fn make() -> helper::Entry\n",
+                    "  helper::Entry::Some(1)\n",
+                    "end\n\n",
+                    "fn read(input: helper::Entry) -> Int\n",
+                    "  match input\n",
+                    "    helper::Entry::Some(value) => value\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        assert!(query(sources.clone(), "main.veln", 3, 15).is_none());
+
+        let qualifier = query(sources, "main.veln", 4, 12).unwrap();
+        assert_eq!(qualifier.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&qualifier.definition, "helper.veln", 1, 10);
+        assert_eq!(
+            locations(&qualifier.references),
+            [
+                ("main.veln", 3, 22),
+                ("main.veln", 4, 11),
+                ("main.veln", 7, 24),
+                ("main.veln", 9, 13),
+            ]
+        );
+        assert!(validate_rename(&qualifier, "Item").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&qualifier, "item").unwrap_err(),
+            RenameNameClass::Type,
+            "item",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
     fn rename_validation_preserves_constructor_case_class() {
         let result = query(
             vec![source(

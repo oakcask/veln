@@ -1,0 +1,11 @@
+use helper
+
+fn make() -> helper::Entry
+  helper::Entry::Some(1)
+end
+
+fn read(input: helper::Entry) -> Int
+  match input
+    helper::Entry::Some(value) => value
+  end
+end

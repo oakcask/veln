@@ -153,7 +153,8 @@ impl SymbolIndex {
                 && match &symbol.package {
                     Some(package) => file
                         .external_uses
-                        .contains(&(symbol.module.clone(), package.clone())),
+                        .contains(&(symbol.module.clone(), package.clone()))
+                        || symbol.standard_prelude,
                     None => symbol.module != file.module && file.uses.contains(&symbol.module),
                 }
         });
@@ -173,7 +174,8 @@ impl SymbolIndex {
                 && match &symbol.package {
                     Some(package) => file
                         .external_uses
-                        .contains(&(symbol.module.clone(), package.clone())),
+                        .contains(&(symbol.module.clone(), package.clone()))
+                        || symbol.standard_prelude,
                     None => symbol.module == file.module || file.uses.contains(&symbol.module),
                 }
         });

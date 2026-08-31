@@ -16,6 +16,7 @@ fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
     left.package == right.package
         && left.module == right.module
         && left.name == right.name
+        && left.standard_prelude == right.standard_prelude
         && left.declaration == right.declaration
 }
 
@@ -179,12 +180,13 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     return None;
                 }
                 let public = type_decl.visibility == Visibility::Public;
-                let (declaration, package) = match &file.origin {
-                    IndexedOrigin::Workspace => (workspace_location(span), None),
+                let (declaration, package, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (workspace_location(span), None, false),
                     IndexedOrigin::Package {
                         identity,
                         uri,
                         exported,
+                        standard_library,
                         ..
                     } => {
                         if !exported || !public {
@@ -196,6 +198,7 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                                 span,
                             },
                             Some(identity.clone()),
+                            *standard_library && file.module == "prelude",
                         )
                     }
                 };
@@ -205,6 +208,7 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     declaration,
                     package,
                     public,
+                    standard_prelude,
                 })
             }
             _ => None,

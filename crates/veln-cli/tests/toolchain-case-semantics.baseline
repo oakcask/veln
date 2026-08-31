@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"a8229e21a7c46bc4a24bb4f2c596f70e05c3c1aa"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1629
+case_count	1631
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -12253,6 +12253,147 @@ field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1561,"s
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
 case_digest	"0249afac8d85507467f37abae75aef34680bf6dc36c788c7bcfbad7fc22ecffd"
+case	"examples/specification/lsp/identifier-casing-qualified-module-type-navigation"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	true
+field	expectations.lsp_assertions[0].id	1
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/capabilities/definitionProvider"
+field	expectations.lsp_assertions[10].equals	null
+field	expectations.lsp_assertions[10].id	7
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/result"
+field	expectations.lsp_assertions[11].id	8
+field	expectations.lsp_assertions[11].length	0
+field	expectations.lsp_assertions[11].operation	"length"
+field	expectations.lsp_assertions[11].path	"/result"
+field	expectations.lsp_assertions[12].equals	null
+field	expectations.lsp_assertions[12].id	9
+field	expectations.lsp_assertions[12].operation	"equals"
+field	expectations.lsp_assertions[12].path	"/result"
+field	expectations.lsp_assertions[13].equals	{}
+field	expectations.lsp_assertions[13].id	10
+field	expectations.lsp_assertions[13].operation	"equals"
+field	expectations.lsp_assertions[13].path	"/result/changes"
+field	expectations.lsp_assertions[1].equals	true
+field	expectations.lsp_assertions[1].id	1
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/result/capabilities/referencesProvider"
+field	expectations.lsp_assertions[2].equals	true
+field	expectations.lsp_assertions[2].id	1
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/result/capabilities/renameProvider/prepareProvider"
+field	expectations.lsp_assertions[3].equals	0
+field	expectations.lsp_assertions[3].id	2
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/result/range/start/line"
+field	expectations.lsp_assertions[4].equals	9
+field	expectations.lsp_assertions[4].id	2
+field	expectations.lsp_assertions[4].operation	"equals"
+field	expectations.lsp_assertions[4].path	"/result/range/start/character"
+field	expectations.lsp_assertions[5].id	3
+field	expectations.lsp_assertions[5].length	5
+field	expectations.lsp_assertions[5].operation	"length"
+field	expectations.lsp_assertions[5].path	"/result"
+field	expectations.lsp_assertions[6].equals	8
+field	expectations.lsp_assertions[6].id	4
+field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].path	"/result/start/line"
+field	expectations.lsp_assertions[7].equals	12
+field	expectations.lsp_assertions[7].id	4
+field	expectations.lsp_assertions[7].operation	"equals"
+field	expectations.lsp_assertions[7].path	"/result/start/character"
+field	expectations.lsp_assertions[8].equals	"rename.invalid_case"
+field	expectations.lsp_assertions[8].id	6
+field	expectations.lsp_assertions[8].operation	"equals"
+field	expectations.lsp_assertions[8].path	"/error/data/code"
+field	expectations.lsp_assertions[9].equals	"type"
+field	expectations.lsp_assertions[9].id	6
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/error/data/details/symbol_class"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"newText\":\"Item\""
+field	expectations.stdout.contains[1]	"\"range\":{\"start\":{\"line\":0,\"character\":9},\"end\":{\"line\":0,\"character\":14}}"
+field	expectations.stdout.contains[2]	"\"id\":7,\"result\":null"
+field	expectations.stdout.contains[3]	"\"id\":8,\"result\":[]"
+field	expectations.stdout.contains[4]	"\"id\":9,\"result\":null"
+field	expectations.stdout.contains[5]	"\"id\":10,\"result\":{\"changes\":{}}"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2224,"sha256":"9c96014afa8fd6807ccb3cba0a146e596bee609f1db14046d410e6b5ebece632"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"forbidden"
+case_digest	"607f4fbd90d744eed3b4e7cb51650657935cee03518e52c61dc0935a804713b2"
+case	"examples/specification/lsp/identifier-casing-qualified-prelude-navigation"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	true
+field	expectations.lsp_assertions[0].id	1
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/capabilities/definitionProvider"
+field	expectations.lsp_assertions[10].equals	{}
+field	expectations.lsp_assertions[10].id	11
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/result/changes"
+field	expectations.lsp_assertions[11].equals	null
+field	expectations.lsp_assertions[11].id	12
+field	expectations.lsp_assertions[11].operation	"equals"
+field	expectations.lsp_assertions[11].path	"/result"
+field	expectations.lsp_assertions[1].equals	true
+field	expectations.lsp_assertions[1].id	1
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/result/capabilities/referencesProvider"
+field	expectations.lsp_assertions[2].equals	true
+field	expectations.lsp_assertions[2].id	1
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/result/capabilities/renameProvider/prepareProvider"
+field	expectations.lsp_assertions[3].id	3
+field	expectations.lsp_assertions[3].length	0
+field	expectations.lsp_assertions[3].operation	"length"
+field	expectations.lsp_assertions[3].path	"/result"
+field	expectations.lsp_assertions[4].equals	null
+field	expectations.lsp_assertions[4].id	4
+field	expectations.lsp_assertions[4].operation	"equals"
+field	expectations.lsp_assertions[4].path	"/result"
+field	expectations.lsp_assertions[5].equals	{}
+field	expectations.lsp_assertions[5].id	5
+field	expectations.lsp_assertions[5].operation	"equals"
+field	expectations.lsp_assertions[5].path	"/result/changes"
+field	expectations.lsp_assertions[6].equals	null
+field	expectations.lsp_assertions[6].id	6
+field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].path	"/result"
+field	expectations.lsp_assertions[7].id	7
+field	expectations.lsp_assertions[7].length	0
+field	expectations.lsp_assertions[7].operation	"length"
+field	expectations.lsp_assertions[7].path	"/result"
+field	expectations.lsp_assertions[8].id	9
+field	expectations.lsp_assertions[8].length	0
+field	expectations.lsp_assertions[8].operation	"length"
+field	expectations.lsp_assertions[8].path	"/result"
+field	expectations.lsp_assertions[9].equals	null
+field	expectations.lsp_assertions[9].id	10
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/result"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":2,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/"
+field	expectations.stdout.contains[10]	"\"id\":11,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[11]	"\"id\":12,\"result\":null"
+field	expectations.stdout.contains[1]	"/prelude.veln\""
+field	expectations.stdout.contains[2]	"\"id\":3,\"result\":[]"
+field	expectations.stdout.contains[3]	"\"id\":4,\"result\":null"
+field	expectations.stdout.contains[4]	"\"id\":5,\"result\":{\"changes\":{}}"
+field	expectations.stdout.contains[5]	"\"id\":6,\"result\":null"
+field	expectations.stdout.contains[6]	"\"id\":7,\"result\":[]"
+field	expectations.stdout.contains[7]	"\"id\":8,\"result\":{\"uri\":\"veln-pkg:///std/snapshot/"
+field	expectations.stdout.contains[8]	"\"id\":9,\"result\":[]"
+field	expectations.stdout.contains[9]	"\"id\":10,\"result\":null"
+field	expectations.stdout.not_contains[0]	"target/debug"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2666,"sha256":"e06ad5c23868e47e6c57d87f18069a481205c1a7bf351e4c6d796408d80f38de"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"forbidden"
+case_digest	"43194d481930c8fd0d956c35d25ac5d498149ff025afbbcf7a6830f8fe13b1a8"
 case	"examples/specification/lsp/identifier-casing-qualified-use-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -51544,4 +51685,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"81b31e840775292dd24ea2841e38e48c436fd515a5d58c3abbe0f33a241fa82e"
+aggregate_digest	"8f41e05476e1d986a91ca4867f5397670708b47e94461b554ca814bbc77d498a"
