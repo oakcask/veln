@@ -4,9 +4,9 @@ Content-Length: 78
 
 {"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./math.test.veln"},"position":{"line":7,"character":10}}}Content-Length: 159
 
-{"jsonrpc":"2.0","id":3,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":"file://./math.test.veln"},"position":{"line":7,"character":10}}}Content-Length: 172
+{"jsonrpc":"2.0","id":3,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":"file://./math.test.veln"},"position":{"line":7,"character":10}}}Content-Length: 170
 
-{"jsonrpc":"2.0","id":4,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://./math.test.veln"},"position":{"line":7,"character":10},"newName":"advance"}}Content-Length: 157
+{"jsonrpc":"2.0","id":4,"method":"textDocument/rename","params":{"textDocument":{"uri":"file://./math.test.veln"},"position":{"line":7,"character":10},"newName":"shift"}}Content-Length: 157
 
 {"jsonrpc":"2.0","id":5,"method":"textDocument/definition","params":{"textDocument":{"uri":"file://./other.test.veln"},"position":{"line":3,"character":10}}}Content-Length: 156
 

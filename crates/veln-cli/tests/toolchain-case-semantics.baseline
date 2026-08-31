@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"833b46829c65d1501cf61faafffbd0f5c69c3828"
+source_git_tree	"7ba1d5282fb8094f0ecfc8559281ceb16d750ef0"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1638
@@ -12216,15 +12216,15 @@ field	expectations.stdout.contains[2]	"\"id\":2,\"result\":{\"uri\":\"file://"
 field	expectations.stdout.contains[3]	"/math.veln\",\"range\":{\"start\":{\"line\":0,\"character\":3},\"end\":{\"line\":0,\"character\":12}}"
 field	expectations.stdout.contains[4]	"\"id\":3,\"result\":{\"start\":{\"line\":7,\"character\":8},\"end\":{\"line\":7,\"character\":17}}"
 field	expectations.stdout.contains[5]	"\"id\":4,\"result\":{\"changes\":"
-field	expectations.stdout.contains[6]	"\"newText\":\"advance\""
+field	expectations.stdout.contains[6]	"\"newText\":\"shift\""
 field	expectations.stdout.contains[7]	"\"range\":{\"start\":{\"line\":0,\"character\":3},\"end\":{\"line\":0,\"character\":12}}"
 field	expectations.stdout.contains[8]	"\"range\":{\"start\":{\"line\":1,\"character\":2},\"end\":{\"line\":1,\"character\":11}}"
 field	expectations.stdout.contains[9]	"\"range\":{\"start\":{\"line\":7,\"character\":2},\"end\":{\"line\":7,\"character\":11}}"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1344,"sha256":"b7ee3c9d284f80cbfcda8ff097985971ec28eb3d6bd2df997fe58a4100024493"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1341,"sha256":"3d03340ddfb357b5fe4966c56fb1d3dadafd73a1d8437ecbfd7cf539c8f4eda2"}
 field	source_errors	"expected"
-case_digest	"a9f842b7e97bae8e1eb806589ef7acb6b231044d68ead36c49bca5144c7e33af"
+case_digest	"419d0136671dbe9908d581fb81ec910a9472e61f50ad6fc1dc24a57ea714c5f8"
 case	"examples/specification/lsp/companion-private-function-rename-overlay"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -52225,4 +52225,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"3a604330e8b7c844a10f5ba226c0159ac1e0f7ffc287519cab46dfac777988e4"
+aggregate_digest	"1543ac103fa52214f9a70908f7d488e7fd3d86734a95cf7ec2d0773854bc177a"
