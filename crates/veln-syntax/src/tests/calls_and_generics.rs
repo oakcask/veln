@@ -18,7 +18,7 @@ fn parses_structured_calls_and_holes() {
     };
     assert!(matches!(
         &callee.kind,
-        ExprKind::NamePath(segments) if segments == &vec!["stdio".to_string(), "println".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["stdio".to_string(), "println".to_string()]
     ));
     assert!(matches!(
         &args[0].kind,
@@ -56,7 +56,7 @@ fn parses_type_argument_call_callees() {
     assert_eq!(type_args, &vec!["String".to_string()]);
     assert!(matches!(
         &callee.kind,
-        ExprKind::NamePath(segments) if segments == &vec!["channel".to_string(), "bounded".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["channel".to_string(), "bounded".to_string()]
     ));
     assert_eq!(
         format_tree(&output.tree),
@@ -88,7 +88,7 @@ fn parses_task_spawn_type_argument_call_callee() {
     assert_eq!(type_args, &vec!["String".to_string()]);
     assert!(matches!(
         &callee.kind,
-        ExprKind::NamePath(segments) if segments == &vec!["task".to_string(), "spawn".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["task".to_string(), "spawn".to_string()]
     ));
 }
 
@@ -123,7 +123,7 @@ fn parses_task_spawn_with_result_and_context_type_arguments() {
     );
     assert!(matches!(
         &callee.kind,
-        ExprKind::NamePath(segments) if segments == &vec!["task".to_string(), "spawn_with".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["task".to_string(), "spawn_with".to_string()]
     ));
 }
 

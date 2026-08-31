@@ -39,6 +39,7 @@ impl TypeEnvironment {
                 module_names,
                 |use_decl| use_decl.module_name.as_deref(),
             ),
+            invalid_names: self.invalid_names.clone(),
             adts: self.adts.standard_subset(module_names),
             companion_function_access_targets: access_targets.functions,
             companion_schema_access_targets: access_targets.schemas,

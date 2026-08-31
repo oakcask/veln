@@ -39,7 +39,7 @@ fn parses_and_formats_qualified_builtin_constructors() {
     };
     assert!(matches!(
         &callee.kind,
-        ExprKind::NamePath(segments) if segments == &vec!["Result".to_string(), "Ok".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["Result".to_string(), "Ok".to_string()]
     ));
     assert_eq!(
         format_tree(&output.tree),
@@ -288,12 +288,12 @@ fn parses_if_else_expression_chain_as_distinct_surface_expr() {
         panic!("expected if expression");
     };
     assert!(
-        matches!(&condition.kind, ExprKind::NamePath(segments) if segments == &vec!["first".to_string()])
+        matches!(&condition.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["first".to_string()])
     );
     assert!(matches!(&then_branch.kind, ExprKind::IntLiteral(value) if value == "1"));
     assert_eq!(else_if_branches.len(), 1);
     assert!(
-        matches!(&else_if_branches[0].condition.kind, ExprKind::NamePath(segments) if segments == &vec!["second".to_string()])
+        matches!(&else_if_branches[0].condition.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["second".to_string()])
     );
     assert!(matches!(&else_if_branches[0].expr.kind, ExprKind::IntLiteral(value) if value == "2"));
     assert!(matches!(&else_branch.kind, ExprKind::IntLiteral(value) if value == "3"));

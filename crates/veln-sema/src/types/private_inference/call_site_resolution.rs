@@ -238,7 +238,7 @@ pub(crate) fn private_same_module_call_target(
     current_module: Option<&str>,
     function_by_path: &FunctionAstMap<'_>,
 ) -> Option<FunctionKey> {
-    let ExprKind::NamePath(segments) = &callee.kind else {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
         return None;
     };
     private_name_path_target(segments, current_module, function_by_path)

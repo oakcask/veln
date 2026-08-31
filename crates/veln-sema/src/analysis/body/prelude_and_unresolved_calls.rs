@@ -7,7 +7,7 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
-        let ExprKind::NamePath(segments) = &callee.kind else {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return None;
         };
         let (name, params, return_type) = if let [name] = segments.as_slice() {
@@ -152,7 +152,11 @@ impl<'a> FunctionChecker<'a> {
                         Some(args.len()),
                     )
                     == 1;
-            if !recovered {
+            if !recovered
+                && !self
+                    .environment
+                    .has_invalid_path_segment_in_span(&callee.span)
+            {
                 let symbol = segments.join("::");
                 self.push_unresolved_name(
                     callee.node_id,
@@ -249,7 +253,7 @@ impl<'a> FunctionChecker<'a> {
     }
 
     pub(super) fn bare_call_is_ambiguous(&self, callee: &Expr) -> bool {
-        let ExprKind::NamePath(segments) = &callee.kind else {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return false;
         };
         let [name] = segments.as_slice() else {

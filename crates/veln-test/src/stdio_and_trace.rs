@@ -82,7 +82,7 @@ pub(super) fn collect_stdio_call_spans(
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
+        | ExprKind::NamePath { segments: _, .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
@@ -93,7 +93,7 @@ pub(super) fn collect_stdio_call_spans(
 
 pub(super) fn is_stdio_callee(expr: &Expr) -> bool {
     match &expr.kind {
-        ExprKind::NamePath(segments) => matches!(
+        ExprKind::NamePath { segments, .. } => matches!(
             segments.as_slice(),
             [module, name]
                 if module == "stdio"

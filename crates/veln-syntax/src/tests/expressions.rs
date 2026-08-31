@@ -133,7 +133,7 @@ fn parses_try_prefix_and_pipeline_precedence() {
         } if matches!(
             &expr.kind,
             ExprKind::Try(inner)
-                if matches!(&inner.kind, ExprKind::NamePath(segments) if segments == &vec!["input".to_string()])
+                if matches!(&inner.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["input".to_string()])
         )
     ));
     let ExprKind::Call { callee, args } = &right.kind else {
@@ -141,7 +141,7 @@ fn parses_try_prefix_and_pipeline_precedence() {
     };
     assert!(matches!(
         &callee.kind,
-        ExprKind::NamePath(segments) if segments == &vec!["sink".to_string()]
+        ExprKind::NamePath { segments, .. } if segments == &vec!["sink".to_string()]
     ));
     assert!(matches!(&args[0].kind, ExprKind::StringLiteral(value) if value == "\"ok\""));
     assert!(matches!(&args[1].kind, ExprKind::Unit));
@@ -166,7 +166,7 @@ fn parses_boolean_literals_as_literals() {
         panic!("expected boolean binary expression");
     };
     assert!(
-        matches!(&right.kind, ExprKind::NamePath(segments) if segments == &vec!["flag".to_string()])
+        matches!(&right.kind, ExprKind::NamePath { segments, .. } if segments == &vec!["flag".to_string()])
     );
     let ExprKind::Binary { left, right, .. } = &left.kind else {
         panic!("expected nested boolean binary expression");
@@ -192,9 +192,9 @@ fn parses_qualified_boolean_literal_spelling_as_name_path() {
     let ExprKind::Binary { left, right, .. } = &expr.kind else {
         panic!("expected boolean binary expression");
     };
-    assert!(matches!(&left.kind, ExprKind::NamePath(segments)
+    assert!(matches!(&left.kind, ExprKind::NamePath { segments, .. }
             if segments == &vec!["prelude".to_string(), "true".to_string()]));
-    assert!(matches!(&right.kind, ExprKind::NamePath(segments)
+    assert!(matches!(&right.kind, ExprKind::NamePath { segments, .. }
             if segments == &vec!["prelude".to_string(), "false".to_string()]));
     assert_eq!(
         bare_expression_bool_literal(&["true".to_string()]),

@@ -95,6 +95,7 @@ pub(super) fn from_module_with_base(
         codec_symbols: symbols.codec_symbols,
         uses: symbols.uses,
         quarantined_uses: symbols.quarantined_uses,
+        invalid_names: module.invalid_names.clone(),
         adts: declarations.adts,
         companion_function_access_targets: symbols.companion_function_access_targets,
         companion_schema_access_targets: symbols.companion_schema_access_targets,

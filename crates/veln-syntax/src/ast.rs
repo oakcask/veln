@@ -311,7 +311,10 @@ pub enum ExprKind {
         name: Option<String>,
         satisfy: Option<SatisfyClause>,
     },
-    NamePath(Vec<String>),
+    NamePath {
+        segments: Vec<String>,
+        segment_spans: Vec<SourceSpan>,
+    },
     StringLiteral(String),
     IntLiteral(String),
     FloatLiteral(String),

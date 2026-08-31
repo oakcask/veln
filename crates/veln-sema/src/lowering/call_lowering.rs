@@ -118,7 +118,7 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let ExprKind::NamePath(segments) = &callee.kind {
+        if let ExprKind::NamePath { segments, .. } = &callee.kind {
             match self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),
@@ -160,7 +160,7 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        let ExprKind::NamePath(segments) = &callee.kind else {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return None;
         };
         if !is_concurrency_call(segments) {

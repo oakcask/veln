@@ -133,7 +133,7 @@ pub(crate) fn collect_private_call_site_expr_constraints(
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
             collect_private_call_site_control_flow_constraints(expr, expected, context);
         }
-        ExprKind::NamePath(segments) => {
+        ExprKind::NamePath { segments, .. } => {
             collect_private_parameter_constraints(segments, expected, context);
             collect_private_function_value_constraints(segments, expected, context);
         }
@@ -421,7 +421,7 @@ pub(crate) fn collect_private_call_site_non_target_call_args(
     expected: Option<&Type>,
     context: &mut PrivateCallSiteExprContext<'_, '_>,
 ) {
-    let ExprKind::NamePath(segments) = &callee.kind else {
+    let ExprKind::NamePath { segments, .. } = &callee.kind else {
         for arg in args {
             collect_private_call_site_expr_constraints(arg, None, context);
         }

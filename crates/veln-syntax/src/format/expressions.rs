@@ -30,7 +30,7 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
     match &expr.kind {
         ExprKind::Missing => "_".to_string(),
         ExprKind::Hole { name, satisfy } => format_hole_expr(name.as_deref(), satisfy.as_ref()),
-        ExprKind::NamePath(segments) => segments.join("::"),
+        ExprKind::NamePath { segments, .. } => segments.join("::"),
         ExprKind::StringLiteral(value)
         | ExprKind::IntLiteral(value)
         | ExprKind::FloatLiteral(value) => value.clone(),

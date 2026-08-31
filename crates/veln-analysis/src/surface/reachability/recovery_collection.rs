@@ -109,7 +109,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         spans: &mut Vec<ReachableInvalidNameSpan>,
     ) {
         match &expr.kind {
-            ExprKind::NamePath(segments) => {
+            ExprKind::NamePath { segments, .. } => {
                 if !matches!(segments.as_slice(), [name] if local_bindings.iter().rev().any(|binding| binding == name))
                 {
                     self.select_value_name(segments, current_module, spans);

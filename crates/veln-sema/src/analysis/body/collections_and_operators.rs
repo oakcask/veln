@@ -334,7 +334,7 @@ impl<'a> FunctionChecker<'a> {
             ));
             return Type::Unknown;
         };
-        if !matches!(callee.kind, ExprKind::NamePath(_)) {
+        if !matches!(callee.kind, ExprKind::NamePath { segments: _, .. }) {
             self.infer_expr(left, None);
             self.infer_expr(right, expected_result);
             self.diagnostics.push(Diagnostic::new(
@@ -489,7 +489,7 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::IntLiteral(_) => Some(Type::int()),
             ExprKind::FloatLiteral(_) => Some(Type::float()),
             ExprKind::BoolLiteral(_) => Some(Type::bool()),
-            ExprKind::NamePath(segments) => match segments.as_slice() {
+            ExprKind::NamePath { segments, .. } => match segments.as_slice() {
                 [name] => self
                     .bindings
                     .iter()

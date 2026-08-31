@@ -29,7 +29,10 @@ impl<'a> Reader<'a> {
                 name: self.option(Self::string)?,
                 satisfy: self.option(Self::satisfy)?,
             }),
-            2 => Ok(ExprKind::NamePath(self.vec(Self::string)?)),
+            2 => Ok(ExprKind::NamePath {
+                segments: self.vec(Self::string)?,
+                segment_spans: self.vec(Self::span)?,
+            }),
             3 => Ok(ExprKind::StringLiteral(self.string()?)),
             4 => Ok(ExprKind::IntLiteral(self.string()?)),
             5 => Ok(ExprKind::FloatLiteral(self.string()?)),

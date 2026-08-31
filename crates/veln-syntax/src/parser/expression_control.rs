@@ -413,11 +413,14 @@ impl<'a> ExprParser<'a> {
     pub(super) fn parse_name_path(&mut self) -> Expr {
         let start = self.current().range;
         let mut end = start;
-        let mut segments = vec![self.bump().text];
+        let first = self.bump();
+        let mut segments = vec![first.text];
+        let mut segment_spans = vec![self.source.span(first.range)];
         while self.eat(TokenKind::DoubleColon).is_some() {
             if self.at_contextual_identifier() || self.at(TokenKind::Decode) {
                 let segment = self.bump();
                 end = segment.range;
+                segment_spans.push(self.source.span(segment.range));
                 segments.push(segment.text);
             } else {
                 break;
@@ -430,7 +433,10 @@ impl<'a> ExprParser<'a> {
             };
         }
         Expr {
-            kind: ExprKind::NamePath(segments),
+            kind: ExprKind::NamePath {
+                segments,
+                segment_spans,
+            },
             span: self.source.span(start.cover(end)),
         }
     }

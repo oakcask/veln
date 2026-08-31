@@ -200,7 +200,7 @@ impl<'a> FunctionChecker<'a> {
         callee: &Expr,
         args: &[Expr],
     ) -> Option<Type> {
-        let ExprKind::NamePath(segments) = &callee.kind else {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return None;
         };
         let [name] = segments.as_slice() else {
@@ -239,7 +239,7 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
-        if let ExprKind::NamePath(segments) = &callee.kind {
+        if let ExprKind::NamePath { segments, .. } = &callee.kind {
             match self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),
@@ -305,7 +305,7 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
         if self.bare_call_is_ambiguous(callee) {
-            if let ExprKind::NamePath(segments) = &callee.kind
+            if let ExprKind::NamePath { segments, .. } = &callee.kind
                 && let [name] = segments.as_slice()
             {
                 self.push_ambiguous_unqualified_function_import(
@@ -361,7 +361,7 @@ impl<'a> FunctionChecker<'a> {
         if self.function.module_name.as_deref() == Some("std::prelude") {
             return false;
         }
-        let ExprKind::NamePath(segments) = &callee.kind else {
+        let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return false;
         };
         let function = match segments.as_slice() {

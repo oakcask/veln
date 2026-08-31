@@ -121,6 +121,21 @@ Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
 prelude-qualified lookup.
+Qualified use paths validate every segment whose role is fixed by the written
+path form. Module-only function and value paths validate each qualifier segment
+as `module` and the final segment as `function` for calls or `value_binding`
+for value references. Module-and-type constructor paths validate qualifier
+segments as `module`, the type qualifier as `type`, and the final segment as
+`constructor`. Prelude-qualified type paths validate `prelude` as the module
+segment and the final type segment as `type`; prelude-qualified constructor
+paths validate `prelude`, the type qualifier, and the constructor segment with
+the same module, type, and constructor roles. Each invalid role-fixed segment
+reports `name.invalid_case` at the exact segment token span with occurrence
+`path_segment` and the zero-based `segment_index`. A call-target diagnostic
+whose only cause is one of these invalid path segments is suppressed. The
+`identifier-casing-qualified-use-paths-json` example checks module-only,
+module-and-type, and prelude-qualified expression, pattern, and type paths
+with each role invalid in turn.
 Qualified constructor patterns keep constructor syntax. A qualified
 constructor pattern whose final segment starts with an ASCII lowercase letter
 reports `name.invalid_case` at that final segment with occurrence

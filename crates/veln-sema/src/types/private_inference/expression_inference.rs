@@ -31,7 +31,7 @@ pub(crate) fn tail_expr_can_use_expected(
                     .iter()
                     .all(|field| expected.record_field(&field.name).is_some())
         }
-        ExprKind::NamePath(segments) => {
+        ExprKind::NamePath { segments, .. } => {
             matches!(
                 adts.nullary_constructor(segments, current_module, uses),
                 ConstructorLookup::Found(constructor)
@@ -39,7 +39,7 @@ pub(crate) fn tail_expr_can_use_expected(
             )
         }
         ExprKind::Call { callee, .. } => {
-            let ExprKind::NamePath(segments) = &callee.kind else {
+            let ExprKind::NamePath { segments, .. } = &callee.kind else {
                 return false;
             };
             matches!(
@@ -167,7 +167,7 @@ pub(crate) fn infer_private_signature_expr_type(
         ExprKind::FloatLiteral(_) => Type::float(),
         ExprKind::BoolLiteral(_) => Type::bool(),
         ExprKind::Unit => Type::unit(),
-        ExprKind::NamePath(segments) => infer_private_signature_name_type(
+        ExprKind::NamePath { segments, .. } => infer_private_signature_name_type(
             segments,
             expected,
             current_module,
@@ -629,7 +629,7 @@ pub(crate) fn infer_private_signature_call_type(
     expected: Option<&Type>,
     context: &PrivateSignatureInferContext<'_>,
 ) -> Type {
-    if let ExprKind::NamePath(segments) = &callee.kind {
+    if let ExprKind::NamePath { segments, .. } = &callee.kind {
         if let ConstructorLookup::Found(constructor) =
             context
                 .adts

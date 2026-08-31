@@ -214,7 +214,7 @@ pub(super) fn collect_function_callees(
     let handlers = context.handlers;
 
     match &expr.kind {
-        ExprKind::NamePath(segments) => {
+        ExprKind::NamePath { segments, .. } => {
             collect_function_name_reference(segments, context, local_bindings, None, callees);
         }
         ExprKind::TypeApply { callee, .. } => {

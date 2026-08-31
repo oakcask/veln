@@ -21,6 +21,7 @@ pub(crate) struct TypeEnvironment {
     codec_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
+    invalid_names: Vec<InvalidName>,
     pub(crate) adts: AdtRegistry,
     companion_function_access_targets: BTreeMap<String, String>,
     companion_schema_access_targets: BTreeMap<String, String>,
@@ -34,6 +35,15 @@ impl TypeEnvironment {
             .into_iter()
             .flatten()
             .map(|index| &self.functions[*index])
+    }
+
+    pub(crate) fn has_invalid_path_segment_in_span(&self, span: &veln_source::SourceSpan) -> bool {
+        self.invalid_names.iter().any(|invalid| {
+            invalid.occurrence == NameOccurrence::PathSegment
+                && invalid.span.file == span.file
+                && span.start.offset <= invalid.span.start.offset
+                && invalid.span.end.offset <= span.end.offset
+        })
     }
 
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {

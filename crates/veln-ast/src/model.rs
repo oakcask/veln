@@ -404,7 +404,7 @@ pub struct Expr {
 impl Expr {
     pub fn callee_name_path(&self) -> Option<&[String]> {
         match &self.kind {
-            ExprKind::NamePath(segments) => Some(segments),
+            ExprKind::NamePath { segments, .. } => Some(segments),
             ExprKind::TypeApply { callee, .. } => callee.callee_name_path(),
             _ => None,
         }
@@ -412,9 +412,9 @@ impl Expr {
 
     pub fn callee_name_path_and_type_args(&self) -> Option<(&[String], Option<&[String]>)> {
         match &self.kind {
-            ExprKind::NamePath(segments) => Some((segments, None)),
+            ExprKind::NamePath { segments, .. } => Some((segments, None)),
             ExprKind::TypeApply { callee, type_args } => {
-                let ExprKind::NamePath(segments) = &callee.kind else {
+                let ExprKind::NamePath { segments, .. } = &callee.kind else {
                     return None;
                 };
                 Some((segments, Some(type_args)))
@@ -431,7 +431,10 @@ pub enum ExprKind {
         name: Option<String>,
         satisfy: Option<SatisfyClause>,
     },
-    NamePath(Vec<String>),
+    NamePath {
+        segments: Vec<String>,
+        segment_spans: Vec<SourceSpan>,
+    },
     StringLiteral(String),
     IntLiteral(String),
     FloatLiteral(String),

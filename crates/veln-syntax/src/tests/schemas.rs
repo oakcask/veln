@@ -28,10 +28,10 @@ fn parses_and_formats_schema_decode_expression() {
     };
     assert_eq!(schema, &vec!["wire".to_string(), "PacketWire".to_string()]);
     assert!(
-        matches!(input.kind, ExprKind::NamePath(ref segments) if segments == &vec!["view".to_string()])
+        matches!(input.kind, ExprKind::NamePath { ref segments, .. } if segments == &vec!["view".to_string()])
     );
     assert!(
-        matches!(base.kind, ExprKind::NamePath(ref segments) if segments == &vec!["base".to_string()])
+        matches!(base.kind, ExprKind::NamePath { ref segments, .. } if segments == &vec!["base".to_string()])
     );
     assert_eq!(
         format_tree(&output.tree),
@@ -91,7 +91,7 @@ fn parses_and_formats_schema_encode_expression() {
     };
     assert_eq!(schema, &vec!["wire".to_string(), "PacketWire".to_string()]);
     assert!(
-        matches!(value.kind, ExprKind::NamePath(ref segments) if segments == &vec!["value".to_string()])
+        matches!(value.kind, ExprKind::NamePath { ref segments, .. } if segments == &vec!["value".to_string()])
     );
     assert_eq!(
         format_tree(&output.tree),

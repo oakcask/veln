@@ -109,7 +109,7 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
+        | ExprKind::NamePath { segments: _, .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)

@@ -17,7 +17,7 @@ impl<'a> FunctionChecker<'a> {
                     .map(|expected| expected.ty.clone())
                     .unwrap_or(Type::Unknown)
             }
-            ExprKind::NamePath(segments) => self.infer_name_path(segments, expr, expected),
+            ExprKind::NamePath { segments, .. } => self.infer_name_path(segments, expr, expected),
             ExprKind::StringLiteral(_) => Type::string(),
             ExprKind::IntLiteral(_) => Type::int(),
             ExprKind::FloatLiteral(_) => Type::float(),
