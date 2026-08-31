@@ -315,12 +315,7 @@ impl SymbolIndex {
     ) -> Option<FunctionSymbol> {
         match qualifier_for_token(&file.tokens, token_index) {
             Some(qualifier) => self.function_for_qualified_call(file, &qualifier, requested_name),
-            None => self
-                .symbol_for_bare_call(file, &file.tokens, token_index, requested_name)
-                .and_then(|symbol| match symbol {
-                    Symbol::Function(symbol) => Some(symbol),
-                    _ => None,
-                }),
+            None => self.function_conflict_for_bare_call(file, requested_name),
         }
     }
 

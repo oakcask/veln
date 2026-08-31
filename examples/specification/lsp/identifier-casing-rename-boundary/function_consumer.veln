@@ -1,0 +1,6 @@
+use left_function
+use right_function
+
+fn caller() -> Int
+  target()
+end

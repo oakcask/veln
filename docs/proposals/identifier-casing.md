@@ -115,10 +115,11 @@ symbols and predictable rename conflicts as specified by
 [Editor Support](../specification/editor-support.md) and checked by the
 `identifier-casing-rename-boundary` example. That current boundary includes
 rejection of ambiguous bare imported type-role references and qualified type
-identity preservation for type rename, and conflicts with visible type aliases
-in the type namespace. This proposal still owns recovery navigation, repair
-rename, MCP rename mapping, and rename evidence for the remaining casing
-surfaces until those rows are implemented.
+identity preservation for type rename, conflicts with visible type aliases in
+the type namespace, and rejection of unedited bare imported function
+ambiguities. This proposal still owns recovery navigation, repair rename, MCP
+rename mapping, and rename evidence for the remaining casing surfaces until
+those rows are implemented.
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a

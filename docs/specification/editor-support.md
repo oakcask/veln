@@ -244,7 +244,8 @@ conflict reporting, declaration-only handler clause parameter conflict
 reporting, type alias conflict reporting, same-spelled non-type namespace
 exclusion, ambiguous imported type rejection for edited and unedited
 requested-name occurrences, and qualified type identity preservation for type
-rename.
+rename, and bare imported function ambiguity rejection for unedited
+requested-name occurrences.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

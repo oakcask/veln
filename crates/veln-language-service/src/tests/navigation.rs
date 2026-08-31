@@ -619,6 +619,111 @@
     }
 
     #[test]
+    fn rename_validation_rejects_unedited_imported_function_ambiguity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+            source("right.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn caller() -> Int\n",
+                    "  target()\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+
+        let failure = validate_rename_in_snapshot(&snapshot, &result, "target").unwrap_err();
+
+        assert_rename_conflict(
+            failure.clone(),
+            RenameNameClass::Function,
+            "target",
+            "right.veln",
+            1,
+            8,
+        );
+        let RenameFailureKind::Conflict { affected_scope, .. } = failure.kind else {
+            panic!("rename failure was not a conflict");
+        };
+        assert_eq!(
+            *affected_scope,
+            RenameAffectedScope::Module {
+                name: "main".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rename_validation_preserves_unedited_local_function_resolution() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+            source("right.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn target() -> Int\n",
+                    "  3\n",
+                    "end\n\n",
+                    "fn caller() -> Int\n",
+                    "  target()\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_preserves_unedited_lexical_callable_shadowing() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+            source("right.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn caller(target: Int) -> Int\n",
+                    "  target()\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_preserves_qualified_function_identity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+            source("right.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn caller() -> Int\n",
+                    "  left::source()\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+    }
+
+    #[test]
     fn type_references_cover_syntax_retained_type_roles() {
         let result = query(
             vec![source(

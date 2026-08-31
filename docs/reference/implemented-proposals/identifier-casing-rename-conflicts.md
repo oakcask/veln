@@ -18,7 +18,8 @@ Current behavior is specified by
 `identifier-casing-rename-boundary` LSP example fixes the JSON-RPC invalid
 params response, shared `rename.conflict` code, conflict detail projection,
 same-clause parameter conflict boundary, unedited imported type ambiguity
-boundary, and edit-free failure boundary.
+boundary, unedited imported function ambiguity boundary, and edit-free failure
+boundary.
 
 ## Scope
 
@@ -36,6 +37,9 @@ current type namespace for type
 declarations and visible type aliases in modules where the renamed type would
 be visible after the complete edit, including requested-name type-role
 occurrences that were not references to the selected type before the rename.
+Function rename checks bare call targets in modules where the renamed function
+would be visible after the complete edit, including requested-name calls that
+would become ambiguous between imported functions.
 Lexical-scope failures report `kind: "lexical"` and identify the affected file
 and source start and end offsets. Local binding conflicts report the binding
 declaration as the conflicting declaration, including when a function rename

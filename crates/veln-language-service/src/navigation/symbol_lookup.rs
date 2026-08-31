@@ -267,6 +267,31 @@ impl SymbolIndex {
             .cloned()
     }
 
+    fn function_conflict_for_bare_call(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<FunctionSymbol> {
+        self.functions
+            .iter()
+            .find(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            })
+            .cloned()
+            .or_else(|| self.first_visible_imported_function_for_bare_call(file, name))
+    }
+
+    fn first_visible_imported_function_for_bare_call(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<FunctionSymbol> {
+        self.functions
+            .iter()
+            .find(|symbol| visible_imported_function_for_bare_call(file, symbol, name))
+            .cloned()
+    }
+
     fn constructor_for_bare_call(
         &self,
         file: &IndexedFile,
@@ -453,22 +478,30 @@ impl SymbolIndex {
     }
 
     fn has_visible_non_prelude_imported_function(&self, file: &IndexedFile, name: &str) -> bool {
-        self.functions.iter().any(|symbol| {
-            if symbol.name != name || symbol.standard_prelude {
-                return false;
-            }
-            if symbol.package.is_none() && symbol.module == file.module {
-                return false;
-            }
-            if symbol.package.is_none() && !symbol.public {
-                return false;
-            }
-            match &symbol.package {
-                Some(package) => file
-                    .external_uses
-                    .contains(&(symbol.module.clone(), package.clone())),
-                None => file.uses.contains(&symbol.module),
-            }
-        })
+        self.functions
+            .iter()
+            .any(|symbol| visible_imported_function_for_bare_call(file, symbol, name))
+    }
+}
+
+fn visible_imported_function_for_bare_call(
+    file: &IndexedFile,
+    symbol: &FunctionSymbol,
+    name: &str,
+) -> bool {
+    if symbol.name != name || symbol.standard_prelude {
+        return false;
+    }
+    if symbol.package.is_none() && symbol.module == file.module {
+        return false;
+    }
+    if symbol.package.is_none() && !symbol.public {
+        return false;
+    }
+    match &symbol.package {
+        Some(package) => file
+            .external_uses
+            .contains(&(symbol.module.clone(), package.clone())),
+        None => file.uses.contains(&symbol.module),
     }
 }
