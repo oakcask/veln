@@ -180,3 +180,54 @@ fn import_path_casing_diagnostics_follow_source_order_with_declarations() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn let_annotation_reports_qualified_type_path_segments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(input: Int) -> Int\n",
+            "  let value: prelude::option = input\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(
+        diagnostics[0].message,
+        "type name `option` must start with an ASCII uppercase letter"
+    );
+    assert_diagnostic_span(&diagnostics[0], 2, 24, 2, 30);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"occurrence\":\"path_segment\""));
+    assert!(details.contains("\"name_class\":\"type\""));
+    assert!(details.contains("\"segment_index\":1"));
+}
+
+#[test]
+fn unresolved_three_segment_call_does_not_guess_intermediate_type_role() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("fn main() -> Int\n", "  Missing::bad::Value()\n", "end\n",),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        ["module name `Missing` must start with an ASCII lowercase letter"],
+        "{diagnostics:#?}"
+    );
+}

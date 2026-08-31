@@ -256,10 +256,11 @@ impl SymbolIndex {
                     symbol.name == name
                         && symbol.module == qualifier
                         && file.uses.contains(&symbol.module)
-                        && file
-                            .companion_target_module
-                            .as_ref()
-                            .is_some_and(|target| target == &symbol.module)
+                        && (symbol.public
+                            || file
+                                .companion_target_module
+                                .as_ref()
+                                .is_some_and(|target| target == &symbol.module))
                 }
             })
             .cloned()
@@ -515,10 +516,11 @@ impl SymbolIndex {
             return call_references(&file.source, &symbol.name);
         }
         if file.uses.contains(&symbol.module)
-            && file
-                .companion_target_module
-                .as_ref()
-                .is_some_and(|target| target == &symbol.module)
+            && (symbol.public
+                || file
+                    .companion_target_module
+                    .as_ref()
+                    .is_some_and(|target| target == &symbol.module))
         {
             return qualified_references(&file.source, &symbol.module, &symbol.name);
         }

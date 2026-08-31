@@ -135,7 +135,9 @@ reports `name.invalid_case` at the exact segment token span with occurrence
 whose only cause is one of these invalid path segments is suppressed. The
 `identifier-casing-qualified-use-paths-json` example checks module-only,
 module-and-type, and prelude-qualified expression, pattern, and type paths
-with each role invalid in turn.
+with each role invalid in turn. The
+`identifier-casing-qualified-use-paths-human` example checks the matching
+human diagnostic spans and cascade suppression.
 Qualified constructor patterns keep constructor syntax. A qualified
 constructor pattern whose final segment starts with an ASCII lowercase letter
 reports `name.invalid_case` at that final segment with occurrence

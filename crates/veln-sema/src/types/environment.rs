@@ -116,6 +116,15 @@ impl TypeEnvironment {
         self.functions_named(name).next()
     }
 
+    pub(crate) fn has_invalid_path_segment_in_span(&self, span: &SourceSpan) -> bool {
+        self.invalid_names.iter().any(|invalid| {
+            invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+                && invalid.span.file == span.file
+                && span.start.offset <= invalid.span.start.offset
+                && invalid.span.end.offset <= span.end.offset
+        })
+    }
+
     pub(crate) fn local_function_value_recovery(
         &self,
         name: &str,

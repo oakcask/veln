@@ -234,7 +234,11 @@ The executable `identifier-casing-qualified-use-navigation` LSP example covers
 constructor-qualified type segments across definition, references,
 prepare-rename, and rename. The selected segment keeps the type rename casing
 class, and rename edits use the retained segment ranges in expression and
-pattern paths.
+pattern paths. The executable
+`identifier-casing-qualified-function-navigation` LSP example covers a
+module-only qualified public function imported from another workspace source
+across definition, references, prepare-rename, rename, invalid replacement
+rejection, and no-symbol selection for the module segment.
 For a workspace symbol, references and rename edits include only workspace
 source locations. Sources loaded only as dependency package snapshots do not
 produce `file:` locations for workspace references or workspace edits, even

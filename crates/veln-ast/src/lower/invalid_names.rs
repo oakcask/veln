@@ -133,10 +133,19 @@ pub(super) fn collect_invalid_function_names(
                 pattern,
                 annotation,
                 expr,
+                span,
                 ..
             } => {
                 collect_invalid_pattern_names(pattern, invalid, enclosing.clone());
-                let _ = annotation;
+                collect_invalid_type_path_names(
+                    annotation.as_deref(),
+                    annotation
+                        .as_ref()
+                        .map(|annotation| inferred_let_annotation_span(annotation, expr, span))
+                        .as_ref(),
+                    invalid,
+                    enclosing.clone(),
+                );
                 collect_invalid_expr_names(expr, invalid, enclosing.clone());
             }
             SyntaxBodyLine::Expr { expr, .. } => {
@@ -223,6 +232,23 @@ fn offset_span_within(span: &SourceSpan, start: usize, end: usize) -> SourceSpan
     next.start.column = span.start.column + start;
     next.end.column = span.start.column + end;
     next
+}
+
+fn inferred_let_annotation_span(
+    annotation: &str,
+    expr: &SyntaxExpr,
+    line_span: &SourceSpan,
+) -> SourceSpan {
+    let annotation_end = expr.span.start.offset.saturating_sub(3);
+    let annotation_start = annotation_end.saturating_sub(annotation.len());
+    let mut span = line_span.clone();
+    span.start.offset = annotation_start;
+    span.end.offset = annotation_end;
+    span.start.line = expr.span.start.line;
+    span.end.line = expr.span.start.line;
+    span.start.column = expr.span.start.column.saturating_sub(2 + annotation.len());
+    span.end.column = expr.span.start.column.saturating_sub(2);
+    span
 }
 
 pub(super) fn collect_invalid_handler_names(

@@ -1,0 +1,9 @@
+use helper
+
+fn main() -> Int
+  helper::compute()
+end
+
+fn again() -> Int
+  helper::compute()
+end
