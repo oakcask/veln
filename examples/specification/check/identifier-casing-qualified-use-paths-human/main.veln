@@ -23,6 +23,51 @@ fn type_leaf_invalid(input: modType::Sample) -> Int
   end
 end
 
+fn pattern_module_prefix_invalid(input: modType::Sample) -> Int
+  match input
+    ModType::Made(value) => value
+  end
+end
+
+fn pattern_module_leaf_invalid(input: modType::Sample) -> Int
+  match input
+    modType::made(value) => value
+  end
+end
+
+fn pattern_type_prefix_invalid(input: modType::Sample) -> Int
+  match input
+    ModType::Sample::Made(value) => value
+  end
+end
+
+fn pattern_type_middle_invalid(input: modType::Sample) -> Int
+  match input
+    modType::sample::Made(value) => value
+  end
+end
+
+fn pattern_prelude_prefix_invalid(input: prelude::Option<Int>) -> Int
+  match input
+    Prelude::Option::Some(value) => value
+    prelude::None => 0
+  end
+end
+
+fn pattern_prelude_middle_invalid(input: prelude::Option<Int>) -> Int
+  match input
+    prelude::option::Some(value) => value
+    prelude::None => 0
+  end
+end
+
+fn pattern_prelude_leaf_invalid(input: prelude::Option<Int>) -> Int
+  match input
+    prelude::Option::some(value) => value
+    prelude::None => 0
+  end
+end
+
 fn prelude_prefix_invalid(input: Prelude :: Option < Int >) -> Int
   0
 end

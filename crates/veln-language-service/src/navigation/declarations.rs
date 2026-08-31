@@ -39,6 +39,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
         uses,
         external_uses,
         invalid_declaration_names,
+        classified_path_segments: Vec::new(),
         origin: IndexedOrigin::Workspace,
     };
     let declarations = file_declarations(&file, &parsed.tree);
@@ -69,6 +70,7 @@ fn index_dependency_sources(
             uses,
             external_uses,
             invalid_declaration_names,
+            classified_path_segments: Vec::new(),
             origin: IndexedOrigin::Package {
                 identity: dependency.identity.as_str().to_string(),
                 uri: entry.uri().to_string(),
@@ -78,6 +80,78 @@ fn index_dependency_sources(
         };
         declarations.extend(file_declarations(&file, &parsed.tree));
         files.push(file);
+    }
+}
+
+fn attach_classified_path_segments(files: &mut [IndexedFile]) {
+    let module = merged_surface_module(files);
+    let segments = veln_sema::classified_project_qualified_path_segments(&module);
+    for file in files {
+        file.classified_path_segments = segments
+            .iter()
+            .filter(|segment| segment.span.file == *file.source.path())
+            .cloned()
+            .collect();
+    }
+}
+
+fn merged_surface_module(files: &[IndexedFile]) -> veln_ast::SurfaceModule {
+    let mut merged = veln_ast::SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for file in files {
+        let parsed = parse(&file.source);
+        if !parsed.diagnostics.is_empty() {
+            continue;
+        }
+        let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+        assign_module_name(&mut module, &file.module);
+        merged.uses.extend(module.uses);
+        merged.aliases.extend(module.aliases);
+        merged.effects.extend(module.effects);
+        merged.handlers.extend(module.handlers);
+        merged.schemas.extend(module.schemas);
+        merged.codecs.extend(module.codecs);
+        merged.types.extend(module.types);
+        merged.functions.extend(module.functions);
+        merged.invalid_names.extend(module.invalid_names);
+    }
+    merged
+}
+
+fn assign_module_name(module: &mut veln_ast::SurfaceModule, name: &str) {
+    for use_decl in &mut module.uses {
+        use_decl.module_name = Some(name.to_string());
+    }
+    for alias in &mut module.aliases {
+        alias.module_name = Some(name.to_string());
+    }
+    for effect in &mut module.effects {
+        effect.module_name = Some(name.to_string());
+    }
+    for handler in &mut module.handlers {
+        handler.module_name = Some(name.to_string());
+    }
+    for type_decl in &mut module.types {
+        type_decl.module_name = Some(name.to_string());
+    }
+    for schema in &mut module.schemas {
+        schema.module_name = Some(name.to_string());
+    }
+    for codec in &mut module.codecs {
+        codec.module_name = Some(name.to_string());
+    }
+    for function in &mut module.functions {
+        function.module_name = Some(name.to_string());
     }
 }
 

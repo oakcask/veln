@@ -346,6 +346,7 @@ struct IndexedFile {
     uses: BTreeSet<String>,
     external_uses: BTreeSet<(String, String)>,
     invalid_declaration_names: Vec<SourceSpan>,
+    classified_path_segments: Vec<QualifiedPathSegment>,
     origin: IndexedOrigin,
 }
 

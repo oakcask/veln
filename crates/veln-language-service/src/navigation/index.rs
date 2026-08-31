@@ -14,6 +14,7 @@ impl SymbolIndex {
         for dependency in dependencies.into_iter().chain(standard_library) {
             index_dependency_sources(&mut files, &mut declarations, dependency);
         }
+        attach_classified_path_segments(&mut files);
         Self {
             functions: declarations.functions,
             types: declarations.types,
@@ -118,6 +119,35 @@ impl SymbolIndex {
                 .is_none_or(|token| token.kind != TokenKind::DoubleColon)
         {
             return None;
+        }
+
+        if let Some(segment) = file
+            .classified_path_segments
+            .iter()
+            .find(|segment| same_span(&segment.span, selection))
+        {
+            let symbol = match segment.role {
+                NameClass::Type => self
+                    .visible_type_for_reference(file, tokens, token_index, name)
+                    .map(Symbol::Type),
+                NameClass::Constructor if is_call_target_token(tokens, token_index) => {
+                    qualifier_for_token(tokens, token_index)
+                        .and_then(|qualifier| {
+                            self.constructor_for_qualified_call(file, &qualifier, name)
+                        })
+                        .map(Symbol::Constructor)
+                }
+                NameClass::Function if is_call_target_token(tokens, token_index) => {
+                    qualifier_for_token(tokens, token_index)
+                        .and_then(|qualifier| self.function_for_qualified_call(file, &qualifier, name))
+                        .map(Symbol::Function)
+                }
+                _ => None,
+            };
+            return Some(ClassifiedNavigationSegment {
+                segment: segment.clone(),
+                symbol,
+            });
         }
 
         if !is_call_target_token(tokens, token_index) {
@@ -354,6 +384,16 @@ impl SymbolIndex {
         if let Some(symbol) = self.constructor_for_qualified_call(file, qualifier, name) {
             return Some(Symbol::Constructor(symbol));
         }
+        self.function_for_qualified_call(file, qualifier, name)
+            .map(Symbol::Function)
+    }
+
+    fn function_for_qualified_call(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<FunctionSymbol> {
         self.functions
             .iter()
             .find(|symbol| match &symbol.package {
@@ -377,7 +417,6 @@ impl SymbolIndex {
                 }
             })
             .cloned()
-            .map(Symbol::Function)
     }
 
     fn constructor_for_bare_call(

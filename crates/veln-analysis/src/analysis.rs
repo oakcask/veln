@@ -414,6 +414,7 @@ fn standard_environment_with_test_cache(
 fn lowered_internal_failure(diagnostic: Diagnostic) -> LoweredSurfaceModule {
     LoweredSurfaceModule {
         diagnostics: vec![diagnostic],
+        qualified_path_segments: Vec::new(),
         core: None,
         ir: None,
     }

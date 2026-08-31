@@ -89,6 +89,37 @@ fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
 }
 
 #[test]
+fn lowering_result_exposes_classified_qualified_use_segments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Sample\n",
+            "  Made(Int)\n",
+            "end\n",
+            "fn main() -> Sample\n",
+            "  sample::Made(1)\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let lowered = lower_checked_surface_module(&module);
+
+    let segment = lowered
+        .qualified_path_segments
+        .iter()
+        .find(|segment| segment.name == "sample")
+        .expect("lowered result exposes recovered type segment");
+    assert_eq!(segment.role, veln_ast::NameClass::Type);
+    assert_eq!(segment.occurrence, veln_ast::NameOccurrence::PathSegment);
+    assert_eq!(
+        segment.evidence,
+        veln_ast::QualifiedPathSegmentEvidence::UniqueRecovery
+    );
+    assert_eq!(segment.segment_index, 0);
+    assert_eq!((segment.span.start.line, segment.span.start.column), (5, 3));
+}
+
+#[test]
 fn unresolved_qualified_call_does_not_guess_module_segment_role() {
     let source = SourceFile::new(
         "main.veln",

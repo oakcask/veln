@@ -248,8 +248,9 @@ symbol. The executable
 module-only qualified public function imported from another workspace source
 across definition, references, prepare-rename, rename, invalid replacement
 rejection, and no-symbol selection for the module segment. Qualified segment
-selections use the same retained token range and role classification for
-definition, references, prepare-rename, and rename.
+selections use the semantic qualified-segment records that also drive
+qualified-use casing diagnostics. Definition, references, prepare-rename, and
+rename therefore use the same retained token range and role classification.
 For a workspace symbol, references and rename edits include only workspace
 source locations. Sources loaded only as dependency package snapshots do not
 produce `file:` locations for workspace references or workspace edits, even

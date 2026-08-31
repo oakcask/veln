@@ -7,8 +7,25 @@ main.veln:17:12: error[name.invalid_case]: type name `sample` must start with an
 consumer.veln:16:13: error[name.invalid_case]: function name `Double` must start with an ASCII lowercase letter
 consumer.veln:20:13: error[name.invalid_case]: binding name `Double` must start with an ASCII lowercase letter
 main.veln:22:22: error[name.invalid_case]: constructor name `made` must start with an ASCII uppercase letter
-main.veln:26:34: error[name.invalid_case]: module name `Prelude` must start with an ASCII lowercase letter
-main.veln:30:45: error[name.invalid_case]: type name `option` must start with an ASCII uppercase letter
-main.veln:34:43: error[name.invalid_case]: type name `int` must start with an ASCII uppercase letter
-main.veln:39:20: error[name.invalid_case]: constructor name `some` must start with an ASCII uppercase letter
+main.veln:34:14: error[name.invalid_case]: constructor name `made` must start with an ASCII uppercase letter
+main.veln:40:5: error[name.invalid_case]: module name `ModType` must start with an ASCII lowercase letter
+main.veln:46:14: error[name.invalid_case]: type name `sample` must start with an ASCII uppercase letter
+main.veln:52:5: error[name.invalid_case]: module name `Prelude` must start with an ASCII lowercase letter
+main.veln:66:22: error[name.invalid_case]: constructor name `some` must start with an ASCII uppercase letter
+main.veln:71:34: error[name.invalid_case]: module name `Prelude` must start with an ASCII lowercase letter
+main.veln:75:45: error[name.invalid_case]: type name `option` must start with an ASCII uppercase letter
+main.veln:79:43: error[name.invalid_case]: type name `int` must start with an ASCII uppercase letter
+main.veln:84:20: error[name.invalid_case]: constructor name `some` must start with an ASCII uppercase letter
 consumer.veln:20:3: error[name.unresolved]: unresolved value `foo::bar::Double`
+main.veln:27:3: error[type.match_non_exhaustive]: match is missing case Made(_)
+  note: main.veln:27:9: Scrutinee has type `Sample`.
+main.veln:39:3: error[type.match_non_exhaustive]: match is missing case Made(_)
+  note: main.veln:39:9: Scrutinee has type `Sample`.
+main.veln:45:3: error[type.match_non_exhaustive]: match is missing case Made(_)
+  note: main.veln:45:9: Scrutinee has type `Sample`.
+main.veln:51:3: error[type.match_non_exhaustive]: match is missing case Some(_)
+  note: main.veln:51:9: Scrutinee has type `Option<Int>`.
+main.veln:58:3: error[type.match_non_exhaustive]: match is missing case Some(_)
+  note: main.veln:58:9: Scrutinee has type `Option<Int>`.
+main.veln:65:3: error[type.match_non_exhaustive]: match is missing case Some(_)
+  note: main.veln:65:9: Scrutinee has type `Option<Int>`.
