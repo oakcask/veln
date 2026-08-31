@@ -153,7 +153,7 @@ fn visit_private_expr_references(
                 visitor,
             )
         }
-        ExprKind::NamePath { segments: _, .. }
+        ExprKind::NamePath { .. }
         | ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)

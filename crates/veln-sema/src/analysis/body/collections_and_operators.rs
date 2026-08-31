@@ -334,7 +334,7 @@ impl<'a> FunctionChecker<'a> {
             ));
             return Type::Unknown;
         };
-        if !matches!(callee.kind, ExprKind::NamePath { segments: _, .. }) {
+        if !matches!(callee.kind, ExprKind::NamePath { .. }) {
             self.infer_expr(left, None);
             self.infer_expr(right, expected_result);
             self.diagnostics.push(Diagnostic::new(

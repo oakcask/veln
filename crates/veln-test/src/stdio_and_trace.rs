@@ -82,7 +82,7 @@ pub(super) fn collect_stdio_call_spans(
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath { segments: _, .. }
+        | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)

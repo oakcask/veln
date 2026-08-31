@@ -108,7 +108,7 @@ pub(super) fn count_expr(expr: &Expr, vector: &mut AbcVector) {
     match &expr.kind {
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath { segments: _, .. }
+        | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)

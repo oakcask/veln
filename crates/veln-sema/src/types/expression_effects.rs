@@ -232,7 +232,7 @@ impl ExprEffectCollector<'_, '_, '_> {
             ExprKind::Binary { left, right, .. } => self.collect_pair(left, right),
             ExprKind::Missing
             | ExprKind::Hole { .. }
-            | ExprKind::NamePath { segments: _, .. }
+            | ExprKind::NamePath { .. }
             | ExprKind::StringLiteral(_)
             | ExprKind::IntLiteral(_)
             | ExprKind::FloatLiteral(_)

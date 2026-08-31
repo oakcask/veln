@@ -566,11 +566,11 @@ impl SymbolIndex {
             .iter()
             .enumerate()
             .filter(|(_, token)| token.kind == TokenKind::Ident && token.text == symbol.name)
-            .filter_map(|(index, token)| {
-                self.type_for_constructor_qualifier_token(file, tokens, index, &token.text)
+            .filter(|(index, token)| {
+                self.type_for_constructor_qualifier_token(file, tokens, *index, &token.text)
                     .is_some_and(|candidate| same_type(&candidate, symbol))
-                    .then(|| file.source.span(token.range))
             })
+            .map(|(_, token)| file.source.span(token.range))
             .collect()
     }
 

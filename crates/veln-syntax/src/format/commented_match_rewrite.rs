@@ -77,7 +77,7 @@ fn expr_children(expr: &Expr) -> ExprChildren<'_> {
         },
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath { segments: _, .. }
+        | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)

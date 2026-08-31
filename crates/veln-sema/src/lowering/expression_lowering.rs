@@ -252,7 +252,7 @@ impl<'a> CoreLowerer<'a> {
             self.lower_expr(right, None);
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
-        if !matches!(callee.kind, ExprKind::NamePath { segments: _, .. }) {
+        if !matches!(callee.kind, ExprKind::NamePath { .. }) {
             self.blockers.push(CoreBlocker::UnsupportedExpression {
                 node_id: right.node_id,
                 reason: "pipeline_target_not_named_call".to_string(),

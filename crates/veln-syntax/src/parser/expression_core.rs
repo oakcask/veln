@@ -131,7 +131,7 @@ impl<'a> ExprParser<'a> {
 
     pub(super) fn call_type_arguments_start(&self, expr: &Expr) -> bool {
         self.at(TokenKind::Less)
-            && matches!(expr.kind, ExprKind::NamePath { segments: _, .. })
+            && matches!(expr.kind, ExprKind::NamePath { .. })
             && self.angle_type_arguments_are_followed_by_call()
     }
 

@@ -336,7 +336,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
             let direct_reference =
                 private_prelude_callback_call_references_slot(callee, args, expected, context);
             direct_reference
-                || !matches!(callee.kind, ExprKind::NamePath { segments: _, .. })
+                || !matches!(callee.kind, ExprKind::NamePath { .. })
                     && private_prelude_callback_expr_references_slot(callee, None, context)
                 || args
                     .iter()
@@ -357,7 +357,7 @@ pub(crate) fn private_prelude_callback_expr_references_slot(
         ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
             private_prelude_callback_control_flow_references_slot(expr, expected, context)
         }
-        ExprKind::NamePath { segments: _, .. }
+        ExprKind::NamePath { .. }
         | ExprKind::Missing
         | ExprKind::Hole { .. }
         | ExprKind::StringLiteral(_)
