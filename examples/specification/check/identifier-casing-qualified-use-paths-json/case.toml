@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 8
+length = 9
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -110,12 +110,24 @@ equals = 1
 
 [[json_assert]]
 path = "diagnostics.7.details.name"
-equals = "some"
+equals = "int"
 
 [[json_assert]]
 path = "diagnostics.7.details.name_class"
-equals = "constructor"
+equals = "type"
 
 [[json_assert]]
 path = "diagnostics.7.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.8.details.name"
+equals = "some"
+
+[[json_assert]]
+path = "diagnostics.8.details.name_class"
+equals = "constructor"
+
+[[json_assert]]
+path = "diagnostics.8.details.segment_index"
 equals = 2
