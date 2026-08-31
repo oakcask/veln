@@ -37,7 +37,6 @@ type RecoveredQualifiedSegmentPush = fn(
 #[derive(Clone, Debug)]
 pub struct LoweredSurfaceModule {
     pub diagnostics: Vec<Diagnostic>,
-    pub qualified_path_segments: Vec<QualifiedPathSegment>,
     pub core: Option<CheckedProgram>,
     pub ir: Option<TypedProgram>,
 }
@@ -2704,7 +2703,6 @@ pub fn lower_analyzed_surface_module(
 fn lowered_internal_failure(diagnostics: Vec<Diagnostic>) -> LoweredSurfaceModule {
     LoweredSurfaceModule {
         diagnostics,
-        qualified_path_segments: Vec::new(),
         core: None,
         ir: None,
     }
@@ -2722,7 +2720,6 @@ fn lower_analyzed_surface_module_with_environment(
     {
         return LoweredSurfaceModule {
             diagnostics,
-            qualified_path_segments: classified_qualified_path_segments(module, environment),
             core: None,
             ir: None,
         };
@@ -2750,7 +2747,6 @@ fn lower_analyzed_surface_module_with_environment(
 
     LoweredSurfaceModule {
         diagnostics,
-        qualified_path_segments: classified_qualified_path_segments(module, environment),
         core: Some(lowered_core.program),
         ir,
     }
