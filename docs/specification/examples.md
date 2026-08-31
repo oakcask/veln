@@ -171,6 +171,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-over-suppression-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-direct-diagnostics-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-type-mismatch-json/`,
+  `../../examples/specification/check/identifier-casing-qualified-use-paths-json/`,
+  `../../examples/specification/check/identifier-casing-qualified-use-paths-human/`,
   `../../examples/specification/check/identifier-casing-qualified-handler-boundaries-json/`,
   `../../examples/specification/check/identifier-casing-qualified-handler-boundaries-human/`,
   `../../examples/specification/check/identifier-casing-source-path-json/`,
@@ -241,8 +243,11 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/lsp/identifier-casing-overlay-boundary/`,
   `../../examples/specification/lsp/identifier-casing-source-path-boundary/`,
   `../../examples/specification/lsp/identifier-casing-handler-binding-navigation/`,
-  and
-  `../../examples/specification/lsp/identifier-casing-rename-boundary/`.
+  `../../examples/specification/lsp/identifier-casing-qualified-use-navigation/`,
+  `../../examples/specification/lsp/identifier-casing-qualified-module-type-navigation/`,
+  `../../examples/specification/lsp/identifier-casing-qualified-prelude-navigation/`,
+  `../../examples/specification/lsp/identifier-casing-qualified-function-navigation/`,
+  and `../../examples/specification/lsp/identifier-casing-rename-boundary/`.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and

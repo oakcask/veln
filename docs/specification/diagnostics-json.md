@@ -139,8 +139,10 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-private-schema-boundary-json`,
 `identifier-casing-import-effect-cascade-boundary-json`,
 `identifier-casing-import-handler-cascade-boundary-json`,
-`identifier-casing-import-order-json`, and
-`identifier-casing-qualified-use-paths-json` cases. Source-path-derived module
+`identifier-casing-import-order-json`,
+`identifier-casing-qualified-use-paths-json`, and
+`identifier-casing-qualified-handler-boundaries-json` cases.
+Source-path-derived module
 identity casing is checked by `identifier-casing-source-path-json` and
 `identifier-casing-exported-source-path-json`; parse-failure coexistence,
 human output, lowercase-initial structural failures, and chained companion
