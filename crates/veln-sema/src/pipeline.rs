@@ -307,9 +307,14 @@ fn valid_qualified_path_segments(
     let mut segments = Vec::new();
     for function in &module.functions {
         let current_module = function.module_name.as_deref();
-        collect_type_path_segments(&function.return_type_paths, &mut segments);
+        collect_type_path_segments(
+            &function.return_type_paths,
+            current_module,
+            environment,
+            &mut segments,
+        );
         for param in &function.params {
-            collect_type_path_segments(&param.ty_paths, &mut segments);
+            collect_type_path_segments(&param.ty_paths, current_module, environment, &mut segments);
         }
         for line in &function.body {
             collect_valid_segments_from_body_line(line, current_module, environment, &mut segments);
@@ -318,11 +323,16 @@ fn valid_qualified_path_segments(
     for handler in &module.handlers {
         let current_module = handler.module_name.as_deref();
         for param in &handler.params {
-            collect_type_path_segments(&param.ty_paths, &mut segments);
+            collect_type_path_segments(&param.ty_paths, current_module, environment, &mut segments);
         }
         for clause in &handler.operation_clauses {
             for param in &clause.params {
-                collect_type_path_segments(&param.ty_paths, &mut segments);
+                collect_type_path_segments(
+                    &param.ty_paths,
+                    current_module,
+                    environment,
+                    &mut segments,
+                );
             }
             collect_valid_segments_from_expr(
                 &clause.body,
@@ -337,10 +347,17 @@ fn valid_qualified_path_segments(
 
 fn collect_type_path_segments(
     paths: &[veln_ast::TypePathSegments],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
     output: &mut Vec<QualifiedPathSegment>,
 ) {
     for path in paths {
         if path.segments.len() < 2 {
+            continue;
+        }
+        if environment
+            .quarantined_import_type_path_lacks_visible_leaf(&path.segments, current_module)
+        {
             continue;
         }
         for index in 0..path.segments.len() {
@@ -377,7 +394,7 @@ fn collect_valid_segments_from_body_line(
             ..
         } => {
             collect_valid_segments_from_pattern(pattern, current_module, environment, output);
-            collect_type_path_segments(annotation_paths, output);
+            collect_type_path_segments(annotation_paths, current_module, environment, output);
             collect_valid_segments_from_expr(expr, current_module, environment, output);
         }
         veln_ast::BodyLineKind::Expr { expr } => {
