@@ -11,8 +11,8 @@ use crate::source_less_names::InvalidStandardSymbolCase;
 
 use super::descriptors::{AdtConstructor, AdtDescriptor, AdtVariantDescriptor};
 use super::lookup_validation::{
-    companion_access_targets, constructor_matches_visible_path, same_descriptor, source_descriptor,
-    validate_adt_lookup_descriptors,
+    companion_access_targets, constructor_matches_visible_path, imported_module_path_matches,
+    same_descriptor, source_descriptor, validate_adt_lookup_descriptors,
 };
 
 #[derive(Clone, Debug)]
@@ -380,6 +380,9 @@ impl AdtRegistry {
         {
             return descriptor.module_name.as_deref() == Some(module_name);
         }
+        if imported_descriptor_path_matches(descriptor, segments, current_module, uses) {
+            return true;
+        }
         segments.len() <= 2
             && uses.iter().any(|use_decl| {
                 use_decl.module_name.as_deref() == current_module
@@ -460,6 +463,27 @@ fn prefer_current_module_constructors<'a>(
     matches.retain(|constructor| {
         constructor.descriptor.module_name.as_deref() == Some(current_module)
     });
+}
+
+fn imported_descriptor_path_matches(
+    descriptor: &AdtDescriptor,
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    let Some(type_index) = descriptor_type_segment_index(descriptor, segments) else {
+        return false;
+    };
+    imported_module_path_matches(descriptor, &segments[..type_index], uses, current_module)
+}
+
+fn descriptor_type_segment_index(descriptor: &AdtDescriptor, segments: &[String]) -> Option<usize> {
+    segments
+        .iter()
+        .enumerate()
+        .rev()
+        .find_map(|(index, segment)| (segment == &descriptor.type_name).then_some(index))
+        .filter(|index| *index > 0)
 }
 
 fn descriptor_allows_expected_constructor_disambiguation(descriptor: &AdtDescriptor) -> bool {

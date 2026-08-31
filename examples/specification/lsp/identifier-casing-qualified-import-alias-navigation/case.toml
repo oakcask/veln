@@ -37,7 +37,7 @@ equals = 3
 [[lsp_assert]]
 id = 4
 path = "/result/start/character"
-equals = 26
+equals = 36
 
 [[lsp_assert]]
 id = 6
@@ -62,7 +62,7 @@ equals = 2
 [[lsp_assert]]
 id = 8
 path = "/result/start/character"
-equals = 19
+equals = 24
 
 [[lsp_assert]]
 id = 10
