@@ -254,7 +254,19 @@ struct ConstructorSymbol {
 
 #[derive(Clone, Debug)]
 struct ClassifiedNavigationSegment {
+    segment: QualifiedPathSegment,
     symbol: Option<Symbol>,
+}
+
+impl ClassifiedNavigationSegment {
+    fn role(&self) -> NameClass {
+        self.segment.role
+    }
+
+    fn into_symbol(self) -> Option<Symbol> {
+        let Self { segment: _, symbol } = self;
+        symbol
+    }
 }
 
 #[derive(Clone, Debug)]

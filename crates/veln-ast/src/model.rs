@@ -90,6 +90,23 @@ pub struct InvalidName {
     pub segment_index: Option<usize>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct QualifiedPathSegment {
+    pub name: String,
+    pub role: NameClass,
+    pub occurrence: NameOccurrence,
+    pub span: SourceSpan,
+    pub segment_index: usize,
+    pub evidence: QualifiedPathSegmentEvidence,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QualifiedPathSegmentEvidence {
+    Syntax,
+    Resolved,
+    UniqueRecovery,
+}
+
 #[derive(Clone, Debug)]
 pub struct HandlerDecl {
     pub node_id: NodeId,

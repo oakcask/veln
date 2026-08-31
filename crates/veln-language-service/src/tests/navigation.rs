@@ -338,28 +338,46 @@
                 "main.veln",
                 concat!(
                     "use helper\n\n",
+                    "use foo::bar\n\n",
                     "fn main(flag: helper::Item) -> Int\n",
                     "  let a: Helper::Item = helper::Item::ready(1)\n",
                     "  let b: helper::item = helper::Item::Ready(1)\n",
                     "  let c = Helper::make()\n",
                     "  helper::Make()\n",
+                    "  let nested = foo::bar::double(3)\n",
+                    "  let nested_first = Foo::bar::double(3)\n",
+                    "  let nested_middle = foo::Bar::double(3)\n",
+                    "  let nested_leaf = foo::bar::Double(3)\n",
                     "end\n",
                 ),
             ),
+            source(
+                "foo/bar.veln",
+                "pub fn double(value: Int) -> Int\n  value + value\nend\n",
+            ),
         ];
 
-        for (line, column) in [(4, 10), (4, 39), (5, 18), (6, 11), (7, 11)] {
+        for (line, column) in [
+            (6, 10),
+            (6, 39),
+            (7, 18),
+            (8, 11),
+            (9, 11),
+            (11, 22),
+            (12, 28),
+            (13, 31),
+        ] {
             assert!(
                 query(sources.clone(), "main.veln", line, column).is_none(),
                 "invalid qualified segment unexpectedly navigated at {line}:{column}"
             );
         }
 
-        let valid_type = query(sources.clone(), "main.veln", 5, 33).unwrap();
+        let valid_type = query(sources.clone(), "main.veln", 7, 33).unwrap();
         assert_eq!(valid_type.selected_symbol.kind, SymbolKind::Type);
         assert_location(&valid_type.definition, "helper.veln", 1, 10);
 
-        let valid_constructor = query(sources, "main.veln", 5, 39).unwrap();
+        let valid_constructor = query(sources, "main.veln", 7, 39).unwrap();
         assert_eq!(valid_constructor.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&valid_constructor.definition, "helper.veln", 2, 7);
     }

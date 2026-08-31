@@ -139,8 +139,8 @@ uniquely recovered invalid segment that owns that use is suppressed. Missing
 targets, private imported targets, and recovery links that would cross an
 import boundary still report `name.unresolved`. The
 `identifier-casing-qualified-use-paths-json` example checks module-only,
-module-and-type, and prelude-qualified expression, pattern, and type paths
-with each role invalid in turn. The
+nested module-only, module-and-type, and prelude-qualified expression,
+pattern, and type paths with each role invalid in turn. The
 `identifier-casing-qualified-use-paths-human` example checks the matching
 human diagnostic spans and cascade suppression. The
 `identifier-casing-qualified-use-recovery-controls-json` and

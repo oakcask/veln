@@ -193,7 +193,53 @@ impl<'a> FunctionChecker<'a> {
         {
             return true;
         }
+        if self.corrected_module_or_function_segment_resolves(segments, arg_count) {
+            return true;
+        }
         self.corrected_type_qualified_constructor_resolves(segments, arg_count)
+    }
+
+    fn corrected_module_or_function_segment_resolves(
+        &self,
+        segments: &[String],
+        arg_count: usize,
+    ) -> bool {
+        if segments.len() < 2 {
+            return false;
+        }
+        for index in 0..segments.len() {
+            if !segments[index]
+                .as_bytes()
+                .first()
+                .is_some_and(u8::is_ascii_uppercase)
+            {
+                continue;
+            }
+            let mut corrected = segments.to_vec();
+            corrected[index] = lowercase_initial(&segments[index]);
+            if self.corrected_call_target_resolves(&corrected, arg_count) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn corrected_call_target_resolves(&self, corrected: &[String], arg_count: usize) -> bool {
+        self.environment
+            .function_path_for_value(corrected, self.function.module_name.as_deref())
+            .is_some()
+            || !self
+                .environment
+                .codec_call_path(corrected, self.function.module_name.as_deref())
+                .is_empty()
+            || self
+                .environment
+                .quarantined_import_call_recovery_candidate_count(
+                    corrected,
+                    self.function.module_name.as_deref(),
+                    arg_count,
+                )
+                == 1
     }
 
     fn corrected_recorded_invalid_call_target_resolves(

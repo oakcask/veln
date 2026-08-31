@@ -6,6 +6,7 @@ fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
         "main.veln",
         concat!(
             "use helper\n",
+            "use foo::bar\n",
             "\n",
             "type State\n",
             "  Ready(Int)\n",
@@ -17,7 +18,19 @@ fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
             "  let built: prelude::option<Int> = prelude::Some(1)\n",
             "  let local = Helper::make()\n",
             "  helper::Make()\n",
+            "  let nested_ok = foo::bar::double(3)\n",
+            "  let nested_first = Foo::bar::double(3)\n",
+            "  let nested_middle = foo::Bar::double(3)\n",
+            "  let nested_leaf = foo::bar::Double(3)\n",
             "end\n",
+        ),
+    );
+    let nested = SourceFile::new(
+        "foo/bar.veln",
+        concat!(
+            "pub fn double(value: Int) -> Int\n",
+            "  value + value\n",
+            "end\n"
         ),
     );
     let helper = SourceFile::new(
@@ -32,7 +45,11 @@ fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
             "end\n",
         ),
     );
-    let module = merged_modules_with_names([("main", source.clone()), ("helper", helper)]);
+    let module = merged_modules_with_names([
+        ("main", source.clone()),
+        ("helper", helper),
+        ("foo::bar", nested),
+    ]);
     let diagnostics = analyze_surface_module(&module)
         .into_iter()
         .filter(|diagnostic| diagnostic.id == "name.invalid_case")
@@ -55,12 +72,15 @@ fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
     assert_eq!(
         observed,
         [
-            ("Helper", "module", Some(0), 8, 14),
-            ("ready", "constructor", Some(2), 8, 43),
-            ("item", "type", Some(1), 9, 25),
-            ("option", "type", Some(1), 10, 23),
-            ("Helper", "module", Some(0), 11, 15),
-            ("Make", "function", Some(1), 12, 11),
+            ("Helper", "module", Some(0), 9, 14),
+            ("ready", "constructor", Some(2), 9, 43),
+            ("item", "type", Some(1), 10, 25),
+            ("option", "type", Some(1), 11, 23),
+            ("Helper", "module", Some(0), 12, 15),
+            ("Make", "function", Some(1), 13, 11),
+            ("Foo", "module", Some(0), 15, 22),
+            ("Bar", "module", Some(1), 16, 28),
+            ("Double", "function", Some(2), 17, 31),
         ],
         "{diagnostics:#?}"
     );

@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
+use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegment, QualifiedPathSegmentEvidence};
 use veln_project::classify_companion_source;
 use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{

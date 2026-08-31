@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
-use veln_ast::{FunctionKind, InvalidName, NameClass, NameOccurrence, SurfaceModule, Visibility};
+use veln_ast::{
+    FunctionKind, InvalidName, NameClass, NameOccurrence, QualifiedPathSegment,
+    QualifiedPathSegmentEvidence, SurfaceModule, Visibility,
+};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
@@ -230,10 +233,17 @@ fn check_invalid_name_casing(
     let mut invalid_names = module
         .invalid_names
         .iter()
-        .filter(|invalid| invalid_name_has_fixed_role(invalid, module, environment))
-        .cloned()
+        .filter_map(|invalid| classified_invalid_name(invalid, module, environment))
         .collect::<Vec<_>>();
     invalid_names.extend(recovered_qualified_type_segment_invalid_names(
+        module,
+        environment,
+    ));
+    invalid_names.extend(recovered_qualified_module_segment_invalid_names(
+        module,
+        environment,
+    ));
+    invalid_names.extend(recovered_qualified_function_segment_invalid_names(
         module,
         environment,
     ));
@@ -248,62 +258,85 @@ fn check_invalid_name_casing(
     invalid_names.iter().map(invalid_name_diagnostic).collect()
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct ClassifiedPathSegment {
-    role: NameClass,
-}
-
-fn invalid_name_has_fixed_role(
+fn classified_invalid_name(
     invalid: &InvalidName,
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> bool {
+) -> Option<InvalidName> {
     if invalid.occurrence != NameOccurrence::PathSegment {
-        return !invalid_name_is_valid_constructor_pattern(invalid, module, environment);
+        return (!invalid_name_is_valid_constructor_pattern(invalid, module, environment))
+            .then(|| invalid.clone());
     }
-    classified_invalid_path_segment(invalid, module, environment)
-        .is_some_and(|segment| segment.role == invalid.class)
+    let segment = classified_invalid_path_segment(invalid, module, environment)?;
+    if name_satisfies_class(&invalid.name, segment.role) {
+        return None;
+    }
+    let mut classified = invalid.clone();
+    classified.class = segment.role;
+    Some(classified)
 }
 
 fn classified_invalid_path_segment(
     invalid: &InvalidName,
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> Option<ClassifiedPathSegment> {
+) -> Option<QualifiedPathSegment> {
     if invalid_name_repeats_quarantined_import_alias(invalid, module) {
         return None;
     }
     match invalid.class {
         NameClass::Module => {
             if invalid_segment_is_constructor_type_qualifier(invalid, module, environment) {
-                return Some(ClassifiedPathSegment {
-                    role: NameClass::Type,
-                });
+                return Some(classified_path_segment(
+                    invalid,
+                    NameClass::Type,
+                    QualifiedPathSegmentEvidence::Resolved,
+                ));
             }
             if invalid_value_segment_lacks_value_role(invalid, module, environment) {
                 None
             } else {
-                Some(ClassifiedPathSegment {
-                    role: NameClass::Module,
-                })
+                Some(classified_path_segment(
+                    invalid,
+                    NameClass::Module,
+                    QualifiedPathSegmentEvidence::Resolved,
+                ))
             }
         }
         NameClass::Type => {
+            if invalid_type_segment_has_module_role(invalid, module, environment) {
+                return Some(classified_path_segment(
+                    invalid,
+                    NameClass::Module,
+                    QualifiedPathSegmentEvidence::Resolved,
+                ));
+            }
             if invalid_type_segment_lacks_constructor_role(invalid, module, environment) {
                 None
             } else {
-                Some(ClassifiedPathSegment {
-                    role: NameClass::Type,
-                })
+                Some(classified_path_segment(
+                    invalid,
+                    NameClass::Type,
+                    QualifiedPathSegmentEvidence::Resolved,
+                ))
             }
         }
         NameClass::Constructor => {
+            if invalid_constructor_segment_has_function_role(invalid, module, environment) {
+                return Some(classified_path_segment(
+                    invalid,
+                    NameClass::Function,
+                    QualifiedPathSegmentEvidence::UniqueRecovery,
+                ));
+            }
             if invalid_constructor_segment_lacks_constructor_role(invalid, module, environment) {
                 None
             } else {
-                Some(ClassifiedPathSegment {
-                    role: NameClass::Constructor,
-                })
+                Some(classified_path_segment(
+                    invalid,
+                    NameClass::Constructor,
+                    QualifiedPathSegmentEvidence::Resolved,
+                ))
             }
         }
         NameClass::Function => {
@@ -312,20 +345,52 @@ fn classified_invalid_path_segment(
             {
                 None
             } else {
-                Some(ClassifiedPathSegment {
-                    role: NameClass::Function,
-                })
+                Some(classified_path_segment(
+                    invalid,
+                    NameClass::Function,
+                    QualifiedPathSegmentEvidence::Resolved,
+                ))
             }
         }
         NameClass::ValueBinding => {
             if invalid_value_segment_lacks_value_role(invalid, module, environment) {
                 None
             } else {
-                Some(ClassifiedPathSegment {
-                    role: NameClass::ValueBinding,
-                })
+                Some(classified_path_segment(
+                    invalid,
+                    NameClass::ValueBinding,
+                    QualifiedPathSegmentEvidence::Resolved,
+                ))
             }
         }
+    }
+}
+
+fn name_satisfies_class(name: &str, class: NameClass) -> bool {
+    match class {
+        NameClass::Type | NameClass::Constructor => {
+            name.as_bytes().first().is_some_and(u8::is_ascii_uppercase)
+        }
+        NameClass::Module | NameClass::Function | NameClass::ValueBinding => {
+            name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+        }
+    }
+}
+
+fn classified_path_segment(
+    invalid: &InvalidName,
+    role: NameClass,
+    evidence: QualifiedPathSegmentEvidence,
+) -> QualifiedPathSegment {
+    QualifiedPathSegment {
+        name: invalid.name.clone(),
+        role,
+        occurrence: invalid.occurrence,
+        span: invalid.span.clone(),
+        segment_index: invalid
+            .segment_index
+            .expect("classified path segment has segment index"),
+        evidence,
     }
 }
 
@@ -637,6 +702,171 @@ fn recovered_qualified_type_segment_invalid_names(
         }
     }
     invalid
+}
+
+fn recovered_qualified_module_segment_invalid_names(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<InvalidName> {
+    recovered_qualified_segment_invalid_names(module, environment, push_recovered_module_segment)
+}
+
+fn recovered_qualified_function_segment_invalid_names(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> Vec<InvalidName> {
+    recovered_qualified_segment_invalid_names(module, environment, push_recovered_function_segment)
+}
+
+fn recovered_qualified_segment_invalid_names(
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+    push: fn(
+        &[String],
+        &[veln_source::SourceSpan],
+        Option<&str>,
+        &veln_source::SourceSpan,
+        &TypeEnvironment,
+        &mut Vec<InvalidName>,
+    ),
+) -> Vec<InvalidName> {
+    let mut invalid = Vec::new();
+    for function in &module.functions {
+        for line in &function.body {
+            collect_recovered_qualified_segments_from_body_line(
+                line,
+                function.module_name.as_deref(),
+                &function.span,
+                environment,
+                push,
+                &mut invalid,
+            );
+        }
+    }
+    for handler in &module.handlers {
+        for clause in &handler.operation_clauses {
+            collect_recovered_qualified_segments_from_expr(
+                &clause.body,
+                handler.module_name.as_deref(),
+                &handler.span,
+                environment,
+                push,
+                &mut invalid,
+            );
+        }
+    }
+    invalid
+}
+
+fn collect_recovered_qualified_segments_from_body_line(
+    line: &veln_ast::BodyLine,
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    push: fn(
+        &[String],
+        &[veln_source::SourceSpan],
+        Option<&str>,
+        &veln_source::SourceSpan,
+        &TypeEnvironment,
+        &mut Vec<InvalidName>,
+    ),
+    invalid: &mut Vec<InvalidName>,
+) {
+    match &line.kind {
+        veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
+            collect_recovered_qualified_segments_from_expr(
+                expr,
+                current_module,
+                enclosing_function_span,
+                environment,
+                push,
+                invalid,
+            );
+        }
+    }
+}
+
+fn collect_recovered_qualified_segments_from_expr(
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    push: fn(
+        &[String],
+        &[veln_source::SourceSpan],
+        Option<&str>,
+        &veln_source::SourceSpan,
+        &TypeEnvironment,
+        &mut Vec<InvalidName>,
+    ),
+    invalid: &mut Vec<InvalidName>,
+) {
+    match &expr.kind {
+        veln_ast::ExprKind::NamePath {
+            segments,
+            segment_spans,
+        } => push(
+            segments,
+            segment_spans,
+            current_module,
+            enclosing_function_span,
+            environment,
+            invalid,
+        ),
+        veln_ast::ExprKind::Call { callee, args } => {
+            collect_recovered_qualified_segments_from_expr(
+                callee,
+                current_module,
+                enclosing_function_span,
+                environment,
+                push,
+                invalid,
+            );
+            for arg in args {
+                collect_recovered_qualified_segments_from_expr(
+                    arg,
+                    current_module,
+                    enclosing_function_span,
+                    environment,
+                    push,
+                    invalid,
+                );
+            }
+        }
+        veln_ast::ExprKind::TypeApply { callee, .. }
+        | veln_ast::ExprKind::FieldAccess { base: callee, .. }
+        | veln_ast::ExprKind::Try(callee)
+        | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
+            collect_recovered_qualified_segments_from_expr(
+                callee,
+                current_module,
+                enclosing_function_span,
+                environment,
+                push,
+                invalid,
+            );
+        }
+        veln_ast::ExprKind::Binary { left, right, .. } => {
+            collect_recovered_qualified_segments_from_expr(
+                left,
+                current_module,
+                enclosing_function_span,
+                environment,
+                push,
+                invalid,
+            );
+            collect_recovered_qualified_segments_from_expr(
+                right,
+                current_module,
+                enclosing_function_span,
+                environment,
+                push,
+                invalid,
+            );
+        }
+        _ => {}
+    }
 }
 
 fn collect_recovered_qualified_type_segments_from_body_line(
@@ -953,6 +1183,86 @@ fn push_recovered_qualified_type_segment(
         span: span.clone(),
         enclosing_function_span: Some(enclosing_function_span.clone()),
         segment_index: Some(type_index),
+    });
+}
+
+fn push_recovered_module_segment(
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    invalid: &mut Vec<InvalidName>,
+) {
+    if segments.len() < 2 {
+        return;
+    }
+    for index in 0..segments.len() - 1 {
+        let name = &segments[index];
+        if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+            continue;
+        }
+        let Some(span) = segment_spans.get(index) else {
+            continue;
+        };
+        let mut corrected = segments.to_vec();
+        corrected[index] = lowercase_initial(name);
+        let probe = InvalidName {
+            name: name.clone(),
+            class: NameClass::Module,
+            occurrence: NameOccurrence::PathSegment,
+            span: span.clone(),
+            enclosing_function_span: Some(enclosing_function_span.clone()),
+            segment_index: Some(index),
+        };
+        if index + 2 == corrected.len()
+            && path_resolves_as_constructor(&corrected, current_module, environment)
+        {
+            continue;
+        }
+        if module_segment_role_is_fixed(&probe, &corrected, current_module, environment) {
+            invalid.push(probe);
+        }
+    }
+}
+
+fn push_recovered_function_segment(
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    current_module: Option<&str>,
+    enclosing_function_span: &veln_source::SourceSpan,
+    environment: &TypeEnvironment,
+    invalid: &mut Vec<InvalidName>,
+) {
+    if segments.len() < 2 {
+        return;
+    }
+    let index = segments.len() - 1;
+    let name = &segments[index];
+    if !name.as_bytes().first().is_some_and(u8::is_ascii_uppercase) {
+        return;
+    }
+    let Some(span) = segment_spans.get(index) else {
+        return;
+    };
+    let mut corrected = segments.to_vec();
+    corrected[index] = lowercase_initial(name);
+    if environment
+        .function_path(&corrected, current_module)
+        .is_none()
+        && environment
+            .codec_call_path(&corrected, current_module)
+            .is_empty()
+    {
+        return;
+    }
+    invalid.push(InvalidName {
+        name: name.clone(),
+        class: NameClass::Function,
+        occurrence: NameOccurrence::PathSegment,
+        span: span.clone(),
+        enclosing_function_span: Some(enclosing_function_span.clone()),
+        segment_index: Some(index),
     });
 }
 
@@ -1563,6 +1873,153 @@ fn invalid_constructor_segment_lacks_constructor_role(
     })
 }
 
+fn invalid_constructor_segment_has_function_role(
+    invalid: &InvalidName,
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> bool {
+    if invalid.class != NameClass::Constructor
+        || invalid.occurrence != NameOccurrence::PathSegment
+        || invalid.segment_index.is_none()
+    {
+        return false;
+    }
+    module.functions.iter().any(|function| {
+        function.body.iter().any(|line| {
+            invalid_constructor_segment_has_function_role_in_body_line(
+                invalid,
+                line,
+                function.module_name.as_deref(),
+                environment,
+            )
+        })
+    }) || module.handlers.iter().any(|handler| {
+        handler.operation_clauses.iter().any(|clause| {
+            invalid_constructor_segment_has_function_role_in_expr(
+                invalid,
+                &clause.body,
+                handler.module_name.as_deref(),
+                environment,
+            )
+        })
+    })
+}
+
+fn invalid_constructor_segment_has_function_role_in_body_line(
+    invalid: &InvalidName,
+    line: &veln_ast::BodyLine,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &line.kind {
+        veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+            invalid_constructor_segment_has_function_role_in_pattern(
+                invalid,
+                pattern,
+                current_module,
+                environment,
+            ) || invalid_constructor_segment_has_function_role_in_expr(
+                invalid,
+                expr,
+                current_module,
+                environment,
+            )
+        }
+        veln_ast::BodyLineKind::Expr { expr } => {
+            invalid_constructor_segment_has_function_role_in_expr(
+                invalid,
+                expr,
+                current_module,
+                environment,
+            )
+        }
+    }
+}
+
+fn invalid_constructor_segment_has_function_role_in_expr(
+    invalid: &InvalidName,
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    invalid_segment_lacks_role_in_expr(
+        invalid,
+        expr,
+        current_module,
+        environment,
+        invalid_constructor_segment_has_function_role_for_path,
+        invalid_constructor_segment_has_function_role_in_pattern,
+    )
+}
+
+fn invalid_constructor_segment_has_function_role_for_path(
+    invalid: &InvalidName,
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let Some(index) = invalid.segment_index else {
+        return false;
+    };
+    if index + 1 != segments.len() {
+        return false;
+    }
+    let Some(span) = segment_spans.get(index) else {
+        return false;
+    };
+    if span.file != invalid.span.file
+        || span.start.offset != invalid.span.start.offset
+        || span.end.offset != invalid.span.end.offset
+    {
+        return false;
+    }
+    let mut corrected = segments.to_vec();
+    corrected[index] = lowercase_initial(&invalid.name);
+    for prefix_index in 0..index {
+        if corrected[prefix_index]
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_uppercase)
+        {
+            corrected[prefix_index] = lowercase_initial(&corrected[prefix_index]);
+        }
+    }
+    environment
+        .function_path(&corrected, current_module)
+        .is_some()
+        || !environment
+            .codec_call_path(&corrected, current_module)
+            .is_empty()
+}
+
+fn invalid_constructor_segment_has_function_role_in_pattern(
+    invalid: &InvalidName,
+    pattern: &veln_ast::Pattern,
+    _current_module: Option<&str>,
+    _environment: &TypeEnvironment,
+) -> bool {
+    match &pattern.kind {
+        veln_ast::PatternKind::Constructor { args, .. } => args.iter().any(|arg| {
+            invalid_constructor_segment_has_function_role_in_pattern(
+                invalid,
+                arg,
+                _current_module,
+                _environment,
+            )
+        }),
+        veln_ast::PatternKind::Record(fields) => fields.iter().any(|field| {
+            invalid_constructor_segment_has_function_role_in_pattern(
+                invalid,
+                &field.pattern,
+                _current_module,
+                _environment,
+            )
+        }),
+        _ => false,
+    }
+}
+
 fn invalid_constructor_segment_lacks_constructor_role_in_body_line(
     invalid: &InvalidName,
     line: &veln_ast::BodyLine,
@@ -1721,6 +2178,173 @@ fn invalid_type_segment_lacks_constructor_role(
             )
         })
     })
+}
+
+fn invalid_type_segment_has_module_role(
+    invalid: &InvalidName,
+    module: &SurfaceModule,
+    environment: &TypeEnvironment,
+) -> bool {
+    if invalid.class != NameClass::Type
+        || invalid.occurrence != NameOccurrence::PathSegment
+        || invalid.segment_index.is_none()
+    {
+        return false;
+    }
+    module.functions.iter().any(|function| {
+        function.body.iter().any(|line| {
+            invalid_type_segment_has_module_role_in_body_line(
+                invalid,
+                line,
+                function.module_name.as_deref(),
+                environment,
+            )
+        })
+    }) || module.handlers.iter().any(|handler| {
+        handler.operation_clauses.iter().any(|clause| {
+            invalid_type_segment_has_module_role_in_expr(
+                invalid,
+                &clause.body,
+                handler.module_name.as_deref(),
+                environment,
+            )
+        })
+    })
+}
+
+fn invalid_type_segment_has_module_role_in_body_line(
+    invalid: &InvalidName,
+    line: &veln_ast::BodyLine,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &line.kind {
+        veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+            invalid_type_segment_has_module_role_in_pattern(
+                invalid,
+                pattern,
+                current_module,
+                environment,
+            ) || invalid_type_segment_has_module_role_in_expr(
+                invalid,
+                expr,
+                current_module,
+                environment,
+            )
+        }
+        veln_ast::BodyLineKind::Expr { expr } => {
+            invalid_type_segment_has_module_role_in_expr(invalid, expr, current_module, environment)
+        }
+    }
+}
+
+fn invalid_type_segment_has_module_role_in_expr(
+    invalid: &InvalidName,
+    expr: &veln_ast::Expr,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    invalid_segment_lacks_role_in_expr(
+        invalid,
+        expr,
+        current_module,
+        environment,
+        invalid_type_segment_has_module_role_for_path,
+        invalid_type_segment_has_module_role_in_pattern,
+    )
+}
+
+fn invalid_type_segment_has_module_role_for_path(
+    invalid: &InvalidName,
+    segments: &[String],
+    segment_spans: &[veln_source::SourceSpan],
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let Some(index) = invalid.segment_index else {
+        return false;
+    };
+    let Some(span) = segment_spans.get(index) else {
+        return false;
+    };
+    if span.file != invalid.span.file
+        || span.start.offset != invalid.span.start.offset
+        || span.end.offset != invalid.span.end.offset
+        || index + 1 >= segments.len()
+    {
+        return false;
+    }
+    let mut corrected = segments.to_vec();
+    corrected[index] = lowercase_initial(&invalid.name);
+    if index + 2 == corrected.len()
+        && path_resolves_as_constructor(&corrected, current_module, environment)
+    {
+        return false;
+    }
+    module_segment_role_is_fixed(invalid, &corrected, current_module, environment)
+}
+
+fn invalid_type_segment_has_module_role_in_pattern(
+    invalid: &InvalidName,
+    pattern: &veln_ast::Pattern,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    match &pattern.kind {
+        veln_ast::PatternKind::Constructor { name, args } => {
+            invalid_type_segment_has_module_role_for_pattern_path(
+                invalid,
+                name,
+                pattern,
+                current_module,
+                environment,
+            ) || args.iter().any(|arg| {
+                invalid_type_segment_has_module_role_in_pattern(
+                    invalid,
+                    arg,
+                    current_module,
+                    environment,
+                )
+            })
+        }
+        veln_ast::PatternKind::Record(fields) => fields.iter().any(|field| {
+            invalid_type_segment_has_module_role_in_pattern(
+                invalid,
+                &field.pattern,
+                current_module,
+                environment,
+            )
+        }),
+        _ => false,
+    }
+}
+
+fn invalid_type_segment_has_module_role_for_pattern_path(
+    invalid: &InvalidName,
+    segments: &[String],
+    pattern: &veln_ast::Pattern,
+    current_module: Option<&str>,
+    environment: &TypeEnvironment,
+) -> bool {
+    let Some(index) = invalid.segment_index else {
+        return false;
+    };
+    if index + 1 >= segments.len()
+        || segments.get(index) != Some(&invalid.name)
+        || invalid.span.file != pattern.span.file
+        || invalid.span.start.offset < pattern.span.start.offset
+        || pattern.span.end.offset < invalid.span.end.offset
+    {
+        return false;
+    }
+    let mut corrected = segments.to_vec();
+    corrected[index] = lowercase_initial(&invalid.name);
+    if index + 2 == corrected.len()
+        && path_resolves_as_constructor(&corrected, current_module, environment)
+    {
+        return false;
+    }
+    module_segment_role_is_fixed(invalid, &corrected, current_module, environment)
 }
 
 fn invalid_type_segment_lacks_constructor_role_in_body_line(

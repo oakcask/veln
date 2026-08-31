@@ -65,6 +65,45 @@ fn next_path_segment_index(tokens: &[Token], index: usize) -> Option<usize> {
     .then_some(segment_index)
 }
 
+fn path_segment_index(tokens: &[Token], index: usize) -> Option<usize> {
+    if tokens.get(index)?.kind != TokenKind::Ident {
+        return None;
+    }
+    let mut segment_index = 0;
+    let mut cursor = index;
+    while let Some(separator_index) = previous_non_layout_index(tokens, cursor) {
+        if tokens[separator_index].kind != TokenKind::DoubleColon {
+            break;
+        }
+        let Some(previous_segment) = previous_non_layout_index(tokens, separator_index) else {
+            break;
+        };
+        if tokens[previous_segment].kind != TokenKind::Ident {
+            break;
+        }
+        segment_index += 1;
+        cursor = previous_segment;
+    }
+    Some(segment_index)
+}
+
+fn classified_navigation_record(
+    name: &str,
+    role: NameClass,
+    selection: &SourceSpan,
+    segment_index: usize,
+    evidence: QualifiedPathSegmentEvidence,
+) -> QualifiedPathSegment {
+    QualifiedPathSegment {
+        name: name.to_string(),
+        role,
+        occurrence: NameOccurrence::PathSegment,
+        span: selection.clone(),
+        segment_index,
+        evidence,
+    }
+}
+
 fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
     next_non_layout_index(tokens, index).map(|index| &tokens[index])
 }

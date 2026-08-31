@@ -3,3 +3,15 @@ use foo::bar
 fn nested_module_only_function_path() -> Int
   foo::bar::double(3)
 end
+
+fn nested_module_first_invalid() -> Int
+  Foo::bar::double(3)
+end
+
+fn nested_module_middle_invalid() -> Int
+  foo::Bar::double(3)
+end
+
+fn nested_module_leaf_invalid() -> Int
+  foo::bar::Double(3)
+end

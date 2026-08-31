@@ -12,9 +12,10 @@ pub use model::{
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
     HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader, NameClass,
     NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
-    PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl, SchemaField,
-    SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl,
-    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    PublicAliasKind, QualifiedPathSegment, QualifiedPathSegmentEvidence, RecordField,
+    ResultBinding, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl,
+    TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 pub use wire::{decode_surface_module, encode_surface_module};
 

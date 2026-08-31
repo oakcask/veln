@@ -1,7 +1,10 @@
 main.veln:5:3: error[name.invalid_case]: module name `ModOnly` must start with an ASCII lowercase letter
 main.veln:9:12: error[name.invalid_case]: function name `Value` must start with an ASCII lowercase letter
+consumer.veln:8:3: error[name.invalid_case]: module name `Foo` must start with an ASCII lowercase letter
 main.veln:13:3: error[name.invalid_case]: module name `ModType` must start with an ASCII lowercase letter
+consumer.veln:12:8: error[name.invalid_case]: module name `Bar` must start with an ASCII lowercase letter
 main.veln:17:12: error[name.invalid_case]: type name `sample` must start with an ASCII uppercase letter
+consumer.veln:16:13: error[name.invalid_case]: function name `Double` must start with an ASCII lowercase letter
 main.veln:22:22: error[name.invalid_case]: constructor name `made` must start with an ASCII uppercase letter
 main.veln:26:34: error[name.invalid_case]: module name `Prelude` must start with an ASCII lowercase letter
 main.veln:30:45: error[name.invalid_case]: type name `option` must start with an ASCII uppercase letter
