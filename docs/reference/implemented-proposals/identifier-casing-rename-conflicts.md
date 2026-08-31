@@ -30,7 +30,9 @@ class, the requested name, the conflicting declaration location, and the
 affected scope. LSP maps that failure to JSON-RPC invalid params with code
 `-32602` and returns no workspace edit. Module-scope failures identify the
 affected module. Lexical-scope failures identify the affected file and source
-offset range.
+start and end offsets. Local binding conflicts report the binding declaration
+as the conflicting declaration, including when a function rename would collide
+with an edited reference scope.
 
 The conflict check is limited to the retained current project snapshot. It
 does not claim to validate unloaded consumers, future file operations, or

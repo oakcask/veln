@@ -218,8 +218,10 @@ includes the selected symbol class, requested name, conflicting declaration
 location, and affected scope. The request returns no workspace edits in that
 failure response. Lexical conflict prediction uses the scopes of the edited
 declaration and references, so a shadowing binding in an unedited clause does
-not reject the rename. When a local binding conflicts with a function rename,
-the reported conflict location is the binding declaration. A rename request
+not reject the rename. Module affected scopes include the module name. Lexical
+affected scopes include the file plus source start and end offsets. When a
+local binding conflicts with a function rename, the reported conflict location
+is the binding declaration. A rename request
 without a selected supported workspace symbol returns an empty workspace-edit
 `changes` object, and prepare-rename for the same position returns `null`.
 The executable
