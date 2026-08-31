@@ -296,20 +296,12 @@ fn collect_invalid_expr_names(
         }
         SyntaxExprKind::Call { callee, args } => {
             collect_invalid_call_callee_names(callee, invalid, enclosing.clone());
-            for arg in args {
-                collect_invalid_expr_names(arg, invalid, enclosing.clone());
-            }
+            collect_invalid_expr_list(args, invalid, enclosing);
         }
-        SyntaxExprKind::Perform { args, .. } => {
-            for arg in args {
-                collect_invalid_expr_names(arg, invalid, enclosing.clone());
-            }
-        }
+        SyntaxExprKind::Perform { args, .. } => collect_invalid_expr_list(args, invalid, enclosing),
         SyntaxExprKind::Handle { body, args, .. } => {
             collect_invalid_expr_names(body, invalid, enclosing.clone());
-            for arg in args {
-                collect_invalid_expr_names(arg, invalid, enclosing.clone());
-            }
+            collect_invalid_expr_list(args, invalid, enclosing);
         }
         SyntaxExprKind::SchemaDecode { input, base, .. } => {
             collect_invalid_expr_names(input, invalid, enclosing.clone());
@@ -319,27 +311,14 @@ fn collect_invalid_expr_names(
             collect_invalid_expr_names(value, invalid, enclosing);
         }
         SyntaxExprKind::Record(fields) => {
-            for field in fields {
-                collect_invalid_expr_names(&field.expr, invalid, enclosing.clone());
-            }
+            collect_invalid_record_field_expr_names(fields, invalid, enclosing);
         }
         SyntaxExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_invalid_expr_names(&entry.key, invalid, enclosing.clone());
-                collect_invalid_expr_names(&entry.value, invalid, enclosing.clone());
-            }
+            collect_invalid_dict_entry_expr_names(entries, invalid, enclosing);
         }
-        SyntaxExprKind::List(items) => {
-            for item in items {
-                collect_invalid_expr_names(item, invalid, enclosing.clone());
-            }
-        }
+        SyntaxExprKind::List(items) => collect_invalid_expr_list(items, invalid, enclosing),
         SyntaxExprKind::Match { scrutinee, arms } => {
-            collect_invalid_expr_names(scrutinee, invalid, enclosing.clone());
-            for arm in arms {
-                collect_invalid_pattern_names(&arm.pattern, invalid, enclosing.clone());
-                collect_invalid_expr_names(&arm.expr, invalid, enclosing.clone());
-            }
+            collect_invalid_match_expr_names(scrutinee, arms, invalid, enclosing);
         }
         SyntaxExprKind::If {
             condition,
@@ -347,13 +326,14 @@ fn collect_invalid_expr_names(
             else_if_branches,
             else_branch,
         } => {
-            collect_invalid_expr_names(condition, invalid, enclosing.clone());
-            collect_invalid_expr_names(then_branch, invalid, enclosing.clone());
-            for branch in else_if_branches {
-                collect_invalid_expr_names(&branch.condition, invalid, enclosing.clone());
-                collect_invalid_expr_names(&branch.expr, invalid, enclosing.clone());
-            }
-            collect_invalid_expr_names(else_branch, invalid, enclosing);
+            collect_invalid_if_expr_names(
+                condition,
+                then_branch,
+                else_if_branches,
+                else_branch,
+                invalid,
+                enclosing,
+            );
         }
         SyntaxExprKind::Binary { left, right, .. } => {
             collect_invalid_expr_names(left, invalid, enclosing.clone());
@@ -379,6 +359,67 @@ fn collect_invalid_expr_names(
         | SyntaxExprKind::Hole { .. }
         | SyntaxExprKind::Unit => {}
     }
+}
+
+fn collect_invalid_expr_list(
+    exprs: &[SyntaxExpr],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    for expr in exprs {
+        collect_invalid_expr_names(expr, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_record_field_expr_names(
+    fields: &[SyntaxRecordField],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    for field in fields {
+        collect_invalid_expr_names(&field.expr, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_dict_entry_expr_names(
+    entries: &[SyntaxDictEntry],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    for entry in entries {
+        collect_invalid_expr_names(&entry.key, invalid, enclosing.clone());
+        collect_invalid_expr_names(&entry.value, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_match_expr_names(
+    scrutinee: &SyntaxExpr,
+    arms: &[SyntaxMatchArm],
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    collect_invalid_expr_names(scrutinee, invalid, enclosing.clone());
+    for arm in arms {
+        collect_invalid_pattern_names(&arm.pattern, invalid, enclosing.clone());
+        collect_invalid_expr_names(&arm.expr, invalid, enclosing.clone());
+    }
+}
+
+fn collect_invalid_if_expr_names(
+    condition: &SyntaxExpr,
+    then_branch: &SyntaxExpr,
+    else_if_branches: &[SyntaxIfBranch],
+    else_branch: &SyntaxExpr,
+    invalid: &mut Vec<InvalidName>,
+    enclosing: Option<SourceSpan>,
+) {
+    collect_invalid_expr_names(condition, invalid, enclosing.clone());
+    collect_invalid_expr_names(then_branch, invalid, enclosing.clone());
+    for branch in else_if_branches {
+        collect_invalid_expr_names(&branch.condition, invalid, enclosing.clone());
+        collect_invalid_expr_names(&branch.expr, invalid, enclosing.clone());
+    }
+    collect_invalid_expr_names(else_branch, invalid, enclosing);
 }
 
 fn collect_invalid_call_callee_names(

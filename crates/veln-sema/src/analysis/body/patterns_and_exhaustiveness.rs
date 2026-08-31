@@ -1,5 +1,12 @@
 use super::*;
 
+struct MatchCoverageProgress {
+    catches_all: bool,
+    covered: Vec<String>,
+    invalid_recovery_covered: Vec<String>,
+    proving_arms: Vec<(String, SourceSpan)>,
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn check_match_exhaustiveness(
         &mut self,
@@ -15,23 +22,55 @@ impl<'a> FunctionChecker<'a> {
         ) else {
             return;
         };
+        let progress = self.match_coverage_progress(&domain, scrutinee_type, arms);
+        if progress.catches_all {
+            return;
+        }
+        let Some(missing_case) = self.missing_match_case(
+            &domain,
+            scrutinee_type,
+            &progress.covered,
+            &progress.invalid_recovery_covered,
+        ) else {
+            return;
+        };
+        self.report_match_non_exhaustive(
+            expr,
+            scrutinee,
+            scrutinee_type,
+            missing_case,
+            progress.proving_arms,
+        );
+    }
+
+    fn match_coverage_progress(
+        &self,
+        domain: &MatchDomain,
+        scrutinee_type: &Type,
+        arms: &[MatchArm],
+    ) -> MatchCoverageProgress {
         let mut covered = Vec::new();
         let mut invalid_recovery_covered = Vec::new();
         let mut proving_arms = Vec::new();
         for arm in arms {
             let coverage = match_pattern_coverage(
                 &arm.pattern,
-                &domain,
+                domain,
                 scrutinee_type,
                 self.environment,
                 self.function.module_name.as_deref(),
             );
             if coverage.catches_all {
-                return;
+                return MatchCoverageProgress {
+                    catches_all: true,
+                    covered: Vec::new(),
+                    invalid_recovery_covered: Vec::new(),
+                    proving_arms: Vec::new(),
+                };
             }
             invalid_recovery_covered.extend(invalid_qualified_constructor_recovery_cases(
                 &arm.pattern,
-                &domain,
+                domain,
                 scrutinee_type,
                 self.environment,
                 self.function.module_name.as_deref(),
@@ -43,20 +82,40 @@ impl<'a> FunctionChecker<'a> {
                 }
             }
         }
+        MatchCoverageProgress {
+            catches_all: false,
+            covered,
+            invalid_recovery_covered,
+            proving_arms,
+        }
+    }
 
+    fn missing_match_case(
+        &self,
+        domain: &MatchDomain,
+        scrutinee_type: &Type,
+        covered: &[String],
+        invalid_recovery_covered: &[String],
+    ) -> Option<String> {
         let cases = domain.cases(
             scrutinee_type,
             self.environment,
             self.function.module_name.as_deref(),
         );
-        let Some(missing_case) = cases
+        cases
             .iter()
             .find(|case| !covered.contains(case) && !invalid_recovery_covered.contains(case))
             .cloned()
-        else {
-            return;
-        };
+    }
 
+    fn report_match_non_exhaustive(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        scrutinee_type: &Type,
+        missing_case: String,
+        proving_arms: Vec<(String, SourceSpan)>,
+    ) {
         let mut diagnostic = Diagnostic::new(
             "type.match_non_exhaustive",
             Severity::Error,

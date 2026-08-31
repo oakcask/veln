@@ -6,12 +6,12 @@ use veln_syntax::{
     DictEntry as SyntaxDictEntry, EffectDecl as SyntaxEffectDecl,
     EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
     ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, HandlerDecl as SyntaxHandlerDecl,
-    HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, ModuleDecl as SyntaxModule,
-    Param as SyntaxParam, Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind,
-    PrefixOp as SyntaxPrefixOp, PublicAliasDecl as SyntaxPublicAlias,
-    PublicAliasKind as SyntaxPublicAliasKind, RecordField as SyntaxRecordField,
-    SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl,
-    UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
+    HandlerOperationClauseDecl as SyntaxHandlerOperationClauseDecl, IfBranch as SyntaxIfBranch,
+    MatchArm as SyntaxMatchArm, ModuleDecl as SyntaxModule, Param as SyntaxParam,
+    Pattern as SyntaxPattern, PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
+    PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
+    RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
+    TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
