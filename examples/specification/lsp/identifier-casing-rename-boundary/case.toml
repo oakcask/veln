@@ -403,3 +403,53 @@ missing = true
 id = 25
 path = "/error"
 missing = true
+
+[[lsp_assert]]
+id = 26
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/details/symbol_class"
+equals = "type"
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/details/requested_name"
+equals = "Entry"
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "right_entry.veln"
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/details/conflicting_declaration/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/details/conflicting_declaration/range/start/character"
+equals = 9
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/details/affected_scope/kind"
+equals = "module"
+
+[[lsp_assert]]
+id = 26
+path = "/error/data/details/affected_scope/name"
+equals = "consumer"
+
+[[lsp_assert]]
+id = 26
+path = "/result"
+missing = true

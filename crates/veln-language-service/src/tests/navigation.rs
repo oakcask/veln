@@ -489,6 +489,67 @@
     }
 
     #[test]
+    fn rename_validation_rejects_unedited_imported_type_ambiguity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Item\n  Left\nend\n"),
+            source("right.veln", "pub type Entry\n  Right\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn imported(value: Entry) -> Entry\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 10).unwrap();
+
+        let failure = validate_rename_in_snapshot(&snapshot, &result, "Entry").unwrap_err();
+
+        assert_rename_conflict(
+            failure.clone(),
+            RenameNameClass::Type,
+            "Entry",
+            "right.veln",
+            1,
+            10,
+        );
+        let RenameFailureKind::Conflict { affected_scope, .. } = failure.kind else {
+            panic!("rename failure was not a conflict");
+        };
+        assert_eq!(
+            *affected_scope,
+            RenameAffectedScope::Module {
+                name: "main".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rename_validation_allows_unedited_local_type_shadowing() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Item\n  Left\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n\n",
+                    "type Entry\n",
+                    "  Local\n",
+                    "end\n\n",
+                    "fn imported(value: Entry) -> Entry\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 10).unwrap();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "Entry").is_ok());
+    }
+
+    #[test]
     fn rename_validation_rejects_provable_constructor_ambiguity() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("left.veln", "pub type Source\n  pub Ready\nend\n"),
@@ -515,6 +576,45 @@
             "right.veln",
             2,
             7,
+        );
+    }
+
+    #[test]
+    fn rename_validation_rejects_unedited_imported_constructor_ambiguity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Source\n  pub Ready\nend\n"),
+            source("right.veln", "pub type Target\n  pub Done\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn make() -> right::Target\n",
+                    "  Done\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 2, 7).unwrap();
+
+        let failure = validate_rename_in_snapshot(&snapshot, &result, "Done").unwrap_err();
+
+        assert_rename_conflict(
+            failure.clone(),
+            RenameNameClass::Constructor,
+            "Done",
+            "right.veln",
+            2,
+            7,
+        );
+        let RenameFailureKind::Conflict { affected_scope, .. } = failure.kind else {
+            panic!("rename failure was not a conflict");
+        };
+        assert_eq!(
+            *affected_scope,
+            RenameAffectedScope::Module {
+                name: "main".to_string(),
+            }
         );
     }
 

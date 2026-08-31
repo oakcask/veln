@@ -1,0 +1,6 @@
+use left
+use right_entry
+
+fn imported(value: Entry) -> Entry
+  value
+end

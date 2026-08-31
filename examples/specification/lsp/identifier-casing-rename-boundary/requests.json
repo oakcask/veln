@@ -24,6 +24,7 @@
   {"jsonrpc":"2.0","id":23,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"type_alias.veln"}},"position":{"line":0,"character":5},"newName":"Result"}},
   {"jsonrpc":"2.0","id":24,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"shadowing.veln"}},"position":{"line":26,"character":9},"newName":"right"}},
   {"jsonrpc":"2.0","id":25,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"shadowing.veln"}},"position":{"line":26,"character":9},"newName":"value"}},
-  {"jsonrpc":"2.0","id":26,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":26,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"left.veln"}},"position":{"line":0,"character":9},"newName":"Entry"}},
+  {"jsonrpc":"2.0","id":27,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

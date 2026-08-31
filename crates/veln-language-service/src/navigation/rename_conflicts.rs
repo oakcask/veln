@@ -28,6 +28,7 @@ impl SymbolIndex {
                     },
                 )
             })
+            .or_else(|| self.type_post_rename_visibility_conflict(&selected, requested_name))
             .or_else(|| {
                 self.affected_spans(result)
                     .into_iter()
@@ -74,6 +75,7 @@ impl SymbolIndex {
                     },
                 )
             })
+            .or_else(|| self.constructor_post_rename_visibility_conflict(&selected, requested_name))
             .or_else(|| {
                 self.affected_spans(result)
                     .into_iter()
@@ -104,6 +106,7 @@ impl SymbolIndex {
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let selected = self.selected_function(result)?;
         self.function_module_conflict(&selected, requested_name)
+            .or_else(|| self.function_post_rename_visibility_conflict(&selected, requested_name))
             .or_else(|| self.function_reference_conflict(result, requested_name, &selected))
     }
 
@@ -160,6 +163,148 @@ impl SymbolIndex {
             .function_conflict_for_call(file, token_index, requested_name)
             .filter(|candidate| !same_function(candidate, selected))?;
         Some(module_rename_conflict(conflict.declaration, &file.module))
+    }
+
+    fn type_post_rename_visibility_conflict(
+        &self,
+        selected: &TypeSymbol,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        self.files
+            .iter()
+            .filter(|file| type_visible_after_rename(file, selected))
+            .find_map(|file| {
+                type_reference_spans(&file.source, &file.tokens, requested_name)
+                    .into_iter()
+                    .filter(|(token_index, _)| {
+                        qualifier_for_token(&file.tokens, *token_index).is_none()
+                    })
+                    .find_map(|(token_index, _)| {
+                        if type_local_resolution_unchanged(file, selected, requested_name) {
+                            return None;
+                        }
+                        let conflict = self
+                            .visible_type_conflict_for_reference(
+                                file,
+                                &file.tokens,
+                                token_index,
+                                requested_name,
+                            )
+                            .filter(|candidate| !candidate.is_selected_type(selected))?;
+                        Some(module_rename_conflict(conflict.declaration(), &file.module))
+                    })
+            })
+    }
+
+    fn constructor_post_rename_visibility_conflict(
+        &self,
+        selected: &ConstructorSymbol,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        self.files
+            .iter()
+            .filter(|file| constructor_visible_after_rename(file, selected))
+            .find_map(|file| {
+                file.tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        token.kind == TokenKind::Ident
+                            && token.text == requested_name
+                            && qualifier_for_token(&file.tokens, *index).is_none()
+                            && is_constructor_reference_token(&file.tokens, *index)
+                    })
+                    .find_map(|(token_index, _)| {
+                        if self.constructor_local_resolution_unchanged(
+                            file,
+                            selected,
+                            requested_name,
+                        ) {
+                            return None;
+                        }
+                        let conflict = self
+                            .constructor_conflict_for_call(
+                                file,
+                                &file.tokens,
+                                token_index,
+                                requested_name,
+                            )
+                            .filter(|candidate| !same_constructor(candidate, selected))?;
+                        Some(module_rename_conflict(conflict.declaration, &file.module))
+                    })
+            })
+    }
+
+    fn function_post_rename_visibility_conflict(
+        &self,
+        selected: &FunctionSymbol,
+        requested_name: &str,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        self.files
+            .iter()
+            .filter(|file| function_visible_after_rename(file, selected))
+            .find_map(|file| {
+                file.tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        token.kind == TokenKind::Ident
+                            && token.text == requested_name
+                            && qualifier_for_token(&file.tokens, *index).is_none()
+                            && is_call_target_token(&file.tokens, *index)
+                    })
+                    .find_map(|(token_index, _)| {
+                        if local_binding_shadows_call_target(
+                            &file.tokens,
+                            token_index,
+                            requested_name,
+                        ) || self.function_local_resolution_unchanged(
+                            file,
+                            selected,
+                            requested_name,
+                        ) {
+                            return None;
+                        }
+                        if let Some(conflict) = self.constructor_conflict_for_call(
+                            file,
+                            &file.tokens,
+                            token_index,
+                            requested_name,
+                        ) {
+                            return Some(module_rename_conflict(conflict.declaration, &file.module));
+                        }
+                        let conflict = self
+                            .function_conflict_for_call(file, token_index, requested_name)
+                            .filter(|candidate| !same_function(candidate, selected))?;
+                        Some(module_rename_conflict(conflict.declaration, &file.module))
+                    })
+            })
+    }
+
+    fn constructor_local_resolution_unchanged(
+        &self,
+        file: &IndexedFile,
+        selected: &ConstructorSymbol,
+        requested_name: &str,
+    ) -> bool {
+        file.module != selected.module
+            && self
+                .local_constructor_for_bare_call(file, requested_name)
+                .is_some()
+    }
+
+    fn function_local_resolution_unchanged(
+        &self,
+        file: &IndexedFile,
+        selected: &FunctionSymbol,
+        requested_name: &str,
+    ) -> bool {
+        file.module != selected.module
+            && self.functions.iter().any(|symbol| {
+                symbol.name == requested_name
+                    && symbol.module == file.module
+                    && symbol.package.is_none()
+            })
     }
 
     fn function_conflict_for_call(
@@ -270,4 +415,47 @@ impl SymbolIndex {
                 )
             })
     }
+}
+
+fn type_local_resolution_unchanged(
+    file: &IndexedFile,
+    selected: &TypeSymbol,
+    requested_name: &str,
+) -> bool {
+    file.module != selected.module
+        && file.tokens.iter().enumerate().any(|(index, token)| {
+            token.kind == TokenKind::Ident
+                && token.text == requested_name
+                && is_type_declaration_name(&file.tokens, index)
+        })
+}
+
+fn type_visible_after_rename(file: &IndexedFile, selected: &TypeSymbol) -> bool {
+    matches!(file.origin, IndexedOrigin::Workspace)
+        && selected.package.is_none()
+        && (file.module == selected.module || (selected.public && file.uses.contains(&selected.module)))
+}
+
+fn constructor_visible_after_rename(file: &IndexedFile, selected: &ConstructorSymbol) -> bool {
+    matches!(file.origin, IndexedOrigin::Workspace)
+        && selected.package.is_none()
+        && (file.module == selected.module
+            || (selected.public
+                && (file.uses.contains(&selected.module)
+                    || file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &selected.module))))
+}
+
+fn function_visible_after_rename(file: &IndexedFile, selected: &FunctionSymbol) -> bool {
+    matches!(file.origin, IndexedOrigin::Workspace)
+        && selected.package.is_none()
+        && (file.module == selected.module
+            || (selected.public
+                && (file.uses.contains(&selected.module)
+                    || file
+                        .companion_target_module
+                        .as_ref()
+                        .is_some_and(|target| target == &selected.module))))
 }

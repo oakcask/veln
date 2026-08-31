@@ -217,11 +217,14 @@ affected module or lexical scope returns JSON-RPC invalid params with code
 includes the selected symbol class, requested name, conflicting declaration
 location, and affected scope. The request returns no workspace edits in that
 failure response. Lexical conflict prediction rejects same-scope declaration
-duplicates independently of edited references. It uses edited reference
-overlap for shadowing and ambiguity checks, so a shadowing binding in an
-unedited clause does not reject the rename. Module affected scopes include the
-module name. Lexical affected scopes include the file plus source start and
-end offsets. When a local binding conflicts with a function rename, the
+duplicates independently of edited references. Module conflict prediction also
+checks workspace modules where the renamed symbol would be visible after the
+complete edit, including requested-name occurrences that were not references
+to the selected symbol before the rename. Lexical shadowing checks preserve an
+unedited occurrence when the complete edit would leave that occurrence bound
+to the same local binding or clause parameter. Module affected scopes include
+the module name. Lexical affected scopes include the file plus source start
+and end offsets. When a local binding conflicts with a function rename, the
 reported conflict location is the binding declaration. When an unused handler
 operation clause parameter is renamed to another parameter in the same clause,
 the reported conflict location is the existing clause parameter declaration.
@@ -238,8 +241,9 @@ duplicate and ambiguity conflict rejection, source-declared nullary
 constructor uses, legal unedited-clause shadowing, local binding declaration
 conflict reporting, declaration-only handler clause parameter conflict
 reporting, type alias conflict reporting, same-spelled non-type namespace
-exclusion, ambiguous imported type rejection, and qualified type identity
-preservation for type rename.
+exclusion, ambiguous imported type rejection for edited and unedited
+requested-name occurrences, and qualified type identity preservation for type
+rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

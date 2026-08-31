@@ -17,7 +17,8 @@ Current behavior is specified by
 [Editor Support](../../specification/editor-support.md). The checked
 `identifier-casing-rename-boundary` LSP example fixes the JSON-RPC invalid
 params response, shared `rename.conflict` code, conflict detail projection,
-same-clause parameter conflict boundary, and edit-free failure boundary.
+same-clause parameter conflict boundary, unedited imported type ambiguity
+boundary, and edit-free failure boundary.
 
 ## Scope
 
@@ -31,13 +32,15 @@ class, the requested name, the conflicting declaration location, and the
 affected scope. LSP maps that failure to JSON-RPC invalid params with code
 `-32602` and returns no workspace edit. Module-scope failures identify the
 affected module. Type rename checks the current type namespace for type
-declarations and visible type aliases. Lexical-scope failures identify the
-affected file and source start and end offsets. Local binding conflicts report
-the binding declaration as the conflicting declaration, including when a
-function rename would collide with an edited reference scope. Handler
-operation clause parameter conflicts report the existing clause parameter as
-the conflicting declaration, even when the selected parameter has no
-references.
+declarations and visible type aliases in modules where the renamed type would
+be visible after the complete edit, including requested-name type-role
+occurrences that were not references to the selected type before the rename.
+Lexical-scope failures identify the affected file and source start and end
+offsets. Local binding conflicts report the binding declaration as the
+conflicting declaration, including when a function rename would collide with
+an edited reference scope. Handler operation clause parameter conflicts report
+the existing clause parameter as the conflicting declaration, even when the
+selected parameter has no references.
 
 The conflict check is limited to the retained current project snapshot. It
 does not claim to validate unloaded consumers, future file operations, or
