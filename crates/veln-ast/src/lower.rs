@@ -21,7 +21,7 @@ use crate::{
     MatchArm, ModuleHeader, NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl,
     SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
-    TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 mod expressions;
@@ -352,6 +352,7 @@ impl AstBuilder {
                     name: param.name.clone(),
                     ty: None,
                     ty_span: None,
+                    ty_paths: Vec::new(),
                     is_variadic: false,
                     span: param.span.clone(),
                 })
@@ -485,6 +486,7 @@ impl AstBuilder {
                 }),
             return_type: function.return_type.clone(),
             return_type_span: function.return_type_span.clone(),
+            return_type_paths: self.lower_type_paths(&function.return_type_paths),
             effects: function.effects.clone(),
             effect_spans: function.effect_spans.clone(),
             contracts: function
@@ -508,6 +510,7 @@ impl AstBuilder {
                     SyntaxBodyLine::Let {
                         pattern,
                         annotation,
+                        annotation_paths,
                         expr,
                         span,
                         ..
@@ -516,6 +519,7 @@ impl AstBuilder {
                         kind: BodyLineKind::Let {
                             pattern: self.lower_pattern(pattern),
                             annotation: annotation.clone(),
+                            annotation_paths: self.lower_type_paths(annotation_paths),
                             expr: self.lower_expr(expr),
                         },
                         span: span.clone(),
@@ -541,8 +545,22 @@ impl AstBuilder {
                 name: param.name.clone(),
                 ty: param.ty.clone(),
                 ty_span: param.ty_span.clone(),
+                ty_paths: self.lower_type_paths(&param.ty_paths),
                 is_variadic: param.is_variadic,
                 span: param.span.clone(),
+            })
+            .collect()
+    }
+
+    fn lower_type_paths(
+        &mut self,
+        paths: &[veln_syntax::TypePathSegments],
+    ) -> Vec<TypePathSegments> {
+        paths
+            .iter()
+            .map(|path| TypePathSegments {
+                segments: path.segments.clone(),
+                segment_spans: path.segment_spans.clone(),
             })
             .collect()
     }

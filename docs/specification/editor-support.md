@@ -238,7 +238,8 @@ pattern paths. The executable
 `identifier-casing-qualified-module-type-navigation` LSP example covers the
 same operations for imported module-and-type constructor paths. The module
 segment has no selected symbol, while the type segment selects the imported
-type and keeps the type rename casing class. The executable
+type, the constructor segment selects the imported constructor, and both keep
+their rename casing class. The executable
 `identifier-casing-qualified-prelude-navigation` LSP example covers
 `prelude`-qualified function and type paths. Standard-library package symbols
 return package definition locations, no workspace references, no prepare-rename

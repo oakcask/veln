@@ -72,6 +72,11 @@ impl Writer {
         self.line_col(&value.end);
     }
 
+    fn type_path_segments(&mut self, value: &TypePathSegments) {
+        self.vec(&value.segments, |writer, value| writer.string(value));
+        self.vec(&value.segment_spans, Self::span);
+    }
+
     fn surface_module(&mut self, module: &SurfaceModule) {
         self.option(&module.module, Self::module_header);
         self.vec(&module.uses, Self::use_decl);
@@ -311,6 +316,7 @@ impl Writer {
         self.option(&value.return_binding, Self::result_binding);
         self.option(&value.return_type, |writer, value| writer.string(value));
         self.option(&value.return_type_span, Self::span);
+        self.vec(&value.return_type_paths, Self::type_path_segments);
         self.option(&value.effects, |writer, values| {
             writer.vec(values, |writer, value| writer.string(value));
         });
@@ -339,6 +345,7 @@ impl Writer {
         self.string(&value.name);
         self.option(&value.ty, |writer, value| writer.string(value));
         self.option(&value.ty_span, Self::span);
+        self.vec(&value.ty_paths, Self::type_path_segments);
         self.bool(value.is_variadic);
         self.span(&value.span);
     }
@@ -370,11 +377,13 @@ impl Writer {
             BodyLineKind::Let {
                 pattern,
                 annotation,
+                annotation_paths,
                 expr,
             } => {
                 self.u8(0);
                 self.pattern(pattern);
                 self.option(annotation, |writer, value| writer.string(value));
+                self.vec(annotation_paths, Self::type_path_segments);
                 self.expr(expr);
             }
             BodyLineKind::Expr { expr } => {

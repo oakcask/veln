@@ -215,8 +215,13 @@ impl AstBuilder {
                         })
                         .collect(),
                 ),
-                SyntaxPatternKind::Constructor { name, args, .. } => PatternKind::Constructor {
+                SyntaxPatternKind::Constructor {
+                    name,
+                    name_spans,
+                    args,
+                } => PatternKind::Constructor {
                     name: name.clone(),
+                    name_spans: name_spans.clone(),
                     args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),
                 },
             },

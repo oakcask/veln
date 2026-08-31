@@ -57,6 +57,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                     pattern,
                     annotation,
                     expr,
+                    ..
                 } => {
                     self.collect_pattern(pattern, function.module_name.as_deref(), spans);
                     self.collect_type_annotation(
@@ -228,7 +229,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
     ) {
         match &pattern.kind {
             PatternKind::Binding(_) => {}
-            PatternKind::Constructor { name, args } => {
+            PatternKind::Constructor { name, args, .. } => {
                 self.select_constructor_name(name, current_module, None, spans);
                 for arg in args {
                     self.collect_pattern(arg, current_module, spans);

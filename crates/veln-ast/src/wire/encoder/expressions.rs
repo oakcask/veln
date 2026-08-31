@@ -307,9 +307,14 @@ impl Writer {
                 self.u8(7);
                 self.vec(fields, Self::pattern_field);
             }
-            PatternKind::Constructor { name, args } => {
+            PatternKind::Constructor {
+                name,
+                name_spans,
+                args,
+            } => {
                 self.u8(8);
                 self.vec(name, |writer, value| writer.string(value));
+                self.vec(name_spans, Self::span);
                 self.vec(args, Self::pattern);
             }
         }

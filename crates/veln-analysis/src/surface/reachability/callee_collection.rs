@@ -57,6 +57,7 @@ pub(super) fn direct_function_callees(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 collect_function_callees(expr, &context, &local_bindings, &mut callees);
                 collect_pattern_bindings(

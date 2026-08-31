@@ -229,6 +229,7 @@ impl<'a> Reader<'a> {
             7 => Ok(PatternKind::Record(self.vec(Self::pattern_field)?)),
             8 => Ok(PatternKind::Constructor {
                 name: self.vec(Self::string)?,
+                name_spans: self.vec(Self::span)?,
                 args: self.vec(Self::pattern)?,
             }),
             value => Err(format!("invalid pattern kind tag {value}")),

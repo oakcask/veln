@@ -48,6 +48,7 @@ pub(crate) fn collect_private_call_site_constraints(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let annotation_type = annotation
                     .as_deref()

@@ -120,6 +120,187 @@ fn lowering_result_exposes_classified_qualified_use_segments() {
 }
 
 #[test]
+fn semantic_classifier_exposes_valid_qualified_use_segments() {
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use helper\n",
+            "\n",
+            "fn main(input: helper::Item) -> prelude::Option<Int>\n",
+            "  let made: helper::Item = helper::Item::Ready(1)\n",
+            "  let maybe = prelude::byte(1)\n",
+            "  let number = helper::make()\n",
+            "  match made\n",
+            "    helper::Item::Ready(value) -> value\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let helper = SourceFile::new(
+        "helper.veln",
+        concat!(
+            "pub type Item\n",
+            "  pub Ready(Int)\n",
+            "end\n",
+            "\n",
+            "pub fn make() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules_with_names([("main", main), ("helper", helper)]);
+
+    let observed = classified_project_qualified_path_segments(&module)
+        .into_iter()
+        .filter(|segment| segment.span.file.as_str() == "main.veln")
+        .map(|segment| {
+            (
+                segment.name,
+                segment.role.as_str(),
+                segment.evidence,
+                segment.segment_index,
+                segment.span.start.line,
+                segment.span.start.column,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        observed,
+        [
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                0,
+                3,
+                16,
+            ),
+            (
+                "Item".to_string(),
+                "type",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                1,
+                3,
+                24,
+            ),
+            (
+                "prelude".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                0,
+                3,
+                33,
+            ),
+            (
+                "Option".to_string(),
+                "type",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                1,
+                3,
+                42,
+            ),
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                0,
+                4,
+                13,
+            ),
+            (
+                "Item".to_string(),
+                "type",
+                veln_ast::QualifiedPathSegmentEvidence::Syntax,
+                1,
+                4,
+                21,
+            ),
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                0,
+                4,
+                28,
+            ),
+            (
+                "Item".to_string(),
+                "type",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                1,
+                4,
+                36,
+            ),
+            (
+                "Ready".to_string(),
+                "constructor",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                2,
+                4,
+                42,
+            ),
+            (
+                "prelude".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                0,
+                5,
+                15,
+            ),
+            (
+                "byte".to_string(),
+                "function",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                1,
+                5,
+                24,
+            ),
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                0,
+                6,
+                16,
+            ),
+            (
+                "make".to_string(),
+                "function",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                1,
+                6,
+                24,
+            ),
+            (
+                "helper".to_string(),
+                "module",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                0,
+                8,
+                5,
+            ),
+            (
+                "Item".to_string(),
+                "type",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                1,
+                8,
+                13,
+            ),
+            (
+                "Ready".to_string(),
+                "constructor",
+                veln_ast::QualifiedPathSegmentEvidence::Resolved,
+                2,
+                8,
+                19,
+            ),
+        ],
+    );
+}
+
+#[test]
 fn unresolved_qualified_call_does_not_guess_module_segment_role() {
     let source = SourceFile::new(
         "main.veln",

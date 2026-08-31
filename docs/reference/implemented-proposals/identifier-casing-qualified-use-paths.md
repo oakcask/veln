@@ -37,6 +37,7 @@ segments as `module` and validate the final segment as `function` for calls or
 `value_binding` for value references. Module-and-type constructor paths
 validate resolved or recovered module qualifiers as `module`, the type
 qualifier as `type`, and the final segment as `constructor`.
+Prelude-qualified function calls use the module and function classes.
 Prelude-qualified type and constructor paths use the same module, type, and
 constructor classes. Unresolved or ambiguous intermediate segments are not
 classified from spelling alone.
@@ -52,8 +53,9 @@ failures.
 
 The language service selects supported type, constructor, function, and
 package prelude symbols through the retained segment ranges. Module-only
-qualified public functions, constructor-qualified type segments, and imported
-module-and-type constructor paths support definition, references,
+qualified public functions, constructor-qualified type segments, imported
+module-and-type constructor paths, and their constructor leaves support
+definition, references,
 prepare-rename, rename, and class-changing rename rejection according to the
 current rename contract. Standard-library package symbols return package
 definition locations, no workspace references, no prepare-rename range, and

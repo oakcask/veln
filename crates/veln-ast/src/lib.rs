@@ -14,8 +14,8 @@ pub use model::{
     NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,
     PublicAliasKind, QualifiedPathSegment, QualifiedPathSegmentEvidence, RecordField,
     ResultBinding, SatisfyClause, SchemaDecl, SchemaField, SchemaFieldWhereClause,
-    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypeVariantDecl,
-    TypeVariantField, UseDecl, UseOrigin, Visibility,
+    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypePathSegments,
+    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 pub use wire::{decode_surface_module, encode_surface_module};
 

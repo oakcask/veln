@@ -95,6 +95,7 @@ pub(crate) fn collect_private_prelude_callback_return_constraints(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let annotation_type = annotation
                     .as_deref()
@@ -223,6 +224,7 @@ pub(crate) fn private_prelude_callback_function_can_constrain(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let annotation_type = annotation
                     .as_deref()

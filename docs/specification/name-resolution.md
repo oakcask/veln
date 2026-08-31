@@ -127,10 +127,12 @@ value paths validate each resolved or recovered qualifier segment as `module`
 and the final segment as `function` for calls or `value_binding` for value
 references. Module-and-type constructor paths validate resolved or recovered
 qualifier segments as `module`, the type qualifier as `type`, and the final
-segment as `constructor`. Prelude-qualified type paths validate `prelude` as
-the module segment and the final type segment as `type`; prelude-qualified
-constructor paths validate `prelude`, the type qualifier, and the constructor
-segment with the same module, type, and constructor roles. An unresolved or
+segment as `constructor`. Prelude-qualified function calls validate `prelude`
+as the module segment and the final segment as `function`. Prelude-qualified
+type paths validate `prelude` as the module segment and the final type segment
+as `type`; prelude-qualified constructor paths validate `prelude`, the type
+qualifier, and the constructor segment with the same module, type, and
+constructor roles. An unresolved or
 ambiguous intermediate segment is not assigned a role from spelling alone.
 Each invalid role-fixed segment reports `name.invalid_case` at the exact
 segment token span with occurrence `path_segment` and the zero-based

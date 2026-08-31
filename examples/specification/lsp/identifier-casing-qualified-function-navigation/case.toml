@@ -8,6 +8,9 @@ format = "empty"
 [stdout]
 contains = [
   "\"newText\":\"calculate\"",
+  "\"id\":8,\"result\":[]",
+  "\"id\":9,\"result\":null",
+  "\"id\":10,\"result\":{\"changes\":{}}",
   "helper.veln",
   "main.veln",
 ]
@@ -76,3 +79,18 @@ equals = "function"
 id = 7
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 10
+path = "/result/changes"
+equals = {}

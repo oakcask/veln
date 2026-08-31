@@ -125,7 +125,7 @@ impl<'a> FunctionChecker<'a> {
                 scrutinee_type,
                 recover_unknown_bare_constructor,
             ),
-            PatternKind::Constructor { name, args } => {
+            PatternKind::Constructor { name, args, .. } => {
                 if invalid_qualified_constructor_pattern(name) {
                     self.report_invalid_qualified_constructor_pattern_mismatch(
                         pattern,

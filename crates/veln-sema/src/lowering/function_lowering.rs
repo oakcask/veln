@@ -186,6 +186,7 @@ impl<'a> CoreLowerer<'a> {
                     pattern,
                     annotation,
                     expr,
+                    ..
                 } => {
                     let expected = annotation
                         .as_deref()

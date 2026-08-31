@@ -386,6 +386,32 @@
             33,
         );
 
+        let valid_annotation_type = query(sources.clone(), "main.veln", 5, 24).unwrap();
+        assert_eq!(valid_annotation_type.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&valid_annotation_type.definition, "helper.veln", 1, 10);
+        assert_classified_segment(
+            &valid_annotation_type,
+            "Item",
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Syntax,
+            1,
+            5,
+            23,
+        );
+
+        let valid_function = query(sources.clone(), "main.veln", 10, 28).unwrap();
+        assert_eq!(valid_function.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&valid_function.definition, "foo/bar.veln", 1, 8);
+        assert_classified_segment(
+            &valid_function,
+            "double",
+            NameClass::Function,
+            QualifiedPathSegmentEvidence::Resolved,
+            2,
+            10,
+            26,
+        );
+
         let valid_constructor = query(sources, "main.veln", 7, 39).unwrap();
         assert_eq!(valid_constructor.selected_symbol.kind, SymbolKind::Constructor);
         assert_location(&valid_constructor.definition, "helper.veln", 2, 7);

@@ -87,6 +87,10 @@ impl SymbolIndex {
             return segment.into_selected_symbol();
         }
 
+        if is_qualified_path_token(tokens, token_index) {
+            return None;
+        }
+
         if !is_call_target_token(tokens, token_index) {
             if is_type_reference_token(&file.source, name, selection) {
                 return self
@@ -130,14 +134,14 @@ impl SymbolIndex {
                 NameClass::Type => self
                     .visible_type_for_reference(file, tokens, token_index, name)
                     .map(Symbol::Type),
-                NameClass::Constructor if is_call_target_token(tokens, token_index) => {
+                NameClass::Constructor => {
                     qualifier_for_token(tokens, token_index)
                         .and_then(|qualifier| {
                             self.constructor_for_qualified_call(file, &qualifier, name)
                         })
                         .map(Symbol::Constructor)
                 }
-                NameClass::Function if is_call_target_token(tokens, token_index) => {
+                NameClass::Function => {
                     qualifier_for_token(tokens, token_index)
                         .and_then(|qualifier| self.function_for_qualified_call(file, &qualifier, name))
                         .map(Symbol::Function)
@@ -149,94 +153,7 @@ impl SymbolIndex {
                 symbol,
             });
         }
-
-        if !is_call_target_token(tokens, token_index) {
-            if let Some(symbol) =
-                self.type_for_constructor_qualifier_token(file, tokens, token_index, name)
-            {
-                return Some(ClassifiedNavigationSegment {
-                    segment: classified_navigation_record(
-                        name,
-                        NameClass::Type,
-                        selection,
-                        path_segment_index(tokens, token_index)?,
-                        QualifiedPathSegmentEvidence::Resolved,
-                    ),
-                    symbol: Some(Symbol::Type(symbol)),
-                });
-            }
-            if is_type_reference_token(&file.source, name, selection) {
-                return Some(ClassifiedNavigationSegment {
-                    segment: classified_navigation_record(
-                        name,
-                        NameClass::Type,
-                        selection,
-                        path_segment_index(tokens, token_index)?,
-                        QualifiedPathSegmentEvidence::Resolved,
-                    ),
-                    symbol: self
-                        .visible_type_for_reference(file, tokens, token_index, name)
-                        .map(Symbol::Type),
-                });
-            }
-            if next_non_layout_token(tokens, token_index)
-                .is_some_and(|token| token.kind == TokenKind::DoubleColon)
-                && previous_non_layout_token(tokens, token_index)
-                    .is_none_or(|token| token.kind != TokenKind::DoubleColon)
-            {
-                return Some(ClassifiedNavigationSegment {
-                    segment: classified_navigation_record(
-                        name,
-                        NameClass::Module,
-                        selection,
-                        path_segment_index(tokens, token_index)?,
-                        QualifiedPathSegmentEvidence::Syntax,
-                    ),
-                    symbol: None,
-                });
-            }
-            return Some(ClassifiedNavigationSegment {
-                segment: classified_navigation_record(
-                    name,
-                    NameClass::Module,
-                    selection,
-                    path_segment_index(tokens, token_index)?,
-                    QualifiedPathSegmentEvidence::Syntax,
-                ),
-                symbol: None,
-            });
-        }
-
-        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
-            return None;
-        };
-        let symbol = self.symbol_for_qualified_call(file, &qualifier, name);
-        let role = match &symbol {
-            Some(Symbol::Constructor(_)) => NameClass::Constructor,
-            Some(Symbol::Function(_)) => NameClass::Function,
-            _ if name
-                .as_bytes()
-                .first()
-                .is_some_and(u8::is_ascii_uppercase) =>
-            {
-                NameClass::Constructor
-            }
-            _ => NameClass::Function,
-        };
-        Some(ClassifiedNavigationSegment {
-            segment: classified_navigation_record(
-                name,
-                role,
-                selection,
-                path_segment_index(tokens, token_index)?,
-                if symbol.is_some() {
-                    QualifiedPathSegmentEvidence::Resolved
-                } else {
-                    QualifiedPathSegmentEvidence::Syntax
-                },
-            ),
-            symbol,
-        })
+        None
     }
 
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {
@@ -774,4 +691,11 @@ fn declaration_matches(
         && declaration.file == selection.file
         && declaration.start.offset == selection.start.offset
         && declaration.end.offset == selection.end.offset
+}
+
+fn is_qualified_path_token(tokens: &[Token], index: usize) -> bool {
+    previous_non_layout_token(tokens, index)
+        .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+        || next_non_layout_token(tokens, index)
+            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
 }

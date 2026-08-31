@@ -82,6 +82,7 @@ pub(crate) fn infer_private_function_tail_type(
                 pattern,
                 annotation,
                 expr,
+                ..
             } => {
                 let annotation_type = annotation
                     .as_deref()
@@ -402,7 +403,7 @@ pub(crate) fn infer_match_scrutinee_type_from_constructor_patterns(
     let mut inferred: Option<(AdtConstructor<'_>, Vec<Type>)> = None;
 
     for arm in arms {
-        let PatternKind::Constructor { name, args } = &arm.pattern.kind else {
+        let PatternKind::Constructor { name, args, .. } = &arm.pattern.kind else {
             continue;
         };
         if invalid_qualified_constructor_pattern(name) {
@@ -487,7 +488,7 @@ pub(crate) fn infer_pattern_type_from_constructor_patterns(
                 })
                 .collect(),
         )),
-        PatternKind::Constructor { name, args } => {
+        PatternKind::Constructor { name, args, .. } => {
             if invalid_qualified_constructor_pattern(name) {
                 return None;
             }

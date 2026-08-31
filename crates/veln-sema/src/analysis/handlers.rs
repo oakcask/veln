@@ -511,6 +511,7 @@ fn synthetic_clause_function(
         return_binding: None,
         return_type: Some(operation.return_type.render()),
         return_type_span: Some(operation.name_span.clone()),
+        return_type_paths: Vec::new(),
         effects: None,
         effect_spans: None,
         contracts: Vec::new(),

@@ -6,7 +6,7 @@ exit = 0
 format = "empty"
 
 [stdout]
-contains = ["\"newText\":\"Item\"", "\"range\":{\"start\":{\"line\":0,\"character\":9},\"end\":{\"line\":0,\"character\":14}}", "\"id\":7,\"result\":null", "\"id\":8,\"result\":[]", "\"id\":9,\"result\":null", "\"id\":10,\"result\":{\"changes\":{}}"]
+contains = ["\"newText\":\"Item\"", "\"newText\":\"Ready\"", "\"range\":{\"start\":{\"line\":0,\"character\":9},\"end\":{\"line\":0,\"character\":14}}", "\"id\":7,\"result\":null", "\"id\":8,\"result\":[]", "\"id\":9,\"result\":null", "\"id\":10,\"result\":{\"changes\":{}}"]
 
 [[lsp_assert]]
 id = 1
@@ -77,3 +77,48 @@ equals = null
 id = 10
 path = "/result/changes"
 equals = {}
+
+[[lsp_assert]]
+id = 11
+path = "/result/range/start/line"
+equals = 1
+
+[[lsp_assert]]
+id = 11
+path = "/result/range/start/character"
+equals = 6
+
+[[lsp_assert]]
+id = 11
+path = "/result/range/end/character"
+equals = 10
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 13
+path = "/result/start/line"
+equals = 8
+
+[[lsp_assert]]
+id = 13
+path = "/result/start/character"
+equals = 19
+
+[[lsp_assert]]
+id = 13
+path = "/result/end/character"
+equals = 23
+
+[[lsp_assert]]
+id = 15
+path = "/error/data/code"
+equals = "rename.invalid_case"
+
+[[lsp_assert]]
+id = 15
+path = "/error/data/details/symbol_class"
+equals = "constructor"
