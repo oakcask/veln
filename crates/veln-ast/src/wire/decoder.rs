@@ -250,6 +250,7 @@ impl<'a> Reader<'a> {
             name_span: self.span()?,
             params: self.vec(Self::param)?,
             return_type: self.option(Self::string)?,
+            return_type_paths: self.vec(Self::type_path_segments)?,
             span: self.span()?,
         })
     }
@@ -308,6 +309,7 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             name: self.string()?,
             ty: self.string()?,
+            ty_paths: self.vec(Self::type_path_segments)?,
             span: self.span()?,
         })
     }
@@ -338,6 +340,7 @@ impl<'a> Reader<'a> {
             node_id: self.node_id()?,
             name: self.string()?,
             ty: self.string()?,
+            ty_paths: self.vec(Self::type_path_segments)?,
             where_clause: self.option(Self::schema_field_where)?,
             span: self.span()?,
         })

@@ -176,6 +176,7 @@ impl Writer {
         self.span(&value.name_span);
         self.vec(&value.params, Self::param);
         self.option(&value.return_type, |writer, value| writer.string(value));
+        self.vec(&value.return_type_paths, Self::type_path_segments);
         self.span(&value.span);
     }
 
@@ -228,6 +229,7 @@ impl Writer {
         self.node_id(value.node_id);
         self.string(&value.name);
         self.string(&value.ty);
+        self.vec(&value.ty_paths, Self::type_path_segments);
         self.span(&value.span);
     }
 
@@ -252,6 +254,7 @@ impl Writer {
         self.node_id(value.node_id);
         self.string(&value.name);
         self.string(&value.ty);
+        self.vec(&value.ty_paths, Self::type_path_segments);
         self.option(&value.where_clause, Self::schema_field_where);
         self.span(&value.span);
     }

@@ -1,0 +1,6 @@
+main.veln:4:8: error[name.invalid_case]: module name `Helper` must start with an ASCII lowercase letter
+main.veln:5:26: error[name.invalid_case]: type name `item` must start with an ASCII uppercase letter
+main.veln:9:16: error[name.invalid_case]: module name `Helper` must start with an ASCII lowercase letter
+main.veln:9:41: error[name.invalid_case]: type name `item` must start with an ASCII uppercase letter
+main.veln:14:12: error[name.invalid_case]: module name `Helper` must start with an ASCII lowercase letter
+main.veln:14:3: error[schema.composition_reference]: schema field `payload` cannot compose `Helper::Item` because it does not resolve to a visible schema or supported binary field family

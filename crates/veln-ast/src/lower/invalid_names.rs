@@ -52,6 +52,9 @@ pub(super) fn collect_invalid_type_names(
             None,
             None,
         );
+        for field in &variant.fields {
+            collect_invalid_type_path_names(&field.ty_paths, invalid, None);
+        }
     }
 }
 
@@ -191,6 +194,27 @@ pub(super) fn collect_invalid_handler_names(
             collect_invalid_type_path_names(&param.ty_paths, invalid, None);
         }
         collect_invalid_expr_names(&clause.body, invalid, None);
+    }
+}
+
+pub(super) fn collect_invalid_effect_names(
+    effect: &SyntaxEffectDecl,
+    invalid: &mut Vec<InvalidName>,
+) {
+    for operation in &effect.operations {
+        for param in &operation.params {
+            collect_invalid_type_path_names(&param.ty_paths, invalid, None);
+        }
+        collect_invalid_type_path_names(&operation.return_type_paths, invalid, None);
+    }
+}
+
+pub(super) fn collect_invalid_schema_names(
+    schema: &SyntaxSchemaDecl,
+    invalid: &mut Vec<InvalidName>,
+) {
+    for field in &schema.fields {
+        collect_invalid_type_path_names(&field.ty_paths, invalid, None);
     }
 }
 

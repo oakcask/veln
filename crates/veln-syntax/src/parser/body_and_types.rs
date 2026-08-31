@@ -34,14 +34,6 @@ impl<'a> Parser<'a> {
         self.expect_name(context, expected, allow_hole_segment)
     }
 
-    pub(super) fn collect_type_until(
-        &mut self,
-        context: &'static str,
-        stop: &[TokenKind],
-    ) -> String {
-        self.collect_type_paths_until(context, stop).0
-    }
-
     pub(super) fn collect_type_paths_until(
         &mut self,
         _context: &'static str,

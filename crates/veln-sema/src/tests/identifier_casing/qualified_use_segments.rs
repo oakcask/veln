@@ -301,6 +301,69 @@ fn semantic_classifier_exposes_valid_qualified_use_segments() {
 }
 
 #[test]
+fn declaration_type_path_carriers_report_qualified_segments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use helper\n",
+            "\n",
+            "type Box\n",
+            "  Wrap(Helper::Item)\n",
+            "  Record { item: helper::item }\n",
+            "end\n",
+            "\n",
+            "effect Store\n",
+            "  fetch(input: Helper::Item) -> helper::item\n",
+            "end\n",
+            "\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  payload: Helper::Item\n",
+            "end\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let helper = SourceFile::new(
+        "helper.veln",
+        concat!("pub type Item\n", "  pub Ready(Int)\n", "end\n"),
+    );
+    let module = merged_modules_with_names([("main", source.clone()), ("helper", helper)]);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            let span = diagnostic.span.as_ref().expect("name diagnostic span");
+            (
+                &source.text()[span.start.offset..span.end.offset],
+                class_detail(diagnostic),
+                segment_index_detail(diagnostic),
+                span.start.line,
+                span.start.column,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        observed,
+        [
+            ("Helper", "module", Some(0), 4, 8),
+            ("item", "type", Some(1), 5, 26),
+            ("Helper", "module", Some(0), 9, 16),
+            ("item", "type", Some(1), 9, 41),
+            ("Helper", "module", Some(0), 14, 12),
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn unresolved_qualified_call_does_not_guess_module_segment_role() {
     let source = SourceFile::new(
         "main.veln",
@@ -387,6 +450,32 @@ fn generated_unresolved_qualified_calls_do_not_create_segment_casing_work() {
     }
 }
 
+#[test]
+fn generated_declaration_type_carriers_classify_invalid_segments() {
+    for count in [400, 800] {
+        let source = SourceFile::new("main.veln", generated_declaration_type_carriers(count));
+        let helper = SourceFile::new("helper.veln", concat!("pub type Item\n", "end\n"));
+        let module = merged_modules_with_names([("main", source), ("helper", helper)]);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+                .count(),
+            count,
+            "{diagnostics:#?}"
+        );
+        assert_eq!(
+            classified_project_qualified_path_segments(&module)
+                .into_iter()
+                .filter(|segment| segment.role == veln_ast::NameClass::Module)
+                .count(),
+            count,
+        );
+    }
+}
+
 fn generated_unresolved_qualified_calls(count: usize) -> String {
     let mut source = String::new();
     for index in 0..count {
@@ -394,6 +483,15 @@ fn generated_unresolved_qualified_calls(count: usize) -> String {
             "fn case_{index}() -> Int\n  Missing::bad::Value()\nend\n"
         ));
     }
+    source
+}
+
+fn generated_declaration_type_carriers(count: usize) -> String {
+    let mut source = String::from("use helper\n\ntype Many\n");
+    for index in 0..count {
+        source.push_str(&format!("  Case{index}(Helper::Item)\n"));
+    }
+    source.push_str("end\n\nfn main() -> Int\n  0\nend\n");
     source
 }
 

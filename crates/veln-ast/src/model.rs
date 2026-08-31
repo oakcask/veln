@@ -209,6 +209,7 @@ pub struct EffectOperationDecl {
     pub name_span: SourceSpan,
     pub params: Vec<Param>,
     pub return_type: Option<String>,
+    pub return_type_paths: Vec<TypePathSegments>,
     pub span: SourceSpan,
 }
 
@@ -237,6 +238,7 @@ pub struct TypeVariantField {
     pub node_id: NodeId,
     pub name: String,
     pub ty: String,
+    pub ty_paths: Vec<TypePathSegments>,
     pub span: SourceSpan,
 }
 
@@ -264,6 +266,7 @@ pub struct SchemaField {
     pub node_id: NodeId,
     pub name: String,
     pub ty: String,
+    pub ty_paths: Vec<TypePathSegments>,
     pub where_clause: Option<SchemaFieldWhereClause>,
     pub span: SourceSpan,
 }

@@ -323,14 +323,12 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LParen, "effect_operation", vec!["("]);
         let params = self.parse_params_in_context("effect_operation", true);
         self.expect(TokenKind::RParen, "effect_operation", vec![")"]);
-        let return_type = if self.eat(TokenKind::Arrow).is_some() {
-            Some(
-                self.collect_return_type_until(
-                    "effect_operation",
-                    &[TokenKind::Newline, TokenKind::Eof],
-                )
-                .0,
-            )
+        let (return_type, return_type_paths) = if self.eat(TokenKind::Arrow).is_some() {
+            let (ty, paths) = self.collect_return_type_until(
+                "effect_operation",
+                &[TokenKind::Newline, TokenKind::Eof],
+            );
+            (Some(ty), paths)
         } else {
             self.error_current(
                 "parse.effect_operation_return",
@@ -340,7 +338,7 @@ impl<'a> Parser<'a> {
                 RecoveryStrategy::InsertToken,
                 Some("newline"),
             );
-            None
+            (None, Vec::new())
         };
         let end = self.expect_newline("effect_operation").range;
         EffectOperationDecl {
@@ -348,6 +346,7 @@ impl<'a> Parser<'a> {
             name_span,
             params,
             return_type,
+            return_type_paths,
             span: self.source.span(start.cover(end)),
         }
     }

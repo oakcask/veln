@@ -288,11 +288,18 @@ fn classified_qualified_path_segments(
     environment: &TypeEnvironment,
 ) -> Vec<QualifiedPathSegment> {
     let mut segments = valid_qualified_path_segments(module, environment);
+    let classified_keys = segments
+        .iter()
+        .map(classified_segment_key)
+        .collect::<BTreeSet<_>>();
     segments.extend(
         module
             .invalid_names
             .iter()
             .filter(|invalid| invalid.occurrence == NameOccurrence::PathSegment)
+            .filter(|invalid| {
+                !invalid_path_segment_is_already_classified(invalid, &classified_keys)
+            })
             .filter_map(|invalid| classified_invalid_path_segment(invalid, module, environment)),
     );
     segments.extend(recovered_qualified_type_segments(module, environment));
@@ -309,11 +316,77 @@ fn classified_qualified_path_segments(
     segments
 }
 
+fn classified_segment_key(
+    segment: &QualifiedPathSegment,
+) -> (String, usize, usize, usize, &'static str) {
+    (
+        segment.span.file.as_str().to_string(),
+        segment.span.start.offset,
+        segment.span.end.offset,
+        segment.segment_index,
+        segment.role.as_str(),
+    )
+}
+
+fn invalid_path_segment_is_already_classified(
+    invalid: &InvalidName,
+    classified_keys: &BTreeSet<(String, usize, usize, usize, &'static str)>,
+) -> bool {
+    let Some(segment_index) = invalid.segment_index else {
+        return false;
+    };
+    classified_keys.contains(&(
+        invalid.span.file.as_str().to_string(),
+        invalid.span.start.offset,
+        invalid.span.end.offset,
+        segment_index,
+        invalid.class.as_str(),
+    ))
+}
+
 fn valid_qualified_path_segments(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
 ) -> Vec<QualifiedPathSegment> {
     let mut segments = Vec::new();
+    for type_decl in &module.types {
+        let current_module = type_decl.module_name.as_deref();
+        for variant in &type_decl.variants {
+            for field in &variant.fields {
+                collect_type_path_segments(
+                    &field.ty_paths,
+                    current_module,
+                    environment,
+                    &mut segments,
+                );
+            }
+        }
+    }
+    for effect in &module.effects {
+        let current_module = effect.module_name.as_deref();
+        for operation in &effect.operations {
+            for param in &operation.params {
+                collect_type_path_segments(
+                    &param.ty_paths,
+                    current_module,
+                    environment,
+                    &mut segments,
+                );
+            }
+            collect_type_path_segments(
+                &operation.return_type_paths,
+                current_module,
+                environment,
+                &mut segments,
+            );
+        }
+    }
+    for schema in &module.schemas {
+        let current_module = schema.module_name.as_deref();
+        for field in &schema.fields {
+            collect_type_path_segments(&field.ty_paths, current_module, environment, &mut segments);
+        }
+    }
     for function in &module.functions {
         let current_module = function.module_name.as_deref();
         collect_type_path_segments(

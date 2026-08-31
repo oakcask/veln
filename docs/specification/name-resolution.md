@@ -132,7 +132,11 @@ as the module segment and the final segment as `function`. Prelude-qualified
 type paths validate `prelude` as the module segment and the final type segment
 as `type`; prelude-qualified constructor paths validate `prelude`, the type
 qualifier, and the constructor segment with the same module, type, and
-constructor roles. Qualified nominal effect paths inside function type
+constructor roles. Qualified type paths in function parameters, function
+returns, local annotations, handler parameters, handler operation parameter
+types, effect operation parameter and return types, ADT positional payload
+fields, ADT record payload fields, and schema fields use the same segment
+records. Qualified nominal effect paths inside function type
 `effects [...]` annotations are effect paths, not qualified type paths, and do
 not produce source identifier casing diagnostics. An unresolved or
 ambiguous intermediate segment is not assigned a role from spelling alone.
@@ -154,7 +158,11 @@ that a completely unresolved qualified call does not receive a guessed module
 segment diagnostic. The
 `identifier-casing-qualified-handler-boundaries-json` and
 `identifier-casing-qualified-handler-boundaries-human` examples check handler
-context parameter type paths and handler operation clause call targets.
+context parameter type paths and handler operation clause call targets. The
+`identifier-casing-declaration-type-carriers-json` and
+`identifier-casing-declaration-type-carriers-human` examples check ADT
+positional payload fields, ADT record payload fields, effect operation
+parameter and return types, and schema field carrier spans.
 Qualified constructor patterns keep constructor syntax. A qualified
 constructor pattern whose final segment starts with an ASCII lowercase letter
 reports `name.invalid_case` at that final segment with occurrence

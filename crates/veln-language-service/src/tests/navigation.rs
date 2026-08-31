@@ -321,6 +321,60 @@
     }
 
     #[test]
+    fn declaration_type_path_carriers_share_navigation() {
+        let sources = vec![
+            source("helper.veln", "pub type Item\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use helper\n\n",
+                    "type Box\n",
+                    "  Wrap(helper::Item)\n",
+                    "  Record { item: helper::Item }\n",
+                    "end\n\n",
+                    "effect Store\n",
+                    "  fetch(input: helper::Item) -> helper::Item\n",
+                    "end\n\n",
+                    "fn read(input: helper::Item) -> helper::Item\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let result = query(sources, "main.veln", 4, 17).unwrap();
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&result.definition, "helper.veln", 1, 10);
+        assert_classified_segment(
+            &result,
+            "Item",
+            NameClass::Type,
+            QualifiedPathSegmentEvidence::Syntax,
+            1,
+            4,
+            16,
+        );
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 4, 16),
+                ("main.veln", 5, 26),
+                ("main.veln", 9, 24),
+                ("main.veln", 9, 41),
+                ("main.veln", 12, 24),
+                ("main.veln", 12, 41),
+            ]
+        );
+        assert!(validate_rename(&result, "Entry").is_ok());
+        assert_rename_invalid_case(
+            validate_rename(&result, "entry").unwrap_err(),
+            RenameNameClass::Type,
+            "entry",
+            RenameRequiredInitial::AsciiUppercase,
+        );
+    }
+
+    #[test]
     fn invalid_qualified_use_segments_do_not_get_independent_navigation_roles() {
         let sources = vec![
             source(

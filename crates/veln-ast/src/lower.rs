@@ -28,8 +28,9 @@ mod expressions;
 mod invalid_names;
 
 use invalid_names::{
-    collect_invalid_alias_name, collect_invalid_function_names, collect_invalid_handler_names,
-    collect_invalid_type_names, collect_invalid_use_name,
+    collect_invalid_alias_name, collect_invalid_effect_names, collect_invalid_function_names,
+    collect_invalid_handler_names, collect_invalid_schema_names, collect_invalid_type_names,
+    collect_invalid_use_name,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -85,6 +86,7 @@ impl AstBuilder {
                     functions.push(self.lower_function(function, module_name.clone()));
                 }
                 SyntaxItem::Effect(effect) => {
+                    collect_invalid_effect_names(effect, &mut invalid_names);
                     effects.push(self.lower_effect_decl(effect, module_name.clone()));
                 }
                 SyntaxItem::Handler(handler) => {
@@ -96,6 +98,7 @@ impl AstBuilder {
                     types.push(self.lower_type_decl(type_decl, module_name.clone()));
                 }
                 SyntaxItem::Schema(schema) => {
+                    collect_invalid_schema_names(schema, &mut invalid_names);
                     schemas.push(self.lower_schema_decl(schema, module_name.clone()));
                 }
                 SyntaxItem::Codec(codec) => {
@@ -263,6 +266,7 @@ impl AstBuilder {
                             node_id: self.alloc(),
                             name: field.name.clone(),
                             ty: field.ty.clone(),
+                            ty_paths: self.lower_type_paths(&field.ty_paths),
                             span: field.span.clone(),
                         })
                         .collect(),
@@ -305,6 +309,7 @@ impl AstBuilder {
             name_span: operation.name_span.clone(),
             params: self.lower_params(&operation.params),
             return_type: operation.return_type.clone(),
+            return_type_paths: self.lower_type_paths(&operation.return_type_paths),
             span: operation.span.clone(),
         }
     }
@@ -387,6 +392,7 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     name: field.name.clone(),
                     ty: field.ty.clone(),
+                    ty_paths: self.lower_type_paths(&field.ty_paths),
                     where_clause: field.where_clause.as_ref().map(|where_clause| {
                         SchemaFieldWhereClause {
                             node_id: self.alloc(),

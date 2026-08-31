@@ -152,7 +152,7 @@ impl<'a> Parser<'a> {
         };
         self.expect(TokenKind::Colon, "schema_field", vec![":"]);
         let type_start = self.current().range;
-        let ty = self.collect_type_until(
+        let (ty, ty_paths) = self.collect_type_paths_until(
             "schema_field",
             &[TokenKind::Where, TokenKind::Newline, TokenKind::Eof],
         );
@@ -184,6 +184,7 @@ impl<'a> Parser<'a> {
         SchemaField {
             name,
             ty,
+            ty_paths,
             where_clause,
             span: self.source.span(start.cover(end)),
         }
@@ -399,27 +400,31 @@ impl<'a> Parser<'a> {
         let mut positional_index = 0usize;
         while !self.at(close) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let (name, ty) = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
-                let name = self
-                    .expect_ident("type_variant", "variant field name")
-                    .unwrap_or_default();
-                self.expect(TokenKind::Colon, "type_variant", vec![":"]);
-                let ty = self.collect_type_until("type_variant", &[TokenKind::Comma, close]);
-                (name, ty)
-            } else {
-                let name = if positional_index == 0 {
-                    "value".to_string()
+            let (name, ty, ty_paths) =
+                if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
+                    let name = self
+                        .expect_ident("type_variant", "variant field name")
+                        .unwrap_or_default();
+                    self.expect(TokenKind::Colon, "type_variant", vec![":"]);
+                    let (ty, ty_paths) =
+                        self.collect_type_paths_until("type_variant", &[TokenKind::Comma, close]);
+                    (name, ty, ty_paths)
                 } else {
-                    format!("_{positional_index}")
+                    let name = if positional_index == 0 {
+                        "value".to_string()
+                    } else {
+                        format!("_{positional_index}")
+                    };
+                    let (ty, ty_paths) =
+                        self.collect_type_paths_until("type_variant", &[TokenKind::Comma, close]);
+                    positional_index += 1;
+                    (name, ty, ty_paths)
                 };
-                let ty = self.collect_type_until("type_variant", &[TokenKind::Comma, close]);
-                positional_index += 1;
-                (name, ty)
-            };
             let end = self.previous().map_or(start, |token| token.range);
             fields.push(TypeVariantField {
                 name,
                 ty,
+                ty_paths,
                 span: self.source.span(start.cover(end)),
             });
             if self.eat(TokenKind::Comma).is_none() {

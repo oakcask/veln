@@ -1,0 +1,69 @@
+command = ["check", "--json", "main.veln", "helper.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 6
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Helper"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "item"
+
+[[json_assert]]
+path = "diagnostics.1.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.1.details.segment_index"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.2.details.name"
+equals = "Helper"
+
+[[json_assert]]
+path = "diagnostics.2.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.3.details.name"
+equals = "item"
+
+[[json_assert]]
+path = "diagnostics.3.details.name_class"
+equals = "type"
+
+[[json_assert]]
+path = "diagnostics.4.details.name"
+equals = "Helper"
+
+[[json_assert]]
+path = "diagnostics.4.details.name_class"
+equals = "module"

@@ -1,0 +1,19 @@
+use helper
+
+type Box
+  Wrap(Helper::Item)
+  Record { item: helper::item }
+end
+
+effect Store
+  fetch(input: Helper::Item) -> helper::item
+end
+
+schema Packet
+  format binary
+  payload: Helper::Item
+end
+
+fn main() -> Int
+  0
+end
