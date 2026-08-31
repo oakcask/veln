@@ -173,7 +173,6 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
 fn let_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize, usize)> {
     let mut names = let_pattern_binding_names(tokens, let_index)
         .into_iter()
-        .map(|(name, start, end)| (name, start, end))
         .collect::<Vec<_>>();
     if let Some((name, start, end)) = simple_let_binding_name(tokens, let_index)
         && !names
