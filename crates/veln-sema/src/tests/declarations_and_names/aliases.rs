@@ -149,6 +149,64 @@ fn public_alias_rejects_unresolved_targets() {
 }
 
 #[test]
+fn public_type_alias_resolves_nested_import_path_target() {
+    let api_source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "use http2::core::detail\n",
+            "pub type DocumentAlias = http2::core::detail::Document\n",
+        ),
+    );
+    let detail_source = SourceFile::new(
+        "detail.veln",
+        concat!("pub type Document\n", "  pub Text(String)\n", "end\n",),
+    );
+    let api = lower_surface_ast_with_module_identity(
+        &parse(&api_source).tree,
+        "std::http2::core".to_string(),
+        api_source.span(TextRange::new(0, 0)),
+    );
+    let detail = lower_surface_ast_with_module_identity(
+        &parse(&detail_source).tree,
+        "std::http2::core::detail".to_string(),
+        detail_source.span(TextRange::new(0, 0)),
+    );
+    let module = SurfaceModule {
+        module: api.module,
+        uses: [api.uses, detail.uses].concat(),
+        aliases: [api.aliases, detail.aliases].concat(),
+        effects: [api.effects, detail.effects].concat(),
+        handlers: [api.handlers, detail.handlers].concat(),
+        types: [api.types, detail.types].concat(),
+        schemas: [api.schemas, detail.schemas].concat(),
+        codecs: [api.codecs, detail.codecs].concat(),
+        functions: [api.functions, detail.functions].concat(),
+        invalid_names: [api.invalid_names, detail.invalid_names].concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "name.unresolved"
+                || diagnostic.message
+                    != "unresolved type alias target `http2::core::detail::Document`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        TypeEnvironment::from_module(&module)
+            .adts
+            .descriptors()
+            .iter()
+            .any(|descriptor| {
+                descriptor.module_name.as_deref() == Some("std::http2::core")
+                    && descriptor.type_name == "DocumentAlias"
+            })
+    );
+}
+
+#[test]
 fn public_alias_target_leaf_casing_reports_before_independent_target_failures() {
     let source = SourceFile::new(
         "api.veln",

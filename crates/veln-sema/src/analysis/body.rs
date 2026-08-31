@@ -108,19 +108,31 @@ enum MatchDomain {
 }
 
 impl MatchDomain {
-    pub(super) fn from_type(ty: &Type, environment: &TypeEnvironment) -> Option<Self> {
+    pub(super) fn from_type(
+        ty: &Type,
+        environment: &TypeEnvironment,
+        current_module: Option<&str>,
+    ) -> Option<Self> {
         match ty {
             Type::Named { name, args } if name == "Bool" && args.is_empty() => Some(Self::Bool),
-            _ => environment.adts.descriptor_for_type(ty).map(|_| Self::Adt),
+            _ => environment
+                .adts
+                .descriptor_for_type_prefer_module(ty, current_module)
+                .map(|_| Self::Adt),
         }
     }
 
-    pub(super) fn cases(self, ty: &Type, environment: &TypeEnvironment) -> Vec<String> {
+    pub(super) fn cases(
+        self,
+        ty: &Type,
+        environment: &TypeEnvironment,
+        current_module: Option<&str>,
+    ) -> Vec<String> {
         match self {
             Self::Bool => vec!["false".to_string(), "true".to_string()],
             Self::Adt => environment
                 .adts
-                .descriptor_for_type(ty)
+                .descriptor_for_type_prefer_module(ty, current_module)
                 .into_iter()
                 .flat_map(|descriptor| descriptor.variants.iter())
                 .map(|variant| variant.coverage_case.clone())
@@ -160,7 +172,7 @@ fn match_pattern_coverage(
             let case = match domain {
                 MatchDomain::Adt => environment
                     .adts
-                    .descriptor_for_type(scrutinee_type)
+                    .descriptor_for_type_prefer_module(scrutinee_type, current_module)
                     .and_then(|descriptor| {
                         environment
                             .adts

@@ -254,7 +254,10 @@ impl<'a> FunctionChecker<'a> {
                 ConstructorLookup::Ambiguous => {
                     if let Some(constructor) = expected
                         .and_then(|expected| {
-                            self.environment.adts.descriptor_for_type(&expected.ty)
+                            self.environment.adts.descriptor_for_type_prefer_module(
+                                &expected.ty,
+                                self.function.module_name.as_deref(),
+                            )
                         })
                         .and_then(|descriptor| {
                             self.environment.adts.constructor_for_descriptor(

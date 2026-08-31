@@ -8,7 +8,11 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         arms: &[MatchArm],
     ) {
-        let Some(domain) = MatchDomain::from_type(scrutinee_type, self.environment) else {
+        let Some(domain) = MatchDomain::from_type(
+            scrutinee_type,
+            self.environment,
+            self.function.module_name.as_deref(),
+        ) else {
             return;
         };
         let mut covered = Vec::new();
@@ -40,7 +44,11 @@ impl<'a> FunctionChecker<'a> {
             }
         }
 
-        let cases = domain.cases(scrutinee_type, self.environment);
+        let cases = domain.cases(
+            scrutinee_type,
+            self.environment,
+            self.function.module_name.as_deref(),
+        );
         let Some(missing_case) = cases
             .iter()
             .find(|case| !covered.contains(case) && !invalid_recovery_covered.contains(case))
@@ -243,7 +251,10 @@ impl<'a> FunctionChecker<'a> {
         args: &[Pattern],
         scrutinee_type: &Type,
     ) -> Vec<PatternBinding> {
-        let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type) else {
+        let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+            scrutinee_type,
+            self.function.module_name.as_deref(),
+        ) else {
             return self.unknown_pattern_bindings(args);
         };
         if let Some(constructor) = self.environment.adts.constructor_for_descriptor(
@@ -295,7 +306,10 @@ impl<'a> FunctionChecker<'a> {
         name: &[String],
         scrutinee_type: &Type,
     ) {
-        let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type) else {
+        let Some(descriptor) = self.environment.adts.descriptor_for_type_prefer_module(
+            scrutinee_type,
+            self.function.module_name.as_deref(),
+        ) else {
             return;
         };
         let Some(recovered) = initial_uppercase_qualified_constructor_name(name) else {

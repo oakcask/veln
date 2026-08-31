@@ -2,7 +2,8 @@ use super::*;
 use crate::types::environment::TypeEnvironment;
 use crate::types::private_inference::private_inference_counters;
 use crate::types::signatures::{HandlerPathResolution, SchemaReferenceErrorKind};
-use veln_ast::{InvalidName, NameClass, NameOccurrence};
+use veln_ast::{InvalidName, NameClass, NameOccurrence, lower_surface_ast_with_module_identity};
+use veln_source::TextRange;
 
 mod aliases;
 mod effects_and_handlers;

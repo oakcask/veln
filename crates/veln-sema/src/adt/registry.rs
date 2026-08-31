@@ -3,7 +3,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use veln_ast::{PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 use veln_core::CoreType;
 
-use crate::name_recovery::{normal_use_decls, public_alias_has_invalid_target_leaf};
+use crate::name_recovery::{
+    normal_use_decls, public_alias_has_invalid_target_leaf, use_decl_matches_import_path,
+};
 use crate::semantic_model::Type;
 use crate::source_less_names::InvalidStandardSymbolCase;
 
@@ -176,6 +178,15 @@ impl AdtRegistry {
             descriptor.module_name.as_deref() == module_name
                 && descriptor.type_parameters.len() == args.len()
         })
+    }
+
+    pub(crate) fn descriptor_for_type_prefer_module(
+        &self,
+        ty: &Type,
+        module_name: Option<&str>,
+    ) -> Option<&AdtDescriptor> {
+        self.descriptor_for_type_in_module(ty, module_name)
+            .or_else(|| self.descriptor_for_type(ty))
     }
 
     pub(crate) fn descriptor_for_type_path(
@@ -502,11 +513,13 @@ fn descriptor_for_alias_target<'a>(
         [name] => descriptors
             .iter()
             .find(|descriptor| descriptor.type_name == *name),
-        [alias, name] => {
+        [_, .., name] => {
+            let import_path = &segments[..segments.len() - 1];
+            let module_path = import_path.join("::");
             let module_name = uses
                 .iter()
                 .find(|use_decl| {
-                    use_decl.module_name.as_deref() == current_module && use_decl.alias == *alias
+                    use_decl_matches_import_path(use_decl, &module_path, current_module)
                 })
                 .map(|use_decl| use_decl.name.as_str())?;
             descriptors.iter().find(|descriptor| {

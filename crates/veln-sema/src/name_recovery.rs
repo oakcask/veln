@@ -32,8 +32,14 @@ pub(crate) fn normal_use_decls(module: &SurfaceModule) -> Vec<UseDecl> {
         .uses
         .iter()
         .filter(|use_decl| !use_decl_has_invalid_module_segment(module, use_decl))
-        .cloned()
+        .map(resolved_import_use_decl)
         .collect()
+}
+
+pub(crate) fn resolved_import_use_decl(use_decl: &UseDecl) -> UseDecl {
+    let mut resolved = use_decl.clone();
+    resolved.name = resolved_import_module_name(use_decl, use_decl.module_name.as_deref());
+    resolved
 }
 
 pub(crate) fn normal_imported_use_for_path<'a>(
@@ -44,7 +50,42 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     let module_path = segments.join("::");
     module.uses.iter().find(|use_decl| {
         !use_decl_has_invalid_module_segment(module, use_decl)
-            && use_decl.module_name.as_deref() == current_module
-            && (use_decl.name == module_path || use_decl.alias == module_path)
+            && use_decl_matches_import_path(use_decl, &module_path, current_module)
     })
+}
+
+pub(crate) fn resolved_import_module_name(
+    use_decl: &UseDecl,
+    current_module: Option<&str>,
+) -> String {
+    if use_decl.package.is_none()
+        && current_module.is_some_and(|module| module.starts_with("std::"))
+        && !use_decl.name.starts_with("std::")
+    {
+        format!("std::{}", use_decl.name)
+    } else {
+        use_decl.name.clone()
+    }
+}
+
+pub(crate) fn use_decl_matches_import_path(
+    use_decl: &UseDecl,
+    module_path: &str,
+    current_module: Option<&str>,
+) -> bool {
+    if use_decl.module_name.as_deref() != current_module {
+        return false;
+    }
+    if use_decl.name == module_path || use_decl.alias == module_path {
+        return true;
+    }
+    if use_decl.package.is_some()
+        || !current_module.is_some_and(|module| module.starts_with("std::"))
+    {
+        return false;
+    }
+    use_decl
+        .name
+        .strip_prefix("std::")
+        .is_some_and(|package_relative| package_relative == module_path)
 }
