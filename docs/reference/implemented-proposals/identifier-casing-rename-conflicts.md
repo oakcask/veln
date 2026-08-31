@@ -8,9 +8,9 @@ update-when: Identifier casing rename-conflict evidence, sibling identifier-casi
 
 ## Outcome
 
-LSP rename now rejects predictable same-namespace duplicate and ambiguity
-conflicts for selected valid workspace type, constructor, function, and
-value-binding symbols before it returns edits.
+LSP rename now rejects predictable same-namespace duplicate, visible type-alias,
+and ambiguity conflicts for selected valid workspace type, constructor,
+function, and value-binding symbols before it returns edits.
 
 Current behavior is specified by
 [Editor Support](../../specification/editor-support.md). The checked
@@ -29,10 +29,11 @@ A conflict failure reports shared code `rename.conflict`, the selected symbol
 class, the requested name, the conflicting declaration location, and the
 affected scope. LSP maps that failure to JSON-RPC invalid params with code
 `-32602` and returns no workspace edit. Module-scope failures identify the
-affected module. Lexical-scope failures identify the affected file and source
-start and end offsets. Local binding conflicts report the binding declaration
-as the conflicting declaration, including when a function rename would collide
-with an edited reference scope.
+affected module. Type rename checks the current type namespace for type
+declarations and visible type aliases. Lexical-scope failures identify the
+affected file and source start and end offsets. Local binding conflicts report
+the binding declaration as the conflicting declaration, including when a
+function rename would collide with an edited reference scope.
 
 The conflict check is limited to the retained current project snapshot. It
 does not claim to validate unloaded consumers, future file operations, or

@@ -225,16 +225,16 @@ is the binding declaration. A rename request
 without a selected supported workspace symbol returns an empty workspace-edit
 `changes` object, and prepare-rename for the same position returns `null`.
 Type conflict prediction uses the current top-level type namespace, so a
-selected source type cannot be renamed to the name of a public type alias in
-the same affected module.
+selected source type cannot be renamed to the name of a type declaration or
+visible type alias in an affected module.
 The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
 class-changing failures for the four supported rename classes, predictable
 duplicate and ambiguity conflict rejection, source-declared nullary
 constructor uses, legal unedited-clause shadowing, local binding declaration
-conflict reporting, public type alias conflict reporting, same-spelled
-non-type namespace exclusion, ambiguous imported type rejection, and qualified
-type identity preservation for type rename.
+conflict reporting, type alias conflict reporting, same-spelled non-type
+namespace exclusion, ambiguous imported type rejection, and qualified type
+identity preservation for type rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

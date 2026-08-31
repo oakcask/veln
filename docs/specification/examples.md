@@ -253,8 +253,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/lsp/identifier-casing-qualified-function-navigation/`,
   `../../examples/specification/lsp/identifier-casing-qualified-import-alias-navigation/`,
   and `../../examples/specification/lsp/identifier-casing-rename-boundary/`.
-  The rename boundary case includes public type alias conflict rejection in
-  the current type namespace.
+  The rename boundary case includes type alias conflict rejection in the
+  current type namespace.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and

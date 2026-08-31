@@ -115,8 +115,8 @@ symbols and predictable rename conflicts as specified by
 [Editor Support](../specification/editor-support.md) and checked by the
 `identifier-casing-rename-boundary` example. That current boundary includes
 rejection of ambiguous bare imported type-role references and qualified type
-identity preservation for type rename, and type namespace conflicts with
-public type aliases. This proposal still owns recovery navigation, repair
+identity preservation for type rename, and conflicts with visible type aliases
+in the type namespace. This proposal still owns recovery navigation, repair
 rename, MCP rename mapping, and rename evidence for the remaining casing
 surfaces until those rows are implemented.
 
@@ -423,8 +423,8 @@ text that merely has the same spelling.
 
 Current rename conflict rejection for valid selected workspace symbols is
 specified by [Editor Support](../specification/editor-support.md), including
-edit-scope-based lexical shadowing, public type alias conflicts, affected
-scopes, and conflicting declaration locations. Future repair rename and MCP
+edit-scope-based lexical shadowing, type alias conflicts, affected scopes,
+and conflicting declaration locations. Future repair rename and MCP
 rename surfaces must preserve that shared conflict code and edit-free failure
 boundary when they add their transport-specific behavior.
 
