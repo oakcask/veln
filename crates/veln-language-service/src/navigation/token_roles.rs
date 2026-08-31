@@ -32,7 +32,7 @@ fn is_let_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
     };
     let_pattern_binding_names(tokens, let_index)
         .iter()
-        .any(|(name, start)| name == &token.text && *start == token.range.end)
+        .any(|(name, _, end)| name == &token.text && *end == token.range.end)
 }
 
 fn is_match_arm_pattern_binding_name(tokens: &[Token], index: usize) -> bool {
@@ -248,4 +248,3 @@ fn enclosing_top_level_block_index(
     }
     None
 }
-

@@ -18,6 +18,8 @@
   {"jsonrpc":"2.0","id":17,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":8,"character":2},"newName":"Available"}},
   {"jsonrpc":"2.0","id":18,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":5},"newName":"Item"}},
   {"jsonrpc":"2.0","id":19,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"origin.veln"}},"position":{"line":0,"character":9},"newName":"Entry"}},
-  {"jsonrpc":"2.0","id":20,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":20,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"shadowing.veln"}},"position":{"line":5,"character":15},"newName":"value"}},
+  {"jsonrpc":"2.0","id":21,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"shadowing.veln"}},"position":{"line":17,"character":3},"newName":"conflict"}},
+  {"jsonrpc":"2.0","id":22,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

@@ -451,6 +451,8 @@ struct FunctionScope {
 #[derive(Debug)]
 struct LocalBinding {
     name: String,
+    declaration_start: usize,
+    declaration_end: usize,
     start: usize,
     end: usize,
 }

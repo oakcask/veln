@@ -216,15 +216,20 @@ affected module or lexical scope returns JSON-RPC invalid params with code
 `-32602`. The error payload preserves the shared `rename.conflict` code and
 includes the selected symbol class, requested name, conflicting declaration
 location, and affected scope. The request returns no workspace edits in that
-failure response. A rename request
+failure response. Lexical conflict prediction uses the scopes of the edited
+declaration and references, so a shadowing binding in an unedited clause does
+not reject the rename. When a local binding conflicts with a function rename,
+the reported conflict location is the binding declaration. A rename request
 without a selected supported workspace symbol returns an empty workspace-edit
 `changes` object, and prepare-rename for the same position returns `null`.
 The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
 class-changing failures for the four supported rename classes, predictable
 duplicate and ambiguity conflict rejection, source-declared nullary
-constructor uses, same-spelled non-type namespace exclusion, ambiguous imported
-type rejection, and qualified type identity preservation for type rename.
+constructor uses, legal unedited-clause shadowing, local binding declaration
+conflict reporting, same-spelled non-type namespace exclusion, ambiguous
+imported type rejection, and qualified type identity preservation for type
+rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

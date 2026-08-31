@@ -128,8 +128,10 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
         bindings.extend(
             let_binding_names(tokens, index)
                 .into_iter()
-                .map(|name| LocalBinding {
+                .map(|(name, declaration_start, declaration_end)| LocalBinding {
                     name,
+                    declaration_start,
+                    declaration_end,
                     start: binding_start,
                     end: binding_end,
                 }),
@@ -168,27 +170,29 @@ fn local_binding_scope_end(tokens: &[Token], let_index: usize, function_end: usi
     function_end
 }
 
-fn let_binding_names(tokens: &[Token], let_index: usize) -> Vec<String> {
+fn let_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize, usize)> {
     let mut names = let_pattern_binding_names(tokens, let_index)
         .into_iter()
-        .map(|(name, _)| name)
+        .map(|(name, start, end)| (name, start, end))
         .collect::<Vec<_>>();
-    if let Some(name) = simple_let_binding_name(tokens, let_index)
-        && !names.iter().any(|existing| existing == &name)
+    if let Some((name, start, end)) = simple_let_binding_name(tokens, let_index)
+        && !names
+            .iter()
+            .any(|(existing, _, _)| existing == &name)
     {
-        names.push(name);
+        names.push((name, start, end));
     }
     names
 }
 
-fn simple_let_binding_name(tokens: &[Token], let_index: usize) -> Option<String> {
+fn simple_let_binding_name(tokens: &[Token], let_index: usize) -> Option<(String, usize, usize)> {
     let token_index = next_non_layout_index(tokens, let_index)?;
     let token = &tokens[token_index];
     (token.kind == TokenKind::Ident
         && is_identifier(&token.text)
         && next_non_layout_token(tokens, token_index)
             .is_some_and(|next| matches!(next.kind, TokenKind::Colon | TokenKind::Equal)))
-    .then(|| token.text.clone())
+    .then(|| (token.text.clone(), token.range.start, token.range.end))
 }
 
 fn local_binding_shadows_name(
@@ -259,7 +263,7 @@ fn handler_operation_clause_parameter_names_in_range(
         .collect()
 }
 
-fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize)> {
+fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String, usize, usize)> {
     let mut names = Vec::new();
     let mut depth = 0usize;
     let mut index = let_index + 1;
@@ -277,7 +281,7 @@ fn let_pattern_binding_names(tokens: &[Token], let_index: usize) -> Vec<(String,
                 depth = depth.saturating_sub(1);
             }
             TokenKind::Ident if is_pattern_binding_token(tokens, index) => {
-                names.push((token.text.clone(), token.range.end));
+                names.push((token.text.clone(), token.range.start, token.range.end));
             }
             _ => {}
         }
@@ -301,7 +305,9 @@ fn match_arm_pattern_binding_names(
         let pattern_start = match_arm_pattern_start(tokens, index, body_start);
         for name in pattern_binding_names_in_range(tokens, pattern_start, index) {
             bindings.push(LocalBinding {
-                name,
+                name: name.0,
+                declaration_start: name.1,
+                declaration_end: name.2,
                 start: scope_start,
                 end: scope_end,
             });
@@ -340,6 +346,8 @@ fn satisfy_candidate_binding_names(
             .unwrap_or(function_end);
         bindings.push(LocalBinding {
             name: candidate.text.clone(),
+            declaration_start: candidate.range.start,
+            declaration_end: candidate.range.end,
             start: tokens[arrow_index].range.end,
             end,
         });
@@ -414,7 +422,11 @@ fn match_arm_pattern_start_from_arrow(tokens: &[Token], arrow_start: usize) -> u
         })
 }
 
-fn pattern_binding_names_in_range(tokens: &[Token], start: usize, end_index: usize) -> Vec<String> {
+fn pattern_binding_names_in_range(
+    tokens: &[Token],
+    start: usize,
+    end_index: usize,
+) -> Vec<(String, usize, usize)> {
     tokens[..end_index]
         .iter()
         .enumerate()
@@ -422,7 +434,7 @@ fn pattern_binding_names_in_range(tokens: &[Token], start: usize, end_index: usi
         .filter(|(index, token)| {
             token.kind == TokenKind::Ident && is_pattern_binding_token(tokens, *index)
         })
-        .map(|(_, token)| token.text.clone())
+        .map(|(_, token)| (token.text.clone(), token.range.start, token.range.end))
         .collect()
 }
 

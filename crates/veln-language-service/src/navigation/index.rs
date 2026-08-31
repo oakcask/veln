@@ -247,18 +247,26 @@ impl SymbolIndex {
             .find(|binding| {
                 binding.name == requested_name
                     && !same_span(&binding.declaration, &selected.declaration)
-                    && binding.start < selected.scope_end
-                    && selected.scope_start < binding.end
+                    && self.affected_spans(result).into_iter().any(|span| {
+                        span.start.offset >= binding.start && span.start.offset < binding.end
+                    })
             })
             .map(|binding| (workspace_location(binding.declaration), scope.clone()))
             .or_else(|| {
                 local_bindings(&file.tokens, selected.scope_start, selected.scope_end)
                     .into_iter()
-                    .find(|binding| binding.name == requested_name)
+                    .find(|binding| {
+                        binding.name == requested_name
+                            && !same_span(
+                                &local_binding_declaration(file, binding),
+                                &selected.declaration,
+                            )
+                            && self.affected_spans(result).into_iter().any(|span| {
+                                span.start.offset >= binding.start && span.start.offset < binding.end
+                            })
+                    })
                     .map(|binding| {
-                        let span = span_for_name_at_or_before(file, requested_name, binding.start)
-                            .unwrap_or_else(|| selected.declaration.clone());
-                        (workspace_location(span), scope)
+                        (workspace_location(local_binding_declaration(file, &binding)), scope)
                     })
             })
     }
@@ -343,7 +351,16 @@ impl SymbolIndex {
                     && scope.shadows(requested_name, &file.tokens, self.token_index_for_span(file, span).unwrap_or(0))
             })
             .map(|scope| {
-                let conflict = span_for_name_before_offset(file, requested_name, span.start.offset)
+                let conflict = scope
+                    .local_bindings
+                    .iter()
+                    .find(|binding| {
+                        binding.name == requested_name
+                            && span.start.offset >= binding.start
+                            && span.start.offset < binding.end
+                    })
+                    .map(|binding| local_binding_declaration(file, binding))
+                    .or_else(|| span_for_name_before_offset(file, requested_name, span.start.offset))
                     .unwrap_or_else(|| span.clone());
                 (
                     workspace_location(conflict),
@@ -1257,18 +1274,11 @@ fn span_for_name_before_offset(
         .map(|token| file.source.span(token.range))
 }
 
-fn span_for_name_at_or_before(
-    file: &IndexedFile,
-    name: &str,
-    offset: usize,
-) -> Option<SourceSpan> {
-    file.tokens
-        .iter()
-        .rev()
-        .find(|token| {
-            token.kind == TokenKind::Ident && token.text == name && token.range.start <= offset
-        })
-        .map(|token| file.source.span(token.range))
+fn local_binding_declaration(file: &IndexedFile, binding: &LocalBinding) -> SourceSpan {
+    file.source.span(TextRange::new(
+        binding.declaration_start,
+        binding.declaration_end,
+    ))
 }
 
 fn declaration_matches(

@@ -294,6 +294,59 @@
     }
 
     #[test]
+    fn rename_validation_allows_unedited_clause_parameter_shadowing() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  choose(value: Int) -> Int\n",
+                "  current() -> Int\n",
+                "end\n\n",
+                "handler choose(ctx: Int) handles Choose\n",
+                "  choose(value) => value\n",
+                "  current() => ctx\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 6, 16).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerContextParameter
+        );
+        assert_eq!(locations(&result.references), [("main.veln", 8, 16)]);
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "value").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_reports_local_binding_declaration_conflict() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "fn target(value: Int) -> Int\n",
+                "  value\n",
+                "end\n\n",
+                "fn caller(value: Int) -> Int\n",
+                "  let conflict = value\n",
+                "  let observed = conflict\n",
+                "  target(observed)\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 8, 4).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "conflict").unwrap_err(),
+            RenameNameClass::Function,
+            "conflict",
+            "main.veln",
+            6,
+            7,
+        );
+    }
+
+    #[test]
     fn rename_validation_rejects_provable_multi_scope_ambiguity() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("left.veln", "pub type Item\n  Left\nend\n"),

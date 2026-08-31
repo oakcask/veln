@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_ast::{NameClass, QualifiedPathSegment};
 use veln_project::classify_companion_source;
-use veln_source::{SourceFile, SourcePath, SourceSpan};
+use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     BodyLine, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree, Token, TokenKind,
     TypeVariantDecl, Visibility, lex, parse,
