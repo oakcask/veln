@@ -299,7 +299,8 @@ pub(super) fn imported_use_for_path<'a>(
 
 fn simple_import_alias_matches(use_decl: &UseDecl, module_path: &str) -> bool {
     use_decl.alias == module_path
-        && (!use_decl.name.contains("::")
+        && (use_decl.package.is_some()
+            || !use_decl.name.contains("::")
             || use_decl.origin == veln_ast::UseOrigin::ImplicitStandardPrelude)
 }
 
