@@ -43,7 +43,7 @@ pub(super) fn validate_standard_package_import(
     use_decl: &UseDecl,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let module_path = external_import_module_path(use_decl);
+    let module_path = standard_export_module_path(use_decl);
     if !veln_stdlib::package_bundle().exports.iter().any(|export| {
         derive_source_module_path(&SourceFile::new(*export, ""))
             .is_ok_and(|module| module == module_path)
@@ -308,7 +308,14 @@ fn unexported_external_module_diagnostic(use_decl: &UseDecl) -> Diagnostic {
 }
 
 pub(super) fn external_import_module_path(use_decl: &UseDecl) -> String {
-    use_decl.alias.clone()
+    use_decl.name.clone()
+}
+
+pub(super) fn standard_export_module_path(use_decl: &UseDecl) -> String {
+    external_import_module_path(use_decl)
+        .strip_prefix("std::")
+        .unwrap_or(use_decl.name.as_str())
+        .to_string()
 }
 
 fn package_name_mismatch_diagnostic(

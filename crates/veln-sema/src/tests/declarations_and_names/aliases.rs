@@ -7,7 +7,7 @@ fn duplicate_use_aliases_are_static_errors() {
         concat!(
             "mod app\n",
             "use platform.io\n",
-            "use local.io\n",
+            "use platform.io\n",
             "fn main() -> ()\n",
             "  ()\n",
             "end\n",

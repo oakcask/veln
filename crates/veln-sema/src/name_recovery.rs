@@ -58,8 +58,9 @@ pub(crate) fn resolved_import_module_name(
     use_decl: &UseDecl,
     current_module: Option<&str>,
 ) -> String {
-    if use_decl.package.is_none()
-        && current_module.is_some_and(|module| module.starts_with("std::"))
+    if (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        || (use_decl.package.is_none()
+            && current_module.is_some_and(|module| module.starts_with("std::"))))
         && !use_decl.name.starts_with("std::")
     {
         format!("std::{}", use_decl.name)
@@ -77,6 +78,14 @@ pub(crate) fn use_decl_matches_import_path(
         return false;
     }
     if use_decl.name == module_path || use_decl.alias == module_path {
+        return true;
+    }
+    if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        && use_decl
+            .name
+            .strip_prefix("std::")
+            .is_some_and(|package_relative| package_relative == module_path)
+    {
         return true;
     }
     if use_decl.package.is_some()

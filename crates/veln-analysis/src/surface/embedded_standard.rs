@@ -139,7 +139,7 @@ pub(super) fn load_embedded_standard_package_from(
             .map(|use_decl| {
                 external_module_key(
                     veln_stdlib::PACKAGE_NAME,
-                    &external_import_module_path(use_decl),
+                    &standard_export_module_path(use_decl),
                 )
             }),
     );

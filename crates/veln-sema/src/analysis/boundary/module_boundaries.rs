@@ -162,7 +162,8 @@ pub(super) fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen =
+        BTreeMap::<(Option<String>, String, String, Option<String>), (String, SourceSpan)>::new();
 
     for use_decl in module
         .uses
@@ -170,7 +171,12 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
         .filter(|use_decl| use_decl.origin == veln_ast::UseOrigin::Source)
     {
         let node_id = use_decl.node_id.display("use");
-        let key = (use_decl.module_name.clone(), use_decl.alias.clone());
+        let key = (
+            use_decl.module_name.clone(),
+            use_decl.alias.clone(),
+            use_decl.name.clone(),
+            use_decl.package.clone(),
+        );
         if let Some((first_node_id, first_span)) = seen.get(&key) {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,
