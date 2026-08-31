@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"3795fc1919a973b987633519ab569437283eb012"
+source_git_tree	"833b46829c65d1501cf61faafffbd0f5c69c3828"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1638
@@ -12606,7 +12606,7 @@ field	expectations.lsp_assertions[3].equals	3
 field	expectations.lsp_assertions[3].id	4
 field	expectations.lsp_assertions[3].operation	"equals"
 field	expectations.lsp_assertions[3].path	"/result/start/line"
-field	expectations.lsp_assertions[4].equals	26
+field	expectations.lsp_assertions[4].equals	36
 field	expectations.lsp_assertions[4].id	4
 field	expectations.lsp_assertions[4].operation	"equals"
 field	expectations.lsp_assertions[4].path	"/result/start/character"
@@ -12626,7 +12626,7 @@ field	expectations.lsp_assertions[8].equals	2
 field	expectations.lsp_assertions[8].id	8
 field	expectations.lsp_assertions[8].operation	"equals"
 field	expectations.lsp_assertions[8].path	"/result/start/line"
-field	expectations.lsp_assertions[9].equals	19
+field	expectations.lsp_assertions[9].equals	24
 field	expectations.lsp_assertions[9].id	8
 field	expectations.lsp_assertions[9].operation	"equals"
 field	expectations.lsp_assertions[9].path	"/result/start/character"
@@ -12638,10 +12638,10 @@ field	expectations.stdout.contains[3]	"\"newText\":\"Entry\""
 field	expectations.stdout.contains[4]	"\"newText\":\"Done\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2890,"sha256":"9d4ce5fb71c05c7a48b49d9618d4538cf658a5e2e13d30ead73bc8dce00ea6dd"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2890,"sha256":"bf067f0e90fb3284710e4916b0aefb4286dfae01fca237e5ec04faaa4a5630b5"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"c9e54214cac83e3653877fdf686efeea7c7737b7c70ed6651dc0918dcf5ec583"
+case_digest	"7f5094c9368e0c985966c2afd07329a2bf96ee94dfebf3ff06c6ef2b0bf86d3d"
 case	"examples/specification/lsp/identifier-casing-qualified-module-type-navigation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52110,4 +52110,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e7df24fb885b10d0787a99a4632702dc5931c4aa027fa00f005274f73d9d54f5"
+aggregate_digest	"3afbe6b80778ac877a91f81c0dbd7a4729924a35e788734f366b38cd1058d112"
