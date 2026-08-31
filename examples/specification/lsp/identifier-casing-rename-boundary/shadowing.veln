@@ -17,3 +17,13 @@ fn caller(value: Int) -> Int
   let observed = conflict
   target(observed)
 end
+
+effect ChoosePair
+  choose(left: Int, right: Int) -> Int
+  other(value: Int, extra: Int) -> Int
+end
+
+handler choose_pair() handles ChoosePair
+  choose(left, right) => right
+  other(value, extra) => extra
+end

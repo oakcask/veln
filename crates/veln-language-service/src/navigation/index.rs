@@ -236,16 +236,24 @@ impl SymbolIndex {
             start_offset: selected.scope_start,
             end_offset: selected.scope_end,
         };
-        handler_operation_clause_bindings(file, &file.tokens)
-            .into_iter()
-            .find(|binding| {
-                binding.name == requested_name
-                    && !same_span(&binding.declaration, &selected.declaration)
-                    && self.affected_spans(result).into_iter().any(|span| {
-                        span.start.offset >= binding.start && span.start.offset < binding.end
+        let affected_spans = self.affected_spans(result);
+        let clause_bindings = handler_operation_clause_bindings(file, &file.tokens);
+        clause_bindings
+            .iter()
+            .find(|binding| same_scope_binding_conflicts(binding, &selected, requested_name))
+            .map(|binding| (workspace_location(binding.declaration.clone()), scope.clone()))
+            .or_else(|| {
+                clause_bindings
+                    .into_iter()
+                    .find(|binding| {
+                        binding.name == requested_name
+                            && !same_span(&binding.declaration, &selected.declaration)
+                            && affected_spans.iter().any(|span| {
+                                span.start.offset >= binding.start && span.start.offset < binding.end
+                            })
                     })
+                    .map(|binding| (workspace_location(binding.declaration), scope.clone()))
             })
-            .map(|binding| (workspace_location(binding.declaration), scope.clone()))
             .or_else(|| {
                 local_bindings(&file.tokens, selected.scope_start, selected.scope_end)
                     .into_iter()
@@ -255,7 +263,7 @@ impl SymbolIndex {
                                 &local_binding_declaration(file, binding),
                                 &selected.declaration,
                             )
-                            && self.affected_spans(result).into_iter().any(|span| {
+                            && affected_spans.iter().any(|span| {
                                 span.start.offset >= binding.start && span.start.offset < binding.end
                             })
                     })
@@ -302,7 +310,12 @@ impl SymbolIndex {
         self.files.iter().find_map(|file| {
             handler_operation_clause_bindings(file, &file.tokens)
                 .into_iter()
-                .find(|binding| same_span(&binding.declaration, &result.selected_symbol.declaration.span))
+                .find(|binding| {
+                    same_span(
+                        &binding.declaration,
+                        &result.selected_symbol.declaration.span,
+                    )
+                })
                 .map(|binding| LocalSymbol {
                     name: binding.name,
                     declaration: binding.declaration,
@@ -1379,6 +1392,17 @@ fn local_binding_declaration(file: &IndexedFile, binding: &LocalBinding) -> Sour
         binding.declaration_start,
         binding.declaration_end,
     ))
+}
+
+fn same_scope_binding_conflicts(
+    binding: &ClauseBinding,
+    selected: &LocalSymbol,
+    requested_name: &str,
+) -> bool {
+    binding.name == requested_name
+        && binding.start == selected.scope_start
+        && binding.end == selected.scope_end
+        && !same_span(&binding.declaration, &selected.declaration)
 }
 
 fn declaration_matches(

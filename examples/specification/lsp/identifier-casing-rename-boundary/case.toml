@@ -338,3 +338,68 @@ missing = true
 id = 23
 path = "/error"
 missing = true
+
+[[lsp_assert]]
+id = 24
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/symbol_class"
+equals = "value_binding"
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/requested_name"
+equals = "right"
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "shadowing.veln"
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/conflicting_declaration/range/start/line"
+equals = 26
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/conflicting_declaration/range/start/character"
+equals = 15
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/affected_scope/kind"
+equals = "lexical"
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/affected_scope/file"
+equals = "shadowing.veln"
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/affected_scope/start_offset"
+equals = 465
+
+[[lsp_assert]]
+id = 24
+path = "/error/data/details/affected_scope/end_offset"
+equals = 472
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 25
+path = "/error"
+missing = true

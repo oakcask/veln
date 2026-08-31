@@ -216,12 +216,16 @@ affected module or lexical scope returns JSON-RPC invalid params with code
 `-32602`. The error payload preserves the shared `rename.conflict` code and
 includes the selected symbol class, requested name, conflicting declaration
 location, and affected scope. The request returns no workspace edits in that
-failure response. Lexical conflict prediction uses the scopes of the edited
-declaration and references, so a shadowing binding in an unedited clause does
-not reject the rename. Module affected scopes include the module name. Lexical
-affected scopes include the file plus source start and end offsets. When a
-local binding conflicts with a function rename, the reported conflict location
-is the binding declaration. A rename request
+failure response. Lexical conflict prediction rejects same-scope declaration
+duplicates independently of edited references. It uses edited reference
+overlap for shadowing and ambiguity checks, so a shadowing binding in an
+unedited clause does not reject the rename. Module affected scopes include the
+module name. Lexical affected scopes include the file plus source start and
+end offsets. When a local binding conflicts with a function rename, the
+reported conflict location is the binding declaration. When an unused handler
+operation clause parameter is renamed to another parameter in the same clause,
+the reported conflict location is the existing clause parameter declaration.
+A rename request
 without a selected supported workspace symbol returns an empty workspace-edit
 `changes` object, and prepare-rename for the same position returns `null`.
 Type conflict prediction uses the current top-level type namespace, so a
@@ -232,9 +236,10 @@ The executable
 class-changing failures for the four supported rename classes, predictable
 duplicate and ambiguity conflict rejection, source-declared nullary
 constructor uses, legal unedited-clause shadowing, local binding declaration
-conflict reporting, type alias conflict reporting, same-spelled non-type
-namespace exclusion, ambiguous imported type rejection, and qualified type
-identity preservation for type rename.
+conflict reporting, declaration-only handler clause parameter conflict
+reporting, type alias conflict reporting, same-spelled non-type namespace
+exclusion, ambiguous imported type rejection, and qualified type identity
+preservation for type rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

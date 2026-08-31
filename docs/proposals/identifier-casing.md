@@ -423,8 +423,9 @@ text that merely has the same spelling.
 
 Current rename conflict rejection for valid selected workspace symbols is
 specified by [Editor Support](../specification/editor-support.md), including
-edit-scope-based lexical shadowing, type alias conflicts, affected scopes,
-and conflicting declaration locations. Future repair rename and MCP
+same-scope declaration duplicates, edit-scope-based lexical shadowing, type
+alias conflicts, affected scopes, and conflicting declaration locations.
+Future repair rename and MCP
 rename surfaces must preserve that shared conflict code and edit-free failure
 boundary when they add their transport-specific behavior.
 

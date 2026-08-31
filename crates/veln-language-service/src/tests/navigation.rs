@@ -360,6 +360,74 @@
     }
 
     #[test]
+    fn rename_validation_rejects_unused_clause_parameter_declaration_conflict() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  choose(left: Int, right: Int) -> Int\n",
+                "  other(value: Int, extra: Int) -> Int\n",
+                "end\n\n",
+                "handler choose() handles Choose\n",
+                "  choose(left, right) => right\n",
+                "  other(value, extra) => extra\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 7, 10).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_eq!(locations(&result.references), []);
+        let failure = validate_rename_in_snapshot(&snapshot, &result, "right").unwrap_err();
+
+        assert_eq!(failure.code, "rename.conflict");
+        assert_eq!(failure.symbol_class, RenameNameClass::ValueBinding);
+        assert_eq!(failure.requested_name, "right");
+        let RenameFailureKind::Conflict {
+            conflicting_declaration,
+            affected_scope,
+        } = failure.kind
+        else {
+            panic!("rename failure was not a conflict");
+        };
+        assert_location(&conflicting_declaration, "main.veln", 7, 16);
+        let RenameAffectedScope::Lexical {
+            file,
+            start_offset,
+            end_offset,
+        } = *affected_scope
+        else {
+            panic!("rename conflict did not report a lexical scope");
+        };
+        assert_eq!(file, "main.veln");
+        assert!(start_offset > result.selected_symbol.declaration.span.end.offset);
+        assert!(end_offset > start_offset);
+    }
+
+    #[test]
+    fn rename_validation_allows_clause_parameter_name_in_unedited_clause() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  choose(left: Int, right: Int) -> Int\n",
+                "  other(value: Int, extra: Int) -> Int\n",
+                "end\n\n",
+                "handler choose() handles Choose\n",
+                "  choose(left, right) => right\n",
+                "  other(value, extra) => extra\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 7, 10).unwrap();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "value").is_ok());
+    }
+
+    #[test]
     fn rename_validation_reports_local_binding_declaration_conflict() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
