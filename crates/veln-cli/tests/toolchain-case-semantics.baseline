@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"c3d53a177487a94c90f2e3c97af98a3fb3e1d839"
+source_git_tree	"fb53ea9d67d6402ed62a59f5db2a279895610e8d"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1635
@@ -6890,7 +6890,7 @@ field	expectations.json_assertions[18].path	"diagnostics.4.details.segment_index
 field	expectations.json_assertions[19].equals	"sample"
 field	expectations.json_assertions[19].operation	"equals"
 field	expectations.json_assertions[19].path	"diagnostics.5.details.name"
-field	expectations.json_assertions[1].length	25
+field	expectations.json_assertions[1].length	26
 field	expectations.json_assertions[1].operation	"length"
 field	expectations.json_assertions[1].path	"diagnostics"
 field	expectations.json_assertions[20].equals	"type"
@@ -7025,6 +7025,12 @@ field	expectations.json_assertions[59].path	"diagnostics.18.details.namespace"
 field	expectations.json_assertions[5].equals	"module"
 field	expectations.json_assertions[5].operation	"equals"
 field	expectations.json_assertions[5].path	"diagnostics.0.details.name_class"
+field	expectations.json_assertions[60].equals	"effect.unknown"
+field	expectations.json_assertions[60].operation	"equals"
+field	expectations.json_assertions[60].path	"diagnostics.25.id"
+field	expectations.json_assertions[61].equals	"logging::audit"
+field	expectations.json_assertions[61].operation	"equals"
+field	expectations.json_assertions[61].path	"diagnostics.25.details.effect"
 field	expectations.json_assertions[6].equals	0
 field	expectations.json_assertions[6].operation	"equals"
 field	expectations.json_assertions[6].path	"diagnostics.0.details.segment_index"
@@ -7048,7 +7054,7 @@ field	invocation.command[5]	"consumer.veln"
 field	invocation.command[6]	"foo/bar.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
-case_digest	"ce02da0ecce9f8025baa693fa61b2ee226dcd9dc309e7a1bb4a7f5992ff24f2b"
+case_digest	"2d2ccbe535cc14ff4b54321054fd814762e701a34c34c3af2e48f4259ef31e1e"
 case	"examples/specification/check/identifier-casing-qualified-use-recovery-controls-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -51944,4 +51950,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"c3143c4cb3af8b5a804eac01f8b86e067ccdf2be47432a3c2a06077b02f960a5"
+aggregate_digest	"70a93ab0632dd83ea1cfac50597f3a8d8082cfa36c9473e82db7dfed01e4ce41"

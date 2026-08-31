@@ -83,3 +83,7 @@ end
 fn prelude_constructor_leaf_invalid() -> prelude::Option<Int>
   prelude::Option::some(1)
 end
+
+fn function_type_effect_boundary(callback: fn() -> () effects [logging::audit]) -> ()
+  callback()
+end

@@ -342,6 +342,10 @@ impl<'a> Parser<'a> {
         let mut paths = Vec::new();
         let mut cursor = 0usize;
         while cursor < tokens.len() {
+            if tokens[cursor].kind == TokenKind::Effects {
+                cursor = skip_effect_clause(tokens, cursor);
+                continue;
+            }
             if !is_type_path_segment(&tokens[cursor])
                 || tokens.get(cursor + 1).map(|token| token.kind) != Some(TokenKind::DoubleColon)
             {
@@ -374,6 +378,29 @@ impl<'a> Parser<'a> {
         }
         paths
     }
+}
+
+fn skip_effect_clause(tokens: &[Token], cursor: usize) -> usize {
+    let mut cursor = cursor + 1;
+    if tokens.get(cursor).map(|token| token.kind) != Some(TokenKind::LBracket) {
+        return cursor;
+    }
+    cursor += 1;
+    let mut depth = 1usize;
+    while let Some(token) = tokens.get(cursor) {
+        match token.kind {
+            TokenKind::LBracket => depth += 1,
+            TokenKind::RBracket => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return cursor + 1;
+                }
+            }
+            _ => {}
+        }
+        cursor += 1;
+    }
+    cursor
 }
 
 fn is_type_path_segment(token: &Token) -> bool {

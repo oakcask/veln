@@ -211,6 +211,40 @@ fn let_annotation_reports_qualified_type_path_segments() {
 }
 
 #[test]
+fn function_type_effect_paths_do_not_report_type_segment_casing() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Audit\n",
+            "end\n",
+            "\n",
+            "fn emit() -> () effects [Audit]\n",
+            "  ()\n",
+            "end\n",
+            "\n",
+            "fn main(callback: fn() -> prelude::Option<Int> effects [Logging::audit]) -> fn() -> prelude::Option<Int> effects [Tracing::audit]\n",
+            "  let stored: fn() -> prelude::Option<Int> effects [Callback::audit] = callback\n",
+            "  stored\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&source).tree);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.as_str())
+            .collect::<Vec<_>>(),
+        Vec::<&str>::new(),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn spaced_type_annotations_report_retained_qualified_segment_spans() {
     let source = SourceFile::new(
         "main.veln",

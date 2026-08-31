@@ -132,7 +132,9 @@ as the module segment and the final segment as `function`. Prelude-qualified
 type paths validate `prelude` as the module segment and the final type segment
 as `type`; prelude-qualified constructor paths validate `prelude`, the type
 qualifier, and the constructor segment with the same module, type, and
-constructor roles. An unresolved or
+constructor roles. Qualified nominal effect paths inside function type
+`effects [...]` annotations are effect paths, not qualified type paths, and do
+not produce source identifier casing diagnostics. An unresolved or
 ambiguous intermediate segment is not assigned a role from spelling alone.
 Each invalid role-fixed segment reports `name.invalid_case` at the exact
 segment token span with occurrence `path_segment` and the zero-based

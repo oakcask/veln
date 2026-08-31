@@ -29,3 +29,4 @@ main.veln:58:3: error[type.match_non_exhaustive]: match is missing case Some(_)
   note: main.veln:58:9: Scrutinee has type `Option<Int>`.
 main.veln:65:3: error[type.match_non_exhaustive]: match is missing case Some(_)
   note: main.veln:65:9: Scrutinee has type `Option<Int>`.
+main.veln:87:64: error[effect.unknown]: function type effect `logging::audit` is not known

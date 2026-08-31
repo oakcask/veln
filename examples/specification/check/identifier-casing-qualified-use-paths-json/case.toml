@@ -14,7 +14,7 @@ equals = "error"
 
 [[json_assert]]
 path = "diagnostics"
-length = 25
+length = 26
 
 [[json_assert]]
 path = "diagnostics.0.id"
@@ -247,3 +247,11 @@ equals = "name.unresolved"
 [[json_assert]]
 path = "diagnostics.18.details.namespace"
 equals = "value"
+
+[[json_assert]]
+path = "diagnostics.25.id"
+equals = "effect.unknown"
+
+[[json_assert]]
+path = "diagnostics.25.details.effect"
+equals = "logging::audit"
