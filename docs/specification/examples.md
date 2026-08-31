@@ -171,6 +171,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-over-suppression-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-direct-diagnostics-json/`,
   `../../examples/specification/check/identifier-casing-qualified-constructor-pattern-type-mismatch-json/`,
+  `../../examples/specification/check/identifier-casing-qualified-handler-boundaries-json/`,
+  `../../examples/specification/check/identifier-casing-qualified-handler-boundaries-human/`,
   `../../examples/specification/check/identifier-casing-source-path-json/`,
   `../../examples/specification/check/identifier-casing-exported-source-path-json/`,
   `../../examples/specification/check/identifier-casing-source-path-human/`,

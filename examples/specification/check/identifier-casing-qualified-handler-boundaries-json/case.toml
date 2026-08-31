@@ -1,0 +1,65 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["function name `Thing`", "\"name\":\"Thing\",\"name_class\":\"function\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics"
+length = 2
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "module name `Missing` must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 19
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 26
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "path_segment"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "Missing"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.1.message"
+equals = "unresolved call_target `missing::Thing`"

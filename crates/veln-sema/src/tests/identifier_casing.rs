@@ -3,5 +3,6 @@ use crate::types::environment::TypeEnvironment;
 
 mod binding_recovery;
 mod constructor_patterns;
+mod handler_boundaries;
 mod import_aliases;
 mod source_names;

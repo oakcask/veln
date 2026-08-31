@@ -140,7 +140,10 @@ recovery links that would cross an import boundary still report
 module-and-type, and prelude-qualified expression, pattern, and type paths
 with each role invalid in turn. The
 `identifier-casing-qualified-use-paths-human` example checks the matching
-human diagnostic spans and cascade suppression.
+human diagnostic spans and cascade suppression. The
+`identifier-casing-qualified-handler-boundaries-json` and
+`identifier-casing-qualified-handler-boundaries-human` examples check handler
+context parameter type paths and handler operation clause call targets.
 Qualified constructor patterns keep constructor syntax. A qualified
 constructor pattern whose final segment starts with an ASCII lowercase letter
 reports `name.invalid_case` at that final segment with occurrence

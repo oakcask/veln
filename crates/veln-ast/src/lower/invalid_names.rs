@@ -175,6 +175,7 @@ pub(super) fn collect_invalid_handler_names(
             None,
             None,
         );
+        collect_invalid_type_path_names(&param.ty_paths, invalid, None);
     }
     for clause in &handler.operation_clauses {
         for param in &clause.params {
@@ -187,6 +188,7 @@ pub(super) fn collect_invalid_handler_names(
                 None,
                 None,
             );
+            collect_invalid_type_path_names(&param.ty_paths, invalid, None);
         }
         collect_invalid_expr_names(&clause.body, invalid, None);
     }

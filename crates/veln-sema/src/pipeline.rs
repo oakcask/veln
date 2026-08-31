@@ -269,6 +269,15 @@ fn invalid_function_segment_lacks_function_role(
                 environment,
             )
         })
+    }) || module.handlers.iter().any(|handler| {
+        handler.operation_clauses.iter().any(|clause| {
+            invalid_function_segment_lacks_function_role_in_expr(
+                invalid,
+                &clause.body,
+                handler.module_name.as_deref(),
+                environment,
+            )
+        })
     })
 }
 
@@ -536,6 +545,15 @@ fn invalid_value_segment_lacks_value_role(
                 environment,
             )
         })
+    }) || module.handlers.iter().any(|handler| {
+        handler.operation_clauses.iter().any(|clause| {
+            invalid_value_segment_lacks_value_role_in_expr(
+                invalid,
+                &clause.body,
+                handler.module_name.as_deref(),
+                environment,
+            )
+        })
     })
 }
 
@@ -768,6 +786,15 @@ fn invalid_constructor_segment_lacks_constructor_role(
                 environment,
             )
         })
+    }) || module.handlers.iter().any(|handler| {
+        handler.operation_clauses.iter().any(|clause| {
+            invalid_constructor_segment_lacks_constructor_role_in_expr(
+                invalid,
+                &clause.body,
+                handler.module_name.as_deref(),
+                environment,
+            )
+        })
     })
 }
 
@@ -916,6 +943,15 @@ fn invalid_type_segment_lacks_constructor_role(
                 invalid,
                 line,
                 function.module_name.as_deref(),
+                environment,
+            )
+        })
+    }) || module.handlers.iter().any(|handler| {
+        handler.operation_clauses.iter().any(|clause| {
+            invalid_type_segment_lacks_constructor_role_in_expr(
+                invalid,
+                &clause.body,
+                handler.module_name.as_deref(),
                 environment,
             )
         })

@@ -49,7 +49,8 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `identifier-casing-import-effect-cascade-boundary-json`,
   `identifier-casing-import-handler-cascade-boundary-json`,
   `identifier-casing-import-order-json`,
-  `identifier-casing-qualified-use-paths-json`, and
+  `identifier-casing-qualified-use-paths-json`,
+  `identifier-casing-qualified-handler-boundaries-json`, and
   `identifier-casing-import-alias-run-boundary-json` define exact spans,
   detail values, diagnostic ordering, and non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less

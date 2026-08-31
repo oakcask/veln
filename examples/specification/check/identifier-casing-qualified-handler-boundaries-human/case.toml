@@ -1,0 +1,15 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = [
+  "main.veln:5:19: error[name.invalid_case]: module name `Missing` must start with an ASCII lowercase letter",
+  "main.veln:6:14: error[name.unresolved]: unresolved call_target `missing::Thing`",
+]
+not_contains = [
+  "function name `Thing`",
+]
+
+[stderr]
+format = "empty"
