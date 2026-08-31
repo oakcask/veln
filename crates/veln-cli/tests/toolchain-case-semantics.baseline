@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"7ba1d5282fb8094f0ecfc8559281ceb16d750ef0"
+source_git_tree	"dd2cecc1253cedbf1e20fb7365c70409e38756bc"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1638
@@ -12222,9 +12222,9 @@ field	expectations.stdout.contains[8]	"\"range\":{\"start\":{\"line\":1,\"charac
 field	expectations.stdout.contains[9]	"\"range\":{\"start\":{\"line\":7,\"character\":2},\"end\":{\"line\":7,\"character\":11}}"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1341,"sha256":"3d03340ddfb357b5fe4966c56fb1d3dadafd73a1d8437ecbfd7cf539c8f4eda2"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1344,"sha256":"00b867cd6f83487b6d7c90c8f823920a2f2db7491e44a31afe6bcac04fe1939d"}
 field	source_errors	"expected"
-case_digest	"419d0136671dbe9908d581fb81ec910a9472e61f50ad6fc1dc24a57ea714c5f8"
+case_digest	"77095179de0b4a4654bcec65190005446a4e889b538885c4d22b45d65becffcf"
 case	"examples/specification/lsp/companion-private-function-rename-overlay"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -52225,4 +52225,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1543ac103fa52214f9a70908f7d488e7fd3d86734a95cf7ec2d0773854bc177a"
+aggregate_digest	"b8f3ee85dff3ef99354794c6d5b49eb9b3054c67233660c80e9466b1b99f4332"
