@@ -222,12 +222,13 @@ checks workspace modules where the renamed symbol would be visible after the
 complete edit, including requested-name occurrences that were not references
 to the selected symbol before the rename. Lexical shadowing checks preserve an
 unedited occurrence when the complete edit would leave that occurrence bound
-to the same local binding or clause parameter. Module affected scopes include
-the module name. Lexical affected scopes include the file plus source start
-and end offsets. When a local binding conflicts with a function rename, the
-reported conflict location is the binding declaration. When an unused handler
-operation clause parameter is renamed to another parameter in the same clause,
-the reported conflict location is the existing clause parameter declaration.
+to the same local binding or clause parameter. A module affected scope has
+`kind: "module"` and the module name. A lexical affected scope has
+`kind: "lexical"` and includes the file plus source start and end offsets.
+When a local binding conflicts with a function rename, the reported conflict
+location is the binding declaration. When an unused handler operation clause
+parameter is renamed to another parameter in the same clause, the reported
+conflict location is the existing clause parameter declaration.
 A rename request
 without a selected supported workspace symbol returns an empty workspace-edit
 `changes` object, and prepare-rename for the same position returns `null`.
