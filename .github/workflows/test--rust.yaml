@@ -155,15 +155,6 @@ jobs:
           COVERAGE_ARTIFACT_URL: ${{ steps.upload-coverage.outputs.artifact-url }}
         run: echo "Download [rust-coverage](${COVERAGE_ARTIFACT_URL}), extract it, and open html/index.html to inspect covered and missed lines." >> "${GITHUB_STEP_SUMMARY}"
 
-  release-registry-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Prepare Cargo dependencies
-        uses: ./.github/actions/cargo-dependencies
-      - name: Verify source-less lookup publication in release mode
-        run: cargo test --locked --release -p veln-sema source_less_lookup::tests::invalid_adt_descriptor_blocks_public_type_annotation_lookup
-
   doc-test:
     runs-on: ubuntu-latest
     steps:

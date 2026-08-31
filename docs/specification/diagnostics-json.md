@@ -64,8 +64,7 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   isolation behavior for runtime, prelude, `prelude_builtin`,
   `standard_names`, `type_syntax`, and built-in ADT lookup descriptors.
   Focused parser and registry tests cover contextual literal spellings that
-  cannot publish bare lookup routes. The Rust CI release registry test keeps
-  this validation active in release builds.
+  cannot publish bare lookup routes.
 - Local inference diagnostic details:
   [diagnostics-json.md#type-inference-diagnostics](diagnostics-json.md#type-inference-diagnostics).
 - Advisory repair candidate fields and application-policy routing:

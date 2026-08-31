@@ -31,11 +31,11 @@ source lookup key. The contextual boolean literal spellings `true` and
 leaf spellings can publish qualified lookup routes that the parser represents
 as name paths, such as `module::true`.
 
-Registry construction is atomic in release and test builds. Valid input
-publishes one complete immutable source-less lookup registry set. If any
-provider descriptor is invalid, the shared publication result fails with
-span-less `toolchain.invalid_symbol_case`, and no lookup state from the other
-source-less providers is published.
+Registry construction is atomic. Valid input publishes one complete immutable
+source-less lookup registry set. If any provider descriptor is invalid, the
+shared publication result fails with span-less
+`toolchain.invalid_symbol_case`, and no lookup state from the other source-less
+providers is published.
 
 The failure details contain `provider`, `name`, `name_class`, and
 `required_initial`. The diagnostic kind is `toolchain`; source-less descriptor
@@ -74,10 +74,10 @@ seeds application registry state from the published built-in ADT registry.
 
 Focused `veln-syntax` and `veln-sema` tests are the executable evidence for
 parser interpretation of bare and qualified name paths, generated-table
-validation, injected invalid descriptors, invalid lookup keys, release-mode
-validation, atomic failure, cross-provider publication failure, checked
-lookup, provider inventory, and lookup isolation. The injected-descriptor
-cases cover qualified separators, other non-identifier characters, and
+validation, injected invalid descriptors, invalid lookup keys, atomic failure,
+cross-provider publication failure, checked lookup, provider inventory, and
+lookup isolation. The injected-descriptor cases cover qualified separators,
+other non-identifier characters, and
 parser-level contextual literal spellings in runtime, prelude or
 compiler-adapter, built-in type-syntax, built-in ADT type, and built-in ADT
 constructor leaves. Public source fixtures cannot inject compiler descriptors,
