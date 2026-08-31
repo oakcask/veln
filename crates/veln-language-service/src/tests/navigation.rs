@@ -321,6 +321,50 @@
     }
 
     #[test]
+    fn invalid_qualified_use_segments_do_not_get_independent_navigation_roles() {
+        let sources = vec![
+            source(
+                "helper.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub fn make() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use helper\n\n",
+                    "fn main(flag: helper::Item) -> Int\n",
+                    "  let a: Helper::Item = helper::Item::ready(1)\n",
+                    "  let b: helper::item = helper::Item::Ready(1)\n",
+                    "  let c = Helper::make()\n",
+                    "  helper::Make()\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        for (line, column) in [(4, 10), (4, 39), (5, 18), (6, 11), (7, 11)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "invalid qualified segment unexpectedly navigated at {line}:{column}"
+            );
+        }
+
+        let valid_type = query(sources.clone(), "main.veln", 5, 33).unwrap();
+        assert_eq!(valid_type.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&valid_type.definition, "helper.veln", 1, 10);
+
+        let valid_constructor = query(sources, "main.veln", 5, 39).unwrap();
+        assert_eq!(valid_constructor.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&valid_constructor.definition, "helper.veln", 2, 7);
+    }
+
+    #[test]
     fn rename_validation_preserves_constructor_case_class() {
         let result = query(
             vec![source(

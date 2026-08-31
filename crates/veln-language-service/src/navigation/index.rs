@@ -79,12 +79,13 @@ impl SymbolIndex {
             return Some(Symbol::Constructor(symbol));
         }
 
+        if let Some(segment) =
+            self.classified_qualified_segment(file, tokens, token_index, name, selection)
+        {
+            return segment.symbol;
+        }
+
         if !is_call_target_token(tokens, token_index) {
-            if let Some(symbol) =
-                self.type_for_constructor_qualifier_token(file, tokens, token_index, name)
-            {
-                return Some(Symbol::Type(symbol));
-            }
             if is_type_reference_token(&file.source, name, selection) {
                 return self
                     .visible_type_for_reference(file, tokens, token_index, name)
@@ -96,6 +97,55 @@ impl SymbolIndex {
             return self.symbol_for_bare_call(file, tokens, token_index, name);
         };
         self.symbol_for_qualified_call(file, &qualifier, name)
+    }
+
+    fn classified_qualified_segment(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<ClassifiedNavigationSegment> {
+        if previous_non_layout_token(tokens, token_index)
+            .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+            && next_non_layout_token(tokens, token_index)
+                .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+        {
+            return None;
+        }
+
+        if !is_call_target_token(tokens, token_index) {
+            if let Some(symbol) =
+                self.type_for_constructor_qualifier_token(file, tokens, token_index, name)
+            {
+                return Some(ClassifiedNavigationSegment {
+                    symbol: Some(Symbol::Type(symbol)),
+                });
+            }
+            if is_type_reference_token(&file.source, name, selection) {
+                return Some(ClassifiedNavigationSegment {
+                    symbol: self
+                        .visible_type_for_reference(file, tokens, token_index, name)
+                        .map(Symbol::Type),
+                });
+            }
+            if next_non_layout_token(tokens, token_index)
+                .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+                && previous_non_layout_token(tokens, token_index)
+                    .is_none_or(|token| token.kind != TokenKind::DoubleColon)
+            {
+                return Some(ClassifiedNavigationSegment { symbol: None });
+            }
+            return Some(ClassifiedNavigationSegment { symbol: None });
+        }
+
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            return None;
+        };
+        Some(ClassifiedNavigationSegment {
+            symbol: self.symbol_for_qualified_call(file, &qualifier, name),
+        })
     }
 
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {

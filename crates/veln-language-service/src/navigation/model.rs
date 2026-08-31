@@ -253,6 +253,11 @@ struct ConstructorSymbol {
 }
 
 #[derive(Clone, Debug)]
+struct ClassifiedNavigationSegment {
+    symbol: Option<Symbol>,
+}
+
+#[derive(Clone, Debug)]
 struct TypeAliasSymbol {
     module: String,
     name: String,

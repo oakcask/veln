@@ -1,6 +1,72 @@
 use super::*;
 
 #[test]
+fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use helper\n",
+            "\n",
+            "type State\n",
+            "  Ready(Int)\n",
+            "end\n",
+            "\n",
+            "fn main(flag: helper::Item) -> prelude::Option<Int>\n",
+            "  let value: Helper::Item = helper::Item::ready(1)\n",
+            "  let fallback: helper::item = helper::Item::Ready(1)\n",
+            "  let built: prelude::option<Int> = prelude::Some(1)\n",
+            "  let local = Helper::make()\n",
+            "  helper::Make()\n",
+            "end\n",
+        ),
+    );
+    let helper = SourceFile::new(
+        "helper.veln",
+        concat!(
+            "pub type Item\n",
+            "  pub Ready(Int)\n",
+            "end\n",
+            "\n",
+            "pub fn make() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let module = merged_modules_with_names([("main", source.clone()), ("helper", helper)]);
+    let diagnostics = analyze_surface_module(&module)
+        .into_iter()
+        .filter(|diagnostic| diagnostic.id == "name.invalid_case")
+        .collect::<Vec<_>>();
+
+    let observed = diagnostics
+        .iter()
+        .map(|diagnostic| {
+            let span = diagnostic.span.as_ref().expect("name diagnostic span");
+            (
+                &source.text()[span.start.offset..span.end.offset],
+                class_detail(diagnostic),
+                segment_index_detail(diagnostic),
+                span.start.line,
+                span.start.column,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        observed,
+        [
+            ("Helper", "module", Some(0), 8, 14),
+            ("ready", "constructor", Some(2), 8, 43),
+            ("item", "type", Some(1), 9, 25),
+            ("option", "type", Some(1), 10, 23),
+            ("Helper", "module", Some(0), 11, 15),
+            ("Make", "function", Some(1), 12, 11),
+        ],
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn unresolved_qualified_call_does_not_guess_module_segment_role() {
     let source = SourceFile::new(
         "main.veln",
@@ -95,4 +161,71 @@ fn generated_unresolved_qualified_calls(count: usize) -> String {
         ));
     }
     source
+}
+
+fn merged_modules_with_names<const N: usize>(sources: [(&str, SourceFile); N]) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for (name, source) in sources {
+        let mut module = lower_surface_ast(&parse(&source).tree);
+        for use_decl in &mut module.uses {
+            use_decl.module_name = Some(name.to_string());
+        }
+        for alias in &mut module.aliases {
+            alias.module_name = Some(name.to_string());
+        }
+        for effect in &mut module.effects {
+            effect.module_name = Some(name.to_string());
+        }
+        for handler in &mut module.handlers {
+            handler.module_name = Some(name.to_string());
+        }
+        for type_decl in &mut module.types {
+            type_decl.module_name = Some(name.to_string());
+        }
+        for schema in &mut module.schemas {
+            schema.module_name = Some(name.to_string());
+        }
+        for codec in &mut module.codecs {
+            codec.module_name = Some(name.to_string());
+        }
+        for function in &mut module.functions {
+            function.module_name = Some(name.to_string());
+        }
+        merged.uses.extend(module.uses);
+        merged.aliases.extend(module.aliases);
+        merged.effects.extend(module.effects);
+        merged.handlers.extend(module.handlers);
+        merged.schemas.extend(module.schemas);
+        merged.codecs.extend(module.codecs);
+        merged.types.extend(module.types);
+        merged.functions.extend(module.functions);
+        merged.invalid_names.extend(module.invalid_names);
+    }
+    merged
+}
+
+fn class_detail(diagnostic: &Diagnostic) -> &'static str {
+    let details = diagnostic.details.to_json();
+    for class in ["module", "type", "constructor", "function", "value_binding"] {
+        if details.contains(&format!("\"name_class\":\"{class}\"")) {
+            return class;
+        }
+    }
+    panic!("diagnostic did not include name_class: {details}");
+}
+
+fn segment_index_detail(diagnostic: &Diagnostic) -> Option<usize> {
+    let details = diagnostic.details.to_json();
+    (0..4).find(|index| details.contains(&format!("\"segment_index\":{index}")))
 }
