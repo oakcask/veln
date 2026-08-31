@@ -20,6 +20,7 @@ members = [
     "crates/veln-syntax",
     "crates/veln-test",
     "tools/veln-repo-metrics",
+    "tools/veln-repo-toolchain-cases",
 ]
 resolver = "3"
 

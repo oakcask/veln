@@ -509,6 +509,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "veln-repo-toolchain-cases"
+version = "0.1.0"
+dependencies = [
+ "veln-project",
+]
+
+[[package]]
 name = "veln-sema"
 version = "0.1.0"
 dependencies = [

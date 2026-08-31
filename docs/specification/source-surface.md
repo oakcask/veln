@@ -421,6 +421,15 @@ use `schema.repeat_reference`, `schema.byte_view_reference`, or
 
 ## Executable Grammar
 
+The executable grammar checks its focused accepted and rejected fixtures. The
+`veln-repo-toolchain-cases` command also scans the toolchain harness for every
+successful source-command case that forbids source errors. It uses the
+toolchain inventory and project-discovery boundaries to enumerate the selected
+`.veln` files and requires the executable grammar to accept each file. The
+dedicated `test / source surface` workflow runs this command after installing
+SWI-Prolog. New accepted cases therefore extend the checked source patterns
+without adding paths to the Prolog specification or adding a Rust harness test.
+
 <!-- source-surface-grammar:start -->
 ```text
 Module        ::= UseDecl* Item*
@@ -475,7 +484,7 @@ EffectEntry   ::= MemberPath | "..." Name
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
 Body          ::= (LetLine | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
-LetPattern    ::= "_" | BindingName | RecordPattern
+LetPattern    ::= "_" | BindingName | ConstructorPattern | RecordPattern
 ExprLine      ::= Expr NL
 Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
 BinaryOp      ::= "|>" | "or" | "and" | "|" | "^" | "&" | "==" | "!="

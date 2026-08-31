@@ -7,7 +7,9 @@ main(Argv) :-
     (   argv_member("--grammar", Argv)
     ->  print_grammar
     ;   argv_member("--check", Argv)
-    ->  check_fixtures
+    ->  check_fixtures,
+        argv_after("--check", Argv, AcceptedPaths),
+        validate_paths(accepted, AcceptedPaths)
     ;   usage,
         halt(2)
     ).
@@ -25,7 +27,7 @@ same_text(Value, Text) :-
     atom_string(Value, Text).
 
 usage :-
-    writeln("usage: swipl -q -s docs/specification/source-surface-executable.pl -- --check|--grammar").
+    writeln("usage: swipl -q -s docs/specification/source-surface-executable.pl -- --check [accepted-source.veln ...]|--grammar").
 
 check_fixtures :-
     validate_fixtures(accepted, accepted_fixture),
@@ -49,12 +51,24 @@ validate_fixtures(Expected, FixturePredicate) :-
     findall(Path, call(FixturePredicate, Path), Paths),
     Paths \= [],
     sort(Paths, Sorted),
-    maplist(validate_fixture(Expected), Sorted).
+    validate_paths(Expected, Sorted).
+
+validate_paths(Expected, Paths) :-
+    findall(
+        Path-Actual,
+        (
+            member(Path, Paths),
+            fixture_outcome(Path, Actual),
+            Actual \= Expected
+        ),
+        Failures
+    ),
+    report_fixture_failures(Expected, Failures).
 
 veln_file(Name) :-
     file_name_extension(_, veln, Name).
 
-validate_fixture(Expected, Path) :-
+fixture_outcome(Path, Actual) :-
     setup_call_cleanup(
         open(Path, read, Stream),
         read_string(Stream, _, Text),
@@ -63,12 +77,21 @@ validate_fixture(Expected, Path) :-
     (   parse_source_text(Text)
     ->  Actual = accepted
     ;   Actual = rejected
-    ),
-    (   Actual = Expected
-    ->  true
-    ;   format(user_error, "~w: expected ~w, got ~w~n", [Path, Expected, Actual]),
-        halt(1)
     ).
+
+report_fixture_failures(_, []).
+report_fixture_failures(Expected, Failures) :-
+    Failures \= [],
+    forall(
+        member(Path-Actual, Failures),
+        format(user_error, "~w: expected ~w, got ~w~n", [Path, Expected, Actual])
+    ),
+    halt(1).
+
+argv_after(Text, Argv, Values) :-
+    append(_, [Value | Values], Argv),
+    same_text(Value, Text),
+    !.
 
 parse_source_text(Text) :-
     string_chars(Text, Chars),
@@ -131,7 +154,7 @@ grammar_line(205, "EffectEntry   ::= MemberPath | \"...\" Name").
 grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
 grammar_line(220, "Body          ::= (LetLine | ExprLine)*").
 grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
-grammar_line(240, "LetPattern    ::= \"_\" | BindingName | RecordPattern").
+grammar_line(240, "LetPattern    ::= \"_\" | BindingName | ConstructorPattern | RecordPattern").
 grammar_line(250, "ExprLine      ::= Expr NL").
 grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
 grammar_line(265, "BinaryOp      ::= \"|>\" | \"or\" | \"and\" | \"|\" | \"^\" | \"&\" | \"==\" | \"!=\"").
@@ -197,8 +220,6 @@ one_token(t(bang_equal, "!=")) --> ['!', '='].
 one_token(t(less_equal, "<=")) --> ['<', '='].
 one_token(t(greater_equal, ">=")) --> ['>', '='].
 one_token(t(pipe_greater, "|>")) --> ['|', '>'].
-one_token(t(shift_right_logical, ">>>")) --> ['>', '>', '>'].
-one_token(t(shift_right, ">>")) --> ['>', '>'].
 one_token(t(shift_left, "<<")) --> ['<', '<'].
 one_token(t(lparen, "(")) --> ['('].
 one_token(t(rparen, ")")) --> [')'].
@@ -207,6 +228,7 @@ one_token(t(rbracket, "]")) --> [']'].
 one_token(t(lbrace, "{")) --> ['{'].
 one_token(t(rbrace, "}")) --> ['}'].
 one_token(t(comma, ",")) --> [','].
+one_token(t(semicolon, ";")) --> [';'].
 one_token(t(colon, ":")) --> [':'].
 one_token(t(dot, ".")) --> ['.'].
 one_token(t(question, "?")) --> ['?'].
@@ -233,6 +255,16 @@ string_tail(['\\', Char | Rest]) --> ['\\', Char], !, string_tail(Rest).
 string_tail([Char | Rest]) --> [Char], { Char \= '\n' }, !, string_tail(Rest).
 string_tail([]) --> [].
 
+number_token(t(int, Text)) -->
+    ['0', 'b'],
+    binary_digit(First),
+    binary_digits(Rest),
+    { string_chars(Text, ['0', 'b', First | Rest]) }.
+number_token(t(int, Text)) -->
+    ['0', 'x'],
+    hexadecimal_digit(First),
+    hexadecimal_digits(Rest),
+    { string_chars(Text, ['0', 'x', First | Rest]) }.
 number_token(t(float, Text)) -->
     digit(First),
     digits(Rest),
@@ -251,6 +283,16 @@ number_token(t(int, Text)) -->
 digit(Char) --> [Char], { char_type(Char, digit) }.
 digits([Char | Rest]) --> digit(Char), !, digits(Rest).
 digits([]) --> [].
+
+binary_digit(Char) --> [Char], { memberchk(Char, ['0', '1']) }.
+binary_digits([Char | Rest]) --> binary_digit(Char), !, binary_digits(Rest).
+binary_digits([]) --> [].
+
+hexadecimal_digit(Char) -->
+    [Char],
+    { char_type(Char, digit) ; memberchk(Char, ['a', 'b', 'c', 'd', 'e', 'f', 'A', 'B', 'C', 'D', 'E', 'F']) }.
+hexadecimal_digits([Char | Rest]) --> hexadecimal_digit(Char), !, hexadecimal_digits(Rest).
+hexadecimal_digits([]) --> [].
 
 ident_token(t(Kind, Text)) -->
     [First],
@@ -318,7 +360,7 @@ underscore_token(t(underscore, "_")) --> ['_'].
 
 source_file --> nls, use_decls, items, nls.
 
-use_decls --> use_decl, !, use_decls.
+use_decls --> use_decl, !, nls, use_decls.
 use_decls --> [].
 use_decl --> tok(use), module_path, import_source, nl.
 
@@ -583,6 +625,8 @@ byte_view_multiple_predicate -->
 byte_view_multiple_operand --> ident.
 byte_view_multiple_operand --> int_literal.
 
+int_literal --> tok(int).
+
 body(S0, S) :-
     nls(S0, S1),
     (   S1 = [t(end, _) | _]
@@ -694,11 +738,11 @@ postfix_tail --> [].
 primary_expr --> tok(hole), satisfy_opt.
 primary_expr --> tok(underscore), satisfy_opt.
 primary_expr --> literal.
-primary_expr --> name_path.
 primary_expr --> perform_expr.
 primary_expr --> handle_expr.
 primary_expr --> schema_decode_expr.
 primary_expr --> schema_encode_expr.
+primary_expr --> name_path.
 primary_expr --> tok(lparen), nls, tok(rparen).
 primary_expr --> tok(lparen), nls, expr, nls, tok(rparen).
 primary_expr --> record_or_dict.
@@ -772,7 +816,11 @@ record_or_dict --> tok(lbrace), nls, tok(rbrace).
 record_or_dict --> tok(lbrace), nls, entry, nls, entries_tail, trailing_comma_opt, tok(rbrace).
 entries_tail --> tok(comma), nls, entry, nls, !, entries_tail.
 entries_tail --> [].
+entry --> field_name, tok(colon), expr.
 entry --> expr, tok(colon), expr.
+
+field_name --> ident.
+field_name --> tok(effect).
 
 list_expr --> tok(lbracket), nls, args_opt, nls, tok(rbracket).
 
@@ -780,7 +828,11 @@ match_expr --> tok(match), expr, nls, match_arms, tok(end).
 match_arms --> match_arm, !, match_arms_tail.
 match_arms_tail --> match_arm, !, match_arms_tail.
 match_arms_tail --> [].
-match_arm --> pattern, tok(fat_arrow), expr, nls.
+match_arm -->
+    pattern,
+    tok(fat_arrow),
+    expr_line_tokens(Tokens),
+    { Tokens \= [], phrase(expr, Tokens) }.
 
 if_expr --> tok(if), expr, nls, expr, nls, else_if_tail, tok(else), nls, expr, nls, tok(end).
 else_if_tail --> tok(else), tok(if), expr, nls, expr, nls, !, else_if_tail.
@@ -789,6 +841,7 @@ else_if_tail --> [].
 let_pattern --> tok(underscore).
 let_pattern --> binding_name.
 let_pattern --> record_pattern.
+let_pattern --> constructor_pattern.
 
 pattern --> tok(underscore).
 pattern --> literal.
@@ -826,15 +879,15 @@ literal --> ident_text("true").
 literal --> ident_text("false").
 
 name_path --> ident, name_path_tail.
-name_path_tail --> tok(double_colon), ident, !, name_path_tail.
+name_path_tail --> tok(double_colon), path_segment, !, name_path_tail.
 name_path_tail --> [].
 
-member_path --> ident, member_path_tail.
-member_path_tail --> tok(double_colon), ident, !, member_path_tail.
+member_path --> path_segment, member_path_tail.
+member_path_tail --> tok(double_colon), path_segment, !, member_path_tail.
 member_path_tail --> [].
 
-module_path --> ident, module_path_tail.
-module_path_tail --> tok(double_colon), ident, !, module_path_tail.
+module_path --> path_segment, module_path_tail.
+module_path_tail --> tok(double_colon), path_segment, !, module_path_tail.
 module_path_tail --> [].
 
 binary_op --> tok(pipe_greater).
@@ -850,16 +903,23 @@ binary_op --> tok(less_equal).
 binary_op --> tok(greater).
 binary_op --> tok(greater_equal).
 binary_op --> tok(shift_left).
-binary_op --> tok(shift_right).
-binary_op --> tok(shift_right_logical).
+binary_op --> tok(greater), tok(greater), tok(greater), !.
+binary_op --> tok(greater), tok(greater), !.
 binary_op --> tok(plus).
 binary_op --> tok(minus).
 binary_op --> tok(star).
 binary_op --> tok(slash).
 
-binding_name --> ident_text(Text), { string_chars(Text, [First | _]), \+ char_type(First, upper) }.
-upper_name --> ident_text(Text), { string_chars(Text, [First | _]), char_type(First, upper) }.
-ident --> tok(ident).
+binding_name --> identifier_text(Text), { string_chars(Text, [First | _]), \+ char_type(First, upper) }.
+upper_name --> identifier_text(Text), { string_chars(Text, [First | _]), char_type(First, upper) }.
+ident --> identifier_text(_).
+identifier_text(Text) --> [t(ident, Text)].
+identifier_text(Text) --> [t(handle, Text)].
+identifier_text(Text) --> [t(handler, Text)].
+identifier_text(Text) --> [t(handles, Text)].
+path_segment --> ident.
+path_segment --> tok(decode).
+path_segment --> tok(encode).
 ident_text(Text) --> [t(ident, Text)].
 ident_text(Expected) --> [t(ident, Expected)].
 
