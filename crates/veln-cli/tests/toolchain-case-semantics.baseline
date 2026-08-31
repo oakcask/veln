@@ -13164,10 +13164,60 @@ field	expectations.lsp_assertions[60].path	"/result"
 field	expectations.lsp_assertions[61].id	23
 field	expectations.lsp_assertions[61].operation	"missing"
 field	expectations.lsp_assertions[61].path	"/error"
+field	expectations.lsp_assertions[62].equals	-32602
+field	expectations.lsp_assertions[62].id	24
+field	expectations.lsp_assertions[62].operation	"equals"
+field	expectations.lsp_assertions[62].path	"/error/code"
+field	expectations.lsp_assertions[63].equals	"rename.conflict"
+field	expectations.lsp_assertions[63].id	24
+field	expectations.lsp_assertions[63].operation	"equals"
+field	expectations.lsp_assertions[63].path	"/error/data/code"
+field	expectations.lsp_assertions[64].equals	"value_binding"
+field	expectations.lsp_assertions[64].id	24
+field	expectations.lsp_assertions[64].operation	"equals"
+field	expectations.lsp_assertions[64].path	"/error/data/details/symbol_class"
+field	expectations.lsp_assertions[65].equals	"right"
+field	expectations.lsp_assertions[65].id	24
+field	expectations.lsp_assertions[65].operation	"equals"
+field	expectations.lsp_assertions[65].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[66].id	24
+field	expectations.lsp_assertions[66].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[66].path	"/error/data/details/conflicting_declaration/uri"
+field	expectations.lsp_assertions[66].workspace_file_uri	"shadowing.veln"
+field	expectations.lsp_assertions[67].equals	26
+field	expectations.lsp_assertions[67].id	24
+field	expectations.lsp_assertions[67].operation	"equals"
+field	expectations.lsp_assertions[67].path	"/error/data/details/conflicting_declaration/range/start/line"
+field	expectations.lsp_assertions[68].equals	15
+field	expectations.lsp_assertions[68].id	24
+field	expectations.lsp_assertions[68].operation	"equals"
+field	expectations.lsp_assertions[68].path	"/error/data/details/conflicting_declaration/range/start/character"
+field	expectations.lsp_assertions[69].equals	"lexical"
+field	expectations.lsp_assertions[69].id	24
+field	expectations.lsp_assertions[69].operation	"equals"
+field	expectations.lsp_assertions[69].path	"/error/data/details/affected_scope/kind"
 field	expectations.lsp_assertions[6].equals	"created"
 field	expectations.lsp_assertions[6].id	7
 field	expectations.lsp_assertions[6].operation	"equals"
 field	expectations.lsp_assertions[6].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[70].equals	"shadowing.veln"
+field	expectations.lsp_assertions[70].id	24
+field	expectations.lsp_assertions[70].operation	"equals"
+field	expectations.lsp_assertions[70].path	"/error/data/details/affected_scope/file"
+field	expectations.lsp_assertions[71].equals	465
+field	expectations.lsp_assertions[71].id	24
+field	expectations.lsp_assertions[71].operation	"equals"
+field	expectations.lsp_assertions[71].path	"/error/data/details/affected_scope/start_offset"
+field	expectations.lsp_assertions[72].equals	472
+field	expectations.lsp_assertions[72].id	24
+field	expectations.lsp_assertions[72].operation	"equals"
+field	expectations.lsp_assertions[72].path	"/error/data/details/affected_scope/end_offset"
+field	expectations.lsp_assertions[73].id	24
+field	expectations.lsp_assertions[73].operation	"missing"
+field	expectations.lsp_assertions[73].path	"/result"
+field	expectations.lsp_assertions[74].id	25
+field	expectations.lsp_assertions[74].operation	"missing"
+field	expectations.lsp_assertions[74].path	"/error"
 field	expectations.lsp_assertions[7].equals	"ascii_uppercase"
 field	expectations.lsp_assertions[7].id	7
 field	expectations.lsp_assertions[7].operation	"equals"
@@ -13201,10 +13251,10 @@ field	expectations.stdout.not_contains[2]	"\"line\":3,\"character\":20"
 field	expectations.stdout.not_contains[3]	"left.veln\":[{\"range\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5156,"sha256":"17127ee85cd14e0357caf601c0030a40075d18e1117a8631205e70771fbab20f"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5618,"sha256":"6d5d2bf850c937854133dbace2927e1ff63bf1fd7759cc107db24d55068fb3d4"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"5f5782e63d215c1a5f16d7afaa25647be94f32e665735c3fc569d5744d631898"
+case_digest	"27ed928f8e704d9de4ef3da8640c32675ce4c8ade11bc9c2a97e31eb3a11f48c"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52313,4 +52363,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"6c1910df33157d4357f6303750c8a5a211dd0eebeaa4988284d84e9290205db7"
+aggregate_digest	"645c8e359768a24d0599c8a315bb3a1185f1de2b484746242a2e0aa888a86f65"
