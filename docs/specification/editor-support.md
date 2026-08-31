@@ -222,9 +222,9 @@ without a selected supported workspace symbol returns an empty workspace-edit
 The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
 class-changing failures for the four supported rename classes, predictable
-conflict rejection, source-declared nullary constructor uses, same-spelled
-non-type namespace exclusion, ambiguous imported type rejection, and qualified
-type identity preservation for type rename.
+duplicate and ambiguity conflict rejection, source-declared nullary
+constructor uses, same-spelled non-type namespace exclusion, ambiguous imported
+type rejection, and qualified type identity preservation for type rename.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

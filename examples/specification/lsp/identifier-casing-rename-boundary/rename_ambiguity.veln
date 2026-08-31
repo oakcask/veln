@@ -1,0 +1,7 @@
+use origin
+use alpha
+use beta
+
+fn imported(value: Source) -> Source
+  value
+end

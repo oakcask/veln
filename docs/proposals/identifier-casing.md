@@ -411,8 +411,8 @@ For type-role references, the current boundary rejects ambiguous bare imported
 type selections, preserves qualified type identity before returning rename
 edits, and covers the implemented qualified-use path segment selections named
 above. The remaining rename proposal covers repair rename through quarantined
-invalid-name recovery records, predictable conflict rejection, source-path
-module rename exclusion, MCP error mapping, and deferred module surfaces.
+invalid-name recovery records, source-path module rename exclusion, MCP error
+mapping, and deferred module surfaces.
 
 A repair rename edits the declaration and every occurrence linked to the same
 unique recovery symbol, including an occurrence whose initial-derived valid

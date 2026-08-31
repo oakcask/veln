@@ -92,7 +92,12 @@ impl SymbolIndex {
                     .find_map(|span| {
                         let (file, token_index) = self.file_token_for_span(span)?;
                         let conflict = self
-                            .visible_type_for_reference(file, &file.tokens, token_index, requested_name)
+                            .visible_type_conflict_for_reference(
+                                file,
+                                &file.tokens,
+                                token_index,
+                                requested_name,
+                            )
                             .filter(|candidate| !same_type(candidate, &selected))?;
                         Some((
                             conflict.declaration,
@@ -133,7 +138,7 @@ impl SymbolIndex {
                     .find_map(|span| {
                         let (file, token_index) = self.file_token_for_span(span)?;
                         let conflict = self
-                            .constructor_symbol_for_call(
+                            .constructor_conflict_for_call(
                                 file,
                                 &file.tokens,
                                 token_index,
@@ -182,7 +187,7 @@ impl SymbolIndex {
                             return self.local_conflict_in_file(file, requested_name, span);
                         }
                         if let Some(conflict) = self
-                            .constructor_symbol_for_call(
+                            .constructor_conflict_for_call(
                                 file,
                                 &file.tokens,
                                 token_index,
@@ -510,30 +515,58 @@ impl SymbolIndex {
         self.visible_type_for_bare_reference(file, name)
     }
 
+    fn visible_type_conflict_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            return self.first_visible_type_for_qualified_reference(file, &qualifier, name);
+        }
+        self.first_visible_type_for_bare_reference(file, name)
+    }
+
     fn visible_type_for_bare_reference(
         &self,
         file: &IndexedFile,
         name: &str,
     ) -> Option<TypeSymbol> {
-        if let Some(symbol) = self.types.iter().find(|symbol| {
-            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-        }) {
+        if let Some(symbol) = self.first_local_type_for_bare_reference(file, name) {
             return Some(symbol.clone());
         }
 
         let mut candidates = self.types.iter().filter(|symbol| {
-            symbol.name == name
-                && symbol.public
-                && match &symbol.package {
-                    Some(package) => file
-                        .external_uses
-                        .contains(&(symbol.module.clone(), package.clone()))
-                        || symbol.standard_prelude,
-                    None => symbol.module != file.module && file.uses.contains(&symbol.module),
-                }
+            visible_imported_type_for_bare_reference(file, symbol, name)
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn first_visible_type_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        self.first_local_type_for_bare_reference(file, name)
+            .cloned()
+            .or_else(|| {
+                self.types
+                    .iter()
+                    .find(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
+                    .cloned()
+            })
+    }
+
+    fn first_local_type_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<&TypeSymbol> {
+        self.types.iter().find(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        })
     }
 
     fn visible_type_for_qualified_reference(
@@ -556,6 +589,19 @@ impl SymbolIndex {
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn first_visible_type_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        self.types
+            .iter()
+            .find(|symbol| visible_type_for_qualified_reference(file, symbol, &qualified_modules, name))
+            .cloned()
     }
 
     fn type_for_constructor_qualifier_token(
@@ -720,6 +766,16 @@ impl SymbolIndex {
         let mut candidates = self.constructors.iter().filter(|symbol| predicate(symbol));
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn first_constructor_matching(
+        &self,
+        predicate: impl Fn(&ConstructorSymbol) -> bool,
+    ) -> Option<ConstructorSymbol> {
+        self.constructors
+            .iter()
+            .find(|symbol| predicate(symbol))
+            .cloned()
     }
 
     fn constructor_for_qualified_call(
@@ -1035,6 +1091,54 @@ impl SymbolIndex {
         }
     }
 
+    fn constructor_conflict_for_call(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<ConstructorSymbol> {
+        match qualifier_for_token(tokens, token_index) {
+            Some(qualifier) => self.constructor_for_qualified_call(file, &qualifier, name),
+            None => self.constructor_conflict_for_bare_call(file, name),
+        }
+    }
+
+    fn constructor_conflict_for_bare_call(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<ConstructorSymbol> {
+        self.local_constructor_for_bare_call(file, name)
+            .or_else(|| {
+                self.first_constructor_matching(|symbol| {
+                    symbol.name == name
+                        && !symbol.standard_prelude
+                        && symbol.package.is_none()
+                        && symbol.module != file.module
+                        && (file.uses.contains(&symbol.module)
+                            || self.constructor_reexport_visible_from(file, symbol, None))
+                        && visible_workspace_constructor_from(file, symbol)
+                })
+            })
+            .or_else(|| {
+                self.first_constructor_matching(|symbol| {
+                    symbol.name == name
+                        && !symbol.standard_prelude
+                        && symbol.public
+                        && symbol.package.as_ref().is_some_and(|package| {
+                            file.external_uses
+                                .contains(&(symbol.module.clone(), package.clone()))
+                                || self.constructor_reexport_visible_from(
+                                    file,
+                                    symbol,
+                                    Some(package),
+                                )
+                        })
+                })
+            })
+    }
+
     fn qualified_module_candidates(&self, file: &IndexedFile, qualifier: &str) -> Vec<String> {
         let mut modules = vec![qualifier.to_string()];
         if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier) {
@@ -1085,6 +1189,43 @@ fn resolve_qualified_alias(aliases: &BTreeMap<String, String>, qualifier: &str) 
     } else {
         Some(format!("{}::{}", module, rest.join("::")))
     }
+}
+
+fn visible_imported_type_for_bare_reference(
+    file: &IndexedFile,
+    symbol: &TypeSymbol,
+    name: &str,
+) -> bool {
+    symbol.name == name
+        && symbol.public
+        && match &symbol.package {
+            Some(package) => {
+                file.external_uses
+                    .contains(&(symbol.module.clone(), package.clone()))
+                    || symbol.standard_prelude
+            }
+            None => symbol.module != file.module && file.uses.contains(&symbol.module),
+        }
+}
+
+fn visible_type_for_qualified_reference(
+    file: &IndexedFile,
+    symbol: &TypeSymbol,
+    qualified_modules: &[String],
+    name: &str,
+) -> bool {
+    symbol.name == name
+        && qualified_modules
+            .iter()
+            .any(|module| module == &symbol.module)
+        && match &symbol.package {
+            Some(package) => {
+                file.external_uses
+                    .contains(&(symbol.module.clone(), package.clone()))
+                    || symbol.standard_prelude
+            }
+            None => symbol.module == file.module || file.uses.contains(&symbol.module),
+        }
 }
 
 fn resolve_external_qualified_alias(

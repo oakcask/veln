@@ -298,11 +298,13 @@
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("left.veln", "pub type Item\n  Left\nend\n"),
             source("right.veln", "pub type Entry\n  Right\nend\n"),
+            source("extra.veln", "pub type Entry\n  Extra\nend\n"),
             source(
                 "main.veln",
                 concat!(
                     "use left\n",
                     "use right\n\n",
+                    "use extra\n\n",
                     "fn local(value: left::Item) -> left::Item\n",
                     "  value\n",
                     "end\n\n",
@@ -321,6 +323,36 @@
             "right.veln",
             1,
             10,
+        );
+    }
+
+    #[test]
+    fn rename_validation_rejects_provable_constructor_ambiguity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Source\n  pub Ready\nend\n"),
+            source("right.veln", "pub type Target\n  pub Done\nend\n"),
+            source("extra.veln", "pub type Other\n  pub Done\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n",
+                    "use extra\n\n",
+                    "fn make() -> left::Source\n",
+                    "  Ready\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 2, 7).unwrap();
+
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "Done").unwrap_err(),
+            RenameNameClass::Constructor,
+            "Done",
+            "right.veln",
+            2,
+            7,
         );
     }
 
