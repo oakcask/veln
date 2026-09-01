@@ -21,6 +21,7 @@ impl SymbolIndex {
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
             files,
+            function_rename_index: OnceLock::new(),
         }
     }
 

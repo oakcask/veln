@@ -139,16 +139,15 @@ impl SymbolIndex {
         requested_name: &str,
         selected: &FunctionSymbol,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
-        let scope_cache = self.function_scope_cache();
-        let handler_files = self.handler_reference_files();
+        let rename_index = self.function_rename_index();
         self.affected_spans(result)
             .into_iter()
             .find_map(|span| self.function_span_conflict(
                 span,
                 requested_name,
                 selected,
-                &scope_cache,
-                &handler_files,
+                &rename_index.scopes_by_file,
+                &rename_index.handler_files,
             ))
     }
 
@@ -268,15 +267,15 @@ impl SymbolIndex {
         selected: &FunctionSymbol,
         requested_name: &str,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
-        let scope_cache = self.function_scope_cache();
-        let handler_files = self.handler_reference_files();
+        let rename_index = self.function_rename_index();
         self.files
             .iter()
             .filter(|file| function_visible_after_rename(file, selected))
             .find_map(|file| {
                 let file_path = file.source.path().as_str();
-                let file_has_handler_references = handler_files.contains(file_path);
-                let file_scopes = scope_cache
+                let file_has_handler_references = rename_index.handler_files.contains(file_path);
+                let file_scopes = rename_index
+                    .scopes_by_file
                     .get(file_path)
                     .map(Vec::as_slice)
                     .unwrap_or(&[]);
@@ -336,24 +335,34 @@ impl SymbolIndex {
         Some(module_rename_conflict(conflict.declaration, &file.module))
     }
 
-    fn function_scope_cache(&self) -> BTreeMap<String, Vec<FunctionScope>> {
-        self.files
-            .iter()
-            .map(|file| {
-                (
+    fn function_rename_index(&self) -> &FunctionRenameIndex {
+        self.function_rename_index.get_or_init(|| {
+            let mut scopes_by_file = BTreeMap::new();
+            let mut handler_files = BTreeSet::new();
+            for file in self
+                .files
+                .iter()
+                .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
+            {
+                #[cfg(test)]
+                record_function_scope_collection();
+                if file
+                    .tokens
+                    .iter()
+                    .any(|token| token.kind == TokenKind::Handler)
+                {
+                    handler_files.insert(file.source.path().as_str().to_string());
+                }
+                scopes_by_file.insert(
                     file.source.path().as_str().to_string(),
                     function_scopes(&file.tokens),
-                )
-            })
-            .collect()
-    }
-
-    fn handler_reference_files(&self) -> BTreeSet<String> {
-        self.files
-            .iter()
-            .filter(|file| file.tokens.iter().any(|token| token.kind == TokenKind::Handler))
-            .map(|file| file.source.path().as_str().to_string())
-            .collect()
+                );
+            }
+            FunctionRenameIndex {
+                scopes_by_file,
+                handler_files,
+            }
+        })
     }
 
     fn constructor_local_resolution_unchanged(

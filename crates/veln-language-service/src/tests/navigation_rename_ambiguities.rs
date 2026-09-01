@@ -232,6 +232,36 @@
     }
 
     #[test]
+    fn repeated_function_rename_validation_reuses_collected_scopes() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use left\n\n",
+                        "fn caller(seed: Int) -> Int\n",
+                        "  source() + seed\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[("utility.veln", "pub fn utility() -> Int\n  1\nend\n")],
+                ["utility"],
+            )],
+        );
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+        reset_function_scope_collections();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "renamed").is_ok());
+
+        assert_eq!(function_scope_collections(), 2);
+    }
+
+    #[test]
     fn rename_validation_keeps_shadowed_consumer_function_rename_linear() {
         let elapsed = [400, 800, 1_600].map(|call_count| {
             let mut samples = (0..3)
