@@ -70,10 +70,12 @@ targets, and other independently provable failures remain reported.
 ## Completion
 
 This slice is complete. It does not add source-path-derived module identity
-casing, explicit import-alias casing, recovery navigation, definition,
-references, prepare-rename, repair rename, MCP rename mapping, or source
-migration beyond the focused executable examples. LSP rename conflict rejection
-for valid selected workspace symbols is completed separately in
+casing, explicit import-alias casing, repair rename, MCP rename mapping, or
+source migration beyond the focused executable examples. Recovery navigation is
+completed separately in
+[Identifier Casing Recovery Navigation](identifier-casing-recovery-navigation.md).
+LSP rename conflict rejection for valid selected workspace symbols is
+completed separately in
 [Identifier Casing Rename Conflicts](identifier-casing-rename-conflicts.md).
 Non-import qualified-use path casing is completed separately in
 [Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).

@@ -506,17 +506,35 @@ fn selected_snapshot_invalid_casing_publishes_and_excludes_symbol() {
     );
     let declaration = server.handle_message(&definition_request(&main_uri, 0, 3));
     assert!(
-        declaration[0].contains(r#""result":null"#),
+        declaration[0].contains(
+            r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":6}}"#
+        ),
         "{}",
         declaration[0]
     );
     let call = server.handle_message(&definition_request(&main_uri, 5, 2));
-    assert!(call[0].contains(r#""result":null"#), "{}", call[0]);
+    assert!(
+        call[0].contains(
+            r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":6}}"#
+        ),
+        "{}",
+        call[0]
+    );
     let references = server.handle_message(&references_request(&main_uri, 0, 3));
     assert!(
-        references[0].contains(r#""result":[]"#),
+        references[0].contains(r#""result":[{"uri":"file://"#)
+            && references[0].contains(r#""line":0,"character":3"#)
+            && references[0].contains(r#""line":5,"character":2"#),
         "{}",
         references[0]
+    );
+    let prepare = server.handle_message(&prepare_rename_request(&main_uri, 5, 2));
+    assert!(
+        prepare[0].contains(
+            r#""result":{"start":{"line":5,"character":2},"end":{"line":5,"character":5}}"#
+        ),
+        "{}",
+        prepare[0]
     );
     let rename = server.handle_message(&rename_request(&main_uri, 0, 3, "renamed"));
     assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
@@ -552,5 +570,11 @@ fn selected_overlay_invalid_casing_replaces_saved_symbol() {
         "{publish}"
     );
     let call = server.handle_message(&definition_request(&main_uri, 5, 2));
-    assert!(call[0].contains(r#""result":null"#), "{}", call[0]);
+    assert!(
+        call[0].contains(
+            r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":6}}"#
+        ),
+        "{}",
+        call[0]
+    );
 }

@@ -1,0 +1,248 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+method = "textDocument/publishDiagnostics"
+occurrence = 0
+path = "/params/diagnostics/0/code"
+equals = "name.invalid_case"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/character"
+equals = 3
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range/start/line"
+equals = 1
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/range/start/line"
+equals = 5
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/line"
+equals = 5
+
+[[lsp_assert]]
+id = 4
+path = "/result/start/character"
+equals = 2
+
+[[lsp_assert]]
+id = 5
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 6
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 7
+path = "/result/range/start/line"
+equals = 12
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 12
+path = "/result/range/start/line"
+equals = 41
+
+[[lsp_assert]]
+id = 13
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 14
+path = "/result/start/line"
+equals = 42
+
+[[lsp_assert]]
+id = 15
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 19
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 23
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 25
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 26
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 27
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 28
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 29
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 30
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 31
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 32
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 33
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 34
+path = "/result/range/start/line"
+equals = 68
+
+[[lsp_assert]]
+id = 34
+path = "/result/range/start/character"
+equals = 2
+
+[[lsp_assert]]
+id = 35
+path = "/result/range/start/line"
+equals = 75
+
+[[lsp_assert]]
+id = 35
+path = "/result/range/start/character"
+equals = 22
+
+[[lsp_assert]]
+id = 36
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 36
+path = "/result/0/range/start/line"
+equals = 75
+
+[[lsp_assert]]
+id = 36
+path = "/result/1/range/start/line"
+equals = 76
+
+[[lsp_assert]]
+id = 36
+path = "/result/2/range/start/line"
+equals = 77
+
+[[lsp_assert]]
+id = 37
+path = "/result/start/line"
+equals = 77
+
+[[lsp_assert]]
+id = 37
+path = "/result/start/character"
+equals = 2

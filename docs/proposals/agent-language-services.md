@@ -19,7 +19,9 @@ implemented and specified in
 [MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, and
 `check_project`, plus workspace-only `definition` for the language service's
-current function, constructor, and handler-binding symbol set. Broader
+current saved-source definition selection set, including ordinary supported
+workspace symbols and recovery definition locations for unique
+class-compatible invalid source declaration or binding records. Broader
 definition and reference navigation, documentation resources and search,
 pagination, snapshot resource lifetime, conformance completion, and client
 plugin work in this proposal remain planned.

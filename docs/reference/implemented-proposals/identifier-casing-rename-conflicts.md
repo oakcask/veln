@@ -79,6 +79,8 @@ transport surfaces other than LSP.
 ## Completion
 
 This slice is complete for valid selected workspace symbols through LSP
-rename. It does not complete recovery navigation through quarantined invalid
-declarations, repair rename, source-path module rename exclusion, MCP rename
-mapping, or deferred module surfaces.
+rename. Recovery navigation through quarantined invalid declarations is
+completed separately in
+[Identifier Casing Recovery Navigation](identifier-casing-recovery-navigation.md).
+This slice does not complete repair rename, source-path module rename
+exclusion, MCP rename mapping, or deferred module surfaces.

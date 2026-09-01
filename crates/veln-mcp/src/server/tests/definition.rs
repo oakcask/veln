@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn definition_resolves_the_supported_workspace_symbol_set() {
@@ -164,6 +165,53 @@ fn definition_infers_project_and_isolates_other_sources_and_descendant_manifests
             "{source}"
         );
     }
+}
+
+#[test]
+fn definition_exposes_unique_invalid_name_recovery_but_not_unsupported_boundaries() {
+    let workspace = TempWorkspace::new("definition-invalid-name-recovery");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  byte(value: Int)\n",
+            "end\n\n",
+            "fn byte() -> Int\n",
+            "  2\n",
+            "end\n\n",
+            "fn Bad() -> Int\n",
+            "  Bad()\n",
+            "end\n\n",
+            "fn Dup() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "fn Dup() -> Int\n",
+            "  2\n",
+            "end\n\n",
+            "fn caller() -> Int\n",
+            "  Bad() + Dup() + byte()\n",
+            "end\n",
+        ),
+    );
+
+    let recovery = definition_result(&workspace, "main.veln", 22, 4);
+    assert_eq!(recovery["isError"], false, "{recovery:#}");
+    assert_eq!(
+        recovery["structuredContent"]["definition"]["range"],
+        json!({"start": {"line": 9, "column": 4}, "end": {"line": 9, "column": 7}})
+    );
+
+    let ambiguous = definition_result(&workspace, "main.veln", 22, 12);
+    assert_eq!(ambiguous["isError"], false, "{ambiguous:#}");
+    assert_eq!(ambiguous["structuredContent"]["definition"], Value::Null);
+
+    let valid_precedence = definition_result(&workspace, "main.veln", 22, 20);
+    assert_eq!(valid_precedence["isError"], false, "{valid_precedence:#}");
+    assert_eq!(
+        valid_precedence["structuredContent"]["definition"]["range"],
+        json!({"start": {"line": 5, "column": 4}, "end": {"line": 5, "column": 8}})
+    );
 }
 
 #[test]
@@ -368,21 +416,31 @@ fn definition_rejects_symlink_paths_and_spells_uris_from_the_resolved_base() {
         workspace.root.file_name().unwrap().to_string_lossy()
     ));
     symlink(&workspace.root, &alias).unwrap();
-    let base = WorkspaceBase::open(alias.clone()).unwrap();
+    let server = server_from_workspace_base_alias(&alias);
+    let result = server.definition_tool(&json!({"source":"main.veln","line":6,"column":4}));
+    assert_definition_uri_uses_resolved_base(&result, &workspace);
+    fs::remove_file(alias).unwrap();
+}
+
+#[cfg(unix)]
+fn server_from_workspace_base_alias(alias: &Path) -> Server {
+    let base = WorkspaceBase::open(alias.to_path_buf()).unwrap();
     let selection = Selection::discover(base.path()).unwrap();
-    let server = Server {
+    Server {
         base,
         selection,
         initialized: true,
-    };
-    let result = server.definition_tool(&json!({"source":"main.veln","line":6,"column":4}));
+    }
+}
+
+#[cfg(unix)]
+fn assert_definition_uri_uses_resolved_base(result: &Value, workspace: &TempWorkspace) {
     let uri = result["structuredContent"]["definition"]["uri"]
         .as_str()
         .unwrap();
     let resolved_name = workspace.root.file_name().unwrap().to_string_lossy();
     assert!(uri.contains(resolved_name.as_ref()), "{uri}");
     assert!(!uri.contains("-alias/main.veln"), "{uri}");
-    fs::remove_file(alias).unwrap();
 }
 
 fn definition_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {

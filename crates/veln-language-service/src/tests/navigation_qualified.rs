@@ -465,7 +465,7 @@ mod navigation_qualified_and_package_tests {
     }
 
     #[test]
-    fn invalid_handler_context_binding_is_not_navigable() {
+    fn invalid_handler_context_binding_uses_recovery_navigation() {
         let sources = vec![source(
             "main.veln",
             concat!(
@@ -478,16 +478,22 @@ mod navigation_qualified_and_package_tests {
             ),
         )];
 
-        for (line, column) in [(5, 16), (6, 20)] {
-            assert!(
-                query(sources.clone(), "main.veln", line, column).is_none(),
-                "invalid handler context binding was navigable at {line}:{column}"
-            );
-        }
+        let declaration = query(sources.clone(), "main.veln", 5, 16).unwrap();
+        assert!(declaration.is_recovery);
+        assert_eq!(
+            declaration.selected_symbol.kind,
+            SymbolKind::HandlerContextParameter
+        );
+        assert_location(&declaration.definition, "main.veln", 5, 16);
+
+        let reference = query(sources, "main.veln", 6, 20).unwrap();
+        assert!(reference.is_recovery);
+        assert_eq!(reference.definition, declaration.definition);
+        assert_eq!(locations(&reference.references), [("main.veln", 6, 20)]);
     }
 
     #[test]
-    fn invalid_handler_operation_clause_binding_is_not_navigable() {
+    fn invalid_handler_operation_clause_binding_uses_recovery_navigation() {
         let sources = vec![source(
             "main.veln",
             concat!(
@@ -500,12 +506,18 @@ mod navigation_qualified_and_package_tests {
             ),
         )];
 
-        for (line, column) in [(6, 10), (6, 29)] {
-            assert!(
-                query(sources.clone(), "main.veln", line, column).is_none(),
-                "invalid handler operation binding was navigable at {line}:{column}"
-            );
-        }
+        let declaration = query(sources.clone(), "main.veln", 6, 10).unwrap();
+        assert!(declaration.is_recovery);
+        assert_eq!(
+            declaration.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_location(&declaration.definition, "main.veln", 6, 10);
+
+        let reference = query(sources, "main.veln", 6, 29).unwrap();
+        assert!(reference.is_recovery);
+        assert_eq!(reference.definition, declaration.definition);
+        assert_eq!(locations(&reference.references), [("main.veln", 6, 29)]);
     }
 
     #[test]

@@ -1,0 +1,23 @@
+type Item
+  byte(value: Int)
+end
+
+fn byte() -> Int
+  2
+end
+
+fn Bad() -> Int
+  Bad()
+end
+
+fn Dup() -> Int
+  1
+end
+
+fn Dup() -> Int
+  2
+end
+
+fn caller() -> Int
+  Bad() + Dup() + byte()
+end

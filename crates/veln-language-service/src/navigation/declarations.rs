@@ -37,8 +37,13 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
         .unwrap_or_default();
     let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
     let parsed = parse(&source);
-    let invalid_declaration_names = invalid_declaration_name_spans(&parsed);
+    let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
+    let recovery_symbols = recovery_symbols_for_workspace_source(
+        &source,
+        &tokens,
+        &invalid_declaration_names,
+    );
     let file = IndexedFile {
         source,
         tokens,
@@ -48,8 +53,13 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
         external_uses,
         import_aliases,
         external_import_aliases,
-        invalid_declaration_names,
+        invalid_declaration_names: invalid_declaration_names
+            .iter()
+            .map(|invalid| invalid.span.clone())
+            .collect(),
+        recovery_symbols,
         classified_path_segments: Vec::new(),
+        type_reference_locations: OnceLock::new(),
         origin: IndexedOrigin::Workspace,
     };
     let declarations = file_declarations(&file, &parsed.tree);
@@ -62,37 +72,51 @@ fn index_dependency_sources(
     dependency: DirectDependencySnapshot,
 ) {
     for (source, entry) in dependency.indexed_sources() {
-        let text = std::str::from_utf8(source.bytes())
-            .expect("captured package source text is valid UTF-8");
-        let source_file = SourceFile::new(source.path(), text);
-        let module = explicit_module_name(text)
-            .or_else(|| module_name_from_path(source.path()))
-            .unwrap_or_default();
-        let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
-        let parsed = parse(&source_file);
-        let invalid_declaration_names = invalid_declaration_name_spans(&parsed);
-        let tokens = lex(&source_file).tokens;
-        let file = IndexedFile {
-            source: source_file,
-            tokens,
-            module,
-            companion_target_module: None,
-            uses,
-            external_uses,
-            import_aliases,
-            external_import_aliases,
-            invalid_declaration_names,
-            classified_path_segments: Vec::new(),
-            origin: IndexedOrigin::Package {
-                identity: dependency.identity.as_str().to_string(),
-                uri: entry.uri().to_string(),
-                exported: dependency.exported_sources.contains(source.path()),
-                standard_library: dependency.standard_library,
-            },
-        };
+        let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
         declarations.extend(file_declarations(&file, &parsed.tree));
         files.push(file);
     }
+}
+
+fn indexed_dependency_source(
+    dependency: &DirectDependencySnapshot,
+    source: &veln_project::CapturedPackageSource,
+    uri: &str,
+) -> (IndexedFile, ParseOutput) {
+    let text =
+        std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
+    let source_file = SourceFile::new(source.path(), text);
+    let module = explicit_module_name(text)
+        .or_else(|| module_name_from_path(source.path()))
+        .unwrap_or_default();
+    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
+    let parsed = parse(&source_file);
+    let invalid_declaration_names = invalid_declaration_names(&parsed);
+    let tokens = lex(&source_file).tokens;
+    let file = IndexedFile {
+        source: source_file,
+        tokens,
+        module,
+        companion_target_module: None,
+        uses,
+        external_uses,
+        import_aliases,
+        external_import_aliases,
+        invalid_declaration_names: invalid_declaration_names
+            .iter()
+            .map(|invalid| invalid.span.clone())
+            .collect(),
+        recovery_symbols: Vec::new(),
+        classified_path_segments: Vec::new(),
+        type_reference_locations: OnceLock::new(),
+        origin: IndexedOrigin::Package {
+            identity: dependency.identity.as_str().to_string(),
+            uri: uri.to_string(),
+            exported: dependency.exported_sources.contains(source.path()),
+            standard_library: dependency.standard_library,
+        },
+    };
+    (file, parsed)
 }
 
 fn attach_classified_path_segments(files: &mut [IndexedFile]) {
@@ -441,7 +465,7 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
         .collect()
 }
 
-fn invalid_declaration_name_spans(parsed: &ParseOutput) -> Vec<SourceSpan> {
+fn invalid_declaration_names(parsed: &ParseOutput) -> Vec<InvalidName> {
     if !parsed.diagnostics.is_empty() {
         return Vec::new();
     }
@@ -451,11 +475,168 @@ fn invalid_declaration_name_spans(parsed: &ParseOutput) -> Vec<SourceSpan> {
         .filter(|invalid| {
             matches!(
                 invalid.occurrence,
-                veln_ast::NameOccurrence::Declaration | veln_ast::NameOccurrence::Binding
+                veln_ast::NameOccurrence::Declaration
+                    | veln_ast::NameOccurrence::Binding
+                    | veln_ast::NameOccurrence::PatternHead
             )
         })
-        .map(|invalid| invalid.span)
         .collect()
+}
+
+fn recovery_symbols_for_workspace_source(
+    source: &SourceFile,
+    tokens: &[Token],
+    invalid_names: &[InvalidName],
+) -> Vec<RecoverySymbol> {
+    let mut symbols = Vec::new();
+    for invalid in invalid_names {
+        let Some(name) = source
+            .text()
+            .get(invalid.span.start.offset..invalid.span.end.offset)
+        else {
+            continue;
+        };
+        match invalid.occurrence {
+            veln_ast::NameOccurrence::Declaration => {
+                let Some(kind) = symbol_kind_for_name_class(invalid.class) else {
+                    continue;
+                };
+                symbols.push(RecoverySymbol {
+                    name: name.to_string(),
+                    declaration: invalid.span.clone(),
+                    source_file: source.path().as_str().to_string(),
+                    scope_start: 0,
+                    scope_end: source.text().len(),
+                    kind,
+                });
+            }
+            veln_ast::NameOccurrence::Binding | veln_ast::NameOccurrence::PatternHead
+                if invalid.class == NameClass::ValueBinding =>
+            {
+                symbols.extend(recovery_binding_symbols(source, tokens, name, &invalid.span));
+            }
+            _ => {}
+        }
+    }
+    symbols
+}
+
+fn recovery_binding_symbols(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    span: &SourceSpan,
+) -> Vec<RecoverySymbol> {
+    let mut symbols = Vec::new();
+    for scope in function_scopes(tokens) {
+        symbols.extend(recovery_parameter_symbols(source, name, span, &scope));
+        symbols.extend(recovery_result_binding_symbol(source, name, span, &scope));
+        symbols.extend(recovery_local_binding_symbols(source, name, span, scope));
+    }
+    symbols.extend(recovery_handler_binding_symbols(source, tokens, name, span));
+    symbols
+}
+
+fn recovery_parameter_symbols(
+    source: &SourceFile,
+    name: &str,
+    span: &SourceSpan,
+    scope: &FunctionScope,
+) -> Vec<RecoverySymbol> {
+    scope
+        .params
+        .iter()
+        .filter(|binding| scoped_binding_matches(binding, name, span))
+        .map(|_| value_binding_recovery_symbol(source, name, span, scope.body_start, scope.end))
+        .collect()
+}
+
+fn recovery_result_binding_symbol(
+    source: &SourceFile,
+    name: &str,
+    span: &SourceSpan,
+    scope: &FunctionScope,
+) -> Option<RecoverySymbol> {
+    let binding = scope.result_binding.as_ref()?;
+    scoped_binding_matches(binding, name, span)
+        .then(|| value_binding_recovery_symbol(source, name, span, scope.body_start, scope.end))
+}
+
+fn recovery_local_binding_symbols(
+    source: &SourceFile,
+    name: &str,
+    span: &SourceSpan,
+    scope: FunctionScope,
+) -> Vec<RecoverySymbol> {
+    scope
+        .local_bindings
+        .into_iter()
+        .filter(|binding| local_binding_matches(binding, name, span))
+        .map(|binding| value_binding_recovery_symbol(source, name, span, binding.start, binding.end))
+        .collect()
+}
+
+fn recovery_handler_binding_symbols(
+    source: &SourceFile,
+    tokens: &[Token],
+    name: &str,
+    span: &SourceSpan,
+) -> Vec<RecoverySymbol> {
+    handler_operation_clause_bindings_for_source(source, tokens)
+        .into_iter()
+        .filter(|binding| {
+            binding.name == name
+                && binding.declaration.start.offset == span.start.offset
+                && binding.declaration.end.offset == span.end.offset
+        })
+        .map(|binding| RecoverySymbol {
+            name: name.to_string(),
+            declaration: span.clone(),
+            source_file: source.path().as_str().to_string(),
+            scope_start: binding.start,
+            scope_end: binding.end,
+            kind: binding.kind.symbol_kind(),
+        })
+        .collect()
+}
+
+fn value_binding_recovery_symbol(
+    source: &SourceFile,
+    name: &str,
+    span: &SourceSpan,
+    scope_start: usize,
+    scope_end: usize,
+) -> RecoverySymbol {
+    RecoverySymbol {
+        name: name.to_string(),
+        declaration: span.clone(),
+        source_file: source.path().as_str().to_string(),
+        scope_start,
+        scope_end,
+        kind: SymbolKind::ValueBinding,
+    }
+}
+
+fn scoped_binding_matches(binding: &ScopedBinding, name: &str, span: &SourceSpan) -> bool {
+    binding.name == name
+        && binding.declaration_start == span.start.offset
+        && binding.declaration_end == span.end.offset
+}
+
+fn local_binding_matches(binding: &LocalBinding, name: &str, span: &SourceSpan) -> bool {
+    binding.name == name
+        && binding.declaration_start == span.start.offset
+        && binding.declaration_end == span.end.offset
+}
+
+fn symbol_kind_for_name_class(class: NameClass) -> Option<SymbolKind> {
+    match class {
+        NameClass::Type => Some(SymbolKind::Type),
+        NameClass::Constructor => Some(SymbolKind::Constructor),
+        NameClass::Function => Some(SymbolKind::Function),
+        NameClass::ValueBinding => Some(SymbolKind::ValueBinding),
+        NameClass::Module => None,
+    }
 }
 
 fn is_invalid_declaration_name(file: &IndexedFile, span: &SourceSpan) -> bool {

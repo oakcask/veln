@@ -24,103 +24,137 @@ fn call_references(file: &IndexedFile, name: &str) -> Vec<SourceSpan> {
         .collect()
 }
 
-fn type_reference_spans(
+impl IndexedFile {
+    fn type_reference_spans(&self, name: &str) -> Vec<(usize, SourceSpan)> {
+        if !name
+            .chars()
+            .next()
+            .is_some_and(|initial| initial.is_ascii_uppercase())
+        {
+            return Vec::new();
+        }
+        self.type_reference_spans_named(name)
+    }
+
+    fn type_reference_spans_named(&self, name: &str) -> Vec<(usize, SourceSpan)> {
+        self.type_reference_locations()
+            .iter()
+            .filter(|(candidate, _, _)| candidate == name)
+            .map(|(_, token_index, span)| (*token_index, span.clone()))
+            .collect()
+    }
+
+    fn type_reference_locations(&self) -> &TypeReferenceLocations {
+        self.type_reference_locations.get_or_init(|| {
+            #[cfg(test)]
+            record_type_reference_collection();
+            collect_type_reference_locations(&self.source, &self.tokens)
+        })
+    }
+}
+
+fn collect_type_reference_locations(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
-) -> Vec<(usize, SourceSpan)> {
+) -> TypeReferenceLocations {
     let parsed = parse(source);
-    let mut spans = Vec::new();
-    for item in &parsed.tree.items {
-        match item {
-            SyntaxItem::Function(function) => {
-                spans.extend(type_references_in_params(
-                    source,
-                    tokens,
-                    name,
-                    &function.params,
-                ));
-                if let Some(span) = &function.return_type_span {
-                    spans.extend(type_reference_tokens_in_span(source, tokens, name, span));
-                }
-                spans.extend(type_references_in_body_lines(
-                    source,
-                    tokens,
-                    name,
-                    &function.body,
-                ));
-            }
-            SyntaxItem::Handler(handler) => {
-                spans.extend(type_references_in_params(
-                    source,
-                    tokens,
-                    name,
-                    &handler.params,
-                ));
-            }
-            SyntaxItem::Effect(effect) => {
-                for operation in &effect.operations {
-                    spans.extend(type_references_in_params(
-                        source,
-                        tokens,
-                        name,
-                        &operation.params,
-                    ));
-                    spans.extend(type_references_after_token_in_span(
-                        source,
-                        tokens,
-                        name,
-                        &operation.span,
-                        TokenKind::Arrow,
-                    ));
-                }
-            }
-            SyntaxItem::Type(type_decl) => {
-                for variant in &type_decl.variants {
-                    for field in &variant.fields {
-                        spans.extend(type_references_in_variant_field(
-                            source,
-                            tokens,
-                            name,
-                            &field.span,
-                        ));
-                    }
-                }
-            }
-            SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
-                spans.extend(
-                    alias
-                        .target_spans
-                        .iter()
-                        .flat_map(|span| type_reference_tokens_in_span(source, tokens, name, span)),
-                );
-            }
-            _ => {}
-        }
-    }
-    sort_type_reference_locations(&mut spans);
+    let mut spans: TypeReferenceLocations = parsed
+        .tree
+        .items
+        .iter()
+        .flat_map(|item| type_reference_locations_in_item(source, tokens, item))
+        .collect();
+    normalize_type_reference_locations(&mut spans);
     spans
 }
 
-fn sort_type_reference_locations(locations: &mut Vec<(usize, SourceSpan)>) {
-    locations.sort_by(|left, right| {
-        left.1
+fn type_reference_locations_in_item(
+    source: &SourceFile,
+    tokens: &[Token],
+    item: &SyntaxItem,
+) -> TypeReferenceLocations {
+    match item {
+        SyntaxItem::Function(function) => type_references_in_function(source, tokens, function),
+        SyntaxItem::Handler(handler) => type_references_in_params(source, tokens, &handler.params),
+        SyntaxItem::Effect(effect) => effect
+            .operations
+            .iter()
+            .flat_map(|operation| {
+                type_references_in_params(source, tokens, &operation.params)
+                    .into_iter()
+                    .chain(type_references_after_token_in_span(
+                        source,
+                        tokens,
+                        &operation.span,
+                        TokenKind::Arrow,
+                    ))
+            })
+            .collect(),
+        SyntaxItem::Type(type_decl) => type_decl
+            .variants
+            .iter()
+            .flat_map(|variant| {
+                variant
+                    .fields
+                    .iter()
+                    .flat_map(|field| type_references_in_variant_field(source, tokens, &field.span))
+            })
+            .collect(),
+        SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => alias
+            .target_spans
+            .iter()
+            .flat_map(|span| type_reference_tokens_in_span(source, tokens, span))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn type_references_in_function(
+    source: &SourceFile,
+    tokens: &[Token],
+    function: &FunctionDecl,
+) -> TypeReferenceLocations {
+    let mut spans = type_references_in_params(source, tokens, &function.params);
+    if let Some(span) = &function.return_type_span {
+        spans.extend(type_reference_tokens_in_span(source, tokens, span));
+    }
+    spans.extend(type_references_in_body_lines(
+        source,
+        tokens,
+        &function.body,
+    ));
+    spans
+}
+
+fn normalize_type_reference_locations(spans: &mut TypeReferenceLocations) {
+    spans.sort_by(|left, right| {
+        left.2
             .file
             .as_str()
-            .cmp(right.1.file.as_str())
-            .then(left.1.start.offset.cmp(&right.1.start.offset))
-            .then(left.1.end.offset.cmp(&right.1.end.offset))
+            .cmp(right.2.file.as_str())
+            .then(left.2.start.offset.cmp(&right.2.start.offset))
+            .then(left.2.end.offset.cmp(&right.2.end.offset))
     });
-    locations.dedup_by(|left, right| {
-        left.1.file == right.1.file
-            && left.1.start.offset == right.1.start.offset
-            && left.1.end.offset == right.1.end.offset
+    spans.dedup_by(|left, right| {
+        left.0 == right.0
+            && left.2.file == right.2.file
+            && left.2.start.offset == right.2.start.offset
+            && left.2.end.offset == right.2.end.offset
     });
 }
 
-fn is_type_reference_token(source: &SourceFile, name: &str, selection: &SourceSpan) -> bool {
-    let tokens = lex(source).tokens;
-    type_reference_spans(source, &tokens, name)
+fn is_type_reference_token(file: &IndexedFile, name: &str, selection: &SourceSpan) -> bool {
+    file.type_reference_spans(name)
+        .into_iter()
+        .any(|(_, span)| {
+            span.file == selection.file
+                && span.start.offset == selection.start.offset
+                && span.end.offset == selection.end.offset
+        })
+}
+
+fn is_type_reference_token_named(file: &IndexedFile, name: &str, selection: &SourceSpan) -> bool {
+    file.type_reference_spans_named(name)
         .into_iter()
         .any(|(_, span)| {
             span.file == selection.file
@@ -132,22 +166,20 @@ fn is_type_reference_token(source: &SourceFile, name: &str, selection: &SourceSp
 fn type_references_in_params(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
     params: &[veln_syntax::Param],
-) -> Vec<(usize, SourceSpan)> {
+) -> TypeReferenceLocations {
     params
         .iter()
         .filter_map(|param| param.ty_span.as_ref())
-        .flat_map(|span| type_reference_tokens_in_span(source, tokens, name, span))
+        .flat_map(|span| type_reference_tokens_in_span(source, tokens, span))
         .collect()
 }
 
 fn type_references_in_body_lines(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
     body: &[BodyLine],
-) -> Vec<(usize, SourceSpan)> {
+) -> TypeReferenceLocations {
     body.iter()
         .flat_map(|line| match line {
             BodyLine::Let {
@@ -157,7 +189,6 @@ fn type_references_in_body_lines(
             } => type_references_after_token_until_token_in_span(
                 source,
                 tokens,
-                name,
                 span,
                 TokenKind::Colon,
                 TokenKind::Equal,
@@ -170,9 +201,8 @@ fn type_references_in_body_lines(
 fn type_references_in_variant_field(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
     field_span: &SourceSpan,
-) -> Vec<(usize, SourceSpan)> {
+) -> TypeReferenceLocations {
     let colon_offset = tokens
         .iter()
         .find(|token| {
@@ -182,25 +212,15 @@ fn type_references_in_variant_field(
         })
         .map(|token| token.range.end)
         .unwrap_or(field_span.start.offset);
-    tokens
-        .iter()
-        .enumerate()
-        .filter(|token| {
-            token.1.range.start >= colon_offset
-                && token.1.range.end <= field_span.end.offset
-                && is_type_reference_token_text(token.1, name)
-        })
-        .map(|(index, token)| (index, source.span(token.range)))
-        .collect()
+    type_reference_tokens_in_range(source, tokens, colon_offset, field_span.end.offset)
 }
 
 fn type_references_after_token_in_span(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
     span: &SourceSpan,
     start_kind: TokenKind,
-) -> Vec<(usize, SourceSpan)> {
+) -> TypeReferenceLocations {
     let start_offset = tokens
         .iter()
         .find(|token| {
@@ -210,17 +230,16 @@ fn type_references_after_token_in_span(
         })
         .map(|token| token.range.end)
         .unwrap_or(span.end.offset);
-    type_reference_tokens_in_range(source, tokens, name, start_offset, span.end.offset)
+    type_reference_tokens_in_range(source, tokens, start_offset, span.end.offset)
 }
 
 fn type_references_after_token_until_token_in_span(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
     span: &SourceSpan,
     start_kind: TokenKind,
     end_kind: TokenKind,
-) -> Vec<(usize, SourceSpan)> {
+) -> TypeReferenceLocations {
     let Some(start_index) = tokens.iter().position(|token| {
         token.kind == start_kind
             && token.range.start >= span.start.offset
@@ -234,43 +253,37 @@ fn type_references_after_token_until_token_in_span(
         .find(|token| token.kind == end_kind && token.range.end <= span.end.offset)
         .map(|token| token.range.start)
         .unwrap_or(span.end.offset);
-    type_reference_tokens_in_range(source, tokens, name, start_offset, end_offset)
+    type_reference_tokens_in_range(source, tokens, start_offset, end_offset)
 }
 
 fn type_reference_tokens_in_span(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
     span: &SourceSpan,
-) -> Vec<(usize, SourceSpan)> {
-    type_reference_tokens_in_range(source, tokens, name, span.start.offset, span.end.offset)
+) -> TypeReferenceLocations {
+    type_reference_tokens_in_range(source, tokens, span.start.offset, span.end.offset)
 }
 
 fn type_reference_tokens_in_range(
     source: &SourceFile,
     tokens: &[Token],
-    name: &str,
     start_offset: usize,
     end_offset: usize,
-) -> Vec<(usize, SourceSpan)> {
+) -> TypeReferenceLocations {
     tokens
         .iter()
         .enumerate()
         .filter(|(_, token)| {
             token.range.start >= start_offset
                 && token.range.end <= end_offset
-                && is_type_reference_token_text(token, name)
+                && token.kind == TokenKind::Ident
         })
-        .map(|(index, token)| (index, source.span(token.range)))
+        .map(|(index, token)| {
+            (
+                token.text.clone(),
+                index,
+                source.span(token.range),
+            )
+        })
         .collect()
-}
-
-fn is_type_reference_token_text(token: &Token, name: &str) -> bool {
-    token.kind == TokenKind::Ident
-        && token.text == name
-        && token
-            .text
-            .chars()
-            .next()
-            .is_some_and(|initial| initial.is_ascii_uppercase())
 }

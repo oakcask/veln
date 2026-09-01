@@ -5,7 +5,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use veln_project::{capture_package_snapshot, parse_manifest_text};
 use veln_source::SourceSpan;
 use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};
-use crate::navigation::{function_scope_collections, reset_function_scope_collections};
+use crate::navigation::{
+    function_scope_collections, reset_function_scope_collections, reset_type_reference_collections,
+    type_reference_collections,
+};
 
 use super::*;
 

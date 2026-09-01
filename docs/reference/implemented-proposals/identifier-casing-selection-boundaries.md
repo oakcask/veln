@@ -76,5 +76,6 @@ reachable.
 This proposal is complete. Current behavior lives in
 [Names And Effects](../../specification/names-effects.md) and checked cases
 under `examples/specification/`. Completion does not claim completion of
-module-identity casing, recovery navigation, repair rename, or MCP rename
-mapping.
+module-identity casing, repair rename, or MCP rename mapping. Recovery
+navigation is completed separately in
+[Identifier Casing Recovery Navigation](identifier-casing-recovery-navigation.md).

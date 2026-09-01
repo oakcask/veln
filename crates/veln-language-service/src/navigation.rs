@@ -4,17 +4,19 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
-use veln_ast::{NameClass, QualifiedPathSegment};
+use veln_ast::{InvalidName, NameClass, QualifiedPathSegment};
 use veln_project::classify_companion_source;
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
-    BodyLine, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree, Token, TokenKind,
+    BodyLine, FunctionDecl, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree, Token, TokenKind,
     TypeVariantDecl, Visibility, lex, parse,
 };
 
 include!("navigation/model.rs");
 include!("navigation/index.rs");
+include!("navigation/recovery.rs");
 include!("navigation/rename_conflicts.rs");
+include!("navigation/rename_visibility.rs");
 include!("navigation/symbol_lookup.rs");
 include!("navigation/symbol_references.rs");
 include!("navigation/declarations.rs");
@@ -27,6 +29,7 @@ include!("navigation/source_paths.rs");
 #[cfg(test)]
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -42,6 +45,21 @@ pub(crate) fn reset_function_scope_collections() {
 #[cfg(test)]
 pub(crate) fn function_scope_collections() -> usize {
     FUNCTION_SCOPE_COLLECTIONS.get()
+}
+
+#[cfg(test)]
+fn record_type_reference_collection() {
+    TYPE_REFERENCE_COLLECTIONS.set(TYPE_REFERENCE_COLLECTIONS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_reference_collections() {
+    TYPE_REFERENCE_COLLECTIONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn type_reference_collections() -> usize {
+    TYPE_REFERENCE_COLLECTIONS.get()
 }
 
 #[cfg(test)]

@@ -115,16 +115,17 @@ impl SymbolIndex {
             .iter()
             .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
             .flat_map(|file| {
-                let tokens = lex(&file.source).tokens;
-                let mut spans = type_reference_spans(&file.source, &tokens, &symbol.name)
+                let tokens = &file.tokens;
+                let mut spans = file
+                    .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
-                        self.visible_type_for_reference(file, &tokens, token_index, &symbol.name)
+                        self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
                             .is_some_and(|candidate| same_type(&candidate, symbol))
                             .then_some(span)
                     })
                     .collect::<Vec<_>>();
-                spans.extend(self.constructor_type_qualifier_references(file, &tokens, symbol));
+                spans.extend(self.constructor_type_qualifier_references(file, tokens, symbol));
                 spans
             })
             .collect()
@@ -183,6 +184,45 @@ impl SymbolIndex {
             Some(qualifier) => self.constructor_for_qualified_call(file, &qualifier, name),
             None => self.constructor_for_bare_call(file, name),
         }
+    }
+
+    fn recovery_references(&self, symbol: &RecoverySymbol) -> Vec<SourceSpan> {
+        let Some(file) = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == symbol.source_file)
+        else {
+            return Vec::new();
+        };
+        #[cfg(test)]
+        record_function_scope_collection();
+        let scopes = function_scopes(&file.tokens);
+        file.tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                token.kind == TokenKind::Ident
+                    && token.text == symbol.name
+                    && !same_span(&file.source.span(token.range), &symbol.declaration)
+                    && self
+                        .symbol_for_selection(
+                            file,
+                            &file.tokens,
+                            *index,
+                            &token.text,
+                            &file.source.span(token.range),
+                            Some(&scopes),
+                        )
+                        .is_some_and(|selected| {
+                            matches!(
+                                selected.symbol,
+                                Symbol::Recovery(ref candidate)
+                                    if same_recovery_symbol(candidate, symbol)
+                            )
+                        })
+            })
+            .map(|(_, token)| file.source.span(token.range))
+            .collect()
     }
 
     fn constructor_conflict_for_call(
@@ -271,4 +311,10 @@ impl SymbolIndex {
         }
         qualifiers
     }
+}
+
+fn same_recovery_symbol(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {
+    left.kind == right.kind
+        && left.source_file == right.source_file
+        && same_span(&left.declaration, &right.declaration)
 }

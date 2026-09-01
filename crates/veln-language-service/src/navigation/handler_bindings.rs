@@ -36,6 +36,13 @@ fn handler_operation_clause_symbol(
 }
 
 fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+    handler_operation_clause_bindings_for_source(&file.source, tokens)
+}
+
+fn handler_operation_clause_bindings_for_source(
+    source: &SourceFile,
+    tokens: &[Token],
+) -> Vec<ClauseBinding> {
     let mut clause_bindings = Vec::new();
     for (arrow_index, arrow) in tokens.iter().enumerate() {
         if arrow.kind != TokenKind::FatArrow
@@ -44,8 +51,7 @@ fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Ve
             continue;
         }
         let line_start_index = line_start_index(tokens, arrow_index);
-        let body_end =
-            handler_operation_clause_body_end(tokens, arrow_index, file.source.text().len());
+        let body_end = handler_operation_clause_body_end(tokens, arrow_index, source.text().len());
         let Some(lparen_index) = tokens[line_start_index..arrow_index]
             .iter()
             .position(|token| token.kind == TokenKind::LParen)
@@ -64,7 +70,7 @@ fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Ve
             if token.kind == TokenKind::Ident && is_identifier(&token.text) {
                 clause_bindings.push(ClauseBinding {
                     name: token.text.clone(),
-                    declaration: file.source.span(token.range),
+                    declaration: source.span(token.range),
                     start: arrow.range.end,
                     end: body_end,
                     kind: LocalSymbolKind::HandlerOperationClauseParameter,
@@ -72,23 +78,26 @@ fn handler_operation_clause_bindings(file: &IndexedFile, tokens: &[Token]) -> Ve
             }
         }
     }
-    clause_bindings.extend(handler_context_parameter_bindings(file, tokens));
+    clause_bindings.extend(handler_context_parameter_bindings_for_source(source, tokens));
     clause_bindings
 }
 
-fn handler_context_parameter_bindings(file: &IndexedFile, tokens: &[Token]) -> Vec<ClauseBinding> {
+fn handler_context_parameter_bindings_for_source(
+    source: &SourceFile,
+    tokens: &[Token],
+) -> Vec<ClauseBinding> {
     tokens
         .iter()
         .enumerate()
         .filter(|(_, token)| token.kind == TokenKind::Handler)
         .flat_map(|(handler_index, _)| {
-            handler_context_parameter_bindings_for_handler(file, tokens, handler_index)
+            handler_context_parameter_bindings_for_handler(source, tokens, handler_index)
         })
         .collect()
 }
 
 fn handler_context_parameter_bindings_for_handler(
-    file: &IndexedFile,
+    source: &SourceFile,
     tokens: &[Token],
     handler_index: usize,
 ) -> Vec<ClauseBinding> {
@@ -120,7 +129,7 @@ fn handler_context_parameter_bindings_for_handler(
         })
         .map(|(_, token)| ClauseBinding {
             name: token.text.clone(),
-            declaration: file.source.span(token.range),
+            declaration: source.span(token.range),
             start: body_start,
             end: handler_end,
             kind: LocalSymbolKind::HandlerContextParameter,
@@ -175,4 +184,3 @@ fn matching_rparen_index(tokens: &[Token], lparen_index: usize, end_index: usize
     }
     None
 }
-

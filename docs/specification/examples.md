@@ -232,8 +232,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - Source identifier casing selected-suite static gates, unselected test peer
   isolation, exact companion recovery isolation, selected documentation-source
   diagnostics, and excluded documentation-source or companion isolation, plus
-  LSP workspace selection, invalid-symbol navigation exclusion,
-  class-preserving rename validation, and rename conflict rejection:
+  LSP workspace selection, invalid-symbol recovery navigation including a
+  callable parameter call target, class-preserving rename validation, and
+  rename conflict rejection:
   `../../examples/specification/test/identifier-casing-selected-static-gate-json/`,
   `../../examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`,
   `../../examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`,
@@ -245,6 +246,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/doc/identifier-casing-excluded-companion/`,
   `../../examples/specification/lsp/identifier-casing-snapshot-boundary/`,
   `../../examples/specification/lsp/identifier-casing-overlay-boundary/`,
+  `../../examples/specification/lsp/identifier-casing-recovery-navigation/`,
   `../../examples/specification/lsp/identifier-casing-source-path-boundary/`,
   `../../examples/specification/lsp/identifier-casing-handler-binding-navigation/`,
   `../../examples/specification/lsp/identifier-casing-qualified-use-navigation/`,
@@ -290,3 +292,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   location, no-definition, numeric coordinate spellings, invalid-position and
   schema-rejection results, and response-local assertion coverage:
   `../../examples/specification/mcp/definition-workspace/`.
+- MCP saved workspace `definition` recovery navigation for unique invalid
+  source declarations, ambiguous recovery refusal, and valid-symbol
+  precedence:
+  `../../examples/specification/mcp/definition-recovery-navigation/`.
