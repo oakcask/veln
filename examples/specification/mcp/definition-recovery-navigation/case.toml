@@ -1,0 +1,62 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/range"
+equals_json_file = "case-text/recovery-range.json"
+
+[[mcp_assert]]
+id = 2
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 2
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/definition"
+equals = null
+
+[[mcp_assert]]
+id = 3
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 3
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/definition/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":5,"column":4},"end":{"line":5,"column":8}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 4
+path = "/error"
+missing = true
+

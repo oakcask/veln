@@ -180,6 +180,9 @@ reviewability evidence and do not add a distinct MCP response field contract.
 Response-local string containment checks in that case are harness evidence
 over selected JSON strings and do not add a distinct MCP response field
 contract.
+The `definition-recovery-navigation` MCP specification case checks
+`definition` over a unique invalid source declaration recovery record, an
+ambiguous invalid source declaration boundary, and valid-symbol precedence.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -193,10 +196,9 @@ kind, canonical URI spelling, path rejection, stable-capture failure,
 no-symbol success, invalid positions including oversized positive integers,
 half-open ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar
 coordinates, extreme positive and negative exponent coordinates, and
-non-integer numeric coordinate schema rejection. Recovery definition coverage
-comes from the shared language-service tests and LSP examples routed by
-[editor-support.md](editor-support.md); the MCP-specific cases do not add a
-separate recovery decision table.
+non-integer numeric coordinate schema rejection. They also check MCP
+definition conversion for unique invalid-name recovery records and unsupported
+ambiguous recovery selection.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

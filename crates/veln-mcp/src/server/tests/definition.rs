@@ -167,6 +167,53 @@ fn definition_infers_project_and_isolates_other_sources_and_descendant_manifests
 }
 
 #[test]
+fn definition_exposes_unique_invalid_name_recovery_but_not_unsupported_boundaries() {
+    let workspace = TempWorkspace::new("definition-invalid-name-recovery");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  byte(value: Int)\n",
+            "end\n\n",
+            "fn byte() -> Int\n",
+            "  2\n",
+            "end\n\n",
+            "fn Bad() -> Int\n",
+            "  Bad()\n",
+            "end\n\n",
+            "fn Dup() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "fn Dup() -> Int\n",
+            "  2\n",
+            "end\n\n",
+            "fn caller() -> Int\n",
+            "  Bad() + Dup() + byte()\n",
+            "end\n",
+        ),
+    );
+
+    let recovery = definition_result(&workspace, "main.veln", 22, 4);
+    assert_eq!(recovery["isError"], false, "{recovery:#}");
+    assert_eq!(
+        recovery["structuredContent"]["definition"]["range"],
+        json!({"start": {"line": 9, "column": 4}, "end": {"line": 9, "column": 7}})
+    );
+
+    let ambiguous = definition_result(&workspace, "main.veln", 22, 12);
+    assert_eq!(ambiguous["isError"], false, "{ambiguous:#}");
+    assert_eq!(ambiguous["structuredContent"]["definition"], Value::Null);
+
+    let valid_precedence = definition_result(&workspace, "main.veln", 22, 20);
+    assert_eq!(valid_precedence["isError"], false, "{valid_precedence:#}");
+    assert_eq!(
+        valid_precedence["structuredContent"]["definition"]["range"],
+        json!({"start": {"line": 5, "column": 4}, "end": {"line": 5, "column": 8}})
+    );
+}
+
+#[test]
 fn definition_uses_canonical_uri_and_range() {
     let workspace = TempWorkspace::new("definition coordinates and uri");
     write_definition_coordinate_fixture(&workspace);

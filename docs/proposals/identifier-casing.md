@@ -121,6 +121,10 @@ rejection, qualified occurrence rejection, lexical out-of-scope rejection, and
 rename exclusion for the completed recovery-navigation slice. This behavior is
 recorded in
 [Identifier Casing Recovery Navigation](../reference/implemented-proposals/identifier-casing-recovery-navigation.md).
+MCP `definition` exposes the same unique source declaration or binding
+recovery definition boundary through
+[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md)
+and the `definition-recovery-navigation` MCP example.
 LSP rename now rejects class-changing replacements
 for selected valid workspace type, constructor, function, and value-binding
 symbols and predictable rename conflicts as specified by
@@ -343,11 +347,13 @@ A valid candidate always takes precedence over a recovery record. Recovery
 records do not create ambiguity or cross-class collisions. When multiple
 recovery records have the same spelling, no one record is selected for
 navigation. Definition, references, and prepare-rename exposure for source
-declaration and binding recovery records is current behavior specified by
-[Editor Support](../specification/editor-support.md). Rename may use a
-recovery link only after repair rename is implemented. No other operation
-treats a quarantined record as valid. Lowering and backends never receive
-recovery records.
+declaration and binding recovery records is current editor behavior specified
+by [Editor Support](../specification/editor-support.md). MCP `definition`
+exposure for those recovery records is current behavior specified by
+[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md).
+Rename may use a recovery link only after repair rename is implemented. No
+other operation treats a quarantined record as valid. Lowering and backends
+never receive recovery records.
 
 For the remaining boundary work, a recovery record is visible only in the
 declaring source module and in the lexical scope that the corresponding valid

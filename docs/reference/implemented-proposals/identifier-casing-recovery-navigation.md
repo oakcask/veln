@@ -16,7 +16,11 @@ compatible recovery record is visible and no valid symbol wins. Current
 behavior is specified by [Editor Support](../../specification/editor-support.md)
 and checked by the `identifier-casing-recovery-navigation` and
 `identifier-casing-handler-binding-navigation` LSP examples plus focused
-`veln-language-service` navigation tests.
+`veln-language-service` navigation tests. MCP `definition` exposes the same
+unique recovery definition boundary as specified by
+[MCP Workspace Projects, Diagnostics, And Definitions](../../specification/mcp.md)
+and checked by the `definition-recovery-navigation` MCP example plus focused
+`veln-mcp` tests.
 
 ## Scope
 
@@ -47,11 +51,13 @@ Recovery records remain quarantined. They do not enter normal workspace or
 package symbol indexes, direct-dependency lookup, standard-prelude lookup,
 cross-import visibility, exact-companion privilege, lowering, or backend
 artifacts. LSP rename continues to return no edits for recovery selections;
-repair rename remains proposal scope.
+MCP exposes no references, prepare-rename, rename edits, dependency locations,
+or standard-library locations for recovery selections. Repair rename remains
+proposal scope.
 
 ## Completion
 
 This slice is complete for shared language-service and LSP definition,
-references, and prepare-rename recovery navigation. It does not complete
-module identity casing, repair rename, MCP rename mapping, or deferred
-artifact consumers.
+references, and prepare-rename recovery navigation. It is complete for MCP
+`definition` recovery conversion. It does not complete module identity casing,
+repair rename, MCP rename mapping, or deferred artifact consumers.
