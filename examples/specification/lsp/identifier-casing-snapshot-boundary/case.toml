@@ -34,13 +34,43 @@ length = 1
 
 [[lsp_assert]]
 id = 2
-path = "/result"
-equals = null
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/character"
+equals = 3
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/end/character"
+equals = 6
 
 [[lsp_assert]]
 id = 3
 path = "/result"
-equals = []
+length = 2
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range/start/character"
+equals = 3
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range/start/line"
+equals = 5
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range/start/character"
+equals = 2
 
 [[lsp_assert]]
 id = 4
