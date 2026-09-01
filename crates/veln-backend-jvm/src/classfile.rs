@@ -21,6 +21,7 @@ mod call_emission;
 mod class_builder;
 mod constant_pool;
 mod contract_emission;
+mod contract_value;
 mod contracts_and_tail_recursion;
 mod function_flow;
 mod method_code;
@@ -30,11 +31,11 @@ mod schema_metadata;
 
 use class_builder::*;
 use constant_pool::*;
-use contracts_and_tail_recursion::{
-    ValueRef, contract_integer_value, object_method_descriptor, parse_contract_call,
-    runtime_classes, strip_contract_outer_parens,
-};
-pub(crate) use contracts_and_tail_recursion::{classify_tail_recursion, split_contract_binary};
+#[cfg(test)]
+pub(crate) use contract_value::split_contract_binary;
+use contract_value::{ContractScalar, ContractValue, parse_contract_value};
+pub(crate) use contracts_and_tail_recursion::classify_tail_recursion;
+use contracts_and_tail_recursion::{ValueRef, object_method_descriptor, runtime_classes};
 pub(crate) use function_flow::TailRecursionEligibility;
 use function_flow::{ContractCheckPosition, FunctionBytecodeEmitter};
 use method_code::*;

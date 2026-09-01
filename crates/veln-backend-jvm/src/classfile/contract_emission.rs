@@ -40,96 +40,95 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     pub(super) fn emit_contract_value(&mut self, code: &mut MethodCode, text: &str) {
-        let text = strip_contract_outer_parens(text.trim());
-        if let Some(rest) = text.strip_prefix("not ") {
-            self.emit_contract_value(code, rest);
-            code.invokestatic(
-                &self.program.options.runtime_class,
-                "not",
-                "(Ljava/lang/Object;)Ljava/lang/Object;",
-            );
-            return;
-        }
-        for (op_text, op) in [
-            ("|", BinaryOp::BitwiseOr),
-            ("^", BinaryOp::BitwiseXor),
-            ("&", BinaryOp::BitwiseAnd),
-            ("==", BinaryOp::Equal),
-            ("!=", BinaryOp::NotEqual),
-            (">=", BinaryOp::GreaterEqual),
-            ("<=", BinaryOp::LessEqual),
-            (">", BinaryOp::Greater),
-            ("<", BinaryOp::Less),
-            (">>>", BinaryOp::ShiftRightLogical),
-            (">>", BinaryOp::ShiftRight),
-            ("<<", BinaryOp::ShiftLeft),
-            ("+", BinaryOp::Add),
-            ("-", BinaryOp::Subtract),
-            ("*", BinaryOp::Multiply),
-            ("/", BinaryOp::Divide),
-        ] {
-            if let Some((left, right)) = split_contract_binary(text, op_text) {
-                self.emit_contract_value(code, left);
-                self.emit_contract_value(code, right);
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    binary_method(op),
-                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-                );
-                return;
+        match parse_contract_value(text) {
+            ContractValue::Not(value) => self.emit_contract_unary(code, value, "not"),
+            ContractValue::Binary { left, right, op } => {
+                self.emit_contract_binary(code, left, right, op)
             }
+            ContractValue::BitwiseNot(value) => self.emit_contract_unary(code, value, "bitwiseNot"),
+            ContractValue::Call { callee, args } => self.emit_contract_call(code, callee, &args),
+            ContractValue::Field { base, field } => self.emit_contract_field(code, base, field),
+            ContractValue::Scalar(value) => self.emit_contract_scalar(code, value),
         }
-        if let Some(rest) = text.strip_prefix('~') {
-            self.emit_contract_value(code, rest);
-            code.invokestatic(
-                &self.program.options.runtime_class,
-                "bitwiseNot",
-                "(Ljava/lang/Object;)Ljava/lang/Object;",
-            );
-            return;
+    }
+
+    fn emit_contract_unary(&mut self, code: &mut MethodCode, value: &str, method: &str) {
+        self.emit_contract_value(code, value);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            method,
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_contract_binary(
+        &mut self,
+        code: &mut MethodCode,
+        left: &str,
+        right: &str,
+        op: BinaryOp,
+    ) {
+        self.emit_contract_value(code, left);
+        self.emit_contract_value(code, right);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            binary_method(op),
+            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_contract_call(&mut self, code: &mut MethodCode, callee: &str, args: &[&str]) {
+        for arg in args {
+            self.emit_contract_value(code, arg);
         }
-        if let Some((callee, args)) = parse_contract_call(text) {
-            for arg in &args {
-                self.emit_contract_value(code, arg);
-            }
-            let function = callee.rsplit("::").next().unwrap_or(callee);
-            code.invokestatic(
-                &self.program.options.program_class,
-                &self.program.function_name(function),
-                &object_method_descriptor(args.len()),
-            );
-            return;
-        }
-        if let Some((base, field)) = text.split_once('.') {
-            self.emit_contract_value(code, base);
-            code.ldc_string(field);
-            code.invokestatic(
-                &self.program.options.runtime_class,
-                "recordField",
-                "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;",
-            );
-            return;
-        }
-        if text == "true" {
-            code.getstatic("java/lang/Boolean", "TRUE", "Ljava/lang/Boolean;");
-        } else if text == "false" {
-            code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
-        } else if text == "()" {
-            code.getstatic(
+        let function = callee.rsplit("::").next().unwrap_or(callee);
+        code.invokestatic(
+            &self.program.options.program_class,
+            &self.program.function_name(function),
+            &object_method_descriptor(args.len()),
+        );
+    }
+
+    fn emit_contract_field(&mut self, code: &mut MethodCode, base: &str, field: &str) {
+        self.emit_contract_value(code, base);
+        code.ldc_string(field);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "recordField",
+            "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_contract_scalar(&mut self, code: &mut MethodCode, value: ContractScalar<'_>) {
+        match value {
+            ContractScalar::Bool(value) => code.getstatic(
+                "java/lang/Boolean",
+                if value { "TRUE" } else { "FALSE" },
+                "Ljava/lang/Boolean;",
+            ),
+            ContractScalar::Unit => code.getstatic(
                 &self.program.options.runtime_class,
                 "UNIT",
                 &format!("L{}$Unit;", self.program.options.runtime_class),
-            );
-        } else if text.starts_with('"') && text.ends_with('"') {
-            code.ldc_string(&veln_string_literal_value(text));
-        } else if let Some(value) = contract_integer_value(text) {
-            code.ldc_long(value);
-            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-        } else if let Ok(value) = text.parse::<f64>() {
-            code.ldc_double(value);
-            code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
-        } else if self.locals.contains_key(text) {
-            code.aload(self.local_slot(text));
+            ),
+            ContractScalar::String(value) => {
+                code.ldc_string(&veln_string_literal_value(value));
+            }
+            ContractScalar::Integer(value) => {
+                code.ldc_long(value);
+                code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+            }
+            ContractScalar::Float(value) => {
+                code.ldc_double(value);
+                code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
+            }
+            ContractScalar::Symbol(name) => self.emit_contract_symbol(code, name),
+        }
+    }
+
+    fn emit_contract_symbol(&self, code: &mut MethodCode, name: &str) {
+        if self.locals.contains_key(name) {
+            code.aload(self.local_slot(name));
         } else {
             code.getstatic("java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
         }
