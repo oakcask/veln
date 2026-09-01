@@ -50,8 +50,9 @@ function according to the ordinary value-shadowing rule. Schema-composition
 positions still admit both type and schema namespaces and report the existing
 type-versus-schema ambiguity when both are visible. The checked
 `identifier-casing-namespace-roles` check and LSP examples fix the accepted
-decision table, duplicate controls, ordinary-call exclusion, and representative
-navigation results.
+decision table, ordinary-call exclusion, and representative definition
+results. Focused `veln-sema` tests cover the same-namespace duplicate controls
+and schema-composition ambiguity.
 
 Local value bindings and declarations in the current source module shadow
 imported names for both bare values and calls. The standard prelude remains

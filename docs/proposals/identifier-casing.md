@@ -58,7 +58,8 @@ The completed namespace-by-use-role boundary for equal-spelled schemas,
 effects, handlers, operations, types, constructors, functions, and bindings is
 specified by [Name Resolution](../specification/name-resolution.md) and
 [Editor Support](../specification/editor-support.md), and checked by the
-`identifier-casing-namespace-roles` examples. Its completion record is
+`identifier-casing-namespace-roles` examples and focused namespace-role tests.
+Its completion record is
 [Identifier Casing Namespace Roles](../reference/implemented-proposals/identifier-casing-namespace-roles.md).
 Source-less compiler-provided source lookup descriptors are specified by
 [Source-Less Lookup](../specification/source-less-lookup.md) and covered by
@@ -551,7 +552,7 @@ identifier-casing remainder.
 | Combine casing with structural, reserved-name, duplicate, ambiguity, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request remaining transport rename mappings. | MCP mappings return no edits for unsupported recovery or module selections and preserve shared failure codes where the transport exposes them. | Planned MCP error-mapping cases. |
 | Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module or qualified recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module-derived and qualified surfaces. |
-| Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |
+| Complete remaining reference and rename coverage for accepted function, binding, type, and constructor uses. | The language service keeps selecting only the symbol class fixed by the initial letter outside the completed definition boundary. | Reference and rename cases in `veln-language-service`. |
 | Run the repository source-carrier audit and specification suite after migration. | Every parsed or analyzed repository-owned source follows the contract except dedicated exact-expectation casing fixtures, and unrelated negative fixtures retain their intended diagnostic sets. | Source-carrier audit, specification harness, doctest and documentation gates, and workspace tests. |
 
 This proposal is complete when all acceptance rows pass, all repository-owned

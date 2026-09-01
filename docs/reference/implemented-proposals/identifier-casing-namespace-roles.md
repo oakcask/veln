@@ -14,7 +14,8 @@ source role. Current behavior is specified by
 [Name Resolution](../../specification/name-resolution.md) and
 [Editor Support](../../specification/editor-support.md). The checked
 `identifier-casing-namespace-roles` check and LSP examples fix the executable
-compiler and language-service boundary.
+compiler acceptance and definition boundary. Focused `veln-sema` tests cover
+duplicate controls, ordinary-call exclusion, and schema-composition ambiguity.
 
 ## Scope
 
