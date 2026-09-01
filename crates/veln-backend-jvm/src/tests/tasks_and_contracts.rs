@@ -172,6 +172,40 @@ fn bytecode_backend_evaluates_chained_and_mixed_bitwise_contracts_when_java_is_a
 }
 
 #[test]
+fn bytecode_backend_evaluates_contract_calls_and_fields_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn positive(value: Int) -> Bool\n",
+        "  value > 0\n",
+        "end\n",
+        "fn summary(value: Int) -> {ready: Bool, next: Int}\n",
+        "  {ready: positive(value), next: value + 1}\n",
+        "end\n",
+        "fn checked(value: Int) -> output: Int\n",
+        "require positive(value)\n",
+        "ensure summary(output).ready\n",
+        "  value\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(checked(1)))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-contract-call-field", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1\n");
+}
+
+#[test]
 fn contract_binary_splitting_prefers_longest_tokens_and_left_associativity() {
     assert_eq!(
         split_contract_binary("value >> 1 >> 1", ">>"),
