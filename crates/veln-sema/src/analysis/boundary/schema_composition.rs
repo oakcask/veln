@@ -194,30 +194,7 @@ pub(super) fn schema_field_has_ordinary_type_target(
     let Some(path) = schema_payload_name_path(text) else {
         return false;
     };
-    let (module_name, name, imported) = match path.as_slice() {
-        [name] => (schema.module_name.as_deref(), name.as_str(), false),
-        [_, .., name] => {
-            let Some(use_decl) = normal_imported_use_for_path(
-                module,
-                &path[..path.len() - 1],
-                schema.module_name.as_deref(),
-            ) else {
-                return false;
-            };
-            (Some(use_decl.name.as_str()), name.as_str(), true)
-        }
-        _ => return false,
-    };
-    module.types.iter().any(|ty| {
-        ty.name.as_deref() == Some(name)
-            && ty.module_name.as_deref() == module_name
-            && (!imported || ty.visibility == Visibility::Public)
-    }) || module.aliases.iter().any(|alias| {
-        alias.kind == PublicAliasKind::Type
-            && alias.name.as_deref() == Some(name)
-            && alias.module_name.as_deref() == module_name
-            && !public_alias_has_invalid_target_leaf(module, alias, Some(NameClass::Type))
-    })
+    ordinary_type_target_exists(module, &path, schema.module_name.as_deref())
 }
 
 pub(super) fn schema_composition_reaches(

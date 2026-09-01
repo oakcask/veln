@@ -1,0 +1,43 @@
+schema Item
+  value: Int
+end
+
+effect Item
+  Item() -> Int
+end
+
+handler Item() handles Item
+  Item() => 1
+end
+
+fn call_neutral_upper() -> Int effects [Item]
+  Item()
+end
+
+schema item
+  value: Int
+end
+
+effect item
+  item() -> Int
+end
+
+handler item() handles item
+  item() => 1
+end
+
+fn call_neutral_lower() -> Int effects [item]
+  item()
+end
+
+type Shared
+  Shared(value: Int)
+end
+
+schema Shared
+  value: Int
+end
+
+schema Host
+  child: Shared
+end

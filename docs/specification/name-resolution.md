@@ -49,10 +49,14 @@ local value binding is visible at a call position, it shadows the same-spelled
 function according to the ordinary value-shadowing rule. Schema-composition
 positions still admit both type and schema namespaces and report the existing
 type-versus-schema ambiguity when both are visible. The checked
-`identifier-casing-namespace-roles` check and LSP examples fix the accepted
-decision table, ordinary-call exclusion, and representative definition
-results. Focused `veln-sema` tests cover the same-namespace duplicate controls
-and schema-composition ambiguity.
+`identifier-casing-namespace-roles`,
+`identifier-casing-namespace-role-visibility-json`,
+`identifier-casing-namespace-role-type-alias-json`, and
+`identifier-casing-namespace-role-controls-json` check examples and the LSP
+example fix the accepted decision table, project visibility controls, type
+alias controls, ordinary-call exclusion, same-namespace duplicate controls,
+and representative definition results. Focused `veln-sema` tests cover the
+same namespace-role boundaries and schema-composition ambiguity.
 
 Local value bindings and declarations in the current source module shadow
 imported names for both bare values and calls. The standard prelude remains

@@ -199,6 +199,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-import-schema-cascade-boundary-json/`,
   `../../examples/specification/check/identifier-casing-import-private-schema-boundary-json/`,
   `../../examples/specification/check/identifier-casing-namespace-roles/case.toml`,
+  `../../examples/specification/check/identifier-casing-namespace-role-visibility-json/case.toml`,
+  `../../examples/specification/check/identifier-casing-namespace-role-type-alias-json/case.toml`,
+  `../../examples/specification/check/identifier-casing-namespace-role-controls-json/case.toml`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability, recovery, import isolation,

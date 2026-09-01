@@ -1,0 +1,24 @@
+command = ["check", "--json", "main.veln", "duplicates.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "unresolved call_target `Item`",
+  "unresolved call_target `item`",
+  "duplicate type declaration name `Same`",
+  "duplicate constructor declaration name `Same`",
+  "duplicate function declaration name `same`",
+  "duplicate schema declaration name `Same`",
+  "duplicate effect declaration name `Same`",
+  "duplicate effect operation declaration name `value`",
+  "duplicate handler declaration name `Same`",
+  "schema field `child` cannot compose `Shared` because it resolves as both an ordinary type and a schema",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

@@ -1,0 +1,9 @@
+type Base
+  Base(value: Int)
+end
+
+pub type Shared = Base
+
+schema Shared
+  value: Int
+end

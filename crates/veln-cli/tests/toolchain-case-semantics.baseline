@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"c7febb860635012c8980d049698855c583f65f28"
+source_git_tree	"406bda88a61749c3665f254e77f7566b5c9528ac"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1642
+case_count	1645
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6440,6 +6440,75 @@ field	invocation.command[3]	"http.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"3c50b351632f034d346994e31f657b35a2f2bac54941e55c751c084a3c5c78d7"
+case	"examples/specification/check/identifier-casing-namespace-role-controls-json"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"unresolved call_target `Item`"
+field	expectations.stdout.contains[1]	"unresolved call_target `item`"
+field	expectations.stdout.contains[2]	"duplicate type declaration name `Same`"
+field	expectations.stdout.contains[3]	"duplicate constructor declaration name `Same`"
+field	expectations.stdout.contains[4]	"duplicate function declaration name `same`"
+field	expectations.stdout.contains[5]	"duplicate schema declaration name `Same`"
+field	expectations.stdout.contains[6]	"duplicate effect declaration name `Same`"
+field	expectations.stdout.contains[7]	"duplicate effect operation declaration name `value`"
+field	expectations.stdout.contains[8]	"duplicate handler declaration name `Same`"
+field	expectations.stdout.contains[9]	"schema field `child` cannot compose `Shared` because it resolves as both an ordinary type and a schema"
+field	expectations.stdout.format	"json"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"duplicates.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"af5e4c691d06b31883acd99618c67c877167747f4f36570e14b66018ffa6bae4"
+case	"examples/specification/check/identifier-casing-namespace-role-type-alias-json"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"type.schema_reference"
+field	expectations.stdout.not_contains[1]	"name.unresolved"
+field	expectations.stdout.not_contains[2]	"name.visibility"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"helper.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"397d8c565635e2e6e403fab6278d1080a85369ec69a2eebe611ed603429434e7"
+case	"examples/specification/check/identifier-casing-namespace-role-visibility-json"
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	1
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.json_assertions[2].equals	"type.schema_reference"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.id"
+field	expectations.json_assertions[3].equals	"main.veln"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.span.file"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"schema `Shared` cannot be used as an ordinary type"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"\"status\":\"ok\""
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"helper.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"629c1f4e5ca25b3f1921f4cd5a9eb0c5219e558f855fcea502ae099f4213b283"
 case	"examples/specification/check/identifier-casing-namespace-roles"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -12480,6 +12549,22 @@ field	expectations.lsp_assertions[0].equals	true
 field	expectations.lsp_assertions[0].id	1
 field	expectations.lsp_assertions[0].operation	"equals"
 field	expectations.lsp_assertions[0].path	"/result/capabilities/definitionProvider"
+field	expectations.lsp_assertions[10].equals	null
+field	expectations.lsp_assertions[10].id	7
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/result"
+field	expectations.lsp_assertions[11].equals	null
+field	expectations.lsp_assertions[11].id	8
+field	expectations.lsp_assertions[11].operation	"equals"
+field	expectations.lsp_assertions[11].path	"/result"
+field	expectations.lsp_assertions[12].equals	null
+field	expectations.lsp_assertions[12].id	9
+field	expectations.lsp_assertions[12].operation	"equals"
+field	expectations.lsp_assertions[12].path	"/result"
+field	expectations.lsp_assertions[13].equals	null
+field	expectations.lsp_assertions[13].id	10
+field	expectations.lsp_assertions[13].operation	"equals"
+field	expectations.lsp_assertions[13].path	"/result"
 field	expectations.lsp_assertions[1].equals	0
 field	expectations.lsp_assertions[1].id	2
 field	expectations.lsp_assertions[1].operation	"equals"
@@ -12519,10 +12604,10 @@ field	expectations.lsp_assertions[9].path	"/result"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1286,"sha256":"cf61e0853c767f0ccf1e935a54ccaf0bcc6413e23664efe6f2d021a2db4bfe00"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2132,"sha256":"9ad1d8b0446a8f834b741267d0c0d8bfa95fb0ea323af0cf8fe3badc883fbc2e"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"09dd459ec3abc2cf06c83e9033e5a2589137a521aeb992a973bb7a68f034019b"
+case_digest	"56b3d670bbf49abef1d0d322af50d1560718359aba6cec73f400e04f548ed615"
 case	"examples/specification/lsp/identifier-casing-overlay-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -53066,4 +53151,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"61274ba4a8c679896dd87d4baf06576b592e6f1ef43318967ef81fb370d4b886"
+aggregate_digest	"c4f803224d8de7fb358dc1953a8b9b93ab3f6c65fe5286fa9bbe2230ee5d07e2"

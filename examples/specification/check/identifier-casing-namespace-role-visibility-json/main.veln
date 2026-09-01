@@ -1,0 +1,7 @@
+schema Shared
+  value: Int
+end
+
+fn take(value: Shared) -> Int
+  1
+end

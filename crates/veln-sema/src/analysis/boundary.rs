@@ -37,9 +37,7 @@ use crate::types::schema_types::{
     schema_recursive_dispatch_payload_type,
 };
 use std::collections::{BTreeMap, BTreeSet};
-use veln_ast::{
-    NameClass, PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl,
-};
+use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, SchemaValidationClause, UseDecl};
 use veln_literals::parse_integer_literal;
 
 mod effects;

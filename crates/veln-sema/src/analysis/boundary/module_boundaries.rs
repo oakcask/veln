@@ -1,12 +1,17 @@
 use crate::adt::type_operations as adt;
 use crate::diagnostics::{module_details, span_json};
 pub(super) use crate::name_recovery::normal_imported_use_for_path;
-use crate::name_recovery::{resolved_import_module_name, use_decl_has_invalid_module_segment};
+use crate::name_recovery::{
+    public_alias_has_invalid_target_leaf, resolved_import_module_name,
+    use_decl_has_invalid_module_segment,
+};
 use crate::semantic_model::Type;
 use crate::standard_names::PRELUDE_MODULE;
 use crate::type_syntax::parse_type_annotation;
 use std::collections::BTreeMap;
-use veln_ast::{Function, FunctionKind, SurfaceModule, UseDecl};
+use veln_ast::{
+    Function, FunctionKind, NameClass, PublicAliasKind, SurfaceModule, UseDecl, Visibility,
+};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
@@ -62,6 +67,39 @@ pub(super) fn type_target<'a>(
         }
         _ => None,
     }
+}
+
+pub(super) fn ordinary_type_target_exists(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> bool {
+    let (module_name, name, imported) = match segments {
+        [name] => (current_module, name.as_str(), false),
+        [_, .., name] => {
+            let Some(use_decl) = normal_imported_use_for_path(
+                module,
+                &segments[..segments.len() - 1],
+                current_module,
+            ) else {
+                return false;
+            };
+            (Some(use_decl.name.as_str()), name.as_str(), true)
+        }
+        _ => return false,
+    };
+    module.types.iter().any(|ty| {
+        ty.name.as_deref() == Some(name)
+            && ty.name.as_deref().is_some_and(valid_type_name)
+            && ty.module_name.as_deref() == module_name
+            && (!imported || ty.visibility == Visibility::Public)
+    }) || module.aliases.iter().any(|alias| {
+        alias.kind == PublicAliasKind::Type
+            && alias.name.as_deref() == Some(name)
+            && alias.name.as_deref().is_some_and(valid_type_name)
+            && alias.module_name.as_deref() == module_name
+            && !public_alias_has_invalid_target_leaf(module, alias, Some(NameClass::Type))
+    })
 }
 
 pub(super) fn valid_function_name(name: &str) -> bool {

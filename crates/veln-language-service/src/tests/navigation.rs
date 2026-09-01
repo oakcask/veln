@@ -109,6 +109,34 @@
     }
 
     #[test]
+    fn casing_neutral_namespace_tokens_do_not_produce_definition_results() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "schema Item\n",
+                "  value: Int\n",
+                "end\n\n",
+                "effect Item\n",
+                "  Item() -> Int\n",
+                "end\n\n",
+                "handler Item() handles Item\n",
+                "  Item() => 1\n",
+                "end\n\n",
+                "fn main() -> Int effects [Item]\n",
+                "  Item()\n",
+                "end\n",
+            ),
+        )];
+
+        for (line, column) in [(1, 8), (5, 8), (6, 4), (9, 9), (14, 4)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "{line}:{column}"
+            );
+        }
+    }
+
+    #[test]
     fn invalid_declaration_recovery_navigation_covers_source_declaration_forms() {
         struct Case {
             name: &'static str,

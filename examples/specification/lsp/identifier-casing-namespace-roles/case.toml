@@ -55,3 +55,23 @@ equals = 6
 id = 6
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null

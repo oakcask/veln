@@ -13,9 +13,13 @@ functions, and value bindings now preserve the namespace selected by the
 source role. Current behavior is specified by
 [Name Resolution](../../specification/name-resolution.md) and
 [Editor Support](../../specification/editor-support.md). The checked
-`identifier-casing-namespace-roles` check and LSP examples fix the executable
-compiler acceptance and definition boundary. Focused `veln-sema` tests cover
-duplicate controls, ordinary-call exclusion, and schema-composition ambiguity.
+`identifier-casing-namespace-roles`,
+`identifier-casing-namespace-role-visibility-json`,
+`identifier-casing-namespace-role-type-alias-json`, and
+`identifier-casing-namespace-role-controls-json` check examples and the LSP
+example fix the executable compiler acceptance, project visibility, type alias,
+duplicate, ordinary-call exclusion, schema-composition ambiguity, and
+definition boundaries.
 
 ## Scope
 
@@ -32,14 +36,17 @@ Same-namespace duplicate controls now cover source types, constructors,
 functions, schemas, effects, handlers, and effect operations. Cross-namespace
 equal spellings remain accepted. Schema-composition positions retain the
 existing type-versus-schema ambiguity when both namespaces provide the same
-visible spelling.
+visible spelling. Ordinary type positions use the visible type namespace, so a
+selected but unimported same-spelled type declaration cannot suppress a
+same-module schema-as-type diagnostic, and concrete types and public type
+aliases share the same visible lookup boundary.
 
 Language-service definition evidence covers accepted type, constructor,
 function, and value-binding occurrences beside equal-spelled neutral
-declarations. It also covers ordinary calls that do not navigate to schemas,
-effects, handlers, or effect operations. The language service still exposes
-only its supported symbol classes; neutral declaration names are not introduced
-as new navigation symbols by this slice.
+declarations. It also covers neutral declaration tokens and ordinary calls
+that do not navigate to schemas, effects, handlers, or effect operations. The
+language service still exposes only its supported symbol classes; neutral
+declaration names are not introduced as new navigation symbols by this slice.
 
 ## Completion
 

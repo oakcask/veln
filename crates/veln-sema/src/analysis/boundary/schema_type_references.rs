@@ -247,7 +247,7 @@ pub(super) fn schema_for_type_name<'a>(
     name: &str,
 ) -> Option<&'a SchemaDecl> {
     let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
-    if type_target(module, &segments, current_module).is_some() {
+    if ordinary_type_target_exists(module, &segments, current_module) {
         return None;
     }
     match segments.as_slice() {

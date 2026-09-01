@@ -308,8 +308,9 @@ package isolation.
 The executable `identifier-casing-namespace-roles` LSP example covers
 definition results for accepted type, constructor, function, and value-binding
 occurrences beside equal-spelled casing-neutral declarations, and covers the
-null definition result for ordinary calls that only have schema, effect,
-handler, or operation declarations available.
+null definition result for casing-neutral schema, effect, handler, and
+operation tokens and for ordinary calls that only have those casing-neutral
+declarations available.
 The executable `identifier-casing-recovery-navigation` LSP example covers
 definition, references, prepare-rename, successful rename edits, edit-free
 invalid-case rename failure, and edit-free conflict rename failure for a

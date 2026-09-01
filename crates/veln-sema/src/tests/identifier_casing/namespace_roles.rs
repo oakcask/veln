@@ -236,3 +236,244 @@ fn schema_composition_preserves_type_schema_ambiguity() {
         lowered.diagnostics
     );
 }
+
+#[test]
+fn unrelated_type_declaration_does_not_suppress_schema_as_type_diagnostic() {
+    let module = merged_modules(vec![
+        SourceFile::new(
+            "main.veln",
+            concat!(
+                "mod main\n",
+                "\n",
+                "schema Shared\n",
+                "  value: Int\n",
+                "end\n",
+                "\n",
+                "fn take(value: Shared) -> Int\n",
+                "  1\n",
+                "end\n",
+            ),
+        ),
+        SourceFile::new(
+            "helper.veln",
+            "mod helper\n\ntype Shared\n  Shared(value: Int)\nend\n",
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.schema_reference"
+                && diagnostic.message == "schema `Shared` cannot be used as an ordinary type"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn visible_type_alias_wins_over_same_spelled_schema_in_type_positions() {
+    let cases = [
+        (
+            "local",
+            vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "mod main\n",
+                    "\n",
+                    "type Base\n",
+                    "  Base(value: Int)\n",
+                    "end\n",
+                    "\n",
+                    "pub type Shared = Base\n",
+                    "\n",
+                    "schema Shared\n",
+                    "  value: Int\n",
+                    "end\n",
+                    "\n",
+                    "fn take(value: Shared) -> Shared\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            )],
+        ),
+        (
+            "imported",
+            vec![
+                SourceFile::new(
+                    "helper.veln",
+                    concat!(
+                        "mod helper\n",
+                        "\n",
+                        "type Base\n",
+                        "  Base(value: Int)\n",
+                        "end\n",
+                        "\n",
+                        "pub type Shared = Base\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod main\n",
+                        "\n",
+                        "use helper\n",
+                        "\n",
+                        "schema Shared\n",
+                        "  value: Int\n",
+                        "end\n",
+                        "\n",
+                        "fn take(value: helper::Shared) -> helper::Shared\n",
+                        "  value\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+        ),
+    ];
+
+    for (name, sources) in cases {
+        let module = merged_modules(sources);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "type.schema_reference"),
+            "{name}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn private_and_ambiguous_type_aliases_do_not_suppress_schema_as_type_diagnostic() {
+    let cases = [
+        (
+            "private-imported-alias",
+            vec![
+                SourceFile::new(
+                    "helper.veln",
+                    concat!(
+                        "mod helper\n",
+                        "\n",
+                        "type Base\n",
+                        "  Base(value: Int)\n",
+                        "end\n",
+                        "\n",
+                        "type Shared = Base\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod main\n",
+                        "\n",
+                        "use helper\n",
+                        "\n",
+                        "schema Shared\n",
+                        "  value: Int\n",
+                        "end\n",
+                        "\n",
+                        "fn take(value: Shared) -> Int\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+        ),
+        (
+            "ambiguous-imported-alias",
+            vec![
+                SourceFile::new(
+                    "left.veln",
+                    concat!(
+                        "mod left\n",
+                        "\n",
+                        "type Base\n",
+                        "  Base(value: Int)\n",
+                        "end\n",
+                        "\n",
+                        "pub type Shared = Base\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "right.veln",
+                    concat!(
+                        "mod right\n",
+                        "\n",
+                        "type Base\n",
+                        "  Base(value: Int)\n",
+                        "end\n",
+                        "\n",
+                        "pub type Shared = Base\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod main\n",
+                        "\n",
+                        "use left\n",
+                        "use right\n",
+                        "\n",
+                        "schema Shared\n",
+                        "  value: Int\n",
+                        "end\n",
+                        "\n",
+                        "fn take(value: Shared) -> Int\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+        ),
+    ];
+
+    for (name, sources) in cases {
+        let module = merged_modules(sources);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == "type.schema_reference"),
+            "{name}: {diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
+fn missing_type_alias_target_remains_the_observable_type_position_control() {
+    let module = merged_modules(vec![SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod main\n",
+            "\n",
+            "pub type Shared = Missing\n",
+            "\n",
+            "schema Shared\n",
+            "  value: Int\n",
+            "end\n",
+            "\n",
+            "fn take(value: Shared) -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    )]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved type alias target `Missing`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "type.schema_reference"),
+        "{diagnostics:#?}"
+    );
+}

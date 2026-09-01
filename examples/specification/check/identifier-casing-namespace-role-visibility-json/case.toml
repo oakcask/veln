@@ -1,0 +1,26 @@
+command = ["check", "--json", "main.veln", "helper.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["schema `Shared` cannot be used as an ordinary type"]
+not_contains = ["\"status\":\"ok\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "type.schema_reference"
+
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "main.veln"

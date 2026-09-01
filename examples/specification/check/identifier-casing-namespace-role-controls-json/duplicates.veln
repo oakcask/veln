@@ -1,0 +1,45 @@
+type Same
+  First
+end
+
+type Same
+  Second
+end
+
+type Owner
+  Same
+  Same
+end
+
+fn same() -> Int
+  1
+end
+
+fn same() -> Int
+  2
+end
+
+schema Same
+  value: Int
+end
+
+schema Same
+  other: Int
+end
+
+effect Same
+  value() -> Int
+  value() -> Int
+end
+
+effect Same
+  other() -> Int
+end
+
+handler Same() handles Same
+  value() => 1
+end
+
+handler Same() handles Same
+  value() => 2
+end
