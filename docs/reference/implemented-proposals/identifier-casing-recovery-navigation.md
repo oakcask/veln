@@ -34,18 +34,23 @@ Prepare-rename returns the selected identifier range.
 A valid class-compatible symbol takes precedence over recovery. Multiple
 compatible recovery records with the same spelling do not select an arbitrary
 record. Incompatible occurrence roles, shadowing, qualified occurrences that
-do not already resolve through an implemented semantic path, and occurrences
-outside the invalid declaration or binding lexical scope do not link to
-recovery.
+do not already resolve through an implemented semantic path, occurrences
+before a local binding starts, and occurrences outside the invalid declaration
+or binding lexical scope do not link to recovery. Source-declared bare nullary
+constructor expression and pattern uses remain valid constructor navigation
+targets when an invalid same-spelled binding or function recovery record is
+also visible.
 
 The `identifier-casing-recovery-navigation` LSP example checks those
 selection and rejection rows through definition, references, and
 prepare-rename where the operation has an observable unsupported-symbol
-result. The `identifier-casing-handler-binding-navigation` LSP example checks
-the same operation set for invalid handler context and operation-clause
-bindings. Focused language-service tests provide binding-form coverage for
-parameters, result bindings, local bindings, pattern bindings, satisfy
-candidate bindings, and handler bindings.
+result, including valid bare nullary constructor precedence. The
+`identifier-casing-handler-binding-navigation` LSP example checks the same
+operation set for invalid handler context and operation-clause bindings.
+Focused language-service tests provide binding-form coverage for parameters,
+result bindings, local bindings, local-binding initializer exclusion, pattern
+bindings, satisfy candidate bindings, handler bindings, and valid nullary
+constructor precedence over function or binding recovery.
 
 Recovery records remain quarantined. They do not enter normal workspace or
 package symbol indexes, direct-dependency lookup, standard-prelude lookup,
