@@ -598,6 +598,67 @@
     }
 
     #[test]
+    fn rename_validation_allows_unrelated_handler_local_binding_for_function_rename() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+            source("right.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "effect Choose\n",
+                    "  choose() -> Int\n",
+                    "end\n\n",
+                    "handler choose() handles Choose\n",
+                    "  choose() =>\n",
+                    "    let target = 1\n",
+                    "    target\n",
+                    "end\n\n",
+                    "fn caller() -> Int\n",
+                    "  source()\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_ignores_handler_body_non_function_roles_for_function_rename() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+            source("right.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "effect Choose\n",
+                    "  choose() -> Int\n",
+                    "end\n\n",
+                    "handler choose() handles Choose\n",
+                    "  choose() =>\n",
+                    "    let annotated: target = 1\n",
+                    "    let record = { target: 1 }\n",
+                    "    build(target: record)\n",
+                    "end\n\n",
+                    "fn caller() -> Int\n",
+                    "  source()\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+    }
+
+    #[test]
     fn rename_validation_rejects_provable_multi_scope_ambiguity() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("left.veln", "pub type Item\n  Left\nend\n"),

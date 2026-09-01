@@ -295,7 +295,8 @@ impl SymbolIndex {
                             file_scopes,
                             *index,
                             requested_name,
-                        ) || file_has_handler_references && handler_function_reference_token(
+                        ) || file_has_handler_references && handler_function_reference_is_unshadowed(
+                            file,
                             &file.tokens,
                             *index,
                             requested_name,
@@ -512,9 +513,22 @@ fn handler_function_reference_is_unshadowed(
 
 fn handler_function_reference_token(tokens: &[Token], index: usize, name: &str) -> bool {
     tokens[index].text == name
+        && tokens[index].kind == TokenKind::Ident
+        && is_identifier(&tokens[index].text)
         && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+        && previous_non_layout_token(tokens, index)
+            .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+        && !is_field_name(tokens, index)
+        && !is_function_declaration_name(tokens, index)
+        && !is_parameter_name(tokens, index)
+        && !is_local_binding_name(tokens, index)
+        && !is_handler_operation_clause_operation_name(tokens, index)
+        && !is_type_position_token(tokens, index)
         && (is_call_target_token(tokens, index)
-            || tokens[index].kind == TokenKind::Ident && is_identifier(&tokens[index].text))
+            || !matches!(
+                next_non_layout_token(tokens, index).map(|token| token.kind),
+                Some(TokenKind::LParen | TokenKind::Colon | TokenKind::Dot | TokenKind::DoubleColon)
+            ))
 }
 
 fn handler_binding_conflict_for_function_reference(
