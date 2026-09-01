@@ -14,6 +14,8 @@ contains = [
   "\"newText\":\"RightEntry\"",
   "\"newText\":\"Available\"",
   "\"newText\":\"value\"",
+  "\"range\":{\"start\":{\"line\":6,\"character\":9},\"end\":{\"line\":6,\"character\":14}},\"newText\":\"ctx\"",
+  "\"range\":{\"start\":{\"line\":6,\"character\":19},\"end\":{\"line\":6,\"character\":24}},\"newText\":\"ctx\"",
   "\"line\":8,\"character\":2",
   "\"line\":25,\"character\":2",
   "\"line\":30,\"character\":4",
@@ -502,4 +504,9 @@ equals = "function_consumer"
 [[lsp_assert]]
 id = 27
 path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 28
+path = "/error"
 missing = true

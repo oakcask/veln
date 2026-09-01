@@ -222,8 +222,11 @@ workspace edits in that failure response.
 Lexical conflict prediction rejects same-scope declaration duplicates
 independently of edited references. Lexical shadowing checks preserve an
 unedited occurrence when the complete edit would leave that occurrence bound
-to the same local binding or clause parameter. A lexical affected scope has
-`kind: "lexical"` and includes the file plus source start and end offsets.
+to the same local binding or clause parameter. A handler operation clause
+parameter can be renamed to an enclosing handler context parameter's name when
+the edited declaration and references remain bound to the clause parameter. A
+lexical affected scope has `kind: "lexical"` and includes the file plus source
+start and end offsets.
 When a local binding conflicts with a function rename, the reported conflict
 location is the binding declaration. When an unused handler operation clause
 parameter is renamed to another parameter in the same clause, the reported
@@ -244,7 +247,8 @@ The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
 class-changing failures for the four supported rename classes, predictable
 duplicate and ambiguity conflict rejection, source-declared nullary
-constructor uses, legal unedited clause shadowing, local binding declaration
+constructor uses, legal unedited clause shadowing, inner clause parameter
+rename to an enclosing context parameter name, local binding declaration
 conflict reporting, declaration-only handler clause parameter conflict
 reporting, type alias conflict reporting, same-spelled non-type namespace
 exclusion, qualified type identity preservation for type rename, ambiguous

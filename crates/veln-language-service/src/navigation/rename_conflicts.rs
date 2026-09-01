@@ -139,9 +139,12 @@ impl SymbolIndex {
         requested_name: &str,
         selected: &FunctionSymbol,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let scope_cache = self.function_scope_cache();
         self.affected_spans(result)
             .into_iter()
-            .find_map(|span| self.function_span_conflict(span, requested_name, selected))
+            .find_map(|span| {
+                self.function_span_conflict(span, requested_name, selected, &scope_cache)
+            })
     }
 
     fn function_span_conflict(
@@ -149,9 +152,18 @@ impl SymbolIndex {
         span: &SourceSpan,
         requested_name: &str,
         selected: &FunctionSymbol,
+        scope_cache: &BTreeMap<String, Vec<FunctionScope>>,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let (file, token_index) = self.file_token_for_span(span)?;
-        if local_binding_shadows_call_target(&file.tokens, token_index, requested_name) {
+        if local_binding_shadows_call_target_in_scopes(
+            scope_cache
+                .get(file.source.path().as_str())
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
+            &file.tokens,
+            token_index,
+            requested_name,
+        ) {
             return self.local_conflict_in_file(file, requested_name, span);
         }
         if let Some(conflict) =
@@ -240,10 +252,15 @@ impl SymbolIndex {
         selected: &FunctionSymbol,
         requested_name: &str,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        let scope_cache = self.function_scope_cache();
         self.files
             .iter()
             .filter(|file| function_visible_after_rename(file, selected))
             .find_map(|file| {
+                let file_scopes = scope_cache
+                    .get(file.source.path().as_str())
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]);
                 file.tokens
                     .iter()
                     .enumerate()
@@ -254,7 +271,8 @@ impl SymbolIndex {
                             && is_call_target_token(&file.tokens, *index)
                     })
                     .find_map(|(token_index, _)| {
-                        if local_binding_shadows_call_target(
+                        if local_binding_shadows_call_target_in_scopes(
+                            file_scopes,
                             &file.tokens,
                             token_index,
                             requested_name,
@@ -279,6 +297,18 @@ impl SymbolIndex {
                         Some(module_rename_conflict(conflict.declaration, &file.module))
                     })
             })
+    }
+
+    fn function_scope_cache(&self) -> BTreeMap<String, Vec<FunctionScope>> {
+        self.files
+            .iter()
+            .map(|file| {
+                (
+                    file.source.path().as_str().to_string(),
+                    function_scopes(&file.tokens),
+                )
+            })
+            .collect()
     }
 
     fn constructor_local_resolution_unchanged(
@@ -380,11 +410,7 @@ impl SymbolIndex {
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         clause_bindings
             .into_iter()
-            .find(|binding| {
-                binding.name == requested_name
-                    && !same_span(&binding.declaration, &selected.declaration)
-                    && span_list_intersects_range(affected_spans, binding.start, binding.end)
-            })
+            .find(|binding| clause_binding_conflicts_after_rename(binding, selected, requested_name, affected_spans))
             .map(|binding| (workspace_location(binding.declaration), scope.clone()))
     }
 
@@ -399,9 +425,7 @@ impl SymbolIndex {
         local_bindings(&file.tokens, selected.scope_start, selected.scope_end)
             .into_iter()
             .find(|binding| {
-                binding.name == requested_name
-                    && !same_span(&local_binding_declaration(file, binding), &selected.declaration)
-                    && span_list_intersects_range(affected_spans, binding.start, binding.end)
+                local_binding_conflicts_after_rename(file, binding, selected, requested_name, affected_spans)
             })
             .map(|binding| {
                 (
@@ -410,6 +434,50 @@ impl SymbolIndex {
                 )
             })
     }
+}
+
+fn clause_binding_conflicts_after_rename(
+    binding: &ClauseBinding,
+    selected: &LocalSymbol,
+    requested_name: &str,
+    affected_spans: &[&SourceSpan],
+) -> bool {
+    binding.name == requested_name
+        && !same_span(&binding.declaration, &selected.declaration)
+        && affected_spans.iter().any(|span| {
+            span.start.offset >= binding.start
+                && span.start.offset < binding.end
+                && !selected_binding_wins_at_span(selected, binding.start, binding.end, span)
+        })
+}
+
+fn local_binding_conflicts_after_rename(
+    file: &IndexedFile,
+    binding: &LocalBinding,
+    selected: &LocalSymbol,
+    requested_name: &str,
+    affected_spans: &[&SourceSpan],
+) -> bool {
+    binding.name == requested_name
+        && !same_span(&local_binding_declaration(file, binding), &selected.declaration)
+        && affected_spans.iter().any(|span| {
+            span.start.offset >= binding.start
+                && span.start.offset < binding.end
+                && !selected_binding_wins_at_span(selected, binding.start, binding.end, span)
+        })
+}
+
+fn selected_binding_wins_at_span(
+    selected: &LocalSymbol,
+    candidate_start: usize,
+    candidate_end: usize,
+    span: &SourceSpan,
+) -> bool {
+    same_span(span, &selected.declaration)
+        || (span.start.offset >= selected.scope_start
+            && span.start.offset < selected.scope_end
+            && selected.scope_start >= candidate_start
+            && selected.scope_end <= candidate_end)
 }
 
 fn type_local_resolution_unchanged(

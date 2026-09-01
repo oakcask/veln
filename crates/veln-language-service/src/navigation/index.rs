@@ -458,12 +458,6 @@ fn same_scope_binding_conflicts(
         && !same_span(&binding.declaration, &selected.declaration)
 }
 
-fn span_list_intersects_range(spans: &[&SourceSpan], start: usize, end: usize) -> bool {
-    spans
-        .iter()
-        .any(|span| span.start.offset >= start && span.start.offset < end)
-}
-
 fn module_rename_conflict(
     declaration: NavigationLocation,
     module: &str,

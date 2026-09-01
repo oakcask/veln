@@ -1,8 +1,17 @@
 fn local_binding_shadows_call_target(tokens: &[Token], index: usize, name: &str) -> bool {
+    local_binding_shadows_call_target_in_scopes(&function_scopes(tokens), tokens, index, name)
+}
+
+fn local_binding_shadows_call_target_in_scopes(
+    scopes: &[FunctionScope],
+    tokens: &[Token],
+    index: usize,
+    name: &str,
+) -> bool {
     let offset = tokens[index].range.start;
-    function_scopes(tokens).iter().any(|scope| {
-        offset >= scope.body_start && offset < scope.end && scope.shadows(name, tokens, index)
-    })
+    scopes
+        .iter()
+        .any(|scope| offset >= scope.body_start && offset < scope.end && scope.shadows(name, tokens, index))
 }
 
 fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {

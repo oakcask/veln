@@ -238,6 +238,114 @@
     }
 
     #[test]
+    fn rename_validation_preserves_inner_clause_parameter_over_outer_context_name() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  choose(value: Int) -> Int\n",
+                "end\n\n",
+                "handler choose(ctx: Int) handles Choose\n",
+                "  choose(value) => value\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 6, 10).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_eq!(locations(&result.references), [("main.veln", 6, 20)]);
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "ctx").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_allows_outer_context_to_clause_name_outside_clause() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  choose(value: Int) -> Int\n",
+                "  current() -> Int\n",
+                "end\n\n",
+                "handler choose(ctx: Int) handles Choose\n",
+                "  choose(value) => value\n",
+                "  current() => ctx\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 6, 16).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerContextParameter
+        );
+        assert_eq!(locations(&result.references), [("main.veln", 8, 16)]);
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "value").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_rejects_outer_context_to_clause_name_inside_clause() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  choose(value: Int) -> Int\n",
+                "end\n\n",
+                "handler choose(ctx: Int) handles Choose\n",
+                "  choose(value) => ctx\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 6, 21).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerContextParameter
+        );
+        assert_eq!(locations(&result.references), [("main.veln", 6, 20)]);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "value").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "value",
+            "main.veln",
+            6,
+            10,
+        );
+    }
+
+    #[test]
+    fn rename_validation_rejects_same_clause_parameter_name_without_references() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  choose(left: Int, right: Int) -> Int\n",
+                "end\n\n",
+                "handler choose() handles Choose\n",
+                "  choose(left, right) => 0\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 6, 10).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_eq!(locations(&result.references), []);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "right").unwrap_err(),
+            RenameNameClass::ValueBinding,
+            "right",
+            "main.veln",
+            6,
+            16,
+        );
+    }
+
+    #[test]
     fn rename_validation_reports_local_binding_declaration_conflict() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
@@ -489,6 +597,44 @@
         let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
 
         assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+    }
+
+    #[test]
+    fn rename_validation_keeps_shadowed_consumer_function_rename_linear() {
+        let elapsed = [400, 800, 1_600].map(|call_count| {
+            let mut samples = (0..3)
+                .map(|_| shadowed_consumer_validation_time(call_count))
+                .collect::<Vec<_>>();
+            samples.sort();
+            samples[1]
+        });
+
+        assert!(elapsed[1] <= elapsed[0] * 3 + std::time::Duration::from_millis(50));
+        assert!(elapsed[2] <= elapsed[1] * 3 + std::time::Duration::from_millis(50));
+    }
+
+    fn shadowed_consumer_validation_time(call_count: usize) -> std::time::Duration {
+        let mut consumer = String::from(
+            concat!(
+                "use left\n\n",
+                "fn caller(target: Int) -> Int\n",
+                "  let value = target\n",
+            ),
+        );
+        for _ in 0..call_count {
+            consumer.push_str("  target()\n");
+        }
+        consumer.push_str("  value\nend\n");
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn source() -> Int\n  1\nend\n"),
+            source("main.veln", &consumer),
+        ]);
+        let result = query_snapshot(&snapshot, "left.veln", 1, 8).unwrap();
+        let start = std::time::Instant::now();
+
+        assert!(validate_rename_in_snapshot(&snapshot, &result, "target").is_ok());
+
+        start.elapsed()
     }
 
     #[test]
