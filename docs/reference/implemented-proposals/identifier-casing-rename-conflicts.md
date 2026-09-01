@@ -20,8 +20,9 @@ params response, shared `rename.conflict` code, conflict detail projection,
 same-clause parameter conflict boundary, unedited imported type ambiguity
 boundary, unedited imported function ambiguity boundary, and edit-free failure
 boundary. Focused language-service tests also cover handler context and clause
-parameter shadowing boundaries that do not need another transport-specific
-fixture.
+parameter shadowing boundaries, constructor ambiguity rejection, and
+qualified-function identity preservation that do not need another
+transport-specific fixture.
 
 ## Scope
 
@@ -42,6 +43,10 @@ occurrences that were not references to the selected type before the rename.
 Function rename checks bare call targets in modules where the renamed function
 would be visible after the complete edit, including requested-name calls that
 would become ambiguous between imported functions.
+Constructor rename checks constructor declarations in the selected ADT and bare
+constructor expression and pattern uses in modules where the renamed constructor
+would be visible after the complete edit, including requested-name constructor
+uses that would become ambiguous between imported constructors.
 Lexical-scope failures report `kind: "lexical"` and identify the affected file
 and source start and end offsets. Local binding conflicts report the binding
 declaration as the conflicting declaration, including when a function rename

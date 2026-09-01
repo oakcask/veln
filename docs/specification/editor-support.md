@@ -246,6 +246,9 @@ affected scope has `kind: "module"` and the module name. Type conflict
 prediction uses the current top-level type namespace, so a selected source type
 cannot be renamed to the name of a type declaration or visible type alias in an
 affected module.
+Constructor conflict prediction uses the current constructor namespace for the
+selected ADT and bare constructor expression and pattern uses in modules where
+the renamed constructor would be visible after the complete edit.
 
 A rename request without a selected supported workspace symbol returns an empty
 workspace-edit `changes` object, and prepare-rename for the same position
@@ -263,6 +266,9 @@ for type rename, ambiguous imported type rejection for edited and unedited
 requested-name occurrences, bare imported function ambiguity rejection for
 unedited requested-name occurrences, and parameter and result-binding
 declaration locations for lexical function-rename conflicts.
+Focused language-service tests cover constructor ambiguity conflict rejection
+and legal qualified-function identity preservation that do not need separate
+transport-specific fixtures.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay
