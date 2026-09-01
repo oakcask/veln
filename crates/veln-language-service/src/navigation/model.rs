@@ -469,6 +469,7 @@ struct FunctionScope {
     params: Vec<ScopedBinding>,
     result_binding: Option<ScopedBinding>,
     local_bindings: Vec<LocalBinding>,
+    local_bindings_by_name: BTreeMap<String, Vec<usize>>,
 }
 
 #[derive(Debug)]

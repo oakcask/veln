@@ -268,7 +268,12 @@ impl SymbolIndex {
                         token.kind == TokenKind::Ident
                             && token.text == requested_name
                             && qualifier_for_token(&file.tokens, *index).is_none()
-                            && is_call_target_token(&file.tokens, *index)
+                            && is_bare_function_reference_token(
+                                &file.tokens,
+                                file_scopes,
+                                *index,
+                                requested_name,
+                            )
                     })
                     .find_map(|(token_index, _)| {
                         if local_binding_shadows_call_target_in_scopes(

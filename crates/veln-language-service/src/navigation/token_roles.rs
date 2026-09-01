@@ -98,6 +98,29 @@ fn is_call_target_token(tokens: &[Token], index: usize) -> bool {
     next_non_whitespace_token(tokens, index).is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
+fn is_bare_function_reference_token(
+    tokens: &[Token],
+    scopes: &[FunctionScope],
+    index: usize,
+    name: &str,
+) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && tokens[index].text == name
+        && previous_non_layout_token(tokens, index)
+            .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+        && !is_field_name(tokens, index)
+        && !is_function_declaration_name(tokens, index)
+        && !is_parameter_name(tokens, index)
+        && !is_local_binding_name(tokens, index)
+        && !is_handler_operation_clause_operation_name(tokens, index)
+        && (is_call_target_token(tokens, index)
+            || token_scope(scopes, tokens[index].range.start)
+                .is_some_and(|scope| !scope.shadows(name, tokens, index))
+            || is_handler_operation_clause_call_target(tokens, index)
+            || is_function_alias_target_reference(tokens, index, name)
+            || is_codec_implementation_function_reference(tokens, index, name))
+}
+
 fn is_constructor_reference_token(tokens: &[Token], index: usize) -> bool {
     is_call_target_token(tokens, index)
         || is_bare_nullary_constructor_expression(tokens, index)

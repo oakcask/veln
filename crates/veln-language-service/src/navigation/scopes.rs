@@ -31,12 +31,14 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
         let params = parameter_names(tokens, index, body_start);
         let result_binding = result_binding_name(tokens, index, body_start);
         let local_bindings = local_bindings(tokens, body_start, end);
+        let local_bindings_by_name = local_binding_index_by_name(&local_bindings);
         scopes.push(FunctionScope {
             body_start,
             end,
             params,
             result_binding,
             local_bindings,
+            local_bindings_by_name,
         });
     }
     scopes
@@ -65,14 +67,28 @@ impl FunctionScope {
                     .map(ScopeShadow::FunctionBinding)
             })
             .or_else(|| {
-                self.local_bindings
-                    .iter()
+                self.local_bindings_by_name
+                    .get(name)
+                    .into_iter()
+                    .flatten()
+                    .map(|index| &self.local_bindings[*index])
                     .find(|binding| {
                         binding.name == name && binding.start <= offset && offset < binding.end
                     })
                     .map(ScopeShadow::LocalBinding)
             })
     }
+}
+
+fn local_binding_index_by_name(bindings: &[LocalBinding]) -> BTreeMap<String, Vec<usize>> {
+    let mut by_name = BTreeMap::new();
+    for (index, binding) in bindings.iter().enumerate() {
+        by_name
+            .entry(binding.name.clone())
+            .or_insert_with(Vec::new)
+            .push(index);
+    }
+    by_name
 }
 
 enum ScopeShadow<'a> {

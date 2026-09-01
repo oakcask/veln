@@ -1,0 +1,7 @@
+use left_value
+use right_value
+
+fn caller() -> Int
+  let callback = target_value
+  0
+end

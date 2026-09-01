@@ -18,8 +18,9 @@ Current behavior is specified by
 `identifier-casing-rename-boundary` LSP example fixes the JSON-RPC invalid
 params response, shared `rename.conflict` code, conflict detail projection,
 same-clause parameter conflict boundary, unedited imported type ambiguity
-boundary, unedited imported function ambiguity boundary, and edit-free failure
-boundary. Focused language-service tests also cover handler context and clause
+boundary, unedited imported function ambiguity boundaries for calls and
+function values, and edit-free failure boundary. Focused language-service tests
+also cover handler context and clause
 parameter shadowing boundaries, constructor ambiguity rejection, and
 qualified-function identity preservation that do not need another
 transport-specific fixture.
@@ -40,9 +41,10 @@ current type namespace for type
 declarations and visible type aliases in modules where the renamed type would
 be visible after the complete edit, including requested-name type-role
 occurrences that were not references to the selected type before the rename.
-Function rename checks bare call targets in modules where the renamed function
-would be visible after the complete edit, including requested-name calls that
-would become ambiguous between imported functions.
+Function rename checks bare call targets and bare function-value occurrences in
+modules where the renamed function would be visible after the complete edit,
+including requested-name occurrences that would become ambiguous between
+imported functions.
 Constructor rename checks constructor declarations in the selected ADT and bare
 constructor expression and pattern uses in modules where the renamed constructor
 would be visible after the complete edit, including requested-name constructor
