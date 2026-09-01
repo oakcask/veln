@@ -118,9 +118,10 @@ requires.
 An invalid declaration or binding is retained only as a quarantined recovery
 record. It does not enter normal lookup, checked core, typed intermediate
 representation, package exports, or a backend. A compatible use can link to a
-unique recovery record only to suppress a derivative diagnostic. This slice
-does not expose rename. Recovery navigation is completed separately in
-[Identifier Casing Recovery Navigation](identifier-casing-recovery-navigation.md).
+unique recovery record only to suppress a derivative diagnostic. Recovery
+navigation and source declaration or binding repair rename are completed
+separately in
+[Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 
 Validation preserves parse recovery for underscore-led names and retains the
 complete written token span. A standalone `_` keeps its existing wildcard,

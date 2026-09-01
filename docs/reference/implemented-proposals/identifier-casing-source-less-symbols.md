@@ -112,10 +112,11 @@ through a registry-external module spelling.
   gate.
 
 This record completes only the source-less lookup descriptor acceptance row of
-the identifier-casing proposal. Module identity, repair rename, MCP rename
-mapping, and remaining language-service consumer rows remain proposal scope.
-Recovery navigation is completed separately in
-[Identifier Casing Recovery Navigation](identifier-casing-recovery-navigation.md).
+the identifier-casing proposal. Module identity, MCP rename mapping, and
+remaining language-service consumer rows remain proposal scope. Recovery
+navigation and source declaration or binding repair rename are completed
+separately in
+[Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 Qualified-use path casing is completed separately in
 [Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).
 LSP rename conflict rejection for valid selected workspace symbols is completed

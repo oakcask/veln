@@ -1,7 +1,7 @@
 ---
 role: implementation-record
 authority: supporting
-update-when: Identifier casing recovery-navigation evidence, sibling identifier-casing completion boundaries, or current specification authority for this record changes.
+update-when: Identifier casing recovery-navigation or recovery-rename evidence, sibling identifier-casing completion boundaries, or current specification authority for this record changes.
 ---
 
 # Identifier Casing Recovery Navigation And Rename
@@ -50,9 +50,9 @@ also visible.
 The `identifier-casing-recovery-navigation` LSP example checks those
 selection and rejection rows through definition, references, prepare-rename,
 successful rename edits, invalid-case rename failure, and conflict rename
-failure where the operation has an observable unsupported-symbol result,
-including a callable parameter call target and valid bare nullary constructor
-precedence. The
+failure. It also checks no-result rows for selections that must not choose a
+recovery symbol, including a callable parameter call target and valid bare
+nullary constructor precedence. The
 `identifier-casing-handler-binding-navigation` LSP example checks the same
 operation set for invalid handler context and operation-clause bindings.
 Focused language-service tests provide binding-form coverage for parameters,

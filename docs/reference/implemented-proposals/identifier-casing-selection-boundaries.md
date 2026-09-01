@@ -30,8 +30,8 @@ The implicit-prelude recovery-isolation slice is complete. The `test`, `doc`,
 companion recovery, direct-dependency, and language-service snapshot and
 overlay boundaries also have executable evidence and are not planned work here.
 
-This proposal does not add module-identity casing, repair rename, or MCP rename
-mapping. Public alias target-leaf casing is completed separately in
+This proposal does not add module-identity casing or MCP rename mapping.
+Public alias target-leaf casing is completed separately in
 [Identifier Casing Public Alias Targets](identifier-casing-public-alias-targets.md).
 Source-less registry validation is completed separately in
 [Identifier Casing Source-Less Symbols](identifier-casing-source-less-symbols.md).
@@ -76,6 +76,6 @@ reachable.
 This proposal is complete. Current behavior lives in
 [Names And Effects](../../specification/names-effects.md) and checked cases
 under `examples/specification/`. Completion does not claim completion of
-module-identity casing, repair rename, or MCP rename mapping. Recovery
-navigation is completed separately in
-[Identifier Casing Recovery Navigation](identifier-casing-recovery-navigation.md).
+module-identity casing or MCP rename mapping. Recovery navigation and source
+declaration or binding repair rename are completed separately in
+[Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
