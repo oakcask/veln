@@ -117,8 +117,9 @@ symbols and predictable rename conflicts as specified by
 rejection of ambiguous bare imported type-role references and qualified type
 identity preservation for type rename, conflicts with visible type aliases in
 the type namespace, and rejection of unedited bare imported function
-ambiguities. It also rejects handler parameter captures for edited bare
-function calls and function-value references. This proposal still owns recovery
+ambiguities. It also rejects constructor ambiguity through public type-alias
+re-export visibility and handler parameter captures for edited bare function
+calls and function-value references. This proposal still owns recovery
 navigation, repair rename, MCP rename mapping, and rename evidence for the
 remaining casing surfaces until those rows are implemented.
 

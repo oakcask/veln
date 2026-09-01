@@ -19,11 +19,13 @@ Current behavior is specified by
 params response, shared `rename.conflict` code, conflict detail projection,
 same-clause parameter conflict boundary, unedited imported type ambiguity
 boundary, unedited imported function ambiguity boundaries for calls and
-function values, handler parameter capture for function rename, and edit-free
+function values, constructor ambiguity through public type-alias re-export
+visibility, handler parameter capture for function rename, and edit-free
 failure boundary. Focused language-service tests also cover handler context
-and clause parameter shadowing boundaries, constructor ambiguity rejection, and
-qualified-function identity preservation that do not need another
-transport-specific fixture.
+and clause parameter shadowing boundaries, constructor ambiguity rejection
+through public type-alias re-export visibility, unrelated and unimported alias
+exclusion, and qualified-function identity preservation that do not need
+another transport-specific fixture.
 
 ## Scope
 
@@ -51,7 +53,10 @@ the conflicting declaration.
 Constructor rename checks constructor declarations in the selected ADT and bare
 constructor expression and pattern uses in modules where the renamed constructor
 would be visible after the complete edit, including requested-name constructor
-uses that would become ambiguous between imported constructors.
+uses that would become ambiguous between imported constructors. Public type
+aliases that re-export the selected ADT make the selected constructor visible
+to modules that import the alias module. Unrelated type aliases and unimported
+alias modules do not make the selected constructor visible.
 Lexical-scope failures report `kind: "lexical"` and identify the affected file
 and source start and end offsets. Local binding conflicts report the binding
 declaration as the conflicting declaration, including when a function rename
