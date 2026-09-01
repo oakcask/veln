@@ -10,9 +10,10 @@ update-when: Source-path-derived module identity casing evidence, sibling identi
 
 Source-path-derived module identity segments now use the source identifier
 casing diagnostic contract for module-class path segments. Current behavior is
-specified by [Name Resolution](../../specification/name-resolution.md) and
-[Check JSON And Diagnostics](../../specification/diagnostics-json.md). The
-checked `identifier-casing-source-path-json`,
+specified by [Name Resolution](../../specification/name-resolution.md),
+[Check JSON And Diagnostics](../../specification/diagnostics-json.md), and
+[Editor Support](../../specification/editor-support.md). The checked
+`identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`, and
 `identifier-casing-source-path-human` examples fix the JSON and human command
 diagnostics. The checked `identifier-casing-source-path-boundary` example

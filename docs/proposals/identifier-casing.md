@@ -189,8 +189,10 @@ is
 [Identifier Casing Qualified Use Paths](../reference/implemented-proposals/identifier-casing-qualified-use-paths.md).
 Source-path-derived module identity segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
-[Check JSON And Diagnostics](../specification/diagnostics-json.md), and
-checked by the `identifier-casing-source-path-json`,
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), with
+their LSP diagnostic and rename boundary specified by
+[Editor Support](../specification/editor-support.md). They are checked by the
+`identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
 `identifier-casing-source-path-human`,
 `identifier-casing-chained-companion-boundary-json`, and
