@@ -291,3 +291,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   location, no-definition, numeric coordinate spellings, invalid-position and
   schema-rejection results, and response-local assertion coverage:
   `../../examples/specification/mcp/definition-workspace/`.
+- MCP saved workspace `definition` recovery navigation for unique invalid
+  source declarations, ambiguous recovery refusal, and valid-symbol
+  precedence:
+  `../../examples/specification/mcp/definition-recovery-navigation/`.

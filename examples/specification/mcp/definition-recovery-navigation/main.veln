@@ -21,4 +21,3 @@ end
 fn caller() -> Int
   Bad() + Dup() + byte()
 end
-
