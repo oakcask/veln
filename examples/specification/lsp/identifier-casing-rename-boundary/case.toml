@@ -710,3 +710,53 @@ equals = "handler_capture.veln"
 id = 32
 path = "/result"
 missing = true
+
+[[lsp_assert]]
+id = 33
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/details/symbol_class"
+equals = "constructor"
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/details/requested_name"
+equals = "Done"
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "reexport_alias_right.veln"
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/details/conflicting_declaration/range/start/line"
+equals = 1
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/details/conflicting_declaration/range/start/character"
+equals = 6
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/details/affected_scope/kind"
+equals = "module"
+
+[[lsp_assert]]
+id = 33
+path = "/error/data/details/affected_scope/name"
+equals = "reexport_alias_main"
+
+[[lsp_assert]]
+id = 33
+path = "/result"
+missing = true

@@ -231,7 +231,7 @@ impl SymbolIndex {
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         self.files
             .iter()
-            .filter(|file| constructor_visible_after_rename(file, selected))
+            .filter(|file| self.constructor_visible_after_rename(file, selected))
             .find_map(|file| {
                 file.tokens
                     .iter()
@@ -365,6 +365,23 @@ impl SymbolIndex {
             && self
                 .local_constructor_for_bare_call(file, requested_name)
                 .is_some()
+    }
+
+    fn constructor_visible_after_rename(
+        &self,
+        file: &IndexedFile,
+        selected: &ConstructorSymbol,
+    ) -> bool {
+        matches!(file.origin, IndexedOrigin::Workspace)
+            && selected.package.is_none()
+            && (file.module == selected.module
+                || (selected.public
+                    && (file.uses.contains(&selected.module)
+                        || file
+                            .companion_target_module
+                            .as_ref()
+                            .is_some_and(|target| target == &selected.module)
+                        || self.constructor_reexport_visible_from(file, selected, None))))
     }
 
     fn function_local_resolution_unchanged(
@@ -606,18 +623,6 @@ fn type_visible_after_rename(file: &IndexedFile, selected: &TypeSymbol) -> bool 
     matches!(file.origin, IndexedOrigin::Workspace)
         && selected.package.is_none()
         && (file.module == selected.module || (selected.public && file.uses.contains(&selected.module)))
-}
-
-fn constructor_visible_after_rename(file: &IndexedFile, selected: &ConstructorSymbol) -> bool {
-    matches!(file.origin, IndexedOrigin::Workspace)
-        && selected.package.is_none()
-        && (file.module == selected.module
-            || (selected.public
-                && (file.uses.contains(&selected.module)
-                    || file
-                        .companion_target_module
-                        .as_ref()
-                        .is_some_and(|target| target == &selected.module))))
 }
 
 fn function_visible_after_rename(file: &IndexedFile, selected: &FunctionSymbol) -> bool {

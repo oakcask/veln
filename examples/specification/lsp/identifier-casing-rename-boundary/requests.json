@@ -31,6 +31,7 @@
   {"jsonrpc":"2.0","id":30,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"result_binding.veln"}},"position":{"line":6,"character":9},"newName":"conflict"}},
   {"jsonrpc":"2.0","id":31,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"left_value.veln"}},"position":{"line":0,"character":7},"newName":"target_value"}},
   {"jsonrpc":"2.0","id":32,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"handler_capture.veln"}},"position":{"line":4,"character":3},"newName":"target"}},
-  {"jsonrpc":"2.0","id":33,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":33,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"reexport_alias_left.veln"}},"position":{"line":1,"character":6},"newName":"Done"}},
+  {"jsonrpc":"2.0","id":34,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

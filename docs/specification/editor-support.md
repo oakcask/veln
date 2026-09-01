@@ -253,7 +253,9 @@ cannot be renamed to the name of a type declaration or visible type alias in an
 affected module.
 Constructor conflict prediction uses the current constructor namespace for the
 selected ADT and bare constructor expression and pattern uses in modules where
-the renamed constructor would be visible after the complete edit.
+the renamed constructor would be visible after the complete edit, including
+visibility through an imported public type alias that re-exports the selected
+ADT.
 Function conflict prediction checks bare call targets and bare function-value
 occurrences in modules where the renamed function would be visible after the
 complete edit.
@@ -272,9 +274,10 @@ reporting, type alias conflict reporting, function-to-test duplicate rejection,
 same-spelled non-type namespace exclusion, qualified type identity preservation
 for type rename, ambiguous imported type rejection for edited and unedited
 requested-name occurrences, bare imported function ambiguity rejection for
-unedited requested-name call and function-value occurrences, and parameter and
-result-binding and handler parameter declaration locations for lexical
-function-rename conflicts.
+unedited requested-name call and function-value occurrences, constructor
+ambiguity rejection through public type-alias re-export visibility, and
+parameter and result-binding and handler parameter declaration locations for
+lexical function-rename conflicts.
 Focused language-service tests cover constructor ambiguity conflict rejection
 and legal qualified-function identity preservation that do not need separate
 transport-specific fixtures.
