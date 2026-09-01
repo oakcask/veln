@@ -210,7 +210,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     let mut functions = Vec::new();
     let tokens = &file.tokens;
     for (index, token) in tokens.iter().enumerate() {
-        if token.kind == TokenKind::Fn
+        if matches!(token.kind, TokenKind::Fn | TokenKind::Test)
             && let Some(name) = next_non_layout_token(tokens, index)
             && is_identifier(&name.text)
         {
@@ -404,10 +404,11 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     [segments @ .., _] => Some(segments.join("::")),
                     [] => None,
                 };
-                let (package, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => (None, false),
+                let (declaration, package, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (workspace_location(name_span.clone()), None, false),
                     IndexedOrigin::Package {
                         identity,
+                        uri,
                         exported,
                         standard_library,
                         ..
@@ -416,6 +417,10 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                             return None;
                         }
                         (
+                            NavigationLocation {
+                                source: NavigationSource::Package { uri: uri.clone() },
+                                span: name_span.clone(),
+                            },
                             Some(identity.clone()),
                             *standard_library && file.module == "prelude",
                         )
@@ -424,6 +429,7 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                 Some(TypeAliasSymbol {
                     module: file.module.clone(),
                     name,
+                    declaration,
                     target_module,
                     target_name,
                     package,

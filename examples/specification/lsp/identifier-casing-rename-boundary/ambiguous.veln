@@ -1,10 +1,15 @@
 use left
 use right
+use extra
 
 fn bare_type(value: Item) -> Item
   value
 end
 
 fn qualified_right(value: right::Item) -> right::Item
+  value
+end
+
+fn qualified_left(value: left::Item) -> left::Item
   value
 end

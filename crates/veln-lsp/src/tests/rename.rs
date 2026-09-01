@@ -506,6 +506,61 @@ fn rename_rejects_class_changing_replacements_for_cased_symbols() {
 }
 
 #[test]
+fn rename_rejects_conflicting_replacements_without_workspace_edits() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-cased-symbol-conflict");
+    project.write(
+        "main.veln",
+        concat!(
+            "type Item\n",
+            "  Value(value: Int)\n",
+            "end\n\n",
+            "type Status\n",
+            "  Ready\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let responses = server.handle_message(&rename_request(&main_uri, 4, 5, "Item"));
+
+    assert_eq!(responses.len(), 1);
+    assert!(
+        responses[0].contains(r#""code":-32602"#),
+        "{}",
+        responses[0]
+    );
+    assert!(
+        responses[0].contains(r#""code":"rename.conflict""#),
+        "{}",
+        responses[0]
+    );
+    assert!(
+        responses[0].contains(r#""symbol_class":"type""#),
+        "{}",
+        responses[0]
+    );
+    assert!(
+        responses[0].contains(r#""requested_name":"Item""#),
+        "{}",
+        responses[0]
+    );
+    assert!(
+        responses[0].contains(r#""conflicting_declaration":{"uri":"#),
+        "{}",
+        responses[0]
+    );
+    assert!(
+        responses[0].contains(r#""affected_scope":{"kind":"module","name":"main"}"#),
+        "{}",
+        responses[0]
+    );
+    assert!(!responses[0].contains(r#""changes""#), "{}", responses[0]);
+}
+
+#[test]
 fn rename_excludes_same_named_non_type_namespace_tokens() {
     let mut server = Server::default();
     let project = TempProject::new("rename-cased-symbol-namespace-boundary");
@@ -638,4 +693,3 @@ fn type_rename_requires_unique_visible_type_identity() {
         qualified_rename[0]
     );
 }
-

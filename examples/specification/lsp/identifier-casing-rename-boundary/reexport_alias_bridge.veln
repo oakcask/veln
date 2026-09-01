@@ -1,0 +1,3 @@
+use reexport_alias_left
+
+pub type Alias = reexport_alias_left::Source

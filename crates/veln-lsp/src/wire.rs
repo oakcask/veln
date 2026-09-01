@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 
 use veln_diagnostics::Severity;
 use veln_language_service::{
-    NavigationLocation, NavigationResult, NavigationSource, RenameFailure,
+    EffectiveProjectSnapshot, NavigationLocation, NavigationResult, NavigationSource,
+    RenameAffectedScope, RenameFailure, RenameFailureKind,
 };
 use veln_project::discover_source_paths;
 use veln_source::{SourceFile, SourceSpan};
@@ -332,6 +333,7 @@ pub(crate) struct Position {
 #[derive(Debug)]
 pub(crate) struct NavigationRequest {
     pub(crate) root: PathBuf,
+    pub(crate) snapshot: EffectiveProjectSnapshot,
     pub(crate) result: NavigationResult,
 }
 
@@ -476,15 +478,52 @@ pub(crate) fn error_response(id: &str, code: i32, message: &str) -> String {
     )
 }
 
-pub(crate) fn rename_failure_response(id: &str, failure: &RenameFailure) -> String {
+pub(crate) fn rename_failure_response(id: &str, root: &Path, failure: &RenameFailure) -> String {
+    let details = rename_failure_details_json(root, failure);
     format!(
-        "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"error\":{{\"code\":-32602,\"message\":\"{}\",\"data\":{{\"code\":\"{}\",\"details\":{{\"symbol_class\":\"{}\",\"requested_name\":\"{}\",\"required_initial\":\"{}\"}}}}}}}}",
+        "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"error\":{{\"code\":-32602,\"message\":\"{}\",\"data\":{{\"code\":\"{}\",\"details\":{details}}}}}}}",
         escape_json(failure.code),
         escape_json(failure.code),
-        failure.symbol_class.as_str(),
-        escape_json(&failure.requested_name),
-        failure.required_initial.as_str(),
     )
+}
+
+fn rename_failure_details_json(root: &Path, failure: &RenameFailure) -> String {
+    match &failure.kind {
+        RenameFailureKind::InvalidCase { required_initial } => format!(
+            "{{\"symbol_class\":\"{}\",\"requested_name\":\"{}\",\"required_initial\":\"{}\"}}",
+            failure.symbol_class.as_str(),
+            escape_json(&failure.requested_name),
+            required_initial.as_str(),
+        ),
+        RenameFailureKind::Conflict {
+            conflicting_declaration,
+            affected_scope,
+        } => format!(
+            "{{\"symbol_class\":\"{}\",\"requested_name\":\"{}\",\"conflicting_declaration\":{},\"affected_scope\":{}}}",
+            failure.symbol_class.as_str(),
+            escape_json(&failure.requested_name),
+            location_json(root, conflicting_declaration),
+            affected_scope_json(affected_scope),
+        ),
+    }
+}
+
+fn affected_scope_json(scope: &RenameAffectedScope) -> String {
+    match scope {
+        RenameAffectedScope::Module { name } => {
+            format!("{{\"kind\":\"module\",\"name\":\"{}\"}}", escape_json(name))
+        }
+        RenameAffectedScope::Lexical {
+            file,
+            start_offset,
+            end_offset,
+        } => format!(
+            "{{\"kind\":\"lexical\",\"file\":\"{}\",\"start_offset\":{},\"end_offset\":{}}}",
+            escape_json(file),
+            start_offset,
+            end_offset,
+        ),
+    }
 }
 
 pub(crate) fn extract_id(message: &str) -> Option<String> {

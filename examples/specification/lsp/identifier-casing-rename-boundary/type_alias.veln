@@ -1,0 +1,10 @@
+type Item
+  Value
+end
+
+type Existing
+  Present
+end
+
+pub type Entry = Existing
+pub type Control = Existing

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_ast::{NameClass, QualifiedPathSegment};
 use veln_project::classify_companion_source;
-use veln_source::{SourceFile, SourcePath, SourceSpan};
+use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     BodyLine, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree, Token, TokenKind,
     TypeVariantDecl, Visibility, lex, parse,
@@ -12,6 +12,9 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/index.rs");
+include!("navigation/rename_conflicts.rs");
+include!("navigation/symbol_lookup.rs");
+include!("navigation/symbol_references.rs");
 include!("navigation/declarations.rs");
 include!("navigation/handler_bindings.rs");
 include!("navigation/references.rs");

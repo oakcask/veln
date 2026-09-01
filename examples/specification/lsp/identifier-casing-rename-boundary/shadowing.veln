@@ -1,0 +1,29 @@
+effect Choose
+  choose(value: Int) -> Int
+  current() -> Int
+end
+
+handler choose(ctx: Int) handles Choose
+  choose(value) => value
+  current() => ctx
+end
+
+fn target(value: Int) -> Int
+  value
+end
+
+fn caller(value: Int) -> Int
+  let conflict = value
+  let observed = conflict
+  target(observed)
+end
+
+effect ChoosePair
+  choose(left: Int, right: Int) -> Int
+  other(value: Int, extra: Int) -> Int
+end
+
+handler choose_pair() handles ChoosePair
+  choose(left, right) => right
+  other(value, extra) => extra
+end

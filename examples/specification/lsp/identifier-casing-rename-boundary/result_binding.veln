@@ -1,0 +1,9 @@
+fn target() -> Int
+  1
+end
+
+fn caller(value: Int) -> conflict: Int
+  ensure conflict >= value
+  ensure target() >= value
+  value
+end

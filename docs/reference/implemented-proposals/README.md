@@ -50,6 +50,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-qualified-use-paths.md](identifier-casing-qualified-use-paths.md).
 - Identifier casing source path module identities:
   [identifier-casing-source-path-module-identities.md](identifier-casing-source-path-module-identities.md).
+- Identifier casing rename conflicts:
+  [identifier-casing-rename-conflicts.md](identifier-casing-rename-conflicts.md).
 - Common JSON assertion operation parity:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Schema declaration composition surface:

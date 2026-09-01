@@ -1,0 +1,6 @@
+use reexport_alias_bridge
+use reexport_alias_right
+
+fn current() -> Other
+  Done
+end

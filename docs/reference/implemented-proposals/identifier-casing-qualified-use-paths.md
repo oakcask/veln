@@ -80,6 +80,8 @@ unsupported segment roles have no selected symbol.
 This slice is complete for role-fixed qualified-use path casing diagnostics
 and the covered qualified-use language-service operations. It does not
 complete module identity syntax, explicit import-alias syntax, recovery
-navigation through quarantined invalid declarations, repair rename, rename
-conflict prediction, MCP rename mapping, or source migration beyond the
-focused executable examples.
+navigation through quarantined invalid declarations, repair rename, MCP rename
+mapping, or source migration beyond the focused executable examples. LSP rename
+conflict rejection for valid selected workspace symbols is completed
+separately in
+[Identifier Casing Rename Conflicts](identifier-casing-rename-conflicts.md).

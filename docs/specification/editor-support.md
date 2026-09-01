@@ -210,15 +210,81 @@ and value-binding replacement names start with an ASCII lowercase letter. A
 class-changing replacement returns JSON-RPC invalid params with code `-32602`.
 The error payload preserves the shared `rename.invalid_case` code and includes
 the selected symbol class, requested name, and required initial class. The
-request returns no workspace edits in that failure response. A rename request
-without a selected supported workspace symbol returns an empty workspace-edit
-`changes` object, and prepare-rename for the same position returns `null`.
+request returns no workspace edits in that failure response.
+
+A rename request that would create a same-namespace duplicate or a provable
+ambiguity in an affected module or lexical scope returns JSON-RPC invalid
+params with code `-32602`. The error payload preserves the shared
+`rename.conflict` code and includes the selected symbol class, requested name,
+conflicting declaration location, and affected scope. The request returns no
+workspace edits in that failure response.
+
+Lexical conflict prediction rejects same-scope declaration duplicates
+independently of edited references. Lexical shadowing checks preserve an
+unedited occurrence when the complete edit would leave that occurrence bound
+to the same local binding or clause parameter. A handler operation clause
+parameter can be renamed to an enclosing handler context parameter's name when
+the edited declaration and references remain bound to the clause parameter. A
+handler context parameter can be renamed to a clause parameter's name only when
+the edited references stay outside the clause parameter's lexical scope.
+Otherwise, the existing clause parameter is the reported conflict. A
+lexical affected scope has `kind: "lexical"` and includes the file plus source
+start and end offsets.
+When a local binding conflicts with a function rename, the reported conflict
+location is the binding declaration. Function declarations and test
+declarations share the function rename namespace, so either declaration can
+block the other. When a function rename is captured by a function parameter or
+result binding in an affected lexical scope, the reported conflict location is
+that parameter or result-binding declaration. Handler context parameters and
+operation-clause parameters are lexical bindings for this function-rename
+capture check. When an edited bare function call or bare function-value
+reference would bind to one of those handler parameters after the complete
+edit, the reported conflict location is the handler parameter declaration.
+When an unused handler operation clause parameter is renamed to another
+parameter in the same clause, the reported conflict location is the existing
+clause parameter declaration.
+
+Module conflict prediction checks workspace modules where the renamed symbol
+would be visible after the complete edit, including requested-name occurrences
+that were not references to the selected symbol before the rename. A module
+affected scope has `kind: "module"` and the module name. Type conflict
+prediction uses the current top-level type namespace, so a selected source type
+cannot be renamed to the name of a type declaration or visible type alias in an
+affected module.
+Constructor conflict prediction uses the current constructor namespace for the
+selected ADT and bare constructor expression and pattern uses in modules where
+the renamed constructor would be visible after the complete edit, including
+visibility through an imported public type alias that re-exports the selected
+ADT. Equal-spelled effect operation declarations and handler operation clause
+headings do not participate in constructor conflict prediction and are not
+constructor rename references.
+Function conflict prediction checks bare call targets and bare function-value
+occurrences in modules where the renamed function would be visible after the
+complete edit.
+
+A rename request without a selected supported workspace symbol returns an empty
+workspace-edit `changes` object, and prepare-rename for the same position
+returns `null`.
 The executable
 `identifier-casing-rename-boundary` LSP example covers same-class edits and
-class-changing failures for the four supported rename classes, plus
-source-declared nullary constructor uses, same-spelled non-type namespace
-exclusion, ambiguous imported type rejection, and qualified type identity
-preservation for type rename.
+class-changing failures for the four supported rename classes, predictable
+duplicate and ambiguity conflict rejection, source-declared nullary
+constructor uses, legal unedited clause shadowing, inner clause parameter
+rename to an enclosing context parameter name, local binding declaration
+conflict reporting, declaration-only handler clause parameter conflict
+reporting, type alias conflict reporting, function-to-test duplicate rejection,
+same-spelled non-type namespace exclusion, qualified type identity preservation
+for type rename, ambiguous imported type rejection for edited and unedited
+requested-name occurrences, bare imported function ambiguity rejection for
+unedited requested-name call and function-value occurrences, constructor
+ambiguity rejection through public type-alias re-export visibility,
+effect operation role exclusion from constructor rename visibility and edits,
+and
+parameter and result-binding and handler parameter declaration locations for
+lexical function-rename conflicts.
+Focused language-service tests cover constructor ambiguity conflict rejection
+and legal qualified-function identity preservation that do not need separate
+transport-specific fixtures.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, invalid declaration exclusion from navigation results, overlay

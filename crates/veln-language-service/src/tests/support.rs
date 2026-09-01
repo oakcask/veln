@@ -30,6 +30,22 @@ static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
         )
     }
 
+    fn query_snapshot(
+        snapshot: &EffectiveProjectSnapshot,
+        source_path: &str,
+        line: usize,
+        column: usize,
+    ) -> Option<NavigationResult> {
+        navigate(
+            snapshot,
+            SourcePosition {
+                source: SourcePath::new(source_path),
+                line,
+                column,
+            },
+        )
+    }
+
     fn assert_location(location: &NavigationLocation, path: &str, line: usize, column: usize) {
         assert_eq!(location.source, NavigationSource::Workspace);
         assert_eq!(location.span.file.as_str(), path);
@@ -77,7 +93,36 @@ static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
         assert_eq!(failure.code, "rename.invalid_case");
         assert_eq!(failure.symbol_class, symbol_class);
         assert_eq!(failure.requested_name, requested_name);
-        assert_eq!(failure.required_initial, required_initial);
+        assert_eq!(
+            failure.kind,
+            RenameFailureKind::InvalidCase { required_initial }
+        );
+    }
+
+    fn assert_rename_conflict(
+        failure: RenameFailure,
+        symbol_class: RenameNameClass,
+        requested_name: &str,
+        conflict_path: &str,
+        conflict_line: usize,
+        conflict_column: usize,
+    ) {
+        assert_eq!(failure.code, "rename.conflict");
+        assert_eq!(failure.symbol_class, symbol_class);
+        assert_eq!(failure.requested_name, requested_name);
+        let RenameFailureKind::Conflict {
+            conflicting_declaration,
+            ..
+        } = failure.kind
+        else {
+            panic!("rename failure was not a conflict");
+        };
+        assert_location(
+            &conflicting_declaration,
+            conflict_path,
+            conflict_line,
+            conflict_column,
+        );
     }
 
     fn dependency_query(
