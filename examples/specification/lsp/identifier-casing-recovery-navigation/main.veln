@@ -64,3 +64,11 @@ end
 fn shadow_call(coin: fn() -> Int) -> Int
   coin()
 end
+
+type ValidItem
+  Value
+end
+
+fn nullary_precedence(Value: Int) -> ValidItem
+  Value
+end

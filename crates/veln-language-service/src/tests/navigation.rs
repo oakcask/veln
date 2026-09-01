@@ -156,6 +156,88 @@
     }
 
     #[test]
+    fn valid_bare_nullary_constructor_expression_precedes_invalid_binding_recovery() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  Value\n",
+                    "end\n\n",
+                    "fn main(Value: Int) -> Item\n",
+                    "  Value\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            6,
+            4,
+        )
+        .unwrap();
+
+        assert!(!result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 2, 3);
+    }
+
+    #[test]
+    fn valid_bare_nullary_constructor_pattern_precedes_invalid_function_recovery() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  Value\n",
+                    "end\n\n",
+                    "fn Value() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "fn read(item: Item) -> Int\n",
+                    "  match item\n",
+                    "    Value => 1\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            11,
+            6,
+        )
+        .unwrap();
+
+        assert!(!result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 2, 3);
+    }
+
+    #[test]
+    fn valid_bare_nullary_constructor_pattern_precedes_invalid_binding_recovery() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  Value\n",
+                    "end\n\n",
+                    "fn read(Value: Int, item: Item) -> Int\n",
+                    "  match item\n",
+                    "    Value => Value\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            7,
+            6,
+        )
+        .unwrap();
+
+        assert!(!result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&result.definition, "main.veln", 2, 3);
+    }
+
+    #[test]
     fn multiple_invalid_recovery_records_are_not_selected() {
         let result = query(
             vec![source(
@@ -263,6 +345,27 @@
             4,
         )
         .is_none());
+    }
+
+    #[test]
+    fn invalid_local_binding_recovery_starts_after_declaration_initializer() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "fn main(input: Int) -> Int\n",
+                "  let Bad = Bad\n",
+                "  Bad\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources.clone(), "main.veln", 2, 14).is_none());
+
+        let result = query(sources, "main.veln", 3, 4).unwrap();
+        assert!(result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 2, 7);
+        assert_eq!(locations(&result.references), [("main.veln", 3, 3)]);
     }
 
     #[test]
@@ -685,4 +788,25 @@
             "item",
             RenameRequiredInitial::AsciiUppercase,
         );
+    }
+
+    #[test]
+    fn invalid_type_recovery_reference_lookup_reuses_type_reference_collection() {
+        for function_count in [40, 80] {
+            let mut source_text = String::from("type item\n  Value\nend\n");
+            for index in 0..function_count {
+                source_text.push_str(&format!(
+                    "\nfn use_item_{index}(input: item) -> item\n  let current: item = input\n  input\nend\n"
+                ));
+            }
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+            reset_type_reference_collections();
+
+            let result = query_snapshot(&snapshot, "main.veln", 1, 6).unwrap();
+
+            assert!(result.is_recovery);
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+            assert_eq!(result.references.len(), function_count * 3);
+            assert_eq!(type_reference_collections(), 1);
+        }
     }

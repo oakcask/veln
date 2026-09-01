@@ -472,6 +472,7 @@ struct IndexedFile {
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
     classified_path_segments: Vec<QualifiedPathSegment>,
+    type_reference_locations: OnceLock<TypeReferenceLocations>,
     origin: IndexedOrigin,
 }
 
@@ -509,6 +510,8 @@ struct FunctionRenameIndex {
     scopes_by_file: BTreeMap<String, Vec<FunctionScope>>,
     handler_files: BTreeSet<String>,
 }
+
+type TypeReferenceLocations = Vec<(String, usize, SourceSpan)>;
 
 #[derive(Debug)]
 struct FunctionScope {

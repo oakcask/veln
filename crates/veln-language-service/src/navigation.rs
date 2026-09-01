@@ -28,6 +28,7 @@ include!("navigation/source_paths.rs");
 #[cfg(test)]
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -43,6 +44,21 @@ pub(crate) fn reset_function_scope_collections() {
 #[cfg(test)]
 pub(crate) fn function_scope_collections() -> usize {
     FUNCTION_SCOPE_COLLECTIONS.get()
+}
+
+#[cfg(test)]
+fn record_type_reference_collection() {
+    TYPE_REFERENCE_COLLECTIONS.set(TYPE_REFERENCE_COLLECTIONS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_reference_collections() {
+    TYPE_REFERENCE_COLLECTIONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn type_reference_collections() -> usize {
+    TYPE_REFERENCE_COLLECTIONS.get()
 }
 
 #[cfg(test)]

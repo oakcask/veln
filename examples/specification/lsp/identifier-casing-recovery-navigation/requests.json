@@ -31,6 +31,7 @@
   {"jsonrpc":"2.0","id":31,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":64,"character":2}}},
   {"jsonrpc":"2.0","id":32,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":64,"character":2},"context":{"includeDeclaration":true}}},
   {"jsonrpc":"2.0","id":33,"method":"textDocument/prepareRename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":64,"character":2}}},
+  {"jsonrpc":"2.0","id":34,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":72,"character":2}}},
   {"jsonrpc":"2.0","id":17,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

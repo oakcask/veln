@@ -115,16 +115,17 @@ impl SymbolIndex {
             .iter()
             .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
             .flat_map(|file| {
-                let tokens = lex(&file.source).tokens;
-                let mut spans = type_reference_spans(&file.source, &tokens, &symbol.name)
+                let tokens = &file.tokens;
+                let mut spans = file
+                    .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
-                        self.visible_type_for_reference(file, &tokens, token_index, &symbol.name)
+                        self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
                             .is_some_and(|candidate| same_type(&candidate, symbol))
                             .then_some(span)
                     })
                     .collect::<Vec<_>>();
-                spans.extend(self.constructor_type_qualifier_references(file, &tokens, symbol));
+                spans.extend(self.constructor_type_qualifier_references(file, tokens, symbol));
                 spans
             })
             .collect()

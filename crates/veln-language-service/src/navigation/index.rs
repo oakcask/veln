@@ -244,6 +244,7 @@ impl SymbolIndex {
                 .or_else(|| {
                     self.recovery_type_reference_selection(file, tokens, token_index, name, selection)
                 })
+                .or_else(|| self.bare_nullary_constructor_selection(file, tokens, token_index, name))
                 .or_else(|| {
                     self.recovery_value_binding_selection(file, tokens, token_index, name)
                 });
@@ -274,7 +275,7 @@ impl SymbolIndex {
         name: &str,
         selection: &SourceSpan,
     ) -> Option<SelectedNavigationSymbol> {
-        is_type_reference_token(&file.source, name, selection)
+        is_type_reference_token(file, name, selection)
             .then(|| self.visible_type_for_reference(file, tokens, token_index, name))
             .flatten()
             .map(Symbol::Type)
@@ -289,7 +290,7 @@ impl SymbolIndex {
         name: &str,
         selection: &SourceSpan,
     ) -> Option<SelectedNavigationSymbol> {
-        is_type_reference_token_named(&file.source, name, selection)
+        is_type_reference_token_named(file, name, selection)
             .then(|| self.unique_recovery_for_role(file, tokens, token_index, name, NameClass::Type))
             .flatten()
             .map(Symbol::Recovery)
@@ -312,6 +313,20 @@ impl SymbolIndex {
         )
         .map(Symbol::Recovery)
         .map(SelectedNavigationSymbol::bare)
+    }
+
+    fn bare_nullary_constructor_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<SelectedNavigationSymbol> {
+        is_constructor_reference_token(tokens, token_index)
+            .then(|| self.constructor_symbol_for_call(file, tokens, token_index, name))
+            .flatten()
+            .map(Symbol::Constructor)
+            .map(SelectedNavigationSymbol::bare)
     }
 
     fn recovery_value_binding_selection(

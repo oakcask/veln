@@ -59,6 +59,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
             .collect(),
         recovery_symbols,
         classified_path_segments: Vec::new(),
+        type_reference_locations: OnceLock::new(),
         origin: IndexedOrigin::Workspace,
     };
     let declarations = file_declarations(&file, &parsed.tree);
@@ -107,6 +108,7 @@ fn indexed_dependency_source(
             .collect(),
         recovery_symbols: Vec::new(),
         classified_path_segments: Vec::new(),
+        type_reference_locations: OnceLock::new(),
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),
             uri: uri.to_string(),

@@ -13071,6 +13071,14 @@ field	expectations.lsp_assertions[37].equals	null
 field	expectations.lsp_assertions[37].id	33
 field	expectations.lsp_assertions[37].operation	"equals"
 field	expectations.lsp_assertions[37].path	"/result"
+field	expectations.lsp_assertions[38].equals	68
+field	expectations.lsp_assertions[38].id	34
+field	expectations.lsp_assertions[38].operation	"equals"
+field	expectations.lsp_assertions[38].path	"/result/range/start/line"
+field	expectations.lsp_assertions[39].equals	2
+field	expectations.lsp_assertions[39].id	34
+field	expectations.lsp_assertions[39].operation	"equals"
+field	expectations.lsp_assertions[39].path	"/result/range/start/character"
 field	expectations.lsp_assertions[3].equals	3
 field	expectations.lsp_assertions[3].id	2
 field	expectations.lsp_assertions[3].operation	"equals"
@@ -13102,10 +13110,10 @@ field	expectations.lsp_assertions[9].path	"/result/start/character"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7041,"sha256":"ae59eaa16db92eb2ac89722eb187c6024309877c38c1b2585cb4d336bfbefc5c"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7248,"sha256":"49440139f08b10c0efd7a059b9a2d0c046d93e663d43f31070a5e51a9710d2a7"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"9ac741adab636e779a8f7f4130cbf864f423bddd1dd8a8bc6afe7165bd6865e8"
+case_digest	"dff5e40d7888d0ba8f3bfda9f3c7850c71317d59402a3f135eabc11b5acbe78a"
 case	"examples/specification/lsp/identifier-casing-rename-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	-32602
@@ -52889,4 +52897,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a7bd4f2b4e26f9ec8d84dc7483a406e8c5802e558f58d39026040f4006d94ce2"
+aggregate_digest	"2ec1c32027a947c2d516ceb5d47da9d5ec7443e062d2e190dfc7e251dc3608a4"
