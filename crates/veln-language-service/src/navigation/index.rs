@@ -43,7 +43,8 @@ impl SymbolIndex {
             .text()
             .get(selection.start.offset..selection.end.offset)?
             .to_string();
-        let selected = self.symbol_for_selection(file, tokens, token_index, &name, &selection)?;
+        let selected =
+            self.symbol_for_selection(file, tokens, token_index, &name, &selection, None)?;
         Some(SymbolRequest {
             index: self,
             symbol: selected.symbol,
@@ -169,6 +170,7 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
         selection: &SourceSpan,
+        prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<SelectedNavigationSymbol> {
         if let Some(symbol) =
             handler_operation_clause_symbol(file, tokens, token_index, name, selection)
@@ -195,7 +197,14 @@ impl SymbolIndex {
         self.recovery_declared_at(file, tokens, token_index, name, selection)
             .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Recovery(symbol)))
             .or_else(|| {
-                self.non_declaration_symbol_for_selection(file, tokens, token_index, name, selection)
+                self.non_declaration_symbol_for_selection(
+                    file,
+                    tokens,
+                    token_index,
+                    name,
+                    selection,
+                    prepared_scopes,
+                )
             })
     }
 
@@ -206,6 +215,7 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
         selection: &SourceSpan,
+        prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<SelectedNavigationSymbol> {
         if let Some(segment) =
             self.classified_qualified_segment(file, tokens, token_index, name, selection)
@@ -242,7 +252,13 @@ impl SymbolIndex {
             if let Some(symbol) = self.symbol_for_bare_call(file, tokens, token_index, name) {
                 return Some(SelectedNavigationSymbol::bare(symbol));
             }
-            return (!self.bare_call_recovery_blocked(file, tokens, token_index, name))
+            return (!self.bare_call_recovery_blocked(
+                file,
+                tokens,
+                token_index,
+                name,
+                prepared_scopes,
+            ))
                 .then(|| self.recovery_bare_call_selection(file, tokens, token_index, name))
                 .flatten();
         };
@@ -463,8 +479,12 @@ impl SymbolIndex {
         tokens: &[Token],
         token_index: usize,
         name: &str,
+        prepared_scopes: Option<&[FunctionScope]>,
     ) -> bool {
-        local_binding_shadows_call_target(tokens, token_index, name)
+        prepared_scopes.map_or_else(
+            || local_binding_shadows_call_target(tokens, token_index, name),
+            |scopes| local_binding_shadows_call_target_in_scopes(scopes, tokens, token_index, name),
+        )
             || self.has_visible_non_prelude_imported_function(file, name)
             || self.has_visible_non_prelude_imported_constructor(file, name)
     }

@@ -193,6 +193,9 @@ impl SymbolIndex {
         else {
             return Vec::new();
         };
+        #[cfg(test)]
+        record_function_scope_collection();
+        let scopes = function_scopes(&file.tokens);
         file.tokens
             .iter()
             .enumerate()
@@ -207,6 +210,7 @@ impl SymbolIndex {
                             *index,
                             &token.text,
                             &file.source.span(token.range),
+                            Some(&scopes),
                         )
                         .is_some_and(|selected| {
                             matches!(

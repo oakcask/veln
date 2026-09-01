@@ -109,6 +109,25 @@
     }
 
     #[test]
+    fn invalid_function_recovery_reference_lookup_prepares_scopes_once() {
+        let linked_calls = 800;
+        let mut source_text = String::from("fn Bad() -> Int\n");
+        for _ in 0..linked_calls {
+            source_text.push_str("  Bad()\n");
+        }
+        source_text.push_str("end\n");
+        let snapshot =
+            EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+        reset_function_scope_collections();
+
+        let result = query_snapshot(&snapshot, "main.veln", 1, 4).unwrap();
+
+        assert!(result.is_recovery);
+        assert_eq!(result.references.len(), linked_calls);
+        assert_eq!(function_scope_collections(), 1);
+    }
+
+    #[test]
     fn invalid_recovery_navigation_keeps_valid_symbol_precedence() {
         let result = query(
             vec![source(
