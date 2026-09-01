@@ -58,68 +58,75 @@ fn collect_type_reference_locations(
     tokens: &[Token],
 ) -> TypeReferenceLocations {
     let parsed = parse(source);
-    let mut spans: TypeReferenceLocations = Vec::new();
-    for item in &parsed.tree.items {
-        match item {
-            SyntaxItem::Function(function) => {
-                spans.extend(type_references_in_params(
-                    source,
-                    tokens,
-                    &function.params,
-                ));
-                if let Some(span) = &function.return_type_span {
-                    spans.extend(type_reference_tokens_in_span(source, tokens, span));
-                }
-                spans.extend(type_references_in_body_lines(
-                    source,
-                    tokens,
-                    &function.body,
-                ));
-            }
-            SyntaxItem::Handler(handler) => {
-                spans.extend(type_references_in_params(
-                    source,
-                    tokens,
-                    &handler.params,
-                ));
-            }
-            SyntaxItem::Effect(effect) => {
-                for operation in &effect.operations {
-                    spans.extend(type_references_in_params(
-                        source,
-                        tokens,
-                        &operation.params,
-                    ));
-                    spans.extend(type_references_after_token_in_span(
+    let mut spans: TypeReferenceLocations = parsed
+        .tree
+        .items
+        .iter()
+        .flat_map(|item| type_reference_locations_in_item(source, tokens, item))
+        .collect();
+    normalize_type_reference_locations(&mut spans);
+    spans
+}
+
+fn type_reference_locations_in_item(
+    source: &SourceFile,
+    tokens: &[Token],
+    item: &SyntaxItem,
+) -> TypeReferenceLocations {
+    match item {
+        SyntaxItem::Function(function) => type_references_in_function(source, tokens, function),
+        SyntaxItem::Handler(handler) => type_references_in_params(source, tokens, &handler.params),
+        SyntaxItem::Effect(effect) => effect
+            .operations
+            .iter()
+            .flat_map(|operation| {
+                type_references_in_params(source, tokens, &operation.params)
+                    .into_iter()
+                    .chain(type_references_after_token_in_span(
                         source,
                         tokens,
                         &operation.span,
                         TokenKind::Arrow,
-                    ));
-                }
-            }
-            SyntaxItem::Type(type_decl) => {
-                for variant in &type_decl.variants {
-                    for field in &variant.fields {
-                        spans.extend(type_references_in_variant_field(
-                            source,
-                            tokens,
-                            &field.span,
-                        ));
-                    }
-                }
-            }
-            SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
-                spans.extend(
-                    alias
-                        .target_spans
-                        .iter()
-                        .flat_map(|span| type_reference_tokens_in_span(source, tokens, span)),
-                );
-            }
-            _ => {}
-        }
+                    ))
+            })
+            .collect(),
+        SyntaxItem::Type(type_decl) => type_decl
+            .variants
+            .iter()
+            .flat_map(|variant| {
+                variant
+                    .fields
+                    .iter()
+                    .flat_map(|field| type_references_in_variant_field(source, tokens, &field.span))
+            })
+            .collect(),
+        SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => alias
+            .target_spans
+            .iter()
+            .flat_map(|span| type_reference_tokens_in_span(source, tokens, span))
+            .collect(),
+        _ => Vec::new(),
     }
+}
+
+fn type_references_in_function(
+    source: &SourceFile,
+    tokens: &[Token],
+    function: &FunctionDecl,
+) -> TypeReferenceLocations {
+    let mut spans = type_references_in_params(source, tokens, &function.params);
+    if let Some(span) = &function.return_type_span {
+        spans.extend(type_reference_tokens_in_span(source, tokens, span));
+    }
+    spans.extend(type_references_in_body_lines(
+        source,
+        tokens,
+        &function.body,
+    ));
+    spans
+}
+
+fn normalize_type_reference_locations(spans: &mut TypeReferenceLocations) {
     spans.sort_by(|left, right| {
         left.2
             .file
@@ -134,7 +141,6 @@ fn collect_type_reference_locations(
             && left.2.start.offset == right.2.start.offset
             && left.2.end.offset == right.2.end.offset
     });
-    spans
 }
 
 fn is_type_reference_token(file: &IndexedFile, name: &str, selection: &SourceSpan) -> bool {

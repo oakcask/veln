@@ -8,7 +8,7 @@ use veln_ast::{InvalidName, NameClass, QualifiedPathSegment};
 use veln_project::classify_companion_source;
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
-    BodyLine, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree, Token, TokenKind,
+    BodyLine, FunctionDecl, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree, Token, TokenKind,
     TypeVariantDecl, Visibility, lex, parse,
 };
 
@@ -16,6 +16,7 @@ include!("navigation/model.rs");
 include!("navigation/index.rs");
 include!("navigation/recovery.rs");
 include!("navigation/rename_conflicts.rs");
+include!("navigation/rename_visibility.rs");
 include!("navigation/symbol_lookup.rs");
 include!("navigation/symbol_references.rs");
 include!("navigation/declarations.rs");
