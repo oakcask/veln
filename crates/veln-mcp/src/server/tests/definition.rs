@@ -1,4 +1,5 @@
 use super::*;
+use std::path::Path;
 
 #[test]
 fn definition_resolves_the_supported_workspace_symbol_set() {
@@ -415,21 +416,31 @@ fn definition_rejects_symlink_paths_and_spells_uris_from_the_resolved_base() {
         workspace.root.file_name().unwrap().to_string_lossy()
     ));
     symlink(&workspace.root, &alias).unwrap();
-    let base = WorkspaceBase::open(alias.clone()).unwrap();
+    let server = server_from_workspace_base_alias(&alias);
+    let result = server.definition_tool(&json!({"source":"main.veln","line":6,"column":4}));
+    assert_definition_uri_uses_resolved_base(&result, &workspace);
+    fs::remove_file(alias).unwrap();
+}
+
+#[cfg(unix)]
+fn server_from_workspace_base_alias(alias: &Path) -> Server {
+    let base = WorkspaceBase::open(alias.to_path_buf()).unwrap();
     let selection = Selection::discover(base.path()).unwrap();
-    let server = Server {
+    Server {
         base,
         selection,
         initialized: true,
-    };
-    let result = server.definition_tool(&json!({"source":"main.veln","line":6,"column":4}));
+    }
+}
+
+#[cfg(unix)]
+fn assert_definition_uri_uses_resolved_base(result: &Value, workspace: &TempWorkspace) {
     let uri = result["structuredContent"]["definition"]["uri"]
         .as_str()
         .unwrap();
     let resolved_name = workspace.root.file_name().unwrap().to_string_lossy();
     assert!(uri.contains(resolved_name.as_ref()), "{uri}");
     assert!(!uri.contains("-alias/main.veln"), "{uri}");
-    fs::remove_file(alias).unwrap();
 }
 
 fn definition_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {

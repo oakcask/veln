@@ -14,6 +14,7 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/index.rs");
+include!("navigation/recovery.rs");
 include!("navigation/rename_conflicts.rs");
 include!("navigation/symbol_lookup.rs");
 include!("navigation/symbol_references.rs");

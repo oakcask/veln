@@ -407,16 +407,7 @@ impl SymbolIndex {
         let selected = dedup_recovery_symbols(
             file.recovery_symbols
                 .iter()
-                .filter(|symbol| {
-                    symbol.name == name
-                        && symbol.source_file == file.source.path().as_str()
-                        && same_span(&symbol.declaration, selection)
-                        && symbol.name_class().is_some_and(|class| {
-                            roles
-                                .iter()
-                                .any(|role| recovery_roles_compatible(class, *role))
-                        })
-                })
+                .filter(|symbol| recovery_matches_declaration(symbol, file, name, &roles, selection))
                 .cloned()
                 .collect(),
         );
@@ -424,19 +415,7 @@ impl SymbolIndex {
         let visible = dedup_recovery_symbols(
             file.recovery_symbols
                 .iter()
-                .filter(|symbol| {
-                    symbol.name == name
-                        && symbol.source_file == file.source.path().as_str()
-                        && symbol.name_class().is_some_and(|class| {
-                            roles
-                                .iter()
-                                .any(|role| recovery_roles_compatible(class, *role))
-                        })
-                        && selected.iter().any(|selected| {
-                            same_recovery_symbol(selected, symbol)
-                                || recovery_scopes_overlap(selected, symbol)
-                        })
-                })
+                .filter(|symbol| recovery_visible_to_selected(symbol, file, name, &roles, &selected))
                 .cloned()
                 .collect(),
         );
@@ -489,46 +468,6 @@ impl SymbolIndex {
             || self.has_visible_non_prelude_imported_function(file, name)
             || self.has_visible_non_prelude_imported_constructor(file, name)
     }
-}
-
-fn recovery_roles_compatible(record: NameClass, role: NameClass) -> bool {
-    record == role || (record == NameClass::Function && role == NameClass::ValueBinding)
-}
-
-fn dedup_recovery_symbols(mut symbols: Vec<RecoverySymbol>) -> Vec<RecoverySymbol> {
-    let mut unique = Vec::new();
-    for symbol in symbols.drain(..) {
-        if !unique
-            .iter()
-            .any(|existing| same_recovery_symbol(existing, &symbol))
-        {
-            unique.push(symbol);
-        }
-    }
-    unique
-}
-
-fn recovery_scopes_overlap(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {
-    left.scope_start < right.scope_end && right.scope_start < left.scope_end
-}
-
-fn recovery_roles_for_declaration_token(tokens: &[Token], index: usize) -> Option<Vec<NameClass>> {
-    if is_function_declaration_name(tokens, index) {
-        return Some(vec![NameClass::Function]);
-    }
-    if is_type_declaration_name(tokens, index) {
-        return Some(vec![NameClass::Type]);
-    }
-    if is_constructor_declaration_name(tokens, index) {
-        return Some(vec![NameClass::Constructor]);
-    }
-    if is_parameter_name(tokens, index)
-        || is_local_binding_name(tokens, index)
-        || is_satisfy_candidate_binding_name(tokens, index)
-    {
-        return Some(vec![NameClass::ValueBinding]);
-    }
-    None
 }
 
 fn resolve_qualified_alias(aliases: &BTreeMap<String, String>, qualifier: &str) -> Option<String> {
