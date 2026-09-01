@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"946510ebc6e3acf80c2cab3589d90e6c1830ab78"
+source_git_tree	"c7febb860635012c8980d049698855c583f65f28"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1640
+case_count	1642
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6440,6 +6440,26 @@ field	invocation.command[3]	"http.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"3c50b351632f034d346994e31f657b35a2f2bac54941e55c751c084a3c5c78d7"
+case	"examples/specification/check/identifier-casing-namespace-roles"
+field	expectations.exit	0
+field	expectations.json_assertions[0].equals	"ok"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	0
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"name.invalid_case"
+field	expectations.stdout.not_contains[1]	"name.duplicate"
+field	expectations.stdout.not_contains[2]	"type.schema_reference"
+field	expectations.stdout.not_contains[3]	"name.unresolved"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"2604a81ac80105744c0b968fa5933d27268a5d2b5937e4f6cf18c6ab01879805"
 case	"examples/specification/check/identifier-casing-owned-constructor-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -12454,6 +12474,55 @@ field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2010,"s
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
 case_digest	"1b9ebf45b723bb6090b4831b8263c79346e33ae46556513790742fb2dca3ad09"
+case	"examples/specification/lsp/identifier-casing-namespace-roles"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	true
+field	expectations.lsp_assertions[0].id	1
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/capabilities/definitionProvider"
+field	expectations.lsp_assertions[1].equals	0
+field	expectations.lsp_assertions[1].id	2
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/result/range/start/line"
+field	expectations.lsp_assertions[2].equals	5
+field	expectations.lsp_assertions[2].id	2
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/result/range/start/character"
+field	expectations.lsp_assertions[3].equals	1
+field	expectations.lsp_assertions[3].id	3
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/result/range/start/line"
+field	expectations.lsp_assertions[4].equals	2
+field	expectations.lsp_assertions[4].id	3
+field	expectations.lsp_assertions[4].operation	"equals"
+field	expectations.lsp_assertions[4].path	"/result/range/start/character"
+field	expectations.lsp_assertions[5].equals	20
+field	expectations.lsp_assertions[5].id	4
+field	expectations.lsp_assertions[5].operation	"equals"
+field	expectations.lsp_assertions[5].path	"/result/range/start/line"
+field	expectations.lsp_assertions[6].equals	3
+field	expectations.lsp_assertions[6].id	4
+field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].path	"/result/range/start/character"
+field	expectations.lsp_assertions[7].equals	25
+field	expectations.lsp_assertions[7].id	5
+field	expectations.lsp_assertions[7].operation	"equals"
+field	expectations.lsp_assertions[7].path	"/result/range/start/line"
+field	expectations.lsp_assertions[8].equals	6
+field	expectations.lsp_assertions[8].id	5
+field	expectations.lsp_assertions[8].operation	"equals"
+field	expectations.lsp_assertions[8].path	"/result/range/start/character"
+field	expectations.lsp_assertions[9].equals	null
+field	expectations.lsp_assertions[9].id	6
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/result"
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1286,"sha256":"cf61e0853c767f0ccf1e935a54ccaf0bcc6413e23664efe6f2d021a2db4bfe00"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"expected"
+case_digest	"09dd459ec3abc2cf06c83e9033e5a2589137a521aeb992a973bb7a68f034019b"
 case	"examples/specification/lsp/identifier-casing-overlay-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52997,4 +53066,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9a75d09dbd6122d91a5724d931d95dfda46da9501693cea842b148b04d50aa03"
+aggregate_digest	"61274ba4a8c679896dd87d4baf06576b592e6f1ef43318967ef81fb370d4b886"
