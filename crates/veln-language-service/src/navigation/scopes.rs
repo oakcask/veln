@@ -8,10 +8,20 @@ fn local_binding_shadows_call_target_in_scopes(
     index: usize,
     name: &str,
 ) -> bool {
+    local_binding_shadowing_call_target_in_scopes(scopes, tokens, index, name).is_some()
+}
+
+fn local_binding_shadowing_call_target_in_scopes<'a>(
+    scopes: &'a [FunctionScope],
+    tokens: &[Token],
+    index: usize,
+    name: &str,
+) -> Option<ScopeShadow<'a>> {
     let offset = tokens[index].range.start;
     scopes
         .iter()
-        .any(|scope| offset >= scope.body_start && offset < scope.end && scope.shadows(name, tokens, index))
+        .find(|scope| offset >= scope.body_start && offset < scope.end)
+        .and_then(|scope| scope.shadowing_binding(name, tokens, index))
 }
 
 fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
@@ -94,6 +104,19 @@ fn local_binding_index_by_name(bindings: &[LocalBinding]) -> BTreeMap<String, Ve
 enum ScopeShadow<'a> {
     FunctionBinding(&'a ScopedBinding),
     LocalBinding(&'a LocalBinding),
+}
+
+impl ScopeShadow<'_> {
+    fn declaration_range(&self) -> (usize, usize) {
+        match self {
+            ScopeShadow::FunctionBinding(binding) => {
+                (binding.declaration_start, binding.declaration_end)
+            }
+            ScopeShadow::LocalBinding(binding) => {
+                (binding.declaration_start, binding.declaration_end)
+            }
+        }
+    }
 }
 
 fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {

@@ -44,15 +44,17 @@ also visible.
 The `identifier-casing-recovery-navigation` LSP example checks those
 selection and rejection rows through definition, references, and
 prepare-rename where the operation has an observable unsupported-symbol
-result, including valid bare nullary constructor precedence. The
+result, including a callable parameter call target and valid bare nullary
+constructor precedence. The
 `identifier-casing-handler-binding-navigation` LSP example checks the same
 operation set for invalid handler context and operation-clause bindings.
 Focused language-service tests provide binding-form coverage for parameters,
-result bindings, local bindings, local-binding initializer exclusion, pattern
-bindings, satisfy candidate bindings, handler bindings, and declaration-form
-coverage for invalid constructor declarations, test declarations, public type
-aliases, and public function aliases. They also cover valid nullary
-constructor precedence over function or binding recovery.
+callable parameters, result bindings, local bindings, callable local bindings,
+local-binding initializer exclusion, pattern bindings, satisfy candidate
+bindings, handler bindings, and declaration-form coverage for invalid
+constructor declarations, test declarations, public type aliases, and public
+function aliases. They also cover valid nullary constructor precedence over
+function or binding recovery.
 
 Recovery records remain quarantined. They do not enter normal workspace or
 package symbol indexes, direct-dependency lookup, standard-prelude lookup,

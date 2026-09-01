@@ -206,3 +206,43 @@ equals = 68
 id = 34
 path = "/result/range/start/character"
 equals = 2
+
+[[lsp_assert]]
+id = 35
+path = "/result/range/start/line"
+equals = 75
+
+[[lsp_assert]]
+id = 35
+path = "/result/range/start/character"
+equals = 22
+
+[[lsp_assert]]
+id = 36
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 36
+path = "/result/0/range/start/line"
+equals = 75
+
+[[lsp_assert]]
+id = 36
+path = "/result/1/range/start/line"
+equals = 76
+
+[[lsp_assert]]
+id = 36
+path = "/result/2/range/start/line"
+equals = 77
+
+[[lsp_assert]]
+id = 37
+path = "/result/start/line"
+equals = 77
+
+[[lsp_assert]]
+id = 37
+path = "/result/start/character"
+equals = 2

@@ -118,10 +118,11 @@ by the `identifier-casing-recovery-navigation` and
 `veln-language-service` tests. The LSP examples cover valid-symbol precedence,
 ambiguous recovery rejection, incompatible-role rejection, shadowed occurrence
 rejection, qualified occurrence rejection, lexical out-of-scope rejection, and
-rename exclusion for the completed recovery-navigation slice. The focused
-language-service tests also cover local-binding initializer exclusion and
-valid nullary constructor precedence over function or binding recovery. This
-behavior is recorded in
+rename exclusion for the completed recovery-navigation slice, including a
+callable parameter call target. The focused language-service tests also cover
+local-binding initializer exclusion, callable parameter and local-binding use
+through both value and call positions, and valid nullary constructor
+precedence over function or binding recovery. This behavior is recorded in
 [Identifier Casing Recovery Navigation](../reference/implemented-proposals/identifier-casing-recovery-navigation.md).
 MCP `definition` exposes the same unique source declaration or binding
 recovery definition boundary through

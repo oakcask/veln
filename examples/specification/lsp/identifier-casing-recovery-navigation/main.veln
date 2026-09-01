@@ -72,3 +72,8 @@ end
 fn nullary_precedence(Value: Int) -> ValidItem
   Value
 end
+
+fn callable_parameter(Callback: fn() -> Int) -> Int
+  Callback
+  Callback()
+end

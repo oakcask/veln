@@ -510,6 +510,67 @@
     }
 
     #[test]
+    fn invalid_callable_parameter_recovery_links_value_and_call_uses() {
+        let sources = vec![source(
+            "main.veln",
+            "fn main(Bad: fn() -> Int) -> Int\n  Bad\n  Bad()\nend\n",
+        )];
+
+        let value = query(sources.clone(), "main.veln", 2, 4)
+            .expect("the invalid callable parameter should recover at its value use");
+        assert!(value.is_recovery);
+        assert_eq!(value.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&value.definition, "main.veln", 1, 9);
+        assert_eq!(
+            locations(&value.references),
+            [("main.veln", 2, 3), ("main.veln", 3, 3)]
+        );
+
+        let call = query(sources, "main.veln", 3, 4)
+            .expect("the invalid callable parameter should recover at its call use");
+        assert!(call.is_recovery);
+        assert_eq!(call.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&call.definition, "main.veln", 1, 9);
+        assert_eq!(call.references, value.references);
+        assert_eq!((call.selection.start.line, call.selection.start.column), (3, 3));
+    }
+
+    #[test]
+    fn invalid_callable_local_binding_recovery_links_value_and_call_uses() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "fn target() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn main() -> Int\n",
+                "  let Worker = target\n",
+                "  Worker\n",
+                "  Worker()\n",
+                "end\n",
+            ),
+        )];
+
+        let value = query(sources.clone(), "main.veln", 7, 4)
+            .expect("the invalid callable local binding should recover at its value use");
+        assert!(value.is_recovery);
+        assert_eq!(value.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&value.definition, "main.veln", 6, 7);
+        assert_eq!(
+            locations(&value.references),
+            [("main.veln", 7, 3), ("main.veln", 8, 3)]
+        );
+
+        let call = query(sources, "main.veln", 8, 4)
+            .expect("the invalid callable local binding should recover at its call use");
+        assert!(call.is_recovery);
+        assert_eq!(call.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&call.definition, "main.veln", 6, 7);
+        assert_eq!(call.references, value.references);
+        assert_eq!((call.selection.start.line, call.selection.start.column), (8, 3));
+    }
+
+    #[test]
     fn invalid_result_binding_recovery_navigation_links_ensure_uses() {
         let result = query(
             vec![source(

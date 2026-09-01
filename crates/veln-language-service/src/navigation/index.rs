@@ -496,12 +496,60 @@ impl SymbolIndex {
         name: &str,
         prepared_scopes: Option<&[FunctionScope]>,
     ) -> bool {
-        prepared_scopes.map_or_else(
-            || local_binding_shadows_call_target(tokens, token_index, name),
-            |scopes| local_binding_shadows_call_target_in_scopes(scopes, tokens, token_index, name),
+        self.bare_call_shadowed_by_distinct_binding(
+            file,
+            tokens,
+            token_index,
+            name,
+            prepared_scopes,
         )
             || self.has_visible_non_prelude_imported_function(file, name)
             || self.has_visible_non_prelude_imported_constructor(file, name)
+    }
+
+    fn bare_call_shadowed_by_distinct_binding(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        prepared_scopes: Option<&[FunctionScope]>,
+    ) -> bool {
+        let owned_scopes;
+        let scopes = match prepared_scopes {
+            Some(scopes) => scopes,
+            None => {
+                owned_scopes = function_scopes(tokens);
+                &owned_scopes
+            }
+        };
+        let Some(shadow) =
+            local_binding_shadowing_call_target_in_scopes(scopes, tokens, token_index, name)
+        else {
+            return false;
+        };
+        !self.shadow_matches_visible_recovery_binding(file, tokens, token_index, name, &shadow)
+    }
+
+    fn shadow_matches_visible_recovery_binding(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        shadow: &ScopeShadow<'_>,
+    ) -> bool {
+        let offset = tokens[token_index].range.start;
+        let (declaration_start, declaration_end) = shadow.declaration_range();
+        file.recovery_symbols.iter().any(|symbol| {
+            symbol.name == name
+                && symbol.source_file == file.source.path().as_str()
+                && symbol.kind == SymbolKind::ValueBinding
+                && symbol.declaration.start.offset == declaration_start
+                && symbol.declaration.end.offset == declaration_end
+                && offset >= symbol.scope_start
+                && offset < symbol.scope_end
+        })
     }
 }
 

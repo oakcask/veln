@@ -300,8 +300,10 @@ lexical out-of-scope rejection at the LSP boundary. Focused language-service
 tests cover the same recovery decision table for source declarations,
 function parameters, result bindings, local and pattern bindings, satisfy
 candidate bindings, handler context parameters, and handler operation-clause
-parameters. Declaration-form cases cover invalid constructor declarations,
-test declarations, public type aliases, and public function aliases. They also
+parameters. The LSP example includes a callable parameter call target, and
+focused tests include callable parameter and local-binding call targets.
+Declaration-form cases cover invalid constructor declarations, test
+declarations, public type aliases, and public function aliases. They also
 cover local-binding initializer exclusion before the binding starts. Recovery
 navigation uses the retained invalid declaration or binding range and the
 linked in-scope use ranges. A valid symbol takes precedence over recovery,
