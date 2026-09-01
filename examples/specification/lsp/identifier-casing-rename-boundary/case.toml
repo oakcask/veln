@@ -21,6 +21,7 @@ contains = [
   "\"line\":30,\"character\":4",
   "\"line\":5,\"character\":15",
   "\"line\":7,\"character\":15",
+  "operation_left.veln",
   "right.veln",
   "shadowing.veln",
 ]
@@ -28,7 +29,8 @@ not_contains = [
   "\"line\":35,\"character\":7",
   "\"line\":36,\"character\":2",
   "\"line\":3,\"character\":20",
-  "left.veln\":[{\"range\"",
+  "/left.veln\":[{\"range\"",
+  "/operation_main.veln\":[{\"range\"",
 ]
 
 [[lsp_assert]]
@@ -759,4 +761,9 @@ equals = "reexport_alias_main"
 [[lsp_assert]]
 id = 33
 path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 34
+path = "/error"
 missing = true

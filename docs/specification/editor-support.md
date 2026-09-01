@@ -255,7 +255,9 @@ Constructor conflict prediction uses the current constructor namespace for the
 selected ADT and bare constructor expression and pattern uses in modules where
 the renamed constructor would be visible after the complete edit, including
 visibility through an imported public type alias that re-exports the selected
-ADT.
+ADT. Equal-spelled effect operation declarations and handler operation clause
+headings do not participate in constructor conflict prediction and are not
+constructor rename references.
 Function conflict prediction checks bare call targets and bare function-value
 occurrences in modules where the renamed function would be visible after the
 complete edit.
@@ -275,7 +277,9 @@ same-spelled non-type namespace exclusion, qualified type identity preservation
 for type rename, ambiguous imported type rejection for edited and unedited
 requested-name occurrences, bare imported function ambiguity rejection for
 unedited requested-name call and function-value occurrences, constructor
-ambiguity rejection through public type-alias re-export visibility, and
+ambiguity rejection through public type-alias re-export visibility,
+effect operation role exclusion from constructor rename visibility and edits,
+and
 parameter and result-binding and handler parameter declaration locations for
 lexical function-rename conflicts.
 Focused language-service tests cover constructor ambiguity conflict rejection

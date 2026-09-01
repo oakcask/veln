@@ -1,0 +1,14 @@
+use operation_left
+use operation_right
+
+effect Task
+  Done() -> Int
+end
+
+handler task() handles Task
+  Done() => 1
+end
+
+fn current() -> Int
+  1
+end

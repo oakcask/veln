@@ -13137,6 +13137,9 @@ field	expectations.lsp_assertions[144].path	"/error/data/details/affected_scope/
 field	expectations.lsp_assertions[145].id	33
 field	expectations.lsp_assertions[145].operation	"missing"
 field	expectations.lsp_assertions[145].path	"/result"
+field	expectations.lsp_assertions[146].id	34
+field	expectations.lsp_assertions[146].operation	"missing"
+field	expectations.lsp_assertions[146].path	"/error"
 field	expectations.lsp_assertions[14].equals	null
 field	expectations.lsp_assertions[14].id	10
 field	expectations.lsp_assertions[14].operation	"equals"
@@ -13512,8 +13515,9 @@ field	expectations.stdout.contains[10]	"\"line\":25,\"character\":2"
 field	expectations.stdout.contains[11]	"\"line\":30,\"character\":4"
 field	expectations.stdout.contains[12]	"\"line\":5,\"character\":15"
 field	expectations.stdout.contains[13]	"\"line\":7,\"character\":15"
-field	expectations.stdout.contains[14]	"right.veln"
-field	expectations.stdout.contains[15]	"shadowing.veln"
+field	expectations.stdout.contains[14]	"operation_left.veln"
+field	expectations.stdout.contains[15]	"right.veln"
+field	expectations.stdout.contains[16]	"shadowing.veln"
 field	expectations.stdout.contains[1]	"\"newText\":\"Created\""
 field	expectations.stdout.contains[2]	"\"newText\":\"adapt\""
 field	expectations.stdout.contains[3]	"\"newText\":\"input\""
@@ -13526,13 +13530,14 @@ field	expectations.stdout.contains[9]	"\"line\":8,\"character\":2"
 field	expectations.stdout.not_contains[0]	"\"line\":35,\"character\":7"
 field	expectations.stdout.not_contains[1]	"\"line\":36,\"character\":2"
 field	expectations.stdout.not_contains[2]	"\"line\":3,\"character\":20"
-field	expectations.stdout.not_contains[3]	"left.veln\":[{\"range\""
+field	expectations.stdout.not_contains[3]	"/left.veln\":[{\"range\""
+field	expectations.stdout.not_contains[4]	"/operation_main.veln\":[{\"range\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7518,"sha256":"299e34277e449ad343ef4d7836bd6978a754bdde2db62a66b53799dec5f4abdb"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7757,"sha256":"2b8b39cde857944c0f7b074c8076be3eb3df0e30c4562635d060965d810d8134"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"ff43d284002f8c3707585b42c759f33d6837df5a53fad87888325a23edb0b3a4"
+case_digest	"17ffee4e2064bced51321881019ae29a8ac0204fd5bc3bccbbe1b6d3baf2bddf"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52641,4 +52646,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"36f72920834be4d2c6d79ecdda92c8fb4138d113bd4ba08c1eb674d6aec17f23"
+aggregate_digest	"8d3eea3a91639949910498b7092c31682c2b73744cc24f0469fb73cec2989f37"

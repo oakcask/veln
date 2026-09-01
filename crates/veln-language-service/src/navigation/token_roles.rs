@@ -122,9 +122,12 @@ fn is_bare_function_reference_token(
 }
 
 fn is_constructor_reference_token(tokens: &[Token], index: usize) -> bool {
-    is_call_target_token(tokens, index)
-        || is_bare_nullary_constructor_expression(tokens, index)
-        || is_bare_nullary_constructor_pattern(tokens, index)
+    tokens[index].kind == TokenKind::Ident
+        && !is_effect_operation_declaration_name(tokens, index)
+        && !is_handler_operation_clause_operation_name(tokens, index)
+        && (is_call_target_token(tokens, index)
+            || is_bare_nullary_constructor_expression(tokens, index)
+            || is_bare_nullary_constructor_pattern(tokens, index))
 }
 
 fn is_bare_nullary_constructor_expression(tokens: &[Token], index: usize) -> bool {
@@ -174,6 +177,16 @@ fn is_constructor_declaration_name(tokens: &[Token], index: usize) -> bool {
 fn is_type_position_token(tokens: &[Token], index: usize) -> bool {
     previous_non_layout_token(tokens, index)
         .is_some_and(|previous| matches!(previous.kind, TokenKind::Colon | TokenKind::Arrow))
+}
+
+fn is_effect_operation_declaration_name(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && inside_top_level_block(tokens, index, TokenKind::Effect)
+        && line_tokens_before(tokens, index)
+            .iter()
+            .all(|token| matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        && next_non_whitespace_token(tokens, index)
+            .is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
 fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {

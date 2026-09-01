@@ -32,6 +32,7 @@
   {"jsonrpc":"2.0","id":31,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"left_value.veln"}},"position":{"line":0,"character":7},"newName":"target_value"}},
   {"jsonrpc":"2.0","id":32,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"handler_capture.veln"}},"position":{"line":4,"character":3},"newName":"target"}},
   {"jsonrpc":"2.0","id":33,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"reexport_alias_left.veln"}},"position":{"line":1,"character":6},"newName":"Done"}},
-  {"jsonrpc":"2.0","id":34,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":34,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"operation_left.veln"}},"position":{"line":1,"character":7},"newName":"Done"}},
+  {"jsonrpc":"2.0","id":35,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]
