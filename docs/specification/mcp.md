@@ -127,10 +127,14 @@ symbols over that project. Any other accepted source uses anonymous single-file
 scope. A source below an unselected descendant manifest is therefore not
 analyzed with the outer project.
 
-The implemented symbol set is functions, type constructors, handler context
-parameters, handler operation clause parameters, and exact test-companion
-access to target-private functions. Other declarations, dependencies, and the
-standard library do not produce definition locations through this MCP slice.
+The implemented symbol set is the shared language-service definition selection
+set for captured saved workspace sources, including functions, type
+constructors, handler context parameters, handler operation clause parameters,
+exact test-companion access to target-private functions, and unique
+class-compatible invalid source declaration or binding recovery records. MCP
+only exposes the recovery declaration location through `definition`;
+references, prepare-rename, rename edits, dependencies, and the standard
+library do not produce definition locations through this MCP slice.
 A supported workspace declaration returns one canonical `file:` URI based on
 the resolved workspace-base identity and a half-open range. A valid position
 without a supported symbol succeeds with `definition: null`.
@@ -184,12 +188,15 @@ snapshots for direct path and locally materialized git inputs, clean analysis,
 selected-root symlink and regular-directory replacement, and structured
 language diagnostics with spanless related notes and closed related-note
 schemas. They also check definition schema rejection, project inference,
-anonymous and descendant-manifest isolation, every implemented symbol kind,
-canonical URI spelling, path rejection, stable-capture failure, no-symbol
-success, invalid positions including oversized positive integers, half-open
-ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar coordinates,
-extreme positive and negative exponent coordinates, and non-integer numeric
-coordinate schema rejection.
+anonymous and descendant-manifest isolation, every implemented ordinary symbol
+kind, canonical URI spelling, path rejection, stable-capture failure,
+no-symbol success, invalid positions including oversized positive integers,
+half-open ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar
+coordinates, extreme positive and negative exponent coordinates, and
+non-integer numeric coordinate schema rejection. Recovery definition coverage
+comes from the shared language-service tests and LSP examples routed by
+[editor-support.md](editor-support.md); the MCP-specific cases do not add a
+separate recovery decision table.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected
