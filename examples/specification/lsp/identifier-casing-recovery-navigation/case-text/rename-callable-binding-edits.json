@@ -1,0 +1,23 @@
+[
+  {
+    "range": {
+      "start": { "line": 75, "character": 22 },
+      "end": { "line": 75, "character": 30 }
+    },
+    "newText": "callback"
+  },
+  {
+    "range": {
+      "start": { "line": 76, "character": 2 },
+      "end": { "line": 76, "character": 10 }
+    },
+    "newText": "callback"
+  },
+  {
+    "range": {
+      "start": { "line": 77, "character": 2 },
+      "end": { "line": 77, "character": 10 }
+    },
+    "newText": "callback"
+  }
+]

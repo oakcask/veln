@@ -1,0 +1,6 @@
+use public_left
+use public_right
+
+fn main() -> Int
+  target()
+end

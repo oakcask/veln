@@ -169,9 +169,16 @@ fn is_type_declaration_name(tokens: &[Token], index: usize) -> bool {
 fn is_constructor_declaration_name(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
         && inside_top_level_block(tokens, index, TokenKind::Type)
-        && line_tokens_before(tokens, index)
-            .iter()
-            .all(|token| matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
+        && constructor_declaration_prefix_is_visible(tokens, index)
+}
+
+fn constructor_declaration_prefix_is_visible(tokens: &[Token], index: usize) -> bool {
+    line_tokens_before(tokens, index).iter().all(|token| {
+        matches!(
+            token.kind,
+            TokenKind::Whitespace | TokenKind::Newline | TokenKind::Pub
+        )
+    })
 }
 
 fn is_type_position_token(tokens: &[Token], index: usize) -> bool {

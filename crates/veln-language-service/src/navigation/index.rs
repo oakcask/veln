@@ -102,6 +102,8 @@ impl SymbolIndex {
                     scope_file: file.source.path().as_str().to_string(),
                     scope_start: binding.start,
                     scope_end: binding.end,
+                    declaration_scope_start: binding.start,
+                    declaration_scope_end: binding.end,
                     kind: binding.kind,
                 })
         })
@@ -683,37 +685,4 @@ fn same_scope_binding_conflicts(
         && binding.start == selected.scope_start
         && binding.end == selected.scope_end
         && !same_span(&binding.declaration, &selected.declaration)
-}
-
-fn module_rename_conflict(
-    declaration: NavigationLocation,
-    module: &str,
-) -> (NavigationLocation, RenameAffectedScope) {
-    (
-        declaration,
-        RenameAffectedScope::Module {
-            name: module.to_string(),
-        },
-    )
-}
-
-fn declaration_matches(
-    expected_name: &str,
-    selection: &SourceSpan,
-    actual_name: &str,
-    package: Option<&str>,
-    declaration: &SourceSpan,
-) -> bool {
-    actual_name == expected_name
-        && package.is_none()
-        && declaration.file == selection.file
-        && declaration.start.offset == selection.start.offset
-        && declaration.end.offset == selection.end.offset
-}
-
-fn is_qualified_path_token(tokens: &[Token], index: usize) -> bool {
-    previous_non_layout_token(tokens, index)
-        .is_some_and(|token| token.kind == TokenKind::DoubleColon)
-        || next_non_layout_token(tokens, index)
-            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
 }

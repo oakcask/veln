@@ -264,6 +264,7 @@ impl Symbol {
 impl LocalSymbolKind {
     fn symbol_kind(&self) -> SymbolKind {
         match self {
+            Self::ValueBinding => SymbolKind::ValueBinding,
             Self::HandlerContextParameter => SymbolKind::HandlerContextParameter,
             Self::HandlerOperationClauseParameter => SymbolKind::HandlerOperationClauseParameter,
         }
@@ -425,6 +426,8 @@ struct LocalSymbol {
     scope_file: String,
     scope_start: usize,
     scope_end: usize,
+    declaration_scope_start: usize,
+    declaration_scope_end: usize,
     kind: LocalSymbolKind,
 }
 
@@ -435,6 +438,9 @@ struct RecoverySymbol {
     source_file: String,
     scope_start: usize,
     scope_end: usize,
+    declaration_scope_start: usize,
+    declaration_scope_end: usize,
+    public: bool,
     kind: SymbolKind,
 }
 
@@ -455,6 +461,7 @@ impl RecoverySymbol {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum LocalSymbolKind {
+    ValueBinding,
     HandlerContextParameter,
     HandlerOperationClauseParameter,
 }

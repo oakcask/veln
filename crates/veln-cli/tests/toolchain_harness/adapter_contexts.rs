@@ -519,6 +519,54 @@ pub(super) fn manifest_lsp_assertions_validate_selector_operation_and_pointer_co
 }
 
 #[test]
+pub(super) fn lsp_and_mcp_assertions_expand_workspace_file_uri_pointer_tokens() {
+    let root = test_temp_root("workspace-uri-pointer-token");
+    fs::write(root.join("main.veln"), "").expect("workspace file should be written");
+    let uri = workspace_file_uri(&root, "main.veln").expect("workspace URI should resolve");
+    let path = "/result/changes/$workspace_file_uri:main.veln/0/newText";
+
+    let lsp_assertion = parse_manifest(
+        &root.join("case.toml"),
+        &format!(
+            "command = [\"lsp\"]\nexit = 0\n[[lsp_assert]]\nid = 1\npath = {path:?}\nequals = \"renamed\"\n"
+        ),
+    )
+    .expectations
+    .lsp_assertions
+    .remove(0);
+    let lsp_stdout = lsp_frame(&format!(
+        r#"{{"jsonrpc":"2.0","id":1,"result":{{"changes":{{"{uri}":[{{"newText":"renamed"}}]}}}}}}"#
+    ));
+    evaluate_lsp_assertion_in_workspace(
+        &decode_lsp_stdout(&lsp_stdout).expect("LSP stream should decode"),
+        &lsp_assertion,
+        &root,
+    )
+    .expect("LSP pointer token should select the workspace edit array");
+
+    let mcp_assertion = parse_manifest(
+        &root.join("case.toml"),
+        &format!(
+            "command = [\"mcp\"]\nexit = 0\n[[mcp_assert]]\nid = 1\npath = {path:?}\nequals = \"renamed\"\n"
+        ),
+    )
+    .expectations
+    .mcp_assertions
+    .remove(0);
+    let mcp_stdout = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"result":{{"changes":{{"{uri}":[{{"newText":"renamed"}}]}}}}}}"#
+    );
+    evaluate_mcp_assertion(
+        &decode_mcp_stdout(&mcp_stdout).expect("MCP stream should decode"),
+        &mcp_assertion,
+        &root,
+    )
+    .expect("MCP pointer token should select the workspace edit array");
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
 pub(super) fn manifest_mcp_assertions_validate_selector_operation_and_pointer_contracts() {
     for (fields, expected) in [
         ("path = \"\"\nequals = null\n", "is missing `id`"),

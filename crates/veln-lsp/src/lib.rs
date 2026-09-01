@@ -284,9 +284,10 @@ impl Server {
             if !is_identifier(&new_name) {
                 return response(&id, "{\"changes\":{}}");
             }
-            let Some(request) = self.symbol_at_request(message).filter(|request| {
-                is_workspace_location(&request.result.definition) && !request.result.is_recovery
-            }) else {
+            let Some(request) = self
+                .symbol_at_request(message)
+                .filter(|request| is_workspace_location(&request.result.definition))
+            else {
                 return response(&id, "{\"changes\":{}}");
             };
             match validate_rename_in_snapshot(&request.snapshot, &request.result, &new_name) {

@@ -84,11 +84,33 @@ fn invalid_handler_bindings_use_lsp_recovery_navigation() {
     assert_invalid_callback_navigation(&mut server, &main_uri);
     assert_invalid_result_navigation(&mut server, &main_uri);
 
-    for (line, character) in [(6, 19), (7, 27)] {
-        let rename = server.handle_message(&rename_request(&main_uri, line, character, "fixed"));
-        assert_eq!(rename.len(), 1);
-        assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
-    }
+    let callback_rename = server.handle_message(&rename_request(&main_uri, 6, 19, "fixed"));
+    assert_eq!(callback_rename.len(), 1);
+    assert_eq!(
+        callback_rename[0].matches(r#""newText":"fixed""#).count(),
+        3
+    );
+    assert!(
+        callback_rename[0].contains(
+            r#""range":{"start":{"line":5,"character":15},"end":{"line":5,"character":23}}"#
+        ),
+        "{}",
+        callback_rename[0]
+    );
+
+    let result_rename = server.handle_message(&rename_request(&main_uri, 7, 27, "fixed"));
+    assert_eq!(result_rename.len(), 1);
+    assert_eq!(
+        result_rename[0].matches(r#""newText":"fixed""#).count(),
+        2
+    );
+    assert!(
+        result_rename[0].contains(
+            r#""range":{"start":{"line":7,"character":7},"end":{"line":7,"character":13}}"#
+        ),
+        "{}",
+        result_rename[0]
+    );
 }
 
 fn assert_invalid_callback_navigation(server: &mut Server, main_uri: &str) {

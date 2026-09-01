@@ -6,6 +6,20 @@ exit = 0
 [stderr]
 format = "empty"
 
+[stdout]
+contains = [
+  "\"id\":5,\"result\":{\"changes\":{\"file://",
+  "\"id\":38,\"result\":{\"changes\":{\"file://",
+  "\"id\":45,\"error\":{\"code\":-32602",
+  "\"newText\":\"good\"",
+  "\"newText\":\"Byte\"",
+  "\"newText\":\"local\"",
+  "\"newText\":\"callback\"",
+  "\"newText\":\"Entry\"",
+  "\"code\":\"rename.invalid_case\"",
+  "\"code\":\"rename.conflict\"",
+]
+
 [[lsp_assert]]
 id = 1
 path = "/result/capabilities/definitionProvider"
@@ -56,11 +70,6 @@ equals = 5
 id = 4
 path = "/result/start/character"
 equals = 2
-
-[[lsp_assert]]
-id = 5
-path = "/result/changes"
-equals = {}
 
 [[lsp_assert]]
 id = 6
@@ -246,3 +255,68 @@ equals = 77
 id = 37
 path = "/result/start/character"
 equals = 2
+
+[[lsp_assert]]
+id = 38
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-function-edits.json"
+
+[[lsp_assert]]
+id = 39
+path = "/error/data/code"
+equals = "rename.invalid_case"
+
+[[lsp_assert]]
+id = 39
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 40
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 40
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 40
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 41
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-constructor-edits.json"
+
+[[lsp_assert]]
+id = 42
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-local-binding-edits.json"
+
+[[lsp_assert]]
+id = 43
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-callable-binding-edits.json"
+
+[[lsp_assert]]
+id = 44
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-type-edits.json"
+
+[[lsp_assert]]
+id = 45
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 45
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "public_right.veln"
+
+[[lsp_assert]]
+id = 45
+path = "/result"
+missing = true

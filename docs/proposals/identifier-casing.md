@@ -40,8 +40,8 @@ artifact exclusion, and the `check` and `run` selection boundary. The completed
 implementation record is
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md).
 
-The remaining proposal work covers module identities, repair rename, and
-deferred recovery consumers. The completed public alias
+The remaining proposal work covers module identities and deferred recovery
+consumers. The completed public alias
 target-leaf casing boundary is specified by
 [Names And Effects](../specification/names-effects.md) and checked by the
 `identifier-casing-public-alias-targets-json` and
@@ -109,21 +109,24 @@ The LSP single-file diagnostics helper now receives the same parse-clean
 source invalid-name records as `check`. That helper behavior is part of the
 implemented source foundation. Workspace snapshot and open-document overlay
 casing diagnostics and invalid-symbol index exclusion are also current
-language-service behavior. LSP definition, references, and prepare-rename now
-expose a unique class-compatible invalid source declaration or binding
-recovery record when no valid symbol wins. That recovery navigation boundary
-is specified by [Editor Support](../specification/editor-support.md), checked
-by the `identifier-casing-recovery-navigation` and
+language-service behavior. LSP definition, references, prepare-rename, and
+rename now expose a unique class-compatible invalid source declaration or
+binding recovery record when no valid symbol wins. That recovery navigation
+and rename boundary is specified by
+[Editor Support](../specification/editor-support.md), checked by the
+`identifier-casing-recovery-navigation` and
 `identifier-casing-handler-binding-navigation` LSP examples and focused
 `veln-language-service` tests. The LSP examples cover valid-symbol precedence,
 ambiguous recovery rejection, incompatible-role rejection, shadowed occurrence
-rejection, qualified occurrence rejection, lexical out-of-scope rejection, and
-rename exclusion for the completed recovery-navigation slice, including a
-callable parameter call target. The focused language-service tests also cover
-local-binding initializer exclusion, callable parameter and local-binding use
-through both value and call positions, and valid nullary constructor
-precedence over function or binding recovery. This behavior is recorded in
-[Identifier Casing Recovery Navigation](../reference/implemented-proposals/identifier-casing-recovery-navigation.md).
+rejection, qualified occurrence rejection, lexical out-of-scope rejection,
+successful complete recovery rename edits, and edit-free rename failures,
+including a callable parameter call target. The focused language-service tests
+also cover local-binding initializer exclusion, callable parameter and
+local-binding use through both value and call positions, valid nullary
+constructor precedence over function or binding recovery, recovery rename
+class validation, and recovery rename conflict rejection. This behavior is
+recorded in
+[Identifier Casing Recovery Navigation And Rename](../reference/implemented-proposals/identifier-casing-recovery-navigation.md).
 MCP `definition` exposes the same unique source declaration or binding
 recovery definition boundary through
 [MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md)
@@ -140,9 +143,9 @@ identity preservation for type rename, conflicts with visible type aliases in
 the type namespace, and rejection of unedited bare imported function
 ambiguities. It also rejects constructor ambiguity through public type-alias
 re-export visibility and handler parameter captures for edited bare function
-calls and function-value references. This proposal still owns repair rename,
-MCP rename mapping, and rename evidence for the remaining casing surfaces
-until those rows are implemented.
+calls and function-value references. This proposal still owns MCP rename
+mapping and rename evidence for the remaining casing surfaces until those rows
+are implemented.
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
@@ -272,8 +275,8 @@ the written path. Source-path occurrences are current behavior specified by
 The implemented source foundation quarantines invalid source declarations,
 bindings, and public alias targets for `check`, `run`, and LSP single-file
 diagnostics. The remaining rules in this section are proposal scope where they
-require module identity validation, repair rename, or the deferred
-language-service selection boundary.
+require module identity validation or the deferred language-service selection
+boundary.
 
 For sources without casing diagnostics, ordinary expression calls and
 constructor patterns use these candidate classes. Dedicated schema, effect,
@@ -351,13 +354,13 @@ but it does not make the program valid.
 A valid candidate always takes precedence over a recovery record. Recovery
 records do not create ambiguity or cross-class collisions. When multiple
 recovery records have the same spelling, no one record is selected for
-navigation. Definition, references, and prepare-rename exposure for source
-declaration and binding recovery records is current editor behavior specified
-by [Editor Support](../specification/editor-support.md). MCP `definition`
-exposure for those recovery records is current behavior specified by
+navigation. Definition, references, prepare-rename, and LSP rename exposure
+for source declaration and binding recovery records is current editor behavior
+specified by [Editor Support](../specification/editor-support.md). MCP
+`definition` exposure for those recovery records is current behavior specified
+by
 [MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md).
-Rename may use a recovery link only after repair rename is implemented. No
-other operation treats a quarantined record as valid. Lowering and backends
+No other operation treats a quarantined record as valid. Lowering and backends
 never receive recovery records.
 
 For the remaining boundary work, a recovery record is visible only in the
@@ -438,15 +441,11 @@ behavior is specified by [Editor Support](../specification/editor-support.md).
 For type-role references, the current boundary rejects ambiguous bare imported
 type selections, preserves qualified type identity before returning rename
 edits, and covers the implemented qualified-use path segment selections named
-above. The remaining rename proposal covers repair rename through quarantined
-invalid-name recovery records, source-path module rename exclusion, MCP error
-mapping, and deferred module surfaces.
-
-A repair rename edits the declaration and every occurrence linked to the same
-unique recovery symbol, including an occurrence whose initial-derived valid
-class differs from the repaired class. It does not edit a valid symbol,
-incompatible use role, shadowed occurrence, ambiguous recovery occurrence, or
-text that merely has the same spelling.
+above. LSP recovery rename through quarantined source declaration and binding
+recovery records is also current behavior specified by
+[Editor Support](../specification/editor-support.md). The remaining rename
+proposal covers source-path module rename exclusion, MCP error mapping, and
+deferred module surfaces.
 
 Current rename conflict rejection for valid selected workspace symbols is
 specified by [Editor Support](../specification/editor-support.md), including
@@ -454,9 +453,9 @@ same-scope declaration duplicates, edit-scope-based lexical shadowing, type
 alias conflicts, function-to-test duplicate rejection, affected scopes, and
 conflicting declaration locations for local bindings, function parameters,
 result bindings, handler context parameters, and handler operation clause
-parameters. Future repair rename and MCP rename surfaces must preserve that
-shared conflict code and edit-free failure boundary when they add their
-transport-specific behavior.
+parameters. Future MCP rename surfaces must preserve that shared conflict code
+and edit-free failure boundary when they add their transport-specific
+behavior.
 
 Source-path-derived module segments are not rename targets in this proposal.
 Prepare-rename returns no range for them. Rename produces no file operation,
@@ -472,8 +471,8 @@ loaded and unloaded direct dependencies, are specified by
 [Names And Effects](../specification/names-effects.md). The implicit-prelude
 selection boundary is complete and recorded in
 [Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md).
-The remaining proposal scope is limited to module identity, repair rename, MCP
-rename mapping, and deferred language-service consumers listed in the
+The remaining proposal scope is limited to module identity, MCP rename
+mapping, and deferred language-service consumers listed in the
 acceptance model.
 
 No backend receives a remaining-scope module identity or recovery record with
@@ -488,8 +487,8 @@ selection boundary when command behavior differs.
 - Remove callable-binding-versus-constructor precedence from valid programs.
 - Preserve current visibility, ambiguity, and value-shadowing rules within
   each name class.
-- Extend the current source foundation to the remaining module, selection,
-  repair rename, and MCP rename mapping surfaces.
+- Extend the current source foundation to the remaining module, selection, and
+  MCP rename mapping surfaces.
 
 ## Non-Goals
 
@@ -538,11 +537,11 @@ identifier-casing remainder.
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
-| Resolve uses near invalid declarations in qualified, module-derived, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair rename where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, and repair rename cases. |
+| Resolve uses near invalid declarations in qualified and module-derived roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, and boundary cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | A recovery symbol remains limited to the declaring source and lexical scope. No recovery symbol is imported, aliased, lowered, or exposed as a module-derived or qualified recovery result. | Boundary table covering diagnostics, module-derived and qualified navigation attempts, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
-| Request invalid-declaration repair renames and remaining transport mappings. | Repair renames return complete linked edits. Failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service repair cases and planned MCP error-mapping cases. |
-| Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module or qualified recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module-derived, qualified, and repair-rename surfaces. |
+| Request remaining transport rename mappings. | Path-derived module segments return no prepare range or file edits. MCP mappings return no edits for unsupported recovery or module selections and preserve shared failure codes where the transport exposes them. | Planned MCP error-mapping cases. |
+| Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module or qualified recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module-derived and qualified surfaces. |
 | Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |
 | Run the repository source-carrier audit and specification suite after migration. | Every parsed or analyzed repository-owned source follows the contract except dedicated exact-expectation casing fixtures, and unrelated negative fixtures retain their intended diagnostic sets. | Source-carrier audit, specification harness, doctest and documentation gates, and workspace tests. |
 

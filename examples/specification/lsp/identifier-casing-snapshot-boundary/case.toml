@@ -7,6 +7,10 @@ exit = 0
 format = "empty"
 
 [stdout]
+contains = [
+  "\"id\":4,\"result\":{\"changes\":{\"file://",
+  "/main.veln\":[{\"range\":{\"start\":{\"line\":0,\"character\":3},\"end\":{\"line\":0,\"character\":6}},\"newText\":\"renamed\"},{\"range\":{\"start\":{\"line\":5,\"character\":2},\"end\":{\"line\":5,\"character\":5}},\"newText\":\"renamed\"}]}",
+]
 not_contains = ["nested/hidden.veln"]
 
 [[lsp_assert]]
@@ -71,11 +75,6 @@ equals = 5
 id = 3
 path = "/result/1/range/start/character"
 equals = 2
-
-[[lsp_assert]]
-id = 4
-path = "/result/changes"
-equals = {}
 
 [[lsp_assert]]
 id = 5

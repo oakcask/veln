@@ -6,6 +6,14 @@ exit = 0
 [stderr]
 format = "empty"
 
+[stdout]
+contains = [
+  "\"id\":5,\"result\":{\"changes\":{\"file://",
+  "\"id\":9,\"result\":{\"changes\":{\"file://",
+  "\"newText\":\"callback\"",
+  "\"newText\":\"result\"",
+]
+
 [[lsp_assert]]
 id = 1
 path = "/result/capabilities/definitionProvider"
@@ -51,8 +59,8 @@ equals = 6
 
 [[lsp_assert]]
 id = 5
-path = "/result/changes"
-equals = {}
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-handler-context-binding-edits.json"
 
 [[lsp_assert]]
 id = 6
@@ -71,8 +79,8 @@ equals = 7
 
 [[lsp_assert]]
 id = 9
-path = "/result/changes"
-equals = {}
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-handler-clause-binding-edits.json"
 
 [[lsp_assert]]
 id = 10

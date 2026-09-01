@@ -480,6 +480,28 @@ fn server_uses_unsaved_workspace_text_over_disk_text() {
 
 #[test]
 fn selected_snapshot_invalid_casing_publishes_and_excludes_symbol() {
+    let (mut server, _project, main_uri, responses) = snapshot_invalid_casing_server();
+
+    let publish = publish_for_uri(&responses, &main_uri);
+    assert!(
+        publish.contains(r#""code":"name.invalid_case""#),
+        "{publish}"
+    );
+    let declaration = server.handle_message(&definition_request(&main_uri, 0, 3));
+    assert_response_contains_bad_declaration_range(&declaration[0]);
+    let call = server.handle_message(&definition_request(&main_uri, 5, 2));
+    assert_response_contains_bad_declaration_range(&call[0]);
+    let references = server.handle_message(&references_request(&main_uri, 0, 3));
+    assert_snapshot_invalid_casing_references(&references[0]);
+    let prepare = server.handle_message(&prepare_rename_request(&main_uri, 5, 2));
+    assert_response_contains_bad_call_prepare_range(&prepare[0]);
+    let rename = server.handle_message(&rename_request(&main_uri, 0, 3, "renamed"));
+    assert_eq!(rename[0].matches(r#""newText":"renamed""#).count(), 2);
+    assert_response_contains_bad_declaration_range(&rename[0]);
+    assert_response_contains_bad_call_edit_range(&rename[0]);
+}
+
+fn snapshot_invalid_casing_server() -> (Server, TempProject, String, Vec<String>) {
     let mut server = Server::default();
     let project = TempProject::new("snapshot-invalid-casing");
     project.write(
@@ -498,46 +520,47 @@ fn selected_snapshot_invalid_casing_publishes_and_excludes_symbol() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
 
     let responses = server.handle_message(&initialize_request(&root_uri));
+    (server, project, main_uri, responses)
+}
 
-    let publish = publish_for_uri(&responses, &main_uri);
+fn assert_response_contains_bad_declaration_range(response: &str) {
     assert!(
-        publish.contains(r#""code":"name.invalid_case""#),
-        "{publish}"
-    );
-    let declaration = server.handle_message(&definition_request(&main_uri, 0, 3));
-    assert!(
-        declaration[0].contains(
+        response.contains(
             r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":6}}"#
         ),
         "{}",
-        declaration[0]
+        response
     );
-    let call = server.handle_message(&definition_request(&main_uri, 5, 2));
+}
+
+fn assert_snapshot_invalid_casing_references(response: &str) {
     assert!(
-        call[0].contains(
-            r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":6}}"#
-        ),
+        response.contains(r#""result":[{"uri":"file://"#)
+            && response.contains(r#""line":0,"character":3"#)
+            && response.contains(r#""line":5,"character":2"#),
         "{}",
-        call[0]
+        response
     );
-    let references = server.handle_message(&references_request(&main_uri, 0, 3));
+}
+
+fn assert_response_contains_bad_call_prepare_range(response: &str) {
     assert!(
-        references[0].contains(r#""result":[{"uri":"file://"#)
-            && references[0].contains(r#""line":0,"character":3"#)
-            && references[0].contains(r#""line":5,"character":2"#),
-        "{}",
-        references[0]
-    );
-    let prepare = server.handle_message(&prepare_rename_request(&main_uri, 5, 2));
-    assert!(
-        prepare[0].contains(
+        response.contains(
             r#""result":{"start":{"line":5,"character":2},"end":{"line":5,"character":5}}"#
         ),
         "{}",
-        prepare[0]
+        response
     );
-    let rename = server.handle_message(&rename_request(&main_uri, 0, 3, "renamed"));
-    assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+}
+
+fn assert_response_contains_bad_call_edit_range(response: &str) {
+    assert!(
+        response.contains(
+            r#""range":{"start":{"line":5,"character":2},"end":{"line":5,"character":5}}"#
+        ),
+        "{}",
+        response
+    );
 }
 
 #[test]
