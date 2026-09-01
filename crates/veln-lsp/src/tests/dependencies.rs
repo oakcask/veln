@@ -81,67 +81,65 @@ fn invalid_handler_bindings_use_lsp_recovery_navigation() {
         "{publish}"
     );
 
-    let callback_definition = server.handle_message(&definition_request(&main_uri, 6, 19));
-    assert_eq!(callback_definition.len(), 1);
-    assert!(
-        callback_definition[0].contains(
-            r#""range":{"start":{"line":5,"character":15},"end":{"line":5,"character":23}}"#
-        ),
-        "{}",
-        callback_definition[0]
-    );
-    let callback_references = server.handle_message(&references_request(&main_uri, 5, 15));
-    assert_eq!(callback_references.len(), 1);
-    assert!(
-        callback_references[0].contains(r#""result":["#)
-            && callback_references[0].contains(r#""line":5,"character":15"#)
-            && callback_references[0].contains(r#""line":6,"character":19"#)
-            && callback_references[0].contains(r#""line":7,"character":18"#),
-        "{}",
-        callback_references[0]
-    );
-    let callback_prepare = server.handle_message(&prepare_rename_request(&main_uri, 6, 19));
-    assert_eq!(callback_prepare.len(), 1);
-    assert!(
-        callback_prepare[0].contains(
-            r#""result":{"start":{"line":6,"character":19},"end":{"line":6,"character":27}}"#
-        ),
-        "{}",
-        callback_prepare[0]
-    );
-
-    let result_definition = server.handle_message(&definition_request(&main_uri, 7, 27));
-    assert_eq!(result_definition.len(), 1);
-    assert!(
-        result_definition[0].contains(
-            r#""range":{"start":{"line":7,"character":7},"end":{"line":7,"character":13}}"#
-        ),
-        "{}",
-        result_definition[0]
-    );
-    let result_references = server.handle_message(&references_request(&main_uri, 7, 7));
-    assert_eq!(result_references.len(), 1);
-    assert!(
-        result_references[0].contains(r#""result":["#)
-            && result_references[0].contains(r#""line":7,"character":7"#)
-            && result_references[0].contains(r#""line":7,"character":27"#),
-        "{}",
-        result_references[0]
-    );
-    let result_prepare = server.handle_message(&prepare_rename_request(&main_uri, 7, 7));
-    assert_eq!(result_prepare.len(), 1);
-    assert!(
-        result_prepare[0].contains(
-            r#""result":{"start":{"line":7,"character":7},"end":{"line":7,"character":13}}"#
-        ),
-        "{}",
-        result_prepare[0]
-    );
+    assert_invalid_callback_navigation(&mut server, &main_uri);
+    assert_invalid_result_navigation(&mut server, &main_uri);
 
     for (line, character) in [(6, 19), (7, 27)] {
         let rename = server.handle_message(&rename_request(&main_uri, line, character, "fixed"));
         assert_eq!(rename.len(), 1);
         assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+    }
+}
+
+fn assert_invalid_callback_navigation(server: &mut Server, main_uri: &str) {
+    let callback_definition = server.handle_message(&definition_request(main_uri, 6, 19));
+    assert_single_response(
+        &callback_definition,
+        r#""range":{"start":{"line":5,"character":15},"end":{"line":5,"character":23}}"#,
+    );
+    let callback_references = server.handle_message(&references_request(main_uri, 5, 15));
+    assert_single_response_contains_all(
+        &callback_references,
+        &[
+            r#""result":["#,
+            r#""line":5,"character":15"#,
+            r#""line":6,"character":19"#,
+            r#""line":7,"character":18"#,
+        ],
+    );
+    let callback_prepare = server.handle_message(&prepare_rename_request(main_uri, 6, 19));
+    assert_single_response(
+        &callback_prepare,
+        r#""result":{"start":{"line":6,"character":19},"end":{"line":6,"character":27}}"#,
+    );
+}
+
+fn assert_invalid_result_navigation(server: &mut Server, main_uri: &str) {
+    let result_definition = server.handle_message(&definition_request(main_uri, 7, 27));
+    assert_single_response(
+        &result_definition,
+        r#""range":{"start":{"line":7,"character":7},"end":{"line":7,"character":13}}"#,
+    );
+    let result_references = server.handle_message(&references_request(main_uri, 7, 7));
+    assert_single_response_contains_all(
+        &result_references,
+        &[
+            r#""result":["#,
+            r#""line":7,"character":7"#,
+            r#""line":7,"character":27"#,
+        ],
+    );
+    let result_prepare = server.handle_message(&prepare_rename_request(main_uri, 7, 7));
+    assert_single_response(
+        &result_prepare,
+        r#""result":{"start":{"line":7,"character":7},"end":{"line":7,"character":13}}"#,
+    );
+}
+
+fn assert_single_response_contains_all(responses: &[String], expected: &[&str]) {
+    assert_eq!(responses.len(), 1);
+    for fragment in expected {
+        assert_contains_json(&responses[0], fragment);
     }
 }
 
