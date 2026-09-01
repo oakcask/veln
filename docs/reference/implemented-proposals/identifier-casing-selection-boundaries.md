@@ -77,5 +77,5 @@ This proposal is complete. Current behavior lives in
 [Names And Effects](../../specification/names-effects.md) and checked cases
 under `examples/specification/`. Completion does not claim completion of
 module-identity casing or MCP rename mapping. Recovery navigation and source
-declaration or binding repair rename are completed separately in
+declaration or binding recovery rename are completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).

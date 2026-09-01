@@ -82,7 +82,7 @@ and the covered qualified-use language-service operations. It does not
 complete module identity syntax, explicit import-alias syntax, recovery
 navigation through quarantined invalid declarations, MCP rename mapping, or
 source migration beyond the focused executable examples. Source declaration or
-binding repair rename is completed separately in
+binding recovery rename is completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 LSP rename
 conflict rejection for valid selected workspace symbols is completed

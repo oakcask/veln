@@ -72,7 +72,7 @@ locations, or standard-library locations for recovery selections.
 ## Completion
 
 This slice is complete for shared language-service and LSP definition,
-references, prepare-rename, and repair rename for source declaration and
+references, prepare-rename, and recovery rename for source declaration and
 binding recovery records. It is complete for MCP `definition` recovery
 conversion. It does not complete module identity casing, MCP rename mapping,
 or deferred artifact consumers.

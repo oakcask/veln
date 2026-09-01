@@ -441,7 +441,7 @@ behavior is specified by [Editor Support](../specification/editor-support.md).
 For type-role references, the current boundary rejects ambiguous bare imported
 type selections, preserves qualified type identity before returning rename
 edits, and covers the implemented qualified-use path segment selections named
-above. LSP repair rename through quarantined source declaration and binding
+above. LSP recovery rename through quarantined source declaration and binding
 recovery records is also current behavior specified by
 [Editor Support](../specification/editor-support.md). The remaining rename
 proposal covers source-path module rename exclusion, MCP error mapping, and

@@ -45,7 +45,7 @@ validation is completed separately in
 [Identifier Casing Source-Less Symbols](identifier-casing-source-less-symbols.md).
 Qualified-use path casing is completed separately in
 [Identifier Casing Qualified Use Paths](identifier-casing-qualified-use-paths.md).
-Recovery navigation and source declaration or binding repair rename are
+Recovery navigation and source declaration or binding recovery rename are
 completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 LSP rename conflict rejection for valid selected workspace symbols is completed

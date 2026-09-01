@@ -119,7 +119,7 @@ An invalid declaration or binding is retained only as a quarantined recovery
 record. It does not enter normal lookup, checked core, typed intermediate
 representation, package exports, or a backend. A compatible use can link to a
 unique recovery record only to suppress a derivative diagnostic. Recovery
-navigation and source declaration or binding repair rename are completed
+navigation and source declaration or binding recovery rename are completed
 separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 

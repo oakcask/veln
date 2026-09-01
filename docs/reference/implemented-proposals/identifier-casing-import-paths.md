@@ -72,7 +72,7 @@ targets, and other independently provable failures remain reported.
 This slice is complete. It does not add source-path-derived module identity
 casing, explicit import-alias casing, MCP rename mapping, or source migration
 beyond the focused executable examples. Recovery navigation and source
-declaration or binding repair rename are completed separately in
+declaration or binding recovery rename are completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 LSP rename conflict rejection for valid selected workspace symbols is
 completed separately in

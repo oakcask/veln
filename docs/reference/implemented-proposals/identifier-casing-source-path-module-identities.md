@@ -76,7 +76,7 @@ generated-source origin metadata and manifest export paths. It does not
 complete written module identity syntax, explicit import-alias syntax,
 test dependency selection, partial artifact analysis, source-path module
 rename exclusion, or MCP rename mapping. Recovery navigation and source
-declaration or binding repair rename are completed separately in
+declaration or binding recovery rename are completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 LSP rename conflict rejection for valid selected workspace symbols is
 completed separately in
