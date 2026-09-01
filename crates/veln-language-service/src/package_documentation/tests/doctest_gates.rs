@@ -102,6 +102,48 @@ fn executable_specification_fixture_observes_doctest_metadata_gate_failure() {
 }
 
 #[test]
+fn doctest_validation_reports_extraction_and_static_gate_failures() {
+    let result = generate(
+        "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+        &[(
+            "main.veln",
+            concat!(
+                "## ```veln\n",
+                "## 1\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout stream=stderr\n",
+                "## output\n",
+                "## ```\n",
+                "## ```veln\n",
+                "## let value: MissingType = missing_value\n",
+                "## value\n",
+                "## ```\n",
+                "pub fn value() -> Int\n",
+                "\t1\n",
+                "end\n",
+            ),
+        )],
+    );
+
+    assert!(result.catalog().is_none());
+    assert!(result.status().diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "doctest.invalid_metadata"
+            && diagnostic.span.as_ref().is_some_and(|span| {
+                span.source_uri == source_uri("demo", result.snapshot_digest(), "main.veln")
+                    && span.line == 4
+            })
+    }));
+    assert!(result.status().diagnostics.iter().any(|diagnostic| {
+        diagnostic.gate == "doctest"
+            && diagnostic.code != "doctest.invalid_metadata"
+            && diagnostic.span.as_ref().is_some_and(|span| {
+                span.source_uri == source_uri("demo", result.snapshot_digest(), "main.veln")
+                    && span.line == 8
+            })
+    }));
+}
+
+#[test]
 fn executable_specification_fixture_observes_nested_doctest_success() {
     let result = generate_fixture("package-catalog-nested-doctest");
     let catalog = catalog_or_panic(&result);

@@ -522,70 +522,102 @@ impl<'a> PackageDocBuilder<'a> {
         }
         let doctest_source_locations = doctest_source_locations(&public_sources);
         let doctests = doctest_sources(&public_sources);
-        for diagnostic in &doctests.diagnostics {
+        self.report_doctest_extraction_diagnostics(
+            &doctests.diagnostics,
+            &doctest_source_locations,
+        );
+        let generated_doctests = generated_doctest_static_gate_sources(&doctests.sources);
+        let static_gate_locations = doctest_static_gate_locations(&generated_doctests);
+        let diagnostics = reconcile_package_expected_doctest_failures(
+            analyze_doctest_static_gate(parsed_sources, &generated_doctests),
+            &doctests.expected_failures,
+        );
+        self.report_doctest_static_gate_diagnostics(
+            diagnostics,
+            &doctest_source_locations,
+            &static_gate_locations,
+        );
+    }
+
+    fn report_doctest_extraction_diagnostics(
+        &mut self,
+        diagnostics: &[Diagnostic],
+        doctest_source_locations: &BTreeMap<String, Vec<SourceSpan>>,
+    ) {
+        for diagnostic in diagnostics {
             if diagnostic.severity == Severity::Error {
                 let diagnostic = remap_doctest_diagnostic(
                     diagnostic.clone(),
-                    &doctest_source_locations,
+                    doctest_source_locations,
                     &BTreeMap::new(),
                 );
                 self.diagnostics
                     .push(self.project_diagnostic("doctest", diagnostic));
             }
         }
-        let generated_doctests = doctests
-            .sources
-            .iter()
-            .map(generated_doctest_static_gate_source)
-            .collect::<Vec<_>>();
-        let static_gate_locations = generated_doctests
-            .iter()
-            .map(|source| {
-                (
-                    source.source.path().as_str().to_string(),
-                    source.line_origins.clone(),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
-        let analysis = analyze_project(
-            Project {
-                root: ".".into(),
-                files: generated_doctests
-                    .iter()
-                    .map(|source| source.source.clone())
-                    .chain(
-                        parsed_sources
-                            .iter()
-                            .filter(|source| source.exported)
-                            .map(|source| source.source.clone()),
-                    )
-                    .collect(),
-                manifest: None,
-            },
-            DoctestMode::Exclude,
-        );
-        let diagnostics = reconcile_package_expected_doctest_failures(
-            analysis.checked_diagnostics(),
-            &doctests.expected_failures,
-        );
+    }
+
+    fn report_doctest_static_gate_diagnostics(
+        &mut self,
+        diagnostics: Vec<Diagnostic>,
+        doctest_source_locations: &BTreeMap<String, Vec<SourceSpan>>,
+        static_gate_locations: &BTreeMap<String, BTreeMap<usize, DoctestSourceLineOrigin>>,
+    ) {
         for diagnostic in diagnostics {
             if diagnostic.severity == Severity::Error && is_doctest_gate_diagnostic(&diagnostic) {
                 let diagnostic = remap_doctest_diagnostic(
                     diagnostic,
-                    &doctest_source_locations,
-                    &static_gate_locations,
+                    doctest_source_locations,
+                    static_gate_locations,
                 );
                 self.diagnostics
                     .push(self.project_diagnostic("doctest", diagnostic));
             }
         }
-        for source in parsed_sources.iter().filter(|source| source.exported) {
-            for target_line in public_documentation_lines(&source.tree) {
-                let doctests = visible_doctests_for(&source.source, target_line);
-                for doctest in doctests.doctests {
-                    self.validate_doctest(&doctest);
-                }
-            }
-        }
     }
+}
+
+fn generated_doctest_static_gate_sources(sources: &[SourceFile]) -> Vec<GeneratedDoctestSource> {
+    sources
+        .iter()
+        .map(generated_doctest_static_gate_source)
+        .collect()
+}
+
+fn doctest_static_gate_locations(
+    sources: &[GeneratedDoctestSource],
+) -> BTreeMap<String, BTreeMap<usize, DoctestSourceLineOrigin>> {
+    sources
+        .iter()
+        .map(|source| {
+            (
+                source.source.path().as_str().to_string(),
+                source.line_origins.clone(),
+            )
+        })
+        .collect()
+}
+
+fn analyze_doctest_static_gate(
+    parsed_sources: &[ParsedPackageSource],
+    generated_doctests: &[GeneratedDoctestSource],
+) -> Vec<Diagnostic> {
+    analyze_project(
+        Project {
+            root: ".".into(),
+            files: generated_doctests
+                .iter()
+                .map(|source| source.source.clone())
+                .chain(
+                    parsed_sources
+                        .iter()
+                        .filter(|source| source.exported)
+                        .map(|source| source.source.clone()),
+                )
+                .collect(),
+            manifest: None,
+        },
+        DoctestMode::Exclude,
+    )
+    .checked_diagnostics()
 }
