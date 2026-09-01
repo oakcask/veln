@@ -10,14 +10,16 @@ update-when: Source-path-derived module identity casing evidence, sibling identi
 
 Source-path-derived module identity segments now use the source identifier
 casing diagnostic contract for module-class path segments. Current behavior is
-specified by [Name Resolution](../../specification/name-resolution.md) and
-[Check JSON And Diagnostics](../../specification/diagnostics-json.md). The
-checked `identifier-casing-source-path-json`,
+specified by [Name Resolution](../../specification/name-resolution.md),
+[Check JSON And Diagnostics](../../specification/diagnostics-json.md), and
+[Editor Support](../../specification/editor-support.md). The checked
+`identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`, and
 `identifier-casing-source-path-human` examples fix the JSON and human command
 diagnostics. The checked `identifier-casing-source-path-boundary` example
 fixes the LSP zero-width diagnostic range and source-path origin data
-projection. The checked
+projection, and checks that the source-path diagnostic range is not an LSP
+rename target. The checked
 `identifier-casing-chained-companion-boundary-json` example fixes the
 combined invalid-casing and chained-companion structural boundary.
 The checked `identifier-casing-source-path-import-isolation-json`,
@@ -72,11 +74,11 @@ failure.
 ## Completion
 
 This slice is complete for source-path-derived module identities, including
-generated-source origin metadata and manifest export paths. It does not
-complete written module identity syntax, explicit import-alias syntax,
-test dependency selection, partial artifact analysis, source-path module
-rename exclusion, or MCP rename mapping. Recovery navigation and source
-declaration or binding recovery rename are completed separately in
+generated-source origin metadata, manifest export paths, and LSP source-path
+module rename exclusion. It does not complete written module identity syntax,
+explicit import-alias syntax, test dependency selection, partial artifact
+analysis, or MCP rename mapping. Recovery navigation and source declaration or
+binding recovery rename are completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 LSP rename conflict rejection for valid selected workspace symbols is
 completed separately in

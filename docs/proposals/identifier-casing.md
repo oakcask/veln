@@ -145,7 +145,9 @@ ambiguities. It also rejects constructor ambiguity through public type-alias
 re-export visibility and handler parameter captures for edited bare function
 calls and function-value references. This proposal still owns MCP rename
 mapping and rename evidence for the remaining casing surfaces until those rows
-are implemented.
+are implemented. LSP source-path-derived module segments are not rename
+targets: prepare-rename returns `null`, and rename returns an empty workspace
+edit without resource operations.
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
@@ -187,8 +189,10 @@ is
 [Identifier Casing Qualified Use Paths](../reference/implemented-proposals/identifier-casing-qualified-use-paths.md).
 Source-path-derived module identity segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
-[Check JSON And Diagnostics](../specification/diagnostics-json.md), and
-checked by the `identifier-casing-source-path-json`,
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), with
+their LSP diagnostic and rename boundary specified by
+[Editor Support](../specification/editor-support.md). They are checked by the
+`identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
 `identifier-casing-source-path-human`,
 `identifier-casing-chained-companion-boundary-json`, and
@@ -444,8 +448,7 @@ edits, and covers the implemented qualified-use path segment selections named
 above. LSP recovery rename through quarantined source declaration and binding
 recovery records is also current behavior specified by
 [Editor Support](../specification/editor-support.md). The remaining rename
-proposal covers source-path module rename exclusion, MCP error mapping, and
-deferred module surfaces.
+proposal covers MCP error mapping and deferred module surfaces.
 
 Current rename conflict rejection for valid selected workspace symbols is
 specified by [Editor Support](../specification/editor-support.md), including
@@ -457,10 +460,11 @@ parameters. Future MCP rename surfaces must preserve that shared conflict code
 and edit-free failure boundary when they add their transport-specific
 behavior.
 
-Source-path-derived module segments are not rename targets in this proposal.
-Prepare-rename returns no range for them. Rename produces no file operation,
-including a case-only filesystem rename. A future module-rename capability
-must define filesystem and client resource-operation behavior separately.
+Source-path-derived module segments are not LSP rename targets. Current
+behavior is specified by [Editor Support](../specification/editor-support.md)
+and checked by the `identifier-casing-source-path-boundary` example. A future
+module-rename capability must define filesystem and client resource-operation
+behavior separately.
 
 ## Analysis And Artifact Boundary
 
@@ -540,7 +544,7 @@ identifier-casing remainder.
 | Resolve uses near invalid declarations in qualified and module-derived roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, and boundary cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | A recovery symbol remains limited to the declaring source and lexical scope. No recovery symbol is imported, aliased, lowered, or exposed as a module-derived or qualified recovery result. | Boundary table covering diagnostics, module-derived and qualified navigation attempts, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
-| Request remaining transport rename mappings. | Path-derived module segments return no prepare range or file edits. MCP mappings return no edits for unsupported recovery or module selections and preserve shared failure codes where the transport exposes them. | Planned MCP error-mapping cases. |
+| Request remaining transport rename mappings. | MCP mappings return no edits for unsupported recovery or module selections and preserve shared failure codes where the transport exposes them. | Planned MCP error-mapping cases. |
 | Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module or qualified recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module-derived and qualified surfaces. |
 | Navigate accepted function, binding, type, and constructor uses. | The language service selects only the symbol class fixed by the initial letter. | Definition, reference, and rename cases in `veln-language-service`. |
 | Run the repository source-carrier audit and specification suite after migration. | Every parsed or analyzed repository-owned source follows the contract except dedicated exact-expectation casing fixtures, and unrelated negative fixtures retain their intended diagnostic sets. | Source-carrier audit, specification harness, doctest and documentation gates, and workspace tests. |

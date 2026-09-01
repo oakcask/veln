@@ -328,7 +328,9 @@ symbol, and incompatible, shadowed, qualified, initializer-before-binding, or
 out-of-scope occurrences do not link to the recovery record.
 The executable `identifier-casing-source-path-boundary` LSP example covers
 workspace source-path-derived module segment diagnostics at the zero-width
-source-start range.
+source-start range. `textDocument/prepareRename` returns `null` at that range.
+`textDocument/rename` returns an empty workspace-edit `changes` object without
+`documentChanges` or a resource operation at that range.
 The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding recovery
 definition, references, prepare-rename, and rename edits for declaration

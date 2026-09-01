@@ -13999,6 +13999,17 @@ field	expectations.lsp_assertions[31].equals	null
 field	expectations.lsp_assertions[31].id	2
 field	expectations.lsp_assertions[31].operation	"equals"
 field	expectations.lsp_assertions[31].path	"/result"
+field	expectations.lsp_assertions[32].equals	{}
+field	expectations.lsp_assertions[32].id	3
+field	expectations.lsp_assertions[32].operation	"equals"
+field	expectations.lsp_assertions[32].path	"/result/changes"
+field	expectations.lsp_assertions[33].id	3
+field	expectations.lsp_assertions[33].operation	"missing"
+field	expectations.lsp_assertions[33].path	"/result/documentChanges"
+field	expectations.lsp_assertions[34].equals	null
+field	expectations.lsp_assertions[34].id	4
+field	expectations.lsp_assertions[34].operation	"equals"
+field	expectations.lsp_assertions[34].path	"/result"
 field	expectations.lsp_assertions[3].equals	"name.invalid_case"
 field	expectations.lsp_assertions[3].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[3].occurrence	0
@@ -14037,10 +14048,10 @@ field	expectations.lsp_assertions[9].path	"/params/diagnostics/0/range/end/line"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	"Content-Length: 78\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"rootUri\":\"file://.\"}}Content-Length: 58\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"shutdown\",\"params\":null}Content-Length: 47\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\",\"params\":null}"
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":690,"sha256":"542ea5c06df0fca78ce635f8abbb454db071a39c11c432bc63f87d0d2df630d5"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"6302beb5773894fc193452b112062ae0b824c1a226100c8b05511e9186d81f7a"
+case_digest	"31e928c2d9ae74f5f7ea627d5533e34759bd736f6081d1c4fd8f147c4cd20be9"
 case	"examples/specification/lsp/imported-constructor-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -52986,4 +52997,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"cb4e6f8f1dbf4acf5599dc6d286276a3c8c14f766b249420bb3e97c5a7c6bb33"
+aggregate_digest	"9a75d09dbd6122d91a5724d931d95dfda46da9501693cea842b148b04d50aa03"
