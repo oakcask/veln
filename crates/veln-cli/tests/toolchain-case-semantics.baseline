@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"3e0c7ccbd4ee82e73b5bf14fa13298b13f000896"
+source_git_tree	"6f6e678f7c9a757d16c4cc16d3d02a89d5c35787"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1639
+case_count	1640
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -14175,6 +14175,55 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":318,"sha256":"893d220f3ec22d12285e3a02a2278d6676701c615560c184d09770f0921613ae"}
 field	source_errors	"forbidden"
 case_digest	"eb78983618a2e68fb34c7ef35a89977a4162f2ec83efbdc5208538932580725d"
+case	"examples/specification/mcp/definition-recovery-navigation"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].id	2
+field	expectations.mcp_assertions[0].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[0].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_assertions[0].workspace_file_uri	"main.veln"
+field	expectations.mcp_assertions[10].id	4
+field	expectations.mcp_assertions[10].operation	"missing"
+field	expectations.mcp_assertions[10].path	"/error"
+field	expectations.mcp_assertions[1].equals_json_file	{"end":{"column":7,"line":9},"start":{"column":4,"line":9}}
+field	expectations.mcp_assertions[1].id	2
+field	expectations.mcp_assertions[1].operation	"equals_json_file"
+field	expectations.mcp_assertions[1].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_assertions[2].equals	false
+field	expectations.mcp_assertions[2].id	2
+field	expectations.mcp_assertions[2].operation	"equals"
+field	expectations.mcp_assertions[2].path	"/result/isError"
+field	expectations.mcp_assertions[3].id	2
+field	expectations.mcp_assertions[3].operation	"missing"
+field	expectations.mcp_assertions[3].path	"/error"
+field	expectations.mcp_assertions[4].equals	null
+field	expectations.mcp_assertions[4].id	3
+field	expectations.mcp_assertions[4].operation	"equals"
+field	expectations.mcp_assertions[4].path	"/result/structuredContent/definition"
+field	expectations.mcp_assertions[5].equals	false
+field	expectations.mcp_assertions[5].id	3
+field	expectations.mcp_assertions[5].operation	"equals"
+field	expectations.mcp_assertions[5].path	"/result/isError"
+field	expectations.mcp_assertions[6].id	3
+field	expectations.mcp_assertions[6].operation	"missing"
+field	expectations.mcp_assertions[6].path	"/error"
+field	expectations.mcp_assertions[7].id	4
+field	expectations.mcp_assertions[7].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[7].path	"/result/structuredContent/definition/uri"
+field	expectations.mcp_assertions[7].workspace_file_uri	"main.veln"
+field	expectations.mcp_assertions[8].equals	{"end":{"column":8,"line":5},"start":{"column":4,"line":5}}
+field	expectations.mcp_assertions[8].id	4
+field	expectations.mcp_assertions[8].operation	"equals"
+field	expectations.mcp_assertions[8].path	"/result/structuredContent/definition/range"
+field	expectations.mcp_assertions[9].equals	false
+field	expectations.mcp_assertions[9].id	4
+field	expectations.mcp_assertions[9].operation	"equals"
+field	expectations.mcp_assertions[9].path	"/result/isError"
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":555,"sha256":"cd8d7822ec1b3e65d82d800e4800cd44f55e4fc4735a2f7ec7b0f4c762a84a31"}
+field	source_errors	"forbidden"
+case_digest	"62385ba12473428eb8027d8ff624432b8a21aead112148aa61f3812b5e5365cb"
 case	"examples/specification/mcp/definition-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -52840,4 +52889,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"067f2e8b7bbb79cbd953b0de5b5edf348d4450a0324b18097d0af074e0be0d51"
+aggregate_digest	"a7bd4f2b4e26f9ec8d84dc7483a406e8c5802e558f58d39026040f4006d94ce2"
