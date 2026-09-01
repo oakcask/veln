@@ -117,9 +117,10 @@ symbols and predictable rename conflicts as specified by
 rejection of ambiguous bare imported type-role references and qualified type
 identity preservation for type rename, conflicts with visible type aliases in
 the type namespace, and rejection of unedited bare imported function
-ambiguities. This proposal still owns recovery navigation, repair rename, MCP
-rename mapping, and rename evidence for the remaining casing surfaces until
-those rows are implemented.
+ambiguities. It also rejects handler parameter captures for edited bare
+function calls and function-value references. This proposal still owns recovery
+navigation, repair rename, MCP rename mapping, and rename evidence for the
+remaining casing surfaces until those rows are implemented.
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
@@ -427,9 +428,10 @@ specified by [Editor Support](../specification/editor-support.md), including
 same-scope declaration duplicates, edit-scope-based lexical shadowing, type
 alias conflicts, function-to-test duplicate rejection, affected scopes, and
 conflicting declaration locations for local bindings, function parameters,
-result bindings, and handler operation clause parameters. Future repair rename
-and MCP rename surfaces must preserve that shared conflict code and edit-free
-failure boundary when they add their transport-specific behavior.
+result bindings, handler context parameters, and handler operation clause
+parameters. Future repair rename and MCP rename surfaces must preserve that
+shared conflict code and edit-free failure boundary when they add their
+transport-specific behavior.
 
 Source-path-derived module segments are not rename targets in this proposal.
 Prepare-rename returns no range for them. Rename produces no file operation,

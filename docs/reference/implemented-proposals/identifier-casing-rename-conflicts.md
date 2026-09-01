@@ -19,9 +19,9 @@ Current behavior is specified by
 params response, shared `rename.conflict` code, conflict detail projection,
 same-clause parameter conflict boundary, unedited imported type ambiguity
 boundary, unedited imported function ambiguity boundaries for calls and
-function values, and edit-free failure boundary. Focused language-service tests
-also cover handler context and clause
-parameter shadowing boundaries, constructor ambiguity rejection, and
+function values, handler parameter capture for function rename, and edit-free
+failure boundary. Focused language-service tests also cover handler context
+and clause parameter shadowing boundaries, constructor ambiguity rejection, and
 qualified-function identity preservation that do not need another
 transport-specific fixture.
 
@@ -44,7 +44,10 @@ occurrences that were not references to the selected type before the rename.
 Function rename checks bare call targets and bare function-value occurrences in
 modules where the renamed function would be visible after the complete edit,
 including requested-name occurrences that would become ambiguous between
-imported functions.
+imported functions. Handler context parameters and operation-clause parameters
+can also capture edited bare function calls or function-value references inside
+their lexical scope; those failures report the handler parameter declaration as
+the conflicting declaration.
 Constructor rename checks constructor declarations in the selected ADT and bare
 constructor expression and pattern uses in modules where the renamed constructor
 would be visible after the complete edit, including requested-name constructor
