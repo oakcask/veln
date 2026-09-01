@@ -54,6 +54,12 @@ boundaries are specified by
 [Names And Effects](../specification/names-effects.md), by
 [Editor Support](../specification/editor-support.md), and by the checked
 examples that those pages name.
+The completed namespace-by-use-role boundary for equal-spelled schemas,
+effects, handlers, operations, types, constructors, functions, and bindings is
+specified by [Name Resolution](../specification/name-resolution.md) and
+[Editor Support](../specification/editor-support.md), and checked by the
+`identifier-casing-namespace-roles` examples. Its completion record is
+[Identifier Casing Namespace Roles](../reference/implemented-proposals/identifier-casing-namespace-roles.md).
 Source-less compiler-provided source lookup descriptors are specified by
 [Source-Less Lookup](../specification/source-less-lookup.md) and covered by
 focused `veln-sema` registry tests. Their completion record is
@@ -538,7 +544,6 @@ identifier-casing remainder.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified and module-derived roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, and boundary cases. |

@@ -1,0 +1,15 @@
+schema Item
+  value: Int
+end
+
+effect Item
+  Item() -> Int
+end
+
+handler Item() handles Item
+  Item() => 1
+end
+
+fn main() -> Int effects [Item]
+  Item()
+end

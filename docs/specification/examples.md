@@ -198,6 +198,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-import-missing-constructor-control-json/`,
   `../../examples/specification/check/identifier-casing-import-schema-cascade-boundary-json/`,
   `../../examples/specification/check/identifier-casing-import-private-schema-boundary-json/`,
+  `../../examples/specification/check/identifier-casing-namespace-roles/case.toml`,
   and
   `../../examples/specification/check/identifier-casing-ambiguous-recovery-json/`.
 - Source identifier casing run reachability, recovery, import isolation,
@@ -254,6 +255,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/lsp/identifier-casing-qualified-prelude-navigation/`,
   `../../examples/specification/lsp/identifier-casing-qualified-function-navigation/`,
   `../../examples/specification/lsp/identifier-casing-qualified-import-alias-navigation/`,
+  `../../examples/specification/lsp/identifier-casing-namespace-roles/case.toml`,
   and `../../examples/specification/lsp/identifier-casing-rename-boundary/`.
   The rename boundary case includes type alias conflict rejection in the
   current type namespace, same-clause handler operation parameter conflict

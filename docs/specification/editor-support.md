@@ -183,7 +183,8 @@ and deterministic reference locations as Veln source identities and ranges.
 The result contains no URI serialization, JSON, JSON-RPC, or LSP coordinate
 representation. Its direct tests cover project functions, exact companion
 visibility, handler bindings, deterministic ordering, shadowing, field
-isolation, and positions without a supported symbol.
+isolation, local value-binding call targets, and positions without a supported
+symbol.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -304,6 +305,11 @@ The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
 diagnostics, overlay replacement of saved source text, and unselected nested
 package isolation.
+The executable `identifier-casing-namespace-roles` LSP example covers
+definition results for accepted type, constructor, function, and value-binding
+occurrences beside equal-spelled casing-neutral declarations, and covers the
+null definition result for ordinary calls that only have schema, effect,
+handler, or operation declarations available.
 The executable `identifier-casing-recovery-navigation` LSP example covers
 definition, references, prepare-rename, successful rename edits, edit-free
 invalid-case rename failure, and edit-free conflict rename failure for a

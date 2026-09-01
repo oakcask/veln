@@ -7,11 +7,11 @@ use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
     check_declared_effect_labels, check_duplicate_constructor_names, check_duplicate_effect_names,
-    check_duplicate_function_names, check_duplicate_schema_names, check_duplicate_type_names,
-    check_duplicate_use_aliases, check_function_body, check_handler_declarations,
-    check_module_boundary, check_public_aliases, check_public_function_boundary,
-    check_reserved_prelude_aliases, check_schema_field_primitives, check_schema_type_references,
-    check_test_declaration_boundary,
+    check_duplicate_function_names, check_duplicate_handler_names, check_duplicate_schema_names,
+    check_duplicate_type_names, check_duplicate_use_aliases, check_function_body,
+    check_handler_declarations, check_module_boundary, check_public_aliases,
+    check_public_function_boundary, check_reserved_prelude_aliases, check_schema_field_primitives,
+    check_schema_type_references, check_test_declaration_boundary,
 };
 use crate::lowering::{lower_project_surface_module_to_core, lower_surface_module_to_core};
 use crate::schema;
@@ -197,6 +197,7 @@ fn check_module_declarations(
     diagnostics.extend(check_duplicate_type_names(module));
     diagnostics.extend(check_duplicate_effect_names(module));
     diagnostics.extend(check_duplicate_schema_names(module));
+    diagnostics.extend(check_duplicate_handler_names(module));
     diagnostics.extend(check_duplicate_constructor_names(module));
     diagnostics.extend(check_module_boundary(module));
     diagnostics.extend(check_duplicate_use_aliases(module));

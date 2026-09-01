@@ -225,3 +225,118 @@
             [("main.veln", 12, 30), ("main.veln", 12, 46)]
         );
     }
+
+    #[test]
+    fn cased_navigation_uses_only_role_compatible_namespaces() {
+        let uppercase = vec![source(
+            "main.veln",
+            concat!(
+                "type Item\n",
+                "  Item(value: Int)\n",
+                "end\n",
+                "\n",
+                "schema Item\n",
+                "  value: Int\n",
+                "end\n",
+                "\n",
+                "effect Item\n",
+                "  Item(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler Item(offset: Int) handles Item\n",
+                "  Item(value) => value + offset\n",
+                "end\n",
+                "\n",
+                "fn from_constructor(value: Int) -> Item\n",
+                "  Item(value)\n",
+                "end\n",
+            ),
+        )];
+
+        let type_use = query(uppercase.clone(), "main.veln", 17, 36).unwrap();
+        assert_eq!(type_use.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&type_use.definition, "main.veln", 1, 6);
+
+        let constructor_use = query(uppercase.clone(), "main.veln", 18, 4).unwrap();
+        assert_eq!(constructor_use.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&constructor_use.definition, "main.veln", 2, 3);
+
+        let lowercase = vec![source(
+            "main.veln",
+            concat!(
+                "schema item\n",
+                "  value: Int\n",
+                "end\n",
+                "\n",
+                "effect item\n",
+                "  item(value: Int) -> Int\n",
+                "end\n",
+                "\n",
+                "handler item(offset: Int) handles item\n",
+                "  item(value) => value + offset\n",
+                "end\n",
+                "\n",
+                "fn item(value: Int) -> Int\n",
+                "  value + 10\n",
+                "end\n",
+                "\n",
+                "fn main(callback: fn(Int) -> Int, value: Int) -> Int\n",
+                "  let item = callback\n",
+                "  item(value)\n",
+                "end\n",
+            ),
+        )];
+
+        let function_decl = query(lowercase.clone(), "main.veln", 13, 4).unwrap();
+        assert_eq!(function_decl.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function_decl.definition, "main.veln", 13, 4);
+
+        let binding_call = query(lowercase.clone(), "main.veln", 19, 4).unwrap();
+        assert_eq!(binding_call.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&binding_call.definition, "main.veln", 18, 7);
+
+        assert!(query(lowercase.clone(), "main.veln", 10, 3).is_none());
+    }
+
+    #[test]
+    fn ordinary_calls_do_not_navigate_to_casing_neutral_declarations() {
+        for source_text in [
+            concat!(
+                "schema Item\n",
+                "  value: Int\n",
+                "end\n",
+                "\n",
+                "effect Item\n",
+                "  Item() -> Int\n",
+                "end\n",
+                "\n",
+                "handler Item() handles Item\n",
+                "  Item() => 1\n",
+                "end\n",
+                "\n",
+                "fn main() -> Int effects [Item]\n",
+                "  Item()\n",
+                "end\n",
+            ),
+            concat!(
+                "schema item\n",
+                "  value: Int\n",
+                "end\n",
+                "\n",
+                "effect item\n",
+                "  item() -> Int\n",
+                "end\n",
+                "\n",
+                "handler item() handles item\n",
+                "  item() => 1\n",
+                "end\n",
+                "\n",
+                "fn main() -> Int effects [item]\n",
+                "  item()\n",
+                "end\n",
+            ),
+        ] {
+            let sources = vec![source("main.veln", source_text)];
+            assert!(query(sources, "main.veln", 14, 4).is_none());
+        }
+    }

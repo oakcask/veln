@@ -1,0 +1,60 @@
+type Item
+  Item(value: Int)
+end
+
+schema Item
+  value: Int
+end
+
+effect Item
+  Item(value: Int) -> Int
+end
+
+handler Item(offset: Int) handles Item
+  Item(value) => value + offset
+end
+
+schema item
+  value: Int
+end
+
+effect item
+  item(value: Int) -> Int
+end
+
+handler item(offset: Int) handles item
+  item(value) => value + offset
+end
+
+fn item(value: Int) -> Int
+  value + 10
+end
+
+fn uppercase_type_and_constructor(value: Int) -> Item
+  Item(value)
+end
+
+fn uppercase_schema() -> Result<{value: Int}, String>
+  encode Item from {value: 7}
+end
+
+fn uppercase_effect(value: Int) -> Int effects [Item]
+  perform Item::Item(value)
+end
+
+fn uppercase_handler(value: Int) -> Int
+  handle uppercase_effect(value) with Item(1)
+end
+
+fn lowercase_schema(value: {value: Int}) -> Result<{value: Int}, String>
+  encode item from value
+end
+
+fn lowercase_effect(value: Int) -> Int effects [item]
+  perform item::item(value)
+end
+
+fn lowercase_binding(callback: fn(Int) -> Int, value: Int) -> Int
+  let item = callback
+  handle item(value) with item(1)
+end

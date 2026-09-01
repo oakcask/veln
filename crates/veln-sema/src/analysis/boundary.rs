@@ -63,8 +63,8 @@ pub(crate) use module_boundaries::{
 };
 pub(in crate::analysis) use module_boundaries::{duplicate_name_diagnostic, type_contains_unknown};
 pub(crate) use names_and_aliases::{
-    check_duplicate_effect_names, check_duplicate_function_names, check_duplicate_schema_names,
-    check_duplicate_type_names, check_public_aliases,
+    check_duplicate_effect_names, check_duplicate_function_names, check_duplicate_handler_names,
+    check_duplicate_schema_names, check_duplicate_type_names, check_public_aliases,
 };
 pub(in crate::analysis) use schema_composition::format_neutral_schema_encode_helper_diagnostic;
 pub(crate) use schema_entrypoints::{check_schema_field_primitives, check_schema_type_references};

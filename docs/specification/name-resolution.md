@@ -39,6 +39,20 @@ Duplicate declarations in the same implemented namespace produce
 `name.duplicate` diagnostics at the later declaration, with the first
 declaration reported as related context.
 
+Type, constructor, function, and value-binding positions use the namespace
+fixed by that role. Schema, effect, handler, and effect-operation names remain
+casing-neutral and stay in their own namespaces even when their spelling equals
+a cased type, constructor, function, or value binding. Cross-namespace equal
+spellings are not duplicates. Ordinary expression and call positions do not
+select schemas, effects, handlers, or effect operations. When a lowercase
+local value binding is visible at a call position, it shadows the same-spelled
+function according to the ordinary value-shadowing rule. Schema-composition
+positions still admit both type and schema namespaces and report the existing
+type-versus-schema ambiguity when both are visible. The checked
+`identifier-casing-namespace-roles` check and LSP examples fix the accepted
+decision table, duplicate controls, ordinary-call exclusion, and representative
+navigation results.
+
 Local value bindings and declarations in the current source module shadow
 imported names for both bare values and calls. The standard prelude remains
 available through `prelude::` when a local declaration shadows its bare name.
@@ -198,6 +212,7 @@ Current duplicate checks reject:
 - duplicate import paths within the same source module
 - duplicate top-level function, test, or public function alias names
 - duplicate top-level source type or public type alias names
+- duplicate top-level handler names
 - duplicate parameter names in one function
 - a result binding that duplicates a parameter name
 - duplicate `let` names in the same function value scope, including names that

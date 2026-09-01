@@ -1,0 +1,28 @@
+type Item
+  Item(value: Int)
+end
+
+schema Item
+  value: Int
+end
+
+effect Item
+  Item(value: Int) -> Int
+end
+
+handler Item(offset: Int) handles Item
+  Item(value) => value + offset
+end
+
+fn from_constructor(value: Int) -> Item
+  Item(value)
+end
+
+fn item(value: Int) -> Int
+  value + 10
+end
+
+fn main(callback: fn(Int) -> Int, value: Int) -> Int
+  let item = callback
+  item(value)
+end

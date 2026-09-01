@@ -196,6 +196,28 @@ pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagno
     diagnostics
 }
 
+pub(crate) fn check_duplicate_handler_names(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = SeenNames::new();
+
+    for handler in &module.handlers {
+        let Some(name) = &handler.name else {
+            continue;
+        };
+        record_name(
+            &mut seen,
+            &mut diagnostics,
+            handler.module_name.as_deref(),
+            name,
+            ("handler", "handler declaration"),
+            handler.node_id.display("handler"),
+            &handler.span,
+        );
+    }
+
+    diagnostics
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(super) enum SchemaAliasCheckResolution {
     Resolved,

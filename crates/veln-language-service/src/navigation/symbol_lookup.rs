@@ -201,6 +201,9 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
+        if let Some(symbol) = local_shadow_symbol(file, tokens, token_index, name) {
+            return Some(Symbol::Local(symbol));
+        }
         if let Some(symbol) = self.constructor_for_bare_call(file, name) {
             return Some(Symbol::Constructor(symbol));
         }

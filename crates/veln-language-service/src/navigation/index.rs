@@ -242,6 +242,9 @@ impl SymbolIndex {
         }
 
         if !is_call_target_token(tokens, token_index) {
+            if let Some(symbol) = local_shadow_symbol(file, tokens, token_index, name) {
+                return Some(SelectedNavigationSymbol::bare(Symbol::Local(symbol)));
+            }
             return self.type_reference_selection(file, tokens, token_index, name, selection)
                 .or_else(|| {
                     self.recovery_type_reference_selection(file, tokens, token_index, name, selection)
@@ -674,6 +677,55 @@ fn scope_shadow_declaration(file: &IndexedFile, binding: ScopeShadow<'_>) -> Sou
         ScopeShadow::FunctionBinding(binding) => scoped_binding_declaration(file, binding),
         ScopeShadow::LocalBinding(binding) => local_binding_declaration(file, binding),
     }
+}
+
+fn local_shadow_symbol(
+    file: &IndexedFile,
+    tokens: &[Token],
+    token_index: usize,
+    name: &str,
+) -> Option<LocalSymbol> {
+    if is_field_name(tokens, token_index)
+        || is_function_declaration_name(tokens, token_index)
+        || is_type_declaration_name(tokens, token_index)
+        || is_constructor_declaration_name(tokens, token_index)
+        || is_local_binding_name(tokens, token_index)
+        || is_handler_operation_clause_operation_name(tokens, token_index)
+    {
+        return None;
+    }
+    let offset = tokens[token_index].range.start;
+    let scopes = function_scopes(tokens);
+    let scope = scopes
+        .iter()
+        .find(|scope| offset >= scope.body_start && offset < scope.end)?;
+    let shadow = scope.shadowing_binding(name, tokens, token_index)?;
+    let (scope_start, scope_end, declaration_start, declaration_end) = match shadow {
+        ScopeShadow::FunctionBinding(binding) => (
+            scope.body_start,
+            scope.end,
+            binding.declaration_start,
+            binding.declaration_end,
+        ),
+        ScopeShadow::LocalBinding(binding) => (
+            binding.start,
+            binding.end,
+            binding.declaration_start,
+            binding.declaration_end,
+        ),
+    };
+    Some(LocalSymbol {
+        name: name.to_string(),
+        declaration: file
+            .source
+            .span(TextRange::new(declaration_start, declaration_end)),
+        scope_file: file.source.path().as_str().to_string(),
+        scope_start,
+        scope_end,
+        declaration_scope_start: scope_start,
+        declaration_scope_end: scope_end,
+        kind: LocalSymbolKind::ValueBinding,
+    })
 }
 
 fn same_scope_binding_conflicts(

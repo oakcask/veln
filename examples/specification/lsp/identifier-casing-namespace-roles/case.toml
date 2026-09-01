@@ -1,0 +1,57 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 2
+path = "/result/range/start/character"
+equals = 5
+
+[[lsp_assert]]
+id = 3
+path = "/result/range/start/line"
+equals = 1
+
+[[lsp_assert]]
+id = 3
+path = "/result/range/start/character"
+equals = 2
+
+[[lsp_assert]]
+id = 4
+path = "/result/range/start/line"
+equals = 20
+
+[[lsp_assert]]
+id = 4
+path = "/result/range/start/character"
+equals = 3
+
+[[lsp_assert]]
+id = 5
+path = "/result/range/start/line"
+equals = 25
+
+[[lsp_assert]]
+id = 5
+path = "/result/range/start/character"
+equals = 6
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+equals = null

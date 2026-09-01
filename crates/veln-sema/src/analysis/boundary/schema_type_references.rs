@@ -247,6 +247,9 @@ pub(super) fn schema_for_type_name<'a>(
     name: &str,
 ) -> Option<&'a SchemaDecl> {
     let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+    if type_target(module, &segments, current_module).is_some() {
+        return None;
+    }
     match segments.as_slice() {
         [name] => module.schemas.iter().find(|schema| {
             schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == current_module
