@@ -39,11 +39,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
     let parsed = parse(&source);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
-    let recovery_symbols = recovery_symbols_for_workspace_source(
-        &source,
-        &tokens,
-        &invalid_declaration_names,
-    );
+    let recovery_symbols =
+        recovery_symbols_for_workspace_source(&source, &tokens, &parsed.tree, &invalid_declaration_names);
     let file = IndexedFile {
         source,
         tokens,
@@ -486,6 +483,7 @@ fn invalid_declaration_names(parsed: &ParseOutput) -> Vec<InvalidName> {
 fn recovery_symbols_for_workspace_source(
     source: &SourceFile,
     tokens: &[Token],
+    syntax: &SyntaxTree,
     invalid_names: &[InvalidName],
 ) -> Vec<RecoverySymbol> {
     let mut symbols = Vec::new();
@@ -507,6 +505,9 @@ fn recovery_symbols_for_workspace_source(
                     source_file: source.path().as_str().to_string(),
                     scope_start: 0,
                     scope_end: source.text().len(),
+                    declaration_scope_start: 0,
+                    declaration_scope_end: source.text().len(),
+                    public: recovery_declaration_public(source, tokens, syntax, &invalid.span),
                     kind,
                 });
             }
@@ -547,7 +548,9 @@ fn recovery_parameter_symbols(
         .params
         .iter()
         .filter(|binding| scoped_binding_matches(binding, name, span))
-        .map(|_| value_binding_recovery_symbol(source, name, span, scope.body_start, scope.end))
+        .map(|_| {
+            value_binding_recovery_symbol(source, name, span, scope.body_start, scope.end, scope)
+        })
         .collect()
 }
 
@@ -559,7 +562,7 @@ fn recovery_result_binding_symbol(
 ) -> Option<RecoverySymbol> {
     let binding = scope.result_binding.as_ref()?;
     scoped_binding_matches(binding, name, span)
-        .then(|| value_binding_recovery_symbol(source, name, span, scope.body_start, scope.end))
+        .then(|| value_binding_recovery_symbol(source, name, span, scope.body_start, scope.end, scope))
 }
 
 fn recovery_local_binding_symbols(
@@ -570,9 +573,9 @@ fn recovery_local_binding_symbols(
 ) -> Vec<RecoverySymbol> {
     scope
         .local_bindings
-        .into_iter()
+        .iter()
         .filter(|binding| local_binding_matches(binding, name, span))
-        .map(|binding| value_binding_recovery_symbol(source, name, span, binding.start, binding.end))
+        .map(|binding| value_binding_recovery_symbol(source, name, span, binding.start, binding.end, &scope))
         .collect()
 }
 
@@ -595,6 +598,9 @@ fn recovery_handler_binding_symbols(
             source_file: source.path().as_str().to_string(),
             scope_start: binding.start,
             scope_end: binding.end,
+            declaration_scope_start: binding.start,
+            declaration_scope_end: binding.end,
+            public: false,
             kind: binding.kind.symbol_kind(),
         })
         .collect()
@@ -606,6 +612,7 @@ fn value_binding_recovery_symbol(
     span: &SourceSpan,
     scope_start: usize,
     scope_end: usize,
+    declaration_scope: &FunctionScope,
 ) -> RecoverySymbol {
     RecoverySymbol {
         name: name.to_string(),
@@ -613,8 +620,68 @@ fn value_binding_recovery_symbol(
         source_file: source.path().as_str().to_string(),
         scope_start,
         scope_end,
+        declaration_scope_start: declaration_scope.body_start,
+        declaration_scope_end: declaration_scope.end,
+        public: false,
         kind: SymbolKind::ValueBinding,
     }
+}
+
+fn recovery_declaration_public(
+    source: &SourceFile,
+    tokens: &[Token],
+    syntax: &SyntaxTree,
+    span: &SourceSpan,
+) -> bool {
+    let Some(token_index) = tokens.iter().position(|token| {
+        token.range.start == span.start.offset && token.range.end == span.end.offset
+    }) else {
+        return false;
+    };
+    if is_function_declaration_name(tokens, token_index) {
+        return previous_non_layout_index(tokens, token_index)
+            .and_then(|function_index| previous_non_layout_token(tokens, function_index))
+            .is_some_and(|previous| previous.kind == TokenKind::Pub)
+    }
+    syntax.items.iter().any(|item| match item {
+        SyntaxItem::Type(type_decl) => {
+            type_decl.name_span.as_ref().is_some_and(|name_span| same_span(name_span, span))
+                && type_decl.visibility == Visibility::Public
+                || type_decl.variants.iter().any(|variant| {
+                    recovery_variant_matches(source, tokens, variant, span)
+                        && type_decl.visibility == Visibility::Public
+                        && variant.visibility == Visibility::Public
+                })
+        }
+        SyntaxItem::PublicAlias(alias) => alias
+            .name_span
+            .as_ref()
+            .is_some_and(|name_span| same_span(name_span, span)),
+        _ => false,
+    })
+}
+
+fn recovery_variant_matches(
+    source: &SourceFile,
+    tokens: &[Token],
+    variant: &TypeVariantDecl,
+    span: &SourceSpan,
+) -> bool {
+    if let Some(name_span) = &variant.name_span {
+        return same_span(name_span, span);
+    }
+    let name = source
+        .text()
+        .get(span.start.offset..span.end.offset)
+        .unwrap_or_default();
+    tokens.iter().any(|token| {
+        token.kind == TokenKind::Ident
+            && token.text == name
+            && token.range.start == span.start.offset
+            && token.range.end == span.end.offset
+            && token.range.start >= variant.span.start.offset
+            && token.range.end <= variant.span.end.offset
+    })
 }
 
 fn scoped_binding_matches(binding: &ScopedBinding, name: &str, span: &SourceSpan) -> bool {

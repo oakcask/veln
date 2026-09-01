@@ -426,6 +426,8 @@ struct LocalSymbol {
     scope_file: String,
     scope_start: usize,
     scope_end: usize,
+    declaration_scope_start: usize,
+    declaration_scope_end: usize,
     kind: LocalSymbolKind,
 }
 
@@ -436,6 +438,9 @@ struct RecoverySymbol {
     source_file: String,
     scope_start: usize,
     scope_end: usize,
+    declaration_scope_start: usize,
+    declaration_scope_end: usize,
+    public: bool,
     kind: SymbolKind,
 }
 

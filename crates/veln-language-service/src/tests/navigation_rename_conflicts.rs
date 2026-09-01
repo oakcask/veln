@@ -124,6 +124,156 @@
     }
 
     #[test]
+    fn recovery_rename_validation_rejects_public_post_rename_visibility_conflicts() {
+        let function_snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub fn Bad() -> Int\n  1\nend\n"),
+            source("right.veln", "pub fn target() -> Int\n  2\nend\n"),
+            source(
+                "main.veln",
+                "use left\nuse right\n\nfn main() -> Int\n  target()\nend\n",
+            ),
+        ]);
+        let function = query_snapshot(&function_snapshot, "left.veln", 1, 8).unwrap();
+        assert!(function.is_recovery);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&function_snapshot, &function, "target").unwrap_err(),
+            RenameNameClass::Function,
+            "target",
+            "right.veln",
+            1,
+            8,
+        );
+
+        let type_snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type bad\n  Left\nend\n"),
+            source("right.veln", "pub type Target\n  Right\nend\n"),
+            source(
+                "main.veln",
+                "use left\nuse right\n\nfn read(value: Target) -> Target\n  value\nend\n",
+            ),
+        ]);
+        let ty = query_snapshot(&type_snapshot, "left.veln", 1, 10).unwrap();
+        assert!(ty.is_recovery);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&type_snapshot, &ty, "Target").unwrap_err(),
+            RenameNameClass::Type,
+            "Target",
+            "right.veln",
+            1,
+            10,
+        );
+
+        let alias_snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type bad = Int\n"),
+            source("right.veln", "pub type Target = Int\n"),
+            source(
+                "main.veln",
+                "use left\nuse right\n\nfn read(value: Target) -> Target\n  value\nend\n",
+            ),
+        ]);
+        let alias = query_snapshot(&alias_snapshot, "left.veln", 1, 10).unwrap();
+        assert!(alias.is_recovery);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&alias_snapshot, &alias, "Target").unwrap_err(),
+            RenameNameClass::Type,
+            "Target",
+            "right.veln",
+            1,
+            10,
+        );
+
+        let constructor_snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Item\n  pub bad\nend\n"),
+            source("right.veln", "pub type Other\n  pub Target\nend\n"),
+            source(
+                "main.veln",
+                "use left\nuse right\n\nfn main() -> Other\n  Target\nend\n",
+            ),
+        ]);
+        let constructor = query_snapshot(&constructor_snapshot, "left.veln", 2, 7).unwrap();
+        assert!(constructor.is_recovery);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&constructor_snapshot, &constructor, "Target").unwrap_err(),
+            RenameNameClass::Constructor,
+            "Target",
+            "right.veln",
+            2,
+            7,
+        );
+    }
+
+    #[test]
+    fn recovery_rename_validation_rejects_unused_lexical_declaration_conflicts() {
+        let cases = [
+            (
+                "local",
+                concat!(
+                    "fn read(input: Int) -> Int\n",
+                    "  let Bad = input\n",
+                    "  let other = input\n",
+                    "  other\n",
+                    "end\n",
+                ),
+                2,
+                7,
+                3,
+                7,
+            ),
+            (
+                "parameter",
+                "fn read(Bad: Int, other: Int) -> Int\n  other\nend\n",
+                1,
+                9,
+                1,
+                19,
+            ),
+            (
+                "pattern",
+                concat!(
+                    "fn read(input: Int, other: Int) -> Int\n",
+                    "  match input\n",
+                    "    Bad => other\n",
+                    "  end\n",
+                    "end\n",
+                ),
+                3,
+                5,
+                1,
+                21,
+            ),
+            (
+                "satisfy",
+                concat!(
+                    "fn read(input: Int, other: Int) -> Int\n",
+                    "  _value satisfy Bad => other\n",
+                    "  other\n",
+                    "end\n",
+                ),
+                2,
+                18,
+                1,
+                21,
+            ),
+        ];
+
+        for (name, text, line, column, conflict_line, conflict_column) in cases {
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", text)]);
+            let result = query_snapshot(&snapshot, "main.veln", line, column)
+                .unwrap_or_else(|| panic!("{name} recovery should be selected"));
+            assert!(result.is_recovery, "{name} selected a valid symbol");
+            assert!(result.references.is_empty(), "{name} unexpectedly had references");
+            assert_rename_conflict(
+                validate_rename_in_snapshot(&snapshot, &result, "other").unwrap_err(),
+                RenameNameClass::ValueBinding,
+                "other",
+                "main.veln",
+                conflict_line,
+                conflict_column,
+            );
+        }
+    }
+
+    #[test]
     fn rename_validation_rejects_type_conflict_with_public_type_alias() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source(

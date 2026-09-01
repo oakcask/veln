@@ -102,6 +102,8 @@ impl SymbolIndex {
                     scope_file: file.source.path().as_str().to_string(),
                     scope_start: binding.start,
                     scope_end: binding.end,
+                    declaration_scope_start: binding.start,
+                    declaration_scope_end: binding.end,
                     kind: binding.kind,
                 })
         })

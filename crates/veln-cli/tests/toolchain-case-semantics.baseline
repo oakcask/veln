@@ -13107,6 +13107,13 @@ field	expectations.lsp_assertions[46].equals	2
 field	expectations.lsp_assertions[46].id	37
 field	expectations.lsp_assertions[46].operation	"equals"
 field	expectations.lsp_assertions[46].path	"/result/start/character"
+field	expectations.lsp_assertions[47].equals	"rename.conflict"
+field	expectations.lsp_assertions[47].id	45
+field	expectations.lsp_assertions[47].operation	"equals"
+field	expectations.lsp_assertions[47].path	"/error/data/code"
+field	expectations.lsp_assertions[48].id	45
+field	expectations.lsp_assertions[48].operation	"missing"
+field	expectations.lsp_assertions[48].path	"/result"
 field	expectations.lsp_assertions[4].id	3
 field	expectations.lsp_assertions[4].length	3
 field	expectations.lsp_assertions[4].operation	"length"
@@ -13134,19 +13141,20 @@ field	expectations.lsp_assertions[9].path	"/result/start/character"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":5,\"result\":{\"changes\":{\"file://"
 field	expectations.stdout.contains[1]	"\"id\":38,\"result\":{\"changes\":{\"file://"
-field	expectations.stdout.contains[2]	"\"newText\":\"good\""
-field	expectations.stdout.contains[3]	"\"newText\":\"Byte\""
-field	expectations.stdout.contains[4]	"\"newText\":\"local\""
-field	expectations.stdout.contains[5]	"\"newText\":\"callback\""
-field	expectations.stdout.contains[6]	"\"newText\":\"Entry\""
-field	expectations.stdout.contains[7]	"\"code\":\"rename.invalid_case\""
-field	expectations.stdout.contains[8]	"\"code\":\"rename.conflict\""
+field	expectations.stdout.contains[2]	"\"id\":45,\"error\":{\"code\":-32602"
+field	expectations.stdout.contains[3]	"\"newText\":\"good\""
+field	expectations.stdout.contains[4]	"\"newText\":\"Byte\""
+field	expectations.stdout.contains[5]	"\"newText\":\"local\""
+field	expectations.stdout.contains[6]	"\"newText\":\"callback\""
+field	expectations.stdout.contains[7]	"\"newText\":\"Entry\""
+field	expectations.stdout.contains[8]	"\"code\":\"rename.invalid_case\""
+field	expectations.stdout.contains[9]	"\"code\":\"rename.conflict\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":9456,"sha256":"10c0a2b7d97098f5a523ffa2df8aa600dcae9e301dcea3492aa08b5e1a71efdb"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":9691,"sha256":"39f45668fc1ba6b24832044c4fe7a11f78ffc9937f0ab1dd0b2f1c8a14aa52e1"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"02e097691aa57ff6f971cba7d3e759f090e8d4a2d3800e648249be76055f8b60"
+case_digest	"4a327d24d5b598c816f5e4f8f99f95ed5d1bc228aff7b048ffcde5141f6ae33f"
 case	"examples/specification/lsp/identifier-casing-rename-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	-32602
@@ -52928,4 +52936,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1cbf05393881ea0c587b1c1ad8d1675687e42b5398dcc5e85bca3b3daa627e5a"
+aggregate_digest	"c008616fd135c47124f5962f3a8fe917591e7b8db1956a383b1936312f70a808"

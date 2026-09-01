@@ -62,7 +62,7 @@ impl SymbolIndex {
             name: symbol.name,
             declaration: workspace_location(symbol.declaration),
             package: None,
-            public: false,
+            public: symbol.public,
             standard_prelude: false,
         };
         self.local_type_namespace_conflict(&selected.module, requested_name)
@@ -100,7 +100,7 @@ impl SymbolIndex {
             name: symbol.name,
             declaration: workspace_location(symbol.declaration),
             package: None,
-            public: false,
+            public: symbol.public,
             standard_prelude: false,
         };
         self.constructors
@@ -143,7 +143,7 @@ impl SymbolIndex {
             name: symbol.name,
             declaration: workspace_location(symbol.declaration),
             package: None,
-            public: false,
+            public: symbol.public,
             standard_prelude: false,
         };
         self.function_module_conflict(&selected, requested_name)
@@ -163,6 +163,8 @@ impl SymbolIndex {
             scope_file: symbol.source_file,
             scope_start: symbol.scope_start,
             scope_end: symbol.scope_end,
+            declaration_scope_start: symbol.declaration_scope_start,
+            declaration_scope_end: symbol.declaration_scope_end,
             kind: match symbol.kind {
                 SymbolKind::HandlerContextParameter => LocalSymbolKind::HandlerContextParameter,
                 SymbolKind::HandlerOperationClauseParameter => {
@@ -642,8 +644,8 @@ impl SymbolIndex {
         function_scopes(&file.tokens)
             .into_iter()
             .find(|function_scope| {
-                function_scope.body_start == selected.scope_start
-                    && function_scope.end == selected.scope_end
+                function_scope.body_start == selected.declaration_scope_start
+                    && function_scope.end == selected.declaration_scope_end
             })
             .and_then(|function_scope| {
                 function_scope
