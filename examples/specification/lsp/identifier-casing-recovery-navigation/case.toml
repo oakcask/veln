@@ -161,3 +161,38 @@ length = 0
 id = 26
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+id = 27
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 28
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 29
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 30
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 31
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 32
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 33
+path = "/result"
+equals = null

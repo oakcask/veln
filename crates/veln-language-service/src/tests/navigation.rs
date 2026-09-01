@@ -162,6 +162,46 @@
     }
 
     #[test]
+    fn ambiguous_invalid_declarations_are_not_selected_at_declaration_positions() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "fn Bad() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn Bad() -> Int\n",
+                "  2\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources.clone(), "main.veln", 1, 4).is_none());
+        assert!(query(sources, "main.veln", 5, 4).is_none());
+    }
+
+    #[test]
+    fn valid_callable_parameter_blocks_constructor_recovery_at_call_site() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  byte(value: Int)\n",
+                    "end\n\n",
+                    "fn caller(byte: fn() -> Int) -> Int\n",
+                    "  byte()\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            6,
+            4,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
     fn invalid_local_binding_recovery_stays_in_lexical_scope() {
         let result = query(
             vec![source(

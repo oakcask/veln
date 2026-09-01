@@ -192,7 +192,7 @@ impl SymbolIndex {
             return Some(SelectedNavigationSymbol::bare(Symbol::Constructor(symbol)));
         }
 
-        self.recovery_declared_at(file, name, selection)
+        self.recovery_declared_at(file, tokens, token_index, name, selection)
             .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Recovery(symbol)))
             .or_else(|| {
                 self.non_declaration_symbol_for_selection(file, tokens, token_index, name, selection)
@@ -239,12 +239,12 @@ impl SymbolIndex {
                 });
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
-            return self
-                .symbol_for_bare_call(file, tokens, token_index, name)
-                .map(SelectedNavigationSymbol::bare)
-                .or_else(|| {
-                    self.recovery_bare_call_selection(file, tokens, token_index, name)
-                });
+            if let Some(symbol) = self.symbol_for_bare_call(file, tokens, token_index, name) {
+                return Some(SelectedNavigationSymbol::bare(symbol));
+            }
+            return (!self.bare_call_recovery_blocked(file, tokens, token_index, name))
+                .then(|| self.recovery_bare_call_selection(file, tokens, token_index, name))
+                .flatten();
         };
         self.symbol_for_qualified_call(file, &qualifier, name)
             .map(SelectedNavigationSymbol::bare)
@@ -398,17 +398,49 @@ impl SymbolIndex {
     fn recovery_declared_at(
         &self,
         file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
         name: &str,
         selection: &SourceSpan,
     ) -> Option<RecoverySymbol> {
-        let mut candidates = file.recovery_symbols.iter().filter(|symbol| {
-            symbol.name == name
-                && symbol.declaration.file == selection.file
-                && symbol.declaration.start.offset == selection.start.offset
-                && symbol.declaration.end.offset == selection.end.offset
-        });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        let roles = recovery_roles_for_declaration_token(tokens, token_index)?;
+        let selected = dedup_recovery_symbols(
+            file.recovery_symbols
+                .iter()
+                .filter(|symbol| {
+                    symbol.name == name
+                        && symbol.source_file == file.source.path().as_str()
+                        && same_span(&symbol.declaration, selection)
+                        && symbol.name_class().is_some_and(|class| {
+                            roles
+                                .iter()
+                                .any(|role| recovery_roles_compatible(class, *role))
+                        })
+                })
+                .cloned()
+                .collect(),
+        );
+        let selected_symbol = selected.first()?;
+        let visible = dedup_recovery_symbols(
+            file.recovery_symbols
+                .iter()
+                .filter(|symbol| {
+                    symbol.name == name
+                        && symbol.source_file == file.source.path().as_str()
+                        && symbol.name_class().is_some_and(|class| {
+                            roles
+                                .iter()
+                                .any(|role| recovery_roles_compatible(class, *role))
+                        })
+                        && selected.iter().any(|selected| {
+                            same_recovery_symbol(selected, symbol)
+                                || recovery_scopes_overlap(selected, symbol)
+                        })
+                })
+                .cloned()
+                .collect(),
+        );
+        (visible.len() == 1).then(|| selected_symbol.clone())
     }
 
     fn unique_recovery_for_role(
@@ -445,10 +477,58 @@ impl SymbolIndex {
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
     }
+
+    fn bare_call_recovery_blocked(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> bool {
+        local_binding_shadows_call_target(tokens, token_index, name)
+            || self.has_visible_non_prelude_imported_function(file, name)
+            || self.has_visible_non_prelude_imported_constructor(file, name)
+    }
 }
 
 fn recovery_roles_compatible(record: NameClass, role: NameClass) -> bool {
     record == role || (record == NameClass::Function && role == NameClass::ValueBinding)
+}
+
+fn dedup_recovery_symbols(mut symbols: Vec<RecoverySymbol>) -> Vec<RecoverySymbol> {
+    let mut unique = Vec::new();
+    for symbol in symbols.drain(..) {
+        if !unique
+            .iter()
+            .any(|existing| same_recovery_symbol(existing, &symbol))
+        {
+            unique.push(symbol);
+        }
+    }
+    unique
+}
+
+fn recovery_scopes_overlap(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {
+    left.scope_start < right.scope_end && right.scope_start < left.scope_end
+}
+
+fn recovery_roles_for_declaration_token(tokens: &[Token], index: usize) -> Option<Vec<NameClass>> {
+    if is_function_declaration_name(tokens, index) {
+        return Some(vec![NameClass::Function]);
+    }
+    if is_type_declaration_name(tokens, index) {
+        return Some(vec![NameClass::Type]);
+    }
+    if is_constructor_declaration_name(tokens, index) {
+        return Some(vec![NameClass::Constructor]);
+    }
+    if is_parameter_name(tokens, index)
+        || is_local_binding_name(tokens, index)
+        || is_satisfy_candidate_binding_name(tokens, index)
+    {
+        return Some(vec![NameClass::ValueBinding]);
+    }
+    None
 }
 
 fn resolve_qualified_alias(aliases: &BTreeMap<String, String>, qualifier: &str) -> Option<String> {

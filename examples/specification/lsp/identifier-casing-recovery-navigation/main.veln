@@ -56,3 +56,11 @@ end
 fn qualified() -> Int
   missing::Bad()
 end
+
+type ShadowItem
+  coin(value: Int)
+end
+
+fn shadow_call(coin: fn() -> Int) -> Int
+  coin()
+end
