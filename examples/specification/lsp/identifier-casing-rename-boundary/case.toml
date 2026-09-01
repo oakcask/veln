@@ -660,3 +660,53 @@ equals = "function_value_consumer"
 id = 31
 path = "/result"
 missing = true
+
+[[lsp_assert]]
+id = 32
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/details/symbol_class"
+equals = "function"
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/details/requested_name"
+equals = "target"
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "handler_capture.veln"
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/details/conflicting_declaration/range/start/line"
+equals = 9
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/details/conflicting_declaration/range/start/character"
+equals = 9
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/details/affected_scope/kind"
+equals = "lexical"
+
+[[lsp_assert]]
+id = 32
+path = "/error/data/details/affected_scope/file"
+equals = "handler_capture.veln"
+
+[[lsp_assert]]
+id = 32
+path = "/result"
+missing = true

@@ -56,7 +56,7 @@ impl SymbolIndex {
             return Vec::new();
         }
         if file.module == symbol.module {
-            return call_references(&file.source, &symbol.name);
+            return call_references(file, &symbol.name);
         }
         if file.uses.contains(&symbol.module)
             && (symbol.public

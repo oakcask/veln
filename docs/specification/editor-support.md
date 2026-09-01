@@ -235,9 +235,14 @@ location is the binding declaration. Function declarations and test
 declarations share the function rename namespace, so either declaration can
 block the other. When a function rename is captured by a function parameter or
 result binding in an affected lexical scope, the reported conflict location is
-that parameter or result-binding declaration. When an unused handler operation
-clause parameter is renamed to another parameter in the same clause, the
-reported conflict location is the existing clause parameter declaration.
+that parameter or result-binding declaration. Handler context parameters and
+operation-clause parameters are lexical bindings for this function-rename
+capture check. When an edited bare function call or bare function-value
+reference would bind to one of those handler parameters after the complete
+edit, the reported conflict location is the handler parameter declaration.
+When an unused handler operation clause parameter is renamed to another
+parameter in the same clause, the reported conflict location is the existing
+clause parameter declaration.
 
 Module conflict prediction checks workspace modules where the renamed symbol
 would be visible after the complete edit, including requested-name occurrences
@@ -268,7 +273,8 @@ same-spelled non-type namespace exclusion, qualified type identity preservation
 for type rename, ambiguous imported type rejection for edited and unedited
 requested-name occurrences, bare imported function ambiguity rejection for
 unedited requested-name call and function-value occurrences, and parameter and
-result-binding declaration locations for lexical function-rename conflicts.
+result-binding and handler parameter declaration locations for lexical
+function-rename conflicts.
 Focused language-service tests cover constructor ambiguity conflict rejection
 and legal qualified-function identity preservation that do not need separate
 transport-specific fixtures.

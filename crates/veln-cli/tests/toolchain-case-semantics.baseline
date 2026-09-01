@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"9a300a92b8de2a7382717d303e19a0a391158822"
+source_git_tree	"263eac3235ebd004b6e2eb0b1fdfce8599503824"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1638
@@ -13051,10 +13051,49 @@ field	expectations.lsp_assertions[124].path	"/error/data/details/affected_scope/
 field	expectations.lsp_assertions[125].id	31
 field	expectations.lsp_assertions[125].operation	"missing"
 field	expectations.lsp_assertions[125].path	"/result"
+field	expectations.lsp_assertions[126].equals	-32602
+field	expectations.lsp_assertions[126].id	32
+field	expectations.lsp_assertions[126].operation	"equals"
+field	expectations.lsp_assertions[126].path	"/error/code"
+field	expectations.lsp_assertions[127].equals	"rename.conflict"
+field	expectations.lsp_assertions[127].id	32
+field	expectations.lsp_assertions[127].operation	"equals"
+field	expectations.lsp_assertions[127].path	"/error/data/code"
+field	expectations.lsp_assertions[128].equals	"function"
+field	expectations.lsp_assertions[128].id	32
+field	expectations.lsp_assertions[128].operation	"equals"
+field	expectations.lsp_assertions[128].path	"/error/data/details/symbol_class"
+field	expectations.lsp_assertions[129].equals	"target"
+field	expectations.lsp_assertions[129].id	32
+field	expectations.lsp_assertions[129].operation	"equals"
+field	expectations.lsp_assertions[129].path	"/error/data/details/requested_name"
 field	expectations.lsp_assertions[12].equals	"Input"
 field	expectations.lsp_assertions[12].id	9
 field	expectations.lsp_assertions[12].operation	"equals"
 field	expectations.lsp_assertions[12].path	"/error/data/details/requested_name"
+field	expectations.lsp_assertions[130].id	32
+field	expectations.lsp_assertions[130].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[130].path	"/error/data/details/conflicting_declaration/uri"
+field	expectations.lsp_assertions[130].workspace_file_uri	"handler_capture.veln"
+field	expectations.lsp_assertions[131].equals	9
+field	expectations.lsp_assertions[131].id	32
+field	expectations.lsp_assertions[131].operation	"equals"
+field	expectations.lsp_assertions[131].path	"/error/data/details/conflicting_declaration/range/start/line"
+field	expectations.lsp_assertions[132].equals	9
+field	expectations.lsp_assertions[132].id	32
+field	expectations.lsp_assertions[132].operation	"equals"
+field	expectations.lsp_assertions[132].path	"/error/data/details/conflicting_declaration/range/start/character"
+field	expectations.lsp_assertions[133].equals	"lexical"
+field	expectations.lsp_assertions[133].id	32
+field	expectations.lsp_assertions[133].operation	"equals"
+field	expectations.lsp_assertions[133].path	"/error/data/details/affected_scope/kind"
+field	expectations.lsp_assertions[134].equals	"handler_capture.veln"
+field	expectations.lsp_assertions[134].id	32
+field	expectations.lsp_assertions[134].operation	"equals"
+field	expectations.lsp_assertions[134].path	"/error/data/details/affected_scope/file"
+field	expectations.lsp_assertions[135].id	32
+field	expectations.lsp_assertions[135].operation	"missing"
+field	expectations.lsp_assertions[135].path	"/result"
 field	expectations.lsp_assertions[13].equals	"ascii_lowercase"
 field	expectations.lsp_assertions[13].id	9
 field	expectations.lsp_assertions[13].operation	"equals"
@@ -13451,10 +13490,10 @@ field	expectations.stdout.not_contains[2]	"\"line\":3,\"character\":20"
 field	expectations.stdout.not_contains[3]	"left.veln\":[{\"range\""
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7026,"sha256":"d3950abc97d26fed45b5aa232a1ffa61e2417154c505711c12ca069b3abb8f49"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7269,"sha256":"7b465ff8cf471ff51aa093ba881ff46d06d6b7334b4bc473b14a9d2b29e45b26"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"01add5c42d9c9270633a88707d417c21167e160c56767c6f8787564c938847a2"
+case_digest	"3b5fc385603d94113f826d8ff831b59c5abdd7b6cc6ed640f45e4ec189eae6b5"
 case	"examples/specification/lsp/identifier-casing-snapshot-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52563,4 +52602,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8dbbf4639e846dc98d0ef6f79d38b7a616dd649f09154ab11f92c307f8c4df56"
+aggregate_digest	"b3a2f453731ec17f2040713e8a098ed46cfc9f77833fa789f1c8156646129c4e"

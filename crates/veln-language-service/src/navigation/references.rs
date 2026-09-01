@@ -1,5 +1,5 @@
-fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
-    let tokens = lex(source).tokens;
+fn call_references(file: &IndexedFile, name: &str) -> Vec<SourceSpan> {
+    let tokens = lex(&file.source).tokens;
     let scopes = function_scopes(&tokens);
     tokens
         .iter()
@@ -16,11 +16,11 @@ fn call_references(source: &SourceFile, name: &str) -> Vec<SourceSpan> {
                 && !is_handler_operation_clause_operation_name(&tokens, *index)
                 && (token_scope(&scopes, token.range.start)
                     .is_some_and(|scope| !scope.shadows(name, &tokens, *index))
-                    || is_handler_operation_clause_call_target(&tokens, *index)
+                    || handler_function_reference_is_unshadowed(file, &tokens, *index, name)
                     || is_function_alias_target_reference(&tokens, *index, name)
                     || is_codec_implementation_function_reference(&tokens, *index, name))
         })
-        .map(|(_, token)| source.span(token.range))
+        .map(|(_, token)| file.source.span(token.range))
         .collect()
 }
 

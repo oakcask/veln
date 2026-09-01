@@ -166,6 +166,14 @@ impl SymbolIndex {
         ) {
             return self.local_conflict_in_file(file, requested_name, span);
         }
+        if let Some(conflict) = handler_binding_conflict_for_function_reference(
+            file,
+            &file.tokens,
+            token_index,
+            requested_name,
+        ) {
+            return Some(conflict);
+        }
         if let Some(conflict) =
             self.constructor_conflict_for_call(file, &file.tokens, token_index, requested_name)
         {
@@ -265,19 +273,31 @@ impl SymbolIndex {
                     .iter()
                     .enumerate()
                     .filter(|(index, token)| {
-                        token.kind == TokenKind::Ident
-                            && token.text == requested_name
-                            && qualifier_for_token(&file.tokens, *index).is_none()
-                            && is_bare_function_reference_token(
-                                &file.tokens,
-                                file_scopes,
-                                *index,
-                                requested_name,
-                            )
+                        if token.kind != TokenKind::Ident
+                            || token.text != requested_name
+                            || qualifier_for_token(&file.tokens, *index).is_some()
+                        {
+                            return false;
+                        }
+                        is_bare_function_reference_token(
+                            &file.tokens,
+                            file_scopes,
+                            *index,
+                            requested_name,
+                        ) || handler_function_reference_token(
+                            &file.tokens,
+                            *index,
+                            requested_name,
+                        )
                     })
                     .find_map(|(token_index, _)| {
                         if local_binding_shadows_call_target_in_scopes(
                             file_scopes,
+                            &file.tokens,
+                            token_index,
+                            requested_name,
+                        ) || handler_binding_shadows_function_reference(
+                            file,
                             &file.tokens,
                             token_index,
                             requested_name,
@@ -439,6 +459,71 @@ impl SymbolIndex {
                 )
             })
     }
+}
+
+fn handler_function_reference_is_unshadowed(
+    file: &IndexedFile,
+    tokens: &[Token],
+    index: usize,
+    name: &str,
+) -> bool {
+    let file_end = tokens.last().map_or(tokens[index].range.end, |token| token.range.end);
+    let offset = tokens[index].range.start;
+    handler_function_reference_token(tokens, index, name)
+        && !local_binding_shadows_name(tokens, name, offset, 0, file_end)
+        && !handler_binding_shadows_function_reference(file, tokens, index, name)
+}
+
+fn handler_function_reference_token(tokens: &[Token], index: usize, name: &str) -> bool {
+    tokens[index].text == name
+        && inside_handler_operation_clause_body(tokens, tokens[index].range.start)
+        && (is_call_target_token(tokens, index)
+            || tokens[index].kind == TokenKind::Ident && is_identifier(&tokens[index].text))
+}
+
+fn handler_binding_conflict_for_function_reference(
+    file: &IndexedFile,
+    tokens: &[Token],
+    index: usize,
+    name: &str,
+) -> Option<(NavigationLocation, RenameAffectedScope)> {
+    let binding = handler_shadowing_binding(file, tokens, index, name)?;
+    Some((
+        workspace_location(binding.declaration),
+        RenameAffectedScope::Lexical {
+            file: file.source.path().as_str().to_string(),
+            start_offset: binding.start,
+            end_offset: binding.end,
+        },
+    ))
+}
+
+fn handler_binding_shadows_function_reference(
+    file: &IndexedFile,
+    tokens: &[Token],
+    index: usize,
+    name: &str,
+) -> bool {
+    handler_shadowing_binding(file, tokens, index, name).is_some()
+}
+
+fn handler_shadowing_binding(
+    file: &IndexedFile,
+    tokens: &[Token],
+    index: usize,
+    name: &str,
+) -> Option<ClauseBinding> {
+    let offset = tokens[index].range.start;
+    handler_operation_clause_bindings(file, tokens)
+        .into_iter()
+        .find(|binding| {
+            binding.name == name
+                && offset >= binding.start
+                && offset < binding.end
+                && (binding.kind != LocalSymbolKind::HandlerContextParameter
+                    || inside_handler_operation_clause_body(tokens, offset))
+                && !local_binding_shadows_name(tokens, name, offset, binding.start, binding.end)
+        })
 }
 
 fn clause_binding_conflicts_after_rename(

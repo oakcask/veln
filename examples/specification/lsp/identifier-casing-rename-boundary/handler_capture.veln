@@ -1,0 +1,11 @@
+effect Choose
+  choose(target: Int) -> Int
+end
+
+fn source() -> Int
+  1
+end
+
+handler choose() handles Choose
+  choose(target) => source()
+end
