@@ -13763,14 +13763,10 @@ field	expectations.lsp_assertions[11].equals	2
 field	expectations.lsp_assertions[11].id	3
 field	expectations.lsp_assertions[11].operation	"equals"
 field	expectations.lsp_assertions[11].path	"/result/1/range/start/character"
-field	expectations.lsp_assertions[12].equals	{}
-field	expectations.lsp_assertions[12].id	4
+field	expectations.lsp_assertions[12].equals	null
+field	expectations.lsp_assertions[12].id	5
 field	expectations.lsp_assertions[12].operation	"equals"
-field	expectations.lsp_assertions[12].path	"/result/changes"
-field	expectations.lsp_assertions[13].equals	null
-field	expectations.lsp_assertions[13].id	5
-field	expectations.lsp_assertions[13].operation	"equals"
-field	expectations.lsp_assertions[13].path	"/result"
+field	expectations.lsp_assertions[12].path	"/result"
 field	expectations.lsp_assertions[1].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[1].occurrence	0
 field	expectations.lsp_assertions[1].operation	"workspace_file_uri"
@@ -13811,13 +13807,15 @@ field	expectations.lsp_assertions[9].id	3
 field	expectations.lsp_assertions[9].operation	"equals"
 field	expectations.lsp_assertions[9].path	"/result/0/range/start/character"
 field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":4,\"result\":{\"changes\":{\"file://"
+field	expectations.stdout.contains[1]	"/main.veln\":[{\"range\":{\"start\":{\"line\":0,\"character\":3},\"end\":{\"line\":0,\"character\":6}},\"newText\":\"renamed\"},{\"range\":{\"start\":{\"line\":5,\"character\":2},\"end\":{\"line\":5,\"character\":5}},\"newText\":\"renamed\"}]}"
 field	expectations.stdout.not_contains[0]	"nested/hidden.veln"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":918,"sha256":"b947f39458b8d179c5aec9b2ffc0a2e2350925716e5297e1d4b485bb33c70c65"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"ee32305930ea2dec6cb952762693ce010b62a09d658ae33f164b205d90ede782"
+case_digest	"411eb14d84841e75232551caa1192ab5151a094c35e9716980e7d521587290b6"
 case	"examples/specification/lsp/identifier-casing-source-path-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -52930,4 +52928,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"ccb5b5a5e42e8d99b0962d5fc4b6157be9889de94133134b0a1250bc808aacbd"
+aggregate_digest	"1cbf05393881ea0c587b1c1ad8d1675687e42b5398dcc5e85bca3b3daa627e5a"
