@@ -8,12 +8,14 @@ update-when: Identifier casing recovery-navigation evidence, sibling identifier-
 
 ## Outcome
 
-Source-written declarations and value bindings quarantined by
-`name.invalid_case` now support shared language-service recovery navigation
-when exactly one compatible recovery record is visible and no valid symbol
-wins. Current behavior is specified by
-[Editor Support](../../specification/editor-support.md) and checked by the
-`identifier-casing-recovery-navigation` LSP example plus focused
+Source-written declarations, function parameters, result bindings, local and
+pattern bindings, satisfy candidate bindings, handler context parameters, and
+handler operation-clause parameters quarantined by `name.invalid_case` now
+support shared language-service recovery navigation when exactly one
+compatible recovery record is visible and no valid symbol wins. Current
+behavior is specified by [Editor Support](../../specification/editor-support.md)
+and checked by the `identifier-casing-recovery-navigation` and
+`identifier-casing-handler-binding-navigation` LSP examples plus focused
 `veln-language-service` navigation tests.
 
 ## Scope
@@ -27,8 +29,10 @@ Prepare-rename returns the selected identifier range.
 
 A valid class-compatible symbol takes precedence over recovery. Multiple
 compatible recovery records with the same spelling do not select an arbitrary
-record. Incompatible occurrence roles, shadowing, and occurrences outside the
-invalid declaration or binding lexical scope do not link to recovery.
+record. Incompatible occurrence roles, shadowing, qualified occurrences that
+do not already resolve through an implemented semantic path, and occurrences
+outside the invalid declaration or binding lexical scope do not link to
+recovery.
 
 Recovery records remain quarantined. They do not enter normal workspace or
 package symbol indexes, direct-dependency lookup, standard-prelude lookup,

@@ -54,7 +54,7 @@ fn handler_context_parameter_does_not_bind_same_named_operation_heading() {
 }
 
 #[test]
-fn invalid_handler_bindings_do_not_enter_lsp_navigation() {
+fn invalid_handler_bindings_use_lsp_recovery_navigation() {
     let mut server = Server::default();
     let project = TempProject::new("invalid-handler-binding-navigation");
     project.write(
@@ -81,32 +81,64 @@ fn invalid_handler_bindings_do_not_enter_lsp_navigation() {
         "{publish}"
     );
 
-    for (line, character) in [(5, 15), (6, 19), (7, 7), (7, 27)] {
-        let definition = server.handle_message(&definition_request(&main_uri, line, character));
-        assert_eq!(definition.len(), 1);
-        assert!(
-            definition[0].contains(r#""result":null"#),
-            "{}",
-            definition[0]
-        );
+    let callback_definition = server.handle_message(&definition_request(&main_uri, 6, 19));
+    assert_eq!(callback_definition.len(), 1);
+    assert!(
+        callback_definition[0].contains(
+            r#""range":{"start":{"line":5,"character":15},"end":{"line":5,"character":23}}"#
+        ),
+        "{}",
+        callback_definition[0]
+    );
+    let callback_references = server.handle_message(&references_request(&main_uri, 5, 15));
+    assert_eq!(callback_references.len(), 1);
+    assert!(
+        callback_references[0].contains(r#""result":["#)
+            && callback_references[0].contains(r#""line":5,"character":15"#)
+            && callback_references[0].contains(r#""line":6,"character":19"#)
+            && callback_references[0].contains(r#""line":7,"character":18"#),
+        "{}",
+        callback_references[0]
+    );
+    let callback_prepare = server.handle_message(&prepare_rename_request(&main_uri, 6, 19));
+    assert_eq!(callback_prepare.len(), 1);
+    assert!(
+        callback_prepare[0].contains(
+            r#""result":{"start":{"line":6,"character":19},"end":{"line":6,"character":27}}"#
+        ),
+        "{}",
+        callback_prepare[0]
+    );
 
-        let references = server.handle_message(&references_request(&main_uri, line, character));
-        assert_eq!(references.len(), 1);
-        assert!(
-            references[0].contains(r#""result":[]"#),
-            "{}",
-            references[0]
-        );
+    let result_definition = server.handle_message(&definition_request(&main_uri, 7, 27));
+    assert_eq!(result_definition.len(), 1);
+    assert!(
+        result_definition[0].contains(
+            r#""range":{"start":{"line":7,"character":7},"end":{"line":7,"character":13}}"#
+        ),
+        "{}",
+        result_definition[0]
+    );
+    let result_references = server.handle_message(&references_request(&main_uri, 7, 7));
+    assert_eq!(result_references.len(), 1);
+    assert!(
+        result_references[0].contains(r#""result":["#)
+            && result_references[0].contains(r#""line":7,"character":7"#)
+            && result_references[0].contains(r#""line":7,"character":27"#),
+        "{}",
+        result_references[0]
+    );
+    let result_prepare = server.handle_message(&prepare_rename_request(&main_uri, 7, 7));
+    assert_eq!(result_prepare.len(), 1);
+    assert!(
+        result_prepare[0].contains(
+            r#""result":{"start":{"line":7,"character":7},"end":{"line":7,"character":13}}"#
+        ),
+        "{}",
+        result_prepare[0]
+    );
 
-        let prepare_rename =
-            server.handle_message(&prepare_rename_request(&main_uri, line, character));
-        assert_eq!(prepare_rename.len(), 1);
-        assert!(
-            prepare_rename[0].contains(r#""result":null"#),
-            "{}",
-            prepare_rename[0]
-        );
-
+    for (line, character) in [(6, 19), (7, 27)] {
         let rename = server.handle_message(&rename_request(&main_uri, line, character, "fixed"));
         assert_eq!(rename.len(), 1);
         assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);

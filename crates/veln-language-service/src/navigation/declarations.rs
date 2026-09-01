@@ -516,23 +516,77 @@ fn recovery_binding_symbols(
     name: &str,
     span: &SourceSpan,
 ) -> Vec<RecoverySymbol> {
-    function_scopes(tokens)
-        .into_iter()
-        .flat_map(|scope| scope.local_bindings.into_iter())
-        .filter(|binding| {
-            binding.name == name
-                && binding.declaration_start == span.start.offset
-                && binding.declaration_end == span.end.offset
-        })
-        .map(|binding| RecoverySymbol {
-            name: name.to_string(),
-            declaration: span.clone(),
-            source_file: source.path().as_str().to_string(),
-            scope_start: binding.start,
-            scope_end: binding.end,
-            kind: SymbolKind::ValueBinding,
-        })
-        .collect()
+    let mut symbols = Vec::new();
+    for scope in function_scopes(tokens) {
+        symbols.extend(
+            scope
+                .params
+                .iter()
+                .filter(|binding| scoped_binding_matches(binding, name, span))
+                .map(|_| RecoverySymbol {
+                    name: name.to_string(),
+                    declaration: span.clone(),
+                    source_file: source.path().as_str().to_string(),
+                    scope_start: scope.body_start,
+                    scope_end: scope.end,
+                    kind: SymbolKind::ValueBinding,
+                }),
+        );
+        if let Some(binding) = &scope.result_binding
+            && scoped_binding_matches(binding, name, span)
+        {
+            symbols.push(RecoverySymbol {
+                name: name.to_string(),
+                declaration: span.clone(),
+                source_file: source.path().as_str().to_string(),
+                scope_start: scope.body_start,
+                scope_end: scope.end,
+                kind: SymbolKind::ValueBinding,
+            });
+        }
+        symbols.extend(
+            scope
+                .local_bindings
+                .into_iter()
+                .filter(|binding| {
+                    binding.name == name
+                        && binding.declaration_start == span.start.offset
+                        && binding.declaration_end == span.end.offset
+                })
+                .map(|binding| RecoverySymbol {
+                    name: name.to_string(),
+                    declaration: span.clone(),
+                    source_file: source.path().as_str().to_string(),
+                    scope_start: binding.start,
+                    scope_end: binding.end,
+                    kind: SymbolKind::ValueBinding,
+                }),
+        );
+    }
+    symbols.extend(
+        handler_operation_clause_bindings_for_source(source, tokens)
+            .into_iter()
+            .filter(|binding| {
+                binding.name == name
+                    && binding.declaration.start.offset == span.start.offset
+                    && binding.declaration.end.offset == span.end.offset
+            })
+            .map(|binding| RecoverySymbol {
+                name: name.to_string(),
+                declaration: span.clone(),
+                source_file: source.path().as_str().to_string(),
+                scope_start: binding.start,
+                scope_end: binding.end,
+                kind: binding.kind.symbol_kind(),
+            }),
+    );
+    symbols
+}
+
+fn scoped_binding_matches(binding: &ScopedBinding, name: &str, span: &SourceSpan) -> bool {
+    binding.name == name
+        && binding.declaration_start == span.start.offset
+        && binding.declaration_end == span.end.offset
 }
 
 fn symbol_kind_for_name_class(class: NameClass) -> Option<SymbolKind> {

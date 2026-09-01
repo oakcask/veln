@@ -156,10 +156,12 @@ For workspace sources, saved snapshots and open-document overlays publish
 source identifier casing diagnostics for the selected workspace project only,
 including source-path-derived module segment diagnostics at the zero-width
 source-start range specified by [name-resolution.md](name-resolution.md).
-An invalid declaration or handler binding name in the selected snapshot or
-overlay does not enter the LSP navigation symbol set. Definition, references,
-prepare-rename, and rename requests for that invalid name return the same
-empty result shape as an unsupported symbol. Invalid casing in an unselected
+Invalid source declarations, function parameters, result bindings, local and
+pattern bindings, satisfy candidate bindings, handler context parameters, and
+handler operation-clause parameters do not enter the normal LSP navigation
+symbol set. Definition, references, and prepare-rename expose only the recovery
+navigation records specified below. Rename requests for a recovery record return
+an empty workspace-edit `changes` object. Invalid casing in an unselected
 package root does not produce a workspace diagnostic for the selected project.
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
@@ -291,18 +293,22 @@ diagnostics, overlay replacement of saved source text, and unselected nested
 package isolation.
 The executable `identifier-casing-recovery-navigation` LSP example covers
 definition, references, prepare-rename, and rename exclusion for a unique
-class-compatible invalid source declaration recovery record. Recovery
-navigation uses the retained invalid declaration range and the linked in-scope
-use ranges. A valid symbol takes precedence over recovery, multiple
-compatible recovery records return no selected symbol, and incompatible,
-shadowed, or out-of-scope occurrences do not link to the recovery record.
+class-compatible invalid source declaration recovery record. Focused
+language-service tests cover the same recovery decision table for source
+declarations, function parameters, result bindings, local and pattern
+bindings, satisfy candidate bindings, handler context parameters, and handler
+operation-clause parameters. Recovery navigation uses the retained invalid
+declaration or binding range and the linked in-scope use ranges. A valid
+symbol takes precedence over recovery, multiple compatible recovery records
+return no selected symbol, and incompatible, shadowed, qualified, or
+out-of-scope occurrences do not link to the recovery record.
 The executable `identifier-casing-source-path-boundary` LSP example covers
 workspace source-path-derived module segment diagnostics at the zero-width
 source-start range.
 The executable `identifier-casing-handler-binding-navigation` LSP example
-covers invalid handler context and operation-clause binding exclusion across
-definition, references, prepare-rename, and rename for declaration positions
-and in-scope uses.
+covers invalid handler context and operation-clause binding recovery
+definition, references, prepare-rename, and rename exclusion for declaration
+positions and in-scope uses.
 The executable `identifier-casing-qualified-use-navigation` LSP example covers
 constructor-qualified type segments across definition, references,
 prepare-rename, and rename. The selected segment keeps the type rename casing

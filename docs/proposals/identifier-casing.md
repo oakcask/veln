@@ -113,7 +113,8 @@ language-service behavior. LSP definition, references, and prepare-rename now
 expose a unique class-compatible invalid source declaration or binding
 recovery record when no valid symbol wins. That recovery navigation boundary
 is specified by [Editor Support](../specification/editor-support.md), checked
-by the `identifier-casing-recovery-navigation` LSP example and focused
+by the `identifier-casing-recovery-navigation` and
+`identifier-casing-handler-binding-navigation` LSP examples and focused
 `veln-language-service` tests, and recorded in
 [Identifier Casing Recovery Navigation](../reference/implemented-proposals/identifier-casing-recovery-navigation.md).
 LSP rename now rejects class-changing replacements

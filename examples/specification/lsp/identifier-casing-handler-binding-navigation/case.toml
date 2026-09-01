@@ -36,18 +36,18 @@ equals = "name.invalid_case"
 
 [[lsp_assert]]
 id = 2
-path = "/result"
-equals = null
+path = "/result/range/start/line"
+equals = 5
 
 [[lsp_assert]]
 id = 3
 path = "/result"
-equals = []
+length = 3
 
 [[lsp_assert]]
 id = 4
-path = "/result"
-equals = null
+path = "/result/start/line"
+equals = 6
 
 [[lsp_assert]]
 id = 5
@@ -56,18 +56,18 @@ equals = {}
 
 [[lsp_assert]]
 id = 6
-path = "/result"
-equals = null
+path = "/result/range/start/line"
+equals = 7
 
 [[lsp_assert]]
 id = 7
 path = "/result"
-equals = []
+length = 2
 
 [[lsp_assert]]
 id = 8
-path = "/result"
-equals = null
+path = "/result/start/line"
+equals = 7
 
 [[lsp_assert]]
 id = 9

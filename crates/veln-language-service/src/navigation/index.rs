@@ -248,9 +248,6 @@ impl SymbolIndex {
         };
         self.symbol_for_qualified_call(file, &qualifier, name)
             .map(SelectedNavigationSymbol::bare)
-            .or_else(|| {
-                self.recovery_qualified_call_selection(file, tokens, token_index, name)
-            })
     }
 
     fn type_reference_selection(
@@ -317,24 +314,6 @@ impl SymbolIndex {
         self.unique_recovery_for_role(file, tokens, token_index, name, NameClass::ValueBinding)
             .map(Symbol::Recovery)
             .map(SelectedNavigationSymbol::bare)
-    }
-
-    fn recovery_qualified_call_selection(
-        &self,
-        file: &IndexedFile,
-        tokens: &[Token],
-        token_index: usize,
-        name: &str,
-    ) -> Option<SelectedNavigationSymbol> {
-        self.unique_recovery_for_roles(
-            file,
-            tokens,
-            token_index,
-            name,
-            &[NameClass::Constructor, NameClass::Function, NameClass::ValueBinding],
-        )
-        .map(Symbol::Recovery)
-        .map(SelectedNavigationSymbol::bare)
     }
 
     fn classified_qualified_segment(

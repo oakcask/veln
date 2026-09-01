@@ -207,6 +207,165 @@
     }
 
     #[test]
+    fn invalid_parameter_recovery_navigation_links_in_scope_uses() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                "fn main(Bad: Int) -> Int\n  Bad\nend\n",
+            )],
+            "main.veln",
+            2,
+            4,
+        )
+        .unwrap();
+
+        assert!(result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 1, 9);
+        assert_eq!(locations(&result.references), [("main.veln", 2, 3)]);
+    }
+
+    #[test]
+    fn invalid_result_binding_recovery_navigation_links_ensure_uses() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                "fn main(value: Int) -> Output: Int\n  ensure Output >= value\n  value\nend\n",
+            )],
+            "main.veln",
+            2,
+            10,
+        )
+        .unwrap();
+
+        assert!(result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 1, 24);
+        assert_eq!(locations(&result.references), [("main.veln", 2, 10)]);
+    }
+
+    #[test]
+    fn invalid_handler_binding_recovery_navigation_links_clause_body_uses() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Adjust\n",
+                "  amount(value: Int) -> Int\n",
+                "  echo(value: Int) -> Int\n",
+                "end\n\n",
+                "handler adjust(Callback: fn(Int) -> Int) handles Adjust\n",
+                "  amount(value) => Callback(value)\n",
+                "  echo(Result) => Callback(Result)\n",
+                "end\n",
+            ),
+        )];
+
+        let context = query(sources.clone(), "main.veln", 7, 22).unwrap();
+        assert!(context.is_recovery);
+        assert_eq!(context.selected_symbol.kind, SymbolKind::HandlerContextParameter);
+        assert_location(&context.definition, "main.veln", 6, 16);
+        assert_eq!(
+            locations(&context.references),
+            [("main.veln", 7, 20), ("main.veln", 8, 19)]
+        );
+
+        let clause = query(sources, "main.veln", 8, 28).unwrap();
+        assert!(clause.is_recovery);
+        assert_eq!(
+            clause.selected_symbol.kind,
+            SymbolKind::HandlerOperationClauseParameter
+        );
+        assert_location(&clause.definition, "main.veln", 8, 8);
+        assert_eq!(locations(&clause.references), [("main.veln", 8, 28)]);
+    }
+
+    #[test]
+    fn invalid_pattern_binding_recovery_navigation_links_arm_body_uses() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  Some(Int)\n",
+                    "end\n\n",
+                    "fn read(item: Item) -> Int\n",
+                    "  match item\n",
+                    "    Some(Bad) => Bad\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            7,
+            19,
+        )
+        .unwrap();
+
+        assert!(result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 7, 10);
+        assert_eq!(locations(&result.references), [("main.veln", 7, 18)]);
+    }
+
+    #[test]
+    fn invalid_satisfy_candidate_recovery_navigation_links_predicate_uses() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                "fn main(limit: Int) -> Int\n  _value satisfy Candidate => Candidate <= limit\n  limit\nend\n",
+            )],
+            "main.veln",
+            2,
+            32,
+        )
+        .unwrap();
+
+        assert!(result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 2, 18);
+        assert_eq!(locations(&result.references), [("main.veln", 2, 31)]);
+    }
+
+    #[test]
+    fn invalid_recovery_navigation_rejects_qualified_occurrences() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "fn Bad() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn caller() -> Int\n",
+                "  missing::Bad()\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources.clone(), "main.veln", 6, 12).is_none());
+        assert!(query(sources, "main.veln", 6, 4).is_none());
+    }
+
+    #[test]
+    fn invalid_binding_recovery_navigation_rejects_shadowing_and_ambiguity() {
+        let shadowed = vec![source(
+            "main.veln",
+            concat!(
+                "fn main(Bad: Int) -> Int\n",
+                "  match Bad\n",
+                "    Bad => Bad\n",
+                "  end\n",
+                "end\n",
+            ),
+        )];
+        assert!(query(shadowed, "main.veln", 3, 12).is_none());
+
+        let ambiguous = vec![source(
+            "main.veln",
+            "fn main(Bad: Int, Bad: Int) -> Int\n  Bad\nend\n",
+        )];
+        assert!(query(ambiguous, "main.veln", 2, 4).is_none());
+    }
+
+    #[test]
     fn rename_validation_preserves_function_case_class() {
         let result = query(
             vec![source(
