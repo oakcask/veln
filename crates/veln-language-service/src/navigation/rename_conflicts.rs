@@ -140,11 +140,16 @@ impl SymbolIndex {
         selected: &FunctionSymbol,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let scope_cache = self.function_scope_cache();
+        let handler_files = self.handler_reference_files();
         self.affected_spans(result)
             .into_iter()
-            .find_map(|span| {
-                self.function_span_conflict(span, requested_name, selected, &scope_cache)
-            })
+            .find_map(|span| self.function_span_conflict(
+                span,
+                requested_name,
+                selected,
+                &scope_cache,
+                &handler_files,
+            ))
     }
 
     fn function_span_conflict(
@@ -153,11 +158,13 @@ impl SymbolIndex {
         requested_name: &str,
         selected: &FunctionSymbol,
         scope_cache: &BTreeMap<String, Vec<FunctionScope>>,
+        handler_files: &BTreeSet<String>,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let (file, token_index) = self.file_token_for_span(span)?;
+        let file_path = file.source.path().as_str();
         if local_binding_shadows_call_target_in_scopes(
             scope_cache
-                .get(file.source.path().as_str())
+                .get(file_path)
                 .map(Vec::as_slice)
                 .unwrap_or(&[]),
             &file.tokens,
@@ -166,7 +173,8 @@ impl SymbolIndex {
         ) {
             return self.local_conflict_in_file(file, requested_name, span);
         }
-        if let Some(conflict) = handler_binding_conflict_for_function_reference(
+        if handler_files.contains(file_path)
+            && let Some(conflict) = handler_binding_conflict_for_function_reference(
             file,
             &file.tokens,
             token_index,
@@ -261,12 +269,15 @@ impl SymbolIndex {
         requested_name: &str,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         let scope_cache = self.function_scope_cache();
+        let handler_files = self.handler_reference_files();
         self.files
             .iter()
             .filter(|file| function_visible_after_rename(file, selected))
             .find_map(|file| {
+                let file_path = file.source.path().as_str();
+                let file_has_handler_references = handler_files.contains(file_path);
                 let file_scopes = scope_cache
-                    .get(file.source.path().as_str())
+                    .get(file_path)
                     .map(Vec::as_slice)
                     .unwrap_or(&[]);
                 file.tokens
@@ -284,7 +295,7 @@ impl SymbolIndex {
                             file_scopes,
                             *index,
                             requested_name,
-                        ) || handler_function_reference_token(
+                        ) || file_has_handler_references && handler_function_reference_token(
                             &file.tokens,
                             *index,
                             requested_name,
@@ -296,7 +307,7 @@ impl SymbolIndex {
                             &file.tokens,
                             token_index,
                             requested_name,
-                        ) || handler_binding_shadows_function_reference(
+                        ) || file_has_handler_references && handler_binding_shadows_function_reference(
                             file,
                             &file.tokens,
                             token_index,
@@ -333,6 +344,14 @@ impl SymbolIndex {
                     function_scopes(&file.tokens),
                 )
             })
+            .collect()
+    }
+
+    fn handler_reference_files(&self) -> BTreeSet<String> {
+        self.files
+            .iter()
+            .filter(|file| file.tokens.iter().any(|token| token.kind == TokenKind::Handler))
+            .map(|file| file.source.path().as_str().to_string())
             .collect()
     }
 
