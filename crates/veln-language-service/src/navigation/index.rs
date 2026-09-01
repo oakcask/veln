@@ -242,9 +242,6 @@ impl SymbolIndex {
         }
 
         if !is_call_target_token(tokens, token_index) {
-            if let Some(symbol) = local_shadow_symbol(file, tokens, token_index, name) {
-                return Some(SelectedNavigationSymbol::bare(Symbol::Local(symbol)));
-            }
             return self.type_reference_selection(file, tokens, token_index, name, selection)
                 .or_else(|| {
                     self.recovery_type_reference_selection(file, tokens, token_index, name, selection)
@@ -679,18 +676,17 @@ fn scope_shadow_declaration(file: &IndexedFile, binding: ScopeShadow<'_>) -> Sou
     }
 }
 
-fn local_shadow_symbol(
+fn local_callable_binding_symbol(
     file: &IndexedFile,
     tokens: &[Token],
     token_index: usize,
     name: &str,
+    functions: &[FunctionSymbol],
 ) -> Option<LocalSymbol> {
-    if is_field_name(tokens, token_index)
-        || is_function_declaration_name(tokens, token_index)
-        || is_type_declaration_name(tokens, token_index)
-        || is_constructor_declaration_name(tokens, token_index)
-        || is_local_binding_name(tokens, token_index)
-        || is_handler_operation_clause_operation_name(tokens, token_index)
+    if !name
+        .chars()
+        .next()
+        .is_some_and(|initial| initial.is_ascii_lowercase())
     {
         return None;
     }
@@ -699,33 +695,88 @@ fn local_shadow_symbol(
     let scope = scopes
         .iter()
         .find(|scope| offset >= scope.body_start && offset < scope.end)?;
-    let shadow = scope.shadowing_binding(name, tokens, token_index)?;
-    let (scope_start, scope_end, declaration_start, declaration_end) = match shadow {
-        ScopeShadow::FunctionBinding(binding) => (
-            scope.body_start,
-            scope.end,
-            binding.declaration_start,
-            binding.declaration_end,
-        ),
-        ScopeShadow::LocalBinding(binding) => (
-            binding.start,
-            binding.end,
-            binding.declaration_start,
-            binding.declaration_end,
-        ),
+    let ScopeShadow::LocalBinding(binding) = scope.shadowing_binding(name, tokens, token_index)?
+    else {
+        return None;
     };
+    if !simple_let_binding_initializer_is_callable(file, tokens, scope, binding, functions) {
+        return None;
+    }
     Some(LocalSymbol {
         name: name.to_string(),
         declaration: file
             .source
-            .span(TextRange::new(declaration_start, declaration_end)),
+            .span(TextRange::new(binding.declaration_start, binding.declaration_end)),
         scope_file: file.source.path().as_str().to_string(),
-        scope_start,
-        scope_end,
-        declaration_scope_start: scope_start,
-        declaration_scope_end: scope_end,
+        scope_start: binding.start,
+        scope_end: binding.end,
+        declaration_scope_start: binding.start,
+        declaration_scope_end: binding.end,
         kind: LocalSymbolKind::ValueBinding,
     })
+}
+
+fn simple_let_binding_initializer_is_callable(
+    file: &IndexedFile,
+    tokens: &[Token],
+    scope: &FunctionScope,
+    binding: &LocalBinding,
+    functions: &[FunctionSymbol],
+) -> bool {
+    let Some(declaration_index) = token_index_at_start(tokens, binding.declaration_start) else {
+        return false;
+    };
+    if !previous_non_layout_token(tokens, declaration_index)
+        .is_some_and(|previous| previous.kind == TokenKind::Let)
+    {
+        return false;
+    }
+    let Some(equal_index) = next_non_layout_index(tokens, declaration_index) else {
+        return false;
+    };
+    if tokens[equal_index].kind != TokenKind::Equal {
+        return false;
+    }
+    let Some(initializer_index) = next_non_layout_index(tokens, equal_index) else {
+        return false;
+    };
+    let initializer = &tokens[initializer_index];
+    if initializer.kind != TokenKind::Ident || !is_identifier(&initializer.text) {
+        return false;
+    }
+    if next_non_layout_token(tokens, initializer_index)
+        .is_some_and(|next| next.kind == TokenKind::DoubleColon)
+    {
+        return false;
+    }
+    scope
+        .params
+        .iter()
+        .any(|param| {
+            param.name == initializer.text && scoped_binding_has_callable_type(tokens, param)
+        })
+        || functions.iter().any(|symbol| {
+            symbol.name == initializer.text
+                && symbol.module == file.module
+                && symbol.package.is_none()
+        })
+}
+
+fn scoped_binding_has_callable_type(tokens: &[Token], binding: &ScopedBinding) -> bool {
+    let Some(declaration_index) = token_index_at_start(tokens, binding.declaration_start) else {
+        return false;
+    };
+    let Some(colon_index) = next_non_layout_index(tokens, declaration_index) else {
+        return false;
+    };
+    if tokens[colon_index].kind != TokenKind::Colon {
+        return false;
+    }
+    next_non_layout_token(tokens, colon_index).is_some_and(|token| token.kind == TokenKind::Fn)
+}
+
+fn token_index_at_start(tokens: &[Token], start: usize) -> Option<usize> {
+    tokens.iter().position(|token| token.range.start == start)
 }
 
 fn same_scope_binding_conflicts(
