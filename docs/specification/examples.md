@@ -255,7 +255,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   and `../../examples/specification/lsp/identifier-casing-rename-boundary/`.
   The rename boundary case includes type alias conflict rejection in the
   current type namespace, same-clause handler operation parameter conflict
-  rejection, and imported function ambiguity rejection.
+  rejection, function-to-test duplicate rejection, imported function ambiguity
+  rejection, and declaration-location reporting for parameter and result-binding
+  lexical conflicts.
 - Schema field references and helper eligibility:
   `../../examples/specification/check/binary-schema-field-reference-diagnostics/`
   and

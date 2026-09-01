@@ -137,15 +137,12 @@ impl SymbolIndex {
             })
             .map(|scope| {
                 let conflict = scope
-                    .local_bindings
-                    .iter()
-                    .find(|binding| {
-                        binding.name == requested_name
-                            && span.start.offset >= binding.start
-                            && span.start.offset < binding.end
-                    })
-                    .map(|binding| local_binding_declaration(file, binding))
-                    .or_else(|| span_for_name_before_offset(file, requested_name, span.start.offset))
+                    .shadowing_binding(
+                        requested_name,
+                        &file.tokens,
+                        self.token_index_for_span(file, span).unwrap_or(0),
+                    )
+                    .map(|binding| scope_shadow_declaration(file, binding))
                     .unwrap_or_else(|| span.clone());
                 (
                     workspace_location(conflict),
@@ -426,25 +423,25 @@ fn resolve_external_qualified_alias(
     }
 }
 
-fn span_for_name_before_offset(
-    file: &IndexedFile,
-    name: &str,
-    offset: usize,
-) -> Option<SourceSpan> {
-    file.tokens
-        .iter()
-        .rev()
-        .find(|token| {
-            token.kind == TokenKind::Ident && token.text == name && token.range.start < offset
-        })
-        .map(|token| file.source.span(token.range))
-}
-
 fn local_binding_declaration(file: &IndexedFile, binding: &LocalBinding) -> SourceSpan {
     file.source.span(TextRange::new(
         binding.declaration_start,
         binding.declaration_end,
     ))
+}
+
+fn scoped_binding_declaration(file: &IndexedFile, binding: &ScopedBinding) -> SourceSpan {
+    file.source.span(TextRange::new(
+        binding.declaration_start,
+        binding.declaration_end,
+    ))
+}
+
+fn scope_shadow_declaration(file: &IndexedFile, binding: ScopeShadow<'_>) -> SourceSpan {
+    match binding {
+        ScopeShadow::FunctionBinding(binding) => scoped_binding_declaration(file, binding),
+        ScopeShadow::LocalBinding(binding) => local_binding_declaration(file, binding),
+    }
 }
 
 fn same_scope_binding_conflicts(

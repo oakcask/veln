@@ -44,16 +44,40 @@ fn function_scopes(tokens: &[Token]) -> Vec<FunctionScope> {
 
 impl FunctionScope {
     fn shadows(&self, name: &str, tokens: &[Token], index: usize) -> bool {
+        self.shadowing_binding(name, tokens, index).is_some()
+    }
+
+    fn shadowing_binding(
+        &self,
+        name: &str,
+        tokens: &[Token],
+        index: usize,
+    ) -> Option<ScopeShadow<'_>> {
         let offset = tokens[index].range.start;
-        self.params.contains(name)
-            || self
-                .result_binding
-                .as_deref()
-                .is_some_and(|binding| binding == name && is_ensure_reference(tokens, index))
-            || self.local_bindings.iter().any(|binding| {
-                binding.name == name && binding.start <= offset && offset < binding.end
+        self.params
+            .iter()
+            .find(|binding| binding.name == name)
+            .map(ScopeShadow::FunctionBinding)
+            .or_else(|| {
+                self.result_binding
+                    .as_ref()
+                    .filter(|binding| binding.name == name && is_ensure_reference(tokens, index))
+                    .map(ScopeShadow::FunctionBinding)
+            })
+            .or_else(|| {
+                self.local_bindings
+                    .iter()
+                    .find(|binding| {
+                        binding.name == name && binding.start <= offset && offset < binding.end
+                    })
+                    .map(ScopeShadow::LocalBinding)
             })
     }
+}
+
+enum ScopeShadow<'a> {
+    FunctionBinding(&'a ScopedBinding),
+    LocalBinding(&'a LocalBinding),
 }
 
 fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
@@ -72,8 +96,8 @@ fn function_scope_end(tokens: &[Token], start: usize) -> Option<usize> {
     None
 }
 
-fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSet<String> {
-    let mut names = BTreeSet::new();
+fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> Vec<ScopedBinding> {
+    let mut names = Vec::new();
     let mut depth = 0usize;
     let mut expect_parameter_name = false;
     for token in tokens[start..]
@@ -93,7 +117,11 @@ fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSe
             }
             TokenKind::Comma if depth == 1 => expect_parameter_name = true,
             TokenKind::Ident if depth == 1 && expect_parameter_name => {
-                names.insert(token.text.clone());
+                names.push(ScopedBinding {
+                    name: token.text.clone(),
+                    declaration_start: token.range.start,
+                    declaration_end: token.range.end,
+                });
                 expect_parameter_name = false;
             }
             token_kind if !is_layout_token_kind(token_kind) && depth == 1 => {
@@ -105,7 +133,7 @@ fn parameter_names(tokens: &[Token], start: usize, body_start: usize) -> BTreeSe
     names
 }
 
-fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Option<String> {
+fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Option<ScopedBinding> {
     let arrow_index = tokens[start..]
         .iter()
         .position(|token| token.kind == TokenKind::Arrow)
@@ -120,7 +148,11 @@ fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Opt
     }
     next_non_layout_token(tokens, candidate_index)
         .is_some_and(|next| next.kind == TokenKind::Colon)
-        .then(|| candidate.text.clone())
+        .then(|| ScopedBinding {
+            name: candidate.text.clone(),
+            declaration_start: candidate.range.start,
+            declaration_end: candidate.range.end,
+        })
 }
 
 fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {

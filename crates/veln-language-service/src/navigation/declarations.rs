@@ -210,7 +210,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     let mut functions = Vec::new();
     let tokens = &file.tokens;
     for (index, token) in tokens.iter().enumerate() {
-        if token.kind == TokenKind::Fn
+        if matches!(token.kind, TokenKind::Fn | TokenKind::Test)
             && let Some(name) = next_non_layout_token(tokens, index)
             && is_identifier(&name.text)
         {

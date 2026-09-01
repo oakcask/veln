@@ -510,3 +510,103 @@ missing = true
 id = 28
 path = "/error"
 missing = true
+
+[[lsp_assert]]
+id = 29
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/details/symbol_class"
+equals = "function"
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/details/requested_name"
+equals = "target"
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "function_test.veln"
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/details/conflicting_declaration/range/start/line"
+equals = 4
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/details/conflicting_declaration/range/start/character"
+equals = 5
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/details/affected_scope/kind"
+equals = "module"
+
+[[lsp_assert]]
+id = 29
+path = "/error/data/details/affected_scope/name"
+equals = "function_test"
+
+[[lsp_assert]]
+id = 29
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 30
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/code"
+equals = "rename.conflict"
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/details/symbol_class"
+equals = "function"
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/details/requested_name"
+equals = "conflict"
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/details/conflicting_declaration/uri"
+workspace_file_uri = "result_binding.veln"
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/details/conflicting_declaration/range/start/line"
+equals = 4
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/details/conflicting_declaration/range/start/character"
+equals = 25
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/details/affected_scope/kind"
+equals = "lexical"
+
+[[lsp_assert]]
+id = 30
+path = "/error/data/details/affected_scope/file"
+equals = "result_binding.veln"
+
+[[lsp_assert]]
+id = 30
+path = "/result"
+missing = true

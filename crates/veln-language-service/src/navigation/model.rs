@@ -466,9 +466,16 @@ pub(crate) struct SymbolIndex {
 struct FunctionScope {
     body_start: usize,
     end: usize,
-    params: BTreeSet<String>,
-    result_binding: Option<String>,
+    params: Vec<ScopedBinding>,
+    result_binding: Option<ScopedBinding>,
     local_bindings: Vec<LocalBinding>,
+}
+
+#[derive(Debug)]
+struct ScopedBinding {
+    name: String,
+    declaration_start: usize,
+    declaration_end: usize,
 }
 
 #[derive(Debug)]

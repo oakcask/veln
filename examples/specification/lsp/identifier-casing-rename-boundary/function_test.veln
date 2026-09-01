@@ -1,0 +1,8 @@
+fn helper() -> Int
+  1
+end
+
+test target() -> ()
+  helper()
+  ()
+end

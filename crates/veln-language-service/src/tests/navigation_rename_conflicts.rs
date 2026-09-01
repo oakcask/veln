@@ -374,6 +374,98 @@
     }
 
     #[test]
+    fn rename_validation_rejects_function_duplicate_with_test_declaration() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "fn helper() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "test target() -> ()\n",
+                "  helper()\n",
+                "  ()\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 1, 4).unwrap();
+
+        let failure = validate_rename_in_snapshot(&snapshot, &result, "target").unwrap_err();
+
+        assert_rename_conflict(
+            failure.clone(),
+            RenameNameClass::Function,
+            "target",
+            "main.veln",
+            5,
+            6,
+        );
+        let RenameFailureKind::Conflict { affected_scope, .. } = failure.kind else {
+            panic!("rename failure was not a conflict");
+        };
+        assert_eq!(
+            *affected_scope,
+            RenameAffectedScope::Module {
+                name: "main".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rename_validation_reports_function_parameter_declaration_conflict() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "fn target() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn caller(conflict: Int) -> Int\n",
+                "  let observed = conflict\n",
+                "  target()\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 7, 4).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "conflict").unwrap_err(),
+            RenameNameClass::Function,
+            "conflict",
+            "main.veln",
+            5,
+            11,
+        );
+    }
+
+    #[test]
+    fn rename_validation_reports_result_binding_declaration_conflict() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "fn target() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn caller(value: Int) -> conflict: Int\n",
+                "  ensure conflict >= value\n",
+                "  ensure target() >= value\n",
+                "  value\n",
+                "end\n",
+            ),
+        )]);
+        let result = query_snapshot(&snapshot, "main.veln", 7, 10).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_rename_conflict(
+            validate_rename_in_snapshot(&snapshot, &result, "conflict").unwrap_err(),
+            RenameNameClass::Function,
+            "conflict",
+            "main.veln",
+            5,
+            26,
+        );
+    }
+
+    #[test]
     fn rename_validation_rejects_provable_multi_scope_ambiguity() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("left.veln", "pub type Item\n  Left\nend\n"),

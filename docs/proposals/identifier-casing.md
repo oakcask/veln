@@ -425,10 +425,11 @@ text that merely has the same spelling.
 Current rename conflict rejection for valid selected workspace symbols is
 specified by [Editor Support](../specification/editor-support.md), including
 same-scope declaration duplicates, edit-scope-based lexical shadowing, type
-alias conflicts, affected scopes, and conflicting declaration locations.
-Future repair rename and MCP rename surfaces must preserve that shared
-conflict code and edit-free failure boundary when they add their
-transport-specific behavior.
+alias conflicts, function-to-test duplicate rejection, affected scopes, and
+conflicting declaration locations for local bindings, function parameters,
+result bindings, and handler operation clause parameters. Future repair rename
+and MCP rename surfaces must preserve that shared conflict code and edit-free
+failure boundary when they add their transport-specific behavior.
 
 Source-path-derived module segments are not rename targets in this proposal.
 Prepare-rename returns no range for them. Rename produces no file operation,
