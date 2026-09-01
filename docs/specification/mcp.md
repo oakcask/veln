@@ -132,7 +132,7 @@ set for captured saved workspace sources, including functions, type
 constructors, handler context parameters, handler operation clause parameters,
 exact test-companion access to target-private functions, and unique
 class-compatible invalid source declaration or binding recovery records. MCP
-only exposes the recovery declaration location through `definition`;
+only exposes the recovery record source range through `definition`;
 references, prepare-rename, rename edits, dependencies, and the standard
 library do not produce definition locations through this MCP slice.
 A supported workspace declaration returns one canonical `file:` URI based on
@@ -183,6 +183,8 @@ contract.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
+The shared language-service selector supplies the same recovery boundary for
+retained invalid binding records.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous

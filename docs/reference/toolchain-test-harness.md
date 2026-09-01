@@ -295,9 +295,10 @@ content must replace saved source text, `$case_text` sidecars for exact UTF-8
 document text. Their decoded assertions cover initialization capability
 values, non-empty and cleared diagnostic notifications, complete semantic
 token data, selected workspace diagnostics, recovery definition, references,
-and prepare-rename results for unique compatible invalid declarations and
-handler bindings, empty navigation results for ambiguous, incompatible-role,
-shadowed, qualified, and out-of-scope recovery rejection rows, valid bare
+and prepare-rename results for unique compatible invalid declarations,
+lexical bindings, and handler bindings, empty navigation results for
+ambiguous, incompatible-role, shadowed, qualified, and out-of-scope recovery
+rejection rows, valid bare
 nullary constructor precedence over recovery navigation, rename invalid-case
 and conflict errors, edit-free rename failures, and shutdown responses. Raw
 LSP cases remain only where protocol framing or an as-yet-unmigrated

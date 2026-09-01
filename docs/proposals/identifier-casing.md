@@ -127,7 +127,9 @@ precedence over function or binding recovery. This behavior is recorded in
 MCP `definition` exposes the same unique source declaration or binding
 recovery definition boundary through
 [MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md)
-and the `definition-recovery-navigation` MCP example.
+and the shared language-service selector. The `definition-recovery-navigation`
+MCP example covers source declaration recovery, ambiguous recovery refusal,
+and valid-symbol precedence.
 LSP rename now rejects class-changing replacements
 for selected valid workspace type, constructor, function, and value-binding
 symbols and predictable rename conflicts as specified by

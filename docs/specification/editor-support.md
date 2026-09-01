@@ -293,8 +293,8 @@ diagnostics, overlay replacement of saved source text, and unselected nested
 package isolation.
 The executable `identifier-casing-recovery-navigation` LSP example covers
 definition, references, prepare-rename, and rename exclusion for a unique
-class-compatible invalid source declaration recovery record. It also checks
-valid-symbol precedence, ambiguous recovery rejection, incompatible-role
+class-compatible invalid source declaration or binding recovery record. It
+also checks valid-symbol precedence, ambiguous recovery rejection, incompatible-role
 rejection, shadowed occurrence rejection, qualified occurrence rejection, and
 lexical out-of-scope rejection at the LSP boundary. Focused language-service
 tests cover the same recovery decision table for source declarations,
