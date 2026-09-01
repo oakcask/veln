@@ -225,6 +225,9 @@ unedited occurrence when the complete edit would leave that occurrence bound
 to the same local binding or clause parameter. A handler operation clause
 parameter can be renamed to an enclosing handler context parameter's name when
 the edited declaration and references remain bound to the clause parameter. A
+handler context parameter can be renamed to a clause parameter's name only when
+the edited references stay outside the clause parameter's lexical scope.
+Otherwise, the existing clause parameter is the reported conflict. A
 lexical affected scope has `kind: "lexical"` and includes the file plus source
 start and end offsets.
 When a local binding conflicts with a function rename, the reported conflict

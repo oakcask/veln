@@ -19,7 +19,9 @@ Current behavior is specified by
 params response, shared `rename.conflict` code, conflict detail projection,
 same-clause parameter conflict boundary, unedited imported type ambiguity
 boundary, unedited imported function ambiguity boundary, and edit-free failure
-boundary.
+boundary. Focused language-service tests also cover handler context and clause
+parameter shadowing boundaries that do not need another transport-specific
+fixture.
 
 ## Scope
 
@@ -45,7 +47,11 @@ and source start and end offsets. Local binding conflicts report the binding
 declaration as the conflicting declaration, including when a function rename
 would collide with an edited reference scope. Handler operation clause
 parameter conflicts report the existing clause parameter as the conflicting
-declaration, even when the selected parameter has no references.
+declaration, even when the selected parameter has no references. A clause
+parameter can reuse an enclosing handler context parameter name when the
+edited declaration and references remain bound to the clause parameter. An
+enclosing context parameter can reuse a clause parameter name only when edited
+references stay outside that clause parameter scope.
 
 The conflict check is limited to the retained current project snapshot. It
 does not claim to validate unloaded consumers, future file operations, or
