@@ -115,7 +115,11 @@ recovery record when no valid symbol wins. That recovery navigation boundary
 is specified by [Editor Support](../specification/editor-support.md), checked
 by the `identifier-casing-recovery-navigation` and
 `identifier-casing-handler-binding-navigation` LSP examples and focused
-`veln-language-service` tests, and recorded in
+`veln-language-service` tests. The LSP examples cover valid-symbol precedence,
+ambiguous recovery rejection, incompatible-role rejection, shadowed occurrence
+rejection, qualified occurrence rejection, lexical out-of-scope rejection, and
+rename exclusion for the completed recovery-navigation slice. This behavior is
+recorded in
 [Identifier Casing Recovery Navigation](../reference/implemented-proposals/identifier-casing-recovery-navigation.md).
 LSP rename now rejects class-changing replacements
 for selected valid workspace type, constructor, function, and value-binding
@@ -523,7 +527,7 @@ identifier-casing remainder.
 | Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
-| Resolve uses near invalid declarations in qualified, module-derived, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair rename where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, and rename cases. |
+| Resolve uses near invalid declarations in qualified, module-derived, and rename roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades and supports repair rename where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, boundary, and repair rename cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | Recovery navigation exists only in the declaring source and lexical scope. No recovery symbol is imported, aliased, or lowered. | Boundary table covering diagnostics, definition, references, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request invalid-declaration repair renames and remaining transport mappings. | Repair renames return complete linked edits. Failures return no edits. Path-derived module segments return no prepare range or file edits. | Shared language-service repair cases and planned MCP error-mapping cases. |

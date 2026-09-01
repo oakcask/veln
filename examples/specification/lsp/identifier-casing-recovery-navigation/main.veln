@@ -5,3 +5,54 @@ end
 fn caller() -> Int
   Bad()
 end
+
+type Item
+  byte(value: Int)
+end
+
+fn byte() -> Int
+  2
+end
+
+fn valid_precedence() -> Int
+  byte()
+end
+
+type Holder
+  lower(value: Int)
+end
+
+fn incompatible_role() -> Int
+  lower
+end
+
+fn Dup() -> Int
+  1
+end
+
+fn Dup() -> Int
+  2
+end
+
+fn ambiguous() -> Int
+  Dup()
+end
+
+fn local(input: Int) -> Int
+  let Local = input
+  Local
+end
+
+fn other() -> Int
+  Local
+end
+
+fn shadow(Shadow: Int) -> Int
+  match Shadow
+    Shadow => Shadow
+  end
+end
+
+fn qualified() -> Int
+  missing::Bad()
+end

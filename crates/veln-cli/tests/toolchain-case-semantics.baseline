@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"87e384b170a875e930e0ac58a0be71af56e24a12"
+source_git_tree	"0b4769b18a6e84e64bfdc83505b04c17cfd5e3ac"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1639
@@ -12388,14 +12388,14 @@ field	expectations.lsp_assertions[0].equals	true
 field	expectations.lsp_assertions[0].id	1
 field	expectations.lsp_assertions[0].operation	"equals"
 field	expectations.lsp_assertions[0].path	"/result/capabilities/definitionProvider"
-field	expectations.lsp_assertions[10].equals	[]
 field	expectations.lsp_assertions[10].id	7
-field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].length	2
+field	expectations.lsp_assertions[10].operation	"length"
 field	expectations.lsp_assertions[10].path	"/result"
-field	expectations.lsp_assertions[11].equals	null
+field	expectations.lsp_assertions[11].equals	7
 field	expectations.lsp_assertions[11].id	8
 field	expectations.lsp_assertions[11].operation	"equals"
-field	expectations.lsp_assertions[11].path	"/result"
+field	expectations.lsp_assertions[11].path	"/result/start/line"
 field	expectations.lsp_assertions[12].equals	{}
 field	expectations.lsp_assertions[12].id	9
 field	expectations.lsp_assertions[12].operation	"equals"
@@ -12423,33 +12423,33 @@ field	expectations.lsp_assertions[4].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[4].occurrence	0
 field	expectations.lsp_assertions[4].operation	"equals"
 field	expectations.lsp_assertions[4].path	"/params/diagnostics/1/code"
-field	expectations.lsp_assertions[5].equals	null
+field	expectations.lsp_assertions[5].equals	5
 field	expectations.lsp_assertions[5].id	2
 field	expectations.lsp_assertions[5].operation	"equals"
-field	expectations.lsp_assertions[5].path	"/result"
-field	expectations.lsp_assertions[6].equals	[]
+field	expectations.lsp_assertions[5].path	"/result/range/start/line"
 field	expectations.lsp_assertions[6].id	3
-field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].length	3
+field	expectations.lsp_assertions[6].operation	"length"
 field	expectations.lsp_assertions[6].path	"/result"
-field	expectations.lsp_assertions[7].equals	null
+field	expectations.lsp_assertions[7].equals	6
 field	expectations.lsp_assertions[7].id	4
 field	expectations.lsp_assertions[7].operation	"equals"
-field	expectations.lsp_assertions[7].path	"/result"
+field	expectations.lsp_assertions[7].path	"/result/start/line"
 field	expectations.lsp_assertions[8].equals	{}
 field	expectations.lsp_assertions[8].id	5
 field	expectations.lsp_assertions[8].operation	"equals"
 field	expectations.lsp_assertions[8].path	"/result/changes"
-field	expectations.lsp_assertions[9].equals	null
+field	expectations.lsp_assertions[9].equals	7
 field	expectations.lsp_assertions[9].id	6
 field	expectations.lsp_assertions[9].operation	"equals"
-field	expectations.lsp_assertions[9].path	"/result"
+field	expectations.lsp_assertions[9].path	"/result/range/start/line"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2010,"sha256":"ae030997984053e92b82cf5cf26bf5aa8084a79994568cb82a136c0236fc58fa"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"7351128df337b51888fb99a6c4568046e5701af7f869af105c6df708a33f827e"
+case_digest	"e5b021519d5062865ce3b5b62521da7833116edb635194f6f6dea3b487223689"
 case	"examples/specification/lsp/identifier-casing-overlay-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -12954,15 +12954,95 @@ field	expectations.lsp_assertions[10].equals	{}
 field	expectations.lsp_assertions[10].id	5
 field	expectations.lsp_assertions[10].operation	"equals"
 field	expectations.lsp_assertions[10].path	"/result/changes"
+field	expectations.lsp_assertions[11].equals	0
+field	expectations.lsp_assertions[11].id	6
+field	expectations.lsp_assertions[11].operation	"equals"
+field	expectations.lsp_assertions[11].path	"/result/range/start/line"
+field	expectations.lsp_assertions[12].equals	12
+field	expectations.lsp_assertions[12].id	7
+field	expectations.lsp_assertions[12].operation	"equals"
+field	expectations.lsp_assertions[12].path	"/result/range/start/line"
+field	expectations.lsp_assertions[13].equals	null
+field	expectations.lsp_assertions[13].id	8
+field	expectations.lsp_assertions[13].operation	"equals"
+field	expectations.lsp_assertions[13].path	"/result"
+field	expectations.lsp_assertions[14].equals	null
+field	expectations.lsp_assertions[14].id	9
+field	expectations.lsp_assertions[14].operation	"equals"
+field	expectations.lsp_assertions[14].path	"/result"
+field	expectations.lsp_assertions[15].id	10
+field	expectations.lsp_assertions[15].length	0
+field	expectations.lsp_assertions[15].operation	"length"
+field	expectations.lsp_assertions[15].path	"/result"
+field	expectations.lsp_assertions[16].equals	null
+field	expectations.lsp_assertions[16].id	11
+field	expectations.lsp_assertions[16].operation	"equals"
+field	expectations.lsp_assertions[16].path	"/result"
+field	expectations.lsp_assertions[17].equals	41
+field	expectations.lsp_assertions[17].id	12
+field	expectations.lsp_assertions[17].operation	"equals"
+field	expectations.lsp_assertions[17].path	"/result/range/start/line"
+field	expectations.lsp_assertions[18].id	13
+field	expectations.lsp_assertions[18].length	2
+field	expectations.lsp_assertions[18].operation	"length"
+field	expectations.lsp_assertions[18].path	"/result"
+field	expectations.lsp_assertions[19].equals	42
+field	expectations.lsp_assertions[19].id	14
+field	expectations.lsp_assertions[19].operation	"equals"
+field	expectations.lsp_assertions[19].path	"/result/start/line"
 field	expectations.lsp_assertions[1].equals	"name.invalid_case"
 field	expectations.lsp_assertions[1].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[1].occurrence	0
 field	expectations.lsp_assertions[1].operation	"equals"
 field	expectations.lsp_assertions[1].path	"/params/diagnostics/0/code"
+field	expectations.lsp_assertions[20].equals	null
+field	expectations.lsp_assertions[20].id	15
+field	expectations.lsp_assertions[20].operation	"equals"
+field	expectations.lsp_assertions[20].path	"/result"
+field	expectations.lsp_assertions[21].equals	null
+field	expectations.lsp_assertions[21].id	16
+field	expectations.lsp_assertions[21].operation	"equals"
+field	expectations.lsp_assertions[21].path	"/result"
+field	expectations.lsp_assertions[22].equals	null
+field	expectations.lsp_assertions[22].id	18
+field	expectations.lsp_assertions[22].operation	"equals"
+field	expectations.lsp_assertions[22].path	"/result"
+field	expectations.lsp_assertions[23].id	19
+field	expectations.lsp_assertions[23].length	0
+field	expectations.lsp_assertions[23].operation	"length"
+field	expectations.lsp_assertions[23].path	"/result"
+field	expectations.lsp_assertions[24].equals	null
+field	expectations.lsp_assertions[24].id	20
+field	expectations.lsp_assertions[24].operation	"equals"
+field	expectations.lsp_assertions[24].path	"/result"
+field	expectations.lsp_assertions[25].id	21
+field	expectations.lsp_assertions[25].length	0
+field	expectations.lsp_assertions[25].operation	"length"
+field	expectations.lsp_assertions[25].path	"/result"
+field	expectations.lsp_assertions[26].equals	null
+field	expectations.lsp_assertions[26].id	22
+field	expectations.lsp_assertions[26].operation	"equals"
+field	expectations.lsp_assertions[26].path	"/result"
+field	expectations.lsp_assertions[27].id	23
+field	expectations.lsp_assertions[27].length	0
+field	expectations.lsp_assertions[27].operation	"length"
+field	expectations.lsp_assertions[27].path	"/result"
+field	expectations.lsp_assertions[28].equals	null
+field	expectations.lsp_assertions[28].id	24
+field	expectations.lsp_assertions[28].operation	"equals"
+field	expectations.lsp_assertions[28].path	"/result"
+field	expectations.lsp_assertions[29].id	25
+field	expectations.lsp_assertions[29].length	0
+field	expectations.lsp_assertions[29].operation	"length"
+field	expectations.lsp_assertions[29].path	"/result"
 field	expectations.lsp_assertions[2].equals	0
 field	expectations.lsp_assertions[2].id	2
 field	expectations.lsp_assertions[2].operation	"equals"
 field	expectations.lsp_assertions[2].path	"/result/range/start/line"
+field	expectations.lsp_assertions[30].equals	null
+field	expectations.lsp_assertions[30].id	26
+field	expectations.lsp_assertions[30].operation	"equals"
+field	expectations.lsp_assertions[30].path	"/result"
 field	expectations.lsp_assertions[3].equals	3
 field	expectations.lsp_assertions[3].id	2
 field	expectations.lsp_assertions[3].operation	"equals"
@@ -12994,10 +13074,10 @@ field	expectations.lsp_assertions[9].path	"/result/start/character"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1122,"sha256":"c3c94709b37834dd8e803edb8146fe20df2238ec9f3579e3709d388f32603987"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5510,"sha256":"7cfe9fc11a11b965fd2c31394872e7e43077a4b37c3f32750dfd1ec34087b127"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"484261bbec633a8621fbeae562987c4be8777b171f3383a2a38d4fa9f803d5e1"
+case_digest	"7d8e0aa07e884ad6b96dd5e7489e09b34193dde0c9dff41c3a355f06f35b02b9"
 case	"examples/specification/lsp/identifier-casing-rename-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	-32602
@@ -52732,4 +52812,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"cf345ec17fad77a01e7595f655de827cd4a4f99d580a658e9cbdee03bf8f4422"
+aggregate_digest	"5bc0fce70405202592d9c56ff3a482a12fca253741ae1e1faeeb45770a9fa9be"

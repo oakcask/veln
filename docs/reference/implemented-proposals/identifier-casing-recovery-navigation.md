@@ -34,6 +34,15 @@ do not already resolve through an implemented semantic path, and occurrences
 outside the invalid declaration or binding lexical scope do not link to
 recovery.
 
+The `identifier-casing-recovery-navigation` LSP example checks those
+selection and rejection rows through definition, references, and
+prepare-rename where the operation has an observable unsupported-symbol
+result. The `identifier-casing-handler-binding-navigation` LSP example checks
+the same operation set for invalid handler context and operation-clause
+bindings. Focused language-service tests provide binding-form coverage for
+parameters, result bindings, local bindings, pattern bindings, satisfy
+candidate bindings, and handler bindings.
+
 Recovery records remain quarantined. They do not enter normal workspace or
 package symbol indexes, direct-dependency lookup, standard-prelude lookup,
 cross-import visibility, exact-companion privilege, lowering, or backend
