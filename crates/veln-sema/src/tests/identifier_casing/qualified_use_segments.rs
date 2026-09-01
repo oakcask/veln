@@ -1,6 +1,43 @@
 use super::*;
 
 #[test]
+fn classifier_and_pipeline_diagnostics_share_recovered_path_roles() {
+    let main = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use helper\n",
+            "\n",
+            "fn main() -> Int\n",
+            "  Helper::make()\n",
+            "end\n",
+        ),
+    );
+    let helper = SourceFile::new(
+        "helper.veln",
+        concat!("pub fn make() -> Int\n", "  1\n", "end\n"),
+    );
+    let module = merged_modules_with_names([("main", main), ("helper", helper)]);
+
+    let classified = classified_project_qualified_path_segments(&module)
+        .into_iter()
+        .find(|segment| segment.name == "Helper")
+        .expect("mis-cased module segment is classified");
+    let diagnostic = analyze_surface_module(&module)
+        .into_iter()
+        .find(|diagnostic| diagnostic.id == "name.invalid_case")
+        .expect("mis-cased module segment is diagnosed");
+
+    assert_eq!(classified.role.as_str(), "module");
+    assert_eq!(classified.segment_index, 0);
+    assert_eq!(class_detail(&diagnostic), classified.role.as_str());
+    assert_eq!(
+        segment_index_detail(&diagnostic),
+        Some(classified.segment_index)
+    );
+    assert_eq!(diagnostic.span.as_ref(), Some(&classified.span));
+}
+
+#[test]
 fn qualified_use_path_segment_matrix_reports_each_fixed_role() {
     let source = SourceFile::new(
         "main.veln",
