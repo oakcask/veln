@@ -195,3 +195,18 @@ equals = 1
 id = 2
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+id = 3
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 3
+path = "/result/documentChanges"
+missing = true
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+equals = null

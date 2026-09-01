@@ -145,7 +145,9 @@ ambiguities. It also rejects constructor ambiguity through public type-alias
 re-export visibility and handler parameter captures for edited bare function
 calls and function-value references. This proposal still owns MCP rename
 mapping and rename evidence for the remaining casing surfaces until those rows
-are implemented.
+are implemented. LSP source-path-derived module segments are not rename
+targets: prepare-rename returns `null`, and rename returns an empty workspace
+edit without resource operations.
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
@@ -444,8 +446,7 @@ edits, and covers the implemented qualified-use path segment selections named
 above. LSP recovery rename through quarantined source declaration and binding
 recovery records is also current behavior specified by
 [Editor Support](../specification/editor-support.md). The remaining rename
-proposal covers source-path module rename exclusion, MCP error mapping, and
-deferred module surfaces.
+proposal covers MCP error mapping and deferred module surfaces.
 
 Current rename conflict rejection for valid selected workspace symbols is
 specified by [Editor Support](../specification/editor-support.md), including
@@ -457,10 +458,11 @@ parameters. Future MCP rename surfaces must preserve that shared conflict code
 and edit-free failure boundary when they add their transport-specific
 behavior.
 
-Source-path-derived module segments are not rename targets in this proposal.
-Prepare-rename returns no range for them. Rename produces no file operation,
-including a case-only filesystem rename. A future module-rename capability
-must define filesystem and client resource-operation behavior separately.
+Source-path-derived module segments are not LSP rename targets. Current
+behavior is specified by [Editor Support](../specification/editor-support.md)
+and checked by the `identifier-casing-source-path-boundary` example. A future
+module-rename capability must define filesystem and client resource-operation
+behavior separately.
 
 ## Analysis And Artifact Boundary
 

@@ -480,6 +480,35 @@ fn server_publishes_semantic_diagnostics_after_parse_succeeds() {
 }
 
 #[test]
+fn source_path_invalid_case_diagnostic_range_is_not_renameable() {
+    let mut server = Server::default();
+    let project = TempProject::new("source-path-invalid-case-rename-boundary");
+    project.write("App/_net.veln", "pub fn value() -> Int\n  1\nend\n");
+    let root_uri = path_to_uri(&project.root);
+    let source_uri = path_to_uri(&project.root.join("App/_net.veln"));
+
+    let responses = server.handle_message(&initialize_request(&root_uri));
+    let publish = publish_for_uri(&responses, &source_uri);
+    assert!(publish.contains(r#""code":"name.invalid_case""#), "{publish}");
+    assert!(publish.contains(r#""origin":"source_path""#), "{publish}");
+    assert!(publish.contains(r#""segment":"App""#), "{publish}");
+    assert!(
+        publish.contains(
+            r#""range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}}"#
+        ),
+        "{publish}"
+    );
+
+    let prepare = server.handle_message(&prepare_rename_request(&source_uri, 0, 0));
+    assert_single_response(&prepare, r#""result":null"#);
+
+    let rename = server.handle_message(&rename_request(&source_uri, 0, 0, "app"));
+    let response = assert_single_response(&rename, r#""result":{"changes":{}}"#);
+    assert_not_contains_json(response, "documentChanges");
+    assert_not_contains_json(response, "rename");
+}
+
+#[test]
 fn server_clears_diagnostics_for_closed_document() {
     let mut server = Server::default();
     server.handle_message(
