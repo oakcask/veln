@@ -1,5 +1,7 @@
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_ast::{NameClass, QualifiedPathSegment};
@@ -21,6 +23,26 @@ include!("navigation/references.rs");
 include!("navigation/scopes.rs");
 include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
+
+#[cfg(test)]
+thread_local! {
+    static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_function_scope_collection() {
+    FUNCTION_SCOPE_COLLECTIONS.set(FUNCTION_SCOPE_COLLECTIONS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_function_scope_collections() {
+    FUNCTION_SCOPE_COLLECTIONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn function_scope_collections() -> usize {
+    FUNCTION_SCOPE_COLLECTIONS.get()
+}
 
 #[cfg(test)]
 mod tests {

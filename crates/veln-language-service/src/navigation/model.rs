@@ -460,6 +460,13 @@ pub(crate) struct SymbolIndex {
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
+    function_rename_index: OnceLock<FunctionRenameIndex>,
+}
+
+#[derive(Debug)]
+struct FunctionRenameIndex {
+    scopes_by_file: BTreeMap<String, Vec<FunctionScope>>,
+    handler_files: BTreeSet<String>,
 }
 
 #[derive(Debug)]
