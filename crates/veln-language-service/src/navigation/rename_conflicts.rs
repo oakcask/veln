@@ -283,57 +283,57 @@ impl SymbolIndex {
                 file.tokens
                     .iter()
                     .enumerate()
-                    .filter(|(index, token)| {
-                        if token.kind != TokenKind::Ident
-                            || token.text != requested_name
-                            || qualifier_for_token(&file.tokens, *index).is_some()
-                        {
-                            return false;
-                        }
-                        is_bare_function_reference_token(
-                            &file.tokens,
+                    .filter(|(index, _)| {
+                        function_reference_candidate_after_rename(
+                            file,
                             file_scopes,
                             *index,
                             requested_name,
-                        ) || file_has_handler_references && handler_function_reference_is_unshadowed(
-                            file,
-                            &file.tokens,
-                            *index,
-                            requested_name,
+                            file_has_handler_references,
                         )
                     })
                     .find_map(|(token_index, _)| {
-                        if local_binding_shadows_call_target_in_scopes(
+                        self.function_reference_resolution_conflict(
+                            file,
                             file_scopes,
-                            &file.tokens,
                             token_index,
                             requested_name,
-                        ) || file_has_handler_references && handler_binding_shadows_function_reference(
-                            file,
-                            &file.tokens,
-                            token_index,
-                            requested_name,
-                        ) || self.function_local_resolution_unchanged(
-                            file,
                             selected,
-                            requested_name,
-                        ) {
-                            return None;
-                        }
-                        if let Some(conflict) = self.constructor_conflict_for_call(
-                            file,
-                            &file.tokens,
-                            token_index,
-                            requested_name,
-                        ) {
-                            return Some(module_rename_conflict(conflict.declaration, &file.module));
-                        }
-                        let conflict = self
-                            .function_conflict_for_call(file, token_index, requested_name)
-                            .filter(|candidate| !same_function(candidate, selected))?;
-                        Some(module_rename_conflict(conflict.declaration, &file.module))
+                            file_has_handler_references,
+                        )
                     })
             })
+    }
+
+    fn function_reference_resolution_conflict(
+        &self,
+        file: &IndexedFile,
+        file_scopes: &[FunctionScope],
+        token_index: usize,
+        requested_name: &str,
+        selected: &FunctionSymbol,
+        file_has_handler_references: bool,
+    ) -> Option<(NavigationLocation, RenameAffectedScope)> {
+        if function_reference_resolution_unchanged(
+            self,
+            file,
+            file_scopes,
+            token_index,
+            requested_name,
+            selected,
+            file_has_handler_references,
+        ) {
+            return None;
+        }
+        if let Some(conflict) =
+            self.constructor_conflict_for_call(file, &file.tokens, token_index, requested_name)
+        {
+            return Some(module_rename_conflict(conflict.declaration, &file.module));
+        }
+        let conflict = self
+            .function_conflict_for_call(file, token_index, requested_name)
+            .filter(|candidate| !same_function(candidate, selected))?;
+        Some(module_rename_conflict(conflict.declaration, &file.module))
     }
 
     fn function_scope_cache(&self) -> BTreeMap<String, Vec<FunctionScope>> {
@@ -509,6 +509,49 @@ fn handler_function_reference_is_unshadowed(
     handler_function_reference_token(tokens, index, name)
         && !local_binding_shadows_name(tokens, name, offset, 0, file_end)
         && !handler_binding_shadows_function_reference(file, tokens, index, name)
+}
+
+fn function_reference_candidate_after_rename(
+    file: &IndexedFile,
+    file_scopes: &[FunctionScope],
+    index: usize,
+    requested_name: &str,
+    file_has_handler_references: bool,
+) -> bool {
+    let token = &file.tokens[index];
+    if token.kind != TokenKind::Ident
+        || token.text != requested_name
+        || qualifier_for_token(&file.tokens, index).is_some()
+    {
+        return false;
+    }
+    is_bare_function_reference_token(&file.tokens, file_scopes, index, requested_name)
+        || file_has_handler_references
+            && handler_function_reference_is_unshadowed(
+                file,
+                &file.tokens,
+                index,
+                requested_name,
+            )
+}
+
+fn function_reference_resolution_unchanged(
+    index: &SymbolIndex,
+    file: &IndexedFile,
+    file_scopes: &[FunctionScope],
+    token_index: usize,
+    requested_name: &str,
+    selected: &FunctionSymbol,
+    file_has_handler_references: bool,
+) -> bool {
+    local_binding_shadows_call_target_in_scopes(
+        file_scopes,
+        &file.tokens,
+        token_index,
+        requested_name,
+    ) || file_has_handler_references
+        && handler_binding_shadows_function_reference(file, &file.tokens, token_index, requested_name)
+        || index.function_local_resolution_unchanged(file, selected, requested_name)
 }
 
 fn handler_function_reference_token(tokens: &[Token], index: usize, name: &str) -> bool {
