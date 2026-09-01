@@ -58,6 +58,11 @@ path = "/result/start/line"
 equals = 6
 
 [[lsp_assert]]
+id = 5
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-handler-context-binding-edits.json"
+
+[[lsp_assert]]
 id = 6
 path = "/result/range/start/line"
 equals = 7
@@ -71,6 +76,11 @@ length = 2
 id = 8
 path = "/result/start/line"
 equals = 7
+
+[[lsp_assert]]
+id = 9
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals_json_file = "case-text/rename-handler-clause-binding-edits.json"
 
 [[lsp_assert]]
 id = 10

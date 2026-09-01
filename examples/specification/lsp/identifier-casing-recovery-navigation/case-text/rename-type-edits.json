@@ -1,0 +1,23 @@
+[
+  {
+    "range": {
+      "start": { "line": 80, "character": 5 },
+      "end": { "line": 80, "character": 9 }
+    },
+    "newText": "Entry"
+  },
+  {
+    "range": {
+      "start": { "line": 84, "character": 20 },
+      "end": { "line": 84, "character": 24 }
+    },
+    "newText": "Entry"
+  },
+  {
+    "range": {
+      "start": { "line": 84, "character": 29 },
+      "end": { "line": 84, "character": 33 }
+    },
+    "newText": "Entry"
+  }
+]

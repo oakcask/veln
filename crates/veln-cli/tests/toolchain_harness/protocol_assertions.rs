@@ -238,8 +238,10 @@ pub(super) fn evaluate_lsp_assertion_in_workspace(
             .ok_or_else(|| "selected notification was not found".to_string())?
     };
 
+    let pointer_tokens =
+        materialize_workspace_file_uri_pointer_tokens(&assertion.pointer_tokens, project_root)?;
     evaluate_protocol_pointer_result(
-        json_pointer(selected, &assertion.pointer_tokens),
+        json_pointer(selected, &pointer_tokens),
         assertion
             .operation
             .as_ref()
@@ -296,14 +298,34 @@ pub(super) fn evaluate_mcp_assertion(
 ) -> Result<(), String> {
     let id = assertion.id.as_ref().expect("validated MCP id");
     let selected = select_mcp_response(messages, id)?;
+    let pointer_tokens =
+        materialize_workspace_file_uri_pointer_tokens(&assertion.pointer_tokens, project_root)?;
     evaluate_protocol_pointer_result(
-        json_pointer(selected, &assertion.pointer_tokens),
+        json_pointer(selected, &pointer_tokens),
         assertion
             .operation
             .as_ref()
             .expect("validated MCP assertion operation"),
         project_root,
     )
+}
+
+pub(super) const WORKSPACE_FILE_URI_POINTER_TOKEN_PREFIX: &str = "$workspace_file_uri:";
+
+pub(super) fn materialize_workspace_file_uri_pointer_tokens(
+    tokens: &[String],
+    project_root: &Path,
+) -> Result<Vec<String>, String> {
+    tokens
+        .iter()
+        .map(|token| {
+            if let Some(relative) = token.strip_prefix(WORKSPACE_FILE_URI_POINTER_TOKEN_PREFIX) {
+                workspace_file_uri(project_root, relative)
+            } else {
+                Ok(token.clone())
+            }
+        })
+        .collect()
 }
 
 pub(super) fn select_mcp_response<'a>(

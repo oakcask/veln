@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -187,7 +187,11 @@ Each MCP assertion declares `path` as an RFC 6901 JSON Pointer. The empty
 pointer selects the complete response. A nonempty pointer must start with `/`.
 The pointer escape sequences `~0` and `~1` decode to `~` and `/`. A missing
 path can satisfy only `missing = true`; invalid traversal through a scalar or
-noncanonical array index fails.
+noncanonical array index fails. A pointer token that starts with
+`$workspace_file_uri:` is replaced with the canonical `file:` URI for the
+workspace-relative file named after the prefix before selection. This lets a
+decoded assertion select object members keyed by workspace file URI without
+storing the copied workspace path.
 
 Each MCP assertion declares exactly one of `equals`, `equals_file`,
 `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or
@@ -256,7 +260,11 @@ from `veln lsp` stdout. Each section selects exactly one response with `id`, or
 one notification with `method` and an optional zero-based `occurrence` that
 defaults to zero. It then selects a value with an RFC 6901 JSON Pointer in
 `path`, including the empty pointer for the complete message. Pointer syntax is
-validated while the manifest loads.
+validated while the manifest loads. A pointer token that starts with
+`$workspace_file_uri:` is replaced with the canonical `file:` URI for the
+workspace-relative file named after the prefix before selection. This lets a
+decoded assertion select workspace-edit arrays keyed by URI while keeping the
+manifest independent of the copied workspace path.
 
 Each LSP assertion declares exactly one of `equals`, `equals_file`,
 `equals_json_file`, `contains`, `length`, `workspace_file_uri`, or

@@ -12388,14 +12388,22 @@ field	expectations.lsp_assertions[0].equals	true
 field	expectations.lsp_assertions[0].id	1
 field	expectations.lsp_assertions[0].operation	"equals"
 field	expectations.lsp_assertions[0].path	"/result/capabilities/definitionProvider"
-field	expectations.lsp_assertions[10].equals	7
-field	expectations.lsp_assertions[10].id	8
-field	expectations.lsp_assertions[10].operation	"equals"
-field	expectations.lsp_assertions[10].path	"/result/start/line"
-field	expectations.lsp_assertions[11].equals	null
-field	expectations.lsp_assertions[11].id	10
+field	expectations.lsp_assertions[10].id	7
+field	expectations.lsp_assertions[10].length	2
+field	expectations.lsp_assertions[10].operation	"length"
+field	expectations.lsp_assertions[10].path	"/result"
+field	expectations.lsp_assertions[11].equals	7
+field	expectations.lsp_assertions[11].id	8
 field	expectations.lsp_assertions[11].operation	"equals"
-field	expectations.lsp_assertions[11].path	"/result"
+field	expectations.lsp_assertions[11].path	"/result/start/line"
+field	expectations.lsp_assertions[12].equals_json_file	[{"newText":"result","range":{"end":{"character":13,"line":7},"start":{"character":7,"line":7}}},{"newText":"result","range":{"end":{"character":33,"line":7},"start":{"character":27,"line":7}}}]
+field	expectations.lsp_assertions[12].id	9
+field	expectations.lsp_assertions[12].operation	"equals_json_file"
+field	expectations.lsp_assertions[12].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[13].equals	null
+field	expectations.lsp_assertions[13].id	10
+field	expectations.lsp_assertions[13].operation	"equals"
+field	expectations.lsp_assertions[13].path	"/result"
 field	expectations.lsp_assertions[1].equals	true
 field	expectations.lsp_assertions[1].id	1
 field	expectations.lsp_assertions[1].operation	"equals"
@@ -12427,14 +12435,14 @@ field	expectations.lsp_assertions[7].equals	6
 field	expectations.lsp_assertions[7].id	4
 field	expectations.lsp_assertions[7].operation	"equals"
 field	expectations.lsp_assertions[7].path	"/result/start/line"
-field	expectations.lsp_assertions[8].equals	7
-field	expectations.lsp_assertions[8].id	6
-field	expectations.lsp_assertions[8].operation	"equals"
-field	expectations.lsp_assertions[8].path	"/result/range/start/line"
-field	expectations.lsp_assertions[9].id	7
-field	expectations.lsp_assertions[9].length	2
-field	expectations.lsp_assertions[9].operation	"length"
-field	expectations.lsp_assertions[9].path	"/result"
+field	expectations.lsp_assertions[8].equals_json_file	[{"newText":"callback","range":{"end":{"character":23,"line":5},"start":{"character":15,"line":5}}},{"newText":"callback","range":{"end":{"character":27,"line":6},"start":{"character":19,"line":6}}},{"newText":"callback","range":{"end":{"character":26,"line":7},"start":{"character":18,"line":7}}}]
+field	expectations.lsp_assertions[8].id	5
+field	expectations.lsp_assertions[8].operation	"equals_json_file"
+field	expectations.lsp_assertions[8].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[9].equals	7
+field	expectations.lsp_assertions[9].id	6
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/result/range/start/line"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"id\":5,\"result\":{\"changes\":{\"file://"
 field	expectations.stdout.contains[1]	"\"id\":9,\"result\":{\"changes\":{\"file://"
@@ -12445,7 +12453,7 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2010,"sha256":"ae030997984053e92b82cf5cf26bf5aa8084a79994568cb82a136c0236fc58fa"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"cf07c3ea81225b82de26b02ec702e867f43362d47dc1c96912ebc51b4de8aa8e"
+case_digest	"1b9ebf45b723bb6090b4831b8263c79346e33ae46556513790742fb2dca3ad09"
 case	"examples/specification/lsp/identifier-casing-overlay-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	true
@@ -13107,17 +13115,59 @@ field	expectations.lsp_assertions[46].equals	2
 field	expectations.lsp_assertions[46].id	37
 field	expectations.lsp_assertions[46].operation	"equals"
 field	expectations.lsp_assertions[46].path	"/result/start/character"
-field	expectations.lsp_assertions[47].equals	"rename.conflict"
-field	expectations.lsp_assertions[47].id	45
-field	expectations.lsp_assertions[47].operation	"equals"
-field	expectations.lsp_assertions[47].path	"/error/data/code"
-field	expectations.lsp_assertions[48].id	45
-field	expectations.lsp_assertions[48].operation	"missing"
-field	expectations.lsp_assertions[48].path	"/result"
+field	expectations.lsp_assertions[47].equals_json_file	[{"newText":"good","range":{"end":{"character":6,"line":0},"start":{"character":3,"line":0}}},{"newText":"good","range":{"end":{"character":5,"line":1},"start":{"character":2,"line":1}}},{"newText":"good","range":{"end":{"character":5,"line":5},"start":{"character":2,"line":5}}}]
+field	expectations.lsp_assertions[47].id	38
+field	expectations.lsp_assertions[47].operation	"equals_json_file"
+field	expectations.lsp_assertions[47].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[48].equals	"rename.invalid_case"
+field	expectations.lsp_assertions[48].id	39
+field	expectations.lsp_assertions[48].operation	"equals"
+field	expectations.lsp_assertions[48].path	"/error/data/code"
+field	expectations.lsp_assertions[49].id	39
+field	expectations.lsp_assertions[49].operation	"missing"
+field	expectations.lsp_assertions[49].path	"/result"
 field	expectations.lsp_assertions[4].id	3
 field	expectations.lsp_assertions[4].length	3
 field	expectations.lsp_assertions[4].operation	"length"
 field	expectations.lsp_assertions[4].path	"/result"
+field	expectations.lsp_assertions[50].equals	"rename.conflict"
+field	expectations.lsp_assertions[50].id	40
+field	expectations.lsp_assertions[50].operation	"equals"
+field	expectations.lsp_assertions[50].path	"/error/data/code"
+field	expectations.lsp_assertions[51].id	40
+field	expectations.lsp_assertions[51].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[51].path	"/error/data/details/conflicting_declaration/uri"
+field	expectations.lsp_assertions[51].workspace_file_uri	"main.veln"
+field	expectations.lsp_assertions[52].id	40
+field	expectations.lsp_assertions[52].operation	"missing"
+field	expectations.lsp_assertions[52].path	"/result"
+field	expectations.lsp_assertions[53].equals_json_file	[{"newText":"Byte","range":{"end":{"character":6,"line":9},"start":{"character":2,"line":9}}}]
+field	expectations.lsp_assertions[53].id	41
+field	expectations.lsp_assertions[53].operation	"equals_json_file"
+field	expectations.lsp_assertions[53].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[54].equals_json_file	[{"newText":"local","range":{"end":{"character":11,"line":41},"start":{"character":6,"line":41}}},{"newText":"local","range":{"end":{"character":7,"line":42},"start":{"character":2,"line":42}}}]
+field	expectations.lsp_assertions[54].id	42
+field	expectations.lsp_assertions[54].operation	"equals_json_file"
+field	expectations.lsp_assertions[54].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[55].equals_json_file	[{"newText":"callback","range":{"end":{"character":30,"line":75},"start":{"character":22,"line":75}}},{"newText":"callback","range":{"end":{"character":10,"line":76},"start":{"character":2,"line":76}}},{"newText":"callback","range":{"end":{"character":10,"line":77},"start":{"character":2,"line":77}}}]
+field	expectations.lsp_assertions[55].id	43
+field	expectations.lsp_assertions[55].operation	"equals_json_file"
+field	expectations.lsp_assertions[55].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[56].equals_json_file	[{"newText":"Entry","range":{"end":{"character":9,"line":80},"start":{"character":5,"line":80}}},{"newText":"Entry","range":{"end":{"character":24,"line":84},"start":{"character":20,"line":84}}},{"newText":"Entry","range":{"end":{"character":33,"line":84},"start":{"character":29,"line":84}}}]
+field	expectations.lsp_assertions[56].id	44
+field	expectations.lsp_assertions[56].operation	"equals_json_file"
+field	expectations.lsp_assertions[56].path	"/result/changes/$workspace_file_uri:main.veln"
+field	expectations.lsp_assertions[57].equals	"rename.conflict"
+field	expectations.lsp_assertions[57].id	45
+field	expectations.lsp_assertions[57].operation	"equals"
+field	expectations.lsp_assertions[57].path	"/error/data/code"
+field	expectations.lsp_assertions[58].id	45
+field	expectations.lsp_assertions[58].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[58].path	"/error/data/details/conflicting_declaration/uri"
+field	expectations.lsp_assertions[58].workspace_file_uri	"public_right.veln"
+field	expectations.lsp_assertions[59].id	45
+field	expectations.lsp_assertions[59].operation	"missing"
+field	expectations.lsp_assertions[59].path	"/result"
 field	expectations.lsp_assertions[5].equals	0
 field	expectations.lsp_assertions[5].id	3
 field	expectations.lsp_assertions[5].operation	"equals"
@@ -13154,7 +13204,7 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":9691,"sha256":"39f45668fc1ba6b24832044c4fe7a11f78ffc9937f0ab1dd0b2f1c8a14aa52e1"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"4a327d24d5b598c816f5e4f8f99f95ed5d1bc228aff7b048ffcde5141f6ae33f"
+case_digest	"b2f61a71bf85706363e07a5d5e0368255f37b64b20f5d737eba15d79bc6c2e8c"
 case	"examples/specification/lsp/identifier-casing-rename-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	-32602
@@ -52936,4 +52986,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"c008616fd135c47124f5962f3a8fe917591e7b8db1956a383b1936312f70a808"
+aggregate_digest	"cb4e6f8f1dbf4acf5599dc6d286276a3c8c14f766b249420bb3e97c5a7c6bb33"
