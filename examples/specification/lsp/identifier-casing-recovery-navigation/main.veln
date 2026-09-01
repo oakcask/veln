@@ -77,3 +77,11 @@ fn callable_parameter(Callback: fn() -> Int) -> Int
   Callback
   Callback()
 end
+
+type item
+  Made
+end
+
+fn read_item(value: item) -> item
+  value
+end

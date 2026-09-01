@@ -537,7 +537,21 @@ fn selected_snapshot_invalid_casing_publishes_and_excludes_symbol() {
         prepare[0]
     );
     let rename = server.handle_message(&rename_request(&main_uri, 0, 3, "renamed"));
-    assert!(rename[0].contains(r#""changes":{}"#), "{}", rename[0]);
+    assert_eq!(rename[0].matches(r#""newText":"renamed""#).count(), 2);
+    assert!(
+        rename[0].contains(
+            r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":6}}"#
+        ),
+        "{}",
+        rename[0]
+    );
+    assert!(
+        rename[0].contains(
+            r#""range":{"start":{"line":5,"character":2},"end":{"line":5,"character":5}}"#
+        ),
+        "{}",
+        rename[0]
+    );
 }
 
 #[test]

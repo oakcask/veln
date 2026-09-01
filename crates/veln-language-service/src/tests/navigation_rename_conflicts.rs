@@ -79,6 +79,51 @@
     }
 
     #[test]
+    fn recovery_rename_validation_rejects_same_namespace_conflicts() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "type item\n",
+                "  value(input: Int)\n",
+                "  Ready\n",
+                "end\n\n",
+                "type Entry\n",
+                "  Existing\n",
+                "end\n\n",
+                "fn Bad() -> Int\n",
+                "  Bad()\n",
+                "end\n\n",
+                "fn good() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "fn read(Input: Int, other: Int) -> Int\n",
+                "  Input\n",
+                "end\n",
+            ),
+        )]);
+
+        let cases = [
+            (1, 6, "Entry", RenameNameClass::Type, 6, 6),
+            (2, 3, "Ready", RenameNameClass::Constructor, 3, 3),
+            (10, 4, "good", RenameNameClass::Function, 14, 4),
+            (18, 9, "other", RenameNameClass::ValueBinding, 18, 21),
+        ];
+
+        for (line, column, requested, class, conflict_line, conflict_column) in cases {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert!(result.is_recovery);
+            assert_rename_conflict(
+                validate_rename_in_snapshot(&snapshot, &result, requested).unwrap_err(),
+                class,
+                requested,
+                "main.veln",
+                conflict_line,
+                conflict_column,
+            );
+        }
+    }
+
+    #[test]
     fn rename_validation_rejects_type_conflict_with_public_type_alias() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source(

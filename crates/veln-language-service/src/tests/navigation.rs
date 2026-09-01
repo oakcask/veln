@@ -761,6 +761,65 @@
     }
 
     #[test]
+    fn recovery_rename_validation_preserves_case_classes() {
+        let cases = [
+            (
+                "type",
+                "type item\n  Value\nend\n\nfn read(value: item) -> item\n  value\nend\n",
+                5,
+                16,
+                "Entry",
+                "entry",
+                RenameNameClass::Type,
+                RenameRequiredInitial::AsciiUppercase,
+            ),
+            (
+                "constructor",
+                "type Item\n  value(input: Int)\nend\n\nfn read() -> Item\n  value(1)\nend\n",
+                6,
+                4,
+                "Value",
+                "value",
+                RenameNameClass::Constructor,
+                RenameRequiredInitial::AsciiUppercase,
+            ),
+            (
+                "function",
+                "fn Bad() -> Int\n  Bad()\nend\n\nfn read() -> Int\n  Bad()\nend\n",
+                6,
+                4,
+                "good",
+                "Good",
+                RenameNameClass::Function,
+                RenameRequiredInitial::AsciiLowercase,
+            ),
+            (
+                "binding",
+                "fn read(Input: Int) -> Int\n  Input\nend\n",
+                2,
+                4,
+                "input",
+                "Input",
+                RenameNameClass::ValueBinding,
+                RenameRequiredInitial::AsciiLowercase,
+            ),
+        ];
+
+        for (name, text, line, column, valid, invalid, class, required) in cases {
+            let result = query(vec![source("main.veln", text)], "main.veln", line, column)
+                .unwrap_or_else(|| panic!("{name} recovery should be selected"));
+            assert!(result.is_recovery, "{name} selected a valid symbol");
+            assert!(validate_rename(&result, valid).is_ok(), "{name}");
+            assert_rename_invalid_case(
+                validate_rename(&result, invalid).unwrap_err(),
+                class,
+                invalid,
+                required,
+            );
+        }
+    }
+
+    #[test]
     fn type_selection_excludes_same_named_non_type_namespace_tokens() {
         let source_text = concat!(
             "type Item\n",

@@ -160,9 +160,10 @@ Invalid source declarations, function parameters, result bindings, local and
 pattern bindings, satisfy candidate bindings, handler context parameters, and
 handler operation-clause parameters do not enter the normal LSP navigation
 symbol set. Definition, references, and prepare-rename expose only the recovery
-navigation records specified below. Rename requests for a recovery record return
-an empty workspace-edit `changes` object. Invalid casing in an unselected
-package root does not produce a workspace diagnostic for the selected project.
+navigation records specified below. Rename requests for a recovery record use
+the selected recovery record's retained declaration and linked in-scope
+references. Invalid casing in an unselected package root does not produce a
+workspace diagnostic for the selected project.
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
@@ -220,6 +221,18 @@ params with code `-32602`. The error payload preserves the shared
 `rename.conflict` code and includes the selected symbol class, requested name,
 conflicting declaration location, and affected scope. The request returns no
 workspace edits in that failure response.
+
+Recovery rename uses the same identifier-class validation for selected
+recovery declarations and bindings. Type and constructor recovery replacements
+must start with an ASCII uppercase letter. Function and value-binding recovery
+replacements must start with an ASCII lowercase letter. A selected recovery
+rename edits the retained invalid declaration and every linked in-scope
+reference returned by the shared recovery selector. The same conflict failure
+shape applies when a recovery rename would create a predictable same-namespace
+or lexical duplicate. A class failure, conflict failure, unsupported
+selection, ambiguous recovery selection, incompatible role, shadowed
+occurrence, qualified occurrence, local-binding initializer occurrence, or
+out-of-scope occurrence returns no workspace edits.
 
 Lexical conflict prediction rejects same-scope declaration duplicates
 independently of edited references. Lexical shadowing checks preserve an
@@ -292,32 +305,33 @@ The executable `identifier-casing-snapshot-boundary` and
 diagnostics, overlay replacement of saved source text, and unselected nested
 package isolation.
 The executable `identifier-casing-recovery-navigation` LSP example covers
-definition, references, prepare-rename, and rename exclusion for a unique
-class-compatible invalid source declaration or binding recovery record. It
-also checks valid-symbol precedence, ambiguous recovery rejection, incompatible-role
-rejection, shadowed occurrence rejection, qualified occurrence rejection, and
-lexical out-of-scope rejection at the LSP boundary. Focused language-service
-tests cover the same recovery decision table for source declarations,
-function parameters, result bindings, local and pattern bindings, satisfy
-candidate bindings, handler context parameters, and handler operation-clause
-parameters. The LSP example includes a callable parameter call target, and
-focused tests include callable parameter and local-binding call targets.
-Declaration-form cases cover invalid constructor declarations, test
-declarations, public type aliases, and public function aliases. They also
-cover local-binding initializer exclusion before the binding starts. Recovery
-navigation uses the retained invalid declaration or binding range and the
-linked in-scope use ranges. A valid symbol takes precedence over recovery,
-including source-declared bare nullary constructor expression and pattern uses
-that share spelling with an invalid recovery candidate. Multiple compatible
-recovery records return no selected symbol, and incompatible, shadowed,
-qualified, initializer-before-binding, or out-of-scope occurrences do not link
-to the recovery record.
+definition, references, prepare-rename, successful rename edits, edit-free
+invalid-case rename failure, and edit-free conflict rename failure for a
+unique class-compatible invalid source declaration or binding recovery record.
+It also checks valid-symbol precedence, ambiguous recovery rejection,
+incompatible-role rejection, shadowed occurrence rejection, qualified
+occurrence rejection, and lexical out-of-scope rejection at the LSP boundary.
+Focused language-service tests cover the same recovery decision table for
+source declarations, function parameters, result bindings, local and pattern
+bindings, satisfy candidate bindings, handler context parameters, and handler
+operation-clause parameters. The LSP example includes a callable parameter
+call target, and focused tests include callable parameter and local-binding
+call targets. Declaration-form cases cover invalid type declarations,
+constructor declarations, test declarations, public type aliases, and public
+function aliases. They also cover local-binding initializer exclusion before
+the binding starts. Recovery navigation and rename use the retained invalid
+declaration or binding range and the linked in-scope use ranges. A valid symbol
+takes precedence over recovery, including source-declared bare nullary
+constructor expression and pattern uses that share spelling with an invalid
+recovery candidate. Multiple compatible recovery records return no selected
+symbol, and incompatible, shadowed, qualified, initializer-before-binding, or
+out-of-scope occurrences do not link to the recovery record.
 The executable `identifier-casing-source-path-boundary` LSP example covers
 workspace source-path-derived module segment diagnostics at the zero-width
 source-start range.
 The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding recovery
-definition, references, prepare-rename, and rename exclusion for declaration
+definition, references, prepare-rename, and rename edits for declaration
 positions and in-scope uses.
 The executable `identifier-casing-qualified-use-navigation` LSP example covers
 constructor-qualified type segments across definition, references,

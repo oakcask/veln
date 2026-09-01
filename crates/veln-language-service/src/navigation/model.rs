@@ -264,6 +264,7 @@ impl Symbol {
 impl LocalSymbolKind {
     fn symbol_kind(&self) -> SymbolKind {
         match self {
+            Self::ValueBinding => SymbolKind::ValueBinding,
             Self::HandlerContextParameter => SymbolKind::HandlerContextParameter,
             Self::HandlerOperationClauseParameter => SymbolKind::HandlerOperationClauseParameter,
         }
@@ -455,6 +456,7 @@ impl RecoverySymbol {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum LocalSymbolKind {
+    ValueBinding,
     HandlerContextParameter,
     HandlerOperationClauseParameter,
 }

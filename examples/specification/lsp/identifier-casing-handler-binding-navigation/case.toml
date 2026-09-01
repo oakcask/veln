@@ -6,6 +6,14 @@ exit = 0
 [stderr]
 format = "empty"
 
+[stdout]
+contains = [
+  "\"id\":5,\"result\":{\"changes\":{\"file://",
+  "\"id\":9,\"result\":{\"changes\":{\"file://",
+  "\"newText\":\"callback\"",
+  "\"newText\":\"result\"",
+]
+
 [[lsp_assert]]
 id = 1
 path = "/result/capabilities/definitionProvider"
@@ -50,11 +58,6 @@ path = "/result/start/line"
 equals = 6
 
 [[lsp_assert]]
-id = 5
-path = "/result/changes"
-equals = {}
-
-[[lsp_assert]]
 id = 6
 path = "/result/range/start/line"
 equals = 7
@@ -68,11 +71,6 @@ length = 2
 id = 8
 path = "/result/start/line"
 equals = 7
-
-[[lsp_assert]]
-id = 9
-path = "/result/changes"
-equals = {}
 
 [[lsp_assert]]
 id = 10

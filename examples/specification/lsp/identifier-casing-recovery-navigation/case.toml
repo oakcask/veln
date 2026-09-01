@@ -6,6 +6,19 @@ exit = 0
 [stderr]
 format = "empty"
 
+[stdout]
+contains = [
+  "\"id\":5,\"result\":{\"changes\":{\"file://",
+  "\"id\":38,\"result\":{\"changes\":{\"file://",
+  "\"newText\":\"good\"",
+  "\"newText\":\"Byte\"",
+  "\"newText\":\"local\"",
+  "\"newText\":\"callback\"",
+  "\"newText\":\"Entry\"",
+  "\"code\":\"rename.invalid_case\"",
+  "\"code\":\"rename.conflict\"",
+]
+
 [[lsp_assert]]
 id = 1
 path = "/result/capabilities/definitionProvider"
@@ -56,11 +69,6 @@ equals = 5
 id = 4
 path = "/result/start/character"
 equals = 2
-
-[[lsp_assert]]
-id = 5
-path = "/result/changes"
-equals = {}
 
 [[lsp_assert]]
 id = 6
