@@ -52,7 +52,10 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `identifier-casing-qualified-use-paths-json`,
   `identifier-casing-declaration-type-carriers-json`,
   `identifier-casing-qualified-use-recovery-controls-json`,
-  `identifier-casing-qualified-handler-boundaries-json`, and
+  `identifier-casing-qualified-handler-boundaries-json`,
+  `identifier-casing-namespace-role-visibility-json`,
+  `identifier-casing-namespace-role-type-alias-json`,
+  `identifier-casing-namespace-role-controls-json`, and
   `identifier-casing-import-alias-run-boundary-json` define exact spans,
   detail values, diagnostic ordering, and non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less
@@ -143,8 +146,11 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-import-order-json`,
 `identifier-casing-qualified-use-paths-json`,
 `identifier-casing-declaration-type-carriers-json`,
-`identifier-casing-qualified-use-recovery-controls-json`, and
-`identifier-casing-qualified-handler-boundaries-json` cases.
+`identifier-casing-qualified-use-recovery-controls-json`,
+`identifier-casing-qualified-handler-boundaries-json`,
+`identifier-casing-namespace-role-visibility-json`,
+`identifier-casing-namespace-role-type-alias-json`, and
+`identifier-casing-namespace-role-controls-json` cases.
 Source-path-derived module
 identity casing is checked by `identifier-casing-source-path-json` and
 `identifier-casing-exported-source-path-json`; parse-failure coexistence,

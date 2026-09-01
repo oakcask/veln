@@ -58,7 +58,11 @@ The completed namespace-by-use-role boundary for equal-spelled schemas,
 effects, handlers, operations, types, constructors, functions, and bindings is
 specified by [Name Resolution](../specification/name-resolution.md) and
 [Editor Support](../specification/editor-support.md), and checked by the
-`identifier-casing-namespace-roles` examples and focused namespace-role tests.
+`identifier-casing-namespace-roles`,
+`identifier-casing-namespace-role-visibility-json`,
+`identifier-casing-namespace-role-type-alias-json`, and
+`identifier-casing-namespace-role-controls-json` examples and focused
+namespace-role tests.
 Its completion record is
 [Identifier Casing Namespace Roles](../reference/implemented-proposals/identifier-casing-namespace-roles.md).
 Source-less compiler-provided source lookup descriptors are specified by
