@@ -527,29 +527,45 @@ pub(super) fn workspace_file_uri(project_root: &Path, relative: &str) -> Result<
 
 pub(super) fn validate_workspace_relative_file(base: &Path, relative: &str) -> Result<(), String> {
     let path = Path::new(relative);
+    validate_workspace_relative_shape(relative, path)?;
+    validate_workspace_relative_components(base, relative, path)?;
+    Ok(())
+}
+
+fn validate_workspace_relative_shape(relative: &str, path: &Path) -> Result<(), String> {
     if relative.is_empty() || path.is_absolute() || relative.contains('\\') {
         return Err(format!(
             "workspace_file_uri `{relative}` must be a nonempty workspace-relative path"
         ));
     }
-    if relative
-        .split('/')
-        .any(|segment| segment.is_empty() || segment == "." || segment == "..")
-    {
-        return Err(format!(
-            "workspace_file_uri `{relative}` must not contain `.`, `..`, empty, root, or prefix segments"
-        ));
+    if relative.split('/').any(invalid_workspace_segment) {
+        return Err(invalid_workspace_segment_message(relative));
     }
-    for component in path.components() {
-        match component {
-            std::path::Component::Normal(segment) if !segment.is_empty() => {}
-            _ => {
-                return Err(format!(
-                    "workspace_file_uri `{relative}` must not contain `.`, `..`, empty, root, or prefix segments"
-                ));
-            }
-        }
+    if path.components().any(invalid_workspace_component) {
+        return Err(invalid_workspace_segment_message(relative));
     }
+    Ok(())
+}
+
+fn invalid_workspace_segment(segment: &str) -> bool {
+    segment.is_empty() || segment == "." || segment == ".."
+}
+
+fn invalid_workspace_component(component: std::path::Component<'_>) -> bool {
+    !matches!(component, std::path::Component::Normal(segment) if !segment.is_empty())
+}
+
+fn invalid_workspace_segment_message(relative: &str) -> String {
+    format!(
+        "workspace_file_uri `{relative}` must not contain `.`, `..`, empty, root, or prefix segments"
+    )
+}
+
+fn validate_workspace_relative_components(
+    base: &Path,
+    relative: &str,
+    path: &Path,
+) -> Result<(), String> {
     let mut full = base.to_path_buf();
     for component in path.components() {
         full.push(component);
