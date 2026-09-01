@@ -359,8 +359,4 @@ impl<'a> PackageDocBuilder<'a> {
             .map(|module| self.doctests_for(&source.source, module.span.start.line))
             .unwrap_or_default()
     }
-
-    pub(super) fn validate_doctest(&mut self, _doctest: &PackageDocDoctest) {
-        // The shared analysis pipeline validates visible Veln doctests above.
-    }
 }
