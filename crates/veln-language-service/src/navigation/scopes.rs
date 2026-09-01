@@ -173,6 +173,7 @@ fn result_binding_name(tokens: &[Token], start: usize, body_start: usize) -> Opt
 
 fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalBinding> {
     let mut bindings = Vec::new();
+    let flat_body = function_body_has_no_inner_scope_boundary(tokens, body_start, end);
     for (index, token) in tokens.iter().enumerate() {
         if token.range.start < body_start
             || token.range.start >= end
@@ -180,7 +181,11 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
         {
             continue;
         }
-        let binding_end = local_binding_scope_end(tokens, index, end);
+        let binding_end = if flat_body {
+            end
+        } else {
+            local_binding_scope_end(tokens, index, end)
+        };
         let binding_start = let_binding_scope_start(tokens, index);
         bindings.extend(
             let_binding_names(tokens, index)
@@ -197,6 +202,17 @@ fn local_bindings(tokens: &[Token], body_start: usize, end: usize) -> Vec<LocalB
     bindings.extend(match_arm_pattern_binding_names(tokens, body_start, end));
     bindings.extend(satisfy_candidate_binding_names(tokens, body_start, end));
     bindings
+}
+
+fn function_body_has_no_inner_scope_boundary(tokens: &[Token], body_start: usize, end: usize) -> bool {
+    tokens.iter().all(|token| {
+        token.range.start < body_start
+            || token.range.start >= end
+            || !matches!(
+                token.kind,
+                TokenKind::If | TokenKind::Match | TokenKind::Handler | TokenKind::Else | TokenKind::End
+            )
+    })
 }
 
 fn let_binding_scope_start(tokens: &[Token], let_index: usize) -> usize {
