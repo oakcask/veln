@@ -109,6 +109,128 @@
     }
 
     #[test]
+    fn invalid_declaration_recovery_navigation_covers_source_declaration_forms() {
+        struct Case {
+            name: &'static str,
+            text: &'static str,
+            kind: SymbolKind,
+            declaration: (usize, usize),
+            use_position: (usize, usize),
+            references: &'static [(usize, usize)],
+        }
+
+        let cases = [
+            Case {
+                name: "constructor",
+                text: concat!(
+                    "type Item\n",
+                    "  value(input: Int)\n",
+                    "end\n\n",
+                    "fn read() -> Item\n",
+                    "  value(1)\n",
+                    "end\n",
+                ),
+                kind: SymbolKind::Constructor,
+                declaration: (2, 3),
+                use_position: (6, 4),
+                references: &[(6, 3)],
+            },
+            Case {
+                name: "test",
+                text: concat!(
+                    "test Bad() -> Int\n",
+                    "  Bad()\n",
+                    "end\n\n",
+                    "fn read() -> Int\n",
+                    "  Bad()\n",
+                    "end\n",
+                ),
+                kind: SymbolKind::Function,
+                declaration: (1, 6),
+                use_position: (6, 4),
+                references: &[(2, 3), (6, 3)],
+            },
+            Case {
+                name: "public type alias",
+                text: concat!(
+                    "type Item\n",
+                    "  Value\n",
+                    "end\n\n",
+                    "pub type item_alias = Item\n\n",
+                    "fn read(value: item_alias) -> item_alias\n",
+                    "  value\n",
+                    "end\n",
+                ),
+                kind: SymbolKind::Type,
+                declaration: (5, 10),
+                use_position: (7, 20),
+                references: &[(7, 16), (7, 31)],
+            },
+            Case {
+                name: "public function alias",
+                text: concat!(
+                    "fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn BadAlias = target\n\n",
+                    "fn read() -> Int\n",
+                    "  BadAlias()\n",
+                    "end\n",
+                ),
+                kind: SymbolKind::Function,
+                declaration: (5, 8),
+                use_position: (8, 4),
+                references: &[(8, 3)],
+            },
+        ];
+
+        for case in cases {
+            let sources = vec![source("main.veln", case.text)];
+            let from_use = query(
+                sources.clone(),
+                "main.veln",
+                case.use_position.0,
+                case.use_position.1,
+            )
+            .unwrap_or_else(|| panic!("{} use should select recovery", case.name));
+            assert!(from_use.is_recovery, "{} use selected a valid symbol", case.name);
+            assert_eq!(from_use.selected_symbol.kind, case.kind, "{}", case.name);
+            assert_location(
+                &from_use.definition,
+                "main.veln",
+                case.declaration.0,
+                case.declaration.1,
+            );
+            assert_eq!(
+                locations(&from_use.references),
+                case
+                    .references
+                    .iter()
+                    .map(|(line, column)| ("main.veln", *line, *column))
+                    .collect::<Vec<_>>(),
+                "{}",
+                case.name
+            );
+
+            let from_declaration = query(
+                sources,
+                "main.veln",
+                case.declaration.0,
+                case.declaration.1,
+            )
+            .unwrap_or_else(|| panic!("{} declaration should select recovery", case.name));
+            assert!(from_declaration.is_recovery);
+            assert_eq!(from_declaration.selected_symbol.kind, case.kind, "{}", case.name);
+            assert_eq!(from_declaration.selection, from_declaration.definition.span);
+            assert_eq!(
+                from_declaration.references, from_use.references,
+                "{}",
+                case.name
+            );
+        }
+    }
+
+    #[test]
     fn invalid_function_recovery_reference_lookup_prepares_scopes_once() {
         let linked_calls = 800;
         let mut source_text = String::from("fn Bad() -> Int\n");

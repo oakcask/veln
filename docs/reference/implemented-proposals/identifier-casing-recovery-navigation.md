@@ -49,7 +49,9 @@ result, including valid bare nullary constructor precedence. The
 operation set for invalid handler context and operation-clause bindings.
 Focused language-service tests provide binding-form coverage for parameters,
 result bindings, local bindings, local-binding initializer exclusion, pattern
-bindings, satisfy candidate bindings, handler bindings, and valid nullary
+bindings, satisfy candidate bindings, handler bindings, and declaration-form
+coverage for invalid constructor declarations, test declarations, public type
+aliases, and public function aliases. They also cover valid nullary
 constructor precedence over function or binding recovery.
 
 Recovery records remain quarantined. They do not enter normal workspace or

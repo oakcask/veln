@@ -300,14 +300,16 @@ lexical out-of-scope rejection at the LSP boundary. Focused language-service
 tests cover the same recovery decision table for source declarations,
 function parameters, result bindings, local and pattern bindings, satisfy
 candidate bindings, handler context parameters, and handler operation-clause
-parameters. They also cover local-binding initializer exclusion before the
-binding starts. Recovery navigation uses the retained invalid declaration or
-binding range and the linked in-scope use ranges. A valid symbol takes
-precedence over recovery, including source-declared bare nullary constructor
-expression and pattern uses that share spelling with an invalid recovery
-candidate. Multiple compatible recovery records return no selected symbol,
-and incompatible, shadowed, qualified, initializer-before-binding, or
-out-of-scope occurrences do not link to the recovery record.
+parameters. Declaration-form cases cover invalid constructor declarations,
+test declarations, public type aliases, and public function aliases. They also
+cover local-binding initializer exclusion before the binding starts. Recovery
+navigation uses the retained invalid declaration or binding range and the
+linked in-scope use ranges. A valid symbol takes precedence over recovery,
+including source-declared bare nullary constructor expression and pattern uses
+that share spelling with an invalid recovery candidate. Multiple compatible
+recovery records return no selected symbol, and incompatible, shadowed,
+qualified, initializer-before-binding, or out-of-scope occurrences do not link
+to the recovery record.
 The executable `identifier-casing-source-path-boundary` LSP example covers
 workspace source-path-derived module segment diagnostics at the zero-width
 source-start range.
