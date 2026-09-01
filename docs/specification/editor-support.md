@@ -287,8 +287,15 @@ and legal qualified-function identity preservation that do not need separate
 transport-specific fixtures.
 The executable `identifier-casing-snapshot-boundary` and
 `identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
-diagnostics, invalid declaration exclusion from navigation results, overlay
-replacement of saved source text, and unselected nested package isolation.
+diagnostics, overlay replacement of saved source text, and unselected nested
+package isolation.
+The executable `identifier-casing-recovery-navigation` LSP example covers
+definition, references, prepare-rename, and rename exclusion for a unique
+class-compatible invalid source declaration recovery record. Recovery
+navigation uses the retained invalid declaration range and the linked in-scope
+use ranges. A valid symbol takes precedence over recovery, multiple
+compatible recovery records return no selected symbol, and incompatible,
+shadowed, or out-of-scope occurrences do not link to the recovery record.
 The executable `identifier-casing-source-path-boundary` LSP example covers
 workspace source-path-derived module segment diagnostics at the zero-width
 source-start range.

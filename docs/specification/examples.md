@@ -232,7 +232,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - Source identifier casing selected-suite static gates, unselected test peer
   isolation, exact companion recovery isolation, selected documentation-source
   diagnostics, and excluded documentation-source or companion isolation, plus
-  LSP workspace selection, invalid-symbol navigation exclusion,
+  LSP workspace selection, invalid-symbol recovery navigation,
   class-preserving rename validation, and rename conflict rejection:
   `../../examples/specification/test/identifier-casing-selected-static-gate-json/`,
   `../../examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`,
@@ -245,6 +245,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/doc/identifier-casing-excluded-companion/`,
   `../../examples/specification/lsp/identifier-casing-snapshot-boundary/`,
   `../../examples/specification/lsp/identifier-casing-overlay-boundary/`,
+  `../../examples/specification/lsp/identifier-casing-recovery-navigation/`,
   `../../examples/specification/lsp/identifier-casing-source-path-boundary/`,
   `../../examples/specification/lsp/identifier-casing-handler-binding-navigation/`,
   `../../examples/specification/lsp/identifier-casing-qualified-use-navigation/`,

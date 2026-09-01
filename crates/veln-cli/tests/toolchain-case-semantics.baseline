@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"87e384b170a875e930e0ac58a0be71af56e24a12"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1638
+case_count	1639
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -12936,6 +12936,60 @@ field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1345,"s
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
 case_digest	"7f3c074c8907622ff7d95810b8ed32261809d828b722d80413cce5eef3965bb1"
+case	"examples/specification/lsp/identifier-casing-recovery-navigation"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	true
+field	expectations.lsp_assertions[0].id	1
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/capabilities/definitionProvider"
+field	expectations.lsp_assertions[10].equals	{}
+field	expectations.lsp_assertions[10].id	5
+field	expectations.lsp_assertions[10].operation	"equals"
+field	expectations.lsp_assertions[10].path	"/result/changes"
+field	expectations.lsp_assertions[1].equals	"name.invalid_case"
+field	expectations.lsp_assertions[1].method	"textDocument/publishDiagnostics"
+field	expectations.lsp_assertions[1].occurrence	0
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/params/diagnostics/0/code"
+field	expectations.lsp_assertions[2].equals	0
+field	expectations.lsp_assertions[2].id	2
+field	expectations.lsp_assertions[2].operation	"equals"
+field	expectations.lsp_assertions[2].path	"/result/range/start/line"
+field	expectations.lsp_assertions[3].equals	3
+field	expectations.lsp_assertions[3].id	2
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/result/range/start/character"
+field	expectations.lsp_assertions[4].id	3
+field	expectations.lsp_assertions[4].length	3
+field	expectations.lsp_assertions[4].operation	"length"
+field	expectations.lsp_assertions[4].path	"/result"
+field	expectations.lsp_assertions[5].equals	0
+field	expectations.lsp_assertions[5].id	3
+field	expectations.lsp_assertions[5].operation	"equals"
+field	expectations.lsp_assertions[5].path	"/result/0/range/start/line"
+field	expectations.lsp_assertions[6].equals	1
+field	expectations.lsp_assertions[6].id	3
+field	expectations.lsp_assertions[6].operation	"equals"
+field	expectations.lsp_assertions[6].path	"/result/1/range/start/line"
+field	expectations.lsp_assertions[7].equals	5
+field	expectations.lsp_assertions[7].id	3
+field	expectations.lsp_assertions[7].operation	"equals"
+field	expectations.lsp_assertions[7].path	"/result/2/range/start/line"
+field	expectations.lsp_assertions[8].equals	5
+field	expectations.lsp_assertions[8].id	4
+field	expectations.lsp_assertions[8].operation	"equals"
+field	expectations.lsp_assertions[8].path	"/result/start/line"
+field	expectations.lsp_assertions[9].equals	2
+field	expectations.lsp_assertions[9].id	4
+field	expectations.lsp_assertions[9].operation	"equals"
+field	expectations.lsp_assertions[9].path	"/result/start/character"
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1122,"sha256":"c3c94709b37834dd8e803edb8146fe20df2238ec9f3579e3709d388f32603987"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"expected"
+case_digest	"484261bbec633a8621fbeae562987c4be8777b171f3383a2a38d4fa9f803d5e1"
 case	"examples/specification/lsp/identifier-casing-rename-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	-32602
@@ -52646,4 +52700,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"8d3eea3a91639949910498b7092c31682c2b73744cc24f0469fb73cec2989f37"
+aggregate_digest	"ec24c189e48fbc250de41ccd754100ce657618df3889171b2cb9621f7711708b"

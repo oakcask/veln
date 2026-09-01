@@ -185,6 +185,41 @@ impl SymbolIndex {
         }
     }
 
+    fn recovery_references(&self, symbol: &RecoverySymbol) -> Vec<SourceSpan> {
+        let Some(file) = self
+            .files
+            .iter()
+            .find(|file| file.source.path().as_str() == symbol.source_file)
+        else {
+            return Vec::new();
+        };
+        file.tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                token.kind == TokenKind::Ident
+                    && token.text == symbol.name
+                    && !same_span(&file.source.span(token.range), &symbol.declaration)
+                    && self
+                        .symbol_for_selection(
+                            file,
+                            &file.tokens,
+                            *index,
+                            &token.text,
+                            &file.source.span(token.range),
+                        )
+                        .is_some_and(|selected| {
+                            matches!(
+                                selected.symbol,
+                                Symbol::Recovery(ref candidate)
+                                    if same_recovery_symbol(candidate, symbol)
+                            )
+                        })
+            })
+            .map(|(_, token)| file.source.span(token.range))
+            .collect()
+    }
+
     fn constructor_conflict_for_call(
         &self,
         file: &IndexedFile,
@@ -271,4 +306,10 @@ impl SymbolIndex {
         }
         qualifiers
     }
+}
+
+fn same_recovery_symbol(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {
+    left.kind == right.kind
+        && left.source_file == right.source_file
+        && same_span(&left.declaration, &right.declaration)
 }

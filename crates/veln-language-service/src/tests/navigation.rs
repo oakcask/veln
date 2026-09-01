@@ -59,6 +59,154 @@
     }
 
     #[test]
+    fn invalid_function_recovery_navigation_links_declaration_and_in_scope_uses() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "fn Bad() -> Int\n",
+                    "  Bad()\n",
+                    "end\n\n",
+                    "fn caller() -> Int\n",
+                    "  Bad()\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            6,
+            4,
+        )
+        .unwrap();
+
+        assert!(result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&result.definition, "main.veln", 1, 4);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 2, 3), ("main.veln", 6, 3)]
+        );
+
+        let declaration = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "fn Bad() -> Int\n",
+                    "  Bad()\n",
+                    "end\n\n",
+                    "fn caller() -> Int\n",
+                    "  Bad()\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            1,
+            4,
+        )
+        .unwrap();
+        assert!(declaration.is_recovery);
+        assert_eq!(declaration.selection, declaration.definition.span);
+        assert_eq!(declaration.references, result.references);
+    }
+
+    #[test]
+    fn invalid_recovery_navigation_keeps_valid_symbol_precedence() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Item\n",
+                    "  byte(value: Int)\n",
+                    "end\n\n",
+                    "fn byte() -> Int\n",
+                    "  2\n",
+                    "end\n\n",
+                    "fn caller(Bad: fn() -> Int) -> Int\n",
+                    "  byte()\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            10,
+            4,
+        )
+        .unwrap();
+
+        assert!(!result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&result.definition, "main.veln", 5, 4);
+    }
+
+    #[test]
+    fn multiple_invalid_recovery_records_are_not_selected() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "fn Bad() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "fn Bad() -> Int\n",
+                    "  2\n",
+                    "end\n\n",
+                    "fn caller() -> Int\n",
+                    "  Bad()\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            10,
+            4,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn invalid_local_binding_recovery_stays_in_lexical_scope() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "fn main(input: Int) -> Int\n",
+                    "  let Bad = input\n",
+                    "  Bad\n",
+                    "end\n\n",
+                    "fn other() -> Int\n",
+                    "  Bad\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            3,
+            4,
+        )
+        .unwrap();
+
+        assert!(result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 2, 7);
+        assert_eq!(locations(&result.references), [("main.veln", 3, 3)]);
+        assert!(query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "fn main(input: Int) -> Int\n",
+                    "  let Bad = input\n",
+                    "  Bad\n",
+                    "end\n\n",
+                    "fn other() -> Int\n",
+                    "  Bad\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            7,
+            4,
+        )
+        .is_none());
+    }
+
+    #[test]
     fn rename_validation_preserves_function_case_class() {
         let result = query(
             vec![source(

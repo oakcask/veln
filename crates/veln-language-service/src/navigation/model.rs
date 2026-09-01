@@ -6,11 +6,12 @@ pub struct SourcePosition {
     pub column: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
     Type,
     Function,
     Constructor,
+    ValueBinding,
     HandlerContextParameter,
     HandlerOperationClauseParameter,
 }
@@ -21,7 +22,9 @@ impl SymbolKind {
             Self::Type => RenameNameClass::Type,
             Self::Constructor => RenameNameClass::Constructor,
             Self::Function => RenameNameClass::Function,
-            Self::HandlerContextParameter | Self::HandlerOperationClauseParameter => {
+            Self::ValueBinding
+            | Self::HandlerContextParameter
+            | Self::HandlerOperationClauseParameter => {
                 RenameNameClass::ValueBinding
             }
         }
@@ -136,6 +139,7 @@ pub struct NavigationResult {
     pub classified_path_segment: Option<QualifiedPathSegment>,
     pub definition: NavigationLocation,
     pub references: Vec<SourceSpan>,
+    pub is_recovery: bool,
 }
 
 pub fn validate_rename(
@@ -199,6 +203,7 @@ pub fn navigate(
         classified_path_segment: request.classified_path_segment,
         definition,
         references,
+        is_recovery: request.symbol.is_recovery(),
     })
 }
 
@@ -209,6 +214,7 @@ impl Symbol {
             Self::Function(symbol) => symbol.declaration.clone(),
             Self::Constructor(symbol) => symbol.declaration.clone(),
             Self::Local(symbol) => workspace_location(symbol.declaration.clone()),
+            Self::Recovery(symbol) => workspace_location(symbol.declaration.clone()),
         }
     }
 
@@ -226,6 +232,7 @@ impl Symbol {
             Self::Function(_) => SymbolKind::Function,
             Self::Constructor(_) => SymbolKind::Constructor,
             Self::Local(symbol) => symbol.kind.symbol_kind(),
+            Self::Recovery(symbol) => symbol.kind,
         }
     }
 
@@ -235,6 +242,7 @@ impl Symbol {
             Self::Function(symbol) => &symbol.name,
             Self::Constructor(symbol) => &symbol.name,
             Self::Local(symbol) => &symbol.name,
+            Self::Recovery(symbol) => &symbol.name,
         }
     }
 
@@ -244,7 +252,12 @@ impl Symbol {
             Self::Function(symbol) => index.function_references(symbol),
             Self::Constructor(symbol) => index.constructor_references(symbol),
             Self::Local(symbol) => index.local_references(symbol, false),
+            Self::Recovery(symbol) => index.recovery_references(symbol),
         }
+    }
+
+    fn is_recovery(&self) -> bool {
+        matches!(self, Self::Recovery(_))
     }
 }
 
@@ -340,6 +353,7 @@ fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
         Symbol::Type(_) => Some(NameClass::Type),
         Symbol::Function(_) => Some(NameClass::Function),
         Symbol::Constructor(_) => Some(NameClass::Constructor),
+        Symbol::Recovery(symbol) => symbol.name_class(),
         Symbol::Local(_) => None,
     }
 }
@@ -401,6 +415,7 @@ enum Symbol {
     Function(FunctionSymbol),
     Constructor(ConstructorSymbol),
     Local(LocalSymbol),
+    Recovery(RecoverySymbol),
 }
 
 #[derive(Clone, Debug)]
@@ -411,6 +426,31 @@ struct LocalSymbol {
     scope_start: usize,
     scope_end: usize,
     kind: LocalSymbolKind,
+}
+
+#[derive(Clone, Debug)]
+struct RecoverySymbol {
+    name: String,
+    declaration: SourceSpan,
+    source_file: String,
+    scope_start: usize,
+    scope_end: usize,
+    kind: SymbolKind,
+}
+
+impl RecoverySymbol {
+    fn name_class(&self) -> Option<NameClass> {
+        match self.kind {
+            SymbolKind::Type => Some(NameClass::Type),
+            SymbolKind::Function => Some(NameClass::Function),
+            SymbolKind::Constructor => Some(NameClass::Constructor),
+            SymbolKind::ValueBinding
+            | SymbolKind::HandlerContextParameter
+            | SymbolKind::HandlerOperationClauseParameter => {
+                Some(NameClass::ValueBinding)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -430,6 +470,7 @@ struct IndexedFile {
     import_aliases: BTreeMap<String, String>,
     external_import_aliases: BTreeMap<String, (String, String)>,
     invalid_declaration_names: Vec<SourceSpan>,
+    recovery_symbols: Vec<RecoverySymbol>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     origin: IndexedOrigin,
 }

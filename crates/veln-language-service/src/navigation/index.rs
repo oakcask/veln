@@ -192,7 +192,11 @@ impl SymbolIndex {
             return Some(SelectedNavigationSymbol::bare(Symbol::Constructor(symbol)));
         }
 
-        self.non_declaration_symbol_for_selection(file, tokens, token_index, name, selection)
+        self.recovery_declared_at(file, name, selection)
+            .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Recovery(symbol)))
+            .or_else(|| {
+                self.non_declaration_symbol_for_selection(file, tokens, token_index, name, selection)
+            })
     }
 
     fn non_declaration_symbol_for_selection(
@@ -205,9 +209,18 @@ impl SymbolIndex {
     ) -> Option<SelectedNavigationSymbol> {
         if let Some(segment) =
             self.classified_qualified_segment(file, tokens, token_index, name, selection)
-            && let Some(selected) = segment.into_selected_symbol()
         {
-            return Some(selected);
+            if let Some(selected) = segment.clone().into_selected_symbol() {
+                return Some(selected);
+            }
+            if let Some(symbol) =
+                self.unique_recovery_for_role(file, tokens, token_index, name, segment.segment.role)
+            {
+                return Some(SelectedNavigationSymbol {
+                    symbol: Symbol::Recovery(symbol),
+                    classified_path_segment: Some(segment.segment),
+                });
+            }
         }
 
         if is_qualified_path_token(tokens, token_index)
@@ -217,15 +230,27 @@ impl SymbolIndex {
         }
 
         if !is_call_target_token(tokens, token_index) {
-            return self.type_reference_selection(file, tokens, token_index, name, selection);
+            return self.type_reference_selection(file, tokens, token_index, name, selection)
+                .or_else(|| {
+                    self.recovery_type_reference_selection(file, tokens, token_index, name, selection)
+                })
+                .or_else(|| {
+                    self.recovery_value_binding_selection(file, tokens, token_index, name)
+                });
         }
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
             return self
                 .symbol_for_bare_call(file, tokens, token_index, name)
-                .map(SelectedNavigationSymbol::bare);
+                .map(SelectedNavigationSymbol::bare)
+                .or_else(|| {
+                    self.recovery_bare_call_selection(file, tokens, token_index, name)
+                });
         };
         self.symbol_for_qualified_call(file, &qualifier, name)
             .map(SelectedNavigationSymbol::bare)
+            .or_else(|| {
+                self.recovery_qualified_call_selection(file, tokens, token_index, name)
+            })
     }
 
     fn type_reference_selection(
@@ -241,6 +266,75 @@ impl SymbolIndex {
             .flatten()
             .map(Symbol::Type)
             .map(SelectedNavigationSymbol::bare)
+    }
+
+    fn recovery_type_reference_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<SelectedNavigationSymbol> {
+        is_type_reference_token_named(&file.source, name, selection)
+            .then(|| self.unique_recovery_for_role(file, tokens, token_index, name, NameClass::Type))
+            .flatten()
+            .map(Symbol::Recovery)
+            .map(SelectedNavigationSymbol::bare)
+    }
+
+    fn recovery_bare_call_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<SelectedNavigationSymbol> {
+        self.unique_recovery_for_roles(
+            file,
+            tokens,
+            token_index,
+            name,
+            &[NameClass::Constructor, NameClass::Function, NameClass::ValueBinding],
+        )
+        .map(Symbol::Recovery)
+        .map(SelectedNavigationSymbol::bare)
+    }
+
+    fn recovery_value_binding_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<SelectedNavigationSymbol> {
+        if is_field_name(tokens, token_index)
+            || is_local_binding_name(tokens, token_index)
+            || is_parameter_name(tokens, token_index)
+        {
+            return None;
+        }
+        self.unique_recovery_for_role(file, tokens, token_index, name, NameClass::ValueBinding)
+            .map(Symbol::Recovery)
+            .map(SelectedNavigationSymbol::bare)
+    }
+
+    fn recovery_qualified_call_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<SelectedNavigationSymbol> {
+        self.unique_recovery_for_roles(
+            file,
+            tokens,
+            token_index,
+            name,
+            &[NameClass::Constructor, NameClass::Function, NameClass::ValueBinding],
+        )
+        .map(Symbol::Recovery)
+        .map(SelectedNavigationSymbol::bare)
     }
 
     fn classified_qualified_segment(
@@ -322,6 +416,60 @@ impl SymbolIndex {
             .cloned()
     }
 
+    fn recovery_declared_at(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<RecoverySymbol> {
+        let mut candidates = file.recovery_symbols.iter().filter(|symbol| {
+            symbol.name == name
+                && symbol.declaration.file == selection.file
+                && symbol.declaration.start.offset == selection.start.offset
+                && symbol.declaration.end.offset == selection.end.offset
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn unique_recovery_for_role(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        role: NameClass,
+    ) -> Option<RecoverySymbol> {
+        self.unique_recovery_for_roles(file, tokens, token_index, name, &[role])
+    }
+
+    fn unique_recovery_for_roles(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        roles: &[NameClass],
+    ) -> Option<RecoverySymbol> {
+        let offset = tokens[token_index].range.start;
+        let mut candidates = file.recovery_symbols.iter().filter(|symbol| {
+            symbol.name == name
+                && symbol.source_file == file.source.path().as_str()
+                && offset >= symbol.scope_start
+                && offset < symbol.scope_end
+                && symbol.name_class().is_some_and(|class| {
+                    roles
+                        .iter()
+                        .any(|role| recovery_roles_compatible(class, *role))
+                })
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+}
+
+fn recovery_roles_compatible(record: NameClass, role: NameClass) -> bool {
+    record == role || (record == NameClass::Function && role == NameClass::ValueBinding)
 }
 
 fn resolve_qualified_alias(aliases: &BTreeMap<String, String>, qualifier: &str) -> Option<String> {
