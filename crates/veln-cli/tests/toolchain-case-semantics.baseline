@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"0b4769b18a6e84e64bfdc83505b04c17cfd5e3ac"
+source_git_tree	"3e0c7ccbd4ee82e73b5bf14fa13298b13f000896"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1639
@@ -13043,6 +13043,34 @@ field	expectations.lsp_assertions[30].equals	null
 field	expectations.lsp_assertions[30].id	26
 field	expectations.lsp_assertions[30].operation	"equals"
 field	expectations.lsp_assertions[30].path	"/result"
+field	expectations.lsp_assertions[31].equals	null
+field	expectations.lsp_assertions[31].id	27
+field	expectations.lsp_assertions[31].operation	"equals"
+field	expectations.lsp_assertions[31].path	"/result"
+field	expectations.lsp_assertions[32].id	28
+field	expectations.lsp_assertions[32].length	0
+field	expectations.lsp_assertions[32].operation	"length"
+field	expectations.lsp_assertions[32].path	"/result"
+field	expectations.lsp_assertions[33].equals	null
+field	expectations.lsp_assertions[33].id	29
+field	expectations.lsp_assertions[33].operation	"equals"
+field	expectations.lsp_assertions[33].path	"/result"
+field	expectations.lsp_assertions[34].equals	null
+field	expectations.lsp_assertions[34].id	30
+field	expectations.lsp_assertions[34].operation	"equals"
+field	expectations.lsp_assertions[34].path	"/result"
+field	expectations.lsp_assertions[35].equals	null
+field	expectations.lsp_assertions[35].id	31
+field	expectations.lsp_assertions[35].operation	"equals"
+field	expectations.lsp_assertions[35].path	"/result"
+field	expectations.lsp_assertions[36].id	32
+field	expectations.lsp_assertions[36].length	0
+field	expectations.lsp_assertions[36].operation	"length"
+field	expectations.lsp_assertions[36].path	"/result"
+field	expectations.lsp_assertions[37].equals	null
+field	expectations.lsp_assertions[37].id	33
+field	expectations.lsp_assertions[37].operation	"equals"
+field	expectations.lsp_assertions[37].path	"/result"
 field	expectations.lsp_assertions[3].equals	3
 field	expectations.lsp_assertions[3].id	2
 field	expectations.lsp_assertions[3].operation	"equals"
@@ -13074,10 +13102,10 @@ field	expectations.lsp_assertions[9].path	"/result/start/character"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5510,"sha256":"7cfe9fc11a11b965fd2c31394872e7e43077a4b37c3f32750dfd1ec34087b127"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":7041,"sha256":"ae59eaa16db92eb2ac89722eb187c6024309877c38c1b2585cb4d336bfbefc5c"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"7d8e0aa07e884ad6b96dd5e7489e09b34193dde0c9dff41c3a355f06f35b02b9"
+case_digest	"9ac741adab636e779a8f7f4130cbf864f423bddd1dd8a8bc6afe7165bd6865e8"
 case	"examples/specification/lsp/identifier-casing-rename-boundary"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].equals	-32602
@@ -52812,4 +52840,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"5bc0fce70405202592d9c56ff3a482a12fca253741ae1e1faeeb45770a9fa9be"
+aggregate_digest	"067f2e8b7bbb79cbd953b0de5b5edf348d4450a0324b18097d0af074e0be0d51"
