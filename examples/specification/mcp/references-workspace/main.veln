@@ -1,0 +1,27 @@
+fn helper(value: Int) -> Int
+  helper(value - 1)
+end
+
+fn main() -> Int
+  helper(1)
+end
+
+type Left
+  Thing
+end
+
+type Right
+  Thing
+end
+
+fn make() -> Left
+  Thing()
+end
+
+test Bad() -> Int
+  Bad()
+end
+
+fn read() -> Int
+  Bad()
+end

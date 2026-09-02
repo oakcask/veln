@@ -1,4 +1,5 @@
 use super::*;
+use crate::check_project::capture::NavigationScope;
 use veln_diagnostics::Diagnostic;
 use veln_project::parse_manifest_text;
 use veln_source::SourceFile;
@@ -194,6 +195,10 @@ fn captured_navigation_source(
     CapturedNavigationSource {
         project,
         source: source.to_string(),
+        scope: NavigationScope::SingleFile {
+            project: ".".to_string(),
+            source: source.to_string(),
+        },
         key,
     }
 }

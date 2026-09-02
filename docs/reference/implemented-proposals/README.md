@@ -116,6 +116,8 @@ under `../../specification/` and its executable example routes.
   [agent-module-package-docs.md](agent-module-package-docs.md).
 - Agent language services slice closure:
   [agent-language-services-slice-closure.md](agent-language-services-slice-closure.md).
+- MCP saved workspace function references:
+  [mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:

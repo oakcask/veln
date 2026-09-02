@@ -41,7 +41,9 @@ examples.
 | Definition capture uses the shared stable navigation capture boundary. | `definition::definition` calls `capture_navigation_source`, which routes through `capture_stable_navigation_source_with` |
 | A changed definition capture publishes `snapshot_changed` without partial success content. | `definition_rejects_paths_and_changed_workspace_identity` |
 
-## Remaining Boundary
+## Later Boundary
 
-Saved workspace references remain outside this completed slice. A later target
-can select that work only after the proposal catalog moves it into Ready.
+Saved workspace references were completed by
+[mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
+This record now remains only as the preceding harness and capture evidence for
+that later slice.

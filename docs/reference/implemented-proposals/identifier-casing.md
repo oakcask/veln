@@ -22,7 +22,7 @@ Current behavior is specified by:
 - [Types](../../specification/types.md) for constructor forms and patterns;
 - [Editor Support](../../specification/editor-support.md) for navigation and
   LSP rename behavior; and
-- [MCP Workspace Projects, Diagnostics, And Definitions](../../specification/mcp.md)
+- [MCP Workspace Projects And Navigation](../../specification/mcp.md)
   for the implemented MCP definition boundary.
 
 The focused identifier-casing records listed in this directory preserve the

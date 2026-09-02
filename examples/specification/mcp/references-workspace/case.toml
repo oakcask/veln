@@ -1,0 +1,138 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"description\":\"Return references for a supported function in one saved workspace source\"",
+  "\"name\":\"references\",\"outputSchema\"",
+  "\"required\":[\"source\",\"line\",\"column\"]",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":3},"end":{"line":2,"column":9}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":6,"column":3},"end":{"line":6,"column":9}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 3
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":3},"end":{"line":2,"column":9}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":6,"column":3},"end":{"line":6,"column":9}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":3},"end":{"line":2,"column":9}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":6,"column":3},"end":{"line":6,"column":9}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/scope/project_wide"
+equals = true
+
+[[mcp_assert]]
+id = 6
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/code"
+equals = "invalid_position"
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references"
+missing = true
+
+[[mcp_assert]]
+id = 7
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 8
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 8
+path = "/error/message"
+equals = "Tool input does not match its schema"
+
+[[mcp_assert]]
+id = 8
+path = "/result"
+missing = true
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/scope/project_wide"
+equals = true
+
+[[mcp_assert]]
+id = 9
+path = "/result/isError"
+equals = false

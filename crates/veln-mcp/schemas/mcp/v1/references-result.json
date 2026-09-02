@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["line", "column"]
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      },
+      "required": ["start", "end"]
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uri": { "type": "string" },
+        "range": { "$ref": "#/$defs/range" }
+      },
+      "required": ["uri", "range"]
+    },
+    "projectScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "const": "project" },
+        "generation": { "type": "integer", "minimum": 0 },
+        "project": { "type": "string" },
+        "project_wide": { "const": true }
+      },
+      "required": ["mode", "generation", "project", "project_wide"]
+    },
+    "singleFileScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "const": "single_file" },
+        "generation": { "type": "integer", "minimum": 0 },
+        "project": { "type": "string" },
+        "source": { "type": "string" },
+        "project_wide": { "const": false }
+      },
+      "required": ["mode", "generation", "project", "source", "project_wide"]
+    },
+    "scope": {
+      "oneOf": [
+        { "$ref": "#/$defs/projectScope" },
+        { "$ref": "#/$defs/singleFileScope" }
+      ]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "enum": ["invalid_path", "invalid_position", "snapshot_changed"] },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      },
+      "required": ["code", "message", "details"]
+    }
+  },
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/location" }
+        },
+        "scope": { "$ref": "#/$defs/scope" }
+      },
+      "required": ["references", "scope"]
+    },
+    { "$ref": "#/$defs/failure" }
+  ]
+}
