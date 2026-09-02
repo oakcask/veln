@@ -80,6 +80,9 @@ explicit import-alias syntax, test dependency selection, partial artifact
 analysis, or MCP rename mapping. Recovery navigation and source declaration or
 binding recovery rename are completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
+Language-service navigation isolation for sources with invalid
+source-path-derived module identities is completed separately in
+[Identifier Casing Source Path Navigation Isolation](identifier-casing-source-path-navigation-isolation.md).
 LSP rename conflict rejection for valid selected workspace symbols is
 completed separately in
 [Identifier Casing Rename Conflicts](identifier-casing-rename-conflicts.md).
