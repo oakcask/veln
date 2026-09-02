@@ -58,6 +58,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-module-headers.md](identifier-casing-module-headers.md).
 - Identifier casing source path artifact gates:
   [identifier-casing-source-path-artifact-gates.md](identifier-casing-source-path-artifact-gates.md).
+- Identifier casing repair candidate isolation:
+  [identifier-casing-repair-candidate-isolation.md](identifier-casing-repair-candidate-isolation.md).
 - Identifier casing recovery navigation and rename:
   [identifier-casing-recovery-navigation.md](identifier-casing-recovery-navigation.md).
 - Identifier casing rename conflicts:

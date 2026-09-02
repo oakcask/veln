@@ -18,9 +18,6 @@ also states it.
 
 ## Ready
 
-- Isolate repair candidates from invalid source-path-derived module identities
-  while retaining candidates from valid sibling sources:
-  [identifier-casing-repair-candidate-isolation.md](identifier-casing-repair-candidate-isolation.md).
 - Expose the existing saved workspace function-reference result through MCP:
   [mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
 

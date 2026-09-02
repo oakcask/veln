@@ -23,6 +23,10 @@ repair, candidate edits, applying edits, or the repair command.
   unapplied advisory candidate after rerunning check analysis. One selected
   candidate may contain multiple replacement edits and may touch more than one
   source file.
+- Current-analysis repair candidates are excluded before command-local
+  `repair-N` ids are assigned when any candidate edit targets a source whose
+  package-relative path has a source-path-derived `name.invalid_case`
+  diagnostic. Candidates from valid sibling sources remain eligible.
 - `veln repair --apply --override --confirm CANDIDATE_ID` can apply one
   explicitly confirmed manual-review candidate while recording the override.
   The override path does not skip target-shape, stale-span, overlap,
@@ -82,6 +86,8 @@ repair, candidate edits, applying edits, or the repair command.
   gates, verification, and rollback: [repair-application.md](repair-application.md).
 - Implemented command availability: [commands.md](commands.md).
 - `repair --json` output: [repair-json.md](repair-json.md).
+- Checked source-path casing isolation cases are routed from
+  `examples/specification/repair/README.md`.
 - Rationale for keeping advisory candidates separate from edit application:
   [source-decisions.md](source-decisions.md).
 

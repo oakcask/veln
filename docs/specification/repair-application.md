@@ -20,6 +20,9 @@ candidate fields, ranking, or advisory `check --json` behavior.
 - Saved repair JSON input is not write authorization. Without override, every
   non-empty saved replacement edit must match current safe evidence with the
   same `source_candidate_id`, application policy, and application status.
+- A current or saved candidate whose replacement edit targets a source with a
+  source-path-derived `name.invalid_case` diagnostic cannot obtain the current
+  safe match required for ordinary application.
 - Explicit empty `satisfy` suffix removals are validated against the current
   source text.
 - Partial application of a candidate's replacement set is not implemented.

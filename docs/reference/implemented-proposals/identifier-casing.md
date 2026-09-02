@@ -32,10 +32,10 @@ implementation history and executable-evidence routes.
 
 The original umbrella proposal mixed completed language behavior with three
 independent follow-up surfaces. It is no longer an implementation target.
-The remaining work is routed by separate proposal pages:
+The remaining or completed follow-up surfaces are routed by separate pages:
 
-- [Repair Candidate Isolation](../../proposals/identifier-casing-repair-candidate-isolation.md)
-  covers an existing tolerant consumer and has no missing feature dependency.
+- [Repair Candidate Isolation](identifier-casing-repair-candidate-isolation.md)
+  records the completed repair tolerant-consumer boundary.
 - [Explicit Import Alias Casing](../../proposals/identifier-casing-explicit-import-aliases.md)
   depends on an explicit import-alias syntax and lookup contract.
 - [MCP Rename Casing Mapping](../../proposals/identifier-casing-mcp-rename.md)

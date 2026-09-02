@@ -37,6 +37,16 @@ input behavior.
   shared check analysis reports a checked-core blocker.
 - `discovery-parse-gate/`: repair follows the shared discovery and parse-clean
   analysis gate.
+- `source-path-casing-mixed-preview/`: repair keeps valid sibling candidates
+  and excludes candidates from invalid source-path-derived module identities.
+- `source-path-casing-invalid-preview/`: repair returns no candidates when the
+  only candidate target is an invalid source-path-derived module identity.
+- `source-path-casing-current-apply-refusal/`: current apply refuses before
+  writing when source-path casing isolation leaves no safe candidate.
+- `source-path-casing-saved-apply-refusal/`: saved input does not authorize a
+  write to an invalid source-path-derived module identity.
+- `source-path-casing-valid-preview/`: the valid sibling candidate remains
+  stable when previewed without the invalid sibling.
 - `partial-verification-allows-hints/`: hint-only partial verification status
   does not roll back an applied edit.
 
