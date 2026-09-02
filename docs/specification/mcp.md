@@ -1,23 +1,24 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics or definitions, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, tool schemas, or executable MCP cases change.
 ---
 
-# MCP Workspace Projects, Diagnostics, And Definitions
+# MCP Workspace Projects And Navigation
 
 `veln mcp` runs a Model Context Protocol (MCP) server over standard input and
 standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
 The current MCP surface contains `workspace_projects`, `refresh_workspace`,
-`check_project`, and `definition`. The checked declarations under
+`check_project`, `definition`, and `references`. The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define the advertised input and result
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
 invalid-params error. The `definition` input requires one source plus positive
-JSON integer line and column coordinates.
+JSON integer line and column coordinates. The `references` input uses the same
+coordinate contract.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -116,16 +117,16 @@ including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
 
-## Saved Workspace Definitions
+## Saved Workspace Navigation
 
-`definition` reads one saved workspace-relative regular `.veln` source and a
-one-based line and Unicode-scalar column. The line and column are positive JSON
-integer values; decimal and exponent spellings that denote an integer address
-the same source position as the equivalent plain integer. If the source is in a
-selected manifest project's captured owned-source set, the tool resolves
-symbols over that project. Any other accepted source uses anonymous single-file
-scope. A source below an unselected descendant manifest is therefore not
-analyzed with the outer project.
+`definition` and `references` read one saved workspace-relative regular
+`.veln` source and a one-based line and Unicode-scalar column. The line and
+column are positive JSON integer values; decimal and exponent spellings that
+denote an integer address the same source position as the equivalent plain
+integer. If the source is in a selected manifest project's captured
+owned-source set, the tool resolves symbols over that project. Any other
+accepted source uses anonymous single-file scope. A source below an unselected
+descendant manifest is therefore not analyzed with the outer project.
 
 The implemented symbol set is the shared language-service definition selection
 set for captured saved workspace sources, including functions, type
@@ -133,11 +134,21 @@ constructors, handler context parameters, handler operation clause parameters,
 exact test-companion access to target-private functions, and unique
 class-compatible invalid source declaration or binding recovery records. MCP
 only exposes the recovery record source range through `definition`;
-references, prepare-rename, rename edits, dependencies, and the standard
-library do not produce definition locations through this MCP slice.
+prepare-rename, rename edits, dependencies, and the standard library do not
+produce definition locations through this MCP slice.
 A supported workspace declaration returns one canonical `file:` URI based on
 the resolved workspace-base identity and a half-open range. A valid position
 without a supported symbol succeeds with `definition: null`.
+
+`references` exposes only the shared language-service workspace function
+reference result. It does not expose type, constructor, local binding, recovery,
+package, dependency, standard-library, or virtual reference locations. A
+selected workspace function returns sorted canonical `file:` locations for the
+function's project-owned reference sites and scope metadata. A valid position
+without a supported workspace function succeeds with an empty `references`
+array. Selected manifest sources report project scope metadata with
+`project_wide: true`. Sources outside the selected project-owned source set
+report single-file scope metadata with `project_wide: false`.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -146,14 +157,16 @@ an empty file accepts only `(1, 1)`. A token's end is excluded from its
 selection. A positive integer line or column that does not address one of these
 source positions, including a value larger than the implementation's native
 coordinate range, returns `invalid_position`.
-Definition capture uses the same no-follow path checks, selected-root and
+Definition and references capture use the same no-follow path checks,
+selected-root and
 workspace-base identity checks, stable double capture, bounded retry, and
 `snapshot_changed` failure as saved project diagnostics. When definition
 lookup falls back from a selected outer project to anonymous single-file scope
 for a source below a descendant manifest, the ownership decision and the
 anonymous source bytes belong to the same stable capture attempt.
 `snapshot_changed` definition failures publish no success-only `definition`
-member.
+member. `snapshot_changed` references failures publish no success-only
+`references` locations.
 
 ## Executable Evidence
 
@@ -180,6 +193,10 @@ reviewability evidence and do not add a distinct MCP response field contract.
 Response-local string containment checks in that case are harness evidence
 over selected JSON strings and do not add a distinct MCP response field
 contract.
+The `references-workspace` MCP specification case checks the advertised
+`references` declaration plus declaration-position lookup, recursive calls,
+ordinary calls, unsupported constructor success, invalid positions, and
+schema-invalid coordinates over stdio.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
@@ -201,6 +218,11 @@ coordinates, extreme positive and negative exponent coordinates, and
 non-integer numeric coordinate schema rejection. They also check MCP
 definition conversion for unique invalid-name recovery records and unsupported
 ambiguous recovery selection.
+`veln-mcp` tests check references schema rejection, selected-project
+inference, single-file isolation outside selected projects, deterministic
+canonical locations, unsupported-symbol success, invalid positions, path
+failures, stable-capture failure without partial reference locations, and
+accepted success and domain-failure result schemas.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

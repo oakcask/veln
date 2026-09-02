@@ -13,37 +13,34 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 
 ## Implementation Status
 
-The workspace-project inventory, saved project diagnostics, and bounded
-workspace-definition slices are
+The workspace-project inventory, saved project diagnostics, bounded
+workspace-definition, and saved workspace function-reference slices are
 implemented and specified in
-[MCP Workspace Projects, Diagnostics, And Definitions](../specification/mcp.md). `veln mcp`
-currently exposes `workspace_projects`, `refresh_workspace`, and
-`check_project`, plus workspace-only `definition` for the language service's
-current saved-source definition selection set, including ordinary supported
-workspace symbols and recovery definition locations for unique
-class-compatible invalid source declaration or binding records. Broader
-definition and reference navigation, documentation resources and search,
-pagination, snapshot resource lifetime, conformance completion, and client
-plugin work in this proposal remain planned.
+[MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
+currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
+workspace-only `definition` for the language service's current saved-source
+definition selection set, and workspace function `references`. Broader
+definition navigation, dependency and paginated reference navigation,
+documentation resources and search, snapshot resource lifetime, conformance
+completion, and client plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
-- definition lookup beyond the implemented workspace symbol set, and
-  reference lookup;
+- definition lookup beyond the implemented workspace symbol set, plus
+  dependency and paginated reference lookup;
 - language-reference search and retrieval;
 - exported package and standard-library documentation;
 - virtual source locations for dependencies and the standard library; and
 - plugin packaging for Codex and Claude Code.
 
-### Extracted Ready Slice
+### Completed Extracted Slices
 
 The implemented identifier-casing and slice-closure prerequisites are recorded
 by [Identifier Casing](../reference/implemented-proposals/identifier-casing.md)
 and
 [Agent Language Services Slice Closure](../reference/implemented-proposals/agent-language-services-slice-closure.md).
-The saved workspace function-reference adapter is now a separate selectable
-proposal:
-[MCP Saved Workspace Function References](mcp-saved-workspace-function-references.md).
+The saved workspace function-reference adapter is recorded by
+[MCP Saved Workspace Function References](../reference/implemented-proposals/mcp-saved-workspace-function-references.md).
 
 This umbrella remains planning input for later navigation, documentation,
 virtual-source, conformance, and plugin work. Extract one finite proposal page
@@ -1048,10 +1045,10 @@ does not implement dependency reference search or MCP resources.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
-access to private target functions. Dependency and standard-library locations,
-the proposal's additional symbol kinds, and all MCP references remain planned.
-The bounded saved-workspace function-reference slice is defined by
-[MCP Saved Workspace Function References](mcp-saved-workspace-function-references.md).
+access to private target functions. The saved-workspace function-reference
+slice returns project-owned function reference locations through MCP.
+Dependency and standard-library locations, the proposal's additional symbol
+kinds, and broader reference search remain planned.
 The subsequent slices are:
 
 1. Define and validate language-reference topic descriptors. Generate the

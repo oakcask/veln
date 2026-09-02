@@ -18,8 +18,7 @@ also states it.
 
 ## Ready
 
-- Expose the existing saved workspace function-reference result through MCP:
-  [mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
+No proposal is currently ready.
 
 Each entry selects one complete proposal page. A subsection of another page is
 not a selectable target.
@@ -33,8 +32,8 @@ not a selectable target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its saved
-  workspace function-reference slice is routed by a separate Ready proposal;
-  extract another finite proposal page before selecting later work:
+  workspace function-reference slice is implemented; extract another finite
+  proposal page before selecting later work:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

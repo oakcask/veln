@@ -13,16 +13,43 @@ pub(crate) fn capture_navigation_source(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
-) -> Result<(CapturedProject, String), CheckProjectOutcome> {
+) -> Result<(CapturedProject, String, NavigationScope), CheckProjectOutcome> {
     let source = validate_source_path(base, source)?;
     stable_navigation_capture_or_failure(base, selection, &source)
-        .map(|captured| (captured.project, captured.source))
+        .map(|captured| (captured.project, captured.source, captured.scope))
 }
 
 pub(super) struct CapturedNavigationSource {
     pub(super) project: CapturedProject,
     pub(super) source: String,
+    pub(super) scope: NavigationScope,
     pub(super) key: Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum NavigationScope {
+    Project { project: String },
+    SingleFile { project: String, source: String },
+}
+
+impl NavigationScope {
+    pub(crate) fn metadata(&self, generation: u64) -> Value {
+        match self {
+            Self::Project { project } => json!({
+                "mode": "project",
+                "generation": generation,
+                "project": project,
+                "project_wide": true
+            }),
+            Self::SingleFile { project, source } => json!({
+                "mode": "single_file",
+                "generation": generation,
+                "project": project,
+                "source": source,
+                "project_wide": false
+            }),
+        }
+    }
 }
 
 fn stable_navigation_capture_or_failure(
@@ -85,6 +112,9 @@ fn capture_navigation_source_once(
                 }),
                 project: captured,
                 source: relative.to_string(),
+                scope: NavigationScope::Project {
+                    project: root.to_string(),
+                },
             });
         }
         inspected_project = Some(json!({
@@ -115,6 +145,10 @@ fn capture_navigation_source_once(
         }),
         project: captured,
         source: source.to_string(),
+        scope: NavigationScope::SingleFile {
+            project: ".".to_string(),
+            source: source.to_string(),
+        },
     })
 }
 

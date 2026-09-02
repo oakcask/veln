@@ -6,6 +6,7 @@ mod check_project;
 mod definition;
 mod lifecycle;
 mod protocol;
+mod references;
 
 fn parse_responses(output: Vec<u8>) -> Vec<Value> {
     String::from_utf8(output)
