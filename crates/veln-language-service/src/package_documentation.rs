@@ -3,7 +3,10 @@ use std::error::Error;
 use std::fmt;
 
 use sha2::{Digest, Sha256};
-use veln_analysis::{DoctestMode, analyze_project, derive_source_module_path};
+use veln_analysis::{
+    DoctestMode, analyze_project, derive_export_source_module_path, derive_source_module_path,
+    is_source_path_invalid_case_diagnostic,
+};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, Severity, write_json_string};
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, Project, ProjectManifest, classify_companion_source,

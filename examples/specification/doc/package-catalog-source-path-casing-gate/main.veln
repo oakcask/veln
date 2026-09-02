@@ -1,0 +1,3 @@
+pub fn visible() -> Int
+	2
+end

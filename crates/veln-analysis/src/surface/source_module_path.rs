@@ -13,6 +13,18 @@ pub fn derive(source: &SourceFile) -> Result<String, Box<Diagnostic>> {
     })
 }
 
+pub fn derive_export(source: &SourceFile) -> Result<String, Vec<Diagnostic>> {
+    derive_visible_with_source_kind(source, "export").and_then(|module| {
+        module.ok_or_else(|| {
+            vec![*invalid_source_path(
+                source,
+                source.path().as_str(),
+                "exported source has no source-visible module origin",
+            )]
+        })
+    })
+}
+
 pub(crate) fn derive_with_diagnostics(source: &SourceFile) -> Result<String, Vec<Diagnostic>> {
     derive_visible_with_diagnostics(source).and_then(|module| {
         module.ok_or_else(|| {
@@ -65,7 +77,7 @@ pub fn invalid_case_rejected_visible_module_path(source: &SourceFile) -> Option<
         .flatten()
 }
 
-fn is_source_path_invalid_case_diagnostic(diagnostic: &Diagnostic) -> bool {
+pub fn is_source_path_invalid_case_diagnostic(diagnostic: &Diagnostic) -> bool {
     diagnostic.id == "name.invalid_case"
         && json_string_field(&diagnostic.details, "origin") == Some("source_path")
 }
