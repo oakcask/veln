@@ -76,6 +76,28 @@ fn run_entry_does_not_reach_invalid_type_from_local_value_spelling() {
 }
 
 #[test]
+fn run_entry_match_binding_shadows_invalid_constructor_recovery() {
+    let module = lower(concat!(
+        "fn main(input: Int) -> Int\n",
+        "  match input\n",
+        "    item => item\n",
+        "  end\n",
+        "end\n",
+        "type Item\n",
+        "  item\n",
+        "end\n",
+    ));
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+    assert!(
+        reachable.invalid_names.is_empty(),
+        "{:#?}",
+        reachable.invalid_names
+    );
+}
+
+#[test]
 fn run_entry_does_not_reach_invalid_type_from_record_field_spelling() {
     let module = lower(concat!(
         "fn main() -> {item: Int}\n",
