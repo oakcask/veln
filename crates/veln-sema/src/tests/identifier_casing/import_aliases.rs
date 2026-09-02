@@ -15,9 +15,9 @@ fn invalid_implicit_import_alias_suppresses_only_quarantine_cascade() {
     );
     let http_source = SourceFile::new(
         "http.veln",
-        concat!("mod HTTP\n", "pub fn entry() -> Int\n", "  1\n", "end\n"),
+        concat!("mod http\n", "pub fn entry() -> Int\n", "  1\n", "end\n"),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(
@@ -52,13 +52,13 @@ fn invalid_implicit_import_alias_suppresses_public_effect_quarantine_cascade() {
     let http_source = SourceFile::new(
         "http.veln",
         concat!(
-            "mod HTTP\n",
+            "mod http\n",
             "pub effect Audit\n",
             "  record() -> ()\n",
             "end\n",
         ),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(
@@ -107,7 +107,7 @@ fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_effect
     let http_source = SourceFile::new(
         "http.veln",
         concat!(
-            "mod HTTP\n",
+            "mod http\n",
             "effect Audit\n",
             "  record() -> ()\n",
             "end\n",
@@ -116,7 +116,7 @@ fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_effect
             "end\n",
         ),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(
@@ -155,7 +155,7 @@ fn invalid_implicit_import_alias_suppresses_public_handler_quarantine_cascade() 
     let http_source = SourceFile::new(
         "http.veln",
         concat!(
-            "mod HTTP\n",
+            "mod http\n",
             "pub effect Audit\n",
             "  record() -> Int\n",
             "end\n",
@@ -164,7 +164,7 @@ fn invalid_implicit_import_alias_suppresses_public_handler_quarantine_cascade() 
             "end\n",
         ),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(
@@ -212,7 +212,7 @@ fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_handle
     let http_source = SourceFile::new(
         "http.veln",
         concat!(
-            "mod HTTP\n",
+            "mod http\n",
             "pub effect Audit\n",
             "  record() -> Int\n",
             "end\n",
@@ -221,7 +221,7 @@ fn invalid_implicit_import_alias_preserves_missing_private_and_wrong_kind_handle
             "end\n",
         ),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(
@@ -255,9 +255,9 @@ fn invalid_implicit_import_alias_preserves_private_call_target() {
     );
     let http_source = SourceFile::new(
         "http.veln",
-        concat!("mod HTTP\n", "fn entry() -> Int\n", "  1\n", "end\n"),
+        concat!("mod http\n", "fn entry() -> Int\n", "  1\n", "end\n"),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(
@@ -290,13 +290,13 @@ fn invalid_implicit_import_alias_suppresses_constructor_quarantine_cascade() {
     let http_source = SourceFile::new(
         "http.veln",
         concat!(
-            "mod HTTP\n",
+            "mod http\n",
             "pub type Payload\n",
             "  pub Data(Int)\n",
             "end\n",
         ),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     assert_eq!(module.uses[0].alias, "HTTP");
     assert_eq!(module.uses[0].module_name.as_deref(), Some("app"));
     assert_eq!(module.types[0].module_name.as_deref(), Some("HTTP"));
@@ -348,13 +348,13 @@ fn invalid_implicit_import_alias_does_not_infer_private_signature_type() {
     let http_source = SourceFile::new(
         "http.veln",
         concat!(
-            "mod HTTP\n",
+            "mod http\n",
             "pub type Payload\n",
             "  pub Data(Int)\n",
             "end\n",
         ),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert!(
@@ -392,9 +392,9 @@ fn invalid_implicit_import_alias_preserves_private_schema_composition() {
     );
     let http_source = SourceFile::new(
         "http.veln",
-        concat!("mod HTTP\n", "schema Wire\n", "  payload: Int\n", "end\n"),
+        concat!("mod http\n", "schema Wire\n", "  payload: Int\n", "end\n"),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert!(
@@ -473,13 +473,13 @@ fn invalid_implicit_import_alias_preserves_missing_type_export() {
     let http_source = SourceFile::new(
         "http.veln",
         concat!(
-            "mod HTTP\n",
+            "mod http\n",
             "pub type Other\n",
             "  pub Data(Int)\n",
             "end\n",
         ),
     );
-    let module = merged_modules(vec![app_source, http_source]);
+    let module = merged_app_and_http_modules(app_source, http_source);
     let diagnostics = analyze_surface_module(&module);
 
     assert_eq!(
@@ -502,6 +502,67 @@ fn invalid_implicit_import_alias_preserves_missing_type_export() {
         ),
         0
     );
+}
+
+fn merged_app_and_http_modules(app_source: SourceFile, http_source: SourceFile) -> SurfaceModule {
+    let app_module = lower_surface_ast(&parse(&app_source).tree);
+    let mut http_module = lower_surface_ast(&parse(&http_source).tree);
+    assign_module_name(&mut http_module, "HTTP");
+    merge_surface_modules(vec![app_module, http_module])
+}
+
+fn assign_module_name(module: &mut SurfaceModule, name: &str) {
+    for use_decl in &mut module.uses {
+        use_decl.module_name = Some(name.to_string());
+    }
+    for alias in &mut module.aliases {
+        alias.module_name = Some(name.to_string());
+    }
+    for effect in &mut module.effects {
+        effect.module_name = Some(name.to_string());
+    }
+    for handler in &mut module.handlers {
+        handler.module_name = Some(name.to_string());
+    }
+    for schema in &mut module.schemas {
+        schema.module_name = Some(name.to_string());
+    }
+    for codec in &mut module.codecs {
+        codec.module_name = Some(name.to_string());
+    }
+    for type_decl in &mut module.types {
+        type_decl.module_name = Some(name.to_string());
+    }
+    for function in &mut module.functions {
+        function.module_name = Some(name.to_string());
+    }
+}
+
+fn merge_surface_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        types: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for module in modules {
+        merged.uses.extend(module.uses);
+        merged.aliases.extend(module.aliases);
+        merged.effects.extend(module.effects);
+        merged.handlers.extend(module.handlers);
+        merged.schemas.extend(module.schemas);
+        merged.codecs.extend(module.codecs);
+        merged.types.extend(module.types);
+        merged.functions.extend(module.functions);
+        merged.invalid_names.extend(module.invalid_names);
+    }
+    merged
 }
 
 #[test]
