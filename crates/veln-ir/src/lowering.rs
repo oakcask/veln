@@ -107,7 +107,19 @@ fn lower_expr_kind(expr: &CoreExpr) -> Result<IrExprKind, IrLowerError> {
     if let Some(kind) = lower_scalar_expr(expr) {
         return Ok(kind);
     }
-    if let Some(kind) = lower_wrapped_expr(expr)? {
+    if let Some(kind) = lower_wrapper_expr(expr)? {
+        return Ok(kind);
+    }
+    if let Some(kind) = lower_constructor_expr(expr)? {
+        return Ok(kind);
+    }
+    if let Some(kind) = lower_invocation_expr(expr)? {
+        return Ok(kind);
+    }
+    if let Some(kind) = lower_effect_expr(expr)? {
+        return Ok(kind);
+    }
+    if let Some(kind) = lower_access_expr(expr)? {
         return Ok(kind);
     }
     if let Some(kind) = lower_collection_expr(expr)? {
@@ -143,13 +155,20 @@ fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
     }
 }
 
-fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+fn lower_wrapper_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
     match &expr.kind {
         CoreExprKind::ResultOk(value) => lower_unary_expr(value, IrExprKind::ResultOk).map(Some),
         CoreExprKind::ResultErr(value) => lower_unary_expr(value, IrExprKind::ResultErr).map(Some),
         CoreExprKind::OptionSome(value) => {
             lower_unary_expr(value, IrExprKind::OptionSome).map(Some)
         }
+        CoreExprKind::Try(value) => lower_unary_expr(value, IrExprKind::Try).map(Some),
+        _ => Ok(None),
+    }
+}
+
+fn lower_constructor_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+    match &expr.kind {
         CoreExprKind::ListCons { head, tail } => Ok(Some(IrExprKind::ListCons {
             head: Box::new(lower_expr(head)?),
             tail: Box::new(lower_expr(tail)?),
@@ -158,9 +177,21 @@ fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerErro
             name: name.clone(),
             payloads: lower_exprs(payloads)?,
         })),
+        _ => Ok(None),
+    }
+}
+
+fn lower_invocation_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+    match &expr.kind {
         CoreExprKind::Call { target, args } => {
             lower_call_expr(expr.node_id, target, args).map(Some)
         }
+        _ => Ok(None),
+    }
+}
+
+fn lower_effect_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+    match &expr.kind {
         CoreExprKind::Perform {
             effect,
             operation,
@@ -187,11 +218,16 @@ fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerErro
             context_args: lower_exprs(context_args)?,
             body: Box::new(lower_expr(body)?),
         })),
+        _ => Ok(None),
+    }
+}
+
+fn lower_access_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+    match &expr.kind {
         CoreExprKind::FieldAccess { base, field } => Ok(Some(IrExprKind::FieldAccess {
             base: Box::new(lower_expr(base)?),
             field: field.clone(),
         })),
-        CoreExprKind::Try(value) => lower_unary_expr(value, IrExprKind::Try).map(Some),
         _ => Ok(None),
     }
 }
