@@ -121,3 +121,18 @@ equals = "Tool input does not match its schema"
 id = 8
 path = "/result"
 missing = true
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/scope/project_wide"
+equals = true
+
+[[mcp_assert]]
+id = 9
+path = "/result/isError"
+equals = false

@@ -17,3 +17,11 @@ end
 fn make() -> Left
   Thing()
 end
+
+test Bad() -> Int
+  Bad()
+end
+
+fn read() -> Int
+  Bad()
+end

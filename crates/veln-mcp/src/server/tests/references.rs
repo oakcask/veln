@@ -96,6 +96,28 @@ fn references_use_single_file_scope_for_sources_outside_selected_projects() {
 }
 
 #[test]
+fn references_do_not_expose_function_shaped_recovery_records() {
+    let workspace = TempWorkspace::new("references-recovery-boundary");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "test Bad() -> Int\n",
+            "  Bad()\n",
+            "end\n\n",
+            "fn read() -> Int\n",
+            "  Bad()\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "main.veln", 6, 4);
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(result["structuredContent"]["scope"]["project_wide"], true);
+}
+
+#[test]
 fn references_report_invalid_positions_and_schema_coordinate_failures() {
     let workspace = TempWorkspace::new("references-invalid-position");
     workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");

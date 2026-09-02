@@ -195,8 +195,8 @@ over selected JSON strings and do not add a distinct MCP response field
 contract.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
-ordinary calls, unsupported constructor success, invalid positions, and
-schema-invalid coordinates over stdio.
+ordinary calls, unsupported constructor success, function-shaped recovery
+exclusion, invalid positions, and schema-invalid coordinates over stdio.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
@@ -220,9 +220,10 @@ definition conversion for unique invalid-name recovery records and unsupported
 ambiguous recovery selection.
 `veln-mcp` tests check references schema rejection, selected-project
 inference, single-file isolation outside selected projects, deterministic
-canonical locations, unsupported-symbol success, invalid positions, path
-failures, stable-capture failure without partial reference locations, and
-accepted success and domain-failure result schemas.
+canonical locations, unsupported-symbol success, function-shaped recovery
+exclusion, invalid positions, path failures, stable-capture failure without
+partial reference locations, and accepted success and domain-failure result
+schemas.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"85757a1955a378e980ef74687b52bc1f42d12ae5"
+source_git_tree	"5e77c02c28c92beab328011c80e8a59f6508eeed"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1658
@@ -14986,6 +14986,18 @@ field	expectations.mcp_assertions[20].path	"/error/message"
 field	expectations.mcp_assertions[21].id	8
 field	expectations.mcp_assertions[21].operation	"missing"
 field	expectations.mcp_assertions[21].path	"/result"
+field	expectations.mcp_assertions[22].equals	[]
+field	expectations.mcp_assertions[22].id	9
+field	expectations.mcp_assertions[22].operation	"equals"
+field	expectations.mcp_assertions[22].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[23].equals	true
+field	expectations.mcp_assertions[23].id	9
+field	expectations.mcp_assertions[23].operation	"equals"
+field	expectations.mcp_assertions[23].path	"/result/structuredContent/scope/project_wide"
+field	expectations.mcp_assertions[24].equals	false
+field	expectations.mcp_assertions[24].id	9
+field	expectations.mcp_assertions[24].operation	"equals"
+field	expectations.mcp_assertions[24].path	"/result/isError"
 field	expectations.mcp_assertions[2].equals	{"end":{"column":9,"line":2},"start":{"column":3,"line":2}}
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -15024,9 +15036,9 @@ field	expectations.stdout.contains[1]	"\"name\":\"references\",\"outputSchema\""
 field	expectations.stdout.contains[2]	"\"required\":[\"source\",\"line\",\"column\"]"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1026,"sha256":"f7c2a4bdcca3c7771c41bc8c05a22d907f9f132d3e1e007c3535620d98aa4576"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1160,"sha256":"7c9e0c766a952cd5d7e7fc041ee264e2076ea8692525cadcf70468c65357395f"}
 field	source_errors	"forbidden"
-case_digest	"4db11bea633c96ff3235310f8cec80908e3dd4915572322f4012a3c72bbba1b3"
+case_digest	"2714afe046dee36bd3851473866aa6fefa49e7035eea5c13658a3c6945477e4d"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -53992,4 +54004,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"b404679350b00c96f9b4726d0b9b025c189f69631c580bafed1fb68c696a3ade"
+aggregate_digest	"fe51ae33a5f51178675d51cee842378552283404743d95aa6b65f2ef20607070"

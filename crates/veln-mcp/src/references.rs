@@ -61,6 +61,7 @@ pub(crate) fn references(
     )
     .filter(|result| {
         result.selected_symbol.kind == SymbolKind::Function
+            && !result.is_recovery
             && matches!(result.definition.source, NavigationSource::Workspace)
     })
     .map(|result| {
