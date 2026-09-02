@@ -1029,7 +1029,7 @@ that the behavior is already implemented.
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
 | Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
 | Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
-| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities fail generation. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure and invalid-export unit tests; planned MCP resource case. |
+| Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities, including source-path casing failures, fail generation package-atomically. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure, invalid-export, and source-path casing gate unit tests; planned MCP resource case. |
 
 ### Published Language Reference
 
@@ -1076,8 +1076,9 @@ doctest static gate, including same-package public API references, nested
 expression declarations, public member aliases, shared expected-output
 pending-state boundaries, hidden setup exclusion, integration-test source
 exclusion for embedded snapshots, test source export rejection,
-original-source remapping for generated doctest static diagnostics, and
-parse-only negative doctest matching, are implemented and specified in
+original-source remapping for generated doctest static diagnostics,
+source-path casing package-atomic failure, and parse-only negative doctest
+matching, are implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Direct path, vendor, mirror, and locally available direct git dependency
 definition locations, embedded standard-library definition locations, the LSP

@@ -451,3 +451,90 @@ fn invalid_source_module_export_fails_manifest_gate_without_partial_catalog() {
     assert_eq!(snapshot.sources()[0].path(), "bad-name.veln");
     assert_eq!(snapshot.sources()[0].bytes(), source_text.as_bytes());
 }
+
+#[test]
+fn source_path_casing_export_failure_is_package_atomic() {
+    let result = generate_fixture("package-catalog-source-path-casing-gate");
+
+    assert!(result.catalog().is_none());
+    assert!(matches!(
+        result.kind(),
+        PackageDocResultKind::Status(PackageDocGenerationStatus {
+            state: PackageDocGeneration::Failed,
+            ..
+        })
+    ));
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].gate, "manifest");
+    assert_eq!(diagnostics[0].code, "name.invalid_case");
+    assert_eq!(
+        diagnostics[0].message,
+        "module name `Api` must start with an ASCII lowercase letter"
+    );
+    assert_eq!(
+        diagnostics[0]
+            .span
+            .as_ref()
+            .map(|span| span.source_uri.as_str()),
+        Some(
+            source_uri(
+                "package-catalog-source-path-casing-gate",
+                result.snapshot_digest(),
+                "Api.veln"
+            )
+            .as_str()
+        )
+    );
+    assert_eq!(
+        result.declaration_uri_for("main", "function", "visible"),
+        None
+    );
+    assert_eq!(
+        result.declaration_uri_for("Api", "function", "leaked"),
+        None
+    );
+    let bytes = std::str::from_utf8(result.canonical_bytes()).unwrap();
+    assert!(bytes.contains("\"state\":\"failed\""));
+    assert!(!bytes.contains("\"modules\""));
+    assert!(!bytes.contains("\"exported_modules\""));
+    assert!(!bytes.contains("visible"));
+    assert!(!bytes.contains("leaked"));
+    assert!(!bytes.contains("package_doc.invalid_export"));
+}
+
+#[test]
+fn missing_source_path_casing_export_still_fails_export_gate_without_partial_catalog() {
+    let result = generate_fixture("package-catalog-missing-source-path-casing-gate");
+
+    assert!(result.catalog().is_none());
+    assert!(matches!(
+        result.kind(),
+        PackageDocResultKind::Status(PackageDocGenerationStatus {
+            state: PackageDocGeneration::Failed,
+            ..
+        })
+    ));
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].gate, "export");
+    assert_eq!(diagnostics[0].code, "package_doc.missing_export");
+    assert_eq!(
+        diagnostics[0].message,
+        "documentation export `Api.veln` is not in the package snapshot"
+    );
+    assert_eq!(
+        result.declaration_uri_for("main", "function", "visible"),
+        None
+    );
+    assert_eq!(
+        result.declaration_uri_for("Api", "function", "leaked"),
+        None
+    );
+    let bytes = std::str::from_utf8(result.canonical_bytes()).unwrap();
+    assert!(bytes.contains("\"state\":\"failed\""));
+    assert!(!bytes.contains("\"modules\""));
+    assert!(!bytes.contains("\"exported_modules\""));
+    assert!(!bytes.contains("visible"));
+    assert!(!bytes.contains("name.invalid_case"));
+}

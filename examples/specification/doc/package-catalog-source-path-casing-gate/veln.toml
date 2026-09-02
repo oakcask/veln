@@ -1,0 +1,5 @@
+[package]
+name = "package-catalog-source-path-casing-gate"
+
+[lib]
+exports = ["Api.veln", "main.veln"]

@@ -376,8 +376,11 @@ qualified-use recovery links and remaining companion cases for invalid module
 or qualified roles. Source-path-derived module identity failures are current
 behavior specified by [Name Resolution](../specification/name-resolution.md)
 and [Check JSON And Diagnostics](../specification/diagnostics-json.md); this
-proposal covers only unimplemented interactions with artifact and deferred
-recovery consumers.
+proposal covers only unimplemented interactions with export, backend, and
+deferred recovery consumers. The transport-independent package documentation
+catalog's package-atomic source-path casing boundary is current behavior
+specified by
+[Package Documentation Catalogs](../specification/package-documentation.md).
 
 An invalid remaining-scope module segment or qualified segment is not inserted
 into a normal name class. A use links to a recovery record only when the
@@ -435,7 +438,7 @@ source-error boundary:
 | Consumer boundary | Required outcome | Evidence boundary |
 | --- | --- | --- |
 | Artifact commands that reject source-graph errors. | The command returns the source diagnostic envelope and no artifact or policy result. | Metrics is now covered separately by [Metrics JSON](../specification/metrics-json.md). |
-| Export, documentation, backend, and deferred recovery consumers. | Each consumer follows its existing source-error contract and exposes no normal artifact identity for the invalid source. A tolerant consumer continues unrelated valid-module analysis; a fail-fast consumer returns its specified error result without an artifact. | Consumer-specific cases state whether the command is tolerant or fail-fast and assert the corresponding valid-module or no-artifact boundary. |
+| Export, backend, and deferred recovery consumers. | Each consumer follows its existing source-error contract and exposes no normal artifact identity for the invalid source. A tolerant consumer continues unrelated valid-module analysis; a fail-fast consumer returns its specified error result without an artifact. | Consumer-specific cases state whether the command is tolerant or fail-fast and assert the corresponding valid-module or no-artifact boundary. |
 
 A target must not require an invalid source to reach an artifact stage that the
 current command specification blocks on source diagnostics. [Metrics Partial
@@ -579,7 +582,7 @@ identifier-casing remainder.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, reachable module-edge isolation, and language-service navigation isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
+| Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, reachable module-edge isolation, language-service navigation isolation, and transport-independent package documentation catalog failure are current behavior. | Export, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified and module-derived roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, and boundary cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | A recovery symbol remains limited to the declaring source and lexical scope. No recovery symbol is imported, aliased, lowered, or exposed as a module-derived or qualified recovery result. | Boundary table covering diagnostics, module-derived and qualified navigation attempts, and artifacts for deferred boundaries. |

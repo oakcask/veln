@@ -212,15 +212,22 @@ impl<'a> PackageDocBuilder<'a> {
                     self.snapshot.digest(),
                 ));
             }
-            let module_name = match derive_source_module_path(&source_file) {
+            let exported = exported_paths.contains(source.path());
+            let module_name = match if exported {
+                derive_export_source_module_path(&source_file)
+            } else {
+                derive_source_module_path(&source_file).map_err(|diagnostic| vec![*diagnostic])
+            } {
                 Ok(module_name) => module_name,
-                Err(diagnostic) => {
-                    self.diagnostics.push(module_diagnostic(
-                        "manifest",
-                        *diagnostic,
-                        self.identity,
-                        self.snapshot.digest(),
-                    ));
+                Err(diagnostics) => {
+                    for diagnostic in diagnostics {
+                        self.diagnostics.push(module_diagnostic(
+                            "manifest",
+                            diagnostic,
+                            self.identity,
+                            self.snapshot.digest(),
+                        ));
+                    }
                     String::new()
                 }
             };
@@ -228,7 +235,7 @@ impl<'a> PackageDocBuilder<'a> {
                 source: source_file,
                 tree: output.tree,
                 module_name,
-                exported: exported_paths.contains(source.path()),
+                exported,
                 source_uri,
             });
         }
@@ -255,8 +262,9 @@ impl<'a> PackageDocBuilder<'a> {
                 );
                 continue;
             }
-            if let Some(first_span) =
-                exported_modules.insert(module_name.clone(), export.path_span.clone())
+            if !module_name.is_empty()
+                && let Some(first_span) =
+                    exported_modules.insert(module_name.clone(), export.path_span.clone())
             {
                 self.push_manifest_export_diagnostic(
                     "manifest",
@@ -442,8 +450,15 @@ impl<'a> PackageDocBuilder<'a> {
             return None;
         }
         let source = SourceFile::new(path.as_str(), "");
-        let module_name = match derive_source_module_path(&source) {
+        let module_name = match derive_export_source_module_path(&source) {
             Ok(module_name) => module_name,
+            Err(diagnostics)
+                if diagnostics
+                    .iter()
+                    .all(is_source_path_invalid_case_diagnostic) =>
+            {
+                String::new()
+            }
             Err(_) => {
                 self.invalid_manifest_export(
                     export,
@@ -478,7 +493,7 @@ impl<'a> PackageDocBuilder<'a> {
                 continue;
             }
             let source = SourceFile::new(path.as_str(), "");
-            let Ok(module_name) = derive_source_module_path(&source) else {
+            let Ok(module_name) = derive_export_source_module_path(&source) else {
                 continue;
             };
             if available.contains(path.as_str())

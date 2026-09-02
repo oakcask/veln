@@ -116,6 +116,13 @@ paths. A normalized export path for a `main.veln` source publishes module
 the same source-path rules used by compiler analysis, including the
 source-path identifier casing boundary specified by
 [name-resolution.md](name-resolution.md).
+If an exported source path has a source-path casing diagnostic, generation
+returns a status-only failure result. The result publishes no catalog,
+module, declaration, exported-module metadata, or declaration lookup result,
+even when other exported sources in the same package have valid lowercase
+paths. If that invalid-cased export path is absent from the captured snapshot,
+generation returns the existing `package_doc.missing_export` status-only
+failure instead of dropping the manifest-listed export from validation.
 
 ## Generation Gates
 
@@ -214,7 +221,11 @@ The tests also read fixtures under `examples/specification/doc/` to observe:
 - the doctest output metadata gate failure path;
 - integration-test source exclusion from successful catalog projection;
 - the schema-reference import-gate failure path through executable
-  specification inputs.
+  specification inputs;
+- the source-path casing failure path for an exported source that has a valid
+  exported sibling, and the missing-export path for an absent invalid-cased
+  export beside a valid sibling, proving the status-only package-atomic
+  boundary.
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a

@@ -12,7 +12,11 @@ Source-path-derived module identity segments now use the source identifier
 casing diagnostic contract for module-class path segments. Current behavior is
 specified by [Name Resolution](../../specification/name-resolution.md),
 [Check JSON And Diagnostics](../../specification/diagnostics-json.md), and
-[Editor Support](../../specification/editor-support.md). The checked
+[Editor Support](../../specification/editor-support.md). Package
+documentation catalog behavior for exported source-path casing failures is
+specified by
+[Package Documentation Catalogs](../../specification/package-documentation.md).
+The checked
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`, and
 `identifier-casing-source-path-human` examples fix the JSON and human command
@@ -75,10 +79,12 @@ failure.
 
 This slice is complete for source-path-derived module identities, including
 generated-source origin metadata, manifest export paths, and LSP source-path
-module rename exclusion. It does not complete written module identity syntax,
-explicit import-alias syntax, test dependency selection, partial artifact
-analysis, or MCP rename mapping. Recovery navigation and source declaration or
-binding recovery rename are completed separately in
+module rename exclusion. Transport-independent package documentation catalog
+failure for exported source-path casing is specified separately as package
+documentation behavior. This slice does not complete written module identity
+syntax, explicit import-alias syntax, test dependency selection, partial
+artifact analysis, or MCP rename mapping. Recovery navigation and source
+declaration or binding recovery rename are completed separately in
 [Identifier Casing Recovery Navigation And Rename](identifier-casing-recovery-navigation.md).
 Language-service navigation isolation for sources with invalid
 source-path-derived module identities is completed separately in
