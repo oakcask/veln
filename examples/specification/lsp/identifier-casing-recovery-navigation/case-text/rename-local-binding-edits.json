@@ -5,12 +5,5 @@
       "end": { "line": 41, "character": 11 }
     },
     "newText": "local"
-  },
-  {
-    "range": {
-      "start": { "line": 42, "character": 2 },
-      "end": { "line": 42, "character": 7 }
-    },
-    "newText": "local"
   }
 ]
