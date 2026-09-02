@@ -502,3 +502,39 @@ fn source_path_casing_export_failure_is_package_atomic() {
     assert!(!bytes.contains("leaked"));
     assert!(!bytes.contains("package_doc.invalid_export"));
 }
+
+#[test]
+fn missing_source_path_casing_export_still_fails_export_gate_without_partial_catalog() {
+    let result = generate_fixture("package-catalog-missing-source-path-casing-gate");
+
+    assert!(result.catalog().is_none());
+    assert!(matches!(
+        result.kind(),
+        PackageDocResultKind::Status(PackageDocGenerationStatus {
+            state: PackageDocGeneration::Failed,
+            ..
+        })
+    ));
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].gate, "export");
+    assert_eq!(diagnostics[0].code, "package_doc.missing_export");
+    assert_eq!(
+        diagnostics[0].message,
+        "documentation export `Api.veln` is not in the package snapshot"
+    );
+    assert_eq!(
+        result.declaration_uri_for("main", "function", "visible"),
+        None
+    );
+    assert_eq!(
+        result.declaration_uri_for("Api", "function", "leaked"),
+        None
+    );
+    let bytes = std::str::from_utf8(result.canonical_bytes()).unwrap();
+    assert!(bytes.contains("\"state\":\"failed\""));
+    assert!(!bytes.contains("\"modules\""));
+    assert!(!bytes.contains("\"exported_modules\""));
+    assert!(!bytes.contains("visible"));
+    assert!(!bytes.contains("name.invalid_case"));
+}

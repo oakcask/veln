@@ -262,8 +262,9 @@ impl<'a> PackageDocBuilder<'a> {
                 );
                 continue;
             }
-            if let Some(first_span) =
-                exported_modules.insert(module_name.clone(), export.path_span.clone())
+            if !module_name.is_empty()
+                && let Some(first_span) =
+                    exported_modules.insert(module_name.clone(), export.path_span.clone())
             {
                 self.push_manifest_export_diagnostic(
                     "manifest",
@@ -456,7 +457,7 @@ impl<'a> PackageDocBuilder<'a> {
                     .iter()
                     .all(is_source_path_invalid_case_diagnostic) =>
             {
-                return None;
+                String::new()
             }
             Err(_) => {
                 self.invalid_manifest_export(
