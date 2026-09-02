@@ -6,6 +6,7 @@ use veln_ast::{InvalidName, NameClass, NameOccurrence, lower_surface_ast_with_mo
 use veln_source::TextRange;
 
 mod aliases;
+mod callable_signature_collection;
 mod effects_and_handlers;
 mod holes;
 mod local_inference;

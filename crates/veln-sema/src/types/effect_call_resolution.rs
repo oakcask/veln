@@ -1,5 +1,7 @@
 use super::*;
+
 use crate::effect_rows::{collect_effect_row_substitution, instantiate_effect_rows};
+use crate::effects::concurrency_effects;
 
 pub(super) fn instantiate_call_effect_rows(
     signature: &FunctionSignature,

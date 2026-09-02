@@ -1,7 +1,9 @@
 use super::*;
+
 use crate::semantic_model::ExpectedTypeSource;
 use crate::type_lowering::core_type;
 use crate::type_relations::is_assignable;
+use crate::type_syntax::{parse_type_annotation, parse_type_or_unknown};
 use veln_core::CoreType;
 
 #[test]

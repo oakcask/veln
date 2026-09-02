@@ -1,5 +1,8 @@
+use super::signature_collection::canonicalize_type_effects;
 use super::*;
 use veln_ast::NameOccurrence;
+
+use crate::adt::registry::AdtRegistry;
 
 mod effect_handlers;
 mod facts;

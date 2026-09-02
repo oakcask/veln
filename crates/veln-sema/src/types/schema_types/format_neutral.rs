@@ -1,5 +1,10 @@
 use super::*;
 
+use crate::adt::descriptors::{AdtConstructor, AdtDescriptor};
+use crate::adt::registry::AdtRegistry;
+use crate::adt::type_operations as adt;
+use crate::type_syntax::parse_type_annotation;
+
 pub(super) fn format_neutral_schema_decode_function_signature_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
