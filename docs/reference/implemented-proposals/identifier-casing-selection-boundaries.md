@@ -41,7 +41,7 @@ LSP rename conflict rejection for valid selected workspace symbols is
 completed separately in
 [Identifier Casing Rename Conflicts](identifier-casing-rename-conflicts.md).
 The other capabilities remain in
-[Identifier Casing](../../proposals/identifier-casing.md).
+[Identifier Casing](identifier-casing.md).
 
 ## Implemented Direct-Dependency Slice
 

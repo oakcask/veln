@@ -35,66 +35,19 @@ The remaining first-capability work includes:
 - virtual source locations for dependencies and the standard library; and
 - plugin packaging for Codex and Claude Code.
 
-### Language-Semantics Prerequisite
+### Extracted Ready Slice
 
-The full navigation matrix depends on casing rules that separate type and
-constructor names from module, function, and value-binding names. That language
-change is tracked separately in [Identifier Casing](identifier-casing.md).
+The implemented identifier-casing and slice-closure prerequisites are recorded
+by [Identifier Casing](../reference/implemented-proposals/identifier-casing.md)
+and
+[Agent Language Services Slice Closure](../reference/implemented-proposals/agent-language-services-slice-closure.md).
+The saved workspace function-reference adapter is now a separate selectable
+proposal:
+[MCP Saved Workspace Function References](mcp-saved-workspace-function-references.md).
 
-Do not add callable-versus-constructor precedence in an MCP adapter. Sources
-that violate the casing rules must be rejected by the shared language
-semantics. Navigation, lowering, LSP, and MCP must consume the same name class
-and selected target for accepted sources.
-
-### Completed Slice-Closure Prerequisite
-
-The
-[Agent Language Services Slice Closure](../reference/implemented-proposals/agent-language-services-slice-closure.md)
-record closes the response-local MCP JSONL assertion gate and the evidence rule
-for shared capture invariants. The next-slice boundary below remains planning
-input and is not selectable work until the identifier-casing prerequisite is
-implemented.
-
-### Next Slice: Saved Workspace Function References
-
-The next navigation slice exposes the shared language service's current
-workspace-function reference results through `veln mcp`. This is an
-intermediate slice of the eventual v1 `references` contract below. It is not a
-request to complete the closed v1 navigation matrix.
-
-The slice has this boundary:
-
-| Included | Excluded |
-| --- | --- |
-| A checked `references` input with `source`, `line`, and `column`. | `include_declaration`, page size, continuation cursors, and retained cursor state. |
-| Selected-project and anonymous single-file capture using the existing navigation selection rules. | Dependency and standard-library reference search or virtual locations. |
-| Canonical `file:` locations for the current shared language service's project-owned function reference sites, in deterministic order. | New symbol kinds or broader definition coverage. |
-| Explicit project or single-file scope metadata, including whether the result is project-wide. | Changes to language name resolution, callable classification, lowering, LSP behavior, or the shared navigation symbol set. |
-| Empty success for a valid position with no supported function reference search. | Exhaustive enumeration of expression forms that can produce, store, or shadow callable values. |
-| Existing path, coordinate, schema, and stable-capture failure behavior. | Pagination, resource lifetime, documentation tools, and plugin work. |
-
-The current language-service result is an input to this adapter slice, not an
-open-ended acceptance target. If implementation exposes an independently
-reproducible defect in language resolution or existing LSP navigation, record
-that defect as separate work. Do not expand this slice to repair it unless it
-prevents one of the acceptance rows below from passing.
-
-| Case | Expected result | Planned evidence |
-| --- | --- | --- |
-| Request references at a project-owned function call in a selected project. | Return only that function's project-owned reference sites as sorted canonical `file:` locations, plus project scope metadata. | One MCP stdio specification case with a declaration, a recursive call, an ordinary call, and an unrelated ambiguous constructor call. |
-| Request references at the unrelated ambiguous constructor call in that case. | Return an empty reference list because constructor reference search is outside this slice. | The same MCP stdio specification case. |
-| Request references for an accepted source outside a selected project's owned-source set. | Analyze only that source and report single-file scope with `project_wide: false`. | One table-driven descendant-boundary or anonymous-source case. |
-| Supply an invalid position or a schema-invalid coordinate. | Return `invalid_position` for an unaddressable positive coordinate and protocol invalid params for a non-integer coordinate. | The MCP stdio specification case and schema tests. |
-| Replace a captured source identity or bytes during the operation. | Return `snapshot_changed` without partial reference locations. | Existing navigation stable-capture harness extended to the `references` adapter. |
-| List MCP tools after initialization. | Advertise the checked `references` input and result schemas. | The existing workspace-lifecycle tool-list case. |
-
-This slice is complete when these six rows pass and its implemented contract is
-promoted to the MCP specification and executable-example routes. A newly
-discovered constructor-versus-value naming collision belongs to
-[Identifier Casing](identifier-casing.md) and does not keep this slice open. A
-new callable-producing expression, shadowing form, or LSP navigation edge case
-also does not keep this slice open. The broader v1 rows remain planned work and
-must be selected as separate bounded slices.
+This umbrella remains planning input for later navigation, documentation,
+virtual-source, conformance, and plugin work. Extract one finite proposal page
+with its own acceptance model before moving any later work to Ready.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -1097,8 +1050,8 @@ returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
 access to private target functions. Dependency and standard-library locations,
 the proposal's additional symbol kinds, and all MCP references remain planned.
-The bounded saved-workspace function-reference slice is defined under
-[Next Slice: Saved Workspace Function References](#next-slice-saved-workspace-function-references).
+The bounded saved-workspace function-reference slice is defined by
+[MCP Saved Workspace Function References](mcp-saved-workspace-function-references.md).
 The subsequent slices are:
 
 1. Define and validate language-reference topic descriptors. Generate the

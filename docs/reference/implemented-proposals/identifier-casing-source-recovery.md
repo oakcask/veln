@@ -87,7 +87,7 @@ preserves the existing selection boundary of `check` and the existing
 selected-entry reachability boundary of `run`.
 
 This work is the first slice of
-[Identifier Casing](../../proposals/identifier-casing.md). A declaration-only validation slice
+[Identifier Casing](identifier-casing.md). A declaration-only validation slice
 was not independently implementable. Analysis needs a surface graph before it
 can compute selected-entry reachability, but an invalid declaration must not
 enter that graph as a normal symbol. This slice therefore added the minimum
