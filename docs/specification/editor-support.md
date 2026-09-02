@@ -198,6 +198,10 @@ language service. It converts shared locations to LSP URIs and zero-based
 ranges.
 Definition, references, prepare-rename, and rename use the same shared selected
 symbol and reference set.
+For accepted source, definition selection for same-spelled type, constructor,
+function, and value-binding occurrences stays in the namespace fixed by the
+selected source position. Focused `veln-language-service` tests cover that
+namespace-by-use-role boundary.
 For selected workspace type, constructor, function, and value-binding symbols,
 `textDocument/rename` first validates that the requested replacement stays in
 the selected symbol's existing identifier class. Type rename selection covers

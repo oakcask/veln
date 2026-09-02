@@ -1,0 +1,35 @@
+# Ordinary calls do not select casing-neutral declarations, and duplicate
+# checks stay inside one namespace.
+schema common
+	value: Int
+end
+
+schema common
+	other: Int
+end
+
+effect common
+	common() -> Int
+	common() -> Int
+end
+
+handler common() handles common
+	common() => 1
+end
+
+fn ordinary_call() -> Int
+	common()
+end
+
+type Ambiguous
+	Ambiguous(Int)
+end
+
+schema Ambiguous
+	value: Int
+end
+
+schema AmbiguousHost
+	value: Ambiguous
+end
+

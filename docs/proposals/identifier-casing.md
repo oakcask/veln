@@ -148,6 +148,13 @@ mapping and rename evidence for the remaining casing surfaces until those rows
 are implemented. LSP source-path-derived module segments are not rename
 targets: prepare-rename returns `null`, and rename returns an empty workspace
 edit without resource operations.
+The namespace-by-use-role casing boundary for equal-spelled schemas, effects,
+handlers, operations, types, constructors, functions, and value bindings is
+specified by [Name Resolution](../specification/name-resolution.md), by
+[Editor Support](../specification/editor-support.md), and checked by the
+`identifier-casing-namespace-use-roles` example plus focused
+`veln-language-service` tests. Its completion record is
+[Identifier Casing Namespace Use Roles](../reference/implemented-proposals/identifier-casing-namespace-use-roles.md).
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
@@ -538,7 +545,6 @@ identifier-casing remainder.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Declare equal-spelled schemas, effects, handlers, operations, types, constructors, functions, and bindings. | Each dedicated source position selects its existing namespace, cross-namespace spellings do not create duplicates, ordinary calls exclude casing-neutral namespaces, and schema composition retains its existing ambiguity. | Namespace-by-use-role decision table with duplicate and definition cases. |
 | Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified and module-derived roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, and boundary cases. |

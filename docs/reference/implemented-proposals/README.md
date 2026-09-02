@@ -54,6 +54,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-recovery-navigation.md](identifier-casing-recovery-navigation.md).
 - Identifier casing rename conflicts:
   [identifier-casing-rename-conflicts.md](identifier-casing-rename-conflicts.md).
+- Identifier casing namespace use roles:
+  [identifier-casing-namespace-use-roles.md](identifier-casing-namespace-use-roles.md).
 - Common JSON assertion operation parity:
   [toolchain-json-assertion-parity.md](toolchain-json-assertion-parity.md).
 - Schema declaration composition surface:

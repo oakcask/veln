@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"946510ebc6e3acf80c2cab3589d90e6c1830ab78"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1640
+case_count	1641
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6440,6 +6440,63 @@ field	invocation.command[3]	"http.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"3c50b351632f034d346994e31f657b35a2f2bac54941e55c751c084a3c5c78d7"
+case	"examples/specification/check/identifier-casing-namespace-use-roles"
+field	expectations.diagnostics[0].id	"name.duplicate"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"duplicate schema declaration name `common`"
+field	expectations.diagnostics[0].severity	"error"
+field	expectations.diagnostics[0].span.column	1
+field	expectations.diagnostics[0].span.file	"boundaries.veln"
+field	expectations.diagnostics[0].span.line	7
+field	expectations.diagnostics[1].id	"name.duplicate"
+field	expectations.diagnostics[1].kind	"name"
+field	expectations.diagnostics[1].message	"duplicate effect operation declaration name `common`"
+field	expectations.diagnostics[1].severity	"error"
+field	expectations.diagnostics[1].span.column	2
+field	expectations.diagnostics[1].span.file	"boundaries.veln"
+field	expectations.diagnostics[1].span.line	13
+field	expectations.diagnostics[2].id	"name.unresolved"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"unresolved call_target `common`"
+field	expectations.diagnostics[2].severity	"error"
+field	expectations.diagnostics[2].span.column	2
+field	expectations.diagnostics[2].span.file	"boundaries.veln"
+field	expectations.diagnostics[2].span.line	21
+field	expectations.diagnostics[3].id	"schema.composition_reference"
+field	expectations.diagnostics[3].kind	"type"
+field	expectations.diagnostics[3].message	"schema field `value` cannot compose `Ambiguous` because it resolves as both an ordinary type and a schema"
+field	expectations.diagnostics[3].severity	"error"
+field	expectations.diagnostics[3].span.column	2
+field	expectations.diagnostics[3].span.file	"boundaries.veln"
+field	expectations.diagnostics[3].span.line	33
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"error"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"status"
+field	expectations.json_assertions[1].equals	4
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"summary.diagnostic_count"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"id\":\"name.duplicate\""
+field	expectations.stdout.contains[1]	"duplicate schema declaration name `common`"
+field	expectations.stdout.contains[2]	"duplicate effect operation declaration name `common`"
+field	expectations.stdout.contains[3]	"unresolved call_target `common`"
+field	expectations.stdout.contains[4]	"\"reason\":\"ambiguous_type_and_schema\""
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"duplicate schema declaration name `Common`"
+field	expectations.stdout.not_contains[1]	"duplicate effect declaration name `Common`"
+field	expectations.stdout.not_contains[2]	"duplicate handler declaration name `Common`"
+field	expectations.stdout.not_contains[3]	"duplicate type declaration name `Common`"
+field	expectations.stdout.not_contains[4]	"duplicate constructor declaration name `Common`"
+field	expectations.stdout.not_contains[5]	"duplicate function declaration name `common`"
+field	expectations.stdout.not_contains[6]	"name.invalid_case"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.command[3]	"boundaries.veln"
+field	invocation.repeat	1
+field	source_errors	"forbidden"
+case_digest	"107f59bf365332b8ae26d297c4cc1bea1814a7dff7658be49f04cc74ecc0943f"
 case	"examples/specification/check/identifier-casing-owned-constructor-recovery-human"
 field	expectations.exit	1
 field	expectations.stderr.format	"empty"
@@ -52997,4 +53054,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9a75d09dbd6122d91a5724d931d95dfda46da9501693cea842b148b04d50aa03"
+aggregate_digest	"0369a4c6112a47cda09d10afce73eaef43df529ba14f5e6991c0a85a9e86c4b3"

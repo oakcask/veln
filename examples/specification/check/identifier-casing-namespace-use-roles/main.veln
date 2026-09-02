@@ -1,0 +1,22 @@
+# Equal spellings stay separated by the source position's namespace.
+schema Common
+	value: Int
+end
+
+effect Common
+	Common() -> Int
+end
+
+handler Common() handles Common
+	Common() => 1
+end
+
+type Common
+	Common(Int)
+end
+
+fn common(input: Common) -> Common effects [Common]
+	let common = perform Common::Common()
+	Common(common)
+end
+

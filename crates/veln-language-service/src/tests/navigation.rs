@@ -670,3 +670,44 @@
         assert_location(&result.definition, "main.veln", 2, 18);
         assert_eq!(locations(&result.references), [("main.veln", 2, 31)]);
     }
+
+    #[test]
+    fn equal_spelled_navigation_uses_the_selected_namespace() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "schema Common\n",
+                "  value: Int\n",
+                "end\n\n",
+                "effect Common\n",
+                "  Common() -> Int\n",
+                "end\n\n",
+                "handler Common() handles Common\n",
+                "  Common() => 1\n",
+                "end\n\n",
+                "type Common\n",
+                "  Common(Int)\n",
+                "end\n\n",
+                "fn common(input: Common) -> Common effects [Common]\n",
+                "  let common = perform Common::Common()\n",
+                "  Common(common)\n",
+                "end\n",
+            ),
+        )]);
+
+        let type_result = query_snapshot(&snapshot, "main.veln", 17, 18).unwrap();
+        assert_eq!(type_result.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&type_result.definition, "main.veln", 13, 6);
+
+        let constructor_result = query_snapshot(&snapshot, "main.veln", 19, 4).unwrap();
+        assert_eq!(constructor_result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&constructor_result.definition, "main.veln", 14, 3);
+
+        let function_result = query_snapshot(&snapshot, "main.veln", 17, 4).unwrap();
+        assert_eq!(function_result.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function_result.definition, "main.veln", 17, 4);
+
+        let binding_result = query_snapshot(&snapshot, "main.veln", 19, 10).unwrap();
+        assert_eq!(binding_result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&binding_result.definition, "main.veln", 18, 7);
+    }

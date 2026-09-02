@@ -196,8 +196,12 @@ impl SymbolIndex {
             return Some(SelectedNavigationSymbol::bare(Symbol::Constructor(symbol)));
         }
 
-        self.recovery_declared_at(file, tokens, token_index, name, selection)
-            .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Recovery(symbol)))
+        self.local_binding_symbol_for_selection(file, tokens, token_index, name, prepared_scopes)
+            .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Local(symbol)))
+            .or_else(|| {
+                self.recovery_declared_at(file, tokens, token_index, name, selection)
+                    .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Recovery(symbol)))
+            })
             .or_else(|| {
                 self.non_declaration_symbol_for_selection(
                     file,
@@ -208,6 +212,47 @@ impl SymbolIndex {
                     prepared_scopes,
                 )
             })
+    }
+
+    fn local_binding_symbol_for_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        prepared_scopes: Option<&[FunctionScope]>,
+    ) -> Option<LocalSymbol> {
+        if is_field_name(tokens, token_index) || is_local_binding_name(tokens, token_index) {
+            return None;
+        }
+        let owned_scopes;
+        let scopes = match prepared_scopes {
+            Some(scopes) => scopes,
+            None => {
+                owned_scopes = function_scopes(tokens);
+                &owned_scopes
+            }
+        };
+        let scope = scopes
+            .iter()
+            .find(|scope| {
+                let offset = tokens[token_index].range.start;
+                offset >= scope.body_start && offset < scope.end
+            })?;
+        let shadow = scope.shadowing_binding(name, tokens, token_index)?;
+        let (declaration_start, declaration_end) = shadow.declaration_range();
+        Some(LocalSymbol {
+            name: name.to_string(),
+            declaration: file
+                .source
+                .span(TextRange::new(declaration_start, declaration_end)),
+            scope_file: file.source.path().as_str().to_string(),
+            scope_start: scope.body_start,
+            scope_end: scope.end,
+            declaration_scope_start: scope.body_start,
+            declaration_scope_end: scope.end,
+            kind: LocalSymbolKind::ValueBinding,
+        })
     }
 
     fn non_declaration_symbol_for_selection(
