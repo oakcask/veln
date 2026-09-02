@@ -7,6 +7,26 @@ pub(super) enum StaticBooleanValue {
     Unknown,
 }
 
+pub(super) enum BooleanFormula {
+    Constant(bool),
+    Atom { index: usize, polarity: bool },
+    Not(Box<Self>),
+    Or(Box<Self>, Box<Self>),
+    And(Box<Self>, Box<Self>),
+}
+
+impl BooleanFormula {
+    pub(super) fn evaluate(&self, mask: usize) -> bool {
+        match self {
+            Self::Constant(value) => *value,
+            Self::Atom { index, polarity } => ((mask & (1usize << index)) != 0) == *polarity,
+            Self::Not(inner) => !inner.evaluate(mask),
+            Self::Or(left, right) => left.evaluate(mask) || right.evaluate(mask),
+            Self::And(left, right) => left.evaluate(mask) && right.evaluate(mask),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) struct StaticBooleanOptions {
     classify_contract_contradictions: bool,
@@ -201,11 +221,12 @@ pub(super) fn static_boolean_truth_table_value(predicate: &str) -> Option<Static
     if atoms.is_empty() || atoms.len() > MAX_STATIC_BOOLEAN_ATOMS {
         return None;
     }
+    let formula = compile_boolean_formula(predicate, &atoms)?;
 
     let mut saw_true = false;
     let mut saw_false = false;
     for mask in 0..(1usize << atoms.len()) {
-        match eval_boolean_formula(predicate, &atoms, mask)? {
+        match formula.evaluate(mask) {
             true => saw_true = true,
             false => saw_false = true,
         }
@@ -253,32 +274,41 @@ pub(super) fn collect_boolean_formula_atoms(
     Some(())
 }
 
+#[cfg(test)]
 pub(super) fn eval_boolean_formula(predicate: &str, atoms: &[String], mask: usize) -> Option<bool> {
+    compile_boolean_formula(predicate, atoms).map(|formula| formula.evaluate(mask))
+}
+
+pub(super) fn compile_boolean_formula(predicate: &str, atoms: &[String]) -> Option<BooleanFormula> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate == "true" {
-        return Some(true);
+        return Some(BooleanFormula::Constant(true));
     }
     if predicate == "false" {
-        return Some(false);
+        return Some(BooleanFormula::Constant(false));
     }
     if let Some(inner) = whole_negated_predicate_inner(predicate) {
-        return eval_boolean_formula(inner, atoms, mask).map(|value| !value);
+        return Some(BooleanFormula::Not(Box::new(compile_boolean_formula(
+            inner, atoms,
+        )?)));
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
-        return Some(
-            eval_boolean_formula(left, atoms, mask)? || eval_boolean_formula(right, atoms, mask)?,
-        );
+        return Some(BooleanFormula::Or(
+            Box::new(compile_boolean_formula(left, atoms)?),
+            Box::new(compile_boolean_formula(right, atoms)?),
+        ));
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
-        return Some(
-            eval_boolean_formula(left, atoms, mask)? && eval_boolean_formula(right, atoms, mask)?,
-        );
+        return Some(BooleanFormula::And(
+            Box::new(compile_boolean_formula(left, atoms)?),
+            Box::new(compile_boolean_formula(right, atoms)?),
+        ));
     }
     if let Some(value) = static_comparison_value(predicate) {
-        return Some(value);
+        return Some(BooleanFormula::Constant(value));
     }
 
     let (shape, polarity) = normalized_predicate_polarity(predicate);
     let index = atoms.iter().position(|atom| atom == &shape)?;
-    Some(((mask & (1usize << index)) != 0) == polarity)
+    Some(BooleanFormula::Atom { index, polarity })
 }

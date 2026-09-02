@@ -27,12 +27,14 @@ pub(super) fn static_boolean_formula_comparison(
     if atoms.is_empty() || atoms.len() > MAX_STATIC_BOOLEAN_ATOMS {
         return None;
     }
+    let left_formula = compile_boolean_formula(left, &atoms)?;
+    let right_formula = compile_boolean_formula(right, &atoms)?;
 
     let mut saw_true = false;
     let mut saw_false = false;
     for mask in 0..(1usize << atoms.len()) {
-        let left_value = eval_boolean_formula(left, &atoms, mask)?;
-        let right_value = eval_boolean_formula(right, &atoms, mask)?;
+        let left_value = left_formula.evaluate(mask);
+        let right_value = right_formula.evaluate(mask);
         let comparison = match operator {
             "==" => left_value == right_value,
             "!=" => left_value != right_value,
