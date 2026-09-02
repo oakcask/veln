@@ -28,6 +28,41 @@ fn connect_requires_net_effect_with_descriptor_provenance() {
 }
 
 #[test]
+fn qualified_effectful_prelude_calls_check_arguments_and_record_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> NetStream\n",
+            "  net::connect(7)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch"
+            && diagnostic.message == "expected `String`, but found `Int`"
+    }));
+    let effect = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "effect.missing_public")
+        .expect("qualified prelude call should record its declared effect");
+    assert_eq!(
+        effect.message,
+        "public function uses undeclared effect `net`"
+    );
+    assert!(
+        effect
+            .details
+            .to_json()
+            .contains("\"symbol\":\"net::connect\"")
+    );
+}
+
+#[test]
 fn listener_address_call_requires_net_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
