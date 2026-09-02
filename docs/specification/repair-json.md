@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The `veln repair --json` output schema, candidate projection, source-path casing exclusion, verification record, or executable repair JSON evidence changes.
+---
+
 # Repair JSON
 
 This page specifies the implemented `veln repair --json` output. Use
@@ -15,9 +21,11 @@ boundary, [repair-application.md](repair-application.md) for apply gates, and
 - `mode`: `"preview"` without `--apply`, or `"apply"` with `--apply`.
 - `status`: `"preview"`, `"applied"`, or `"refused"`.
 - `selected_candidate`: the selected command-level candidate object, or `null`.
-- `candidates`: all command-level repair candidates found in the current
-  invocation. When saved repair JSON inputs are present, this is the saved
-  candidate set normalized for the current invocation.
+- `candidates`: command-level repair candidates available to the current
+  invocation. Current-analysis candidates whose edits target a source with a
+  source-path-derived `name.invalid_case` diagnostic are excluded before
+  command-local ids are assigned. When saved repair JSON inputs are present,
+  this is the saved candidate set normalized for the current invocation.
 - `applied_edits`: replacement edits written by the command. This is empty in
   preview and refusal output and may contain edits from more than one source
   file after a successful multi-edit candidate.
