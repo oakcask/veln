@@ -2,6 +2,12 @@ use super::*;
 use crate::source_less_lookup::standard_module;
 use veln_ast::NameClass;
 
+struct ResolvedPreludeCall {
+    name: String,
+    params: Vec<Type>,
+    return_type: Type,
+}
+
 impl<'a> FunctionChecker<'a> {
     pub(super) fn infer_prelude_call(
         &mut self,
@@ -12,12 +18,24 @@ impl<'a> FunctionChecker<'a> {
         let ExprKind::NamePath { segments, .. } = &callee.kind else {
             return None;
         };
-        let (name, params, return_type) = if let [name] = segments.as_slice() {
+        let resolved = self.resolve_prelude_call(segments, args, expected)?;
+
+        self.record_prelude_call_effects(segments, callee);
+        self.infer_and_check_prelude_arguments(callee, args, &resolved);
+        Some(resolved.return_type)
+    }
+
+    fn resolve_prelude_call(
+        &mut self,
+        segments: &[String],
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+    ) -> Option<ResolvedPreludeCall> {
+        let (name, params, return_type) = if let [name] = segments {
             if self.bare_name_is_shadowed(name) || self.bare_prelude_import_is_ambiguous(name) {
                 return None;
             }
-            let input_type =
-                prelude_input_arg(args, name).and_then(|arg| self.shallow_expr_type(arg));
+            let input_type = self.prelude_input_type(args, name);
             let (params, return_type) = prelude_signature_with_input(
                 name,
                 expected.map(|expected| &expected.ty),
@@ -25,8 +43,7 @@ impl<'a> FunctionChecker<'a> {
             )?;
             (name.clone(), params, return_type)
         } else if let Some((name, params, return_type)) = segments.last().and_then(|name| {
-            let input_type =
-                prelude_input_arg(args, name).and_then(|arg| self.shallow_expr_type(arg));
+            let input_type = self.prelude_input_type(args, name);
             qualified_prelude_signature_with_input(
                 segments,
                 expected.map(|expected| &expected.ty),
@@ -36,8 +53,7 @@ impl<'a> FunctionChecker<'a> {
             (name, params, return_type)
         } else {
             segments.last().and_then(|name| {
-                let input_type =
-                    prelude_input_arg(args, name).and_then(|arg| self.shallow_expr_type(arg));
+                let input_type = self.prelude_input_type(args, name);
                 qualified_prelude_builtin_signature_with_input(
                     segments,
                     expected.map(|expected| &expected.ty),
@@ -45,7 +61,18 @@ impl<'a> FunctionChecker<'a> {
                 )
             })?
         };
+        Some(ResolvedPreludeCall {
+            name,
+            params,
+            return_type,
+        })
+    }
 
+    fn prelude_input_type(&mut self, args: &[Expr], name: &str) -> Option<Type> {
+        prelude_input_arg(args, name).and_then(|arg| self.shallow_expr_type(arg))
+    }
+
+    fn record_prelude_call_effects(&mut self, segments: &[String], callee: &Expr) {
         if let Some(origin) = prelude_effect_origin(segments, callee) {
             for effect in &origin.effects {
                 self.inferred_effects.push(EffectUse {
@@ -57,9 +84,16 @@ impl<'a> FunctionChecker<'a> {
                 });
             }
         }
+    }
 
+    fn infer_and_check_prelude_arguments(
+        &mut self,
+        callee: &Expr,
+        args: &[Expr],
+        resolved: &ResolvedPreludeCall,
+    ) {
         for (index, arg) in args.iter().enumerate() {
-            let Some(param_type) = params.get(index) else {
+            let Some(param_type) = resolved.params.get(index) else {
                 self.infer_expr(arg, None);
                 continue;
             };
@@ -71,9 +105,8 @@ impl<'a> FunctionChecker<'a> {
                 origin_message: "Prelude helper parameter type inferred here.",
             };
             let actual = self.infer_expr(arg, Some(&expected));
-            self.check_prelude_argument_assignable(&name, index, arg, &expected, &actual);
+            self.check_prelude_argument_assignable(&resolved.name, index, arg, &expected, &actual);
         }
-        Some(return_type)
     }
 
     pub(super) fn diagnose_method_call(
