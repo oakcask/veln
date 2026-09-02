@@ -1,10 +1,10 @@
 use helper
 
-fn read(input: helper::Item) -> Int
+fn stray(input: helper::Item) -> Int
   helper::make()
 end
 
-fn keep() -> fn() -> Int
+fn stray_value() -> fn() -> Int
   helper::make
 end
 

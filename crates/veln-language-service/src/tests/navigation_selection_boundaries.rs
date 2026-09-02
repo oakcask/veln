@@ -67,6 +67,68 @@
     }
 
     #[test]
+    fn invalid_source_path_identity_is_excluded_from_valid_symbol_references() {
+        let sources = vec![
+            source(
+                "App/_net.veln",
+                concat!(
+                    "use helper\n\n",
+                    "fn stray(input: helper::Item) -> Int\n",
+                    "  helper::Ready(helper::make())\n",
+                    "end\n\n",
+                    "fn stray_value() -> fn() -> Int\n",
+                    "  helper::make\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "helper.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub fn make() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "valid.veln",
+                concat!(
+                    "use helper\n\n",
+                    "fn read(input: helper::Item) -> Int\n",
+                    "  helper::make()\n",
+                    "end\n\n",
+                    "fn keep() -> fn() -> Int\n",
+                    "  helper::make\n",
+                    "end\n\n",
+                    "fn make_ready() -> helper::Item\n",
+                    "  helper::Ready(1)\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let item = query(sources.clone(), "helper.veln", 1, 10).unwrap();
+        assert_eq!(item.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            locations(&item.references),
+            [("valid.veln", 3, 24), ("valid.veln", 11, 28)]
+        );
+
+        let ready = query(sources.clone(), "helper.veln", 2, 7).unwrap();
+        assert_eq!(ready.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(locations(&ready.references), [("valid.veln", 12, 11)]);
+
+        let make = query(sources, "helper.veln", 5, 8).unwrap();
+        assert_eq!(make.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(
+            locations(&make.references),
+            [("valid.veln", 4, 11), ("valid.veln", 8, 11)]
+        );
+    }
+
+    #[test]
     fn invalid_source_path_identity_is_excluded_from_overlay_navigation() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("main.veln", "use helper\n\nfn main(input: helper::Item) -> helper::Item\n  input\nend\n"),

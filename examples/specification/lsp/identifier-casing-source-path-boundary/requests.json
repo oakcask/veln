@@ -13,6 +13,9 @@
   {"jsonrpc":"2.0","id":12,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":29},"newName":"value"}},
   {"jsonrpc":"2.0","id":13,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":2,"character":24}}},
   {"jsonrpc":"2.0","id":14,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":13}}},
-  {"jsonrpc":"2.0","id":15,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":15,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":2,"character":24},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":16,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":3,"character":10},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":17,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":11,"character":10},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":18,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

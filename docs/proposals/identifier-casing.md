@@ -153,7 +153,9 @@ captured snapshots and open-document overlays. Definition, references,
 prepare-rename, and rename select no normal symbol or edits for declarations
 inside that source or for module-qualified type, constructor, function, or
 function-value uses that would depend on that invalid identity. Unrelated
-valid sources continue to navigate normally. This boundary is specified by
+valid sources continue to navigate normally, and valid-symbol reference and
+rename collection excludes occurrences inside the invalid source identity.
+This boundary is specified by
 [Editor Support](../specification/editor-support.md), checked by the expanded
 `identifier-casing-source-path-boundary` example and focused
 `veln-language-service` tests, and recorded in

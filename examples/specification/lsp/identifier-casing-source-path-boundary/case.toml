@@ -270,3 +270,63 @@ equals = 9
 id = 14
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+id = 15
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 15
+path = "/result/0/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 15
+path = "/result/1/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 15
+path = "/result/2/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 15
+path = "/result/3/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 16
+path = "/result/0/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 16
+path = "/result/1/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 16
+path = "/result/2/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 17
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 17
+path = "/result/0/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 17
+path = "/result/1/uri"
+workspace_file_uri = "valid.veln"

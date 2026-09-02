@@ -161,6 +161,8 @@ the language service does not expose that source or its declarations as normal
 workspace navigation candidates. Definition, references, prepare-rename, and
 rename return no selected symbol or edits for positions in that source and for
 qualified selections that would resolve through that invalid module identity.
+References and rename edits for valid symbols selected from other sources do
+not include occurrences inside that invalid source.
 Navigation for unrelated valid workspace sources remains available.
 Invalid source declarations, function parameters, result bindings, local and
 pattern bindings, satisfy candidate bindings, handler context parameters, and
@@ -347,7 +349,10 @@ source-start range. `textDocument/prepareRename` returns `null` at that range.
 checks that declarations in an invalid source-path-derived module identity and
 qualified type, constructor, function, and function-value selections through
 that invalid identity return no definition, references, prepare-rename range,
-or rename edits while an unrelated valid module still navigates normally.
+or rename edits. It also checks that references collected for unrelated valid
+type, constructor, and function symbols do not include occurrences inside an
+invalid source identity, while an unrelated valid module still navigates
+normally.
 The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding recovery
 definition, references, prepare-rename, and rename edits for declaration

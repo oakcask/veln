@@ -30,6 +30,8 @@ selected symbol when the selection would resolve a module-qualified type,
 constructor, function, or function-value use through the invalid module
 identity. Rename for those unsupported selections returns no workspace edits,
 and prepare-rename returns no range.
+References and rename edits for valid symbols selected from other sources omit
+occurrences inside the invalid source identity.
 
 The isolation is local to the invalid source identity. It does not make source
 identifier casing diagnostics a workspace-global navigation gate. Unrelated

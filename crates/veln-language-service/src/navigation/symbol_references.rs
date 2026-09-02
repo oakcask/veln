@@ -79,6 +79,7 @@ impl SymbolIndex {
     fn function_references(&self, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
+            .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| self.references_in_file(file, symbol))
             .collect()
     }
@@ -113,7 +114,7 @@ impl SymbolIndex {
     fn type_references(&self, symbol: &TypeSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
-            .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
+            .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
                 let tokens = &file.tokens;
                 let mut spans = file
@@ -152,7 +153,7 @@ impl SymbolIndex {
     fn constructor_references(&self, symbol: &ConstructorSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
-            .filter(|file| matches!(file.origin, IndexedOrigin::Workspace))
+            .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
                 let tokens = lex(&file.source).tokens;
                 tokens
@@ -317,4 +318,8 @@ fn same_recovery_symbol(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {
     left.kind == right.kind
         && left.source_file == right.source_file
         && same_span(&left.declaration, &right.declaration)
+}
+
+fn workspace_navigation_file(file: &IndexedFile) -> bool {
+    matches!(file.origin, IndexedOrigin::Workspace) && !file.navigation_isolated
 }
