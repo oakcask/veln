@@ -53,7 +53,8 @@ diagnostics that must stay aligned with structured diagnostic behavior.
   `identifier-casing-declaration-type-carriers-json`,
   `identifier-casing-qualified-use-recovery-controls-json`,
   `identifier-casing-qualified-handler-boundaries-json`,
-  `identifier-casing-module-header-json`, and
+  `identifier-casing-module-header-json`,
+  `identifier-casing-source-path-artifact-gate-json`, and
   `identifier-casing-import-alias-run-boundary-json` define exact spans,
   detail values, diagnostic ordering, and non-cascading recovery behavior.
 - Source-less compiler lookup registry validation failures use span-less

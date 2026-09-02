@@ -1,0 +1,118 @@
+command = ["run", "--json", "main", "App.veln"]
+source_errors = "expected"
+exit = 1
+
+[tools]
+java = "fake-success"
+
+[env]
+JAVA_MARKER = "java-started"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "module name `App` must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.0.span.file"
+equals = "App.veln"
+
+[[json_assert]]
+path = "diagnostics.0.span.start.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.start.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.start.offset"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.0.span.end.line"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.end.column"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.span.end.offset"
+equals = 0
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.0.details.occurrence"
+equals = "path_segment"
+
+[[json_assert]]
+path = "diagnostics.0.details.name"
+equals = "App"
+
+[[json_assert]]
+path = "diagnostics.0.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.0.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "App.veln"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_kind"
+equals = "regular"
+
+[[json_assert]]
+path = "diagnostics.0.details.segment"
+equals = "App"
+
+[[json_assert]]
+path = "diagnostics.0.details.segment_index"
+equals = 0
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `App` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "App.veln"
+line = 1
+column = 1
+
+[[file_assert]]
+path = ".veln-harness-cache/jvm"
+missing = true
+
+[[file_assert]]
+path = "java-started"
+missing = true

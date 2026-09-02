@@ -8,10 +8,11 @@ update-when: The veln run command selection, execution gate, entry argument, run
 
 `run` uses the same source discovery rule as `check`. Parse-clean files are
 combined into one surface module for entry resolution. It blocks before user
-code execution on parse errors, a missing entry function, an entry argument
-count mismatch, an entry parameter type that cannot be supplied from command
-line text, selected-entry semantic errors, selected source module-header
-casing errors, reachable holes, or checked-core blockers.
+code execution on parse errors, a selected source-path-derived module identity
+casing error, a missing entry function, an entry argument count mismatch, an
+entry parameter type that cannot be supplied from command line text,
+selected-entry semantic errors, selected source module-header casing errors,
+reachable holes, or checked-core blockers.
 
 The entry must be a discovered function. Arguments after `--` are entry
 arguments, not source inputs. Entry parameters may be declared as `String`,
@@ -78,6 +79,11 @@ waiting strategy, and duration are not command contracts. The fault-injected
 cache evidence is in the `java::tests` unit tests. The process-level evidence
 is `abandoned_jvm_cache_coordination_reaches_bounded_error_without_starting_java`
 in the `toolchain_harness` test target.
+The `identifier-casing-source-path-artifact-gate-json` and
+`identifier-casing-source-path-unselected-artifact-json` executable examples
+check that a selected source-path module casing error blocks JVM artifact
+generation and Java launch, while an invalid source outside the explicit run
+input set does not block an otherwise valid selected entry.
 Runtime trace files for command output remain isolated to the individual
 command invocation. Human mode forwards process
 stdout and stderr and returns the Java process status for ordinary runtime
