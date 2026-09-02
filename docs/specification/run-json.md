@@ -42,10 +42,15 @@ selected consumer that imports and reaches an invalid direct-dependency
 declaration. The `identifier-casing-loaded-unreachable-dependency-json` case
 checks that an imported dependency can contain an invalid declaration outside
 the selected entry's reachable closure without reporting that diagnostic or
-blocking the consumer. The `identifier-casing-unloaded-dependency-json` case
-checks that an unimported manifest dependency does not report its casing
-diagnostic and does not block a successful consumer run. The identifier-casing
-owned-constructor ambiguous recovery
+blocking the consumer. The `identifier-casing-source-path-artifact-gate-json`
+case checks that a selected source-path-derived invalid module identity uses
+the shared diagnostic envelope and stops before JVM artifact generation or Java
+launch. The `identifier-casing-source-path-unselected-artifact-json` case
+checks that an invalid source outside the explicit run input set does not
+report its casing diagnostic and does not block a successful selected entry.
+The `identifier-casing-unloaded-dependency-json` case checks that an unimported
+manifest dependency does not report its casing diagnostic and does not block a
+successful consumer run. The identifier-casing owned-constructor ambiguous recovery
 cases also check that same-owner constructor recovery ambiguity keeps the
 shared diagnostic envelope and does not emit a recovered `name.invalid_case`.
 

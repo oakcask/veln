@@ -16,7 +16,10 @@ Source identifier casing diagnostics inside the selected test analysis set
 keep the selected-suite static gate, mark selected cases as blocked, and
 prevent JVM artifact generation. Source identifier casing diagnostics outside
 the selected test analysis set are not reported by that invocation and do not
-block the selected suite.
+block the selected suite. The
+`identifier-casing-source-path-artifact-gate-json` and
+`identifier-casing-source-path-unselected-artifact-json` executable examples
+check this boundary for source-path-derived module identity casing.
 
 `-j <JOBS>` and `--jobs <JOBS>` set the maximum number of runnable test cases
 that may execute concurrently. `JOBS` is a positive decimal integer. When the
@@ -138,4 +141,3 @@ Doctest output mismatches become failed cases with `failure.kind: "output"` and
 expected text, actual text, first differing logical line, bounded captured
 stdio events for the actual stream, and the expected-output fence span when
 available.
-

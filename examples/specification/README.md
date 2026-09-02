@@ -41,6 +41,15 @@ against the built `veln` binary.
 - `repair/`: advisory repair preview and repair JSON behavior.
 - `package/`: package-manager command workflows and lockfile writes.
 
+## Identifier Casing Notes
+
+- Source-path-derived module identity diagnostics are checked by the
+  `check/identifier-casing-source-path-*`, `run/identifier-casing-source-path-*`,
+  `test/identifier-casing-source-path-*`, and
+  `lsp/identifier-casing-source-path-*` cases. The `run` and `test`
+  artifact-gate cases assert the selected blocking boundary, unrelated-source
+  non-blocking boundary, and no-Java-launch evidence.
+
 ## Binary Schema Notes
 
 - Public schema examples should apply schemas through explicit
