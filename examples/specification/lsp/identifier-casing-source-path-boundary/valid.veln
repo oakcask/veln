@@ -1,0 +1,13 @@
+use helper
+
+fn read(input: helper::Item) -> Int
+  helper::make()
+end
+
+fn keep() -> fn() -> Int
+  helper::make
+end
+
+fn make_ready() -> helper::Item
+  helper::Ready(1)
+end

@@ -13,7 +13,9 @@ use veln_syntax::{
 };
 
 include!("navigation/model.rs");
+include!("navigation/source_indexing.rs");
 include!("navigation/index.rs");
+include!("navigation/selection.rs");
 include!("navigation/recovery.rs");
 include!("navigation/rename_shared.rs");
 include!("navigation/recovery_rename_conflicts.rs");
