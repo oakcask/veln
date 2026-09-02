@@ -403,7 +403,7 @@
     }
 
     #[test]
-    fn valid_callable_parameter_blocks_constructor_recovery_at_call_site() {
+    fn valid_callable_parameter_selects_local_symbol_at_call_site() {
         let result = query(
             vec![source(
                 "main.veln",
@@ -419,9 +419,13 @@
             "main.veln",
             6,
             4,
-        );
+        )
+        .unwrap();
 
-        assert!(result.is_none());
+        assert!(!result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 5, 11);
+        assert_eq!(locations(&result.references), [("main.veln", 6, 3)]);
     }
 
     #[test]

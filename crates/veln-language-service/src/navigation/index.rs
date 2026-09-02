@@ -241,11 +241,15 @@ impl SymbolIndex {
             })?;
         let shadow = scope.shadowing_binding(name, tokens, token_index)?;
         let (declaration_start, declaration_end) = shadow.declaration_range();
+        let declaration = file
+            .source
+            .span(TextRange::new(declaration_start, declaration_end));
+        if is_invalid_declaration_name(file, &declaration) {
+            return None;
+        }
         Some(LocalSymbol {
             name: name.to_string(),
-            declaration: file
-                .source
-                .span(TextRange::new(declaration_start, declaration_end)),
+            declaration,
             scope_file: file.source.path().as_str().to_string(),
             scope_start: scope.body_start,
             scope_end: scope.end,
