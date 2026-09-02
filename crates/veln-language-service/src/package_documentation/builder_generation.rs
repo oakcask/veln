@@ -214,7 +214,7 @@ impl<'a> PackageDocBuilder<'a> {
             }
             let exported = exported_paths.contains(source.path());
             let module_name = match if exported {
-                derive_export_source_module_path(&source_file).map_err(|diagnostics| diagnostics)
+                derive_export_source_module_path(&source_file)
             } else {
                 derive_source_module_path(&source_file).map_err(|diagnostic| vec![*diagnostic])
             } {
