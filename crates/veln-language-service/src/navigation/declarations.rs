@@ -32,15 +32,23 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
     let path = source.path().as_str().to_string();
     let companion_target_module = classify_companion_source(&path)
         .and_then(|companion| module_name_from_path(&companion.target_path));
+    let path_module = module_name_from_path(&path);
+    let navigation_isolated =
+        path_module
+            .as_deref()
+            .is_some_and(module_identity_has_invalid_casing);
     let module = explicit_module_name(source.text())
-        .or_else(|| module_name_from_path(&path))
+        .or(path_module)
         .unwrap_or_default();
     let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
     let parsed = parse(&source);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
-    let recovery_symbols =
-        recovery_symbols_for_workspace_source(&source, &tokens, &parsed.tree, &invalid_declaration_names);
+    let recovery_symbols = if navigation_isolated {
+        Vec::new()
+    } else {
+        recovery_symbols_for_workspace_source(&source, &tokens, &parsed.tree, &invalid_declaration_names)
+    };
     let file = IndexedFile {
         source,
         tokens,
@@ -57,9 +65,14 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
         recovery_symbols,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
+        navigation_isolated,
         origin: IndexedOrigin::Workspace,
     };
-    let declarations = file_declarations(&file, &parsed.tree);
+    let declarations = if file.navigation_isolated {
+        FileDeclarations::default()
+    } else {
+        file_declarations(&file, &parsed.tree)
+    };
     (file, declarations)
 }
 
@@ -106,6 +119,7 @@ fn indexed_dependency_source(
         recovery_symbols: Vec::new(),
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
+        navigation_isolated: false,
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),
             uri: uri.to_string(),
@@ -142,6 +156,9 @@ fn merged_surface_module(files: &[IndexedFile]) -> veln_ast::SurfaceModule {
         invalid_names: Vec::new(),
     };
     for file in files {
+        if file.navigation_isolated {
+            continue;
+        }
         let parsed = parse(&file.source);
         if !parsed.diagnostics.is_empty() {
             continue;
@@ -159,6 +176,12 @@ fn merged_surface_module(files: &[IndexedFile]) -> veln_ast::SurfaceModule {
         merged.invalid_names.extend(module.invalid_names);
     }
     merged
+}
+
+fn module_identity_has_invalid_casing(module: &str) -> bool {
+    module
+        .split("::")
+        .any(|segment| !segment.starts_with(|ch: char| ch.is_ascii_lowercase()))
 }
 
 fn assign_module_name(module: &mut veln_ast::SurfaceModule, name: &str) {

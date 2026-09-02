@@ -147,7 +147,17 @@ calls and function-value references. This proposal still owns MCP rename
 mapping and rename evidence for the remaining casing surfaces until those rows
 are implemented. LSP source-path-derived module segments are not rename
 targets: prepare-rename returns `null`, and rename returns an empty workspace
-edit without resource operations.
+edit without resource operations. A source whose path derives an invalid-cased
+module identity is also isolated from normal language-service navigation in
+captured snapshots and open-document overlays. Definition, references,
+prepare-rename, and rename select no normal symbol or edits for declarations
+inside that source or for module-qualified type, constructor, function, or
+function-value uses that would depend on that invalid identity. Unrelated
+valid sources continue to navigate normally. This boundary is specified by
+[Editor Support](../specification/editor-support.md), checked by the expanded
+`identifier-casing-source-path-boundary` example and focused
+`veln-language-service` tests, and recorded in
+[Identifier Casing Source Path Navigation Isolation](../reference/implemented-proposals/identifier-casing-source-path-navigation-isolation.md).
 The namespace-by-use-role casing boundary for equal-spelled schemas, effects,
 handlers, operations, types, constructors, functions, and value bindings is
 specified by [Name Resolution](../specification/name-resolution.md), by
@@ -300,9 +310,12 @@ the written path. Source-path occurrences are current behavior specified by
 
 The implemented source foundation quarantines invalid source declarations,
 bindings, and public alias targets for `check`, `run`, and LSP single-file
-diagnostics. The remaining rules in this section are proposal scope where they
-require module identity validation or the deferred language-service selection
-boundary.
+diagnostics. The implemented editor boundary also isolates
+source-path-derived invalid module identities from language-service navigation.
+The remaining rules in this section are proposal scope where they require
+explicit import-alias syntax, qualified-use recovery not already promoted to
+current behavior, MCP rename mapping, or artifact consumers outside current
+command specifications.
 
 For sources without casing diagnostics, ordinary expression calls and
 constructor patterns use these candidate classes. Dedicated schema, effect,
@@ -355,12 +368,11 @@ quarantined recovery for source declarations and bindings selected by `check`,
 overlay selection, and exact companion source and target boundaries. The
 remaining proposal defines how that recovery model extends to remaining
 qualified-use recovery links and remaining companion cases for invalid module
-or qualified roles. Source-path-derived module identity
-failures are current
+or qualified roles. Source-path-derived module identity failures are current
 behavior specified by [Name Resolution](../specification/name-resolution.md)
 and [Check JSON And Diagnostics](../specification/diagnostics-json.md); this
-proposal covers their unimplemented interactions with graph, artifact, and
-deferred recovery consumers.
+proposal covers only unimplemented interactions with artifact and deferred
+recovery consumers.
 
 An invalid remaining-scope module segment or qualified segment is not inserted
 into a normal name class. A use links to a recovery record only when the
@@ -392,7 +404,7 @@ never receive recovery records.
 For the remaining boundary work, a recovery record is visible only in the
 declaring source module and in the lexical scope that the corresponding valid
 declaration would have occupied. It does not cross exact-companion privilege,
-language-service snapshot or overlay ownership, or the implicit prelude import.
+artifact-consumer ownership, or the implicit prelude import.
 An invalid remaining-scope public surface is absent from public API and package
 snapshot symbol indexes. Direct-dependency source declaration and binding
 recovery isolation is current behavior specified by
@@ -497,9 +509,9 @@ loaded and unloaded direct dependencies, are specified by
 [Names And Effects](../specification/names-effects.md). The implicit-prelude
 selection boundary is complete and recorded in
 [Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md).
-The remaining proposal scope is limited to module identity, MCP rename
-mapping, and deferred language-service consumers listed in the
-acceptance model.
+The remaining proposal scope is limited to explicit import aliases, MCP rename
+mapping, and deferred artifact or recovery consumers listed in the acceptance
+model.
 
 No backend receives a remaining-scope module identity or recovery record with
 an invalid case. The planned command fixtures are authoritative for the exact
@@ -555,18 +567,19 @@ Rows covered by
 [Recovery-Aware Source Identifier Casing](../reference/implemented-proposals/identifier-casing-source-recovery.md)
 and completed rows in
 [Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md)
+and
+[Identifier Casing Source Path Navigation Isolation](../reference/implemented-proposals/identifier-casing-source-path-navigation-isolation.md)
 are no longer planned work. The table below retains only the unimplemented
 identifier-casing remainder.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, and reachable module-edge isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
+| Analyze an invalid derived module beside remaining artifact consumers. | The invalid source contributes no export, documentation module, backend reachability, or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, reachable module-edge isolation, and language-service navigation isolation are current behavior. | Export, documentation, backend, and deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified and module-derived roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, and boundary cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | A recovery symbol remains limited to the declaring source and lexical scope. No recovery symbol is imported, aliased, lowered, or exposed as a module-derived or qualified recovery result. | Boundary table covering diagnostics, module-derived and qualified navigation attempts, and artifacts for deferred boundaries. |
 | Combine casing with structural, reserved-name, duplicate, ambiguity, and unresolved failures. | Every direct and independently provable error appears once in the defined order with the required details and unchanged related notes; recovery-derived cascades do not appear. | Exact ordered human and JSON overlap tables, including an asserted reason for every expected absence. |
 | Request remaining transport rename mappings. | MCP mappings return no edits for unsupported recovery or module selections and preserve shared failure codes where the transport exposes them. | Planned MCP error-mapping cases. |
-| Run each remaining deferred language-service consumer with casing errors inside and outside its selected unit. | Remaining service operations apply the same selected-unit boundary as checking, and no invalid module or qualified recovery symbol is returned as a normal service result. | Language-service fixtures covering the remaining module-derived and qualified surfaces. |
 | Run the repository source-carrier audit and specification suite after migration. | Every parsed or analyzed repository-owned source follows the contract except dedicated exact-expectation casing fixtures, and unrelated negative fixtures retain their intended diagnostic sets. | Source-carrier audit, specification harness, doctest and documentation gates, and workspace tests. |
 
 This proposal is complete when all acceptance rows pass, all repository-owned

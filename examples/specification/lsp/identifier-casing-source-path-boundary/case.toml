@@ -210,3 +210,63 @@ missing = true
 id = 4
 path = "/result"
 equals = null
+
+[[lsp_assert]]
+id = 5
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 7
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 12
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 13
+path = "/result/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 13
+path = "/result/range/start/line"
+equals = 0
+
+[[lsp_assert]]
+id = 13
+path = "/result/range/start/character"
+equals = 9
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+equals = null

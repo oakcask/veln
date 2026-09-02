@@ -156,6 +156,12 @@ For workspace sources, saved snapshots and open-document overlays publish
 source identifier casing diagnostics for the selected workspace project only,
 including source-path-derived module segment diagnostics at the zero-width
 source-start range specified by [name-resolution.md](name-resolution.md).
+When a workspace source has an invalid source-path-derived module identity,
+the language service does not expose that source or its declarations as normal
+workspace navigation candidates. Definition, references, prepare-rename, and
+rename return no selected symbol or edits for positions in that source and for
+qualified selections that would resolve through that invalid module identity.
+Navigation for unrelated valid workspace sources remains available.
 Invalid source declarations, function parameters, result bindings, local and
 pattern bindings, satisfy candidate bindings, handler context parameters, and
 handler operation-clause parameters do not enter the normal LSP navigation
@@ -337,7 +343,11 @@ The executable `identifier-casing-source-path-boundary` LSP example covers
 workspace source-path-derived module segment diagnostics at the zero-width
 source-start range. `textDocument/prepareRename` returns `null` at that range.
 `textDocument/rename` returns an empty workspace-edit `changes` object without
-`documentChanges` or a resource operation at that range.
+`documentChanges` or a resource operation at that range. The same example
+checks that declarations in an invalid source-path-derived module identity and
+qualified type, constructor, function, and function-value selections through
+that invalid identity return no definition, references, prepare-rename range,
+or rename edits while an unrelated valid module still navigates normally.
 The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding recovery
 definition, references, prepare-rename, and rename edits for declaration

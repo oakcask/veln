@@ -38,6 +38,9 @@ impl SymbolIndex {
             .files
             .iter()
             .find(|file| file.source.path().as_str() == source_path)?;
+        if file.navigation_isolated {
+            return None;
+        }
         let offset = offset_for_position(file.source.text(), position)?;
         let tokens = &file.tokens;
         let (token_index, token) = identifier_token_at(tokens, offset)?;

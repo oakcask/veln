@@ -543,6 +543,7 @@ struct IndexedFile {
     recovery_symbols: Vec<RecoverySymbol>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
+    navigation_isolated: bool,
     origin: IndexedOrigin,
 }
 

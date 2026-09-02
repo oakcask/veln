@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"2541bd65c3bf70b22f180938fdc37a0128bcca59"
+source_git_tree	"ed43db9fe1ccbebdb4437deeecb66c212a3190be"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1644
@@ -14166,11 +14166,59 @@ field	expectations.lsp_assertions[34].equals	null
 field	expectations.lsp_assertions[34].id	4
 field	expectations.lsp_assertions[34].operation	"equals"
 field	expectations.lsp_assertions[34].path	"/result"
+field	expectations.lsp_assertions[35].equals	[]
+field	expectations.lsp_assertions[35].id	5
+field	expectations.lsp_assertions[35].operation	"equals"
+field	expectations.lsp_assertions[35].path	"/result"
+field	expectations.lsp_assertions[36].equals	null
+field	expectations.lsp_assertions[36].id	6
+field	expectations.lsp_assertions[36].operation	"equals"
+field	expectations.lsp_assertions[36].path	"/result"
+field	expectations.lsp_assertions[37].equals	{}
+field	expectations.lsp_assertions[37].id	7
+field	expectations.lsp_assertions[37].operation	"equals"
+field	expectations.lsp_assertions[37].path	"/result/changes"
+field	expectations.lsp_assertions[38].equals	null
+field	expectations.lsp_assertions[38].id	8
+field	expectations.lsp_assertions[38].operation	"equals"
+field	expectations.lsp_assertions[38].path	"/result"
+field	expectations.lsp_assertions[39].equals	null
+field	expectations.lsp_assertions[39].id	9
+field	expectations.lsp_assertions[39].operation	"equals"
+field	expectations.lsp_assertions[39].path	"/result"
 field	expectations.lsp_assertions[3].equals	"name.invalid_case"
 field	expectations.lsp_assertions[3].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[3].occurrence	0
 field	expectations.lsp_assertions[3].operation	"equals"
 field	expectations.lsp_assertions[3].path	"/params/diagnostics/0/code"
+field	expectations.lsp_assertions[40].equals	null
+field	expectations.lsp_assertions[40].id	10
+field	expectations.lsp_assertions[40].operation	"equals"
+field	expectations.lsp_assertions[40].path	"/result"
+field	expectations.lsp_assertions[41].equals	null
+field	expectations.lsp_assertions[41].id	11
+field	expectations.lsp_assertions[41].operation	"equals"
+field	expectations.lsp_assertions[41].path	"/result"
+field	expectations.lsp_assertions[42].equals	{}
+field	expectations.lsp_assertions[42].id	12
+field	expectations.lsp_assertions[42].operation	"equals"
+field	expectations.lsp_assertions[42].path	"/result/changes"
+field	expectations.lsp_assertions[43].id	13
+field	expectations.lsp_assertions[43].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[43].path	"/result/uri"
+field	expectations.lsp_assertions[43].workspace_file_uri	"helper.veln"
+field	expectations.lsp_assertions[44].equals	0
+field	expectations.lsp_assertions[44].id	13
+field	expectations.lsp_assertions[44].operation	"equals"
+field	expectations.lsp_assertions[44].path	"/result/range/start/line"
+field	expectations.lsp_assertions[45].equals	9
+field	expectations.lsp_assertions[45].id	13
+field	expectations.lsp_assertions[45].operation	"equals"
+field	expectations.lsp_assertions[45].path	"/result/range/start/character"
+field	expectations.lsp_assertions[46].equals	null
+field	expectations.lsp_assertions[46].id	14
+field	expectations.lsp_assertions[46].operation	"equals"
+field	expectations.lsp_assertions[46].path	"/result"
 field	expectations.lsp_assertions[4].equals	1
 field	expectations.lsp_assertions[4].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[4].occurrence	0
@@ -14204,10 +14252,10 @@ field	expectations.lsp_assertions[9].path	"/params/diagnostics/0/range/end/line"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":690,"sha256":"542ea5c06df0fca78ce635f8abbb454db071a39c11c432bc63f87d0d2df630d5"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3064,"sha256":"b23e0120e5938113aacff2f6e42c0dfec3269ded35c79aa7e4771302e69610a4"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"31e928c2d9ae74f5f7ea627d5533e34759bd736f6081d1c4fd8f147c4cd20be9"
+case_digest	"f2f7c9a9a5c7e08312363d87c55a0e334cf3801306ac06fd784fe4fc8c0bcc03"
 case	"examples/specification/lsp/imported-constructor-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -53214,4 +53262,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"2de00bec6ea60549a4e18b38501401ed79783eb44e0d56b7a0d5ad5df50cd661"
+aggregate_digest	"e397626d93add56dd8f12401426b7af5a5787e9be047dfd605accf3e64871284"

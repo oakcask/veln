@@ -17,6 +17,83 @@
     }
 
     #[test]
+    fn invalid_source_path_identity_is_excluded_from_snapshot_navigation() {
+        let sources = vec![
+            source(
+                "App/_net.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub fn make() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            ),
+            source("helper.veln", "pub type Item\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use App::_net\n",
+                    "use helper\n\n",
+                    "fn item(input: App::_net::Item) -> helper::Item\n",
+                    "  App::_net::Ready(App::_net::make())\n",
+                    "end\n\n",
+                    "fn callback() -> fn() -> Int\n",
+                    "  App::_net::make\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "valid.veln",
+                "use helper\n\nfn read(input: helper::Item) -> helper::Item\n  input\nend\n",
+            ),
+        ];
+
+        assert!(query(sources.clone(), "App/_net.veln", 1, 10).is_none());
+        assert!(query(sources.clone(), "App/_net.veln", 2, 7).is_none());
+        assert!(query(sources.clone(), "App/_net.veln", 5, 8).is_none());
+
+        for (line, column) in [(4, 28), (5, 14), (5, 30), (8, 13)] {
+            assert!(
+                query(sources.clone(), "main.veln", line, column).is_none(),
+                "invalid source identity unexpectedly navigated at {line}:{column}"
+            );
+        }
+
+        let valid = query(sources, "valid.veln", 3, 25).unwrap();
+        assert_eq!(valid.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&valid.definition, "helper.veln", 1, 10);
+    }
+
+    #[test]
+    fn invalid_source_path_identity_is_excluded_from_overlay_navigation() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("main.veln", "use helper\n\nfn main(input: helper::Item) -> helper::Item\n  input\nend\n"),
+            source("helper.veln", "pub type Item\nend\n"),
+        ])
+        .with_workspace_overlays([source(
+            "App/_net.veln",
+            concat!(
+                "pub type Item\n",
+                "  pub Ready(Int)\n",
+                "end\n\n",
+                "pub fn make() -> Int\n",
+                "  1\n",
+                "end\n",
+            ),
+        )]);
+
+        assert!(query_snapshot(&snapshot, "App/_net.veln", 1, 10).is_none());
+        assert!(query_snapshot(&snapshot, "App/_net.veln", 2, 7).is_none());
+        assert!(query_snapshot(&snapshot, "App/_net.veln", 5, 8).is_none());
+
+        let valid = query_snapshot(&snapshot, "main.veln", 3, 24).unwrap();
+        assert_eq!(valid.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&valid.definition, "helper.veln", 1, 10);
+    }
+
+    #[test]
     fn invalid_binding_recovery_navigation_rejects_shadowing_and_ambiguity() {
         let shadowed = vec![source(
             "main.veln",
