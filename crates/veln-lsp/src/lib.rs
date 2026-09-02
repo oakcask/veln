@@ -268,6 +268,7 @@ impl Server {
             let result = self
                 .symbol_at_request(message)
                 .filter(|request| is_workspace_location(&request.result.definition))
+                .filter(|request| request.result.selected_symbol.kind.is_renamable())
                 .map(|request| range_json(Some(&request.result.selection)))
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
@@ -287,6 +288,7 @@ impl Server {
             let Some(request) = self
                 .symbol_at_request(message)
                 .filter(|request| is_workspace_location(&request.result.definition))
+                .filter(|request| request.result.selected_symbol.kind.is_renamable())
             else {
                 return response(&id, "{\"changes\":{}}");
             };

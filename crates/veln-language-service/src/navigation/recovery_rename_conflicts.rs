@@ -5,6 +5,7 @@ impl SymbolIndex {
         requested_name: &str,
     ) -> Option<(NavigationLocation, RenameAffectedScope)> {
         match result.selected_symbol.kind.rename_name_class() {
+            RenameNameClass::CasingNeutral => None,
             RenameNameClass::Type => self.recovery_type_rename_conflict(result, requested_name),
             RenameNameClass::Constructor => {
                 self.recovery_constructor_rename_conflict(result, requested_name)

@@ -19,3 +19,27 @@ fn common(input: Common) -> Common effects [Common]
 	let common = perform Common::Common()
 	Common(common)
 end
+
+schema lower_packet
+	value: Int
+end
+
+effect lower_collision
+	lower_collision() -> Int
+end
+
+handler lower_collision() handles lower_collision
+	lower_collision() => 1
+end
+
+fn lower_collision() -> Int
+	2
+end
+
+fn lower_exercise(packet: {value: Int}) -> Int effects [lower_collision]
+	let lower_collision = 3
+	let encoded = encode lower_packet from packet
+	let observed = lower_collision
+	let handled = handle perform lower_collision::lower_collision() with lower_collision()
+	handled + observed
+end

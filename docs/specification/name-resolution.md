@@ -23,14 +23,17 @@ Implemented checker namespaces are:
 Equal spellings in different namespaces are accepted where the source grammar
 permits them. A source position selects only the namespace fixed by that
 position. Type annotations select the type namespace even when a schema has the
-same spelling. Effect lists and `perform Effect::operation(...)` forms select
+same spelling. Schema encode and decode expressions select the schema
+namespace. Effect lists and `perform Effect::operation(...)` forms select
 effect and operation namespaces. `handle Body with handler(...)` forms select
 the handler namespace. Ordinary value calls do not select schema, effect,
 handler, or operation declarations. Schema composition remains ambiguous when
 both a visible ordinary type and a visible schema use the same spelling because
 that position admits both namespaces. The
 `identifier-casing-namespace-use-roles` checked example covers these
-namespace-by-use-role boundaries and the same-namespace duplicate boundary.
+namespace-by-use-role boundaries, lower-case exact spelling collisions between
+casing-neutral declarations and value names, and the same-namespace duplicate
+boundary.
 
 Bare names resolve to local bindings. Function calls resolve to:
 

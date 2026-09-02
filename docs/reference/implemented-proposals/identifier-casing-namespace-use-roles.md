@@ -16,11 +16,14 @@ Current behavior is specified by
 [Editor Support](../../specification/editor-support.md). The checked
 `identifier-casing-namespace-use-roles` example covers equal-spelled schemas,
 effects, handlers, operations, types, constructors, functions, and value
-bindings where the source grammar permits them. It also covers same-namespace
-duplicates, ordinary calls that exclude casing-neutral declarations, and schema
-composition ambiguity when both a type and a schema are visible. Focused
-language-service tests cover definition selection for accepted type,
-constructor, function, and value-binding occurrences.
+bindings where the source grammar permits them. It includes lower-case exact
+spelling collisions between casing-neutral declarations and accepted function
+and local-binding names. It also covers same-namespace duplicates, ordinary
+calls that exclude casing-neutral declarations, and schema composition
+ambiguity when both a type and a schema are visible. Focused
+language-service tests cover definition selection for accepted schema, effect,
+handler, operation, type, constructor, function, and value-binding
+occurrences.
 
 ## Scope
 

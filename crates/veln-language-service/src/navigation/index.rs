@@ -16,6 +16,10 @@ impl SymbolIndex {
         }
         attach_classified_path_segments(&mut files);
         Self {
+            schemas: declarations.schemas,
+            effects: declarations.effects,
+            handlers: declarations.handlers,
+            operations: declarations.operations,
             functions: declarations.functions,
             types: declarations.types,
             constructors: declarations.constructors,
@@ -196,6 +200,16 @@ impl SymbolIndex {
             return Some(SelectedNavigationSymbol::bare(Symbol::Constructor(symbol)));
         }
 
+        if let Some(symbol) = self.neutral_role_symbol_for_selection(
+            file,
+            tokens,
+            token_index,
+            name,
+            selection,
+        ) {
+            return Some(SelectedNavigationSymbol::bare(symbol));
+        }
+
         self.local_binding_symbol_for_selection(file, tokens, token_index, name, prepared_scopes)
             .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Local(symbol)))
             .or_else(|| {
@@ -257,6 +271,47 @@ impl SymbolIndex {
             declaration_scope_end: scope.end,
             kind: LocalSymbolKind::ValueBinding,
         })
+    }
+
+    fn neutral_role_symbol_for_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<Symbol> {
+        if let Some(symbol) = self.schema_declared_at(name, selection) {
+            return Some(Symbol::Schema(symbol));
+        }
+        if let Some(symbol) = self.effect_declared_at(name, selection) {
+            return Some(Symbol::Effect(symbol));
+        }
+        if let Some(symbol) = self.handler_declared_at(name, selection) {
+            return Some(Symbol::Handler(symbol));
+        }
+        if let Some(symbol) = self.operation_declared_at(name, selection) {
+            return Some(Symbol::EffectOperation(symbol));
+        }
+        if is_schema_path_leaf_token(tokens, token_index) {
+            return self.schema_for_reference(file, name).map(Symbol::Schema);
+        }
+        if is_effect_reference_token(tokens, token_index) {
+            return self.effect_for_reference(file, name).map(Symbol::Effect);
+        }
+        if is_perform_effect_qualifier_token(tokens, token_index) {
+            return self.effect_for_reference(file, name).map(Symbol::Effect);
+        }
+        if is_perform_operation_token(tokens, token_index) {
+            let qualifier = qualifier_for_token(tokens, token_index)?;
+            return self
+                .operation_for_qualified_perform(file, &qualifier, name)
+                .map(Symbol::EffectOperation);
+        }
+        if is_handler_reference_token(tokens, token_index) {
+            return self.handler_for_reference(file, name).map(Symbol::Handler);
+        }
+        None
     }
 
     fn non_declaration_symbol_for_selection(
@@ -474,6 +529,114 @@ impl SymbolIndex {
         self.constructors
             .iter()
             .find(|symbol| declaration_matches(name, selection, &symbol.name, symbol.package.as_deref(), &symbol.declaration.span))
+            .cloned()
+    }
+
+    fn schema_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<NeutralSymbol> {
+        self.schemas
+            .iter()
+            .find(|symbol| {
+                declaration_matches(
+                    name,
+                    selection,
+                    &symbol.name,
+                    symbol.package.as_deref(),
+                    &symbol.declaration.span,
+                )
+            })
+            .cloned()
+    }
+
+    fn effect_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<NeutralSymbol> {
+        self.effects
+            .iter()
+            .find(|symbol| {
+                declaration_matches(
+                    name,
+                    selection,
+                    &symbol.name,
+                    symbol.package.as_deref(),
+                    &symbol.declaration.span,
+                )
+            })
+            .cloned()
+    }
+
+    fn handler_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<NeutralSymbol> {
+        self.handlers
+            .iter()
+            .find(|symbol| {
+                declaration_matches(
+                    name,
+                    selection,
+                    &symbol.name,
+                    symbol.package.as_deref(),
+                    &symbol.declaration.span,
+                )
+            })
+            .cloned()
+    }
+
+    fn operation_declared_at(
+        &self,
+        name: &str,
+        selection: &SourceSpan,
+    ) -> Option<EffectOperationSymbol> {
+        self.operations
+            .iter()
+            .find(|symbol| {
+                declaration_matches(
+                    name,
+                    selection,
+                    &symbol.name,
+                    symbol.package.as_deref(),
+                    &symbol.declaration.span,
+                )
+            })
+            .cloned()
+    }
+
+    fn schema_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
+        self.schemas
+            .iter()
+            .find(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            })
+            .cloned()
+    }
+
+    fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
+        self.effects
+            .iter()
+            .find(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            })
+            .cloned()
+    }
+
+    fn handler_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
+        self.handlers
+            .iter()
+            .find(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            })
+            .cloned()
+    }
+
+    fn operation_for_qualified_perform(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<EffectOperationSymbol> {
+        self.operations
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.effect_name == qualifier
+                    && symbol.module == file.module
+                    && symbol.package.is_none()
+            })
             .cloned()
     }
 

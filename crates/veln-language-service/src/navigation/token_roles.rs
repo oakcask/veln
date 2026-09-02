@@ -196,6 +196,77 @@ fn is_effect_operation_declaration_name(tokens: &[Token], index: usize) -> bool 
             .is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
+fn is_schema_path_leaf_token(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && line_tokens_before(tokens, index)
+            .iter()
+            .any(|token| matches!(token.kind, TokenKind::Decode | TokenKind::Encode))
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::From)
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon)
+}
+
+fn is_effect_reference_token(tokens: &[Token], index: usize) -> bool {
+    is_effect_list_token(tokens, index) || is_handler_handled_effect_token(tokens, index)
+}
+
+fn is_effect_list_token(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && line_tokens_before(tokens, index)
+            .iter()
+            .any(|token| token.kind == TokenKind::Effects)
+        && line_tokens_before(tokens, index)
+            .iter()
+            .any(|token| token.kind == TokenKind::LBracket)
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::RBracket)
+}
+
+fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Handles)
+}
+
+fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::Perform)
+        && next_non_layout_token(tokens, index)
+            .is_some_and(|next| next.kind == TokenKind::DoubleColon)
+}
+
+fn is_perform_operation_token(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::DoubleColon)
+        && next_non_whitespace_token(tokens, index)
+            .is_some_and(|next| next.kind == TokenKind::LParen)
+        && tokens[..index]
+            .iter()
+            .rev()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::Perform)
+}
+
+fn is_handler_reference_token(tokens: &[Token], index: usize) -> bool {
+    tokens[index].kind == TokenKind::Ident
+        && previous_non_layout_token(tokens, index)
+            .is_some_and(|previous| previous.kind == TokenKind::With)
+        && next_non_whitespace_token(tokens, index)
+            .is_some_and(|next| next.kind == TokenKind::LParen)
+        && tokens[..index]
+            .iter()
+            .rev()
+            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
+            .any(|token| token.kind == TokenKind::Handle)
+}
+
 fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {
     is_call_target_token(tokens, index)
         && inside_handler_operation_clause_body(tokens, tokens[index].range.start)

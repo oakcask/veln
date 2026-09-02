@@ -8,6 +8,10 @@ pub struct SourcePosition {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SymbolKind {
+    Schema,
+    Effect,
+    Handler,
+    EffectOperation,
     Type,
     Function,
     Constructor,
@@ -17,8 +21,18 @@ pub enum SymbolKind {
 }
 
 impl SymbolKind {
+    pub fn is_renamable(&self) -> bool {
+        !matches!(
+            self,
+            Self::Schema | Self::Effect | Self::Handler | Self::EffectOperation
+        )
+    }
+
     pub fn rename_name_class(&self) -> RenameNameClass {
         match self {
+            Self::Schema | Self::Effect | Self::Handler | Self::EffectOperation => {
+                RenameNameClass::CasingNeutral
+            }
             Self::Type => RenameNameClass::Type,
             Self::Constructor => RenameNameClass::Constructor,
             Self::Function => RenameNameClass::Function,
@@ -33,6 +47,7 @@ impl SymbolKind {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenameNameClass {
+    CasingNeutral,
     Type,
     Constructor,
     Function,
@@ -42,6 +57,7 @@ pub enum RenameNameClass {
 impl RenameNameClass {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::CasingNeutral => "casing_neutral",
             Self::Type => "type",
             Self::Constructor => "constructor",
             Self::Function => "function",
@@ -51,6 +67,7 @@ impl RenameNameClass {
 
     pub fn required_initial(self) -> RenameRequiredInitial {
         match self {
+            Self::CasingNeutral => RenameRequiredInitial::Any,
             Self::Type | Self::Constructor => RenameRequiredInitial::AsciiUppercase,
             Self::Function | Self::ValueBinding => RenameRequiredInitial::AsciiLowercase,
         }
@@ -59,6 +76,7 @@ impl RenameNameClass {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenameRequiredInitial {
+    Any,
     AsciiUppercase,
     AsciiLowercase,
 }
@@ -66,6 +84,7 @@ pub enum RenameRequiredInitial {
 impl RenameRequiredInitial {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Any => "any",
             Self::AsciiUppercase => "ascii_uppercase",
             Self::AsciiLowercase => "ascii_lowercase",
         }
@@ -76,6 +95,7 @@ impl RenameRequiredInitial {
             return false;
         };
         match self {
+            Self::Any => true,
             Self::AsciiUppercase => initial.is_ascii_uppercase(),
             Self::AsciiLowercase => initial.is_ascii_lowercase(),
         }
@@ -210,6 +230,10 @@ pub fn navigate(
 impl Symbol {
     fn definition(&self) -> NavigationLocation {
         match self {
+            Self::Schema(symbol) => symbol.declaration.clone(),
+            Self::Effect(symbol) => symbol.declaration.clone(),
+            Self::Handler(symbol) => symbol.declaration.clone(),
+            Self::EffectOperation(symbol) => symbol.declaration.clone(),
             Self::Type(symbol) => symbol.declaration.clone(),
             Self::Function(symbol) => symbol.declaration.clone(),
             Self::Constructor(symbol) => symbol.declaration.clone(),
@@ -228,6 +252,10 @@ impl Symbol {
 
     fn kind(&self) -> SymbolKind {
         match self {
+            Self::Schema(_) => SymbolKind::Schema,
+            Self::Effect(_) => SymbolKind::Effect,
+            Self::Handler(_) => SymbolKind::Handler,
+            Self::EffectOperation(_) => SymbolKind::EffectOperation,
             Self::Type(_) => SymbolKind::Type,
             Self::Function(_) => SymbolKind::Function,
             Self::Constructor(_) => SymbolKind::Constructor,
@@ -238,6 +266,10 @@ impl Symbol {
 
     fn name(&self) -> &str {
         match self {
+            Self::Schema(symbol) => &symbol.name,
+            Self::Effect(symbol) => &symbol.name,
+            Self::Handler(symbol) => &symbol.name,
+            Self::EffectOperation(symbol) => &symbol.name,
             Self::Type(symbol) => &symbol.name,
             Self::Function(symbol) => &symbol.name,
             Self::Constructor(symbol) => &symbol.name,
@@ -248,6 +280,9 @@ impl Symbol {
 
     fn references(&self, index: &SymbolIndex) -> Vec<SourceSpan> {
         match self {
+            Self::Schema(_) | Self::Effect(_) | Self::Handler(_) | Self::EffectOperation(_) => {
+                Vec::new()
+            }
             Self::Type(symbol) => index.type_references(symbol),
             Self::Function(symbol) => index.function_references(symbol),
             Self::Constructor(symbol) => index.constructor_references(symbol),
@@ -351,6 +386,9 @@ impl SelectedNavigationSymbol {
 
 fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
     match symbol? {
+        Symbol::Schema(_) | Symbol::Effect(_) | Symbol::Handler(_) | Symbol::EffectOperation(_) => {
+            None
+        }
         Symbol::Type(_) => Some(NameClass::Type),
         Symbol::Function(_) => Some(NameClass::Function),
         Symbol::Constructor(_) => Some(NameClass::Constructor),
@@ -412,11 +450,32 @@ struct SymbolRequest {
 
 #[derive(Clone, Debug)]
 enum Symbol {
+    Schema(NeutralSymbol),
+    Effect(NeutralSymbol),
+    Handler(NeutralSymbol),
+    EffectOperation(EffectOperationSymbol),
     Type(TypeSymbol),
     Function(FunctionSymbol),
     Constructor(ConstructorSymbol),
     Local(LocalSymbol),
     Recovery(RecoverySymbol),
+}
+
+#[derive(Clone, Debug)]
+struct NeutralSymbol {
+    module: String,
+    name: String,
+    declaration: NavigationLocation,
+    package: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct EffectOperationSymbol {
+    module: String,
+    effect_name: String,
+    name: String,
+    declaration: NavigationLocation,
+    package: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -447,6 +506,10 @@ struct RecoverySymbol {
 impl RecoverySymbol {
     fn name_class(&self) -> Option<NameClass> {
         match self.kind {
+            SymbolKind::Schema
+            | SymbolKind::Effect
+            | SymbolKind::Handler
+            | SymbolKind::EffectOperation => None,
             SymbolKind::Type => Some(NameClass::Type),
             SymbolKind::Function => Some(NameClass::Function),
             SymbolKind::Constructor => Some(NameClass::Constructor),
@@ -485,6 +548,10 @@ struct IndexedFile {
 
 #[derive(Default)]
 struct FileDeclarations {
+    schemas: Vec<NeutralSymbol>,
+    effects: Vec<NeutralSymbol>,
+    handlers: Vec<NeutralSymbol>,
+    operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
@@ -505,6 +572,10 @@ enum IndexedOrigin {
 #[derive(Debug)]
 pub(crate) struct SymbolIndex {
     files: Vec<IndexedFile>,
+    schemas: Vec<NeutralSymbol>,
+    effects: Vec<NeutralSymbol>,
+    handlers: Vec<NeutralSymbol>,
+    operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
