@@ -13,7 +13,7 @@ pub(crate) fn capture_navigation_source(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
-) -> Result<(CapturedProject, String, NavigationScope), CheckProjectOutcome> {
+) -> Result<(CapturedProject, String, NavigationScope), ToolOutcome> {
     let source = validate_source_path(base, source)?;
     stable_navigation_capture_or_failure(base, selection, &source)
         .map(|captured| (captured.project, captured.source, captured.scope))
@@ -56,7 +56,7 @@ fn stable_navigation_capture_or_failure(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
-) -> Result<CapturedNavigationSource, CheckProjectOutcome> {
+) -> Result<CapturedNavigationSource, ToolOutcome> {
     capture_stable_navigation_source_with(|| {
         capture_navigation_source_once(base, selection, source)
     })
@@ -159,10 +159,10 @@ fn source_beneath_root<'a>(source: &'a str, root: &str) -> Option<&'a str> {
     source.strip_prefix(root)?.strip_prefix('/')
 }
 
-fn navigation_domain_as_io(failure: CheckProjectOutcome) -> io::Error {
+fn navigation_domain_as_io(failure: ToolOutcome) -> io::Error {
     match failure {
-        CheckProjectOutcome::DomainFailure { message, .. } => io::Error::other(message),
-        CheckProjectOutcome::Success(_) => io::Error::other("unexpected navigation success"),
+        ToolOutcome::DomainFailure { message, .. } => io::Error::other(message),
+        ToolOutcome::Success(_) => io::Error::other("unexpected navigation success"),
     }
 }
 

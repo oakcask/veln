@@ -6,7 +6,8 @@ use std::os::unix::ffi::OsStrExt;
 use veln_language_service::{EffectiveProjectSnapshot, NavigationSource, SourcePosition, navigate};
 use veln_source::SourcePath;
 
-use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
+use crate::check_project::capture_navigation_source;
+use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
 
 #[derive(Clone, Copy)]
@@ -15,20 +16,11 @@ pub(crate) enum Coordinate {
     OutOfRange,
 }
 
-pub(crate) enum DefinitionOutcome {
-    Success(Value),
-    DomainFailure {
-        code: &'static str,
-        message: &'static str,
-        details: Value,
-    },
-}
-
 pub(crate) fn definition(
     base: &WorkspaceBase,
     selection: &Selection,
     arguments: &Value,
-) -> DefinitionOutcome {
+) -> ToolOutcome {
     let source = arguments["source"]
         .as_str()
         .expect("definition input schema requires a string source");
@@ -36,7 +28,7 @@ pub(crate) fn definition(
     let column = coordinate(&arguments["column"]);
     let (captured, captured_source, _) = match capture_navigation_source(base, selection, source) {
         Ok(captured) => captured,
-        Err(failure) => return failure.into(),
+        Err(failure) => return failure,
     };
     let source_file = captured
         .project
@@ -81,7 +73,7 @@ pub(crate) fn definition(
         })),
         NavigationSource::Package { .. } => None,
     });
-    DefinitionOutcome::Success(json!({"definition": definition}))
+    ToolOutcome::Success(json!({"definition": definition}))
 }
 
 pub(crate) fn coordinate(value: &Value) -> Coordinate {
@@ -188,33 +180,6 @@ pub(crate) fn path_to_uri(path: &Path) -> String {
         }
     }
     format!("file://{encoded}")
-}
-
-fn domain_failure(code: &'static str, message: &'static str, details: Value) -> DefinitionOutcome {
-    DefinitionOutcome::DomainFailure {
-        code,
-        message,
-        details,
-    }
-}
-
-impl From<CheckProjectOutcome> for DefinitionOutcome {
-    fn from(outcome: CheckProjectOutcome) -> Self {
-        match outcome {
-            CheckProjectOutcome::DomainFailure {
-                code,
-                message,
-                details,
-            } => Self::DomainFailure {
-                code,
-                message,
-                details,
-            },
-            CheckProjectOutcome::Success(_) => {
-                unreachable!("navigation capture failures are domain failures")
-            }
-        }
-    }
 }
 
 #[cfg(test)]
