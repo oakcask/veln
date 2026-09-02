@@ -50,6 +50,19 @@ fn small_boolean_truth_table_proves_nested_tautology() {
 }
 
 #[test]
+fn max_width_boolean_truth_table_proves_conjunction_of_complements() {
+    let predicate = (0..MAX_STATIC_BOOLEAN_ATOMS)
+        .map(|index| format!("(value.field{index} or not value.field{index})"))
+        .collect::<Vec<_>>()
+        .join(" and ");
+
+    assert_eq!(
+        static_boolean_truth_table_value(&predicate),
+        Some(StaticBooleanValue::True)
+    );
+}
+
+#[test]
 fn static_contract_reasoning_evaluates_integer_bitwise_expressions() {
     for predicate in [
         "(~0 & 255) == 255",
