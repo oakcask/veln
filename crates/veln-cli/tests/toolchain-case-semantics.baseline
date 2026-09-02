@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"a3dec11ae0f6f90ea4c65365a4f6a803c90d8268"
+source_git_tree	"db53acb12e972d49ea16ae9471fef1901cbbc816"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1644
@@ -14272,16 +14272,98 @@ field	expectations.lsp_assertions[58].id	17
 field	expectations.lsp_assertions[58].operation	"workspace_file_uri"
 field	expectations.lsp_assertions[58].path	"/result/1/uri"
 field	expectations.lsp_assertions[58].workspace_file_uri	"valid.veln"
+field	expectations.lsp_assertions[59].equals	null
+field	expectations.lsp_assertions[59].id	18
+field	expectations.lsp_assertions[59].operation	"equals"
+field	expectations.lsp_assertions[59].path	"/result"
 field	expectations.lsp_assertions[5].equals	"veln"
 field	expectations.lsp_assertions[5].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[5].occurrence	0
 field	expectations.lsp_assertions[5].operation	"equals"
 field	expectations.lsp_assertions[5].path	"/params/diagnostics/0/source"
+field	expectations.lsp_assertions[60].equals	{}
+field	expectations.lsp_assertions[60].id	19
+field	expectations.lsp_assertions[60].operation	"equals"
+field	expectations.lsp_assertions[60].path	"/result/changes"
+field	expectations.lsp_assertions[61].id	19
+field	expectations.lsp_assertions[61].operation	"missing"
+field	expectations.lsp_assertions[61].path	"/result/documentChanges"
+field	expectations.lsp_assertions[62].equals	null
+field	expectations.lsp_assertions[62].id	20
+field	expectations.lsp_assertions[62].operation	"equals"
+field	expectations.lsp_assertions[62].path	"/result"
+field	expectations.lsp_assertions[63].equals	[]
+field	expectations.lsp_assertions[63].id	21
+field	expectations.lsp_assertions[63].operation	"equals"
+field	expectations.lsp_assertions[63].path	"/result"
+field	expectations.lsp_assertions[64].equals	null
+field	expectations.lsp_assertions[64].id	22
+field	expectations.lsp_assertions[64].operation	"equals"
+field	expectations.lsp_assertions[64].path	"/result"
+field	expectations.lsp_assertions[65].equals	{}
+field	expectations.lsp_assertions[65].id	23
+field	expectations.lsp_assertions[65].operation	"equals"
+field	expectations.lsp_assertions[65].path	"/result/changes"
+field	expectations.lsp_assertions[66].id	23
+field	expectations.lsp_assertions[66].operation	"missing"
+field	expectations.lsp_assertions[66].path	"/result/documentChanges"
+field	expectations.lsp_assertions[67].equals	null
+field	expectations.lsp_assertions[67].id	24
+field	expectations.lsp_assertions[67].operation	"equals"
+field	expectations.lsp_assertions[67].path	"/result"
+field	expectations.lsp_assertions[68].id	25
+field	expectations.lsp_assertions[68].length	4
+field	expectations.lsp_assertions[68].operation	"length"
+field	expectations.lsp_assertions[68].path	"/result"
+field	expectations.lsp_assertions[69].id	25
+field	expectations.lsp_assertions[69].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[69].path	"/result/0/uri"
+field	expectations.lsp_assertions[69].workspace_file_uri	"helper.veln"
 field	expectations.lsp_assertions[6].equals	"module name `App` must start with an ASCII lowercase letter"
 field	expectations.lsp_assertions[6].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[6].occurrence	0
 field	expectations.lsp_assertions[6].operation	"equals"
 field	expectations.lsp_assertions[6].path	"/params/diagnostics/0/message"
+field	expectations.lsp_assertions[70].id	25
+field	expectations.lsp_assertions[70].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[70].path	"/result/1/uri"
+field	expectations.lsp_assertions[70].workspace_file_uri	"main.veln"
+field	expectations.lsp_assertions[71].id	25
+field	expectations.lsp_assertions[71].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[71].path	"/result/2/uri"
+field	expectations.lsp_assertions[71].workspace_file_uri	"valid.veln"
+field	expectations.lsp_assertions[72].id	25
+field	expectations.lsp_assertions[72].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[72].path	"/result/3/uri"
+field	expectations.lsp_assertions[72].workspace_file_uri	"valid.veln"
+field	expectations.lsp_assertions[73].id	26
+field	expectations.lsp_assertions[73].length	3
+field	expectations.lsp_assertions[73].operation	"length"
+field	expectations.lsp_assertions[73].path	"/result"
+field	expectations.lsp_assertions[74].id	26
+field	expectations.lsp_assertions[74].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[74].path	"/result/0/uri"
+field	expectations.lsp_assertions[74].workspace_file_uri	"helper.veln"
+field	expectations.lsp_assertions[75].id	26
+field	expectations.lsp_assertions[75].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[75].path	"/result/1/uri"
+field	expectations.lsp_assertions[75].workspace_file_uri	"valid.veln"
+field	expectations.lsp_assertions[76].id	26
+field	expectations.lsp_assertions[76].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[76].path	"/result/2/uri"
+field	expectations.lsp_assertions[76].workspace_file_uri	"valid.veln"
+field	expectations.lsp_assertions[77].id	27
+field	expectations.lsp_assertions[77].length	1
+field	expectations.lsp_assertions[77].operation	"length"
+field	expectations.lsp_assertions[77].path	"/result/changes/$workspace_file_uri:helper.veln"
+field	expectations.lsp_assertions[78].id	27
+field	expectations.lsp_assertions[78].length	2
+field	expectations.lsp_assertions[78].operation	"length"
+field	expectations.lsp_assertions[78].path	"/result/changes/$workspace_file_uri:valid.veln"
+field	expectations.lsp_assertions[79].id	28
+field	expectations.lsp_assertions[79].operation	"workspace_file_uri"
+field	expectations.lsp_assertions[79].path	"/result/uri"
+field	expectations.lsp_assertions[79].workspace_file_uri	"helper.veln"
 field	expectations.lsp_assertions[7].equals	0
 field	expectations.lsp_assertions[7].method	"textDocument/publishDiagnostics"
 field	expectations.lsp_assertions[7].occurrence	0
@@ -14300,10 +14382,10 @@ field	expectations.lsp_assertions[9].path	"/params/diagnostics/0/range/end/line"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3806,"sha256":"1239372891dcde60179060f41a9fc13beb40760721393ec44826ddf5610b2ea1"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":6927,"sha256":"b3f874578cc56adab647ead84578c1fe9c0fd54147ac539516c0b46e85ea436b"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"31fb62c31ab718f6d141e478e644726d65c5e302ed75592b4d6e4efb345c0e1a"
+case_digest	"265e08621bab435d3c89466d60410fd25d9dd5fc17a9bea52dad87a204629c15"
 case	"examples/specification/lsp/imported-constructor-bare-prelude-definition"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -53310,4 +53392,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"a13a3ba344e03e4686d880fca5ed9bb4c29b7f284c3b063b53aa43c573c3e122"
+aggregate_digest	"c3bd4adcea838b4381523bb7260863ebfb1608635ef793a0d385f3f53a95bc0f"

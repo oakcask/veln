@@ -330,3 +330,108 @@ workspace_file_uri = "helper.veln"
 id = 17
 path = "/result/1/uri"
 workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 19
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 19
+path = "/result/documentChanges"
+missing = true
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 23
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 23
+path = "/result/documentChanges"
+missing = true
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 25
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 25
+path = "/result/0/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 25
+path = "/result/1/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 25
+path = "/result/2/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 25
+path = "/result/3/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 26
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 26
+path = "/result/0/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 26
+path = "/result/1/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 26
+path = "/result/2/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 27
+path = "/result/changes/$workspace_file_uri:helper.veln"
+length = 1
+
+[[lsp_assert]]
+id = 27
+path = "/result/changes/$workspace_file_uri:valid.veln"
+length = 2
+
+[[lsp_assert]]
+id = 28
+path = "/result/uri"
+workspace_file_uri = "helper.veln"
