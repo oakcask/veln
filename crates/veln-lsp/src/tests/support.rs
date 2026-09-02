@@ -53,8 +53,22 @@ fn assert_standard_prelude_navigation(server: &mut Server, main_uri: &str) -> St
         "{}",
         implicit[0]
     );
-    assert_null_result(&shadowed_parameter[0]);
-    assert_null_result(&shadowed_local[0]);
+    assert!(
+        shadowed_parameter[0].contains(main_uri)
+            && shadowed_parameter[0].contains(
+                r#""range":{"start":{"line":10,"character":24},"end":{"line":10,"character":28}}"#
+            ),
+        "{}",
+        shadowed_parameter[0]
+    );
+    assert!(
+        shadowed_local[0].contains(main_uri)
+            && shadowed_local[0].contains(
+                r#""range":{"start":{"line":15,"character":6},"end":{"line":15,"character":10}}"#
+            ),
+        "{}",
+        shadowed_local[0]
+    );
     prelude_uri
 }
 
