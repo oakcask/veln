@@ -8,6 +8,7 @@ impl SymbolIndex {
             return self.recovery_rename_conflict(result, requested_name);
         }
         match result.selected_symbol.kind.rename_name_class() {
+            RenameNameClass::CasingNeutral => None,
             RenameNameClass::Type => self.type_rename_conflict(result, requested_name),
             RenameNameClass::Constructor => self.constructor_rename_conflict(result, requested_name),
             RenameNameClass::Function => self.function_rename_conflict(result, requested_name),

@@ -11,8 +11,29 @@ This page specifies source name resolution and identifier casing behavior.
 Implemented checker namespaces are:
 
 - module imports
+- schema declarations
+- effect declarations
+- handler declarations
+- effect operation declarations
+- source type declarations and public type aliases
+- source ADT constructor declarations
 - value declarations, including functions, parameters, and `let` bindings
 - record fields inside one record literal
+
+Equal spellings in different namespaces are accepted where the source grammar
+permits them. A source position selects only the namespace fixed by that
+position. Type annotations select the type namespace even when a schema has the
+same spelling. Schema encode and decode expressions select the schema
+namespace. Effect lists and `perform Effect::operation(...)` forms select
+effect and operation namespaces. `handle Body with handler(...)` forms select
+the handler namespace. Ordinary value calls do not select schema, effect,
+handler, or operation declarations. Schema composition remains ambiguous when
+both a visible ordinary type and a visible schema use the same spelling because
+that position admits both namespaces. The
+`identifier-casing-namespace-use-roles` checked example covers these
+namespace-by-use-role boundaries, lower-case exact spelling collisions between
+casing-neutral declarations and value names, and the same-namespace duplicate
+boundary.
 
 Bare names resolve to local bindings. Function calls resolve to:
 
@@ -196,8 +217,13 @@ remain source-written and continue to use ordinary source casing diagnostics.
 Current duplicate checks reject:
 
 - duplicate import paths within the same source module
+- duplicate schema declaration names in the same source module
+- duplicate effect declaration names in the same source module
+- duplicate handler declaration names in the same source module
+- duplicate operation names inside one effect declaration
 - duplicate top-level function, test, or public function alias names
 - duplicate top-level source type or public type alias names
+- duplicate constructor names inside one source type declaration
 - duplicate parameter names in one function
 - a result binding that duplicates a parameter name
 - duplicate `let` names in the same function value scope, including names that

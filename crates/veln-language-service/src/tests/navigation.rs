@@ -403,7 +403,7 @@
     }
 
     #[test]
-    fn valid_callable_parameter_blocks_constructor_recovery_at_call_site() {
+    fn valid_callable_parameter_selects_local_symbol_at_call_site() {
         let result = query(
             vec![source(
                 "main.veln",
@@ -419,9 +419,13 @@
             "main.veln",
             6,
             4,
-        );
+        )
+        .unwrap();
 
-        assert!(result.is_none());
+        assert!(!result.is_recovery);
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 5, 11);
+        assert_eq!(locations(&result.references), [("main.veln", 6, 3)]);
     }
 
     #[test]
@@ -669,4 +673,94 @@
         assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
         assert_location(&result.definition, "main.veln", 2, 18);
         assert_eq!(locations(&result.references), [("main.veln", 2, 31)]);
+    }
+
+    #[test]
+    fn equal_spelled_navigation_uses_the_selected_namespace() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "schema Common\n",
+                "  value: Int\n",
+                "end\n\n",
+                "effect Common\n",
+                "  Common() -> Int\n",
+                "end\n\n",
+                "handler Common() handles Common\n",
+                "  Common() => 1\n",
+                "end\n\n",
+                "type Common\n",
+                "  Common(Int)\n",
+                "end\n\n",
+                "fn common(input: Common) -> Common effects [Common]\n",
+                "  let common = perform Common::Common()\n",
+                "  Common(common)\n",
+                "end\n\n",
+                "schema lower_packet\n",
+                "  value: Int\n",
+                "end\n\n",
+                "effect lower_collision\n",
+                "  lower_collision() -> Int\n",
+                "end\n\n",
+                "handler lower_collision() handles lower_collision\n",
+                "  lower_collision() => 1\n",
+                "end\n\n",
+                "fn lower_collision() -> Int\n",
+                "  2\n",
+                "end\n\n",
+                "fn lower_exercise(packet: {value: Int}) -> Int effects [lower_collision]\n",
+                "  let lower_collision = 3\n",
+                "  let encoded = encode lower_packet from packet\n",
+                "  let observed = lower_collision\n",
+                "  let handled = handle perform lower_collision::lower_collision() with lower_collision()\n",
+                "  handled + observed\n",
+                "end\n",
+            ),
+        )]);
+
+        let type_result = query_snapshot(&snapshot, "main.veln", 17, 18).unwrap();
+        assert_eq!(type_result.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&type_result.definition, "main.veln", 13, 6);
+
+        let constructor_result = query_snapshot(&snapshot, "main.veln", 19, 4).unwrap();
+        assert_eq!(constructor_result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_location(&constructor_result.definition, "main.veln", 14, 3);
+
+        let function_result = query_snapshot(&snapshot, "main.veln", 17, 4).unwrap();
+        assert_eq!(function_result.selected_symbol.kind, SymbolKind::Function);
+        assert_location(&function_result.definition, "main.veln", 17, 4);
+
+        let binding_result = query_snapshot(&snapshot, "main.veln", 19, 10).unwrap();
+        assert_eq!(binding_result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&binding_result.definition, "main.veln", 18, 7);
+
+        let schema_result = query_snapshot(&snapshot, "main.veln", 40, 24).unwrap();
+        assert_eq!(schema_result.selected_symbol.kind, SymbolKind::Schema);
+        assert_location(&schema_result.definition, "main.veln", 22, 8);
+
+        let effect_list_result = query_snapshot(&snapshot, "main.veln", 38, 57).unwrap();
+        assert_eq!(effect_list_result.selected_symbol.kind, SymbolKind::Effect);
+        assert_location(&effect_list_result.definition, "main.veln", 26, 8);
+
+        let perform_effect_result = query_snapshot(&snapshot, "main.veln", 42, 32).unwrap();
+        assert_eq!(perform_effect_result.selected_symbol.kind, SymbolKind::Effect);
+        assert_location(&perform_effect_result.definition, "main.veln", 26, 8);
+
+        let operation_result = query_snapshot(&snapshot, "main.veln", 42, 49).unwrap();
+        assert_eq!(
+            operation_result.selected_symbol.kind,
+            SymbolKind::EffectOperation
+        );
+        assert_location(&operation_result.definition, "main.veln", 27, 3);
+
+        let handler_result = query_snapshot(&snapshot, "main.veln", 42, 72).unwrap();
+        assert_eq!(handler_result.selected_symbol.kind, SymbolKind::Handler);
+        assert_location(&handler_result.definition, "main.veln", 30, 9);
+
+        let shadowing_binding_result = query_snapshot(&snapshot, "main.veln", 41, 18).unwrap();
+        assert_eq!(
+            shadowing_binding_result.selected_symbol.kind,
+            SymbolKind::ValueBinding
+        );
+        assert_location(&shadowing_binding_result.definition, "main.veln", 39, 7);
     }

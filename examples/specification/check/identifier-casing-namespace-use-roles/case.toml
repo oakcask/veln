@@ -1,0 +1,76 @@
+command = ["check", "--json", "main.veln", "boundaries.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = [
+  "\"id\":\"name.duplicate\"",
+  "duplicate schema declaration name `common`",
+  "duplicate effect operation declaration name `common`",
+  "unresolved call_target `common`",
+  "\"reason\":\"ambiguous_type_and_schema\"",
+]
+not_contains = [
+  "duplicate schema declaration name `Common`",
+  "duplicate effect declaration name `Common`",
+  "duplicate handler declaration name `Common`",
+  "duplicate type declaration name `Common`",
+  "duplicate constructor declaration name `Common`",
+  "duplicate function declaration name `common`",
+  "name.invalid_case",
+]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "name.duplicate"
+severity = "error"
+kind = "name"
+message = "duplicate schema declaration name `common`"
+
+[diagnostics.span]
+file = "boundaries.veln"
+line = 7
+column = 1
+
+[[diagnostics]]
+id = "name.duplicate"
+severity = "error"
+kind = "name"
+message = "duplicate effect operation declaration name `common`"
+
+[diagnostics.span]
+file = "boundaries.veln"
+line = 13
+column = 2
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `common`"
+
+[diagnostics.span]
+file = "boundaries.veln"
+line = 21
+column = 2
+
+[[diagnostics]]
+id = "schema.composition_reference"
+severity = "error"
+kind = "type"
+message = "schema field `value` cannot compose `Ambiguous` because it resolves as both an ordinary type and a schema"
+
+[diagnostics.span]
+file = "boundaries.veln"
+line = 33
+column = 2

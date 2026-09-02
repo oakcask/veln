@@ -147,18 +147,24 @@
         )])
         .with_standard_library(standard_library);
 
-        for (case, line, column) in [("parameter", 2, 4), ("local", 7, 4)] {
-            assert!(
-                navigate(
-                    &snapshot,
-                    SourcePosition {
-                        source: SourcePath::new("main.veln"),
-                        line,
-                        column,
-                    },
-                )
-                .is_none(),
-                "accepted shadowed {case} call"
+        for (case, line, column, definition_line, definition_column) in
+            [("parameter", 2, 4, 1, 25), ("local", 7, 4, 6, 7)]
+        {
+            let result = navigate(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line,
+                    column,
+                },
+            )
+            .unwrap_or_else(|| panic!("shadowed {case} call should select the local binding"));
+            assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+            assert_location(
+                &result.definition,
+                "main.veln",
+                definition_line,
+                definition_column,
             );
         }
     }

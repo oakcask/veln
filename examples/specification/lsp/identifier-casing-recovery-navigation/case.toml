@@ -193,18 +193,28 @@ equals = null
 
 [[lsp_assert]]
 id = 31
-path = "/result"
-equals = null
+path = "/result/range/start/line"
+equals = 63
+
+[[lsp_assert]]
+id = 31
+path = "/result/range/start/character"
+equals = 15
 
 [[lsp_assert]]
 id = 32
 path = "/result"
-length = 0
+length = 2
 
 [[lsp_assert]]
 id = 33
-path = "/result"
-equals = null
+path = "/result/start/line"
+equals = 64
+
+[[lsp_assert]]
+id = 33
+path = "/result/start/character"
+equals = 2
 
 [[lsp_assert]]
 id = 34

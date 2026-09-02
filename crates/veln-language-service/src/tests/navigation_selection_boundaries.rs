@@ -147,7 +147,7 @@
     }
 
     #[test]
-    fn type_selection_excludes_same_named_non_type_namespace_tokens() {
+    fn type_selection_keeps_same_named_non_type_namespace_tokens_in_role() {
         let source_text = concat!(
             "type Item\n",
             "  Value(value: Int)\n",
@@ -165,11 +165,14 @@
         );
         let sources = vec![source("main.veln", source_text)];
 
-        for (line, column) in [(5, 8), (10, 8), (11, 4)] {
-            assert!(
-                query(sources.clone(), "main.veln", line, column).is_none(),
-                "{line}:{column} selected a type symbol"
-            );
+        for (line, column, kind) in [
+            (5, 8, SymbolKind::Schema),
+            (10, 8, SymbolKind::Effect),
+            (11, 4, SymbolKind::EffectOperation),
+        ] {
+            let result = query(sources.clone(), "main.veln", line, column)
+                .unwrap_or_else(|| panic!("{line}:{column} should select its own namespace"));
+            assert_eq!(result.selected_symbol.kind, kind);
         }
 
         let result = query(sources, "main.veln", 14, 16).unwrap();

@@ -190,6 +190,10 @@ fn assign_module_name(module: &mut veln_ast::SurfaceModule, name: &str) {
 
 impl FileDeclarations {
     fn extend(&mut self, other: Self) {
+        self.schemas.extend(other.schemas);
+        self.effects.extend(other.effects);
+        self.handlers.extend(other.handlers);
+        self.operations.extend(other.operations);
         self.functions.extend(other.functions);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
@@ -199,11 +203,151 @@ impl FileDeclarations {
 
 fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclarations {
     FileDeclarations {
+        schemas: schema_declarations(file, syntax),
+        effects: effect_declarations(file, syntax),
+        handlers: handler_declarations(file, syntax),
+        operations: effect_operation_declarations(file, syntax),
         functions: function_declarations(file),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
     }
+}
+
+fn schema_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<NeutralSymbol> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Schema(schema) => {
+                let name = schema.name.as_ref()?;
+                let span = declaration_name_after_keyword(file, TokenKind::Schema, &schema.span)?;
+                neutral_declaration(file, name, span, schema.visibility)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn effect_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<NeutralSymbol> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Effect(effect) => {
+                let name = effect.name.as_ref()?;
+                let span = declaration_name_after_keyword(file, TokenKind::Effect, &effect.span)?;
+                neutral_declaration(file, name, span, effect.visibility)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn handler_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<NeutralSymbol> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Handler(handler) => {
+                let name = handler.name.as_ref()?;
+                let span = declaration_name_after_keyword(file, TokenKind::Handler, &handler.span)?;
+                neutral_declaration(file, name, span, handler.visibility)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn effect_operation_declarations(
+    file: &IndexedFile,
+    syntax: &SyntaxTree,
+) -> Vec<EffectOperationSymbol> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Effect(effect) => Some(effect),
+            _ => None,
+        })
+        .flat_map(|effect| {
+            let effect_name = effect.name.clone().unwrap_or_default();
+            let public = effect.visibility == Visibility::Public;
+            effect.operations.iter().filter_map(move |operation| {
+                let name = operation.name.as_ref()?;
+                let span = operation.name_span.clone();
+                let (declaration, package) = neutral_navigation_origin(file, span, public)?;
+                Some(EffectOperationSymbol {
+                    module: file.module.clone(),
+                    effect_name: effect_name.clone(),
+                    name: name.clone(),
+                    declaration,
+                    package,
+                })
+            })
+        })
+        .collect()
+}
+
+fn neutral_declaration(
+    file: &IndexedFile,
+    name: &str,
+    span: SourceSpan,
+    visibility: Visibility,
+) -> Option<NeutralSymbol> {
+    let public = visibility == Visibility::Public;
+    let (declaration, package) = neutral_navigation_origin(file, span, public)?;
+    Some(NeutralSymbol {
+        module: file.module.clone(),
+        name: name.to_string(),
+        declaration,
+        package,
+    })
+}
+
+fn neutral_navigation_origin(
+    file: &IndexedFile,
+    span: SourceSpan,
+    public: bool,
+) -> Option<(NavigationLocation, Option<String>)> {
+    match &file.origin {
+        IndexedOrigin::Workspace => Some((workspace_location(span), None)),
+        IndexedOrigin::Package {
+            identity,
+            uri,
+            exported,
+            ..
+        } => {
+            if !exported || !public {
+                return None;
+            }
+            Some((
+                NavigationLocation {
+                    source: NavigationSource::Package { uri: uri.clone() },
+                    span,
+                },
+                Some(identity.clone()),
+            ))
+        }
+    }
+}
+
+fn declaration_name_after_keyword(
+    file: &IndexedFile,
+    keyword: TokenKind,
+    span: &SourceSpan,
+) -> Option<SourceSpan> {
+    file.tokens
+        .iter()
+        .enumerate()
+        .find(|(_, token)| {
+            token.kind == keyword
+                && token.range.start >= span.start.offset
+                && token.range.end <= span.end.offset
+        })
+        .and_then(|(index, _)| next_non_layout_token(&file.tokens, index))
+        .filter(|token| token.kind == TokenKind::Ident)
+        .map(|token| file.source.span(token.range))
 }
 
 fn visible_workspace_constructor_from(file: &IndexedFile, symbol: &ConstructorSymbol) -> bool {
