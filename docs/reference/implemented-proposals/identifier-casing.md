@@ -50,6 +50,6 @@ changes the corresponding behavior.
 ## Completion Boundary
 
 The implemented casing foundation is sufficient for existing shared
-language-service function reference selection. Future explicit import aliases,
-MCP rename transport behavior, and repair candidate isolation do not change
-the accepted-source function reference semantics.
+language-service function reference selection. Future explicit import aliases
+and MCP rename transport behavior do not change the accepted-source function
+reference semantics.
