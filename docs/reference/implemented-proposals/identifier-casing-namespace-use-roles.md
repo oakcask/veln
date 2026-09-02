@@ -40,4 +40,3 @@ This slice completes only the namespace-by-use-role acceptance row. The
 remaining identifier-casing proposal still owns module identities, source-span
 range coverage, remaining recovery boundaries, MCP rename mappings, deferred
 language-service consumers, and repository-wide source-carrier audit work.
-

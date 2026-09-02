@@ -19,4 +19,3 @@ fn common(input: Common) -> Common effects [Common]
 	let common = perform Common::Common()
 	Common(common)
 end
-
