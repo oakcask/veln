@@ -12,11 +12,15 @@ Workspace sources whose source path derives an invalid-cased module identity
 are isolated from normal language-service navigation. Current behavior is
 specified by [Editor Support](../../specification/editor-support.md) and
 [Name Resolution](../../specification/name-resolution.md). The checked
-`identifier-casing-source-path-boundary` LSP example covers diagnostics,
-definition, references, prepare-rename, rename, qualified selections through
-the invalid identity, edit-free rename results, and continued navigation in an
-unrelated valid module. Focused `veln-language-service` tests cover the same
-snapshot and open-document overlay isolation boundary.
+`identifier-casing-source-path-boundary`,
+`identifier-casing-source-path-snapshot-navigation`,
+`identifier-casing-source-path-overlay-navigation`, and
+`identifier-casing-source-path-overlay-reference-filtering` LSP examples cover
+diagnostics, definition, references, prepare-rename, rename, qualified
+selections through the invalid identity, edit-free rename results, and
+continued navigation in an unrelated valid module. Focused
+`veln-language-service` tests cover the same snapshot and open-document overlay
+isolation boundary.
 
 ## Scope
 

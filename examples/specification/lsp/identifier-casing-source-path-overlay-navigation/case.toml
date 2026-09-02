@@ -1,0 +1,57 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 19
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 19
+path = "/result/documentChanges"
+missing = true
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 23
+path = "/result/changes"
+equals = {}
+
+[[lsp_assert]]
+id = 23
+path = "/result/documentChanges"
+missing = true
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+equals = null

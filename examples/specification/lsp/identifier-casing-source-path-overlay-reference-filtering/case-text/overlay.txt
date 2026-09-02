@@ -1,0 +1,22 @@
+use App::_net
+use helper
+
+pub type OverlayItem
+  pub OverlayReady(Int)
+end
+
+pub fn overlay_make() -> Int
+  helper::make()
+end
+
+fn overlay_item(input: App::_net::OverlayItem) -> helper::Item
+  App::_net::OverlayReady(App::_net::overlay_make())
+end
+
+fn overlay_callback() -> fn() -> Int
+  App::_net::overlay_make
+end
+
+fn borrowed() -> Int
+  helper::make()
+end

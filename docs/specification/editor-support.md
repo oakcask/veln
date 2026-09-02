@@ -341,18 +341,21 @@ constructor expression and pattern uses that share spelling with an invalid
 recovery candidate. Multiple compatible recovery records return no selected
 symbol, and incompatible, shadowed, qualified, initializer-before-binding, or
 out-of-scope occurrences do not link to the recovery record.
-The executable `identifier-casing-source-path-boundary` LSP example covers
+The executable `identifier-casing-source-path-boundary`,
+`identifier-casing-source-path-snapshot-navigation`,
+`identifier-casing-source-path-overlay-navigation`, and
+`identifier-casing-source-path-overlay-reference-filtering` LSP examples cover
 workspace source-path-derived module segment diagnostics at the zero-width
 source-start range. `textDocument/prepareRename` returns `null` at that range.
 `textDocument/rename` returns an empty workspace-edit `changes` object without
 `documentChanges` or a resource operation at that range. The same example
-checks that declarations in an invalid source-path-derived module identity and
-qualified type, constructor, function, and function-value selections through
-that invalid identity return no definition, references, prepare-rename range,
-or rename edits. It also checks that references collected for unrelated valid
-type, constructor, and function symbols do not include occurrences inside an
-invalid source identity, while an unrelated valid module still navigates
-normally.
+group checks that declarations in an invalid source-path-derived module
+identity and qualified type, constructor, function, and function-value
+selections through that invalid identity return no definition, references,
+prepare-rename range, or rename edits. It also checks that references collected
+for unrelated valid type, constructor, and function symbols do not include
+occurrences inside an invalid source identity, while an unrelated valid module
+still navigates normally.
 The executable `identifier-casing-handler-binding-navigation` LSP example
 covers invalid handler context and operation-clause binding recovery
 definition, references, prepare-rename, and rename edits for declaration

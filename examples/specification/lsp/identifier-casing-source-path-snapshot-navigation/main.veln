@@ -1,0 +1,10 @@
+use App::_net
+use helper
+
+fn item(input: App::_net::Item) -> helper::Item
+  App::_net::Ready(App::_net::make())
+end
+
+fn callback() -> fn() -> Int
+  App::_net::make
+end
