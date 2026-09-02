@@ -417,124 +417,24 @@ pub(super) fn fixture_copy_rejects_links_before_command_execution() {
     fs::remove_dir_all(root).expect("copy link root should be removed");
 }
 
-#[cfg(unix)]
 #[test]
-pub(super) fn runtime_inventory_barrier_failure_blocks_generated_case_lifecycle() {
-    use std::os::unix::fs::symlink;
-
-    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let case_dir = manifest_dir.join("target/runtime-barrier-block/stale-generated");
-    let _ = fs::remove_dir_all(&case_dir);
-    fs::create_dir_all(&case_dir).expect("case directory should be created");
-    fs::write(
-        manifest_dir.join("target/runtime-barrier-target.txt"),
-        "target",
-    )
-    .expect("link target should be written");
-    symlink(
-        "../runtime-barrier-target.txt",
-        case_dir.join("fixture-link.txt"),
-    )
-    .expect("fixture sentinel link should be created");
-    fs::write(
-        case_dir.join("case.toml"),
-        r#"
-command = ["run-command-that-must-not-start"]
-stdin_file = "case-text/missing-sidecar.txt"
-exit = 0
-
-[skip]
-platforms = ["linux", "macos", "windows"]
-reason = "skip evaluation must not run after stale inventory"
-"#,
-    )
-    .expect("case manifest should be written");
-
-    let relative = case_dir
-        .strip_prefix(manifest_dir)
-        .expect("stale generated case should be under manifest dir")
-        .to_string_lossy()
-        .replace('\\', "/");
-    assert!(!GENERATED_TOOLCHAIN_CASES.contains(&relative.as_str()));
+pub(super) fn dedicated_inventory_parity_test_reports_stale_generated_cases() {
+    let relative = "target/stale-generated".to_string();
     let mut stale_generated = GENERATED_TOOLCHAIN_CASES
         .iter()
         .map(|case| (*case).to_string())
         .collect::<Vec<_>>();
     stale_generated.push(relative.clone());
     with_test_generated_toolchain_cases(stale_generated, || {
-        assert!(is_generated_inventory_member(&case_dir));
-        let panic = std::panic::catch_unwind(|| run_case(&case_dir))
-            .expect_err("stale inventory should stop generated case execution");
+        let panic = std::panic::catch_unwind(runtime_generated_inventory_barrier)
+            .expect_err("dedicated parity test should reject stale inventory");
         let message = panic_message(panic);
 
         assert!(message.contains("toolchain case preflight found"));
         assert!(message.contains(&format!(
             "{relative}: rebuild the toolchain harness because this generated case manifest is no longer discovered"
         )));
-        assert!(
-            !message.contains("skip evaluation must not run"),
-            "skip evaluation should be bypassed by the runtime barrier"
-        );
-        assert!(
-            !message.contains("replace the link or reparse point"),
-            "fixture copying should be bypassed by the runtime barrier"
-        );
-        assert!(
-            !message.contains("missing-sidecar"),
-            "resource loading should be bypassed by the runtime barrier"
-        );
-        assert!(
-            !message.contains("run-command-that-must-not-start"),
-            "command execution should be bypassed by the runtime barrier"
-        );
     });
-
-    fs::remove_dir_all(manifest_dir.join("target/runtime-barrier-block"))
-        .expect("runtime root should be removed");
-    fs::remove_file(manifest_dir.join("target/runtime-barrier-target.txt"))
-        .expect("link target should be removed");
-}
-
-#[test]
-pub(super) fn runtime_inventory_barrier_shares_one_concurrent_scan_result() {
-    use std::sync::{Arc, Barrier};
-
-    let barrier = Arc::new(RuntimeInventoryBarrier::new());
-    let ready = Arc::new(Barrier::new(8));
-    let scans = Arc::new(AtomicUsize::new(0));
-    let mut threads = Vec::new();
-    for _ in 0..8 {
-        let barrier = Arc::clone(&barrier);
-        let ready = Arc::clone(&ready);
-        let scans = Arc::clone(&scans);
-        threads.push(thread::spawn(move || {
-            ready.wait();
-            let panic = std::panic::catch_unwind(|| {
-                barrier.check_with(|| {
-                    scans.fetch_add(1, Ordering::SeqCst);
-                    Err("shared stale inventory result".to_string())
-                });
-            })
-            .expect_err("shared failing scan should panic in every caller");
-            panic_message(panic)
-        }));
-    }
-
-    let messages = threads
-        .into_iter()
-        .map(|thread| thread.join().expect("barrier thread should complete"))
-        .collect::<Vec<_>>();
-
-    assert_eq!(
-        scans.load(Ordering::SeqCst),
-        1,
-        "concurrent generated tests should share one runtime scan"
-    );
-    assert!(
-        messages
-            .iter()
-            .all(|message| message.contains("shared stale inventory result"))
-    );
 }
 
 #[test]

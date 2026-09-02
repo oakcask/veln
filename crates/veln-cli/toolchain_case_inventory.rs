@@ -141,6 +141,9 @@ pub(crate) fn generated_toolchain_tests(cases: &[PathBuf]) -> String {
         out.push_str(&format!("    {case:?},\n"));
     }
     out.push_str("];\n\nmod generated_toolchain_cases {\n    use super::*;\n\n");
+    out.push_str(
+        "    #[test]\n    fn generated_toolchain_inventory_matches_manifests() {\n        runtime_generated_inventory_barrier();\n    }\n\n",
+    );
     for case in cases {
         let name = unique_test_name(case, &mut names);
         let case = slash_path(case);
