@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use veln_literals::{IntegerLiteralError, parse_integer_literal};
+use veln_literals::parse_integer_literal;
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::tree::build_lossless_root;
@@ -15,6 +13,7 @@ use crate::{
     lex,
 };
 
+mod adr_lite;
 mod body_and_types;
 mod contract_predicates;
 mod declarations;
@@ -24,7 +23,11 @@ mod expression_control;
 mod expression_core;
 mod expression_primaries;
 mod functions_and_imports;
+mod integer_literal_diagnostics;
 mod schemas;
+
+use adr_lite::collect_adr_lite_records;
+use integer_literal_diagnostics::integer_literal_diagnostics;
 
 fn is_contextual_identifier(kind: TokenKind) -> bool {
     matches!(
@@ -360,238 +363,6 @@ impl TypeArgumentListState {
         self.flush_current(false);
         self.args
     }
-}
-
-fn integer_literal_diagnostics(source: &SourceFile, tokens: &[Token]) -> Vec<ParseDiagnostic> {
-    tokens
-        .iter()
-        .filter(|token| matches!(token.kind, TokenKind::Int | TokenKind::MalformedInt))
-        .filter_map(|token| {
-            let error = parse_integer_literal(&token.text).err()?;
-            let (message, range, expected) = integer_literal_error_details(token, error);
-            let (strategy, dropped_token_count) =
-                if matches!(error, IntegerLiteralError::OutOfRange { .. }) {
-                    (RecoveryStrategy::None, 0)
-                } else {
-                    (RecoveryStrategy::SkipToken, 1)
-                };
-            Some(ParseDiagnostic {
-                id: "parse.integer_literal",
-                message,
-                span: Some(source.span(range)),
-                parser_context: "integer_literal",
-                unexpected: UnexpectedToken {
-                    kind: token.kind.label().to_string(),
-                    text: token.text.clone(),
-                },
-                expected,
-                recovery: Recovery {
-                    strategy,
-                    anchor: None,
-                    dropped_token_count,
-                },
-                repair_candidates: Vec::new(),
-            })
-        })
-        .collect()
-}
-
-fn integer_literal_error_details(
-    token: &Token,
-    error: IntegerLiteralError,
-) -> (String, TextRange, Vec<&'static str>) {
-    match error {
-        IntegerLiteralError::MissingDigits { radix } => (
-            format!(
-                "{} integer literal requires at least one digit",
-                radix.name()
-            ),
-            token.range,
-            vec![radix.accepted_digits()],
-        ),
-        IntegerLiteralError::UnsupportedUppercasePrefix { radix } => (
-            format!(
-                "uppercase {} integer literal prefix is unsupported",
-                radix.name()
-            ),
-            literal_error_character_range(token, 1),
-            vec![match radix {
-                veln_literals::IntegerRadix::Binary => "lowercase `0b` prefix",
-                veln_literals::IntegerRadix::Hexadecimal => "lowercase `0x` prefix",
-                veln_literals::IntegerRadix::Decimal => "decimal integer",
-            }],
-        ),
-        IntegerLiteralError::InvalidDigit {
-            radix,
-            byte_offset,
-            character,
-        } => (
-            format!(
-                "`{character}` is not a valid {} integer digit",
-                radix.name()
-            ),
-            literal_error_character_range(token, byte_offset),
-            vec![radix.accepted_digits()],
-        ),
-        IntegerLiteralError::Separator { radix, byte_offset } => (
-            format!(
-                "digit separators are not supported in {} integer literals",
-                radix.name()
-            ),
-            literal_error_character_range(token, byte_offset),
-            vec![radix.accepted_digits()],
-        ),
-        IntegerLiteralError::PrefixedFloat { radix, .. } => (
-            format!("{} floating-point literals are unsupported", radix.name()),
-            token.range,
-            vec!["integer literal"],
-        ),
-        IntegerLiteralError::OutOfRange { radix } => (
-            format!(
-                "{} integer literal exceeds the maximum Int value {}",
-                radix.name(),
-                i64::MAX
-            ),
-            token.range,
-            vec!["Int value at or below 9223372036854775807"],
-        ),
-    }
-}
-
-fn literal_error_character_range(token: &Token, byte_offset: usize) -> TextRange {
-    let start = token.range.start + byte_offset;
-    let length = token.text[byte_offset..]
-        .chars()
-        .next()
-        .map_or(0, char::len_utf8);
-    TextRange::new(start, start + length)
-}
-
-fn collect_adr_lite_records(
-    source: &SourceFile,
-    tokens: &[Token],
-    module: Option<&ModuleDecl>,
-    items: &[SyntaxItem],
-) -> Vec<AdrLiteRecord> {
-    let anchors = adr_lite_anchors(module, items);
-    let mut records = Vec::new();
-    let mut cursor = 0;
-
-    while cursor < tokens.len() {
-        let token = &tokens[cursor];
-        if token.kind != TokenKind::Comment || !is_adr_lite_marker(&doc_comment_text(token)) {
-            cursor += 1;
-            continue;
-        }
-
-        let start = token.range;
-        let mut end = token.range;
-        let mut fields = BTreeMap::<String, String>::new();
-        cursor += 1;
-
-        while cursor < tokens.len() {
-            match tokens[cursor].kind {
-                TokenKind::Whitespace | TokenKind::Newline => {
-                    cursor += 1;
-                }
-                TokenKind::Comment => {
-                    let content = doc_comment_text(&tokens[cursor]);
-                    if content.is_empty() {
-                        end = end.cover(tokens[cursor].range);
-                        cursor += 1;
-                        continue;
-                    }
-                    if content.starts_with('@') {
-                        break;
-                    }
-                    if let Some((key, value)) = content.split_once(':') {
-                        fields.insert(key.trim().to_string(), value.trim().to_string());
-                    }
-                    end = end.cover(tokens[cursor].range);
-                    cursor += 1;
-                }
-                _ => break,
-            }
-        }
-
-        let Some(id) = fields.remove("id") else {
-            continue;
-        };
-        let Some(status) = fields.remove("status") else {
-            continue;
-        };
-        let Some(scope) = fields.remove("scope") else {
-            continue;
-        };
-        let Some(context) = fields.remove("context") else {
-            continue;
-        };
-        let Some(decision) = fields.remove("decision") else {
-            continue;
-        };
-        let Some(consequences) = fields.remove("consequences") else {
-            continue;
-        };
-        let span = source.span(start.cover(end));
-        let anchor = anchors
-            .iter()
-            .find_map(|(offset, anchor)| (*offset >= span.end.offset).then(|| anchor.clone()));
-        records.push(AdrLiteRecord {
-            id,
-            status,
-            scope,
-            context,
-            decision,
-            consequences,
-            anchor,
-            span,
-        });
-    }
-
-    records
-}
-
-fn adr_lite_anchors(
-    module: Option<&ModuleDecl>,
-    items: &[SyntaxItem],
-) -> Vec<(usize, AdrLiteAnchor)> {
-    let mut anchors = Vec::new();
-    if let Some(module) = module {
-        anchors.push((
-            module.span.start.offset,
-            AdrLiteAnchor::Module {
-                name: module.name.clone(),
-            },
-        ));
-    }
-    for item in items {
-        let SyntaxItem::Function(function) = item else {
-            continue;
-        };
-        if function.visibility == Visibility::Public
-            && let Some(name) = &function.name
-        {
-            anchors.push((
-                function.span.start.offset,
-                AdrLiteAnchor::Function { name: name.clone() },
-            ));
-        }
-    }
-    anchors.sort_by_key(|(offset, _)| *offset);
-    anchors
-}
-
-fn doc_comment_text(token: &Token) -> String {
-    token
-        .text
-        .strip_prefix("##")
-        .map(str::trim)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn is_adr_lite_marker(content: &str) -> bool {
-    matches!(content, "@adr" | "@adr-lite")
 }
 
 struct ExprParser<'a> {
