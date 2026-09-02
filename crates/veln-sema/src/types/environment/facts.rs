@@ -1,4 +1,9 @@
+use super::super::signature_collection::{
+    effect_signatures, handler_signatures, ordinary_function_signatures,
+};
 use super::*;
+
+use crate::type_syntax::parse_type_or_unknown;
 
 trait BaseFacts {
     fn extend_with(&mut self, base: &Self);

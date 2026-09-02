@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::effects::{is_stdio_call, prelude_effects, standard_library_effects};
+
 pub(super) struct ExprEffectContext<'a> {
     pub(super) uses: &'a [UseDecl],
     pub(super) current_module: Option<&'a str>,

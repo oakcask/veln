@@ -1,5 +1,8 @@
 use super::*;
 
+use crate::name_recovery::normal_use_decls;
+use crate::type_syntax::parse_type_or_unknown;
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum EffectDependencyNode {
     Function(FunctionKey),
