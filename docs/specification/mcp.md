@@ -158,8 +158,8 @@ selection. A positive integer line or column that does not address one of these
 source positions, including a value larger than the implementation's native
 coordinate range, returns `invalid_position`.
 Definition and references capture use the same no-follow path checks,
-selected-root and
-workspace-base identity checks, stable double capture, bounded retry, and
+selected-root and workspace-base identity checks, stable double capture,
+bounded retry, and
 `snapshot_changed` failure as saved project diagnostics. When definition
 lookup falls back from a selected outer project to anonymous single-file scope
 for a source below a descendant manifest, the ownership decision and the

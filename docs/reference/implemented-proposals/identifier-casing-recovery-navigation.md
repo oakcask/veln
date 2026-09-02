@@ -22,7 +22,7 @@ conflict. Current behavior is specified by
 `identifier-casing-handler-binding-navigation` LSP examples plus focused
 `veln-language-service` navigation and rename-conflict tests. MCP `definition`
 exposes the same unique recovery definition boundary as specified by
-[MCP Workspace Projects, Diagnostics, And Definitions](../../specification/mcp.md)
+[MCP Workspace Projects And Navigation](../../specification/mcp.md)
 and checked by the `definition-recovery-navigation` MCP example plus focused
 `veln-mcp` tests.
 

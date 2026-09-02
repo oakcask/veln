@@ -42,7 +42,7 @@ stop when its authoritative page answers the task.
 ## Commands And Output
 
 - MCP stdio lifecycle, workspace project selection, saved diagnostics, saved
-  definitions, tool declarations, and atomic refresh: [mcp.md](mcp.md).
+  navigation, tool declarations, and atomic refresh: [mcp.md](mcp.md).
 - Command routes: [commands.md](commands.md).
 - Shared analysis gates and source discovery:
   [command-analysis.md](command-analysis.md).
