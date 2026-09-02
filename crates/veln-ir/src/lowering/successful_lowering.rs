@@ -392,6 +392,115 @@ fn lower_nested_expression_variants_preserves_structure_and_types() {
     );
 }
 
+fn lower_fixture_expr(
+    ty: CoreType,
+    build: impl FnOnce(&Expr) -> CoreExprKind,
+) -> Result<IrExpr, IrLowerError> {
+    let module = lower_source("fn main() -> ()\n  ()\nend\n");
+    let anchor = expr_line(&main_function(&module).body[0]);
+    lower_expr(&core_expr(anchor, ty, build(anchor)))
+}
+
+fn unit_at(anchor: &Expr) -> CoreExpr {
+    core_expr(anchor, CoreType::unit(), CoreExprKind::Unit)
+}
+
+#[test]
+fn lower_list_cons_preserves_head_and_tail() {
+    let list_cons = lower_fixture_expr(CoreType::named("List", vec![CoreType::unit()]), |anchor| {
+        CoreExprKind::ListCons {
+            head: Box::new(unit_at(anchor)),
+            tail: Box::new(core_expr(
+                anchor,
+                CoreType::named("List", vec![CoreType::unit()]),
+                CoreExprKind::ListNil,
+            )),
+        }
+    })
+    .expect("list cons should lower");
+    assert!(matches!(
+        list_cons.kind,
+        IrExprKind::ListCons { head, tail }
+            if matches!(head.kind, IrExprKind::Unit)
+                && matches!(tail.kind, IrExprKind::ListNil)
+    ));
+}
+
+#[test]
+fn lower_adt_variant_preserves_name_and_payloads() {
+    let variant = lower_fixture_expr(CoreType::named("Choice", vec![]), |anchor| {
+        CoreExprKind::AdtVariant {
+            name: vec!["Choice".to_string(), "Value".to_string()],
+            payloads: vec![unit_at(anchor)],
+        }
+    })
+    .expect("ADT variant should lower");
+    assert!(matches!(
+        variant.kind,
+        IrExprKind::AdtVariant { name, payloads }
+            if name == ["Choice", "Value"]
+                && matches!(payloads.as_slice(), [IrExpr { kind: IrExprKind::Unit, .. }])
+    ));
+}
+
+#[test]
+fn lower_perform_preserves_effect_operation_and_arguments() {
+    let perform = lower_fixture_expr(CoreType::unit(), |anchor| CoreExprKind::Perform {
+        effect: "console".to_string(),
+        operation: "write".to_string(),
+        args: vec![unit_at(anchor)],
+    })
+    .expect("perform should lower");
+    assert!(matches!(
+        perform.kind,
+        IrExprKind::Perform { effect, operation, args }
+            if effect == "console"
+                && operation == "write"
+                && matches!(args.as_slice(), [IrExpr { kind: IrExprKind::Unit, .. }])
+    ));
+}
+
+#[test]
+fn lower_handle_preserves_providers_context_and_body() {
+    let handle = lower_fixture_expr(CoreType::unit(), |anchor| CoreExprKind::Handle {
+        effect: "console".to_string(),
+        providers: vec![veln_core::CoreHandlerProvider {
+            operation: "write".to_string(),
+            function: "capture".to_string(),
+        }],
+        context_args: vec![unit_at(anchor)],
+        body: Box::new(unit_at(anchor)),
+    })
+    .expect("handle should lower");
+    assert!(matches!(
+        handle.kind,
+        IrExprKind::Handle {
+            effect,
+            providers,
+            context_args,
+            body,
+        } if effect == "console"
+            && matches!(providers.as_slice(), [IrHandlerProvider { operation, function }]
+                if operation == "write" && function == "capture")
+            && matches!(context_args.as_slice(), [IrExpr { kind: IrExprKind::Unit, .. }])
+            && matches!(body.kind, IrExprKind::Unit)
+    ));
+}
+
+#[test]
+fn lower_field_access_preserves_base_and_field() {
+    let field_access = lower_fixture_expr(CoreType::unit(), |anchor| CoreExprKind::FieldAccess {
+        base: Box::new(unit_at(anchor)),
+        field: "value".to_string(),
+    })
+    .expect("field access should lower");
+    assert!(matches!(
+        field_access.kind,
+        IrExprKind::FieldAccess { base, field }
+            if field == "value" && matches!(base.kind, IrExprKind::Unit)
+    ));
+}
+
 #[test]
 fn lower_preserves_contracts_result_binding_dict_match_and_builtin_targets() {
     let module = lower_source(concat!(
