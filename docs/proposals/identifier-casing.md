@@ -219,7 +219,7 @@ is
 Source-path-derived module identity segments are specified by
 [Name Resolution](../specification/name-resolution.md) and
 [Check JSON And Diagnostics](../specification/diagnostics-json.md), with
-their LSP diagnostic and rename boundary specified by
+their LSP diagnostic, navigation, and rename isolation boundary specified by
 [Editor Support](../specification/editor-support.md). They are checked by the
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
