@@ -8,9 +8,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use veln_analysis::{

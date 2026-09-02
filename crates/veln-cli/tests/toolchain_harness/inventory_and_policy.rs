@@ -364,6 +364,27 @@ pub(super) fn toolchain_inventory_parity_reports_stale_generated_cases() {
 }
 
 #[test]
+pub(super) fn generated_toolchain_tests_run_inventory_parity_once() {
+    let generated = toolchain_case_inventory::generated_toolchain_tests(&[
+        PathBuf::from("tests/toolchain_cases/first"),
+        PathBuf::from("tests/toolchain_cases/second"),
+    ]);
+
+    assert!(generated.contains("fn generated_toolchain_inventory_matches_manifests()"));
+    assert_eq!(
+        generated
+            .matches("runtime_generated_inventory_barrier();")
+            .count(),
+        1,
+        "generated cases should share one dedicated inventory parity test"
+    );
+    assert_eq!(
+        generated.matches("run_case(&toolchain_case_path(").count(),
+        2
+    );
+}
+
+#[test]
 pub(super) fn policy_preflight_failure_prevents_generated_test_module_creation() {
     let root = test_temp_root("policy-generation-block");
     fs::create_dir_all(root.join("cases/blocked")).expect("case directory should be created");

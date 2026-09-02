@@ -96,30 +96,30 @@ pub(super) fn collect_panic_failure(failures: &mut Vec<String>, action: impl FnO
 }
 
 pub(super) fn guard_generated_or_synthetic_case(case_dir: &Path) {
-    if is_generated_inventory_member(case_dir) {
-        runtime_generated_inventory_barrier();
-    } else {
-        let manifest = case_dir.join("case.toml");
-        let text = fs::read_to_string(&manifest).unwrap_or_else(|error| {
-            panic!("{}: failed to read manifest: {error}", manifest.display())
-        });
-        let findings = manifest_syntax::manifest_policy_findings(&manifest, &text);
-        if !findings.is_empty() {
-            let mut message = format!(
-                "{}: synthetic toolchain case violates manifest line-break policy before loading resources",
-                manifest.display()
-            );
-            for finding in findings {
-                message.push_str(&format!(
-                    "\n- line {} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
-                    finding.line,
-                    finding.field,
-                    finding.category,
-                    finding.spelling.escape_debug()
-                ));
-            }
-            panic!("{message}");
+    let manifest = case_dir.join("case.toml");
+    let text = fs::read_to_string(&manifest)
+        .unwrap_or_else(|error| panic!("{}: failed to read manifest: {error}", manifest.display()));
+    let findings = manifest_syntax::manifest_policy_findings(&manifest, &text);
+    if !findings.is_empty() {
+        let case_kind = if is_generated_inventory_member(case_dir) {
+            "generated"
+        } else {
+            "synthetic"
+        };
+        let mut message = format!(
+            "{}: {case_kind} toolchain case violates manifest line-break policy before loading resources",
+            manifest.display()
+        );
+        for finding in findings {
+            message.push_str(&format!(
+                "\n- line {} field `{}` contains {} `{}`; use physical multiline text or a sidecar so line structure remains reviewable",
+                finding.line,
+                finding.field,
+                finding.category,
+                finding.spelling.escape_debug()
+            ));
         }
+        panic!("{message}");
     }
 }
 
@@ -146,14 +146,11 @@ pub(super) fn runtime_generated_inventory_barrier() {
         panic!("{error}");
     }
 
-    static BARRIER: RuntimeInventoryBarrier = RuntimeInventoryBarrier::new();
-    BARRIER.check_with(|| {
-        toolchain_case_inventory::compare_generated_inventory(
-            Path::new(env!("CARGO_MANIFEST_DIR")),
-            GENERATED_TOOLCHAIN_CASES,
-        )
-        .map(|_| ())
-    });
+    toolchain_case_inventory::compare_generated_inventory(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        GENERATED_TOOLCHAIN_CASES,
+    )
+    .unwrap_or_else(|error| panic!("{error}"));
 }
 
 pub(super) fn generated_toolchain_cases_contains(relative: &str) -> bool {
@@ -185,25 +182,6 @@ pub(super) fn with_test_generated_toolchain_cases(generated: Vec<String>, test: 
     });
     let _reset = Reset;
     test();
-}
-
-pub(super) struct RuntimeInventoryBarrier {
-    pub(super) result: OnceLock<Result<(), String>>,
-}
-
-impl RuntimeInventoryBarrier {
-    pub(super) const fn new() -> Self {
-        Self {
-            result: OnceLock::new(),
-        }
-    }
-
-    pub(super) fn check_with(&self, scan: impl FnOnce() -> Result<(), String>) {
-        match self.result.get_or_init(scan) {
-            Ok(()) => {}
-            Err(message) => panic!("{message}"),
-        }
-    }
 }
 
 #[cfg(unix)]
