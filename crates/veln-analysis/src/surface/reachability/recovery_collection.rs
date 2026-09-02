@@ -111,35 +111,19 @@ impl<'a> ReachableInvalidNameSelector<'a> {
     ) {
         match &expr.kind {
             ExprKind::NamePath { segments, .. } => {
-                if !matches!(segments.as_slice(), [name] if local_bindings.iter().rev().any(|binding| binding == name))
-                {
+                if !is_local_name_path(segments, local_bindings) {
                     self.select_value_name(segments, current_module, spans);
                 }
             }
             ExprKind::Hole { .. } => {}
             ExprKind::TypeApply { callee, type_args } => {
-                self.collect_expr(callee, current_module, local_bindings, spans);
-                for type_arg in type_args {
-                    self.collect_type_annotation(Some(type_arg), current_module, spans);
-                }
+                self.collect_type_apply(callee, type_args, current_module, local_bindings, spans);
             }
             ExprKind::Call { callee, args } => {
-                if let Some(segments) = callee.callee_name_path() {
-                    if !matches!(segments, [name] if local_bindings.iter().rev().any(|binding| binding == name))
-                    {
-                        self.select_call_name(segments, current_module, args.len(), spans);
-                    }
-                } else {
-                    self.collect_expr(callee, current_module, local_bindings, spans);
-                }
-                for arg in args {
-                    self.collect_expr(arg, current_module, local_bindings, spans);
-                }
+                self.collect_call(callee, args, current_module, local_bindings, spans);
             }
             ExprKind::Perform { args, .. } => {
-                for arg in args {
-                    self.collect_expr(arg, current_module, local_bindings, spans);
-                }
+                self.collect_exprs(args, current_module, local_bindings, spans);
             }
             ExprKind::Handle {
                 body,
@@ -149,9 +133,7 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             } => {
                 self.select_handler(handler, current_module, spans);
                 self.collect_expr(body, current_module, local_bindings, spans);
-                for arg in args {
-                    self.collect_expr(arg, current_module, local_bindings, spans);
-                }
+                self.collect_exprs(args, current_module, local_bindings, spans);
             }
             ExprKind::SchemaDecode {
                 schema: _,
@@ -181,18 +163,10 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 }
             }
             ExprKind::List(items) => {
-                for item in items {
-                    self.collect_expr(item, current_module, local_bindings, spans);
-                }
+                self.collect_exprs(items, current_module, local_bindings, spans);
             }
             ExprKind::Match { scrutinee, arms } => {
-                self.collect_expr(scrutinee, current_module, local_bindings, spans);
-                for arm in arms {
-                    self.collect_pattern(&arm.pattern, current_module, spans);
-                    let mut arm_bindings = local_bindings.to_vec();
-                    collect_pattern_binding_names(&arm.pattern, &mut arm_bindings);
-                    self.collect_expr(&arm.expr, current_module, &arm_bindings, spans);
-                }
+                self.collect_match(scrutinee, arms, current_module, local_bindings, spans);
             }
             ExprKind::If {
                 condition,
@@ -201,12 +175,14 @@ impl<'a> ReachableInvalidNameSelector<'a> {
                 else_branch,
             } => {
                 self.collect_expr(condition, current_module, local_bindings, spans);
-                self.collect_expr(then_branch, current_module, local_bindings, spans);
-                for branch in else_if_branches {
-                    self.collect_expr(&branch.condition, current_module, local_bindings, spans);
-                    self.collect_expr(&branch.expr, current_module, local_bindings, spans);
-                }
-                self.collect_expr(else_branch, current_module, local_bindings, spans);
+                self.collect_if_branches(
+                    then_branch,
+                    else_if_branches,
+                    else_branch,
+                    current_module,
+                    local_bindings,
+                    spans,
+                );
             }
             ExprKind::Binary { left, right, .. } => {
                 self.collect_expr(left, current_module, local_bindings, spans);
@@ -219,6 +195,84 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             | ExprKind::BoolLiteral(_)
             | ExprKind::Unit => {}
         }
+    }
+
+    fn collect_type_apply(
+        &mut self,
+        callee: &Expr,
+        type_args: &[String],
+        current_module: Option<&str>,
+        local_bindings: &[String],
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        self.collect_expr(callee, current_module, local_bindings, spans);
+        for type_arg in type_args {
+            self.collect_type_annotation(Some(type_arg), current_module, spans);
+        }
+    }
+
+    fn collect_call(
+        &mut self,
+        callee: &Expr,
+        args: &[Expr],
+        current_module: Option<&str>,
+        local_bindings: &[String],
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        if let Some(segments) = callee.callee_name_path() {
+            if !is_local_name_path(segments, local_bindings) {
+                self.select_call_name(segments, current_module, args.len(), spans);
+            }
+        } else {
+            self.collect_expr(callee, current_module, local_bindings, spans);
+        }
+        self.collect_exprs(args, current_module, local_bindings, spans);
+    }
+
+    fn collect_exprs(
+        &mut self,
+        expressions: &[Expr],
+        current_module: Option<&str>,
+        local_bindings: &[String],
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        for expression in expressions {
+            self.collect_expr(expression, current_module, local_bindings, spans);
+        }
+    }
+
+    fn collect_match(
+        &mut self,
+        scrutinee: &Expr,
+        arms: &[veln_ast::MatchArm],
+        current_module: Option<&str>,
+        local_bindings: &[String],
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        self.collect_expr(scrutinee, current_module, local_bindings, spans);
+        for arm in arms {
+            self.collect_pattern(&arm.pattern, current_module, spans);
+            let mut arm_bindings = local_bindings.to_vec();
+            collect_pattern_binding_names(&arm.pattern, &mut arm_bindings);
+            self.collect_expr(&arm.expr, current_module, &arm_bindings, spans);
+        }
+    }
+
+    fn collect_if_branches(
+        &mut self,
+        then_branch: &Expr,
+        else_if_branches: &[veln_ast::IfBranch],
+        else_branch: &Expr,
+        current_module: Option<&str>,
+        local_bindings: &[String],
+        spans: &mut Vec<ReachableInvalidNameSpan>,
+    ) {
+        self.collect_expr(then_branch, current_module, local_bindings, spans);
+        for branch in else_if_branches {
+            self.collect_expr(&branch.condition, current_module, local_bindings, spans);
+            self.collect_expr(&branch.expr, current_module, local_bindings, spans);
+        }
+        self.collect_expr(else_branch, current_module, local_bindings, spans);
     }
 
     pub(super) fn collect_pattern(
@@ -388,4 +442,8 @@ impl<'a> ReachableInvalidNameSelector<'a> {
             local_bindings.truncate(binding_count);
         }
     }
+}
+
+fn is_local_name_path(segments: &[String], local_bindings: &[String]) -> bool {
+    matches!(segments, [name] if local_bindings.iter().rev().any(|binding| binding == name))
 }
