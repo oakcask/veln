@@ -109,7 +109,7 @@ equals = 41
 [[lsp_assert]]
 id = 13
 path = "/result"
-length = 1
+length = 2
 
 [[lsp_assert]]
 id = 14
@@ -123,13 +123,8 @@ equals = null
 
 [[lsp_assert]]
 id = 16
-path = "/result/range/start/line"
-equals = 49
-
-[[lsp_assert]]
-id = 16
-path = "/result/range/start/character"
-equals = 10
+path = "/result"
+equals = null
 
 [[lsp_assert]]
 id = 18
@@ -159,17 +154,12 @@ equals = null
 [[lsp_assert]]
 id = 23
 path = "/result"
-length = 2
+length = 0
 
 [[lsp_assert]]
 id = 24
-path = "/result/start/line"
-equals = 51
-
-[[lsp_assert]]
-id = 24
-path = "/result/start/character"
-equals = 14
+path = "/result"
+equals = null
 
 [[lsp_assert]]
 id = 25
@@ -229,12 +219,12 @@ equals = 2
 [[lsp_assert]]
 id = 34
 path = "/result/range/start/line"
-equals = 71
+equals = 68
 
 [[lsp_assert]]
 id = 34
 path = "/result/range/start/character"
-equals = 22
+equals = 2
 
 [[lsp_assert]]
 id = 35
