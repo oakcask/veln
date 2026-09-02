@@ -1,0 +1,33 @@
+command = ["repair", "--json", "--apply", "Bad.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "refused"
+
+[[json_assert]]
+path = "summary.candidate_count"
+equals = 0
+
+[[json_assert]]
+path = "summary.applicable_count"
+equals = 0
+
+[[json_assert]]
+path = "summary.refusal_reason"
+equals = "no safe unapplied repair candidates"
+
+[[json_assert]]
+path = "verification.status"
+equals = "not_run"
+
+[[file_assert]]
+path = "Bad.veln"
+equals_file = "case-text/file-assert-equals-1.txt"

@@ -1,0 +1,3 @@
+fn valid(order: {ready: Bool, paid: Bool}) -> {ready: Bool}
+  _value satisfy candidate => candidate.ready == order.ready
+end

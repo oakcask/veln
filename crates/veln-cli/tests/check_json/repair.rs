@@ -1,4 +1,17 @@
 use super::support::*;
+use veln_diagnostics::{JsonValue, parse_json_value};
+
+const INVALID_PATH_REPAIR_SOURCE: &str = concat!(
+    "fn invalid(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+    "  _value satisfy candidate => candidate.ready == order.ready\n",
+    "end\n",
+);
+
+const VALID_PATH_REPAIR_SOURCE: &str = concat!(
+    "fn valid(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+    "  _value satisfy candidate => candidate.ready == order.ready\n",
+    "end\n",
+);
 
 #[test]
 fn repair_previews_safe_candidates_without_writing() {
@@ -268,6 +281,141 @@ fn repair_apply_refuses_saved_candidate_that_is_not_current() {
         ],
     );
     assert_eq!(project.read("main.veln"), changed);
+}
+
+#[test]
+fn repair_preview_isolates_candidates_from_invalid_source_path_identities() {
+    let project = TestProject::new("repair-source-path-casing-preview");
+    project.write("Bad.veln", INVALID_PATH_REPAIR_SOURCE);
+    project.write("valid.veln", VALID_PATH_REPAIR_SOURCE);
+
+    let mixed = project.repair(&["--json", "Bad.veln", "valid.veln"]);
+    let mixed_stdout = stdout(&mixed);
+
+    assert!(mixed.status.success(), "{}", stderr(&mixed));
+    assert_contains_all(
+        mixed_stdout,
+        &[
+            "\"summary\":{\"candidate_count\":1,\"applicable_count\":1,\"applied_count\":0",
+            "\"repair_id\":\"repair-1\"",
+            "\"span\":{\"file\":\"valid.veln\"",
+            "\"replacement\":\"order\"",
+        ],
+    );
+    assert!(!mixed_stdout.contains("\"span\":{\"file\":\"Bad.veln\""));
+
+    let invalid_only = project.repair(&["--json", "Bad.veln"]);
+    let invalid_stdout = stdout(&invalid_only);
+
+    assert!(invalid_only.status.success(), "{}", stderr(&invalid_only));
+    assert_contains_all(
+        invalid_stdout,
+        &[
+            "\"candidates\":[]",
+            "\"summary\":{\"candidate_count\":0,\"applicable_count\":0,\"applied_count\":0",
+        ],
+    );
+}
+
+#[test]
+fn repair_preview_keeps_valid_candidate_stable_with_invalid_sibling() {
+    let project = TestProject::new("repair-source-path-casing-equivalence");
+    project.write("Bad.veln", INVALID_PATH_REPAIR_SOURCE);
+    project.write("valid.veln", VALID_PATH_REPAIR_SOURCE);
+
+    let mixed = project.repair(&["--json", "Bad.veln", "valid.veln"]);
+    let valid_only = project.repair(&["--json", "valid.veln"]);
+
+    assert!(mixed.status.success(), "{}", stderr(&mixed));
+    assert!(valid_only.status.success(), "{}", stderr(&valid_only));
+    assert_eq!(
+        first_candidate_source(stdout(&mixed)),
+        first_candidate_source(stdout(&valid_only))
+    );
+    assert_eq!(
+        first_candidate_edits(stdout(&mixed)),
+        first_candidate_edits(stdout(&valid_only))
+    );
+}
+
+#[test]
+fn repair_apply_refuses_current_candidate_from_invalid_source_path_identity() {
+    let project = TestProject::new("repair-source-path-casing-current-apply");
+    project.write("Bad.veln", INVALID_PATH_REPAIR_SOURCE);
+
+    let output = project.repair(&["--json", "--apply", "Bad.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(!output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"refused\"",
+            "\"selected_candidate\":null",
+            "\"candidates\":[]",
+            "\"refusal_reason\":\"no safe unapplied repair candidates\"",
+            "\"verification\":{\"status\":\"not_run\"",
+        ],
+    );
+    assert_eq!(project.read("Bad.veln"), INVALID_PATH_REPAIR_SOURCE);
+}
+
+#[test]
+fn repair_apply_refuses_saved_candidate_from_invalid_source_path_identity() {
+    let project = TestProject::new("repair-source-path-casing-saved-apply");
+    project.write("Bad.veln", INVALID_PATH_REPAIR_SOURCE);
+    project.write(
+        "saved-candidates.json",
+        &saved_command_candidate_with_edits(
+            "Replace hole with `order`",
+            &[("Bad.veln", 3, 64, 9, 70, "order")],
+        ),
+    );
+
+    let output = project.repair(&["--json", "--apply", "Bad.veln", "saved-candidates.json"]);
+    let stdout = stdout(&output);
+
+    assert!(!output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"refused\"",
+            "\"selected_candidate\":{\"repair_id\":\"repair-1\"",
+            "\"span\":{\"file\":\"Bad.veln\"",
+            "\"refusal_reason\":\"saved candidate is not current\"",
+            "\"verification\":{\"status\":\"not_run\"",
+        ],
+    );
+    assert_eq!(project.read("Bad.veln"), INVALID_PATH_REPAIR_SOURCE);
+}
+
+fn first_candidate_source(stdout: &str) -> JsonValue {
+    first_candidate_field(stdout, "source")
+}
+
+fn first_candidate_edits(stdout: &str) -> JsonValue {
+    first_candidate_field(stdout, "edits")
+}
+
+fn first_candidate_field(stdout: &str, field: &str) -> JsonValue {
+    let value = parse_json_value(stdout).expect("repair JSON should parse");
+    let candidates = object_field(&value, "candidates").expect("candidates field should exist");
+    let JsonValue::Array(candidates) = candidates else {
+        panic!("candidates should be an array");
+    };
+    let first = candidates.first().expect("first candidate should exist");
+    object_field(first, field)
+        .unwrap_or_else(|| panic!("candidate field `{field}` should exist"))
+        .clone()
+}
+
+fn object_field<'a>(value: &'a JsonValue, field: &str) -> Option<&'a JsonValue> {
+    let JsonValue::Object(fields) = value else {
+        return None;
+    };
+    fields
+        .iter()
+        .find_map(|(key, value)| (key == field).then_some(value))
 }
 
 fn saved_command_candidate_with_edits(

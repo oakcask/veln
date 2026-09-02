@@ -1,6 +1,8 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use veln_analysis::is_source_path_invalid_case_diagnostic;
 use veln_diagnostics::{Diagnostic, JsonValue, parse_json_value};
 use veln_source::{LineCol, SourceSpan};
 
@@ -223,12 +225,14 @@ fn is_saved_candidate_input(input: &Path) -> bool {
 pub(super) fn repair_candidates_from_diagnostics(
     diagnostics: &[Diagnostic],
 ) -> Vec<RepairCandidate> {
+    let invalid_source_paths = source_path_invalid_case_targets(diagnostics);
     let mut candidates = Vec::new();
     for diagnostic in diagnostics {
         collect_advisory_candidates_from_details(
             &diagnostic.details,
             &mut candidates,
             CandidateFreshness::CurrentAnalysis,
+            Some(&invalid_source_paths),
         );
     }
     candidates
@@ -296,13 +300,19 @@ fn collect_saved_diagnostic_candidates(value: &JsonValue, candidates: &mut Vec<R
     let Some(details) = object_value(value, "details") else {
         return;
     };
-    collect_advisory_candidates_from_details(details, candidates, CandidateFreshness::SavedInput);
+    collect_advisory_candidates_from_details(
+        details,
+        candidates,
+        CandidateFreshness::SavedInput,
+        None,
+    );
 }
 
 fn collect_advisory_candidates_from_details(
     details: &JsonValue,
     candidates: &mut Vec<RepairCandidate>,
     freshness: CandidateFreshness,
+    excluded_sources: Option<&BTreeSet<String>>,
 ) {
     let Some(queries) = object_array(details, "candidate_queries") else {
         return;
@@ -317,10 +327,34 @@ fn collect_advisory_candidates_from_details(
                 candidate,
                 freshness,
             ) {
+                if candidate_targets_excluded_source(&candidate, excluded_sources) {
+                    continue;
+                }
                 candidates.push(candidate);
             }
         }
     }
+}
+
+fn source_path_invalid_case_targets(diagnostics: &[Diagnostic]) -> BTreeSet<String> {
+    diagnostics
+        .iter()
+        .filter(|diagnostic| is_source_path_invalid_case_diagnostic(diagnostic))
+        .filter_map(|diagnostic| object_string(&diagnostic.details, "source_path"))
+        .map(str::to_string)
+        .collect()
+}
+
+fn candidate_targets_excluded_source(
+    candidate: &RepairCandidate,
+    excluded_sources: Option<&BTreeSet<String>>,
+) -> bool {
+    excluded_sources.is_some_and(|excluded_sources| {
+        candidate
+            .edits
+            .iter()
+            .any(|edit| excluded_sources.contains(&edit.file))
+    })
 }
 
 pub(super) fn has_current_applicable_match(

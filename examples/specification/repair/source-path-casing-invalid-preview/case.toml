@@ -1,0 +1,21 @@
+command = ["repair", "--json", "Bad.veln"]
+source_errors = "expected"
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "preview"
+
+[[json_assert]]
+path = "summary.candidate_count"
+equals = 0
+
+[[json_assert]]
+path = "summary.applicable_count"
+equals = 0

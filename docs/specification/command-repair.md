@@ -15,7 +15,9 @@ Candidate input is recomputed from the current source files unless one or more
 `*.json` inputs are present. A JSON input is treated as saved repair candidate
 input, not as a source file. Saved input may be a `repair --json` envelope, a
 command-level candidate object or array, a `check --json` envelope, or an
-advisory candidate object or array. Command-level candidate ids use the form
+advisory candidate object or array. Current-analysis candidate filtering is
+specified in [repair-candidates.md](repair-candidates.md) and projected into
+[repair-json.md](repair-json.md). Command-level candidate ids use the form
 `repair-N` and are assigned for the current invocation. The original advisory
 candidate id from diagnostic details is also preserved as
 `source_candidate_id`. `--candidate` may name either id, or a saved
@@ -36,4 +38,3 @@ applied candidate and verification result. Human refusal output starts with
 
 With `--json`, `repair` emits the repair JSON record described in
 [repair-json.md](repair-json.md).
-

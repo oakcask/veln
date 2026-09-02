@@ -1,0 +1,29 @@
+command = ["repair", "--json", "--apply", "Bad.veln", "saved-candidates.json"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "refused"
+
+[[json_assert]]
+path = "selected_candidate.edits.0.span.file"
+equals = "Bad.veln"
+
+[[json_assert]]
+path = "summary.refusal_reason"
+equals = "saved candidate is not current"
+
+[[json_assert]]
+path = "verification.status"
+equals = "not_run"
+
+[[file_assert]]
+path = "Bad.veln"
+equals_file = "case-text/file-assert-equals-1.txt"
