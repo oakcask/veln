@@ -1,0 +1,7 @@
+pub type Item
+  pub Ready(Int)
+end
+
+pub fn make() -> Int
+  1
+end

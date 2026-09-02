@@ -1,0 +1,10 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":{"$workspace_file_uri":"App/_net.veln"},"languageId":"veln","version":1,"text":{"$case_text":"case-text/overlay.txt"}}}},
+  {"jsonrpc":"2.0","id":25,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":2,"character":24},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":26,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":3,"character":10},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":27,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":3,"character":10},"newName":"renamed_make"}},
+  {"jsonrpc":"2.0","id":28,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"valid.veln"}},"position":{"line":2,"character":24}}},
+  {"jsonrpc":"2.0","id":29,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

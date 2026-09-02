@@ -1,0 +1,72 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 1
+path = "/result/capabilities/definitionProvider"
+equals = true
+
+[[lsp_assert]]
+id = 25
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 25
+path = "/result/0/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 25
+path = "/result/1/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 25
+path = "/result/2/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 25
+path = "/result/3/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 26
+path = "/result"
+length = 3
+
+[[lsp_assert]]
+id = 26
+path = "/result/0/uri"
+workspace_file_uri = "helper.veln"
+
+[[lsp_assert]]
+id = 26
+path = "/result/1/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 26
+path = "/result/2/uri"
+workspace_file_uri = "valid.veln"
+
+[[lsp_assert]]
+id = 27
+path = "/result/changes/$workspace_file_uri:helper.veln"
+length = 1
+
+[[lsp_assert]]
+id = 27
+path = "/result/changes/$workspace_file_uri:valid.veln"
+length = 2
+
+[[lsp_assert]]
+id = 28
+path = "/result/uri"
+workspace_file_uri = "helper.veln"

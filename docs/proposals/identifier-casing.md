@@ -156,9 +156,12 @@ function-value uses that would depend on that invalid identity. Unrelated
 valid sources continue to navigate normally, and valid-symbol reference and
 rename collection excludes occurrences inside the invalid source identity.
 This boundary is specified by
-[Editor Support](../specification/editor-support.md), checked by the expanded
-`identifier-casing-source-path-boundary` example and focused
-`veln-language-service` tests, and recorded in
+[Editor Support](../specification/editor-support.md), checked by the
+`identifier-casing-source-path-boundary`,
+`identifier-casing-source-path-snapshot-navigation`,
+`identifier-casing-source-path-overlay-navigation`, and
+`identifier-casing-source-path-overlay-reference-filtering` examples and
+focused `veln-language-service` tests, and recorded in
 [Identifier Casing Source Path Navigation Isolation](../reference/implemented-proposals/identifier-casing-source-path-navigation-isolation.md).
 The namespace-by-use-role casing boundary for equal-spelled schemas, effects,
 handlers, operations, types, constructors, functions, and value bindings is
