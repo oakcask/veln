@@ -224,6 +224,38 @@ fn anchors_adr_lite_records_to_modules() {
 }
 
 #[test]
+fn anchors_adr_lite_records_to_the_next_public_function() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn helper() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "## @adr\n",
+            "## id: public-entry\n",
+            "## status: accepted\n",
+            "## scope: pub fn main\n",
+            "## context: The public entry point owns this decision.\n",
+            "## decision: Keep the helper outside the record anchor.\n",
+            "## consequences: Navigation opens the public function.\n",
+            "pub fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        output.tree.adr_lite_records[0].anchor,
+        Some(AdrLiteAnchor::Function {
+            name: "main".to_string()
+        })
+    );
+}
+
+#[test]
 fn lossless_tree_groups_declarations_for_formatting() {
     let text = concat!(
         "mod app\n",
