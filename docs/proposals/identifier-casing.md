@@ -155,6 +155,16 @@ specified by [Name Resolution](../specification/name-resolution.md), by
 `identifier-casing-namespace-use-roles` example plus focused
 `veln-language-service` tests. Its completion record is
 [Identifier Casing Namespace Use Roles](../reference/implemented-proposals/identifier-casing-namespace-use-roles.md).
+Source-written module-header casing is specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), and checked
+by the `identifier-casing-module-header-json`,
+`identifier-casing-module-header-accepted-json`, and run
+`identifier-casing-module-header-json` examples. The invalid header is
+preserved as a quarantined invalid-name record, does not supply a normal
+module identity, and blocks checked artifacts for `check` and selected-source
+`run`. Its completion record is
+[Identifier Casing Source-Written Module Headers](../reference/implemented-proposals/identifier-casing-module-headers.md).
 
 The lexer still tokenizes `_` as a standalone underscore and `_label` as a
 named hole rather than as an identifier. The parser already interprets `_` as a
@@ -205,6 +215,11 @@ their LSP diagnostic and rename boundary specified by
 `identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples. Their completion record is
 [Identifier Casing Source Path Module Identities](../reference/implemented-proposals/identifier-casing-source-path-module-identities.md).
+Source-written module-header casing is specified by
+[Name Resolution](../specification/name-resolution.md) and
+[Check JSON And Diagnostics](../specification/diagnostics-json.md), and its
+completion record is
+[Identifier Casing Source-Written Module Headers](../reference/implemented-proposals/identifier-casing-module-headers.md).
 This proposal now specifies only identifier-casing work that remains
 incomplete.
 
@@ -215,7 +230,7 @@ applies those initials to this not-yet-current surface:
 
 | Surface | Proposed rule |
 | --- | --- |
-| Module identities | Every written module identity and explicit import alias starts with an ASCII lowercase letter. |
+| Explicit import aliases | Every explicit import alias starts with an ASCII lowercase letter. |
 
 Name lookup remains case-sensitive. Identifiers outside the current
 specification and the remaining surfaces above keep their existing casing
@@ -237,8 +252,8 @@ The primary message identifies the failed fact and required class.
 
 | Source state | Required result | Planned evidence |
 | --- | --- | --- |
-| A written module identity or explicit import alias starts with an uppercase letter. | Reject the offending segment with a message that the module name must start with an ASCII lowercase letter. | Module and import boundary fixtures. |
-| An underscore-led token occurs in a remaining written module position. | Reject it with `name.invalid_case` for the module class. | Module parser-recovery and import fixtures. |
+| An explicit import alias starts with an uppercase letter. | Reject the offending alias with a message that the module name must start with an ASCII lowercase letter. | Import alias boundary fixtures after explicit import aliases exist. |
+| An underscore-led token occurs in a future explicit import-alias position. | Reject it with `name.invalid_case` for the module class. | Import alias parser-recovery fixtures after explicit import aliases exist. |
 
 An invalid remaining-scope name does not introduce a normal symbol under
 another spelling. Command-specific analysis and lowering boundaries determine
@@ -247,13 +262,13 @@ whether a casing diagnostic blocks an artifact.
 ### Diagnostic Locations
 
 The exact lexer-token span is authoritative for each written remaining-scope
-name. The current qualified-use segment span and classification contract is
+name. The current source-written module-header, qualified-use segment, and
+classification contracts are
 specified by [Name Resolution](../specification/name-resolution.md),
 [Check JSON And Diagnostics](../specification/diagnostics-json.md), and
 [Editor Support](../specification/editor-support.md). This proposal keeps only
-the not-yet-current module identity and future explicit import-alias span
-boundaries here. A synthetic missing token introduced during parser recovery
-has no name to validate.
+future explicit import-alias span boundaries here. A synthetic missing token
+introduced during parser recovery has no name to validate.
 
 An implicit import alias derived from the final import-path segment is current
 behavior specified by

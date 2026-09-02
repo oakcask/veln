@@ -29,8 +29,8 @@ mod invalid_names;
 
 use invalid_names::{
     collect_invalid_alias_name, collect_invalid_effect_names, collect_invalid_function_names,
-    collect_invalid_handler_names, collect_invalid_schema_names, collect_invalid_type_names,
-    collect_invalid_use_name,
+    collect_invalid_handler_names, collect_invalid_module_header, collect_invalid_schema_names,
+    collect_invalid_type_names, collect_invalid_use_name,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -39,7 +39,10 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
         .module
         .as_ref()
         .map(|module| builder.lower_module_header(module));
-    let module_name = module.as_ref().map(|module| module.name.clone());
+    let module_name = module
+        .as_ref()
+        .filter(|module| module_name_has_valid_initial(&module.name))
+        .map(|module| module.name.clone());
     builder.lower_surface_ast_with_module(tree, module, module_name)
 }
 
@@ -79,6 +82,9 @@ impl AstBuilder {
         let mut aliases = Vec::new();
         let mut invalid_names = Vec::new();
 
+        if let Some(module) = &tree.module {
+            collect_invalid_module_header(module, &mut invalid_names);
+        }
         for item in &tree.items {
             match item {
                 SyntaxItem::Function(function) => {
@@ -127,6 +133,10 @@ impl AstBuilder {
             invalid_names,
         }
     }
+}
+
+fn module_name_has_valid_initial(name: &str) -> bool {
+    name.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
 }
 
 fn lower_prefix_op(op: SyntaxPrefixOp) -> PrefixOp {

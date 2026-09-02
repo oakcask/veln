@@ -1,0 +1,4 @@
+mod app
+fn main() -> Int
+  1
+end

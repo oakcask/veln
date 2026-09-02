@@ -1,0 +1,4 @@
+mod _net
+fn main() -> Int
+  1
+end

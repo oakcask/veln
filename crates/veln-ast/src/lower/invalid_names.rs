@@ -1,5 +1,17 @@
 use super::*;
 
+pub(super) fn collect_invalid_module_header(module: &SyntaxModule, invalid: &mut Vec<InvalidName>) {
+    push_invalid_name(
+        invalid,
+        Some(&module.name),
+        module.name_spans.first(),
+        NameClass::Module,
+        NameOccurrence::Declaration,
+        None,
+        None,
+    );
+}
+
 pub(super) fn collect_invalid_alias_name(
     alias: &SyntaxPublicAlias,
     invalid: &mut Vec<InvalidName>,

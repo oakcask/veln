@@ -1,0 +1,21 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+not_contains = ["name.invalid_case"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.source_mod"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1

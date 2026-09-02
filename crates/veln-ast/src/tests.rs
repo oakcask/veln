@@ -194,6 +194,55 @@ fn lowers_module_header_and_use_aliases() {
 }
 
 #[test]
+fn invalid_module_header_is_quarantined_without_declaring_module_identity() {
+    let module = lower_source(concat!(
+        "mod App\n",
+        "pub fn main() -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(module.module.as_ref().unwrap().name, "App");
+    assert_eq!(module.functions[0].module_name, None);
+    assert_eq!(module.invalid_names.len(), 1, "{:#?}", module.invalid_names);
+    let invalid = &module.invalid_names[0];
+    assert_eq!(invalid.name, "App");
+    assert_eq!(invalid.class, NameClass::Module);
+    assert_eq!(invalid.occurrence, NameOccurrence::Declaration);
+    assert_eq!(invalid.span.start.column, 5);
+    assert_eq!(invalid.span.end.column, 8);
+
+    let encoded = encode_surface_module(&module);
+    let decoded = decode_surface_module(&encoded).expect("wire round trip should decode");
+    assert_eq!(decoded.module.as_ref().unwrap().name, "App");
+    assert_eq!(decoded.functions[0].module_name, None);
+    assert_eq!(decoded.invalid_names[0].name, "App");
+    assert_eq!(decoded.invalid_names[0].class, NameClass::Module);
+    assert_eq!(
+        decoded.invalid_names[0].occurrence,
+        NameOccurrence::Declaration
+    );
+    assert_eq!(decoded.invalid_names[0].span, invalid.span);
+}
+
+#[test]
+fn lowercase_module_header_remains_normal_module_identity() {
+    let module = lower_source(concat!(
+        "mod app\n",
+        "pub fn main() -> ()\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert!(
+        module.invalid_names.is_empty(),
+        "{:#?}",
+        module.invalid_names
+    );
+    assert_eq!(module.functions[0].module_name.as_deref(), Some("app"));
+}
+
+#[test]
 fn lowers_type_declarations_with_variant_fields() {
     let module = lower_source(concat!(
         "type List<A>\n",

@@ -440,12 +440,13 @@ impl<'a> Parser<'a> {
         context: &'static str,
     ) -> (ModuleDecl, UseDecl) {
         let start = self.expect(keyword, context, vec!["keyword"]).range;
-        let (name, name_spans) = self.parse_written_module_path(context, false);
+        let (name, name_spans) = self.parse_written_module_path(context, keyword == TokenKind::Mod);
         let end = self.expect_newline(context).range;
         let span = self.source.span(start.cover(end));
         (
             ModuleDecl {
                 name: name.clone(),
+                name_spans: name_spans.clone(),
                 span: span.clone(),
             },
             UseDecl {

@@ -9,8 +9,7 @@ use std::time::{Duration, Instant};
 use veln_analysis::{
     AnalysisTiming, DoctestMode, ProjectAnalysis, analyze_project, analyze_project_with_timings,
 };
-use veln_ast::Function;
-use veln_ast::FunctionKind;
+use veln_ast::{Function, FunctionKind, InvalidName, NameClass, NameOccurrence};
 use veln_backend_jvm::{EntryArgScalar, EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::{Project, explicit_companion_inputs, production_analysis_inputs};
@@ -235,12 +234,64 @@ fn test_only_run_input_diagnostic(path: &str) -> Diagnostic {
 }
 
 fn report_source_errors(json: bool, analysis: &ProjectAnalysis) -> Result<bool, String> {
-    let diagnostics = analysis.source_diagnostics();
+    let mut diagnostics = analysis.source_diagnostics();
+    diagnostics.extend(source_module_header_invalid_case_diagnostics(analysis));
     if has_error(&diagnostics) {
         report_pre_execution_diagnostics(json, diagnostics)?;
         return Ok(true);
     }
     Ok(false)
+}
+
+fn source_module_header_invalid_case_diagnostics(analysis: &ProjectAnalysis) -> Vec<Diagnostic> {
+    analysis
+        .module
+        .invalid_names
+        .iter()
+        .filter(|invalid| {
+            invalid.class == NameClass::Module && invalid.occurrence == NameOccurrence::Declaration
+        })
+        .map(source_module_header_invalid_case_diagnostic)
+        .collect()
+}
+
+fn source_module_header_invalid_case_diagnostic(invalid: &InvalidName) -> Diagnostic {
+    Diagnostic::new(
+        "name.invalid_case",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "module name `{}` must start with an ASCII lowercase letter",
+            invalid.name
+        ),
+        Some(invalid.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("origin", JsonValue::string("source")),
+            ("occurrence", JsonValue::string("declaration")),
+            ("name", JsonValue::string(invalid.name.clone())),
+            ("name_class", JsonValue::string("module")),
+            ("required_initial", JsonValue::string("ascii_lowercase")),
+            (
+                "observed_initial",
+                JsonValue::string(observed_module_initial(&invalid.name)),
+            ),
+        ]),
+    )
+}
+
+fn observed_module_initial(name: &str) -> &'static str {
+    name.as_bytes().first().map_or("other", |initial| {
+        if initial.is_ascii_uppercase() {
+            "ascii_uppercase"
+        } else if initial.is_ascii_lowercase() {
+            "ascii_lowercase"
+        } else if *initial == b'_' {
+            "underscore"
+        } else {
+            "other"
+        }
+    })
 }
 
 fn find_entry_function<'a>(analysis: &'a ProjectAnalysis, entry: &str) -> Option<&'a Function> {

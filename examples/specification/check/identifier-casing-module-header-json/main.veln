@@ -1,0 +1,8 @@
+# é
+mod App
+pub fn entry() -> Int
+  1
+end
+fn main() -> Int
+  App::entry()
+end
