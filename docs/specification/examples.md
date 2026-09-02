@@ -183,6 +183,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/check/identifier-casing-module-header-accepted-json/`,
   `../../examples/specification/check/identifier-casing-source-path-json/`,
   `../../examples/specification/check/identifier-casing-exported-source-path-json/`,
+  `../../examples/specification/check/identifier-casing-mixed-dependency-export-json/`,
   `../../examples/specification/check/identifier-casing-source-path-human/`,
   `../../examples/specification/check/identifier-casing-chained-companion-boundary-json/`,
   `../../examples/specification/check/identifier-casing-import-path-json/`,

@@ -296,9 +296,14 @@ origin module metadata as the identity and casing authority, with
 published as the exported module identity. The same invalid origin segment is
 not reported again as a regular source diagnostic. Export origin casing
 failures remain source-path diagnostics instead of generic manifest export
-errors. The checked
+errors. In a direct dependency, an invalid-cased exported source path does not
+contribute a normal public module identity and does not satisfy imports or
+qualified uses through dependency recovery. Other valid sibling exports in
+the same dependency remain importable and analyzable in the same invocation.
+The checked
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
+`identifier-casing-mixed-dependency-export-json`,
 `identifier-casing-source-path-human`,
 `identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples fix JSON, human, and LSP

@@ -27,6 +27,7 @@ use std::fmt;
 use std::sync::{Arc, OnceLock};
 
 use navigation::SymbolIndex;
+use veln_analysis::derive_export_source_module_path;
 use veln_project::{
     CapturedPackageSnapshot, CapturedPackageSource, PackageIdentity, ProjectManifest,
 };
@@ -140,12 +141,7 @@ impl DirectDependencySnapshot {
                 actual: actual_identity.value.clone(),
             });
         }
-        let exported_sources = manifest
-            .lib
-            .exports
-            .into_iter()
-            .map(|export| SourcePath::new(export.path).as_str().to_string())
-            .collect();
+        let exported_sources = validated_exported_sources(&snapshot, manifest);
         let virtual_sources =
             VirtualSourceCatalog::new([(expected_identity.clone(), snapshot.clone())])?;
         Ok(Self {
@@ -186,6 +182,29 @@ impl DirectDependencySnapshot {
     fn resolve_virtual_source(&self, uri: &str) -> Option<&[u8]> {
         self.virtual_sources.resolve(uri)
     }
+}
+
+fn validated_exported_sources(
+    snapshot: &CapturedPackageSnapshot,
+    manifest: ProjectManifest,
+) -> BTreeSet<String> {
+    manifest
+        .lib
+        .exports
+        .into_iter()
+        .filter_map(|export| {
+            let path = SourcePath::new(export.path).as_str().to_string();
+            let source = snapshot
+                .sources()
+                .iter()
+                .find(|source| source.path() == path)?;
+            let text = std::str::from_utf8(source.bytes())
+                .expect("captured package source text is valid UTF-8");
+            derive_export_source_module_path(&SourceFile::new(source.path(), text))
+                .is_ok()
+                .then_some(path)
+        })
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

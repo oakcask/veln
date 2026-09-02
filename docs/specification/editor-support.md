@@ -402,6 +402,9 @@ from the same identity and snapshot. A qualified call through
 `use module from "package"` can resolve to a function in that dependency only
 when the dependency identity matches, the function's source is listed in
 `[lib].exports`, and the function is public.
+An invalid-cased exported dependency source path is excluded from the retained
+public export set, so it cannot produce a dependency definition result. A
+valid sibling export in the same dependency remains visible.
 If a retained dependency declaration has an invalid source identifier casing
 record, it is not eligible for dependency definition results.
 The dependency source field can be `path`, `vendor`, or `mirror` when it names
@@ -463,8 +466,9 @@ The `veln-lsp` dependency virtual-document test is the executable JSON-RPC
 evidence for the complete definition-to-read path, retained CRLF text, retained
 workspace and dependency sources, URI identity and digest, private declaration
 rejection, prepare-rename and rename rejection, exact import-path visibility,
-and unknown or noncanonical URI rejection. The VSCode extension tests cover the
-corresponding definition request, exact-text read, location conversion,
+invalid export isolation with valid sibling visibility, and unknown or
+noncanonical URI rejection. The VSCode extension tests cover the corresponding
+definition request, exact-text read, location conversion,
 canonical URI lookup after VSCode URI parsing, and content-provider
 registration.
 The `veln-lsp` path, vendor, and mirror dependency virtual-URI test is the

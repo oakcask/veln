@@ -83,6 +83,15 @@ quarantine boundary for imported qualified names. The effect, handler, and
 ordering cases check the remaining written-import consumer and source-order
 boundaries. Their completion record is
 [Identifier Casing Import Paths](../reference/implemented-proposals/identifier-casing-import-paths.md).
+Direct-dependency manifest exports with mixed invalid-cased and valid sibling
+source paths are specified by
+[Name Resolution](../specification/name-resolution.md) and checked by the
+`identifier-casing-mixed-dependency-export-json` example. The invalid export
+reports export-provenance source-path casing, contributes no normal public
+module identity, and cannot satisfy import or qualified-use lookup. The valid
+sibling remains importable in the same invocation. This boundary is recorded
+in
+[Identifier Casing Source Path Module Identities](../reference/implemented-proposals/identifier-casing-source-path-module-identities.md).
 Qualified-use path casing diagnostics for module-only, module-and-type, and
 `prelude`-qualified expression, pattern, and type paths are specified by
 [Name Resolution](../specification/name-resolution.md) and checked by the
@@ -226,6 +235,7 @@ their LSP diagnostic, navigation, and rename isolation boundary specified by
 [Editor Support](../specification/editor-support.md). They are checked by the
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`,
+`identifier-casing-mixed-dependency-export-json`,
 `identifier-casing-source-path-human`,
 `identifier-casing-chained-companion-boundary-json`, and
 `identifier-casing-source-path-boundary` examples. Their completion record is
@@ -524,8 +534,7 @@ loaded and unloaded direct dependencies, are specified by
 selection boundary is complete and recorded in
 [Identifier Casing Selection Boundaries](../reference/implemented-proposals/identifier-casing-selection-boundaries.md).
 The remaining proposal scope is limited to explicit import aliases, MCP rename
-mapping, and deferred export or recovery consumers listed in the acceptance
-model.
+mapping, and deferred recovery consumers listed in the acceptance model.
 
 No backend receives a remaining-scope module identity or recovery record with
 an invalid case. The planned command fixtures are authoritative for the exact
@@ -588,7 +597,7 @@ identifier-casing remainder.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Analyze an invalid derived module beside remaining export and deferred recovery consumers. | The invalid source contributes no export or deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated valid-module analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, reachable module-edge isolation, language-service navigation isolation, transport-independent package documentation catalog failure, and `run` and `test` JVM artifact-command gates are current behavior. | Export and deferred recovery consumer cases with an explicit source-error boundary. |
+| Analyze an invalid derived module beside deferred recovery consumers not covered by current behavior. | The invalid source contributes no deferred recovery consumer result. Each case follows the consumer's specified fail-fast or diagnostic-tolerant boundary and proves continued unrelated valid-module analysis only when that consumer produces analysis despite source errors. Source module registration, import resolution, duplicate detection, reachable module-edge isolation, direct-dependency manifest-export isolation, language-service navigation isolation, transport-independent package documentation catalog failure, and `run` and `test` JVM artifact-command gates are current behavior. | Deferred recovery consumer cases with an explicit source-error boundary. |
 | Observe name ranges through every diagnostic and language-service consumer. | Parser-retained token spans, human and JSON spans, definition, references, prepare-rename, and rename ranges agree for each written name segment. | CRLF, preceding Unicode, multiline, recovery, and qualified-path fixtures. |
 | Resolve uses near invalid declarations in qualified and module-derived roles not covered by current behavior. | A unique class-compatible quarantined symbol suppresses only derivative cascades where the selected operation permits recovery; valid candidates win; bare binding patterns do not become constructors; multiple candidates do not create arbitrary navigation. | Recovery decision table for remaining qualified, module, and boundary cases. |
 | Cross remaining module or qualified boundaries with an invalid declaration. | A recovery symbol remains limited to the declaring source and lexical scope. No recovery symbol is imported, aliased, lowered, or exposed as a module-derived or qualified recovery result. | Boundary table covering diagnostics, module-derived and qualified navigation attempts, and artifacts for deferred boundaries. |
