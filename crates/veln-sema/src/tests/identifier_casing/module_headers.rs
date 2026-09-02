@@ -8,7 +8,7 @@ fn invalid_module_headers_report_source_declaration_diagnostics_and_block_artifa
     ] {
         let source = SourceFile::new(
             "main.veln",
-            &format!("mod {name}\nfn main() -> ()\n  ()\nend\n"),
+            format!("mod {name}\nfn main() -> ()\n  ()\nend\n"),
         );
         let parsed = parse(&source);
         assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
