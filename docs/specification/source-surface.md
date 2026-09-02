@@ -12,11 +12,12 @@ under `../../examples/specification/` are the primary source-surface evidence.
 
 ## Read First
 
-- Source path derived local module identity, local and external package
-  imports, `.test.veln` test companion source classification, functions with
-  optional `<effect E>` row binders, tests, source ADT type declarations,
-  schema declarations, nominal effect operation declarations, lexical handler
-  declarations, public member aliases, canonical `#` comments, `##`
+- Optional source-written `mod` headers, source path derived local module
+  identity, local and external package imports, `.test.veln` test companion
+  source classification, functions with optional `<effect E>` row binders,
+  tests, source ADT type declarations, schema declarations, nominal effect
+  operation declarations, lexical handler declarations, public member
+  aliases, canonical `#` comments, `##`
   documentation comments, doctests, ADR-lite metadata, and manifest dependency
   metadata plus `[lib].exports` source-file exports: this page.
 - Expression forms, constructors, records, dictionaries, vecs, matches,
@@ -26,9 +27,9 @@ under `../../examples/specification/` are the primary source-surface evidence.
   calls, zero-argument task spawns, one-context `task::spawn_with` calls, and
   method-call diagnostics: this page.
 - Contract predicate grammar: this page.
-- Identifier casing for source-written ADT types, constructors, functions,
-  tests, public aliases, bindings, parser recovery, and selected-command
-  reachability:
+- Identifier casing for source-written module headers, ADT types,
+  constructors, functions, tests, public aliases, bindings, parser recovery,
+  and selected-command reachability:
   [names-effects.md](names-effects.md).
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
@@ -432,9 +433,13 @@ without adding paths to the Prolog specification or adding a Rust harness test.
 
 <!-- source-surface-grammar:start -->
 ```text
-Module        ::= UseDecl* Item*
+Module        ::= ModuleHeader? UseDecl* Item*
+ModuleHeader  ::= "mod" ModuleHeaderPath NL
 UseDecl       ::= "use" ModulePath ImportSource? NL
 ImportSource  ::= "from" PackageString
+ModuleHeaderPath ::= ModuleHeaderSegment ("::" ModuleHeaderSegment)*
+ModuleHeaderSegment ::= Name | HoleName
+HoleName      ::= "_" identifier-continue+
 ModulePath    ::= Name ("::" Name)*
 PackageString ::= String
 IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral
