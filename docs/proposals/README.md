@@ -18,24 +18,33 @@ also states it.
 
 ## Ready
 
-- The remaining identifier-casing work is ready for implementation:
-  [identifier-casing.md](identifier-casing.md).
+- Isolate repair candidates from invalid source-path-derived module identities
+  while retaining candidates from valid sibling sources:
+  [identifier-casing-repair-candidate-isolation.md](identifier-casing-repair-candidate-isolation.md).
+- Expose the existing saved workspace function-reference result through MCP:
+  [mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
 
-Only proposals and subsections listed in this section are selectable targets.
+Each entry selects one complete proposal page. A subsection of another page is
+not a selectable target.
 
 ## Blocked
 
-- The agent-language-services umbrella is a planning inventory. Its next saved
-  workspace function-reference slice is blocked by identifier casing. Move
-  that implementation target into the Ready section after that dependency
-  passes:
+- Explicit import-alias casing is blocked until an owning proposal defines the
+  syntax and lookup contract:
+  [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
+- MCP rename casing mapping is blocked until an owning proposal defines the MCP
+  rename tool contract:
+  [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
+- The agent-language-services umbrella remains a planning inventory. Its saved
+  workspace function-reference slice is routed by a separate Ready proposal;
+  extract another finite proposal page before selecting later work:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
 
-Before implementing a proposal slice, compare it with the matching
-specification page and executable cases. Select only a proposal or subsection
-listed under Ready. If Ready contains no suitable implementation target, report
+Before implementing a proposal, compare it with the matching specification
+page and executable cases. Select only a complete proposal page listed under
+Ready. If Ready contains no suitable implementation target, report
 that there is no target instead of selecting work from Blocked.
 
 Do not select work that is already covered by the current specification or

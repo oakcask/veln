@@ -34,6 +34,8 @@ under `../../specification/` and its executable example routes.
 
 ## Records
 
+- Identifier casing umbrella completion boundary:
+  [identifier-casing.md](identifier-casing.md).
 - Recovery-aware source identifier casing:
   [identifier-casing-source-recovery.md](identifier-casing-source-recovery.md).
 - Identifier casing selection boundaries:
