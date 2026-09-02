@@ -1,0 +1,92 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "module.source_mod"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.1.message"
+equals = "module name `App` must start with an ASCII lowercase letter"
+
+[[json_assert]]
+path = "diagnostics.1.span.start.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.1.span.start.column"
+equals = 5
+
+[[json_assert]]
+path = "diagnostics.1.span.start.offset"
+equals = 9
+
+[[json_assert]]
+path = "diagnostics.1.span.end.line"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.1.span.end.column"
+equals = 8
+
+[[json_assert]]
+path = "diagnostics.1.span.end.offset"
+equals = 12
+
+[[json_assert]]
+path = "diagnostics.1.details.origin"
+equals = "source"
+
+[[json_assert]]
+path = "diagnostics.1.details.occurrence"
+equals = "declaration"
+
+[[json_assert]]
+path = "diagnostics.1.details.name"
+equals = "App"
+
+[[json_assert]]
+path = "diagnostics.1.details.name_class"
+equals = "module"
+
+[[json_assert]]
+path = "diagnostics.1.details.required_initial"
+equals = "ascii_lowercase"
+
+[[json_assert]]
+path = "diagnostics.1.details.observed_initial"
+equals = "ascii_uppercase"
+
+[[json_assert]]
+path = "diagnostics.2.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[diagnostics]]
+id = "name.invalid_case"
+severity = "error"
+kind = "name"
+message = "module name `App` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "main.veln"
+line = 2
+column = 5

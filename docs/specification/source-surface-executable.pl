@@ -102,9 +102,13 @@ parse_source_text(Text) :-
 print_grammar :-
     forall(grammar_line(_, Line), writeln(Line)).
 
-grammar_line(10, "Module        ::= UseDecl* Item*").
+grammar_line(10, "Module        ::= ModuleHeader? UseDecl* Item*").
+grammar_line(20, "ModuleHeader  ::= \"mod\" ModuleHeaderPath NL").
 grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportSource? NL").
 grammar_line(35, "ImportSource  ::= \"from\" PackageString").
+grammar_line(37, "ModuleHeaderPath ::= ModuleHeaderSegment (\"::\" ModuleHeaderSegment)*").
+grammar_line(38, "ModuleHeaderSegment ::= Name | HoleName").
+grammar_line(39, "HoleName      ::= \"_\" identifier-continue+").
 grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
 grammar_line(45, "PackageString ::= String").
 grammar_line(47, "IntLiteral    ::= DecimalLiteral | BinaryLiteral | HexadecimalLiteral").
@@ -358,7 +362,10 @@ underscore_token(t(hole, Text)) -->
     { string_chars(Text, ['_', First | Rest]) }.
 underscore_token(t(underscore, "_")) --> ['_'].
 
-source_file --> nls, use_decls, items, nls.
+source_file --> nls, module_header, use_decls, items, nls.
+
+module_header --> tok(mod), module_header_path, nl, !.
+module_header --> [].
 
 use_decls --> use_decl, !, nls, use_decls.
 use_decls --> [].
@@ -889,6 +896,12 @@ member_path_tail --> [].
 module_path --> path_segment, module_path_tail.
 module_path_tail --> tok(double_colon), path_segment, !, module_path_tail.
 module_path_tail --> [].
+
+module_header_path --> module_header_segment, module_header_path_tail.
+module_header_path_tail --> tok(double_colon), module_header_segment, !, module_header_path_tail.
+module_header_path_tail --> [].
+module_header_segment --> path_segment.
+module_header_segment --> tok(hole).
 
 binary_op --> tok(pipe_greater).
 binary_op --> tok(or).

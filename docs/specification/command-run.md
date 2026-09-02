@@ -10,8 +10,8 @@ update-when: The veln run command selection, execution gate, entry argument, run
 combined into one surface module for entry resolution. It blocks before user
 code execution on parse errors, a missing entry function, an entry argument
 count mismatch, an entry parameter type that cannot be supplied from command
-line text, selected-entry semantic errors, reachable holes, or checked-core
-blockers.
+line text, selected-entry semantic errors, selected source module-header
+casing errors, reachable holes, or checked-core blockers.
 
 The entry must be a discovered function. Arguments after `--` are entry
 arguments, not source inputs. Entry parameters may be declared as `String`,
@@ -166,4 +166,3 @@ record instead of forwarding them separately. Runtime contract failures are
 reported as top-level structured runtime errors with contract details.
 
 Missing `java` before class loading is reported as a JDK setup error.
-

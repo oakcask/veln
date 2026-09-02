@@ -33,6 +33,23 @@ fn parses_module_use_nested_types_and_multiple_effects() {
 }
 
 #[test]
+fn parses_underscore_led_module_header_for_casing_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("mod _net\r\n", "fn main() -> ()\r\n", "  ()\r\n", "end\r\n"),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let module = output.tree.module.as_ref().expect("module header");
+    assert_eq!(module.name, "_net");
+    assert_eq!(module.name_spans[0].start.line, 1);
+    assert_eq!(module.name_spans[0].start.column, 5);
+    assert_eq!(module.name_spans[0].end.column, 9);
+}
+
+#[test]
 fn parses_external_package_use_declaration() {
     let source = SourceFile::new(
         "main.veln",

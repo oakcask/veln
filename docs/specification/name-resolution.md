@@ -84,6 +84,19 @@ valid candidate wins, the use role is compatible with the invalid name class,
 and the call arity is compatible for callable recovery. Cross-class recovery
 collisions select no recovery record and preserve the ordinary unresolved or
 ambiguous fact.
+Source-written `mod` headers remain unsupported as package module identities,
+but a parse-clean header whose name starts with an ASCII uppercase letter or
+underscore reports `name.invalid_case` at the exact header-name token. The
+diagnostic has occurrence `declaration`, name class `module`, required initial
+`ascii_lowercase`, and the observed initial class. That invalid header does
+not supply a normal module identity for declarations or checked artifacts. A
+lowercase source-written header does not report `name.invalid_case`; it still
+uses the source `mod` unsupported-module diagnostic boundary. The
+`identifier-casing-module-header-json`,
+`identifier-casing-module-header-accepted-json`, and
+`identifier-casing-module-header-json` run examples check uppercase,
+underscore-led, accepted lowercase, exact-token range, and normal-identity
+isolation behavior.
 Every written import path segment is a module-class path segment. Each segment
 must start with an ASCII lowercase letter. An uppercase-led or underscore-led
 segment reports `name.invalid_case` at the exact segment token span with

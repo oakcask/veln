@@ -50,6 +50,8 @@ under `../../specification/` and its executable example routes.
   [identifier-casing-qualified-use-paths.md](identifier-casing-qualified-use-paths.md).
 - Identifier casing source path module identities:
   [identifier-casing-source-path-module-identities.md](identifier-casing-source-path-module-identities.md).
+- Identifier casing source-written module headers:
+  [identifier-casing-module-headers.md](identifier-casing-module-headers.md).
 - Identifier casing recovery navigation and rename:
   [identifier-casing-recovery-navigation.md](identifier-casing-recovery-navigation.md).
 - Identifier casing rename conflicts:

@@ -3,6 +3,7 @@ use veln_source::SourceSpan;
 #[derive(Clone, Debug)]
 pub struct ModuleDecl {
     pub name: String,
+    pub name_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 
