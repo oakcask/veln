@@ -3,9 +3,10 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 
-use crate::check_project::{self, CheckProjectOutcome};
-use crate::definition::{self, DefinitionOutcome};
-use crate::references::{self, ReferencesOutcome};
+use crate::check_project;
+use crate::definition;
+use crate::outcome::ToolOutcome;
+use crate::references;
 use crate::schema;
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -127,7 +128,10 @@ impl Server {
             return Err("Tool input does not match its schema");
         }
         Ok(match call.name {
-            "workspace_projects" => successful_tool_result(self.selection_result()),
+            "workspace_projects" => render_tool_outcome(
+                "workspace_projects",
+                ToolOutcome::Success(self.selection_result()),
+            ),
             "refresh_workspace" => self.refresh_workspace_tool(refresh),
             "check_project" => self.check_project_tool(arguments),
             "definition" => self.definition_tool(arguments),
@@ -137,92 +141,39 @@ impl Server {
     }
 
     fn references_tool(&self, arguments: &Value) -> Value {
-        let tool = schema::tool("references").expect("references tool is declared");
-        match references::references(&self.base, &self.selection, arguments) {
-            ReferencesOutcome::Success(result) => {
-                assert!(
-                    tool.accepts_result(&result),
-                    "references success result must match the advertised schema: {result}"
-                );
-                successful_tool_result(result)
-            }
-            ReferencesOutcome::DomainFailure {
-                code,
-                message,
-                details,
-            } => {
-                let result = json!({"code": code, "message": message, "details": details});
-                assert!(
-                    tool.accepts_result(&result),
-                    "references domain result must match the advertised schema: {result}"
-                );
-                domain_failure(code, message, result["details"].clone())
-            }
-        }
+        render_tool_outcome(
+            "references",
+            references::references(&self.base, &self.selection, arguments),
+        )
     }
 
     fn definition_tool(&self, arguments: &Value) -> Value {
-        let tool = schema::tool("definition").expect("definition tool is declared");
-        match definition::definition(&self.base, &self.selection, arguments) {
-            DefinitionOutcome::Success(result) => {
-                assert!(
-                    tool.accepts_result(&result),
-                    "definition success result must match the advertised schema"
-                );
-                successful_tool_result(result)
-            }
-            DefinitionOutcome::DomainFailure {
-                code,
-                message,
-                details,
-            } => {
-                let result = json!({"code": code, "message": message, "details": details});
-                assert!(
-                    tool.accepts_result(&result),
-                    "definition domain result must match the advertised schema: {result}"
-                );
-                domain_failure(code, message, result["details"].clone())
-            }
-        }
+        render_tool_outcome(
+            "definition",
+            definition::definition(&self.base, &self.selection, arguments),
+        )
     }
 
     fn check_project_tool(&self, arguments: &Value) -> Value {
-        let tool = schema::tool("check_project").expect("check_project tool is declared");
-        match check_project::check_project(&self.base, &self.selection, arguments) {
-            CheckProjectOutcome::Success(result) => {
-                assert!(
-                    tool.accepts_result(&result),
-                    "check_project success result must match the advertised schema"
-                );
-                successful_tool_result(result)
-            }
-            CheckProjectOutcome::DomainFailure {
-                code,
-                message,
-                details,
-            } => {
-                let result = json!({"code": code, "message": message, "details": details});
-                assert!(
-                    tool.accepts_result(&result),
-                    "check_project domain result must match the advertised schema"
-                );
-                domain_failure(code, message, result["details"].clone())
-            }
-        }
+        render_tool_outcome(
+            "check_project",
+            check_project::check_project(&self.base, &self.selection, arguments),
+        )
     }
 
     fn refresh_workspace_tool(
         &mut self,
         refresh: impl FnOnce(&mut Selection) -> io::Result<()>,
     ) -> Value {
-        match refresh(&mut self.selection) {
-            Ok(()) => successful_tool_result(self.selection_result()),
-            Err(_) => domain_failure(
-                "generation_failed",
-                "workspace project discovery failed",
-                json!({}),
-            ),
-        }
+        let outcome = match refresh(&mut self.selection) {
+            Ok(()) => ToolOutcome::Success(self.selection_result()),
+            Err(_) => ToolOutcome::DomainFailure {
+                code: "generation_failed",
+                message: "workspace project discovery failed",
+                details: json!({}),
+            },
+        };
+        render_tool_outcome("refresh_workspace", outcome)
     }
 
     fn selection_result(&self) -> Value {
@@ -355,20 +306,27 @@ fn metadata_is_valid(value: Option<&Value>) -> bool {
         .is_none_or(|token| token.is_string() || token.is_number())
 }
 
-fn successful_tool_result(structured: Value) -> Value {
+fn render_tool_outcome(tool_name: &str, outcome: ToolOutcome) -> Value {
+    let tool = schema::tool(tool_name).expect("tool outcome belongs to a declared tool");
+    let (structured, is_error) = match outcome {
+        ToolOutcome::Success(result) => (result, false),
+        ToolOutcome::DomainFailure {
+            code,
+            message,
+            details,
+        } => (
+            json!({"code": code, "message": message, "details": details}),
+            true,
+        ),
+    };
+    assert!(
+        tool.accepts_result(&structured),
+        "{tool_name} outcome must match the advertised schema: {structured}"
+    );
     json!({
         "content": [{"type": "text", "text": structured.to_string()}],
         "structuredContent": structured,
-        "isError": false,
-    })
-}
-
-fn domain_failure(code: &str, message: &str, details: Value) -> Value {
-    let structured = json!({"code": code, "message": message, "details": details});
-    json!({
-        "content": [{"type": "text", "text": structured.to_string()}],
-        "structuredContent": structured,
-        "isError": true,
+        "isError": is_error,
     })
 }
 

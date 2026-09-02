@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 mod check_project;
 mod definition;
 mod lifecycle;
+mod outcome;
 mod protocol;
 mod references;
 

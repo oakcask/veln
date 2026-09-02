@@ -4,24 +4,16 @@ use veln_language_service::{
 };
 use veln_source::{SourcePath, SourceSpan};
 
-use crate::check_project::{CheckProjectOutcome, capture_navigation_source};
+use crate::check_project::capture_navigation_source;
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
+use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
-
-pub(crate) enum ReferencesOutcome {
-    Success(Value),
-    DomainFailure {
-        code: &'static str,
-        message: &'static str,
-        details: Value,
-    },
-}
 
 pub(crate) fn references(
     base: &WorkspaceBase,
     selection: &Selection,
     arguments: &Value,
-) -> ReferencesOutcome {
+) -> ToolOutcome {
     let source = arguments["source"]
         .as_str()
         .expect("references input schema requires a string source");
@@ -30,7 +22,7 @@ pub(crate) fn references(
     let (captured, captured_source, scope) =
         match capture_navigation_source(base, selection, source) {
             Ok(captured) => captured,
-            Err(failure) => return failure.into(),
+            Err(failure) => return failure,
         };
     let source_file = captured
         .project
@@ -73,7 +65,7 @@ pub(crate) fn references(
     })
     .unwrap_or_default();
 
-    ReferencesOutcome::Success(json!({
+    ToolOutcome::Success(json!({
         "references": references,
         "scope": scope.metadata(selection.generation())
     }))
@@ -93,31 +85,4 @@ fn location_json(root: &std::path::Path, span: &SourceSpan) -> Value {
             }
         }
     })
-}
-
-fn domain_failure(code: &'static str, message: &'static str, details: Value) -> ReferencesOutcome {
-    ReferencesOutcome::DomainFailure {
-        code,
-        message,
-        details,
-    }
-}
-
-impl From<CheckProjectOutcome> for ReferencesOutcome {
-    fn from(outcome: CheckProjectOutcome) -> Self {
-        match outcome {
-            CheckProjectOutcome::DomainFailure {
-                code,
-                message,
-                details,
-            } => Self::DomainFailure {
-                code,
-                message,
-                details,
-            },
-            CheckProjectOutcome::Success(_) => {
-                unreachable!("navigation capture failures are domain failures")
-            }
-        }
-    }
 }

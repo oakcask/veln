@@ -16,6 +16,7 @@ use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
+use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{
     FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection, WorkspaceBase,
 };
@@ -32,20 +33,11 @@ use capture::{
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 
-pub(crate) enum CheckProjectOutcome {
-    Success(Value),
-    DomainFailure {
-        code: &'static str,
-        message: &'static str,
-        details: Value,
-    },
-}
-
 pub(crate) fn check_project(
     base: &WorkspaceBase,
     selection: &Selection,
     arguments: &Value,
-) -> CheckProjectOutcome {
+) -> ToolOutcome {
     let project = arguments.get("project").and_then(Value::as_str);
     let source = arguments.get("source").and_then(Value::as_str);
 
@@ -78,7 +70,7 @@ pub(crate) fn check_project(
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
-    CheckProjectOutcome::Success(structured)
+    ToolOutcome::Success(structured)
 }
 
 pub(crate) struct Target {
@@ -121,7 +113,7 @@ fn select_target(
     selection: &Selection,
     project: Option<&str>,
     source: Option<&str>,
-) -> Result<Target, CheckProjectOutcome> {
+) -> Result<Target, ToolOutcome> {
     if let Some(project) = project {
         let project = validate_project_path(project)?;
         let Some(kind) = selection.root_kind(&project) else {
@@ -175,7 +167,7 @@ fn selected_target(
     kind: SelectedRootKind,
     source: Option<&str>,
     selected_root_identity: Option<SelectedRootIdentity>,
-) -> Result<Target, CheckProjectOutcome> {
+) -> Result<Target, ToolOutcome> {
     if kind == SelectedRootKind::Manifest && source.is_some() {
         return Err(domain_failure(
             "invalid_query",
@@ -223,7 +215,7 @@ fn selected_target(
     })
 }
 
-fn validate_project_path(project: &str) -> Result<String, CheckProjectOutcome> {
+fn validate_project_path(project: &str) -> Result<String, ToolOutcome> {
     let normalized = normalize_relative(project)?;
     if normalized.is_empty() {
         return Err(invalid_path("project path is empty"));
@@ -231,7 +223,7 @@ fn validate_project_path(project: &str) -> Result<String, CheckProjectOutcome> {
     Ok(normalized)
 }
 
-fn validate_source_path(base: &WorkspaceBase, source: &str) -> Result<String, CheckProjectOutcome> {
+fn validate_source_path(base: &WorkspaceBase, source: &str) -> Result<String, ToolOutcome> {
     reject_spelled_source_traversal(base, source)?;
     let normalized = normalize_relative(source)?;
     if normalized == "." || !normalized.ends_with(".veln") {
@@ -241,10 +233,7 @@ fn validate_source_path(base: &WorkspaceBase, source: &str) -> Result<String, Ch
     Ok(normalized)
 }
 
-fn reject_spelled_source_traversal(
-    base: &WorkspaceBase,
-    source: &str,
-) -> Result<(), CheckProjectOutcome> {
+fn reject_spelled_source_traversal(base: &WorkspaceBase, source: &str) -> Result<(), ToolOutcome> {
     let mut current = base.path().to_path_buf();
     for component in Path::new(source).components() {
         match component {
@@ -275,7 +264,7 @@ fn reject_spelled_source_traversal(
     Ok(())
 }
 
-fn normalize_relative(path: &str) -> Result<String, CheckProjectOutcome> {
+fn normalize_relative(path: &str) -> Result<String, ToolOutcome> {
     if path.is_empty() || path.contains('\\') || Path::new(path).is_absolute() {
         return Err(invalid_path("path must be workspace-relative"));
     }
@@ -306,7 +295,7 @@ fn normalize_relative(path: &str) -> Result<String, CheckProjectOutcome> {
     })
 }
 
-fn reject_link_or_non_file(base: &Path, source: &str) -> Result<(), CheckProjectOutcome> {
+fn reject_link_or_non_file(base: &Path, source: &str) -> Result<(), ToolOutcome> {
     let mut current = base.to_path_buf();
     let parts = source.split('/').collect::<Vec<_>>();
     for (index, part) in parts.iter().enumerate() {
@@ -364,20 +353,8 @@ fn increment(map: &mut serde_json::Map<String, Value>, key: &str) {
     map.insert(key.to_string(), json!(count));
 }
 
-fn invalid_path(message: &'static str) -> CheckProjectOutcome {
+fn invalid_path(message: &'static str) -> ToolOutcome {
     domain_failure("invalid_path", message, json!({}))
-}
-
-fn domain_failure(
-    code: &'static str,
-    message: &'static str,
-    details: Value,
-) -> CheckProjectOutcome {
-    CheckProjectOutcome::DomainFailure {
-        code,
-        message,
-        details,
-    }
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 
 mod check_project;
 mod definition;
+mod outcome;
 mod references;
 mod schema;
 mod server;
