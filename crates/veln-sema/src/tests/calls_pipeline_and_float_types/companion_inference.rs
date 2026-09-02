@@ -1,5 +1,47 @@
 use super::*;
 
+struct CompanionModules {
+    target: SurfaceModule,
+    combined: SurfaceModule,
+}
+
+fn companion_modules(
+    companion_source: &SourceFile,
+    target_source: &SourceFile,
+) -> CompanionModules {
+    let companion = lower_surface_ast(&parse(companion_source).tree);
+    let target = lower_surface_ast(&parse(target_source).tree);
+    let combined = SurfaceModule {
+        functions: companion
+            .functions
+            .into_iter()
+            .chain(target.functions.iter().cloned())
+            .collect(),
+        ..companion
+    };
+    CompanionModules { target, combined }
+}
+
+fn lowered_function<'a>(
+    lowered: &'a LoweredSurfaceModule,
+    name: &str,
+) -> &'a veln_core::CoreFunction {
+    lowered
+        .core
+        .as_ref()
+        .and_then(|core| core.functions.iter().find(|function| function.name == name))
+        .unwrap_or_else(|| panic!("`{name}` should lower"))
+}
+
+fn assert_same_signature_and_effects(
+    actual: &veln_core::CoreFunction,
+    expected: &veln_core::CoreFunction,
+) {
+    assert_eq!(actual.params, expected.params);
+    assert_eq!(actual.return_type, expected.return_type);
+    assert_eq!(actual.effects, expected.effects);
+}
+
 #[test]
 fn companion_call_does_not_complete_target_private_inference() {
     let companion_source = SourceFile::new(
@@ -17,24 +59,7 @@ fn companion_call_does_not_complete_target_private_inference() {
         "math.veln",
         concat!("mod math\n", "fn identity(value)\n", "  value\n", "end\n",),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let module = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = companion_modules(&companion_source, &target_source).combined;
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -65,39 +90,10 @@ fn companion_call_does_not_change_target_private_inference_diagnostics() {
         "math.veln",
         concat!("mod math\n", "fn identity(value)\n", "  value\n", "end\n",),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let without_companion = SurfaceModule {
-        module: target.module.clone(),
-        uses: target.uses.clone(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: target.functions.clone(),
-        invalid_names: Vec::new(),
-    };
-    let with_companion = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let modules = companion_modules(&companion_source, &target_source);
 
-    let without_diagnostics = analyze_surface_module(&without_companion);
-    let with_diagnostics = analyze_surface_module(&with_companion);
+    let without_diagnostics = analyze_surface_module(&modules.target);
+    let with_diagnostics = analyze_surface_module(&modules.combined);
     let diagnostic_summary = |diagnostics: Vec<Diagnostic>| {
         diagnostics
             .into_iter()
@@ -151,24 +147,7 @@ fn companion_observes_established_private_signature_and_effects() {
             "end\n",
         ),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let module = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = companion_modules(&companion_source, &target_source).combined;
 
     let diagnostics = analyze_surface_module(&module);
 
@@ -207,88 +186,24 @@ fn companion_call_does_not_change_established_target_signature_or_effects() {
             "end\n",
         ),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let without_companion = SurfaceModule {
-        module: target.module.clone(),
-        uses: target.uses.clone(),
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: target.functions.clone(),
-        invalid_names: Vec::new(),
-    };
-    let with_companion = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let modules = companion_modules(&companion_source, &target_source);
 
-    let lowered_without = lower_checked_surface_module(&without_companion);
-    let lowered_with = lower_checked_surface_module(&with_companion);
+    let lowered_without = lower_checked_surface_module(&modules.target);
+    let lowered_with = lower_checked_surface_module(&modules.combined);
     assert!(
         lowered_without.diagnostics.is_empty(),
         "{lowered_without:#?}"
     );
     assert!(lowered_with.diagnostics.is_empty(), "{lowered_with:#?}");
 
-    let production_without = lowered_without
-        .core
-        .as_ref()
-        .and_then(|core| {
-            core.functions
-                .iter()
-                .find(|function| function.name == "production_emit")
-        })
-        .expect("target production function should lower");
-    let production_with = lowered_with
-        .core
-        .as_ref()
-        .and_then(|core| {
-            core.functions
-                .iter()
-                .find(|function| function.name == "production_emit")
-        })
-        .expect("target production function should lower");
-    let private_without = lowered_without
-        .core
-        .as_ref()
-        .and_then(|core| {
-            core.functions
-                .iter()
-                .find(|function| function.name == "emit")
-        })
-        .expect("target private function should lower");
-    let private_with = lowered_with
-        .core
-        .as_ref()
-        .and_then(|core| {
-            core.functions
-                .iter()
-                .find(|function| function.name == "emit")
-        })
-        .expect("target private function should lower");
-
-    assert_eq!(production_with.params, production_without.params);
-    assert_eq!(production_with.return_type, production_without.return_type);
-    assert_eq!(production_with.effects, production_without.effects);
-    assert_eq!(private_with.params, private_without.params);
-    assert_eq!(private_with.return_type, private_without.return_type);
-    assert_eq!(private_with.effects, private_without.effects);
+    assert_same_signature_and_effects(
+        lowered_function(&lowered_with, "production_emit"),
+        lowered_function(&lowered_without, "production_emit"),
+    );
+    assert_same_signature_and_effects(
+        lowered_function(&lowered_with, "emit"),
+        lowered_function(&lowered_without, "emit"),
+    );
 }
 
 #[test]
@@ -318,24 +233,7 @@ fn companion_local_function_effects_do_not_share_target_private_name() {
             "end\n",
         ),
     );
-    let companion = lower_surface_ast(&parse(&companion_source).tree);
-    let target = lower_surface_ast(&parse(&target_source).tree);
-    let module = SurfaceModule {
-        module: companion.module,
-        uses: companion.uses,
-        aliases: Vec::new(),
-        effects: Vec::new(),
-        handlers: Vec::new(),
-        schemas: Vec::new(),
-        codecs: Vec::new(),
-        types: Vec::new(),
-        functions: companion
-            .functions
-            .into_iter()
-            .chain(target.functions)
-            .collect(),
-        invalid_names: Vec::new(),
-    };
+    let module = companion_modules(&companion_source, &target_source).combined;
 
     let diagnostics = analyze_surface_module(&module);
 
