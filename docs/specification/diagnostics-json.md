@@ -151,9 +151,10 @@ Invalid source identifier casing coverage is executable in the checked
 `identifier-casing-module-header-accepted-json` cases.
 Source-path-derived module
 identity casing is checked by `identifier-casing-source-path-json` and
-`identifier-casing-exported-source-path-json`; parse-failure coexistence,
-human output, lowercase-initial structural failures, and chained companion
-structural isolation are checked by
+`identifier-casing-exported-source-path-json`; mixed direct-dependency export
+isolation is checked by `identifier-casing-mixed-dependency-export-json`.
+Parse-failure coexistence, human output, lowercase-initial structural
+failures, and chained companion structural isolation are checked by
 `identifier-casing-source-path-human` and
 `identifier-casing-chained-companion-boundary-json`. LSP span mapping for the
 same zero-width source-start diagnostics is checked by

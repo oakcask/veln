@@ -1,0 +1,83 @@
+command = ["check", "--json", "main.veln"]
+source_errors = "expected"
+exit = 1
+
+[stdout]
+format = "json"
+equals_file = "case-text/stdout-1.json"
+not_contains = ["ok::value", "github.com/oakcask/foo::App::value"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "name.invalid_case"
+
+[[json_assert]]
+path = "diagnostics.0.details.origin"
+equals = "source_path"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_kind"
+equals = "export"
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "App/value.veln"
+
+[[json_assert]]
+path = "diagnostics.1.id"
+equals = "module.unexported_import"
+
+[[json_assert]]
+path = "diagnostics.1.details.module_path"
+equals = "App"
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "name.unresolved"
+
+[[json_assert]]
+path = "diagnostics.3.details.symbol"
+equals = "App::value"
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "module name `App` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "App/value.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "module.unexported_import"
+kind = "module"
+message = "external module `App` is not exported by package `github.com/oakcask/foo`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 1
+column = 1
+
+[[diagnostics]]
+id = "name.invalid_case"
+kind = "name"
+message = "module name `App` must start with an ASCII lowercase letter"
+
+[diagnostics.span]
+file = "main.veln"
+line = 1
+column = 5
+
+[[diagnostics]]
+id = "name.unresolved"
+kind = "name"
+message = "unresolved call_target `App::value`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 5
+column = 17

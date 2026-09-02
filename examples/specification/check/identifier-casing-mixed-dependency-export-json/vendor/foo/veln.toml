@@ -1,0 +1,5 @@
+[package]
+name = "github.com/oakcask/foo"
+
+[lib]
+exports = ["App/value.veln", "ok.veln"]

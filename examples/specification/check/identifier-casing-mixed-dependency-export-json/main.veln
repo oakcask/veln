@@ -1,0 +1,6 @@
+use App from "github.com/oakcask/foo"
+use ok from "github.com/oakcask/foo"
+
+pub fn main() -> Int
+  ok::value() + App::value()
+end

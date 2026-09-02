@@ -559,6 +559,75 @@
     }
 
     #[test]
+    fn direct_dependency_snapshot_excludes_invalid_cased_exported_source_identity() {
+        let root = TempDependency::new(
+            "example/pkg",
+            &[
+                (
+                    "App/value.veln",
+                    "pub fn value() -> Int\n  1\nend\n",
+                ),
+                (
+                    "ok.veln",
+                    "pub fn value() -> Int\n  2\nend\n",
+                ),
+            ],
+        );
+        let identity = PackageIdentity::new("example/pkg").unwrap();
+        let snapshot = capture_package_snapshot(&root.path).unwrap();
+        let manifest = parse_manifest_text(
+            "veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"example/pkg\"\n",
+                "\n",
+                "[lib]\n",
+                "exports = [\"App/value.veln\", \"ok.veln\"]\n",
+            ),
+        );
+        let dependency =
+            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest)
+                .unwrap();
+        let project = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use App from \"example/pkg\"\n",
+                    "use ok from \"example/pkg\"\n",
+                    "\n",
+                    "pub fn main() -> Int\n",
+                    "  ok::value() + App::value()\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let valid = navigate(
+            &project,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column: 7,
+            },
+        )
+        .expect("valid sibling export should remain navigable");
+        assert_eq!(valid.definition.span.file.as_str(), "ok.veln");
+
+        assert!(
+            navigate(
+                &project,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 5,
+                    column: 22,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
     fn direct_dependency_snapshot_rejects_mismatched_manifest_identity() {
         let root = TempDependency::new(
             "other/pkg",

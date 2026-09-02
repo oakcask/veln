@@ -6,8 +6,8 @@ use std::io::{self, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
 use veln_analysis::{
-    DoctestMode, checked_project_diagnostics, parse_diagnostic_to_envelope,
-    validate_manifest_exports,
+    DoctestMode, checked_project_diagnostics, is_source_path_invalid_case_diagnostic,
+    parse_diagnostic_to_envelope, validate_manifest_exports,
 };
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::Diagnostic;
@@ -512,7 +512,11 @@ fn retained_direct_dependencies(
                     .collect(),
                 manifest: Some(dependency_manifest),
             };
-            if !validate_manifest_exports(&dependency_project).is_empty() {
+            let export_diagnostics = validate_manifest_exports(&dependency_project);
+            if export_diagnostics
+                .iter()
+                .any(|diagnostic| !is_source_path_invalid_case_diagnostic(diagnostic))
+            {
                 return None;
             }
             let dependency_manifest = dependency_project.manifest?;

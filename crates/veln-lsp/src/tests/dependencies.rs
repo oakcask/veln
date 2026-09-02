@@ -113,6 +113,70 @@ fn invalid_handler_bindings_use_lsp_recovery_navigation() {
     );
 }
 
+#[test]
+fn invalid_cased_dependency_export_does_not_discard_valid_sibling_navigation() {
+    let mut server = Server::default();
+    let project = TempProject::new("mixed-dependency-export-navigation");
+    project.write(
+        "veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"app\"\n",
+            "\n",
+            "[dependencies.\"example/pkg\"]\n",
+            "path = \"vendor/pkg\"\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "use App from \"example/pkg\"\n",
+            "use ok from \"example/pkg\"\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  ok::value() + App::value()\n",
+            "end\n",
+        ),
+    );
+    project.write(
+        "vendor/pkg/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example/pkg\"\n",
+            "\n",
+            "[lib]\n",
+            "exports = [\"App/value.veln\", \"ok.veln\"]\n",
+        ),
+    );
+    project.write(
+        "vendor/pkg/App/value.veln",
+        "pub fn value() -> Int\n  1\nend\n",
+    );
+    project.write(
+        "vendor/pkg/ok.veln",
+        "pub fn value() -> Int\n  2\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let valid = server.handle_message(&definition_request(&main_uri, 4, 7));
+    assert_single_response(
+        &valid,
+        r#""range":{"start":{"line":0,"character":7},"end":{"line":0,"character":12}}"#,
+    );
+    let virtual_uri = package_virtual_definition_uri(&valid[0], "example%2Fpkg", "ok.veln");
+    assert_virtual_document_text(
+        &mut server,
+        "3",
+        &virtual_uri,
+        "pub fn value() -> Int\n  2\nend\n",
+    );
+
+    let invalid = server.handle_message(&definition_request(&main_uri, 4, 22));
+    assert_null_result(&invalid[0]);
+}
+
 fn assert_invalid_callback_navigation(server: &mut Server, main_uri: &str) {
     let callback_definition = server.handle_message(&definition_request(main_uri, 6, 19));
     assert_single_response(

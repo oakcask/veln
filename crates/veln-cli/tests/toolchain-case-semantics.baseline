@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"bb14530291043d3ee6fe7dc788c1c494227adccd"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1651
+case_count	1652
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -6440,6 +6440,66 @@ field	invocation.command[3]	"http.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"3c50b351632f034d346994e31f657b35a2f2bac54941e55c751c084a3c5c78d7"
+case	"examples/specification/check/identifier-casing-mixed-dependency-export-json"
+field	expectations.diagnostics[0].id	"name.invalid_case"
+field	expectations.diagnostics[0].kind	"name"
+field	expectations.diagnostics[0].message	"module name `App` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[0].span.column	1
+field	expectations.diagnostics[0].span.file	"App/value.veln"
+field	expectations.diagnostics[0].span.line	1
+field	expectations.diagnostics[1].id	"module.unexported_import"
+field	expectations.diagnostics[1].kind	"module"
+field	expectations.diagnostics[1].message	"external module `App` is not exported by package `github.com/oakcask/foo`"
+field	expectations.diagnostics[1].span.column	1
+field	expectations.diagnostics[1].span.file	"main.veln"
+field	expectations.diagnostics[1].span.line	1
+field	expectations.diagnostics[2].id	"name.invalid_case"
+field	expectations.diagnostics[2].kind	"name"
+field	expectations.diagnostics[2].message	"module name `App` must start with an ASCII lowercase letter"
+field	expectations.diagnostics[2].span.column	5
+field	expectations.diagnostics[2].span.file	"main.veln"
+field	expectations.diagnostics[2].span.line	1
+field	expectations.diagnostics[3].id	"name.unresolved"
+field	expectations.diagnostics[3].kind	"name"
+field	expectations.diagnostics[3].message	"unresolved call_target `App::value`"
+field	expectations.diagnostics[3].span.column	17
+field	expectations.diagnostics[3].span.file	"main.veln"
+field	expectations.diagnostics[3].span.line	5
+field	expectations.exit	1
+field	expectations.json_assertions[0].equals	"name.invalid_case"
+field	expectations.json_assertions[0].operation	"equals"
+field	expectations.json_assertions[0].path	"diagnostics.0.id"
+field	expectations.json_assertions[1].equals	"source_path"
+field	expectations.json_assertions[1].operation	"equals"
+field	expectations.json_assertions[1].path	"diagnostics.0.details.origin"
+field	expectations.json_assertions[2].equals	"export"
+field	expectations.json_assertions[2].operation	"equals"
+field	expectations.json_assertions[2].path	"diagnostics.0.details.source_kind"
+field	expectations.json_assertions[3].equals	"App/value.veln"
+field	expectations.json_assertions[3].operation	"equals"
+field	expectations.json_assertions[3].path	"diagnostics.0.details.source_path"
+field	expectations.json_assertions[4].equals	"module.unexported_import"
+field	expectations.json_assertions[4].operation	"equals"
+field	expectations.json_assertions[4].path	"diagnostics.1.id"
+field	expectations.json_assertions[5].equals	"App"
+field	expectations.json_assertions[5].operation	"equals"
+field	expectations.json_assertions[5].path	"diagnostics.1.details.module_path"
+field	expectations.json_assertions[6].equals	"name.unresolved"
+field	expectations.json_assertions[6].operation	"equals"
+field	expectations.json_assertions[6].path	"diagnostics.3.id"
+field	expectations.json_assertions[7].equals	"App::value"
+field	expectations.json_assertions[7].operation	"equals"
+field	expectations.json_assertions[7].path	"diagnostics.3.details.symbol"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.format	"json"
+field	expectations.stdout.not_contains[0]	"ok::value"
+field	expectations.stdout.not_contains[1]	"github.com/oakcask/foo::App::value"
+field	invocation.command[0]	"check"
+field	invocation.command[1]	"--json"
+field	invocation.command[2]	"main.veln"
+field	invocation.repeat	1
+field	source_errors	"expected"
+case_digest	"c0eeca059c6ea532c89a6cdf9c3c7c4e4478bfb191c000e31b7d7499872a2195"
 case	"examples/specification/check/identifier-casing-module-header-accepted-json"
 field	expectations.exit	1
 field	expectations.json_assertions[0].equals	"error"
@@ -53703,4 +53763,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9f51671e1369bcbee43b58b1e75ffe2ca9321674fe72a316c9f24a7d76cb204a"
+aggregate_digest	"7eeaefeed10e5bef2ce15ddc9e6fcd0db4e9072994a569547b9867220f61de5d"

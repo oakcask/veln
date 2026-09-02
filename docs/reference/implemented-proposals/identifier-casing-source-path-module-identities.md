@@ -20,7 +20,13 @@ The checked
 `identifier-casing-source-path-json`,
 `identifier-casing-exported-source-path-json`, and
 `identifier-casing-source-path-human` examples fix the JSON and human command
-diagnostics. The checked `identifier-casing-source-path-boundary` example
+diagnostics. The checked
+`identifier-casing-mixed-dependency-export-json` example fixes the direct
+dependency mixed-export boundary: an invalid-cased exported source path
+reports export-provenance source-path casing, contributes no normal public
+module identity, does not satisfy import or qualified-use lookup through
+dependency recovery, and does not prevent a valid sibling export from being
+analyzed. The checked `identifier-casing-source-path-boundary` example
 fixes the LSP zero-width diagnostic range and source-path origin data
 projection, and checks that the source-path diagnostic range is not an LSP
 rename target. The checked
@@ -54,6 +60,11 @@ diagnostics. A regular source that is both selected normally and named by
 generated origin metadata as the identity and casing authority, using
 `source_kind: generated`; its generated bookkeeping path is not validated or
 published as the exported module identity.
+In a direct dependency manifest, this export boundary is per export for
+source-path casing failures. A dependency with one invalid-cased exported
+source path and one valid lowercase sibling keeps the valid sibling export
+visible to imports and language-service dependency snapshots. The invalid
+exported identity is omitted from the public export set.
 
 Each invalid origin segment emits `name.invalid_case` with `phase: name`,
 `origin: source_path`, `occurrence: path_segment`, the segment spelling as
