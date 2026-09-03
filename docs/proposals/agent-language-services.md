@@ -42,9 +42,16 @@ and
 The saved workspace function-reference adapter is recorded by
 [MCP Saved Workspace Function References](../reference/implemented-proposals/mcp-saved-workspace-function-references.md).
 
+### Extracted Ready Slice
+
+The next transport-independent catalog-generation slice is separately
+selectable as
+[Language Reference Catalog Foundation](language-reference-catalog-foundation.md).
+
 This umbrella remains planning input for later navigation, documentation,
-virtual-source, conformance, and plugin work. Extract one finite proposal page
-with its own acceptance model before moving any later work to Ready.
+virtual-source, conformance, and plugin work. It is not itself selectable.
+Extract another finite proposal page with its own acceptance model before
+moving work after the catalog foundation to Ready.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -1052,8 +1059,8 @@ Dependency and standard-library locations, the proposal's additional symbol
 kinds, and broader reference search remain planned.
 The subsequent slices are:
 
-1. Define and validate language-reference topic descriptors. Generate the
-   executable grammar, selected example, and compiler-owned table projections.
+1. Implement the bounded catalog-generation slice defined by
+   [Language Reference Catalog Foundation](language-reference-catalog-foundation.md).
 2. Extend the existing `veln mcp` server with resources, documentation tools,
    dependency reference search, paginated references, and definition beyond
    the implemented workspace-only symbol inventory.
