@@ -3,6 +3,7 @@ use std::env;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use veln_diagnostics::Severity;
 use veln_language_service::{
@@ -333,7 +334,7 @@ pub(crate) struct Position {
 #[derive(Debug)]
 pub(crate) struct NavigationRequest {
     pub(crate) root: PathBuf,
-    pub(crate) snapshot: EffectiveProjectSnapshot,
+    pub(crate) snapshot: Arc<EffectiveProjectSnapshot>,
     pub(crate) result: NavigationResult,
 }
 

@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use veln_analysis::{
     DoctestMode, checked_project_diagnostics, is_source_path_invalid_case_diagnostic,
@@ -96,7 +97,8 @@ struct Server {
     workspace_roots: Vec<PathBuf>,
     workspace_root_aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
     published_diagnostic_uris: BTreeSet<String>,
-    project_snapshots: BTreeMap<PathBuf, EffectiveProjectSnapshot>,
+    project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
+    overlaid_project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
     should_exit: bool,
 }
 
@@ -167,8 +169,13 @@ impl Server {
         let Some((uri, text)) = document_uri_and_text(message) else {
             return Vec::new();
         };
+        let workspace_root = self.owned_workspace_root(&uri);
+        let document_changed = self.documents.get(&uri) != Some(&text);
         self.documents.insert(uri.clone(), text);
-        if self.workspace_source_path(&uri).is_some() {
+        if let Some(root) = workspace_root {
+            if document_changed {
+                self.refresh_overlaid_project_snapshot(&root);
+            }
             self.publish_workspace_diagnostics()
         } else {
             vec![publish_diagnostics(&uri, self.document_text(&uri))]
@@ -179,8 +186,12 @@ impl Server {
         let Some(uri) = extract_string_field(message, "uri") else {
             return Vec::new();
         };
-        self.documents.remove(&uri);
-        if self.workspace_source_path(&uri).is_some() {
+        let workspace_root = self.owned_workspace_root(&uri);
+        let document_removed = self.documents.remove(&uri).is_some();
+        if let Some(root) = workspace_root {
+            if document_removed {
+                self.refresh_overlaid_project_snapshot(&root);
+            }
             self.publish_workspace_diagnostics()
         } else {
             vec![empty_publish_diagnostics(&uri)]
@@ -387,19 +398,38 @@ impl Server {
             .collect()
     }
 
-    fn workspace_source_path(&self, uri: &str) -> Option<String> {
+    fn owned_workspace_root(&self, uri: &str) -> Option<PathBuf> {
         let document_root =
             workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, uri)?;
-        owned_workspace_relative_source_path(document_root.root, &document_root.relative)
+        owned_workspace_relative_source_path(document_root.root, &document_root.relative)?;
+        Some(document_root.root.to_path_buf())
     }
 
     fn capture_project_snapshots(&mut self) {
         self.project_snapshots.clear();
-        for root in &self.workspace_roots {
-            if let Some(snapshot) = retained_project_snapshot(root) {
-                self.project_snapshots.insert(root.clone(), snapshot);
+        self.overlaid_project_snapshots.clear();
+        for root in self.workspace_roots.clone() {
+            if let Some(snapshot) = retained_project_snapshot(&root) {
+                self.project_snapshots
+                    .insert(root.clone(), Arc::new(snapshot));
+                self.refresh_overlaid_project_snapshot(&root);
             }
         }
+    }
+
+    fn refresh_overlaid_project_snapshot(&mut self, root: &Path) {
+        let Some(snapshot) = self.project_snapshots.get(root).cloned() else {
+            self.overlaid_project_snapshots.remove(root);
+            return;
+        };
+        let overlays = self.open_workspace_sources(root);
+        let snapshot = if overlays.is_empty() {
+            snapshot
+        } else {
+            Arc::new(snapshot.with_workspace_overlays(overlays))
+        };
+        self.overlaid_project_snapshots
+            .insert(root.to_path_buf(), snapshot);
     }
 
     fn symbol_at_request(&self, message: &str) -> Option<NavigationRequest> {
@@ -410,15 +440,7 @@ impl Server {
         let root = document_root.root;
         let source_path = workspace_relative_source_path(&document_root.relative)?;
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
-        let snapshot = self.project_snapshots.get(root)?;
-        let overlays = self.open_workspace_sources(root);
-        let overlaid_snapshot;
-        let snapshot = if overlays.is_empty() {
-            snapshot
-        } else {
-            overlaid_snapshot = snapshot.with_workspace_overlays(overlays);
-            &overlaid_snapshot
-        };
+        let snapshot = self.overlaid_project_snapshots.get(root)?;
         let result = navigate(
             snapshot,
             SourcePosition {
@@ -429,7 +451,7 @@ impl Server {
         )?;
         Some(NavigationRequest {
             root: visible_root.to_path_buf(),
-            snapshot: snapshot.clone(),
+            snapshot: Arc::clone(snapshot),
             result,
         })
     }
