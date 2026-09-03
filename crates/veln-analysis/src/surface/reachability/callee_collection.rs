@@ -15,23 +15,38 @@ pub(super) struct FunctionCalleeContext<'a> {
     pub(super) types: &'a [&'a veln_ast::TypeDecl],
 }
 
+pub(super) struct CalleeCollectionInputs<'a> {
+    uses: Vec<&'a UseDecl>,
+    handlers: Vec<&'a veln_ast::HandlerDecl>,
+    types: Vec<&'a veln_ast::TypeDecl>,
+}
+
+impl<'a> CalleeCollectionInputs<'a> {
+    pub(super) fn new(inputs: &ReachabilityInputs<'a>) -> Self {
+        #[cfg(test)]
+        reachability_counters::record_callee_context_preparation();
+        Self {
+            uses: inputs.uses(),
+            handlers: inputs.handlers(),
+            types: inputs.types().collect(),
+        }
+    }
+}
+
 pub(super) fn direct_function_callees(
     function: &Function,
-    inputs: &ReachabilityInputs<'_>,
+    inputs: &CalleeCollectionInputs<'_>,
     function_targets: &FunctionTargetIndex,
     companion_access_targets: &HashMap<String, String>,
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
-    let uses = inputs.uses();
-    let handlers = inputs.handlers();
-    let types = inputs.types().collect::<Vec<_>>();
     let context = FunctionCalleeContext {
         current_module: function.module_name.as_deref(),
-        uses: &uses,
+        uses: &inputs.uses,
         function_targets,
         companion_access_targets,
-        handlers: &handlers,
-        types: &types,
+        handlers: &inputs.handlers,
+        types: &inputs.types,
     };
     let mut local_bindings = function
         .params
