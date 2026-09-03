@@ -476,6 +476,7 @@ dependencies = [
  "veln-diagnostics",
  "veln-language-service",
  "veln-project",
+ "veln-repo-language-reference",
  "veln-source",
 ]
 

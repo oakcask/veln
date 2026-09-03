@@ -8,6 +8,7 @@ mod lifecycle;
 mod outcome;
 mod protocol;
 mod references;
+mod resources;
 
 fn parse_responses(output: Vec<u8>) -> Vec<Value> {
     String::from_utf8(output)
@@ -28,6 +29,7 @@ fn initialized_server(workspace: &TempWorkspace) -> Server {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     }
 }
 

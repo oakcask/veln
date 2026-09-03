@@ -41,8 +41,9 @@ stop when its authoritative page answers the task.
 
 ## Commands And Output
 
-- MCP stdio lifecycle, workspace project selection, saved diagnostics, saved
-  navigation, tool declarations, and atomic refresh: [mcp.md](mcp.md).
+- MCP stdio lifecycle, workspace project selection, language-reference
+  resources, saved diagnostics, saved navigation, tool declarations, and
+  atomic refresh: [mcp.md](mcp.md).
 - Command routes: [commands.md](commands.md).
 - Shared analysis gates and source discovery:
   [command-analysis.md](command-analysis.md).
@@ -76,8 +77,9 @@ stop when its authoritative page answers the task.
 - Transport-independent package documentation catalogs, canonical result
   bytes, documentation digest, resource URI identity, gates, and disclosure
   boundaries: [package-documentation.md](package-documentation.md).
-- Transport-independent language-reference catalog artifact, digest, source
-  authorities, generation gates, and freshness route:
+- Transport-independent language-reference catalog artifact, digest, Markdown
+  renderer, MCP publication, source authorities, generation gates, and
+  freshness route:
   [language-reference-catalog.md](language-reference-catalog.md).
 - Canonical package virtual-source URIs, listing, and exact resolution:
   [package-virtual-sources.md](package-virtual-sources.md).

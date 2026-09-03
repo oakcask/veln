@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 use crate::check_project;
 use crate::definition;
+use crate::language_resources::LanguageResources;
 use crate::outcome::ToolOutcome;
 use crate::references;
 use crate::schema;
@@ -18,6 +19,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
         selection: Selection::discover(base.path())?,
         base,
         initialized: false,
+        language_resources: LanguageResources::checked().map_err(io::Error::other)?,
     };
     for line in reader.lines() {
         if let Some(response) = server.handle_line(&line?) {
@@ -33,6 +35,7 @@ struct Server {
     base: WorkspaceBase,
     selection: Selection,
     initialized: bool,
+    language_resources: LanguageResources,
 }
 
 impl Server {
@@ -69,21 +72,32 @@ impl Server {
             Err(RequestError::MethodNotFound) => {
                 protocol_error(request.response_id, -32601, "Method not found")
             }
+            Err(RequestError::ResourceNotFound) => JsonRpcResponse::error_with_data(
+                request.response_id,
+                -32002,
+                "Resource not found",
+                json!({"code": "resource_not_found"}),
+            ),
         })
     }
 
     fn dispatch(&mut self, method: &str, params: Option<&Value>) -> Result<Value, RequestError> {
         match method {
-            "initialize" => self.initialize(params),
-            _ if !self.initialized => Err("Server not initialized"),
-            "ping" => request_metadata_params(params).map(|()| json!({})),
-            "tools/list" => {
-                list_tools_params(params).map(|()| json!({"tools": schema::declarations().clone()}))
-            }
-            "tools/call" => self.call_tool(params),
-            _ => return Err(RequestError::MethodNotFound),
+            "initialize" => self.initialize(params).map_err(RequestError::InvalidParams),
+            _ if !self.initialized => Err(RequestError::InvalidParams("Server not initialized")),
+            "ping" => request_metadata_params(params)
+                .map(|()| json!({}))
+                .map_err(RequestError::InvalidParams),
+            "tools/list" => list_tools_params(params)
+                .map(|()| json!({"tools": schema::declarations().clone()}))
+                .map_err(RequestError::InvalidParams),
+            "tools/call" => self.call_tool(params).map_err(RequestError::InvalidParams),
+            "resources/list" => self
+                .list_resources(params)
+                .map_err(RequestError::InvalidParams),
+            "resources/read" => self.read_resource(params),
+            _ => Err(RequestError::MethodNotFound),
         }
-        .map_err(RequestError::InvalidParams)
     }
 
     fn initialize(&mut self, params: Option<&Value>) -> Result<Value, &'static str> {
@@ -106,9 +120,24 @@ impl Server {
         self.initialized = true;
         Ok(json!({
             "protocolVersion": PROTOCOL_VERSION,
-            "capabilities": {"tools": {"listChanged": false}},
+            "capabilities": {
+                "tools": {"listChanged": false},
+                "resources": {"listChanged": false, "subscribe": false}
+            },
             "serverInfo": {"name": "veln", "version": env!("CARGO_PKG_VERSION")}
         }))
+    }
+
+    fn list_resources(&self, params: Option<&Value>) -> Result<Value, &'static str> {
+        list_resources_params(params)?;
+        Ok(self.language_resources.list_result())
+    }
+
+    fn read_resource(&self, params: Option<&Value>) -> Result<Value, RequestError> {
+        let uri = read_resource_uri(params)?;
+        self.language_resources
+            .read_result(uri)
+            .ok_or(RequestError::ResourceNotFound)
     }
 
     fn call_tool(&mut self, params: Option<&Value>) -> Result<Value, &'static str> {
@@ -222,6 +251,7 @@ impl<'a> Request<'a> {
 enum RequestError {
     InvalidParams(&'static str),
     MethodNotFound,
+    ResourceNotFound,
 }
 
 struct ToolCall<'a> {
@@ -292,6 +322,34 @@ fn list_tools_params(params: Option<&Value>) -> Result<(), &'static str> {
         }
         _ => Err("Invalid params"),
     }
+}
+
+fn list_resources_params(params: Option<&Value>) -> Result<(), &'static str> {
+    match params {
+        None => Ok(()),
+        Some(Value::Object(object))
+            if object.keys().all(|key| key == "_meta")
+                && metadata_is_valid(object.get("_meta")) =>
+        {
+            Ok(())
+        }
+        _ => Err("Invalid resource list params"),
+    }
+}
+
+fn read_resource_uri(params: Option<&Value>) -> Result<&str, RequestError> {
+    let params = params
+        .and_then(Value::as_object)
+        .ok_or(RequestError::InvalidParams("Invalid resource read params"))?;
+    if params.keys().any(|key| key != "uri" && key != "_meta")
+        || !metadata_is_valid(params.get("_meta"))
+    {
+        return Err(RequestError::InvalidParams("Invalid resource read params"));
+    }
+    params
+        .get("uri")
+        .and_then(Value::as_str)
+        .ok_or(RequestError::InvalidParams("Invalid resource read params"))
 }
 
 fn metadata_is_valid(value: Option<&Value>) -> bool {
@@ -385,6 +443,13 @@ impl JsonRpcResponse {
         Self::Error {
             id,
             error: json!({"code": code, "message": message}),
+        }
+    }
+
+    fn error_with_data(id: ResponseId, code: i64, message: &str, data: Value) -> Self {
+        Self::Error {
+            id,
+            error: json!({"code": code, "message": message, "data": data}),
         }
     }
 

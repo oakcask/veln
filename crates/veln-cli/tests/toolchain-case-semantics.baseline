@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"5e77c02c28c92beab328011c80e8a59f6508eeed"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1658
+case_count	1659
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -14930,6 +14930,94 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
 case_digest	"fb4fcefd1a48d338181c86c31078b3208a785c9121335fc379747e98fa6a480b"
+case	"examples/specification/mcp/language-reference-resources"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].equals	{"listChanged":false,"subscribe":false}
+field	expectations.mcp_assertions[0].id	1
+field	expectations.mcp_assertions[0].operation	"equals"
+field	expectations.mcp_assertions[0].path	"/result/capabilities/resources"
+field	expectations.mcp_assertions[10].contains	"### Accepted source-surface case"
+field	expectations.mcp_assertions[10].id	4
+field	expectations.mcp_assertions[10].operation	"contains"
+field	expectations.mcp_assertions[10].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[11].contains	"Module        ::= ModuleHeader? UseDecl* Item*"
+field	expectations.mcp_assertions[11].id	4
+field	expectations.mcp_assertions[11].operation	"contains"
+field	expectations.mcp_assertions[11].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[12].contains	"#### main.veln"
+field	expectations.mcp_assertions[12].id	4
+field	expectations.mcp_assertions[12].operation	"contains"
+field	expectations.mcp_assertions[12].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[13].equals	-32602
+field	expectations.mcp_assertions[13].id	5
+field	expectations.mcp_assertions[13].operation	"equals"
+field	expectations.mcp_assertions[13].path	"/error/code"
+field	expectations.mcp_assertions[14].id	5
+field	expectations.mcp_assertions[14].operation	"missing"
+field	expectations.mcp_assertions[14].path	"/result"
+field	expectations.mcp_assertions[15].equals	-32602
+field	expectations.mcp_assertions[15].id	6
+field	expectations.mcp_assertions[15].operation	"equals"
+field	expectations.mcp_assertions[15].path	"/error/code"
+field	expectations.mcp_assertions[16].id	6
+field	expectations.mcp_assertions[16].operation	"missing"
+field	expectations.mcp_assertions[16].path	"/result"
+field	expectations.mcp_assertions[17].equals	-32002
+field	expectations.mcp_assertions[17].id	7
+field	expectations.mcp_assertions[17].operation	"equals"
+field	expectations.mcp_assertions[17].path	"/error/code"
+field	expectations.mcp_assertions[18].equals	"resource_not_found"
+field	expectations.mcp_assertions[18].id	7
+field	expectations.mcp_assertions[18].operation	"equals"
+field	expectations.mcp_assertions[18].path	"/error/data/code"
+field	expectations.mcp_assertions[19].id	7
+field	expectations.mcp_assertions[19].operation	"missing"
+field	expectations.mcp_assertions[19].path	"/result"
+field	expectations.mcp_assertions[1].equals	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/index"
+field	expectations.mcp_assertions[1].id	2
+field	expectations.mcp_assertions[1].operation	"equals"
+field	expectations.mcp_assertions[1].path	"/result/resources/0/uri"
+field	expectations.mcp_assertions[2].equals	"language-index"
+field	expectations.mcp_assertions[2].id	2
+field	expectations.mcp_assertions[2].operation	"equals"
+field	expectations.mcp_assertions[2].path	"/result/resources/0/name"
+field	expectations.mcp_assertions[3].id	2
+field	expectations.mcp_assertions[3].operation	"missing"
+field	expectations.mcp_assertions[3].path	"/result/resources/0/description"
+field	expectations.mcp_assertions[4].id	2
+field	expectations.mcp_assertions[4].operation	"missing"
+field	expectations.mcp_assertions[4].path	"/result/nextCursor"
+field	expectations.mcp_assertions[5].id	3
+field	expectations.mcp_assertions[5].length	1
+field	expectations.mcp_assertions[5].operation	"length"
+field	expectations.mcp_assertions[5].path	"/result/contents"
+field	expectations.mcp_assertions[6].equals	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/index"
+field	expectations.mcp_assertions[6].id	3
+field	expectations.mcp_assertions[6].operation	"equals"
+field	expectations.mcp_assertions[6].path	"/result/contents/0/uri"
+field	expectations.mcp_assertions[7].equals	"text/markdown; charset=utf-8"
+field	expectations.mcp_assertions[7].id	3
+field	expectations.mcp_assertions[7].operation	"equals"
+field	expectations.mcp_assertions[7].path	"/result/contents/0/mimeType"
+field	expectations.mcp_assertions[8].contains	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/lexical-structure"
+field	expectations.mcp_assertions[8].id	3
+field	expectations.mcp_assertions[8].operation	"contains"
+field	expectations.mcp_assertions[8].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[9].equals	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/lexical-structure"
+field	expectations.mcp_assertions[9].id	4
+field	expectations.mcp_assertions[9].operation	"equals"
+field	expectations.mcp_assertions[9].path	"/result/contents/0/uri"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"resources\":{\"listChanged\":false,\"subscribe\":false}"
+field	expectations.stdout.contains[1]	"\"name\":\"language-index\""
+field	expectations.stdout.contains[2]	"\"name\":\"lexical-structure\""
+field	expectations.stdout.contains[3]	"# Veln Language Reference"
+field	expectations.stdout.contains[4]	"\"code\":\"resource_not_found\""
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":891,"sha256":"f67fcdc873a819a4f585fb6350ce46bd4a85c5e6f5221bdca454faef243af6dc"}
+field	source_errors	"forbidden"
+case_digest	"788b0c7a1c7209bdfb5ae40ffb94dfd04f229552b1c149fd7c704f293180e0e9"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -54004,4 +54092,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"fe51ae33a5f51178675d51cee842378552283404743d95aa6b65f2ef20607070"
+aggregate_digest	"634ade3da318173ea54793e3fa44b7be5418ff140b7df4f8a3c6965e106af176"

@@ -11,6 +11,7 @@ veln-analysis.workspace = true
 veln-diagnostics.workspace = true
 veln-language-service.workspace = true
 veln-project.workspace = true
+veln-repo-language-reference.workspace = true
 veln-source.workspace = true
 
 [lints]

@@ -51,6 +51,7 @@ veln-lsp = { path = "crates/veln-lsp" }
 veln-mcp = { path = "crates/veln-mcp" }
 veln-metrics = { path = "crates/veln-metrics" }
 veln-project = { path = "crates/veln-project" }
+veln-repo-language-reference = { path = "tools/veln-repo-language-reference" }
 veln-sema = { path = "crates/veln-sema" }
 veln-source = { path = "crates/veln-source" }
 veln-stdlib = { path = "crates/veln-stdlib" }

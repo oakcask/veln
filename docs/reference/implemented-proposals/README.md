@@ -120,6 +120,8 @@ under `../../specification/` and its executable example routes.
   [language-reference-catalog-foundation.md](language-reference-catalog-foundation.md).
 - MCP saved workspace function references:
   [mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
+- MCP language-reference resources:
+  [mcp-language-reference-resources.md](mcp-language-reference-resources.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:

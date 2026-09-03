@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, language-reference resources, tool schemas, or executable MCP cases change.
 ---
 
 # MCP Workspace Projects And Navigation
@@ -10,8 +10,12 @@ update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, worksp
 standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
-The current MCP surface contains `workspace_projects`, `refresh_workspace`,
-`check_project`, `definition`, and `references`. The checked declarations under
+The current MCP surface contains language-reference resources plus the
+`workspace_projects`, `refresh_workspace`, `check_project`, `definition`, and
+`references` tools. Initialization advertises `resources` with
+`listChanged: false` and `subscribe: false`, and `tools` with
+`listChanged: false`.
+The checked declarations under
 `../../crates/veln-mcp/schemas/mcp/v1/` define the advertised input and result
 schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
@@ -34,6 +38,35 @@ name/version fields. Requests other than `initialize` fail before a successful
 when the token is a string or JSON number. `tools/list` also accepts a string
 `cursor` parameter; the current server still returns the complete tool list in
 one response.
+
+## Language Reference Resources
+
+`resources/list` returns the complete language-reference resource list in one
+response and omits `nextCursor`. The list is sorted by URI UTF-8 bytes and
+contains the checked digest index plus one topic URI for each checked
+language-reference catalog topic. `resources/list` accepts omitted parameters
+or request metadata. It rejects a cursor, unknown field, `null`, or non-object
+parameters with JSON-RPC invalid params.
+
+The index resource has name `language-index`, title `Veln Language Reference`,
+and media type `text/markdown; charset=utf-8`. Topic resources use their
+topic identifier as `name`, catalog title as `title`, catalog summary as
+`description`, and the same media type.
+
+`resources/read` accepts one exact `uri` plus optional request metadata. A
+successful read returns one complete text content entry with the requested
+URI, media type, and deterministic Markdown text rendered from the checked
+catalog artifact. The server does not truncate, paginate, normalize, or
+regenerate resource content during a session.
+
+Lookup uses exact URI spelling. Unknown, noncanonical, wrong-digest, and
+unknown-topic URIs fail with the MCP resource-not-found protocol error and
+structured domain code `resource_not_found`. Missing, nullable, non-string,
+non-object, or unknown-field read parameters fail with invalid params.
+
+The resource set is independent of workspace project discovery, refresh, and
+project analysis. Its URIs, metadata, and bytes remain stable until server
+shutdown.
 
 ## Workspace Selection
 
@@ -171,11 +204,17 @@ member. `snapshot_changed` references failures publish no success-only
 ## Executable Evidence
 
 The `../../examples/specification/mcp/workspace-lifecycle/` case checks
-initialization, exact tool declarations, accepted request metadata, numeric
-request ID preservation, both tool calls, invalid tool input, initialization
-phase errors, invalid initialize parameters, invalid request IDs, malformed
-ID-less requests, protocol-only standard output, and clean end-of-file
-termination. The `check-project-diagnostics` MCP specification case checks the
+initialization, resource capability advertisement, exact tool declarations,
+accepted request metadata, numeric request ID preservation, both tool calls,
+invalid tool input, initialization phase errors, invalid initialize
+parameters, invalid request IDs, malformed ID-less requests, protocol-only
+standard output, and clean end-of-file termination. The
+`language-reference-resources` MCP specification case checks resource list and
+read success, index and topic Markdown fragments, malformed list and read
+parameters, and structured `resource_not_found` failures over stdio. It also
+checks that every listed resource can be read and that every emitted
+language-reference topic URI resolves through `resources/read`. The
+`check-project-diagnostics` MCP specification case checks the
 advertised `check_project` schema and a diagnostic result with a spanless
 compiler-owned related note over stdio. The `anonymous-single-file-isolation`
 case checks anonymous `check_project` analysis over only the requested source

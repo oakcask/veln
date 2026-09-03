@@ -383,6 +383,7 @@ fn definition_rejects_paths_and_changed_workspace_identity() {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     };
     let result = server.definition_tool(&json!({"source":"main.veln","line":2,"column":4}));
     assert_eq!(result["isError"], true);
@@ -430,6 +431,7 @@ fn server_from_workspace_base_alias(alias: &Path) -> Server {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     }
 }
 
