@@ -26,7 +26,7 @@ use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, OnceLock};
 
-use navigation::SymbolIndex;
+use navigation::{IndexedDependencies, SymbolIndex};
 use veln_analysis::derive_export_source_module_path;
 use veln_project::{
     CapturedPackageSnapshot, CapturedPackageSource, PackageIdentity, ProjectManifest,
@@ -38,6 +38,7 @@ pub struct EffectiveProjectSnapshot {
     sources: Vec<SourceFile>,
     direct_dependencies: Vec<DirectDependencySnapshot>,
     standard_library: Option<DirectDependencySnapshot>,
+    indexed_dependencies: Arc<OnceLock<Arc<IndexedDependencies>>>,
     navigation_index: OnceLock<Arc<SymbolIndex>>,
 }
 
@@ -47,6 +48,7 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies: Vec::new(),
             standard_library: None,
+            indexed_dependencies: Arc::new(OnceLock::new()),
             navigation_index: OnceLock::new(),
         }
     }
@@ -59,12 +61,15 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies,
             standard_library: None,
+            indexed_dependencies: Arc::new(OnceLock::new()),
             navigation_index: OnceLock::new(),
         }
     }
 
     pub fn with_standard_library(mut self, standard_library: DirectDependencySnapshot) -> Self {
         self.standard_library = Some(standard_library);
+        self.indexed_dependencies = Arc::new(OnceLock::new());
+        self.navigation_index = OnceLock::new();
         self
     }
 
@@ -86,6 +91,7 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies: self.direct_dependencies.clone(),
             standard_library: self.standard_library.clone(),
+            indexed_dependencies: Arc::clone(&self.indexed_dependencies),
             navigation_index: OnceLock::new(),
         }
     }
@@ -93,11 +99,13 @@ impl EffectiveProjectSnapshot {
     fn navigation_index(&self) -> Arc<SymbolIndex> {
         self.navigation_index
             .get_or_init(|| {
-                Arc::new(SymbolIndex::new(
-                    self.sources.clone(),
-                    self.direct_dependencies.clone(),
-                    self.standard_library.clone(),
-                ))
+                let dependencies = self.indexed_dependencies.get_or_init(|| {
+                    Arc::new(IndexedDependencies::new(
+                        self.direct_dependencies.clone(),
+                        self.standard_library.clone(),
+                    ))
+                });
+                Arc::new(SymbolIndex::new(self.sources.clone(), dependencies))
             })
             .clone()
     }

@@ -1,9 +1,24 @@
-impl SymbolIndex {
+impl IndexedDependencies {
     pub(crate) fn new(
-        sources: Vec<SourceFile>,
         dependencies: Vec<DirectDependencySnapshot>,
         standard_library: Option<DirectDependencySnapshot>,
     ) -> Self {
+        let mut files = Vec::new();
+        let mut declarations = FileDeclarations::default();
+        for dependency in dependencies.into_iter().chain(standard_library) {
+            index_dependency_sources(&mut files, &mut declarations, dependency);
+        }
+        let module = merged_surface_module(&files);
+        Self {
+            files,
+            declarations,
+            module,
+        }
+    }
+}
+
+impl SymbolIndex {
+    pub(crate) fn new(sources: Vec<SourceFile>, dependencies: &IndexedDependencies) -> Self {
         let mut files = Vec::new();
         let mut declarations = FileDeclarations::default();
         for source in sources {
@@ -11,10 +26,11 @@ impl SymbolIndex {
             declarations.extend(file_declarations);
             files.push(file);
         }
-        for dependency in dependencies.into_iter().chain(standard_library) {
-            index_dependency_sources(&mut files, &mut declarations, dependency);
-        }
-        attach_classified_path_segments(&mut files);
+        let mut module = merged_surface_module(&files);
+        files.extend(dependencies.files.clone());
+        declarations.extend(dependencies.declarations.clone());
+        append_surface_module(&mut module, dependencies.module.clone());
+        attach_classified_path_segments(&mut files, &module);
         Self {
             schemas: declarations.schemas,
             effects: declarations.effects,
