@@ -8,6 +8,23 @@
     "compiler binary"
   ],
   "generator_contract_version": 1,
+  "required_top_level_keys": [
+    "generator_contract_version",
+    "grammar",
+    "public_tokens",
+    "schema_version",
+    "topics"
+  ],
+  "required_topic_keys": [
+    "body",
+    "examples",
+    "grammar",
+    "id",
+    "keywords",
+    "related",
+    "summary",
+    "title"
+  ],
   "schema_version": 1,
   "topic_ids": [
     "lexical-structure",

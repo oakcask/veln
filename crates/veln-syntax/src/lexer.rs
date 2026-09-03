@@ -1,7 +1,7 @@
 use veln_literals::{IntegerLiteralError, parse_integer_literal};
 use veln_source::{SourceFile, TextRange};
 
-use crate::{Lexed, PUBLIC_KEYWORDS, Token, TokenKind};
+use crate::{Lexed, PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION, Token, TokenKind};
 
 type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
@@ -210,67 +210,37 @@ fn read_underscore_or_ident(text: &str, start: usize, chars: &mut CharIter<'_>) 
 }
 
 fn read_symbol_token(start: usize, ch: char, chars: &mut CharIter<'_>) -> Token {
-    if ch == '>' && chars.peek().is_some_and(|(_, next)| *next == '>') {
-        chars.next();
-        if chars.peek().is_some_and(|(_, next)| *next == '>') {
+    let mut spelling = ch.to_string();
+    if let Some((_, next)) = chars.peek().copied() {
+        spelling.push(next);
+        if let Some(kind) = public_punctuation_kind(&spelling) {
             chars.next();
-            return token(TokenKind::ShiftRightLogical, ">>>", start, start + 3);
+            if let Some((_, next)) = chars.peek().copied() {
+                let mut longer = spelling.clone();
+                longer.push(next);
+                if let Some(longer_token) = public_punctuation_kind(&longer) {
+                    chars.next();
+                    return token(longer_token, longer, start, start + 3);
+                }
+            }
+            return token(
+                kind,
+                spelling,
+                start,
+                start + ch.len_utf8() + next.len_utf8(),
+            );
         }
-        return token(TokenKind::ShiftRight, ">>", start, start + 2);
-    }
-    if let Some((next, kind)) = two_char_symbol_kind(ch, chars.peek().map(|(_, next)| *next)) {
-        chars.next();
-        return token(
-            kind,
-            format!("{ch}{next}"),
-            start,
-            start + ch.len_utf8() + next.len_utf8(),
-        );
     }
 
-    let kind = match ch {
-        '(' => TokenKind::LParen,
-        ')' => TokenKind::RParen,
-        '[' => TokenKind::LBracket,
-        ']' => TokenKind::RBracket,
-        '{' => TokenKind::LBrace,
-        '}' => TokenKind::RBrace,
-        ',' => TokenKind::Comma,
-        ';' => TokenKind::Semicolon,
-        '.' => TokenKind::Dot,
-        ':' => TokenKind::Colon,
-        '|' => TokenKind::Pipe,
-        '&' => TokenKind::Ampersand,
-        '^' => TokenKind::Caret,
-        '~' => TokenKind::Tilde,
-        '-' => TokenKind::Minus,
-        '=' => TokenKind::Equal,
-        '<' => TokenKind::Less,
-        '>' => TokenKind::Greater,
-        '?' => TokenKind::Question,
-        '+' => TokenKind::Plus,
-        '*' => TokenKind::Star,
-        '/' => TokenKind::Slash,
-        _ => TokenKind::Invalid,
-    };
+    let kind = public_punctuation_kind(&ch.to_string()).unwrap_or(TokenKind::Invalid);
     token(kind, ch.to_string(), start, start + ch.len_utf8())
 }
 
-fn two_char_symbol_kind(ch: char, next: Option<char>) -> Option<(char, TokenKind)> {
-    let next = next?;
-    let kind = match (ch, next) {
-        (':', ':') => TokenKind::DoubleColon,
-        ('-', '>') => TokenKind::Arrow,
-        ('=', '>') => TokenKind::FatArrow,
-        ('=', '=') => TokenKind::EqualEqual,
-        ('!', '=') => TokenKind::BangEqual,
-        ('<', '=') => TokenKind::LessEqual,
-        ('<', '<') => TokenKind::ShiftLeft,
-        ('>', '=') => TokenKind::GreaterEqual,
-        ('|', '>') => TokenKind::PipeGreater,
-        _ => return None,
-    };
-    Some((next, kind))
+fn public_punctuation_kind(text: &str) -> Option<TokenKind> {
+    PUBLIC_PUNCTUATION
+        .iter()
+        .find(|token| token.spelling == text)
+        .map(|token| token.kind)
 }
 
 fn token(kind: TokenKind, text: impl Into<String>, start: usize, end: usize) -> Token {

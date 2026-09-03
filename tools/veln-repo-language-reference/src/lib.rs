@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use unicode_normalization::UnicodeNormalization;
 use veln_project::Project;
 use veln_source::SourceFile;
-use veln_syntax::{PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION, lex};
+use veln_syntax::{PUBLIC_FIXED_SPELLING_TOKENS, PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION, lex};
 
 #[allow(dead_code)]
 #[path = "../../../crates/veln-cli/tests/toolchain_harness/manifest_syntax.rs"]
@@ -70,6 +70,26 @@ impl GrammarSource for SwiplGrammarSource {
     }
 }
 
+pub trait ExampleSource {
+    fn selected_examples(
+        &self,
+        repo_root: &Path,
+        descriptors: &[Descriptor],
+    ) -> Result<BTreeMap<String, BTreeMap<String, String>>, String>;
+}
+
+pub struct RepositoryExampleSource;
+
+impl ExampleSource for RepositoryExampleSource {
+    fn selected_examples(
+        &self,
+        repo_root: &Path,
+        descriptors: &[Descriptor],
+    ) -> Result<BTreeMap<String, BTreeMap<String, String>>, String> {
+        validate_examples(repo_root, descriptors)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Descriptor {
     pub id: &'static str,
@@ -103,17 +123,57 @@ pub fn generate_catalog(
     repo_root: &Path,
     grammar_source: &impl GrammarSource,
 ) -> Result<GeneratedCatalog, String> {
+    generate_catalog_with_inputs(
+        repo_root,
+        grammar_source,
+        &topic_descriptors(),
+        PUBLIC_KEYWORDS,
+        PUBLIC_PUNCTUATION,
+    )
+}
+
+pub fn generate_catalog_with_inputs(
+    repo_root: &Path,
+    grammar_source: &impl GrammarSource,
+    descriptors: &[Descriptor],
+    keywords: &[veln_syntax::PublicToken],
+    punctuation: &[veln_syntax::PublicToken],
+) -> Result<GeneratedCatalog, String> {
+    generate_catalog_with_sources(
+        repo_root,
+        grammar_source,
+        &RepositoryExampleSource,
+        descriptors,
+        keywords,
+        punctuation,
+    )
+}
+
+pub fn generate_catalog_with_sources(
+    repo_root: &Path,
+    grammar_source: &impl GrammarSource,
+    example_source: &impl ExampleSource,
+    descriptors: &[Descriptor],
+    keywords: &[veln_syntax::PublicToken],
+    punctuation: &[veln_syntax::PublicToken],
+) -> Result<GeneratedCatalog, String> {
     let repo_root = repo_root.canonicalize().map_err(|error| {
         format!("select a readable repository root before generating the language-reference catalog: {error}")
     })?;
     let grammar_text = grammar_source.complete_grammar(&repo_root)?;
     let grammar = parse_grammar(&grammar_text)?;
-    let descriptors = topic_descriptors();
-    validate_descriptors(&descriptors, &grammar)?;
-    let examples = validate_examples(&repo_root, &descriptors)?;
-    validate_token_projection();
+    validate_descriptors(descriptors, &grammar)?;
+    let examples = example_source.selected_examples(&repo_root, descriptors)?;
+    validate_token_projection(keywords, punctuation)?;
 
-    let catalog = catalog_value(&descriptors, &grammar_text, &grammar, &examples)?;
+    let catalog = catalog_value(
+        descriptors,
+        &grammar_text,
+        &grammar,
+        &examples,
+        keywords,
+        punctuation,
+    )?;
     let bytes = canonical_json(&catalog)?;
     let digest = catalog_digest(bytes.as_bytes());
     Ok(GeneratedCatalog { bytes, digest })
@@ -141,14 +201,64 @@ pub fn verify_checked_digest() -> Result<(), String> {
 }
 
 pub fn verify_freshness(repo_root: &Path) -> Result<(), FreshnessMismatch> {
-    let generated = generate_checked_catalog(repo_root).map_err(|message| FreshnessMismatch {
+    verify_freshness_against(
+        repo_root,
+        &SwiplGrammarSource,
+        &topic_descriptors(),
+        PUBLIC_KEYWORDS,
+        PUBLIC_PUNCTUATION,
+        CHECKED_ARTIFACT,
+        checked_catalog_digest(),
+    )
+}
+
+pub fn verify_freshness_against(
+    repo_root: &Path,
+    grammar_source: &impl GrammarSource,
+    descriptors: &[Descriptor],
+    keywords: &[veln_syntax::PublicToken],
+    punctuation: &[veln_syntax::PublicToken],
+    checked_artifact: &str,
+    checked_digest: &str,
+) -> Result<(), FreshnessMismatch> {
+    verify_freshness_against_sources(
+        repo_root,
+        grammar_source,
+        &RepositoryExampleSource,
+        descriptors,
+        keywords,
+        punctuation,
+        checked_artifact,
+        checked_digest,
+    )
+}
+
+pub fn verify_freshness_against_sources(
+    repo_root: &Path,
+    grammar_source: &impl GrammarSource,
+    example_source: &impl ExampleSource,
+    descriptors: &[Descriptor],
+    keywords: &[veln_syntax::PublicToken],
+    punctuation: &[veln_syntax::PublicToken],
+    checked_artifact: &str,
+    checked_digest: &str,
+) -> Result<(), FreshnessMismatch> {
+    let generated = generate_catalog_with_sources(
+        repo_root,
+        grammar_source,
+        example_source,
+        descriptors,
+        keywords,
+        punctuation,
+    )
+    .map_err(|message| FreshnessMismatch {
         artifact_matches: false,
         digest_matches: false,
         generated_digest: message,
-        checked_digest: checked_catalog_digest().to_string(),
+        checked_digest: checked_digest.to_string(),
     })?;
-    let artifact_matches = generated.bytes == CHECKED_ARTIFACT;
-    let digest_matches = generated.digest == checked_catalog_digest();
+    let artifact_matches = generated.bytes == checked_artifact;
+    let digest_matches = generated.digest == checked_digest;
     if artifact_matches && digest_matches {
         Ok(())
     } else {
@@ -156,7 +266,7 @@ pub fn verify_freshness(repo_root: &Path) -> Result<(), FreshnessMismatch> {
             artifact_matches,
             digest_matches,
             generated_digest: generated.digest,
-            checked_digest: checked_catalog_digest().to_string(),
+            checked_digest: checked_digest.to_string(),
         })
     }
 }
@@ -186,6 +296,8 @@ fn catalog_value(
     complete_grammar: &str,
     grammar: &[GrammarProduction],
     examples: &BTreeMap<String, BTreeMap<String, String>>,
+    keywords: &[veln_syntax::PublicToken],
+    punctuation: &[veln_syntax::PublicToken],
 ) -> Result<Value, String> {
     let grammar_index = grammar
         .iter()
@@ -250,8 +362,8 @@ fn catalog_value(
             "complete": normalize_source_text(complete_grammar),
         },
         "public_tokens": {
-            "keywords": token_values(PUBLIC_KEYWORDS),
-            "punctuation": token_values(PUBLIC_PUNCTUATION),
+            "keywords": token_values(keywords),
+            "punctuation": token_values(punctuation),
         },
         "schema_version": SCHEMA_VERSION,
         "topics": topics,
@@ -349,7 +461,13 @@ fn validate_descriptors(
         }
         for example in descriptor.examples {
             reject_empty(descriptor.id, "example display_name", example.display_name)?;
+            reject_empty(descriptor.id, "example case", example.case)?;
+            reject_repository_relative(descriptor.id, "example case", example.case)?;
+            reject_empty_set(descriptor.id, "example files", example.files)?;
             reject_duplicate_normalized_set(descriptor.id, "example files", example.files)?;
+            for file in example.files {
+                reject_repository_relative(descriptor.id, "example file", file)?;
+            }
         }
     }
     for descriptor in descriptors {
@@ -412,17 +530,46 @@ fn validate_examples(
     Ok(cache)
 }
 
-fn validate_token_projection() {
-    for token in PUBLIC_KEYWORDS {
+fn validate_token_projection(
+    keywords: &[veln_syntax::PublicToken],
+    punctuation: &[veln_syntax::PublicToken],
+) -> Result<(), String> {
+    reject_duplicate_tokens("public keyword", keywords)?;
+    reject_duplicate_tokens("public punctuation", punctuation)?;
+    let records = keywords
+        .iter()
+        .chain(punctuation.iter())
+        .map(|token| ((format!("{:?}", token.kind), token.spelling), token))
+        .collect::<BTreeMap<_, _>>();
+    for token in PUBLIC_FIXED_SPELLING_TOKENS {
+        if !records.contains_key(&(format!("{:?}", token.kind), token.spelling)) {
+            return Err(format!(
+                "public fixed-spelling token `{}` ({:?}) is missing from the catalog projection",
+                token.spelling, token.kind
+            ));
+        }
+    }
+    for token in keywords {
         let source = SourceFile::new("tokens.veln", token.spelling.to_string());
         let first = lex(&source).tokens[0].kind;
-        assert_eq!(first, token.kind);
+        if first != token.kind {
+            return Err(format!(
+                "public keyword `{}` projects {:?} but the lexer recognized {:?}",
+                token.spelling, token.kind, first
+            ));
+        }
     }
-    for token in PUBLIC_PUNCTUATION {
+    for token in punctuation {
         let source = SourceFile::new("tokens.veln", token.spelling.to_string());
         let first = lex(&source).tokens[0].kind;
-        assert_eq!(first, token.kind);
+        if first != token.kind {
+            return Err(format!(
+                "public punctuation `{}` projects {:?} but the lexer recognized {:?}",
+                token.spelling, token.kind, first
+            ));
+        }
     }
+    Ok(())
 }
 
 fn catalog_digest(bytes: &[u8]) -> String {
@@ -512,6 +659,34 @@ fn reject_duplicate_normalized_set(
             return Err(format!(
                 "topic `{topic}` repeats normalized `{field}` value `{normalized}`"
             ));
+        }
+    }
+    Ok(())
+}
+
+fn reject_repository_relative(topic: &str, field: &str, value: &str) -> Result<(), String> {
+    let path = Path::new(value);
+    if repository_relative(path) {
+        Ok(())
+    } else {
+        Err(format!(
+            "topic `{topic}` has non-repository-relative `{field}` value `{value}`"
+        ))
+    }
+}
+
+fn reject_duplicate_tokens(label: &str, tokens: &[veln_syntax::PublicToken]) -> Result<(), String> {
+    let mut spellings = BTreeSet::new();
+    let mut kinds = BTreeSet::new();
+    for token in tokens {
+        if !spellings.insert(token.spelling) {
+            return Err(format!(
+                "{label} records repeat spelling `{}`",
+                token.spelling
+            ));
+        }
+        if !kinds.insert(format!("{:?}", token.kind)) {
+            return Err(format!("{label} records repeat kind `{:?}`", token.kind));
         }
     }
     Ok(())
@@ -906,7 +1081,6 @@ fn topic_descriptors() -> Vec<Descriptor> {
     ]
 }
 
-#[cfg(test)]
 fn repository_relative(path: &Path) -> bool {
     !path.is_absolute()
         && path.components().all(|component| {
@@ -928,6 +1102,18 @@ mod tests {
     impl GrammarSource for StaticGrammar {
         fn complete_grammar(&self, _repo_root: &Path) -> Result<String, String> {
             Ok(self.0.to_string())
+        }
+    }
+
+    struct StaticExamples(BTreeMap<String, BTreeMap<String, String>>);
+
+    impl ExampleSource for StaticExamples {
+        fn selected_examples(
+            &self,
+            _repo_root: &Path,
+            _descriptors: &[Descriptor],
+        ) -> Result<BTreeMap<String, BTreeMap<String, String>>, String> {
+            Ok(self.0.clone())
         }
     }
 
@@ -987,30 +1173,130 @@ mod tests {
     #[test]
     fn descriptor_rejections_cover_invalid_metadata_and_relations() {
         let grammar = parse_grammar(MINI_GRAMMAR).unwrap();
-        let mut descriptors = topic_descriptors();
-        descriptors[0].id = "Bad";
-        assert!(validate_descriptors(&descriptors, &grammar).is_err());
+        let cases: &[(&str, fn(&mut Vec<Descriptor>))] = &[
+            ("invalid topic identifier", |descriptors| {
+                descriptors[0].id = "Bad"
+            }),
+            ("duplicate topic identifier", |descriptors| {
+                descriptors[1].id = "lexical-structure"
+            }),
+            ("empty display name", |descriptors| {
+                descriptors[0].title = " \t"
+            }),
+            ("empty summary", |descriptors| descriptors[0].summary = ""),
+            ("empty keywords", |descriptors| {
+                descriptors[0].keywords = &[]
+            }),
+            ("duplicate normalized keywords", |descriptors| {
+                descriptors[0].keywords = &["same", "same"]
+            }),
+            ("missing relation", |descriptors| {
+                descriptors[0].related = &["missing"]
+            }),
+            ("self relation", |descriptors| {
+                descriptors[0].related = &["lexical-structure"]
+            }),
+            ("duplicate normalized relation", |descriptors| {
+                descriptors[0].related = &["contracts", "contracts"]
+            }),
+            ("unknown grammar", |descriptors| {
+                descriptors[0].grammar = &["Missing"]
+            }),
+            ("duplicate normalized grammar", |descriptors| {
+                descriptors[0].grammar = &["Module", "Module"]
+            }),
+            ("empty example display name", |descriptors| {
+                descriptors[0].examples = &[ExampleSelection {
+                    case: "check/source-surface",
+                    display_name: "",
+                    files: &["main.veln"],
+                }]
+            }),
+            ("empty example case", |descriptors| {
+                descriptors[0].examples = &[ExampleSelection {
+                    case: "",
+                    display_name: "case",
+                    files: &["main.veln"],
+                }]
+            }),
+            ("empty example files", |descriptors| {
+                descriptors[0].examples = &[ExampleSelection {
+                    case: "check/source-surface",
+                    display_name: "case",
+                    files: &[],
+                }]
+            }),
+            ("external example case", |descriptors| {
+                descriptors[0].examples = &[ExampleSelection {
+                    case: "../check/source-surface",
+                    display_name: "case",
+                    files: &["main.veln"],
+                }]
+            }),
+            ("external example file", |descriptors| {
+                descriptors[0].examples = &[ExampleSelection {
+                    case: "check/source-surface",
+                    display_name: "case",
+                    files: &["../main.veln"],
+                }]
+            }),
+        ];
+        for (name, mutate) in cases {
+            let mut descriptors = topic_descriptors();
+            mutate(&mut descriptors);
+            assert!(
+                validate_descriptors(&descriptors, &grammar).is_err(),
+                "{name} should be rejected"
+            );
+        }
 
-        let mut descriptors = topic_descriptors();
-        descriptors[0].related = &["missing"];
-        assert!(validate_descriptors(&descriptors, &grammar).is_err());
-
-        let mut descriptors = topic_descriptors();
-        descriptors[0].related = &["lexical-structure"];
-        assert!(validate_descriptors(&descriptors, &grammar).is_err());
-
-        let mut descriptors = topic_descriptors();
-        descriptors[0].grammar = &["Missing"];
-        assert!(validate_descriptors(&descriptors, &grammar).is_err());
-
-        let mut descriptors = topic_descriptors();
-        descriptors[0].keywords = &["same", "same"];
-        assert!(validate_descriptors(&descriptors, &grammar).is_err());
+        assert!(parse_grammar("Module ::= Item\nModule ::= Other\n").is_err());
     }
 
     #[test]
-    fn public_token_projection_matches_lexer_recognition() {
-        validate_token_projection();
+    fn example_rejections_cover_manifest_selection_boundary() {
+        let repo = repo_root();
+        let mut descriptors = topic_descriptors();
+        descriptors[0].examples = &[ExampleSelection {
+            case: "missing/case",
+            display_name: "missing case",
+            files: &["main.veln"],
+        }];
+        assert!(validate_examples(&repo, &descriptors).is_err());
+
+        let mut descriptors = topic_descriptors();
+        descriptors[0].examples = &[ExampleSelection {
+            case: "check/source-surface",
+            display_name: "not selected",
+            files: &["missing.veln"],
+        }];
+        assert!(validate_examples(&repo, &descriptors).is_err());
+    }
+
+    #[test]
+    fn public_token_projection_matches_lexer_recognition_in_both_directions() {
+        validate_token_projection(PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION).unwrap();
+        assert!(
+            validate_token_projection(
+                &[PUBLIC_KEYWORDS[0], PUBLIC_KEYWORDS[0]],
+                PUBLIC_PUNCTUATION
+            )
+            .is_err()
+        );
+        assert!(
+            validate_token_projection(
+                &[
+                    PUBLIC_KEYWORDS[0],
+                    veln_syntax::PublicToken {
+                        kind: PUBLIC_KEYWORDS[0].kind,
+                        spelling: "fresh",
+                    }
+                ],
+                PUBLIC_PUNCTUATION,
+            )
+            .is_err()
+        );
+        assert!(validate_token_projection(&PUBLIC_KEYWORDS[1..], PUBLIC_PUNCTUATION).is_err());
     }
 
     #[test]
@@ -1069,6 +1355,7 @@ mod tests {
             .map(|topic| topic.as_str().unwrap())
             .collect::<Vec<_>>();
         assert_eq!(ids, expected);
+        assert_catalog_contract_shape(&value, &contract);
     }
 
     #[test]
@@ -1081,14 +1368,354 @@ mod tests {
     }
 
     #[test]
-    fn static_generation_mutation_changes_digest() {
-        let repo = Path::new(".");
+    fn freshness_detects_artifact_and_digest_mismatches() {
+        let repo = repo_root();
         let grammar = StaticGrammar(MINI_GRAMMAR);
-        let generated = generate_catalog(repo, &grammar);
-        assert!(generated.is_err());
-        assert_ne!(
-            catalog_digest(br#"{"schema_version":1}"#),
-            checked_catalog_digest()
+        let descriptors = topic_descriptors();
+        let generated = generate_catalog_with_inputs(
+            &repo,
+            &grammar,
+            &descriptors,
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+        )
+        .unwrap();
+        let artifact_mismatch = verify_freshness_against(
+            &repo,
+            &grammar,
+            &descriptors,
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+            "{}\n",
+            &generated.digest,
+        )
+        .unwrap_err();
+        assert!(!artifact_mismatch.artifact_matches);
+        assert!(artifact_mismatch.digest_matches);
+
+        let digest_mismatch = verify_freshness_against(
+            &repo,
+            &grammar,
+            &descriptors,
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+            &generated.bytes,
+            checked_catalog_digest(),
+        )
+        .unwrap_err();
+        assert!(digest_mismatch.artifact_matches);
+        assert!(!digest_mismatch.digest_matches);
+    }
+
+    #[test]
+    fn input_mutations_change_fresh_generation_and_fail_freshness() {
+        let repo = repo_root();
+        let grammar = StaticGrammar(MINI_GRAMMAR);
+        let descriptors = topic_descriptors();
+        let baseline = generate_catalog_with_inputs(
+            &repo,
+            &grammar,
+            &descriptors,
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+        )
+        .unwrap();
+
+        let changed_grammar = StaticGrammar(concat!(
+            "Module        ::= Item* | UseDecl*\n",
+            "Item          ::= Function | TestDecl | TypeDecl | EffectDecl | HandlerDecl | SchemaDecl | PublicAlias\n",
+            "IntLiteral    ::= DecimalLiteral\n",
+            "ModuleHeader  ::= \"mod\" ModuleHeaderPath NL\n",
+            "UseDecl       ::= \"use\" ModulePath ImportSource? NL\n",
+            "ImportSource  ::= \"from\" PackageString\n",
+            "ModulePath    ::= Name (\"::\" Name)*\n",
+            "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL\n",
+            "Function      ::= \"pub\"? \"fn\" Name\n",
+            "TestDecl      ::= \"test\" Name\n",
+            "TypeDecl      ::= \"pub\"? \"type\" Name\n",
+            "EffectDecl    ::= \"pub\"? \"effect\" Name\n",
+            "HandlerDecl   ::= \"pub\"? \"handler\" Name\n",
+            "EffectOperation ::= Name \"(\" \")\"\n",
+            "Effects       ::= \"effects\" \"[\" \"]\"\n",
+            "Perform       ::= \"perform\" MemberPath\n",
+            "HandlerOperationClause ::= Name \"(\" \")\"\n",
+            "Expr          ::= PrimaryExpr\n",
+            "BinaryOp      ::= \"+\"\n",
+            "PrefixExpr    ::= PrimaryExpr\n",
+            "PrimaryExpr   ::= Name\n",
+            "Pattern       ::= \"_\"\n",
+            "TypeParamList ::= \"<\" Name \">\"\n",
+            "Return        ::= \"->\" TypeText\n",
+            "ResultBinding ::= Name \":\"\n",
+            "TypeVariant   ::= UpperName\n",
+            "ConstructorPattern ::= ConstructorName\n",
+            "Contract      ::= \"require\" ContractPredicate NL\n",
+            "SchemaValidation ::= \"validate\" ContractPredicate NL\n",
+            "SchemaFieldWhere ::= \"where\" ContractPredicate\n",
+            "SchemaDecl    ::= \"schema\" Name\n",
+            "SchemaField   ::= Name \":\" TypeText\n",
+            "SchemaFieldType ::= TypeText\n",
+            "SchemaDecode  ::= \"decode\" MemberPath \"from\" Expr \"at\" Expr\n",
+            "SchemaEncode  ::= \"encode\" MemberPath \"from\" Expr\n",
+            "HoleName      ::= \"_\" identifier-continue+\n",
+            "LetPattern    ::= \"_\"\n",
+            "PackageString ::= String\n",
+        ));
+        assert_changed_and_stale(
+            &repo,
+            &changed_grammar,
+            &descriptors,
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+            &baseline,
         );
+
+        let mut descriptor_change = descriptors.clone();
+        descriptor_change[0].summary = "Changed catalog-owned summary.";
+        assert_changed_and_stale(
+            &repo,
+            &grammar,
+            &descriptor_change,
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+            &baseline,
+        );
+
+        let mut example_sources = validate_examples(&repo, &descriptors).unwrap();
+        let source = example_sources
+            .get_mut("check/source-surface")
+            .unwrap()
+            .get_mut("main.veln")
+            .unwrap();
+        source.push_str("\nfn changed_example_source() -> Int\n\t1\nend\n");
+        let changed_examples = StaticExamples(example_sources);
+        assert_changed_and_stale_with_examples(
+            &repo,
+            &grammar,
+            &changed_examples,
+            &descriptors,
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+            &baseline,
+        );
+
+        let mut moved_keywords = PUBLIC_KEYWORDS[1..].to_vec();
+        let mut moved_punctuation = PUBLIC_PUNCTUATION.to_vec();
+        moved_punctuation.push(PUBLIC_KEYWORDS[0]);
+        moved_keywords.sort_by_key(|token| token.spelling);
+        assert_changed_and_stale(
+            &repo,
+            &grammar,
+            &descriptors,
+            &moved_keywords,
+            &moved_punctuation,
+            &baseline,
+        );
+    }
+
+    #[test]
+    fn non_authoritative_and_equivalent_input_changes_do_not_change_generation() {
+        let repo = repo_root();
+        let grammar = StaticGrammar(MINI_GRAMMAR);
+        let baseline = generate_catalog_with_inputs(
+            &repo,
+            &grammar,
+            &topic_descriptors(),
+            PUBLIC_KEYWORDS,
+            PUBLIC_PUNCTUATION,
+        )
+        .unwrap();
+
+        let mut reordered = topic_descriptors();
+        reordered[0].keywords = &["literals", "tokens", "comments", "grammar", "lexing"];
+        assert_eq!(
+            generate_catalog_with_inputs(
+                &repo,
+                &grammar,
+                &reordered,
+                PUBLIC_KEYWORDS,
+                PUBLIC_PUNCTUATION
+            )
+            .unwrap()
+            .bytes,
+            baseline.bytes
+        );
+
+        let development_doc_change_is_not_an_input =
+            "docs/reference/implemented-proposals/ignored.md";
+        assert!(
+            !baseline
+                .bytes
+                .contains(development_doc_change_is_not_an_input)
+        );
+        assert_eq!(catalog_digest(baseline.bytes.as_bytes()), baseline.digest);
+    }
+
+    #[test]
+    fn selected_source_only_receives_newline_normalization() {
+        assert_eq!(normalize_source_text("e\u{301}\r\n"), "e\u{301}\n");
+        assert_ne!(
+            normalize_source_text("e\u{301}\r\n"),
+            normalize_catalog_text("e\u{301}\r\n")
+        );
+    }
+
+    #[test]
+    fn rejected_generation_does_not_replace_checked_outputs() {
+        let repo = repo_root();
+        let artifact_path = repo.join(
+            "tools/veln-repo-language-reference/generated/language-reference-catalog-v1.json",
+        );
+        let digest_path = repo.join(
+            "tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256",
+        );
+        let artifact_before = fs::read_to_string(&artifact_path).unwrap();
+        let digest_before = fs::read_to_string(&digest_path).unwrap();
+        let mut descriptors = topic_descriptors();
+        descriptors[0].id = "Bad";
+        assert!(
+            generate_catalog_with_inputs(
+                &repo,
+                &StaticGrammar(MINI_GRAMMAR),
+                &descriptors,
+                PUBLIC_KEYWORDS,
+                PUBLIC_PUNCTUATION,
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read_to_string(&artifact_path).unwrap(), artifact_before);
+        assert_eq!(fs::read_to_string(&digest_path).unwrap(), digest_before);
+    }
+
+    fn assert_changed_and_stale(
+        repo: &Path,
+        grammar: &impl GrammarSource,
+        descriptors: &[Descriptor],
+        keywords: &[veln_syntax::PublicToken],
+        punctuation: &[veln_syntax::PublicToken],
+        baseline: &GeneratedCatalog,
+    ) {
+        let generated =
+            generate_catalog_with_inputs(repo, grammar, descriptors, keywords, punctuation)
+                .unwrap();
+        assert_ne!(generated.bytes, baseline.bytes);
+        assert_ne!(generated.digest, baseline.digest);
+        let mismatch = verify_freshness_against(
+            repo,
+            grammar,
+            descriptors,
+            keywords,
+            punctuation,
+            &baseline.bytes,
+            &baseline.digest,
+        )
+        .unwrap_err();
+        assert!(!mismatch.artifact_matches);
+        assert!(!mismatch.digest_matches);
+    }
+
+    fn assert_changed_and_stale_with_examples(
+        repo: &Path,
+        grammar: &impl GrammarSource,
+        examples: &impl ExampleSource,
+        descriptors: &[Descriptor],
+        keywords: &[veln_syntax::PublicToken],
+        punctuation: &[veln_syntax::PublicToken],
+        baseline: &GeneratedCatalog,
+    ) {
+        let generated = generate_catalog_with_sources(
+            repo,
+            grammar,
+            examples,
+            descriptors,
+            keywords,
+            punctuation,
+        )
+        .unwrap();
+        assert_ne!(generated.bytes, baseline.bytes);
+        assert_ne!(generated.digest, baseline.digest);
+        let mismatch = verify_freshness_against_sources(
+            repo,
+            grammar,
+            examples,
+            descriptors,
+            keywords,
+            punctuation,
+            &baseline.bytes,
+            &baseline.digest,
+        )
+        .unwrap_err();
+        assert!(!mismatch.artifact_matches);
+        assert!(!mismatch.digest_matches);
+    }
+
+    fn assert_catalog_contract_shape(value: &Value, contract: &Value) {
+        for key in contract["required_top_level_keys"].as_array().unwrap() {
+            assert!(value.get(key.as_str().unwrap()).is_some());
+        }
+        for topic in value["topics"].as_array().unwrap() {
+            for key in contract["required_topic_keys"].as_array().unwrap() {
+                assert!(topic.get(key.as_str().unwrap()).is_some());
+            }
+            for related in topic["related"].as_array().unwrap() {
+                let related = related.as_str().unwrap();
+                assert!(
+                    contract["topic_ids"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|id| id.as_str() == Some(related))
+                );
+            }
+            for grammar in topic["grammar"].as_array().unwrap() {
+                assert!(
+                    grammar["name"]
+                        .as_str()
+                        .is_some_and(|name| !name.is_empty())
+                );
+                assert!(
+                    grammar["text"]
+                        .as_str()
+                        .is_some_and(|text| !text.is_empty())
+                );
+            }
+            for example in topic["examples"].as_array().unwrap() {
+                assert!(
+                    example["case"]
+                        .as_str()
+                        .is_some_and(|case| !case.is_empty())
+                );
+                assert!(
+                    example["display_name"]
+                        .as_str()
+                        .is_some_and(|name| !name.is_empty())
+                );
+                assert!(
+                    example["files"]
+                        .as_array()
+                        .is_some_and(|files| !files.is_empty())
+                );
+            }
+        }
+        for section in ["keywords", "punctuation"] {
+            for token in value["public_tokens"][section].as_array().unwrap() {
+                assert!(token["kind"].as_str().is_some_and(|kind| !kind.is_empty()));
+                assert!(
+                    token["spelling"]
+                        .as_str()
+                        .is_some_and(|spelling| !spelling.is_empty())
+                );
+            }
+        }
+        let expected = catalog_digest(CHECKED_ARTIFACT.as_bytes());
+        assert_eq!(expected, checked_catalog_digest());
+    }
+
+    fn repo_root() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("language-reference package must live under tools")
+            .to_path_buf()
     }
 }

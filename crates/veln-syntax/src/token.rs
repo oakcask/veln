@@ -178,6 +178,8 @@ pub struct PublicToken {
     pub spelling: &'static str,
 }
 
+pub const PUBLIC_FIXED_SPELLING_TOKENS: &[PublicToken] = public_fixed_spelling_tokens::TOKENS;
+
 pub const PUBLIC_KEYWORDS: &[PublicToken] = &[
     PublicToken {
         kind: TokenKind::Pub,
@@ -455,6 +457,28 @@ pub const PUBLIC_PUNCTUATION: &[PublicToken] = &[
         spelling: "/",
     },
 ];
+
+mod public_fixed_spelling_tokens {
+    use super::{PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION, PublicToken};
+
+    pub const TOKENS: &[PublicToken] = &tokens();
+
+    const fn tokens() -> [PublicToken; PUBLIC_KEYWORDS.len() + PUBLIC_PUNCTUATION.len()] {
+        let mut tokens = [PUBLIC_KEYWORDS[0]; PUBLIC_KEYWORDS.len() + PUBLIC_PUNCTUATION.len()];
+        let mut index = 0;
+        while index < PUBLIC_KEYWORDS.len() {
+            tokens[index] = PUBLIC_KEYWORDS[index];
+            index += 1;
+        }
+        let mut punctuation_index = 0;
+        while punctuation_index < PUBLIC_PUNCTUATION.len() {
+            tokens[index] = PUBLIC_PUNCTUATION[punctuation_index];
+            index += 1;
+            punctuation_index += 1;
+        }
+        tokens
+    }
+}
 
 const TOKEN_LABELS: &[&str] = &[
     "whitespace",

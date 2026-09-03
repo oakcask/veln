@@ -1,0 +1,46 @@
+name: test / language reference catalog
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test--language-reference-catalog.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/veln-project/**
+      - crates/veln-source/**
+      - crates/veln-syntax/**
+      - docs/specification/language-reference-catalog.md
+      - docs/specification/source-surface-executable.pl
+      - examples/specification/**
+      - rust-toolchain.toml
+      - tools/veln-repo-language-reference/**
+  pull_request:
+    paths:
+      - .github/workflows/test--language-reference-catalog.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/veln-project/**
+      - crates/veln-source/**
+      - crates/veln-syntax/**
+      - docs/specification/language-reference-catalog.md
+      - docs/specification/source-surface-executable.pl
+      - examples/specification/**
+      - rust-toolchain.toml
+      - tools/veln-repo-language-reference/**
+
+permissions:
+  contents: read
+
+jobs:
+  check-fresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Install SWI-Prolog for language-reference freshness checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends swi-prolog-nox
+      - name: Reject stale language-reference catalog artifacts
+        run: cargo run --locked -p veln-repo-language-reference -- . check-fresh

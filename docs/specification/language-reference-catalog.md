@@ -16,9 +16,10 @@ packaging in the current behavior.
 The repository-maintenance package stores the checked schema-v1 JSON artifact
 and its checked digest under its generated-output directory.
 Ordinary Cargo builds consume those checked files. Ordinary package tests
-validate the checked files, schema fixture, descriptor rules, token projection,
-canonicalization, digest transcript, bundle exclusions, and selected example
-inputs without executing the source-surface grammar.
+validate the checked files, schema fixture, descriptor and example rejection
+rules, bidirectional token projection, canonicalization, digest transcript,
+bundle exclusions, and selected example inputs without executing the
+source-surface grammar.
 
 The artifact has `schema_version` `1` and `generator_contract_version` `1`.
 It contains exactly the topic identifiers listed by the executable
@@ -31,8 +32,10 @@ The lexical topic includes the normalized complete output of
 `source-surface-executable.pl --grammar`. Selected grammar blocks come from
 named productions in that same output. Keyword and punctuation tables come from
 compiler-owned public token records. The lexer uses the public keyword records
-for recognition, and package tests validate every public token record against
-the lexer.
+for recognition and the public punctuation records for fixed punctuation
+recognition. Package tests validate every public fixed-spelling token record
+against lexer recognition and validate that every compiler-owned public
+fixed-spelling token appears in the catalog projection.
 
 The digest is lowercase SHA-256 over this transcript:
 
@@ -53,8 +56,9 @@ with newline normalization only.
 Generation fails before replacing checked output when a descriptor contains an
 invalid or duplicate topic identifier, empty required metadata, duplicate
 normalized set values, a missing or self-referential topic relation, an
-unknown or duplicate grammar production, or an example file that is not a
-source input selected by the example case manifest command.
+unknown or duplicate grammar production, a non-repository-relative example
+case or file selector, an empty displayed-file set, or an example file that is
+not a source input selected by the example case manifest command.
 
 The generated bundle excludes repository provenance, proposal material,
 maintenance commands, build paths, timestamps, and compiler binary versions.
