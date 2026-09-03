@@ -40,6 +40,8 @@ against the built `veln` binary.
 - `test/`: discovered tests, doctests, captured stdio, and test JSON behavior.
 - `repair/`: advisory repair preview and repair JSON behavior.
 - `package/`: package-manager command workflows and lockfile writes.
+- `language-reference/`: transport-independent language-reference catalog
+  contract fixtures consumed by repository-maintenance tests.
 
 ## Identifier Casing Notes
 
