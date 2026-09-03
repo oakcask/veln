@@ -178,6 +178,7 @@ fn reachable_functions(
     companion_access_targets: &HashMap<String, String>,
     cache: &ReachabilityCache,
 ) -> HashSet<ReachableFunction> {
+    let callee_inputs = CalleeCollectionInputs::new(inputs);
     let mut reachable = HashSet::<ReachableFunction>::new();
     let mut stack = vec![ReachableFunction {
         kind: entry_kind,
@@ -207,7 +208,7 @@ fn reachable_functions(
                 .flat_map(|function| {
                     direct_function_callees(
                         function,
-                        inputs,
+                        &callee_inputs,
                         &reachability_index.function_targets,
                         companion_access_targets,
                     )
@@ -460,6 +461,7 @@ pub(crate) mod reachability_counters {
         static TARGET_RESOLUTION_SCANS: Cell<usize> = const { Cell::new(0) };
         static MATERIALIZED_FUNCTION_BODIES: Cell<usize> = const { Cell::new(0) };
         static RECOVERY_SELECTOR_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
+        static CALLEE_CONTEXT_PREPARATIONS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
@@ -467,6 +469,7 @@ pub(crate) mod reachability_counters {
         TARGET_RESOLUTION_SCANS.set(0);
         MATERIALIZED_FUNCTION_BODIES.set(0);
         RECOVERY_SELECTOR_CANDIDATE_SCANS.set(0);
+        CALLEE_CONTEXT_PREPARATIONS.set(0);
     }
 
     pub(crate) fn record_function_lookup_scan() {
@@ -483,6 +486,14 @@ pub(crate) mod reachability_counters {
 
     pub(crate) fn record_recovery_selector_candidate_scan() {
         RECOVERY_SELECTOR_CANDIDATE_SCANS.set(RECOVERY_SELECTOR_CANDIDATE_SCANS.get() + 1);
+    }
+
+    pub(crate) fn record_callee_context_preparation() {
+        CALLEE_CONTEXT_PREPARATIONS.set(CALLEE_CONTEXT_PREPARATIONS.get() + 1);
+    }
+
+    pub(crate) fn callee_context_preparations() -> usize {
+        CALLEE_CONTEXT_PREPARATIONS.get()
     }
 
     pub(crate) fn snapshot() -> (usize, usize, usize, usize) {

@@ -27,6 +27,29 @@ fn reachable_resolution_skips_unrelated_annotated_functions() {
 }
 
 #[test]
+fn reachable_resolution_prepares_shared_callee_inputs_once() {
+    let mut source = String::from("pub fn main() -> Int\n  helper_0()\nend\n");
+    for index in 0..128 {
+        let next = index + 1;
+        source.push_str(&format!(
+            "\nfn helper_{index}() -> Int\n  helper_{next}()\nend\n"
+        ));
+    }
+    source.push_str("\nfn helper_128() -> Int\n  1\nend\n");
+    let module = lower(&source);
+
+    reachability_counters::reset();
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+
+    assert_eq!(reachable.functions.len(), 130);
+    assert_eq!(
+        reachability_counters::callee_context_preparations(),
+        1,
+        "callee collection must not rescan shared declarations for every reachable function"
+    );
+}
+
+#[test]
 fn reachability_cache_keeps_entry_results_independent() {
     let module = lower(concat!(
         "mod app\n",
