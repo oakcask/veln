@@ -15,8 +15,10 @@ packaging in the current behavior.
 
 The repository-maintenance package stores the checked schema-v1 JSON artifact
 and its checked digest under its generated-output directory.
-Ordinary Cargo builds and tests consume those checked files only. They do not
-execute the source-surface grammar.
+Ordinary Cargo builds consume those checked files. Ordinary package tests
+validate the checked files, schema fixture, descriptor rules, token projection,
+canonicalization, digest transcript, bundle exclusions, and selected example
+inputs without executing the source-surface grammar.
 
 The artifact has `schema_version` `1` and `generator_contract_version` `1`.
 It contains exactly the topic identifiers listed by the executable
@@ -28,7 +30,9 @@ and selected displayed source files from specification case command inputs.
 The lexical topic includes the normalized complete output of
 `source-surface-executable.pl --grammar`. Selected grammar blocks come from
 named productions in that same output. Keyword and punctuation tables come from
-compiler-owned public token records that the lexer also uses for recognition.
+compiler-owned public token records. The lexer uses the public keyword records
+for recognition, and package tests validate every public token record against
+the lexer.
 
 The digest is lowercase SHA-256 over this transcript:
 
@@ -60,8 +64,9 @@ affect the artifact or digest.
 ## Verification
 
 Run `cargo test -p veln-repo-language-reference` to check the ordinary
-consumer path, schema closure, descriptor rejection cases, token projection,
-canonicalization, digest vectors, and bundle exclusions.
+consumer path, schema closure, descriptor rejection cases, selected example
+inputs, token projection, canonicalization, digest vectors, and bundle
+exclusions.
 
 Run `cargo run -p veln-repo-language-reference -- . check-fresh` to execute
 the source grammar and reject artifact or digest drift.

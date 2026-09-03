@@ -22,10 +22,12 @@ specified by
 - Sourced displayed example source from files selected by existing
   specification case manifest commands.
 - Sourced public keyword and punctuation projections from compiler-owned token
-  records used by the lexer.
+  records, with keyword records used by the lexer and every public token record
+  validated against lexer recognition.
 - Produced canonical JSON and the domain-separated SHA-256 digest as checked
   artifacts.
-- Kept ordinary Cargo build and test paths on checked artifact bytes only.
+- Kept ordinary Cargo build paths on checked artifact bytes and kept ordinary
+  package tests independent of SWI-Prolog.
 - Added an explicit freshness route that executes the source grammar and
   rejects artifact or digest drift.
 
@@ -35,7 +37,7 @@ specified by
 | --- | --- |
 | The catalog contains the closed schema-v1 topic set and generator contract version. | `cargo test -p veln-repo-language-reference` and the language-reference contract fixture under `examples/specification` |
 | Descriptor metadata, relations, grammar selections, and example selections are validated before output replacement. | `cargo test -p veln-repo-language-reference` |
-| Public token tables are compiler-owned and match lexer recognition. | `cargo test -p veln-repo-language-reference` |
+| Public token tables are compiler-owned; keyword records drive lexer recognition, and every public token record is checked against lexer recognition. | `cargo test -p veln-repo-language-reference` |
 | Canonical JSON, normalization, digest transcript vectors, equivalent input cases, and bundle exclusions are checked. | `cargo test -p veln-repo-language-reference` |
 | The source grammar freshness route rejects artifact or digest drift after executing SWI-Prolog. | `cargo run -p veln-repo-language-reference -- . check-fresh` |
 
