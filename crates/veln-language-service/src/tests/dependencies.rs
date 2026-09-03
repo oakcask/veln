@@ -713,3 +713,34 @@
             assert_eq!(project.resolve_virtual_source(&uri), Some(expected));
         }
     }
+
+    #[test]
+    fn workspace_overlays_reuse_dependency_source_indexing() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub fn answer() -> Int\n  42\nend\n")],
+            ["math.veln"],
+        );
+        let source_text = concat!(
+            "use math from \"example/pkg\"\n\n",
+            "pub fn main() -> Int\n",
+            "  math::answer()\n",
+            "end\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", source_text)],
+            vec![dependency],
+        );
+
+        reset_dependency_source_indexes();
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 10).is_some());
+        assert_eq!(dependency_source_indexes(), 1);
+
+        let overlay = snapshot.with_workspace_overlays([source("main.veln", source_text)]);
+        assert!(query_snapshot(&overlay, "main.veln", 4, 10).is_some());
+        assert_eq!(
+            dependency_source_indexes(),
+            1,
+            "workspace overlays should reuse indexed dependency sources",
+        );
+    }

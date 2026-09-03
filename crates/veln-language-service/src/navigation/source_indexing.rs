@@ -94,6 +94,9 @@ fn indexed_dependency_source(
     source: &veln_project::CapturedPackageSource,
     uri: &str,
 ) -> (IndexedFile, ParseOutput) {
+    #[cfg(test)]
+    record_dependency_source_index();
+
     let text =
         std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
     let source_file = SourceFile::new(source.path(), text);
@@ -128,9 +131,8 @@ fn indexed_dependency_source(
     (file, parsed)
 }
 
-fn attach_classified_path_segments(files: &mut [IndexedFile]) {
-    let module = merged_surface_module(files);
-    let segments = veln_sema::classified_project_qualified_path_segments(&module);
+fn attach_classified_path_segments(files: &mut [IndexedFile], module: &veln_ast::SurfaceModule) {
+    let segments = veln_sema::classified_project_qualified_path_segments(module);
     for file in files {
         file.classified_path_segments = segments
             .iter()

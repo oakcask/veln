@@ -529,7 +529,7 @@ enum LocalSymbolKind {
     HandlerOperationClauseParameter,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct IndexedFile {
     source: SourceFile,
     tokens: Vec<Token>,
@@ -547,7 +547,7 @@ struct IndexedFile {
     origin: IndexedOrigin,
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 struct FileDeclarations {
     schemas: Vec<NeutralSymbol>,
     effects: Vec<NeutralSymbol>,
@@ -559,7 +559,7 @@ struct FileDeclarations {
     type_aliases: Vec<TypeAliasSymbol>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum IndexedOrigin {
     Workspace,
     Package {
@@ -568,6 +568,13 @@ enum IndexedOrigin {
         exported: bool,
         standard_library: bool,
     },
+}
+
+#[derive(Debug)]
+pub(crate) struct IndexedDependencies {
+    files: Vec<IndexedFile>,
+    declarations: FileDeclarations,
+    module: veln_ast::SurfaceModule,
 }
 
 #[derive(Debug)]

@@ -2,13 +2,13 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::navigation::{
+    dependency_source_indexes, function_scope_collections, reset_dependency_source_indexes,
+    reset_function_scope_collections, reset_type_reference_collections, type_reference_collections,
+};
+use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};
 use veln_project::{capture_package_snapshot, parse_manifest_text};
 use veln_source::SourceSpan;
-use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};
-use crate::navigation::{
-    function_scope_collections, reset_function_scope_collections, reset_type_reference_collections,
-    type_reference_collections,
-};
 
 use super::*;
 
