@@ -600,4 +600,77 @@ fn selected_overlay_invalid_casing_replaces_saved_symbol() {
         "{}",
         call[0]
     );
+
+    let cached_snapshot = server
+        .overlaid_project_snapshots
+        .get(&project.root)
+        .cloned()
+        .expect("navigation should retain the overlaid project snapshot");
+    let references = server.handle_message(&references_request(&main_uri, 5, 2));
+    assert_snapshot_invalid_casing_references(&references[0]);
+    assert!(
+        Arc::ptr_eq(
+            server
+                .overlaid_project_snapshots
+                .get(&project.root)
+                .expect("navigation should keep the snapshot cached"),
+            &cached_snapshot,
+        ),
+        "unchanged overlays should reuse their navigation snapshot",
+    );
+
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}"}},"contentChanges":[{{"text":"fn Bad() -> Int\n  1\nend\n\nfn caller() -> Int\n  Bad()\nend\n"}}]}}}}"#
+    ));
+    assert!(Arc::ptr_eq(
+        server
+            .overlaid_project_snapshots
+            .get(&project.root)
+            .expect("an unchanged document should keep the snapshot cached"),
+        &cached_snapshot,
+    ));
+
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}"}},"contentChanges":[{{"text":"fn Worse() -> Int\n  1\nend\n\nfn caller() -> Int\n  Worse()\nend\n"}}]}}}}"#
+    ));
+    assert!(
+        !Arc::ptr_eq(
+            server
+                .overlaid_project_snapshots
+                .get(&project.root)
+                .expect("a document change should retain a refreshed snapshot"),
+            &cached_snapshot,
+        ),
+        "a document change should invalidate the cached navigation snapshot",
+    );
+    let changed_call = server.handle_message(&definition_request(&main_uri, 5, 2));
+    assert!(
+        changed_call[0].contains(
+            r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":8}}"#
+        ),
+        "{}",
+        changed_call[0]
+    );
+
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didClose","params":{{"textDocument":{{"uri":"{main_uri}"}}}}}}"#
+    ));
+    assert!(Arc::ptr_eq(
+        server
+            .overlaid_project_snapshots
+            .get(&project.root)
+            .expect("closing the overlay should restore the base snapshot"),
+        server
+            .project_snapshots
+            .get(&project.root)
+            .expect("the base project snapshot should remain retained"),
+    ));
+    let saved_call = server.handle_message(&definition_request(&main_uri, 5, 2));
+    assert!(
+        saved_call[0].contains(
+            r#""range":{"start":{"line":0,"character":3},"end":{"line":0,"character":7}}"#
+        ),
+        "{}",
+        saved_call[0]
+    );
 }
