@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is currently ready for implementation.
+- Add bounded model-controlled search and read tools for the checked language
+  reference already published through MCP resources:
+  [mcp-language-reference-tools.md](mcp-language-reference-tools.md).
 
 Each entry selects one complete proposal page. A subsection of another page is
 not a selectable target.
@@ -31,8 +33,9 @@ not a selectable target.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- The agent-language-services umbrella remains a planning inventory. Extract
-  another finite proposal page before selecting later work:
+- The agent-language-services umbrella remains a planning inventory. Its next
+  language-reference tool slice is routed by the separate Ready proposal
+  above; extract another finite proposal page before selecting later work:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
