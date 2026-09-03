@@ -112,6 +112,57 @@ fn markdown_renderer_produces_deterministic_index_and_topic() {
 }
 
 #[test]
+fn markdown_renderer_preserves_entries_within_each_topic_section() {
+    let catalog = json!({
+        "topics": [{
+            "body": ["First paragraph.", "Second paragraph."],
+            "examples": [{
+                "display_name": "Multiple files",
+                "files": [
+                    {"path": "main.veln", "source": "main source"},
+                    {"path": "support.veln", "source": "support source"}
+                ]
+            }],
+            "grammar": [
+                {"name": "Expr", "text": "Expr ::= Name"},
+                {"name": "Name", "text": "Name ::= Identifier"}
+            ],
+            "id": "alpha-topic",
+            "keywords": ["alpha", "beta"],
+            "related": ["beta-topic", "gamma-topic"],
+            "summary": "Alpha summary.",
+            "title": "Alpha Topic"
+        }]
+    })
+    .to_string();
+
+    let rendered = render_language_reference(&catalog, "abc123").unwrap();
+
+    assert_eq!(
+        rendered.resources[1].text,
+        concat!(
+            "# Alpha Topic\n\n",
+            "Alpha summary.\n\n",
+            "First paragraph.\n\n",
+            "Second paragraph.\n\n",
+            "## Grammar\n\n",
+            "### Expr\n\n```ebnf\nExpr ::= Name\n```\n\n",
+            "### Name\n\n```ebnf\nName ::= Identifier\n```\n\n",
+            "## Examples\n\n",
+            "### Multiple files\n\n",
+            "#### main.veln\n\n```veln\nmain source\n```\n\n",
+            "#### support.veln\n\n```veln\nsupport source\n```\n\n",
+            "## Keywords\n\n",
+            "- alpha\n",
+            "- beta\n\n",
+            "## Related Topics\n\n",
+            "- [beta-topic](veln-doc:///language/snapshot/abc123/topic/beta-topic)\n",
+            "- [gamma-topic](veln-doc:///language/snapshot/abc123/topic/gamma-topic)\n",
+        )
+    );
+}
+
+#[test]
 fn markdown_renderer_enforces_resource_byte_limit() {
     let empty = render_language_reference(&mini_catalog(""), "abc123").unwrap();
     let fixed_topic_len = empty.resources[1].text.len();
