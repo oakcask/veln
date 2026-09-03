@@ -50,15 +50,16 @@ by
 Current catalog behavior is specified by
 [Language Reference Catalog](../specification/language-reference-catalog.md).
 
-### Extracted Ready Resource Slice
+### Implemented Resource Slice
 
-The next bounded publication slice is separately selectable as
-[MCP Language Reference Resources](mcp-language-reference-resources.md).
+The bounded MCP language-reference publication slice is implemented and
+recorded by
+[MCP Language Reference Resources](../reference/implemented-proposals/mcp-language-reference-resources.md).
 
 This umbrella remains planning input for later navigation, documentation,
 virtual-source, conformance, and plugin work. It is not itself selectable.
 Extract another finite proposal page with its own acceptance model before
-moving work after the MCP language-reference resource slice to Ready.
+moving more agent-language-services work to Ready.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -1068,12 +1069,10 @@ The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The subsequent slices are:
 
-1. Publish the checked catalog through the bounded resource slice defined by
-   [MCP Language Reference Resources](mcp-language-reference-resources.md).
-1. Extend the existing `veln mcp` server with documentation tools, package and
-   virtual-source resources, dependency reference search, paginated
-   references, and definition beyond the implemented workspace-only symbol
-   inventory.
+1. Extend the existing `veln mcp` server with the remaining documentation
+   tools, package and virtual-source resources, dependency reference search,
+   paginated references, and definition beyond the implemented workspace-only
+   symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their

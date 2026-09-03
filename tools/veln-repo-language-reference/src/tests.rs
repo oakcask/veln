@@ -70,6 +70,63 @@ fn checked_artifact_digest_matches_checked_digest() {
 }
 
 #[test]
+fn markdown_renderer_produces_deterministic_index_and_topic() {
+    let rendered = render_language_reference(&mini_catalog("value"), "abc123").unwrap();
+    assert_eq!(
+        rendered
+            .resources
+            .iter()
+            .map(|resource| resource.uri.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "veln-doc:///language/snapshot/abc123/index",
+            "veln-doc:///language/snapshot/abc123/topic/alpha-topic"
+        ]
+    );
+    assert_eq!(
+        rendered.resources[0].text,
+        "# Veln Language Reference\n\n- [Alpha Topic](veln-doc:///language/snapshot/abc123/topic/alpha-topic) - Alpha summary.\n"
+    );
+    assert_eq!(
+        rendered.resources[1].text,
+        concat!(
+            "# Alpha Topic\n\n",
+            "Alpha summary.\n\n",
+            "First paragraph.\n\n",
+            "## Grammar\n\n",
+            "### Expr\n\n",
+            "```ebnf\n",
+            "Expr ::= Name\n",
+            "```\n\n",
+            "## Examples\n\n",
+            "### Alpha example\n\n",
+            "#### main.veln\n\n",
+            "```veln\n",
+            "value\n",
+            "```\n\n",
+            "## Keywords\n\n",
+            "- alpha\n\n",
+            "## Related Topics\n\n",
+        )
+    );
+}
+
+#[test]
+fn markdown_renderer_enforces_resource_byte_limit() {
+    let empty = render_language_reference(&mini_catalog(""), "abc123").unwrap();
+    let fixed_topic_len = empty.resources[1].text.len();
+    let at_limit_source = "a".repeat(LANGUAGE_REFERENCE_RESOURCE_BYTE_LIMIT - fixed_topic_len);
+    let at_limit = render_language_reference(&mini_catalog(&at_limit_source), "abc123").unwrap();
+    assert_eq!(
+        at_limit.resources[1].text.len(),
+        LANGUAGE_REFERENCE_RESOURCE_BYTE_LIMIT
+    );
+
+    let too_large_source = "a".repeat(LANGUAGE_REFERENCE_RESOURCE_BYTE_LIMIT - fixed_topic_len + 1);
+    assert!(render_language_reference(&mini_catalog(&too_large_source), "abc123").is_err());
+}
+
+#[test]
 fn grammar_parser_groups_continuation_lines() {
     let grammar = parse_grammar("Expr ::= A\n      | B\nName ::= Ident\n").unwrap();
     assert_eq!(grammar[0].name, "Expr");
@@ -324,31 +381,93 @@ fn freshness_detects_artifact_and_digest_mismatches() {
         PUBLIC_PUNCTUATION,
     )
     .unwrap();
-    let artifact_mismatch = verify_freshness_against(
+    let artifact_mismatch = verify_freshness_against_sources(
         &repo,
         &grammar,
+        &RepositoryExampleSource,
         &descriptors,
         PUBLIC_KEYWORDS,
         PUBLIC_PUNCTUATION,
-        "{}\n",
-        &generated.digest,
+        FreshnessBaseline {
+            artifact: "{}\n",
+            digest: &generated.digest,
+            rendered_digest: &generated.rendered_digest,
+        },
     )
     .unwrap_err();
     assert!(!artifact_mismatch.artifact_matches);
     assert!(artifact_mismatch.digest_matches);
 
-    let digest_mismatch = verify_freshness_against(
+    let digest_mismatch = verify_freshness_against_sources(
         &repo,
         &grammar,
+        &RepositoryExampleSource,
         &descriptors,
         PUBLIC_KEYWORDS,
         PUBLIC_PUNCTUATION,
-        &generated.bytes,
-        checked_catalog_digest(),
+        FreshnessBaseline {
+            artifact: &generated.bytes,
+            digest: checked_catalog_digest(),
+            rendered_digest: &generated.rendered_digest,
+        },
     )
     .unwrap_err();
     assert!(digest_mismatch.artifact_matches);
     assert!(!digest_mismatch.digest_matches);
+}
+
+#[test]
+fn freshness_rejects_renderer_digest_drift_even_when_catalog_digest_matches() {
+    let repo = repo_root();
+    let grammar = StaticGrammar(MINI_GRAMMAR);
+    let descriptors = topic_descriptors();
+    let examples = StaticExamples(selected_examples(&descriptors, "x\n"));
+    let generated = generate_catalog_with_sources(
+        &repo,
+        &grammar,
+        &examples,
+        &descriptors,
+        PUBLIC_KEYWORDS,
+        PUBLIC_PUNCTUATION,
+    )
+    .unwrap();
+    let mismatch = verify_freshness_against_sources(
+        &repo,
+        &grammar,
+        &examples,
+        &descriptors,
+        PUBLIC_KEYWORDS,
+        PUBLIC_PUNCTUATION,
+        FreshnessBaseline {
+            artifact: &generated.bytes,
+            digest: &generated.digest,
+            rendered_digest: "wrong",
+        },
+    )
+    .unwrap_err();
+    assert!(mismatch.artifact_matches);
+    assert!(!mismatch.digest_matches);
+    assert!(
+        mismatch
+            .generated_digest
+            .contains(&generated.rendered_digest)
+    );
+}
+
+#[test]
+fn generation_rejects_renderer_size_drift_before_output_replacement() {
+    let repo = repo_root();
+    let descriptors = topic_descriptors();
+    let source = "a".repeat(LANGUAGE_REFERENCE_RESOURCE_BYTE_LIMIT);
+    let result = generate_catalog_with_sources(
+        &repo,
+        &StaticGrammar(MINI_GRAMMAR),
+        &StaticExamples(selected_examples(&descriptors, &source)),
+        &descriptors,
+        PUBLIC_KEYWORDS,
+        PUBLIC_PUNCTUATION,
+    );
+    assert!(result.unwrap_err().contains("above the 262144 byte limit"));
 }
 
 #[test]
@@ -578,6 +697,7 @@ fn assert_changed_and_stale_with_examples(
         FreshnessBaseline {
             artifact: &baseline.bytes,
             digest: &baseline.digest,
+            rendered_digest: &baseline.rendered_digest,
         },
     )
     .unwrap_err();
@@ -661,4 +781,48 @@ fn repo_root() -> PathBuf {
         .and_then(Path::parent)
         .expect("language-reference package must live under tools")
         .to_path_buf()
+}
+
+fn mini_catalog(source: &str) -> String {
+    json!({
+        "generator_contract_version": 1,
+        "grammar": {"complete": "Expr ::= Name\n"},
+        "public_tokens": {"keywords": [], "punctuation": []},
+        "schema_version": 1,
+        "topics": [{
+            "body": ["First paragraph."],
+            "examples": [{
+                "case": "check/alpha",
+                "display_name": "Alpha example",
+                "files": [{"path": "main.veln", "source": source}]
+            }],
+            "grammar": [{"name": "Expr", "text": "Expr ::= Name"}],
+            "id": "alpha-topic",
+            "keywords": ["alpha"],
+            "related": [],
+            "summary": "Alpha summary.",
+            "title": "Alpha Topic"
+        }]
+    })
+    .to_string()
+}
+
+fn selected_examples(
+    descriptors: &[Descriptor],
+    source: &str,
+) -> BTreeMap<String, BTreeMap<String, String>> {
+    let mut examples = BTreeMap::new();
+    for descriptor in descriptors {
+        for selection in descriptor.examples {
+            let files = examples
+                .entry(selection.case.to_string())
+                .or_insert_with(BTreeMap::new);
+            for file in selection.files {
+                files
+                    .entry((*file).to_string())
+                    .or_insert_with(|| source.to_string());
+            }
+        }
+    }
+    examples
 }

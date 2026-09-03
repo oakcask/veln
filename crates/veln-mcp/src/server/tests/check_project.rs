@@ -122,6 +122,7 @@ fn check_project_does_not_reclassify_selection_before_refresh() {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     };
 
     let result = server
@@ -149,6 +150,7 @@ fn anonymous_check_project_ignores_manifest_added_before_refresh() {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     };
 
     let result = server
@@ -217,6 +219,7 @@ fn selected_project_root_symlink_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     };
     let result = server
         .call_tool(Some(
@@ -244,6 +247,7 @@ fn selected_project_root_directory_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     };
     let result = server
         .call_tool(Some(
@@ -274,6 +278,7 @@ fn anonymous_workspace_base_symlink_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     };
     let result = server
         .call_tool(Some(
@@ -299,6 +304,7 @@ fn anonymous_workspace_base_directory_replacement_reports_snapshot_changed() {
         base,
         selection,
         initialized: true,
+        language_resources: LanguageResources::checked().unwrap(),
     };
     let result = server
         .call_tool(Some(

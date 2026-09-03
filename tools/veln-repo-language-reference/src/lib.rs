@@ -17,10 +17,16 @@ use manifest_syntax::Statement as ManifestStatement;
 mod descriptors;
 mod examples;
 mod grammar;
+mod markdown;
 
 pub use descriptors::{Descriptor, ExampleSelection};
 pub use examples::{ExampleSource, RepositoryExampleSource};
 pub use grammar::{GrammarSource, SwiplGrammarSource};
+pub use markdown::{
+    LANGUAGE_REFERENCE_MARKDOWN_MEDIA_TYPE, LANGUAGE_REFERENCE_RESOURCE_BYTE_LIMIT,
+    RenderedLanguageReference, RenderedResource, render_checked_language_reference,
+    render_language_reference, rendered_language_reference_digest,
+};
 
 use descriptors::topic_descriptors;
 #[cfg(test)]
@@ -30,8 +36,11 @@ use grammar::{GrammarProduction, parse_grammar};
 pub const SCHEMA_VERSION: u64 = 1;
 pub const GENERATOR_CONTRACT_VERSION: u64 = 1;
 pub const DIGEST_DOMAIN: &[u8] = b"veln-language-reference/v1\0";
+pub const RENDERED_DIGEST_DOMAIN: &[u8] = b"veln-language-reference-markdown/v1\0";
 pub const CHECKED_ARTIFACT: &str = include_str!("../generated/language-reference-catalog-v1.json");
 pub const CHECKED_DIGEST: &str = include_str!("../generated/language-reference-catalog-v1.sha256");
+pub const CHECKED_RENDERED_DIGEST: &str =
+    include_str!("../generated/language-reference-markdown-v1.sha256");
 #[cfg(test)]
 const SPEC_CONTRACT: &str =
     include_str!("../../../examples/specification/language-reference/catalog-contract-v1.json");
@@ -40,6 +49,7 @@ const SPEC_CONTRACT: &str =
 pub struct GeneratedCatalog {
     pub bytes: String,
     pub digest: String,
+    pub rendered_digest: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -53,6 +63,7 @@ pub struct FreshnessMismatch {
 pub struct FreshnessBaseline<'a> {
     pub artifact: &'a str,
     pub digest: &'a str,
+    pub rendered_digest: &'a str,
 }
 
 pub fn generate_checked_catalog(repo_root: &Path) -> Result<GeneratedCatalog, String> {
@@ -116,7 +127,13 @@ pub fn generate_catalog_with_sources(
     )?;
     let bytes = canonical_json(&catalog)?;
     let digest = catalog_digest(bytes.as_bytes());
-    Ok(GeneratedCatalog { bytes, digest })
+    let rendered = render_language_reference(&bytes, &digest)?;
+    let rendered_digest = rendered_language_reference_digest(&rendered);
+    Ok(GeneratedCatalog {
+        bytes,
+        digest,
+        rendered_digest,
+    })
 }
 
 pub fn checked_catalog_bytes() -> &'static str {
@@ -127,17 +144,29 @@ pub fn checked_catalog_digest() -> &'static str {
     CHECKED_DIGEST.trim()
 }
 
+pub fn checked_rendered_digest() -> &'static str {
+    CHECKED_RENDERED_DIGEST.trim()
+}
+
 pub fn verify_checked_digest() -> Result<(), String> {
     let expected = catalog_digest(CHECKED_ARTIFACT.as_bytes());
-    if expected == checked_catalog_digest() {
-        Ok(())
-    } else {
-        Err(format!(
+    if expected != checked_catalog_digest() {
+        return Err(format!(
             "regenerate the language-reference catalog digest; checked digest is {}, generated digest is {}",
             checked_catalog_digest(),
             expected
-        ))
+        ));
     }
+    let rendered = render_language_reference(CHECKED_ARTIFACT, checked_catalog_digest())?;
+    let expected_rendered = rendered_language_reference_digest(&rendered);
+    if expected_rendered != checked_rendered_digest() {
+        return Err(format!(
+            "regenerate the language-reference Markdown digest; checked digest is {}, generated digest is {}",
+            checked_rendered_digest(),
+            expected_rendered
+        ));
+    }
+    Ok(())
 }
 
 pub fn verify_freshness(repo_root: &Path) -> Result<(), FreshnessMismatch> {
@@ -171,6 +200,7 @@ pub fn verify_freshness_against(
         FreshnessBaseline {
             artifact: checked_artifact,
             digest: checked_digest,
+            rendered_digest: checked_rendered_digest(),
         },
     )
 }
@@ -200,14 +230,23 @@ pub fn verify_freshness_against_sources(
     })?;
     let artifact_matches = generated.bytes == baseline.artifact;
     let digest_matches = generated.digest == baseline.digest;
-    if artifact_matches && digest_matches {
+    if let Err(message) = render_language_reference(&generated.bytes, &generated.digest) {
+        return Err(FreshnessMismatch {
+            artifact_matches,
+            digest_matches: false,
+            generated_digest: message,
+            checked_digest: baseline.digest.to_string(),
+        });
+    }
+    let rendered_matches = generated.rendered_digest == baseline.rendered_digest;
+    if artifact_matches && digest_matches && rendered_matches {
         Ok(())
     } else {
         Err(FreshnessMismatch {
             artifact_matches,
-            digest_matches,
-            generated_digest: generated.digest,
-            checked_digest: baseline.digest.to_string(),
+            digest_matches: digest_matches && rendered_matches,
+            generated_digest: format!("{}/{}", generated.digest, generated.rendered_digest),
+            checked_digest: format!("{}/{}", baseline.digest, baseline.rendered_digest),
         })
     }
 }
@@ -229,6 +268,11 @@ pub fn write_checked_outputs(repo_root: &Path, generated: &GeneratedCatalog) -> 
         format!("{}\n", generated.digest),
     )
     .map_err(|error| format!("write the checked language-reference digest: {error}"))?;
+    fs::write(
+        output_dir.join("language-reference-markdown-v1.sha256"),
+        format!("{}\n", generated.rendered_digest),
+    )
+    .map_err(|error| format!("write the checked language-reference Markdown digest: {error}"))?;
     Ok(())
 }
 

@@ -1,25 +1,27 @@
 ---
 role: specification
 authority: normative
-update-when: The language-reference catalog schema, checked artifact, digest transcript, source authorities, freshness route, or executable catalog evidence changes.
+update-when: The language-reference catalog schema, checked artifact, digest transcript, Markdown renderer, MCP publication, source authorities, freshness route, or executable catalog evidence changes.
 ---
 
 # Language Reference Catalog
 
 The language-reference catalog is a checked, transport-independent schema-v1
-JSON artifact generated from implemented Veln authorities. It is not exposed
-through MCP, documentation search, rendered Markdown, pagination, or plugin
-packaging in the current behavior.
+JSON artifact generated from implemented Veln authorities. The MCP server
+publishes deterministic Markdown resources rendered from this checked
+artifact. Documentation search, pagination, and plugin packaging remain
+outside the current behavior.
 
 ## Current Contract
 
-The repository-maintenance package stores the checked schema-v1 JSON artifact
-and its checked digest under its generated-output directory.
+The repository-maintenance package stores the checked schema-v1 JSON artifact,
+its checked digest, and the checked Markdown resource digest under its
+generated-output directory.
 Ordinary Cargo builds consume those checked files. Ordinary package tests
 validate the checked files, schema fixture, descriptor and example rejection
 rules, bidirectional token projection, canonicalization, digest transcript,
-bundle exclusions, and selected example inputs without executing the
-source-surface grammar.
+Markdown rendering, resource byte limits, bundle exclusions, and selected
+example inputs without executing the source-surface grammar.
 
 The artifact has `schema_version` `1` and `generator_contract_version` `1`.
 It contains exactly the topic identifiers listed by the executable
@@ -65,15 +67,37 @@ maintenance commands, build paths, timestamps, and compiler binary versions.
 Development documentation that is not a selected source authority does not
 affect the artifact or digest.
 
+## Markdown Resources
+
+The deterministic Markdown renderer consumes only the checked catalog artifact
+and digest. It renders one index resource and one topic resource for each
+checked topic. The index contains the `Veln Language Reference` heading and one
+link plus summary for every topic in catalog order. Each topic resource
+contains the title, summary, body paragraphs, selected grammar blocks,
+selected examples and displayed file source text, keywords, and related-topic
+links derived from the checked catalog.
+
+Resource URIs use the checked digest:
+
+- `veln-doc:///language/snapshot/<digest>/index`
+- `veln-doc:///language/snapshot/<digest>/topic/<topic-id>`
+
+Each rendered resource is complete Markdown with media type
+`text/markdown; charset=utf-8` and is at most `262144` UTF-8 bytes. The
+freshness route rejects renderer or size-limit drift before publication.
+Rendered resources do not include repository paths, proposal material,
+maintenance commands, timestamps, build paths, or compiler binary versions.
+
 ## Verification
 
 Run `cargo test -p veln-repo-language-reference` to check the ordinary
 consumer path, schema closure, descriptor rejection cases, selected example
-inputs, token projection, canonicalization, digest vectors, and bundle
-exclusions.
+inputs, token projection, canonicalization, digest vectors, Markdown
+rendering, resource byte limits, and bundle exclusions.
 
 Run `cargo run -p veln-repo-language-reference -- . check-fresh` to execute
-the source grammar and reject artifact or digest drift. The
+the source grammar and reject artifact, digest, renderer, or size-limit drift.
+The
 `test--language-reference-catalog` GitHub Actions workflow runs the same
 freshness command for pull requests and main-branch pushes whose path filters
 can affect catalog generation.
