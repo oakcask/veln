@@ -39,6 +39,11 @@ pub struct FreshnessMismatch {
     pub checked_digest: String,
 }
 
+pub struct FreshnessBaseline<'a> {
+    pub artifact: &'a str,
+    pub digest: &'a str,
+}
+
 pub trait GrammarSource {
     fn complete_grammar(&self, repo_root: &Path) -> Result<String, String>;
 }
@@ -228,8 +233,10 @@ pub fn verify_freshness_against(
         descriptors,
         keywords,
         punctuation,
-        checked_artifact,
-        checked_digest,
+        FreshnessBaseline {
+            artifact: checked_artifact,
+            digest: checked_digest,
+        },
     )
 }
 
@@ -240,8 +247,7 @@ pub fn verify_freshness_against_sources(
     descriptors: &[Descriptor],
     keywords: &[veln_syntax::PublicToken],
     punctuation: &[veln_syntax::PublicToken],
-    checked_artifact: &str,
-    checked_digest: &str,
+    baseline: FreshnessBaseline<'_>,
 ) -> Result<(), FreshnessMismatch> {
     let generated = generate_catalog_with_sources(
         repo_root,
@@ -255,10 +261,10 @@ pub fn verify_freshness_against_sources(
         artifact_matches: false,
         digest_matches: false,
         generated_digest: message,
-        checked_digest: checked_digest.to_string(),
+        checked_digest: baseline.digest.to_string(),
     })?;
-    let artifact_matches = generated.bytes == checked_artifact;
-    let digest_matches = generated.digest == checked_digest;
+    let artifact_matches = generated.bytes == baseline.artifact;
+    let digest_matches = generated.digest == baseline.digest;
     if artifact_matches && digest_matches {
         Ok(())
     } else {
@@ -266,7 +272,7 @@ pub fn verify_freshness_against_sources(
             artifact_matches,
             digest_matches,
             generated_digest: generated.digest,
-            checked_digest: checked_digest.to_string(),
+            checked_digest: baseline.digest.to_string(),
         })
     }
 }
@@ -1158,6 +1164,8 @@ mod tests {
         "PackageString ::= String\n",
     );
 
+    type DescriptorMutation = fn(&mut Vec<Descriptor>);
+
     #[test]
     fn checked_artifact_digest_matches_checked_digest() {
         verify_checked_digest().unwrap();
@@ -1173,7 +1181,7 @@ mod tests {
     #[test]
     fn descriptor_rejections_cover_invalid_metadata_and_relations() {
         let grammar = parse_grammar(MINI_GRAMMAR).unwrap();
-        let cases: &[(&str, fn(&mut Vec<Descriptor>))] = &[
+        let cases: &[(&str, DescriptorMutation)] = &[
             ("invalid topic identifier", |descriptors| {
                 descriptors[0].id = "Bad"
             }),
@@ -1641,8 +1649,10 @@ mod tests {
             descriptors,
             keywords,
             punctuation,
-            &baseline.bytes,
-            &baseline.digest,
+            FreshnessBaseline {
+                artifact: &baseline.bytes,
+                digest: &baseline.digest,
+            },
         )
         .unwrap_err();
         assert!(!mismatch.artifact_matches);
