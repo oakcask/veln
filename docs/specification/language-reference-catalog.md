@@ -96,8 +96,8 @@ inputs, token projection, canonicalization, digest vectors, Markdown
 rendering, resource byte limits, and bundle exclusions.
 
 Run `cargo run -p veln-repo-language-reference -- . check-fresh` to execute
-the source grammar and reject artifact, digest, renderer, or size-limit drift.
-The
+the source grammar and reject artifact, catalog digest, rendered-resource
+digest, or size-limit drift. The
 `test--language-reference-catalog` GitHub Actions workflow runs the same
 freshness command for pull requests and main-branch pushes whose path filters
 can affect catalog generation.

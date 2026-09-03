@@ -211,7 +211,9 @@ parameters, invalid request IDs, malformed ID-less requests, protocol-only
 standard output, and clean end-of-file termination. The
 `language-reference-resources` MCP specification case checks resource list and
 read success, index and topic Markdown fragments, malformed list and read
-parameters, and structured `resource_not_found` failures over stdio. The
+parameters, and structured `resource_not_found` failures over stdio. It also
+checks that every listed resource can be read and that every emitted
+language-reference topic URI resolves through `resources/read`. The
 `check-project-diagnostics` MCP specification case checks the
 advertised `check_project` schema and a diagnostic result with a spanless
 compiler-owned related note over stdio. The `anonymous-single-file-isolation`

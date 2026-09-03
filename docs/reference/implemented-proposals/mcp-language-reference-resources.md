@@ -27,11 +27,11 @@ The completed slice publishes the checked language-reference catalog through
 
 | Claim | Checked evidence |
 | --- | --- |
-| Initialization advertises immutable resource capability and list/read publish deterministic checked metadata and Markdown. | `cargo test -p veln-mcp` and the `language-reference-resources` executable MCP specification case |
+| Initialization advertises immutable resource capability and list/read publish deterministic checked metadata, Markdown, and resolvable resource links. | `cargo test -p veln-mcp` and the `language-reference-resources` executable MCP specification case |
 | Malformed parameters, exact URI lookup, noncanonical or unknown URIs, wrong digests, and unknown topics have the specified protocol failures. | `cargo test -p veln-mcp` and the `language-reference-resources` executable MCP specification case |
 | Resource URIs, metadata, and bytes are stable across refresh and project analysis. | `cargo test -p veln-mcp` |
 | Markdown rendering preserves catalog order and semantic content, enforces the byte limit, and excludes development provenance. | `cargo test -p veln-repo-language-reference` |
-| Freshness validation detects catalog, digest, renderer, and size-limit drift while ordinary consumers use checked inputs. | `cargo test -p veln-repo-language-reference` and `cargo run -p veln-repo-language-reference -- . check-fresh` |
+| Freshness validation detects catalog, catalog-digest, rendered-resource-digest, and size-limit drift while ordinary consumers use checked inputs. | `cargo test -p veln-repo-language-reference` and `cargo run -p veln-repo-language-reference -- . check-fresh` |
 
 ## Preserved Non-Goals
 
