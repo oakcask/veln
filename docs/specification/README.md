@@ -27,6 +27,8 @@ tracked in `../proposals/`.
   virtual-source resolution: [package-snapshots.md](package-snapshots.md),
   [package-documentation.md](package-documentation.md), then
   [package-virtual-sources.md](package-virtual-sources.md).
+- Language-reference catalog artifact, digest, generation gates, and
+  freshness checks: [language-reference-catalog.md](language-reference-catalog.md).
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
 - MCP workspace selection, tool schemas, refresh behavior, saved diagnostics,
@@ -62,6 +64,7 @@ tracked in `../proposals/`.
   [repair-application.md](repair-application.md) only for applying-command
   gates.
 - Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
+- Language-reference catalog: [language-reference-catalog.md](language-reference-catalog.md).
 - Editor support: [editor-support.md](editor-support.md).
 - MCP workspace project inventory, saved diagnostics, and saved navigation:
   [mcp.md](mcp.md).

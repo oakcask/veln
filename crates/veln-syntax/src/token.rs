@@ -172,6 +172,290 @@ impl TokenKind {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PublicToken {
+    pub kind: TokenKind,
+    pub spelling: &'static str,
+}
+
+pub const PUBLIC_KEYWORDS: &[PublicToken] = &[
+    PublicToken {
+        kind: TokenKind::Pub,
+        spelling: "pub",
+    },
+    PublicToken {
+        kind: TokenKind::Fn,
+        spelling: "fn",
+    },
+    PublicToken {
+        kind: TokenKind::Type,
+        spelling: "type",
+    },
+    PublicToken {
+        kind: TokenKind::Schema,
+        spelling: "schema",
+    },
+    PublicToken {
+        kind: TokenKind::Codec,
+        spelling: "codec",
+    },
+    PublicToken {
+        kind: TokenKind::For,
+        spelling: "for",
+    },
+    PublicToken {
+        kind: TokenKind::Decode,
+        spelling: "decode",
+    },
+    PublicToken {
+        kind: TokenKind::Encode,
+        spelling: "encode",
+    },
+    PublicToken {
+        kind: TokenKind::Derive,
+        spelling: "derive",
+    },
+    PublicToken {
+        kind: TokenKind::With,
+        spelling: "with",
+    },
+    PublicToken {
+        kind: TokenKind::Format,
+        spelling: "format",
+    },
+    PublicToken {
+        kind: TokenKind::Where,
+        spelling: "where",
+    },
+    PublicToken {
+        kind: TokenKind::Test,
+        spelling: "test",
+    },
+    PublicToken {
+        kind: TokenKind::Effect,
+        spelling: "effect",
+    },
+    PublicToken {
+        kind: TokenKind::Effects,
+        spelling: "effects",
+    },
+    PublicToken {
+        kind: TokenKind::Perform,
+        spelling: "perform",
+    },
+    PublicToken {
+        kind: TokenKind::Handler,
+        spelling: "handler",
+    },
+    PublicToken {
+        kind: TokenKind::Handles,
+        spelling: "handles",
+    },
+    PublicToken {
+        kind: TokenKind::Handle,
+        spelling: "handle",
+    },
+    PublicToken {
+        kind: TokenKind::Let,
+        spelling: "let",
+    },
+    PublicToken {
+        kind: TokenKind::End,
+        spelling: "end",
+    },
+    PublicToken {
+        kind: TokenKind::Require,
+        spelling: "require",
+    },
+    PublicToken {
+        kind: TokenKind::Ensure,
+        spelling: "ensure",
+    },
+    PublicToken {
+        kind: TokenKind::Invariant,
+        spelling: "invariant",
+    },
+    PublicToken {
+        kind: TokenKind::Mod,
+        spelling: "mod",
+    },
+    PublicToken {
+        kind: TokenKind::Use,
+        spelling: "use",
+    },
+    PublicToken {
+        kind: TokenKind::From,
+        spelling: "from",
+    },
+    PublicToken {
+        kind: TokenKind::At,
+        spelling: "at",
+    },
+    PublicToken {
+        kind: TokenKind::Match,
+        spelling: "match",
+    },
+    PublicToken {
+        kind: TokenKind::If,
+        spelling: "if",
+    },
+    PublicToken {
+        kind: TokenKind::Else,
+        spelling: "else",
+    },
+    PublicToken {
+        kind: TokenKind::Or,
+        spelling: "or",
+    },
+    PublicToken {
+        kind: TokenKind::And,
+        spelling: "and",
+    },
+    PublicToken {
+        kind: TokenKind::Not,
+        spelling: "not",
+    },
+];
+
+pub const PUBLIC_PUNCTUATION: &[PublicToken] = &[
+    PublicToken {
+        kind: TokenKind::LParen,
+        spelling: "(",
+    },
+    PublicToken {
+        kind: TokenKind::RParen,
+        spelling: ")",
+    },
+    PublicToken {
+        kind: TokenKind::LBracket,
+        spelling: "[",
+    },
+    PublicToken {
+        kind: TokenKind::RBracket,
+        spelling: "]",
+    },
+    PublicToken {
+        kind: TokenKind::LBrace,
+        spelling: "{",
+    },
+    PublicToken {
+        kind: TokenKind::RBrace,
+        spelling: "}",
+    },
+    PublicToken {
+        kind: TokenKind::Comma,
+        spelling: ",",
+    },
+    PublicToken {
+        kind: TokenKind::Semicolon,
+        spelling: ";",
+    },
+    PublicToken {
+        kind: TokenKind::Colon,
+        spelling: ":",
+    },
+    PublicToken {
+        kind: TokenKind::Dot,
+        spelling: ".",
+    },
+    PublicToken {
+        kind: TokenKind::DoubleColon,
+        spelling: "::",
+    },
+    PublicToken {
+        kind: TokenKind::Arrow,
+        spelling: "->",
+    },
+    PublicToken {
+        kind: TokenKind::FatArrow,
+        spelling: "=>",
+    },
+    PublicToken {
+        kind: TokenKind::PipeGreater,
+        spelling: "|>",
+    },
+    PublicToken {
+        kind: TokenKind::Pipe,
+        spelling: "|",
+    },
+    PublicToken {
+        kind: TokenKind::Ampersand,
+        spelling: "&",
+    },
+    PublicToken {
+        kind: TokenKind::Caret,
+        spelling: "^",
+    },
+    PublicToken {
+        kind: TokenKind::Tilde,
+        spelling: "~",
+    },
+    PublicToken {
+        kind: TokenKind::ShiftLeft,
+        spelling: "<<",
+    },
+    PublicToken {
+        kind: TokenKind::ShiftRight,
+        spelling: ">>",
+    },
+    PublicToken {
+        kind: TokenKind::ShiftRightLogical,
+        spelling: ">>>",
+    },
+    PublicToken {
+        kind: TokenKind::Question,
+        spelling: "?",
+    },
+    PublicToken {
+        kind: TokenKind::Underscore,
+        spelling: "_",
+    },
+    PublicToken {
+        kind: TokenKind::Equal,
+        spelling: "=",
+    },
+    PublicToken {
+        kind: TokenKind::EqualEqual,
+        spelling: "==",
+    },
+    PublicToken {
+        kind: TokenKind::BangEqual,
+        spelling: "!=",
+    },
+    PublicToken {
+        kind: TokenKind::Less,
+        spelling: "<",
+    },
+    PublicToken {
+        kind: TokenKind::LessEqual,
+        spelling: "<=",
+    },
+    PublicToken {
+        kind: TokenKind::Greater,
+        spelling: ">",
+    },
+    PublicToken {
+        kind: TokenKind::GreaterEqual,
+        spelling: ">=",
+    },
+    PublicToken {
+        kind: TokenKind::Plus,
+        spelling: "+",
+    },
+    PublicToken {
+        kind: TokenKind::Minus,
+        spelling: "-",
+    },
+    PublicToken {
+        kind: TokenKind::Star,
+        spelling: "*",
+    },
+    PublicToken {
+        kind: TokenKind::Slash,
+        spelling: "/",
+    },
+];
+
 const TOKEN_LABELS: &[&str] = &[
     "whitespace",
     "comment",

@@ -1,7 +1,7 @@
 use veln_literals::{IntegerLiteralError, parse_integer_literal};
 use veln_source::{SourceFile, TextRange};
 
-use crate::{Lexed, Token, TokenKind};
+use crate::{Lexed, PUBLIC_KEYWORDS, Token, TokenKind};
 
 type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
@@ -180,44 +180,10 @@ fn read_ident_or_keyword(text: &str, start: usize, first: char, chars: &mut Char
 }
 
 fn keyword_kind(text: &str) -> Option<TokenKind> {
-    let kind = match text {
-        "pub" => TokenKind::Pub,
-        "fn" => TokenKind::Fn,
-        "type" => TokenKind::Type,
-        "schema" => TokenKind::Schema,
-        "codec" => TokenKind::Codec,
-        "for" => TokenKind::For,
-        "decode" => TokenKind::Decode,
-        "encode" => TokenKind::Encode,
-        "derive" => TokenKind::Derive,
-        "with" => TokenKind::With,
-        "format" => TokenKind::Format,
-        "where" => TokenKind::Where,
-        "test" => TokenKind::Test,
-        "effect" => TokenKind::Effect,
-        "effects" => TokenKind::Effects,
-        "perform" => TokenKind::Perform,
-        "handler" => TokenKind::Handler,
-        "handles" => TokenKind::Handles,
-        "handle" => TokenKind::Handle,
-        "let" => TokenKind::Let,
-        "end" => TokenKind::End,
-        "require" => TokenKind::Require,
-        "ensure" => TokenKind::Ensure,
-        "invariant" => TokenKind::Invariant,
-        "mod" => TokenKind::Mod,
-        "use" => TokenKind::Use,
-        "from" => TokenKind::From,
-        "at" => TokenKind::At,
-        "match" => TokenKind::Match,
-        "if" => TokenKind::If,
-        "else" => TokenKind::Else,
-        "or" => TokenKind::Or,
-        "and" => TokenKind::And,
-        "not" => TokenKind::Not,
-        _ => return None,
-    };
-    Some(kind)
+    PUBLIC_KEYWORDS
+        .iter()
+        .find(|token| token.spelling == text)
+        .map(|token| token.kind)
 }
 
 fn read_underscore_or_ident(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {

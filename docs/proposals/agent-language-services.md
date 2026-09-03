@@ -42,16 +42,18 @@ and
 The saved workspace function-reference adapter is recorded by
 [MCP Saved Workspace Function References](../reference/implemented-proposals/mcp-saved-workspace-function-references.md).
 
-### Extracted Ready Slice
+### Completed Extracted Catalog Slice
 
-The next transport-independent catalog-generation slice is separately
-selectable as
-[Language Reference Catalog Foundation](language-reference-catalog-foundation.md).
+The transport-independent catalog-generation slice is implemented and recorded
+by
+[Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
+Current catalog behavior is specified by
+[Language Reference Catalog](../specification/language-reference-catalog.md).
 
 This umbrella remains planning input for later navigation, documentation,
 virtual-source, conformance, and plugin work. It is not itself selectable.
 Extract another finite proposal page with its own acceptance model before
-moving work after the catalog foundation to Ready.
+moving later work to Ready.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -1057,16 +1059,16 @@ access to private target functions. The saved-workspace function-reference
 slice returns project-owned function reference locations through MCP.
 Dependency and standard-library locations, the proposal's additional symbol
 kinds, and broader reference search remain planned.
+The completed preceding slice is recorded by
+[Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The subsequent slices are:
 
-1. Implement the bounded catalog-generation slice defined by
-   [Language Reference Catalog Foundation](language-reference-catalog-foundation.md).
-2. Extend the existing `veln mcp` server with resources, documentation tools,
+1. Extend the existing `veln mcp` server with resources, documentation tools,
    dependency reference search, paginated references, and definition beyond
    the implemented workspace-only symbol inventory.
-3. Add cross-adapter conformance cases, bounded search, pagination, and stale
+1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
-4. Package and validate Codex and Claude Code plugins and document their
+1. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
 
 ## Deferred Work

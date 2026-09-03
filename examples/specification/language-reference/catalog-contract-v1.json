@@ -1,0 +1,24 @@
+{
+  "forbidden_fragments": [
+    "docs/proposals",
+    "prompts/",
+    "cargo run",
+    "target/debug",
+    "CARGO_MANIFEST_DIR",
+    "compiler binary"
+  ],
+  "generator_contract_version": 1,
+  "schema_version": 1,
+  "topic_ids": [
+    "lexical-structure",
+    "modules-imports-packages",
+    "declarations-aliases",
+    "expressions-patterns",
+    "types-inference-constructors",
+    "effects-handlers",
+    "contracts",
+    "schemas",
+    "holes",
+    "tests-docs-doctests"
+  ]
+}

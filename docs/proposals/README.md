@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Generate the transport-independent public language-reference catalog from
-  the executable grammar, checked examples, and compiler-owned token tables:
-  [language-reference-catalog-foundation.md](language-reference-catalog-foundation.md).
+No proposal is ready for implementation.
 
 Each entry selects one complete proposal page. A subsection of another page is
 not a selectable target.
@@ -33,10 +31,8 @@ not a selectable target.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- The agent-language-services umbrella remains a planning inventory. Its next
-  language-reference catalog foundation is routed by the separate Ready
-  proposal above; extract another finite proposal page before selecting later
-  work:
+- The agent-language-services umbrella remains a planning inventory. Extract
+  another finite proposal page before selecting later work:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
