@@ -114,6 +114,15 @@ fn render_index(base: &str, topics: &[Value]) -> Result<String, String> {
 
 fn render_topic(base: &str, topic: &Value) -> Result<String, String> {
     let mut out = String::new();
+    render_topic_introduction(&mut out, topic)?;
+    render_topic_grammar(&mut out, topic)?;
+    render_topic_examples(&mut out, topic)?;
+    render_topic_keywords(&mut out, topic)?;
+    render_related_topics(&mut out, base, topic)?;
+    Ok(out)
+}
+
+fn render_topic_introduction(out: &mut String, topic: &Value) -> Result<(), String> {
     out.push_str("# ");
     out.push_str(string_field(topic, "title")?);
     out.push_str("\n\n");
@@ -123,6 +132,10 @@ fn render_topic(base: &str, topic: &Value) -> Result<String, String> {
         out.push_str(paragraph);
         out.push_str("\n\n");
     }
+    Ok(())
+}
+
+fn render_topic_grammar(out: &mut String, topic: &Value) -> Result<(), String> {
     out.push_str("## Grammar\n\n");
     for grammar in array_field(topic, "grammar")? {
         out.push_str("### ");
@@ -131,6 +144,10 @@ fn render_topic(base: &str, topic: &Value) -> Result<String, String> {
         out.push_str(string_field(grammar, "text")?);
         out.push_str("\n```\n\n");
     }
+    Ok(())
+}
+
+fn render_topic_examples(out: &mut String, topic: &Value) -> Result<(), String> {
     out.push_str("## Examples\n\n");
     for example in array_field(topic, "examples")? {
         out.push_str("### ");
@@ -144,12 +161,20 @@ fn render_topic(base: &str, topic: &Value) -> Result<String, String> {
             out.push_str("\n```\n\n");
         }
     }
+    Ok(())
+}
+
+fn render_topic_keywords(out: &mut String, topic: &Value) -> Result<(), String> {
     out.push_str("## Keywords\n\n");
     for keyword in string_array_field(topic, "keywords")? {
         out.push_str("- ");
         out.push_str(keyword);
         out.push('\n');
     }
+    Ok(())
+}
+
+fn render_related_topics(out: &mut String, base: &str, topic: &Value) -> Result<(), String> {
     out.push_str("\n## Related Topics\n\n");
     for related in string_array_field(topic, "related")? {
         out.push_str("- [");
@@ -158,7 +183,7 @@ fn render_topic(base: &str, topic: &Value) -> Result<String, String> {
         out.push_str(&topic_uri(base, related));
         out.push_str(")\n");
     }
-    Ok(out)
+    Ok(())
 }
 
 fn topic_uri(base: &str, topic_id: &str) -> String {
