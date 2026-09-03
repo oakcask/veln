@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeSet;
 
 #[test]
 fn initialize_advertises_immutable_resources() {
@@ -27,7 +28,9 @@ fn resources_list_returns_sorted_language_reference_metadata() {
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list","params":{"_meta":{"progressToken":"list"}}}))
         .unwrap();
     let resources = response["result"]["resources"].as_array().unwrap();
+    let expected = expected_resource_metadata();
     assert_eq!(response["result"].get("nextCursor"), None);
+    assert_eq!(resources, &expected);
     assert!(resources.len() > 1);
     let uris = resources
         .iter()
@@ -64,6 +67,11 @@ fn resources_read_returns_complete_markdown_for_listed_uris() {
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
         .unwrap();
     let resources = list["result"]["resources"].as_array().unwrap();
+    let listed_uris = resources
+        .iter()
+        .map(|resource| resource["uri"].as_str().unwrap().to_string())
+        .collect::<BTreeSet<_>>();
+    let mut emitted_uris = BTreeSet::new();
     for resource in resources {
         let uri = resource["uri"].as_str().unwrap();
         let read = server
@@ -83,6 +91,9 @@ fn resources_read_returns_complete_markdown_for_listed_uris() {
                 .len()
                 > 20
         );
+        emitted_uris.extend(extract_resource_uris(
+            read["result"]["contents"][0]["text"].as_str().unwrap(),
+        ));
     }
 
     let index_uri = resources[0]["uri"].as_str().unwrap();
@@ -113,6 +124,21 @@ fn resources_read_returns_complete_markdown_for_listed_uris() {
     assert!(topic_text.contains("### Accepted source-surface case"));
     assert!(topic_text.contains("#### main.veln"));
     assert!(topic_text.contains("- comments"));
+
+    let linked_uris = listed_uris
+        .iter()
+        .filter(|uri| !uri.ends_with("/index"))
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    assert_eq!(emitted_uris, linked_uris);
+    for uri in emitted_uris {
+        let read = server
+            .handle_request(
+                json!({"jsonrpc":"2.0","id":5,"method":"resources/read","params":{"uri":uri}}),
+            )
+            .unwrap();
+        assert_eq!(read["result"]["contents"][0]["uri"], uri);
+    }
 }
 
 #[test]
@@ -187,12 +213,30 @@ fn resources_reject_malformed_params_and_unknown_uris() {
             .unwrap();
         assert_eq!(response["error"]["code"], -32602);
     }
-    for uri in [
-        "veln-doc:///language/snapshot/wrong/index",
-        "veln-doc:///language/snapshot/wrong/topic/lexical-structure",
-        "veln-doc:///language/snapshot/wrong/topic/missing",
-        "veln-doc:///language/snapshot/wrong/topic/lexical-structure?x=1",
-    ] {
+    let digest = veln_repo_language_reference::checked_catalog_digest();
+    let wrong_digest = "0000000000000000000000000000000000000000000000000000000000000000";
+    let unknown_topic = format!("veln-doc:///language/snapshot/{digest}/topic/missing");
+    let noncanonical_topic_case =
+        format!("veln-doc:///language/snapshot/{digest}/topic/Lexical-Structure");
+    let noncanonical_topic_percent =
+        format!("veln-doc:///language/snapshot/{digest}/topic/lexical%2Dstructure");
+    let noncanonical_query =
+        format!("veln-doc:///language/snapshot/{digest}/topic/lexical-structure?x=1");
+    let noncanonical_fragment =
+        format!("veln-doc:///language/snapshot/{digest}/topic/lexical-structure#section");
+    let noncanonical_authority =
+        format!("veln-doc://host/language/snapshot/{digest}/topic/lexical-structure");
+    let unknown_uris = [
+        format!("veln-doc:///language/snapshot/{wrong_digest}/index"),
+        format!("veln-doc:///language/snapshot/{wrong_digest}/topic/lexical-structure"),
+        unknown_topic,
+        noncanonical_topic_case,
+        noncanonical_topic_percent,
+        noncanonical_query,
+        noncanonical_fragment,
+        noncanonical_authority,
+    ];
+    for uri in unknown_uris {
         let response = server
             .handle_request(
                 json!({"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":uri}}),
@@ -202,4 +246,49 @@ fn resources_reject_malformed_params_and_unknown_uris() {
         assert_eq!(response["error"]["data"]["code"], "resource_not_found");
         assert!(response.get("result").is_none());
     }
+}
+
+fn expected_resource_metadata() -> Vec<Value> {
+    let catalog: Value =
+        serde_json::from_str(veln_repo_language_reference::checked_catalog_bytes()).unwrap();
+    let digest = veln_repo_language_reference::checked_catalog_digest();
+    let base = format!("veln-doc:///language/snapshot/{digest}");
+    let mut resources = vec![json!({
+        "uri": format!("{base}/index"),
+        "name": "language-index",
+        "title": "Veln Language Reference",
+        "mimeType": veln_repo_language_reference::LANGUAGE_REFERENCE_MARKDOWN_MEDIA_TYPE,
+    })];
+    for topic in catalog["topics"].as_array().unwrap() {
+        let id = topic["id"].as_str().unwrap();
+        resources.push(json!({
+            "uri": format!("{base}/topic/{id}"),
+            "name": id,
+            "title": topic["title"].as_str().unwrap(),
+            "description": topic["summary"].as_str().unwrap(),
+            "mimeType": veln_repo_language_reference::LANGUAGE_REFERENCE_MARKDOWN_MEDIA_TYPE,
+        }));
+    }
+    resources.sort_by(|left, right| {
+        left["uri"]
+            .as_str()
+            .unwrap()
+            .as_bytes()
+            .cmp(right["uri"].as_str().unwrap().as_bytes())
+    });
+    resources
+}
+
+fn extract_resource_uris(text: &str) -> BTreeSet<String> {
+    let mut uris = BTreeSet::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("veln-doc:///language/snapshot/") {
+        let after_start = &rest[start..];
+        let end = after_start
+            .find(|character: char| character == ')' || character.is_whitespace())
+            .unwrap_or(after_start.len());
+        uris.insert(after_start[..end].to_string());
+        rest = &after_start[end..];
+    }
+    uris
 }

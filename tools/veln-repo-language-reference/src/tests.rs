@@ -324,13 +324,21 @@ fn normalization_makes_set_order_and_unicode_equivalent() {
 #[test]
 fn generated_bundle_excludes_development_provenance() {
     let bytes = checked_catalog_bytes();
+    let rendered = render_checked_language_reference().unwrap();
     let contract: Value = serde_json::from_str(SPEC_CONTRACT).unwrap();
     for forbidden in contract["forbidden_fragments"].as_array().unwrap() {
         let forbidden = forbidden.as_str().unwrap();
-        assert!(
-            !bytes.contains(forbidden),
-            "bundle leaked forbidden text {forbidden}"
-        );
+        assert_no_forbidden_fragment("checked catalog", bytes, forbidden);
+        for resource in &rendered.resources {
+            assert_no_forbidden_fragment("resource uri", &resource.uri, forbidden);
+            assert_no_forbidden_fragment("resource name", &resource.name, forbidden);
+            assert_no_forbidden_fragment("resource title", &resource.title, forbidden);
+            if let Some(description) = &resource.description {
+                assert_no_forbidden_fragment("resource description", description, forbidden);
+            }
+            assert_no_forbidden_fragment("resource MIME type", resource.mime_type, forbidden);
+            assert_no_forbidden_fragment("resource text", &resource.text, forbidden);
+        }
     }
 }
 
@@ -773,6 +781,13 @@ fn assert_public_token_contract_shape(value: &Value) {
             );
         }
     }
+}
+
+fn assert_no_forbidden_fragment(label: &str, text: &str, forbidden: &str) {
+    assert!(
+        !text.contains(forbidden),
+        "{label} leaked forbidden text {forbidden}"
+    );
 }
 
 fn repo_root() -> PathBuf {
