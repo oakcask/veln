@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"45449bdb7f9eab3190d820bc8636858c3bc8544a"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1661
+case_count	1662
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -15605,6 +15605,95 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1700,"sha256":"c6424ddec6855ceb9eaff08f10cf69983dda1f8ec5ede3b5731674c0e2835200"}
 field	source_errors	"forbidden"
 case_digest	"7f7f24a0d6addb9d68d9ad0a6a06930e89548e95815d2f994bbdeac21133ec92"
+case	"examples/specification/mcp/standard-library-package-documentation-resources"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].equals	"std-documentation-index"
+field	expectations.mcp_assertions[0].id	2
+field	expectations.mcp_assertions[0].operation	"equals"
+field	expectations.mcp_assertions[0].path	"/result/resources/11/name"
+field	expectations.mcp_assertions[10].equals	"text/markdown; charset=utf-8"
+field	expectations.mcp_assertions[10].id	4
+field	expectations.mcp_assertions[10].operation	"equals"
+field	expectations.mcp_assertions[10].path	"/result/contents/0/mimeType"
+field	expectations.mcp_assertions[11].contains	"- Package identity: std"
+field	expectations.mcp_assertions[11].id	4
+field	expectations.mcp_assertions[11].operation	"contains"
+field	expectations.mcp_assertions[11].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[12].contains	"veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+field	expectations.mcp_assertions[12].id	4
+field	expectations.mcp_assertions[12].operation	"contains"
+field	expectations.mcp_assertions[12].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[13].contains	"- Source path: prelude.veln"
+field	expectations.mcp_assertions[13].id	5
+field	expectations.mcp_assertions[13].operation	"contains"
+field	expectations.mcp_assertions[13].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[14].contains	"veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+field	expectations.mcp_assertions[14].id	5
+field	expectations.mcp_assertions[14].operation	"contains"
+field	expectations.mcp_assertions[14].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[15].contains	"- Kind: alias"
+field	expectations.mcp_assertions[15].id	6
+field	expectations.mcp_assertions[15].operation	"contains"
+field	expectations.mcp_assertions[15].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[16].contains	"- Target: bytes::Byte"
+field	expectations.mcp_assertions[16].id	6
+field	expectations.mcp_assertions[16].operation	"contains"
+field	expectations.mcp_assertions[16].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[17].equals	-32002
+field	expectations.mcp_assertions[17].id	7
+field	expectations.mcp_assertions[17].operation	"equals"
+field	expectations.mcp_assertions[17].path	"/error/code"
+field	expectations.mcp_assertions[18].equals	"resource_not_found"
+field	expectations.mcp_assertions[18].id	7
+field	expectations.mcp_assertions[18].operation	"equals"
+field	expectations.mcp_assertions[18].path	"/error/data/code"
+field	expectations.mcp_assertions[1].equals	"Veln package documentation: std"
+field	expectations.mcp_assertions[1].id	2
+field	expectations.mcp_assertions[1].operation	"equals"
+field	expectations.mcp_assertions[1].path	"/result/resources/11/title"
+field	expectations.mcp_assertions[2].equals	"text/markdown; charset=utf-8"
+field	expectations.mcp_assertions[2].id	2
+field	expectations.mcp_assertions[2].operation	"equals"
+field	expectations.mcp_assertions[2].path	"/result/resources/11/mimeType"
+field	expectations.mcp_assertions[3].id	2
+field	expectations.mcp_assertions[3].operation	"missing"
+field	expectations.mcp_assertions[3].path	"/result/resources/11/description"
+field	expectations.mcp_assertions[4].id	2
+field	expectations.mcp_assertions[4].operation	"missing"
+field	expectations.mcp_assertions[4].path	"/result/nextCursor"
+field	expectations.mcp_assertions[5].id	3
+field	expectations.mcp_assertions[5].length	2
+field	expectations.mcp_assertions[5].operation	"length"
+field	expectations.mcp_assertions[5].path	"/result/resourceTemplates"
+field	expectations.mcp_assertions[6].equals	"package-documentation-module"
+field	expectations.mcp_assertions[6].id	3
+field	expectations.mcp_assertions[6].operation	"equals"
+field	expectations.mcp_assertions[6].path	"/result/resourceTemplates/0/name"
+field	expectations.mcp_assertions[7].equals	"veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/module/{module_id}"
+field	expectations.mcp_assertions[7].id	3
+field	expectations.mcp_assertions[7].operation	"equals"
+field	expectations.mcp_assertions[7].path	"/result/resourceTemplates/0/uriTemplate"
+field	expectations.mcp_assertions[8].equals	"package-documentation-declaration"
+field	expectations.mcp_assertions[8].id	3
+field	expectations.mcp_assertions[8].operation	"equals"
+field	expectations.mcp_assertions[8].path	"/result/resourceTemplates/1/name"
+field	expectations.mcp_assertions[9].equals	"veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/declaration/{declaration_id}"
+field	expectations.mcp_assertions[9].id	3
+field	expectations.mcp_assertions[9].operation	"equals"
+field	expectations.mcp_assertions[9].path	"/result/resourceTemplates/1/uriTemplate"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"name\":\"std-documentation-index\""
+field	expectations.stdout.contains[1]	"\"name\":\"package-documentation-module\""
+field	expectations.stdout.contains[2]	"\"name\":\"package-documentation-declaration\""
+field	expectations.stdout.contains[3]	"# Package Documentation: std"
+field	expectations.stdout.contains[4]	"# Module prelude"
+field	expectations.stdout.contains[5]	"# Alias Byte"
+field	expectations.stdout.contains[6]	"\"code\":\"resource_not_found\""
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1460,"sha256":"25fe803d552f389f200d74e8a9948c138884acd8552a92083a383a1b0dcff4a2"}
+field	source_errors	"forbidden"
+case_digest	"f1fe5f3b6d7ae018fa89e926af112e8c12083fd22e125e23bfeec8b1114b6f45"
 case	"examples/specification/mcp/workspace-lifecycle"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -54570,4 +54659,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"00c67dd877993a06a7cf7b1203065e96765b405f9306c34431db40a95add0d66"
+aggregate_digest	"3f6735566825e35086f94d5df09cc902c097382fdb6376fe7c51a014b4389997"

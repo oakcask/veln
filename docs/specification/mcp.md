@@ -11,9 +11,10 @@ standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
 The current MCP surface contains language-reference, standard-library source,
-and admitted direct-dependency source resources plus the `workspace_projects`,
-`refresh_workspace`, `check_project`, `definition`, `references`,
-`search_docs`, and `read_doc` tools. Initialization advertises
+standard-library package-documentation, and admitted direct-dependency source
+resources plus the `workspace_projects`, `refresh_workspace`, `check_project`,
+`definition`, `references`, `search_docs`, and `read_doc` tools.
+Initialization advertises
 `resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
 `listChanged: false`.
@@ -43,14 +44,20 @@ one response.
 
 ## Resources
 
-`resources/list` returns the complete resource list in one response and omits
-`nextCursor`. The list is sorted by URI UTF-8 bytes and contains no duplicate
-URI. It includes the checked language-reference digest index, one topic URI for
-each checked language-reference catalog topic, one standard-library source URI
-for each distribution source retained by the embedded `std` package snapshot,
-and one dependency source URI for each distribution source retained from an
-admitted direct-dependency package snapshot. `resources/list` accepts omitted
-parameters or request metadata. It
+`resources/list` returns the complete listed resource set in one response and
+omits `nextCursor`. The list is sorted by URI UTF-8 bytes and contains no
+duplicate URI. It includes the checked language-reference digest index, one
+topic URI for each checked language-reference catalog topic, one
+standard-library package-documentation index URI when embedded `std`
+package-documentation generation succeeds, one standard-library
+package-documentation status URI when that generation fails, one
+standard-library source URI for each distribution source retained by the
+embedded `std` package snapshot, and one dependency source URI for each
+distribution source retained from an admitted direct-dependency package
+snapshot. Module and declaration package-documentation resources are readable
+only through exact URIs linked from the package-documentation index or module
+Markdown; they are not eagerly enumerated in `resources/list`.
+`resources/list` accepts omitted parameters or request metadata. It
 rejects a cursor, unknown field, `null`, or non-object parameters with
 JSON-RPC invalid params.
 
@@ -66,6 +73,30 @@ Their media type is `text/x-veln; charset=utf-8`. They have no description.
 Distribution membership controls publication, so private and non-exported
 standard-library sources are readable. Test-shaped sources and paths absent
 from the embedded distribution source set are not listed.
+
+The embedded standard-library package-documentation resource is generated from
+the same retained `std` snapshot during MCP startup. A successful result lists
+only the index resource with name `std-documentation-index`, title `Veln
+package documentation: std`, and media type `text/markdown; charset=utf-8`.
+The index Markdown preserves the package-documentation catalog metadata and
+ordered module links. Exact linked module resources preserve module
+documentation, source path, references, and ordered declaration links. Exact
+linked declaration resources preserve kind, signature, documentation,
+contracts, constructors, doctests, expected outputs, aliases, and references
+when those fields exist in the catalog. A failed result lists only the status
+resource with name `std-documentation-status`; its Markdown preserves the
+ordered gate, code, message, and optional source span for each diagnostic.
+The Markdown projection does not expose raw manifests, physical paths,
+dependency selectors, environment values, or other data excluded from the
+package-documentation catalog. Successful standard-library
+package-documentation does not publish a separate status resource.
+
+`resources/templates/list` accepts omitted parameters or request metadata and
+rejects cursor, unknown field, `null`, or non-object parameters with JSON-RPC
+invalid params. It advertises the canonical package-documentation module and
+declaration URI forms with Markdown media type. Clients obtain exact readable
+module and declaration URIs from index and module Markdown; template variables
+are not a URI normalization or discovery surface.
 
 Successful `check_project`, `definition`, and `references` calls on a selected
 manifest project atomically admit every valid direct-dependency package
@@ -91,21 +122,27 @@ sources are readable while test-shaped sources are not listed.
 `resources/read` accepts one exact `uri` plus optional request metadata. A
 successful read returns one complete text content entry with the requested
 URI, media type, and deterministic text. Language-reference resource text is
-Markdown rendered from the checked catalog artifact. Standard-library source
-resource text is the exact UTF-8 source text captured from the embedded
-package snapshot at server startup. Dependency source resource text is the
-exact UTF-8 source text retained from the admitted saved-project capture. The
-server does not truncate, paginate, normalize, regenerate resource content, or
-fall back to dependency filesystem paths during a session.
+Markdown rendered from the checked catalog artifact. Standard-library
+package-documentation resource text is Markdown rendered from the retained
+embedded `std` package-documentation result. Standard-library source resource
+text is the exact UTF-8 source text captured from the embedded package
+snapshot at server startup. Dependency source resource text is the exact
+UTF-8 source text retained from the admitted saved-project capture. The server
+does not truncate, paginate, normalize, regenerate resource content, or fall
+back to dependency filesystem paths during a session.
 
 Lookup uses exact URI spelling. Unknown, noncanonical, wrong-digest, and
 unknown-topic language-reference URIs fail with the MCP resource-not-found
 protocol error and structured domain code `resource_not_found`. Unknown
-identity, wrong-digest, malformed, noncanonical, absent-path, and test-shaped
-`veln-pkg:` URIs fail with the same protocol error and structured domain code.
-Rejected `veln-pkg:` URIs are not normalized and do not fall back to the
-filesystem. Missing, nullable, non-string, non-object, or unknown-field read
-parameters fail with invalid params.
+identity, wrong-snapshot, wrong-documentation-digest, unpublished status,
+missing module, missing declaration, malformed, and noncanonical
+standard-library package-documentation URIs fail with the same protocol error
+and structured domain code. Unknown identity, wrong-digest, malformed,
+noncanonical, absent-path, and test-shaped `veln-pkg:` URIs fail with the
+same protocol error and structured domain code. Rejected `veln-doc:` and
+`veln-pkg:` URIs are not normalized and do not fall back to the filesystem.
+Missing, nullable, non-string, non-object, or unknown-field read parameters
+fail with invalid params.
 
 Admitted dependency resource snapshots remain available until server shutdown.
 Workspace refresh, project removal, dependency removal, dependency relocation,
@@ -350,6 +387,12 @@ limits, empty search results, search invalid params, exact `read_doc` index
 and topic text, and `read_doc`
 `resource_not_found` failures for wrong-digest, noncanonical, non-language,
 unknown-topic, and unknown URI classes over stdio. The
+`standard-library-package-documentation-resources` MCP specification case
+checks listed embedded `std` package-documentation index metadata,
+package-documentation resource templates, exact index read, exact
+index-linked module read, exact module-linked declaration read, hidden
+module and declaration exclusion from `resources/list`, and
+wrong-documentation-digest `resource_not_found` over stdio. The
 `check-project-diagnostics` MCP specification case checks the
 advertised `check_project` schema and a diagnostic result with a spanless
 compiler-owned related note over stdio. The `anonymous-single-file-isolation`
@@ -422,7 +465,13 @@ dependency admission, identity-and-digest deduplication, same-identity digest
 coexistence, retained-byte reads after refresh and dependency replacement,
 state preservation after invalid saved navigation, package snapshot capacity
 failure atomicity, and mapped `resource_not_found` behavior for unknown,
-wrong-digest, malformed, and noncanonical `veln-pkg:` URIs.
+wrong-digest, malformed, and noncanonical `veln-pkg:` URIs. They also check
+the embedded standard-library package-documentation Markdown renderer,
+status-only documentation publication, listed index metadata, template
+metadata, exact index-linked reads, module and declaration omission from
+`resources/list`, byte-for-byte read preservation, and `resource_not_found`
+mapping for unknown, noncanonical, wrong-snapshot,
+wrong-documentation-digest, and unpublished package-documentation URIs.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

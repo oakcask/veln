@@ -6,7 +6,9 @@ use std::sync::OnceLock;
 use serde_json::{Value, json};
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, VirtualSourceCatalog,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, PackageDocGeneratorContract,
+    PackageDocResult, RenderedPackageDocResource, VirtualSourceCatalog,
+    render_package_documentation,
 };
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource,
@@ -15,6 +17,7 @@ use veln_project::{
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
 const VELN_SOURCE_MEDIA_TYPE: &str = "text/x-veln; charset=utf-8";
+const PACKAGE_DOC_GENERATOR_CONTRACT: &str = "veln-mcp-package-documentation/v1";
 const RETAINED_PACKAGE_CAPACITY: usize = 256;
 
 #[cfg(test)]
@@ -177,7 +180,26 @@ impl LanguageResources {
 
     pub(crate) fn list_result(&self) -> Value {
         json!({
-            "resources": self.combined_resources.iter().map(PublishedResource::metadata).collect::<Vec<_>>()
+            "resources": self.combined_resources.iter().filter(|resource| resource.listed).map(PublishedResource::metadata).collect::<Vec<_>>()
+        })
+    }
+
+    pub(crate) fn resource_templates_result(&self) -> Value {
+        json!({
+            "resourceTemplates": [
+                {
+                    "uriTemplate": "veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/module/{module_id}",
+                    "name": "package-documentation-module",
+                    "title": "Veln package documentation module",
+                    "mimeType": veln_language_service::PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE,
+                },
+                {
+                    "uriTemplate": "veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/declaration/{declaration_id}",
+                    "name": "package-documentation-declaration",
+                    "title": "Veln package documentation declaration",
+                    "mimeType": veln_language_service::PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE,
+                },
+            ]
         })
     }
 
@@ -286,6 +308,7 @@ pub(crate) struct PublishedResource {
     description: Option<String>,
     mime_type: &'static str,
     text: String,
+    pub(crate) listed: bool,
 }
 
 impl PublishedResource {
@@ -297,6 +320,19 @@ impl PublishedResource {
             description: resource.description.clone(),
             mime_type: resource.mime_type,
             text: resource.text.clone(),
+            listed: true,
+        }
+    }
+
+    fn from_package_doc(resource: &RenderedPackageDocResource) -> Self {
+        Self {
+            uri: resource.uri.clone(),
+            name: resource.name.clone(),
+            title: resource.title.clone(),
+            description: resource.description.clone(),
+            mime_type: resource.mime_type,
+            text: resource.text.clone(),
+            listed: resource.listed,
         }
     }
 
@@ -354,11 +390,17 @@ impl StandardLibraryResources {
         let snapshot = capture_embedded_package_snapshot(manifest.as_bytes(), sources)
             .map_err(|error| format!("capture embedded standard library snapshot: {error}"))?;
         let manifest = veln_project::parse_manifest_text("veln.toml", manifest);
+        let package_doc_result = PackageDocResult::generate(
+            &PackageIdentity::embedded_standard(),
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new(PACKAGE_DOC_GENERATOR_CONTRACT),
+        );
         let navigation_snapshot =
             DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
                 .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
         let catalog = catalog_builder(PackageIdentity::embedded_standard(), snapshot.clone())?;
-        let mut resources = Vec::with_capacity(snapshot.sources().len());
+        let mut resources = Vec::with_capacity(snapshot.sources().len() + 1);
         for (source_index, source) in snapshot.sources().iter().enumerate() {
             let entry = catalog
                 .entry_for_source(0, source_index)
@@ -379,8 +421,14 @@ impl StandardLibraryResources {
                 description: None,
                 mime_type: VELN_SOURCE_MEDIA_TYPE,
                 text,
+                listed: true,
             });
         }
+        resources.extend(
+            render_package_documentation(&package_doc_result)
+                .iter()
+                .map(PublishedResource::from_package_doc),
+        );
         Ok(Self {
             resources,
             key: RetainedPackageKey {
@@ -432,6 +480,7 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
                 description: None,
                 mime_type: VELN_SOURCE_MEDIA_TYPE,
                 text,
+                listed: true,
             })
         })
         .collect();
@@ -583,5 +632,29 @@ mod standard_library_tests {
 
         assert!(error.contains("build embedded standard library source catalog"));
         assert!(error.contains("injected construction failure"));
+    }
+
+    #[test]
+    fn standard_library_documentation_failure_publishes_only_status_documentation() {
+        let resources = StandardLibraryResources::from_embedded_inputs(
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+            [PackageSnapshotSource::new(
+                "prelude.veln",
+                b"pub fn broken(\n  1\nend\n",
+            )],
+        )
+        .unwrap()
+        .resources;
+        let doc_resources = resources
+            .iter()
+            .filter(|resource| resource.uri.starts_with("veln-doc:///package/std/"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(doc_resources.len(), 1);
+        assert!(doc_resources[0].listed);
+        assert!(doc_resources[0].uri.ends_with("/status"));
+        assert_eq!(doc_resources[0].name, "std-documentation-status");
+        assert!(doc_resources[0].text.contains("- State: failed"));
+        assert!(doc_resources[0].text.contains("- Gate: parse"));
     }
 }

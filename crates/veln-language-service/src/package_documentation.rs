@@ -63,6 +63,8 @@ pub struct PackageDocResult {
     declaration_locations: BTreeMap<PackageDocLocationKey, String>,
 }
 
+pub const PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE: &str = "text/markdown; charset=utf-8";
+
 impl PackageDocResult {
     pub fn generate(
         identity: &PackageIdentity,
@@ -343,6 +345,7 @@ mod diagnostics_and_doctests;
 mod doctest_metadata;
 mod identity_and_paths;
 mod json_output;
+mod markdown;
 mod schema_references;
 mod signatures_and_docs;
 
@@ -350,6 +353,7 @@ use diagnostics_and_doctests::*;
 use doctest_metadata::*;
 use identity_and_paths::*;
 use json_output::*;
+pub use markdown::{RenderedPackageDocResource, render_package_documentation};
 use signatures_and_docs::*;
 
 #[cfg(test)]

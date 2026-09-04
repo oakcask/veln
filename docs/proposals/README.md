@@ -18,8 +18,8 @@ also states it.
 
 ## Ready
 
-- Publish retained package and standard-library documentation through MCP
-  resources and package-backed definition links:
+- Finish direct-dependency package documentation resources and package-backed
+  definition documentation links:
   [mcp-package-documentation-resources.md](mcp-package-documentation-resources.md).
 
 Each entry in this section selects one complete proposal page. A subsection of
