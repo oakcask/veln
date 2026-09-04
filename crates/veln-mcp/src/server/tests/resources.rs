@@ -213,17 +213,7 @@ fn resource_uris_are_exact_and_state_is_preserved_across_tools() {
     workspace.write("veln.toml", "");
     workspace.write("main.veln", "pub fn main() -> Int\n  1\nend\n");
     let mut server = initialized_server(&workspace);
-    let before = server
-        .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
-        .unwrap()["result"]
-        .clone();
-    let first_uri = before["resources"][0]["uri"].as_str().unwrap().to_string();
-    let first_read = server
-        .handle_request(
-            json!({"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":first_uri}}),
-        )
-        .unwrap()["result"]
-        .clone();
+    let before = standard_library_resource_state(&mut server);
 
     server
         .handle_request(json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"refresh_workspace","arguments":{}}}))
@@ -231,19 +221,49 @@ fn resource_uris_are_exact_and_state_is_preserved_across_tools() {
     server
         .handle_request(json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"check_project","arguments":{"project":"."}}}))
         .unwrap();
-
-    let after = server
-        .handle_request(json!({"jsonrpc":"2.0","id":5,"method":"resources/list"}))
-        .unwrap()["result"]
-        .clone();
-    let second_read = server
+    let failed_refresh_params = json!({"name":"refresh_workspace","arguments":{}});
+    let failed_refresh = server
+        .call_tool_with_refresh(Some(&failed_refresh_params), |selection| {
+            selection.refresh_with(|| Err(io::Error::other("injected discovery failure")))
+        })
+        .unwrap();
+    assert_eq!(failed_refresh["isError"], true);
+    assert_eq!(
+        failed_refresh["structuredContent"]["code"],
+        "generation_failed"
+    );
+    let search = server
+        .handle_request(json!({"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"schema","limit":1}}}))
+        .unwrap();
+    assert_eq!(search["result"]["isError"], false);
+    let read_doc = server
+        .handle_request(json!({"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/wrong/index"}}}))
+        .unwrap();
+    assert_eq!(read_doc["result"]["isError"], true);
+    assert_eq!(
+        read_doc["result"]["structuredContent"]["code"],
+        "resource_not_found"
+    );
+    let invalid_tool = server
+        .handle_request(json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"schema","limit":0}}}))
+        .unwrap();
+    assert_eq!(invalid_tool["error"]["code"], -32602);
+    let missing_resource = server
+        .handle_request(json!({"jsonrpc":"2.0","id":10,"method":"resources/read","params":{"uri":"veln-pkg:///std/snapshot/missing/prelude.veln"}}))
+        .unwrap();
+    assert_eq!(
+        missing_resource["error"]["data"]["code"],
+        "resource_not_found"
+    );
+    let invalid_read = server
         .handle_request(
-            json!({"jsonrpc":"2.0","id":6,"method":"resources/read","params":{"uri":first_uri}}),
+            json!({"jsonrpc":"2.0","id":11,"method":"resources/read","params":{"uri":null}}),
         )
-        .unwrap()["result"]
-        .clone();
+        .unwrap();
+    assert_eq!(invalid_read["error"]["code"], -32602);
+
+    let after = standard_library_resource_state(&mut server);
     assert_eq!(after, before);
-    assert_eq!(second_read, first_read);
 }
 
 #[test]
@@ -303,15 +323,18 @@ fn resources_reject_malformed_params_and_unknown_uris() {
         .as_str()
         .unwrap()
         .to_string();
-    let wrong_std_digest = std_resource.replace(
-        std_resource
-            .strip_prefix("veln-pkg:///std/snapshot/")
-            .unwrap()
-            .split('/')
-            .next()
-            .unwrap(),
-        wrong_digest,
-    );
+    let std_digest = std_resource
+        .strip_prefix("veln-pkg:///std/snapshot/")
+        .unwrap()
+        .split('/')
+        .next()
+        .unwrap();
+    let wrong_std_digest = std_resource.replace(std_digest, wrong_digest);
+    let unknown_std_identity = format!("veln-pkg:///other/snapshot/{std_digest}/prelude.veln");
+    let absent_std_path = format!("veln-pkg:///std/snapshot/{std_digest}/missing.veln");
+    let test_shaped_std_path = format!("veln-pkg:///std/snapshot/{std_digest}/prelude_test.veln");
+    let malformed_std_spelling = format!("veln-pkg:/std/snapshot/{std_digest}/prelude.veln");
+    let noncanonical_std_scheme = std_resource.replacen("veln-pkg", "VELN-pkg", 1);
     let noncanonical_std_percent = std_resource.replace("prelude.veln", "prelude%2Eveln");
     let noncanonical_std_query = format!("{std_resource}?x=1");
     let unknown_uris = [
@@ -324,10 +347,13 @@ fn resources_reject_malformed_params_and_unknown_uris() {
         noncanonical_fragment,
         noncanonical_authority,
         wrong_std_digest,
+        unknown_std_identity,
+        absent_std_path,
+        test_shaped_std_path,
+        malformed_std_spelling,
+        noncanonical_std_scheme,
         noncanonical_std_percent,
         noncanonical_std_query,
-        format!("veln-pkg:///other/snapshot/{wrong_digest}/prelude.veln"),
-        format!("veln-pkg:///std/snapshot/{wrong_digest}/prelude_test.veln"),
     ];
     for uri in unknown_uris {
         let response = server
@@ -339,6 +365,34 @@ fn resources_reject_malformed_params_and_unknown_uris() {
         assert_eq!(response["error"]["data"]["code"], "resource_not_found");
         assert!(response.get("result").is_none());
     }
+}
+
+fn standard_library_resource_state(server: &mut Server) -> Value {
+    let resources = server
+        .handle_request(json!({"jsonrpc":"2.0","id":"state-list","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|resource| {
+            resource["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-pkg:///std/snapshot/")
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    let reads = resources
+        .iter()
+        .map(|resource| {
+            let uri = resource["uri"].as_str().unwrap();
+            server
+                .handle_request(json!({"jsonrpc":"2.0","id":"state-read","method":"resources/read","params":{"uri":uri}}))
+                .unwrap()["result"]["contents"][0]
+                .clone()
+        })
+        .collect::<Vec<_>>();
+    json!({"resources": resources, "reads": reads})
 }
 
 fn expected_resource_metadata() -> Vec<Value> {

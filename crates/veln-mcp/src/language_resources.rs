@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 use veln_language_service::{DirectDependencySnapshot, VirtualSourceCatalog};
-use veln_project::{PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot};
+use veln_project::{
+    CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource,
+    capture_embedded_package_snapshot,
+};
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
 const VELN_SOURCE_MEDIA_TYPE: &str = "text/x-veln; charset=utf-8";
@@ -157,16 +160,26 @@ impl StandardLibraryResources {
         manifest: &str,
         sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
     ) -> Result<Self, String> {
+        Self::from_embedded_inputs_with_catalog_builder(manifest, sources, |identity, snapshot| {
+            VirtualSourceCatalog::new([(identity, snapshot)])
+                .map_err(|error| format!("build embedded standard library source catalog: {error}"))
+        })
+    }
+
+    fn from_embedded_inputs_with_catalog_builder<'a>(
+        manifest: &str,
+        sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
+        catalog_builder: impl FnOnce(
+            PackageIdentity,
+            CapturedPackageSnapshot,
+        ) -> Result<VirtualSourceCatalog, String>,
+    ) -> Result<Self, String> {
         let snapshot = capture_embedded_package_snapshot(manifest.as_bytes(), sources)
             .map_err(|error| format!("capture embedded standard library snapshot: {error}"))?;
         let manifest = veln_project::parse_manifest_text("veln.toml", manifest);
         DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
             .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
-        let catalog = VirtualSourceCatalog::new([(
-            PackageIdentity::embedded_standard(),
-            snapshot.clone(),
-        )])
-        .map_err(|error| format!("build embedded standard library source catalog: {error}"))?;
+        let catalog = catalog_builder(PackageIdentity::embedded_standard(), snapshot.clone())?;
         let mut resources = Vec::with_capacity(snapshot.sources().len());
         for (source_index, source) in snapshot.sources().iter().enumerate() {
             let entry = catalog
@@ -290,5 +303,26 @@ mod standard_library_tests {
         .unwrap_err();
 
         assert!(error.contains("validate embedded standard library snapshot"));
+    }
+
+    #[test]
+    fn standard_library_capture_propagates_catalog_construction_failure() {
+        let error = StandardLibraryResources::from_embedded_inputs_with_catalog_builder(
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+            [PackageSnapshotSource::new(
+                "prelude.veln",
+                b"pub fn main() -> Int\n  1\nend\n",
+            )],
+            |_identity, _snapshot| {
+                Err(
+                    "build embedded standard library source catalog: injected construction failure"
+                        .to_string(),
+                )
+            },
+        )
+        .unwrap_err();
+
+        assert!(error.contains("build embedded standard library source catalog"));
+        assert!(error.contains("injected construction failure"));
     }
 }
