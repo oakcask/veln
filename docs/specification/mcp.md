@@ -1,18 +1,19 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, language-reference resources, tool schemas, or executable MCP cases change.
+update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, MCP resources, tool schemas, or executable MCP cases change.
 ---
 
-# MCP Workspace Projects And Navigation
+# MCP Workspace Projects, Resources, And Navigation
 
 `veln mcp` runs a Model Context Protocol (MCP) server over standard input and
 standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
-The current MCP surface contains language-reference resources plus the
-`workspace_projects`, `refresh_workspace`, `check_project`, `definition`,
-`references`, `search_docs`, and `read_doc` tools. Initialization advertises
+The current MCP surface contains language-reference and standard-library
+source resources plus the `workspace_projects`, `refresh_workspace`,
+`check_project`, `definition`, `references`, `search_docs`, and `read_doc`
+tools. Initialization advertises
 `resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
 `listChanged: false`.
@@ -40,34 +41,53 @@ when the token is a string or JSON number. `tools/list` also accepts a string
 `cursor` parameter; the current server still returns the complete tool list in
 one response.
 
-## Language Reference Resources
+## Resources
 
-`resources/list` returns the complete language-reference resource list in one
-response and omits `nextCursor`. The list is sorted by URI UTF-8 bytes and
-contains the checked digest index plus one topic URI for each checked
-language-reference catalog topic. `resources/list` accepts omitted parameters
-or request metadata. It rejects a cursor, unknown field, `null`, or non-object
-parameters with JSON-RPC invalid params.
+`resources/list` returns the complete resource list in one response and omits
+`nextCursor`. The list is sorted by URI UTF-8 bytes and contains no duplicate
+URI. It includes the checked language-reference digest index, one topic URI for
+each checked language-reference catalog topic, and one standard-library source
+URI for each distribution source retained by the embedded `std` package
+snapshot. `resources/list` accepts omitted parameters or request metadata. It
+rejects a cursor, unknown field, `null`, or non-object parameters with
+JSON-RPC invalid params.
 
 The index resource has name `language-index`, title `Veln Language Reference`,
 and media type `text/markdown; charset=utf-8`. Topic resources use their
 topic identifier as `name`, catalog title as `title`, catalog summary as
 `description`, and the same media type.
 
+Standard-library source resources use the canonical `veln-pkg:` URI from the
+embedded `std` snapshot virtual-source catalog. Their `name` is the package
+relative source path. Their `title` is `Veln standard library source: {path}`.
+Their media type is `text/x-veln; charset=utf-8`. They have no description.
+Distribution membership controls publication, so private and non-exported
+standard-library sources are readable. Test-shaped sources and paths absent
+from the embedded distribution source set are not listed.
+
 `resources/read` accepts one exact `uri` plus optional request metadata. A
 successful read returns one complete text content entry with the requested
-URI, media type, and deterministic Markdown text rendered from the checked
-catalog artifact. The server does not truncate, paginate, normalize, or
-regenerate resource content during a session.
+URI, media type, and deterministic text. Language-reference resource text is
+Markdown rendered from the checked catalog artifact. Standard-library source
+resource text is the exact UTF-8 source text captured from the embedded
+package snapshot at server startup. The server does not truncate, paginate,
+normalize, or regenerate resource content during a session.
 
 Lookup uses exact URI spelling. Unknown, noncanonical, wrong-digest, and
-unknown-topic URIs fail with the MCP resource-not-found protocol error and
-structured domain code `resource_not_found`. Missing, nullable, non-string,
-non-object, or unknown-field read parameters fail with invalid params.
+unknown-topic language-reference URIs fail with the MCP resource-not-found
+protocol error and structured domain code `resource_not_found`. Unknown
+identity, wrong-digest, malformed, noncanonical, absent-path, and test-shaped
+`veln-pkg:` URIs fail with the same protocol error and structured domain code.
+Rejected `veln-pkg:` URIs are not normalized and do not fall back to the
+filesystem. Missing, nullable, non-string, non-object, or unknown-field read
+parameters fail with invalid params.
 
 The resource set is independent of workspace project discovery, refresh, and
-project analysis. Its URIs, metadata, and bytes remain stable until server
-shutdown.
+project analysis, and is also independent of language-reference tool calls and
+failed resource requests. Its URIs, metadata, ordering, and bytes remain stable
+until server shutdown. If the embedded standard-library bundle, manifest
+validation, or virtual-source catalog construction fails, `veln mcp` startup
+fails instead of publishing a partial resource set.
 
 ## Language Reference Tools
 
@@ -121,7 +141,8 @@ partial document text.
 The language tool candidate set, result URIs, read metadata, and read bytes
 are independent of workspace project discovery, refresh, and project
 analysis. Invalid input and `resource_not_found` failures do not change saved
-workspace state or language-reference resource state.
+workspace state, language-reference resource state, or standard-library source
+resource state.
 
 ## Workspace Selection
 
@@ -265,8 +286,11 @@ invalid tool input, initialization phase errors, invalid initialize
 parameters, invalid request IDs, malformed ID-less requests, protocol-only
 standard output, and clean end-of-file termination. The
 `language-reference-resources` MCP specification case checks resource list and
-read success, index and topic Markdown fragments, malformed list and read
-parameters, and structured `resource_not_found` failures over stdio. It also
+read success, index and topic Markdown fragments, representative embedded
+standard-library source reads, malformed list and read parameters, and
+structured `resource_not_found` failures over stdio. It also checks standard
+library source metadata shape, private source readability, test-source
+exclusion, wrong-digest rejection, and noncanonical `veln-pkg:` rejection. It
 checks that every listed resource can be read and that every emitted
 language-reference topic URI resolves through `resources/read`. The same case
 checks `search_docs` and `read_doc` tool schema advertisement, a normalized
@@ -324,6 +348,14 @@ canonical locations, unsupported-symbol success, function-shaped recovery
 exclusion, invalid positions, path failures, stable-capture failure without
 partial reference locations, and accepted success and domain-failure result
 schemas.
+`veln-mcp` unit tests check embedded standard-library startup validation,
+catalog construction failure propagation, bidirectional completeness between
+the embedded bundle and MCP source resources, exact-byte reads for every
+listed standard-library source, combined URI-byte ordering, duplicate
+prevention, lifecycle state preservation across refresh and analysis, private
+and non-exported source publication, absent test-source rejection, and mapped
+`resource_not_found` behavior for unknown, wrong-digest, malformed, and
+noncanonical `veln-pkg:` URIs.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

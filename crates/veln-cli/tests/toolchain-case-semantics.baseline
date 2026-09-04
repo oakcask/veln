@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"d86c06a70796de7ff7f91c8aa941953f4874680b"
+source_git_tree	"2cfef151b3039402cb90061f8a92a53008a756db"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1659
@@ -15196,14 +15196,86 @@ field	expectations.mcp_assertions[71].id	20
 field	expectations.mcp_assertions[71].length	1
 field	expectations.mcp_assertions[71].operation	"length"
 field	expectations.mcp_assertions[71].path	"/result/structuredContent/results"
+field	expectations.mcp_assertions[72].equals	"bytes.veln"
+field	expectations.mcp_assertions[72].id	2
+field	expectations.mcp_assertions[72].operation	"equals"
+field	expectations.mcp_assertions[72].path	"/result/resources/11/name"
+field	expectations.mcp_assertions[73].equals	"Veln standard library source: bytes.veln"
+field	expectations.mcp_assertions[73].id	2
+field	expectations.mcp_assertions[73].operation	"equals"
+field	expectations.mcp_assertions[73].path	"/result/resources/11/title"
+field	expectations.mcp_assertions[74].equals	"text/x-veln; charset=utf-8"
+field	expectations.mcp_assertions[74].id	2
+field	expectations.mcp_assertions[74].operation	"equals"
+field	expectations.mcp_assertions[74].path	"/result/resources/11/mimeType"
+field	expectations.mcp_assertions[75].id	2
+field	expectations.mcp_assertions[75].operation	"missing"
+field	expectations.mcp_assertions[75].path	"/result/resources/11/description"
+field	expectations.mcp_assertions[76].equals	"veln-pkg:///std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/bytes.veln"
+field	expectations.mcp_assertions[76].id	21
+field	expectations.mcp_assertions[76].operation	"equals"
+field	expectations.mcp_assertions[76].path	"/result/contents/0/uri"
+field	expectations.mcp_assertions[77].equals	"text/x-veln; charset=utf-8"
+field	expectations.mcp_assertions[77].id	21
+field	expectations.mcp_assertions[77].operation	"equals"
+field	expectations.mcp_assertions[77].path	"/result/contents/0/mimeType"
+field	expectations.mcp_assertions[78].contains	"type ByteView"
+field	expectations.mcp_assertions[78].id	21
+field	expectations.mcp_assertions[78].operation	"contains"
+field	expectations.mcp_assertions[78].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[79].equals	"veln-pkg:///std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/prelude.veln"
+field	expectations.mcp_assertions[79].id	22
+field	expectations.mcp_assertions[79].operation	"equals"
+field	expectations.mcp_assertions[79].path	"/result/contents/0/uri"
 field	expectations.mcp_assertions[7].equals	"text/markdown; charset=utf-8"
 field	expectations.mcp_assertions[7].id	3
 field	expectations.mcp_assertions[7].operation	"equals"
 field	expectations.mcp_assertions[7].path	"/result/contents/0/mimeType"
+field	expectations.mcp_assertions[80].equals	"text/x-veln; charset=utf-8"
+field	expectations.mcp_assertions[80].id	22
+field	expectations.mcp_assertions[80].operation	"equals"
+field	expectations.mcp_assertions[80].path	"/result/contents/0/mimeType"
+field	expectations.mcp_assertions[81].contains	"pub type Byte = bytes::Byte"
+field	expectations.mcp_assertions[81].id	22
+field	expectations.mcp_assertions[81].operation	"contains"
+field	expectations.mcp_assertions[81].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[82].equals	-32002
+field	expectations.mcp_assertions[82].id	23
+field	expectations.mcp_assertions[82].operation	"equals"
+field	expectations.mcp_assertions[82].path	"/error/code"
+field	expectations.mcp_assertions[83].equals	"resource_not_found"
+field	expectations.mcp_assertions[83].id	23
+field	expectations.mcp_assertions[83].operation	"equals"
+field	expectations.mcp_assertions[83].path	"/error/data/code"
+field	expectations.mcp_assertions[84].id	23
+field	expectations.mcp_assertions[84].operation	"missing"
+field	expectations.mcp_assertions[84].path	"/result"
+field	expectations.mcp_assertions[85].equals	-32002
+field	expectations.mcp_assertions[85].id	24
+field	expectations.mcp_assertions[85].operation	"equals"
+field	expectations.mcp_assertions[85].path	"/error/code"
+field	expectations.mcp_assertions[86].equals	"resource_not_found"
+field	expectations.mcp_assertions[86].id	24
+field	expectations.mcp_assertions[86].operation	"equals"
+field	expectations.mcp_assertions[86].path	"/error/data/code"
+field	expectations.mcp_assertions[87].id	24
+field	expectations.mcp_assertions[87].operation	"missing"
+field	expectations.mcp_assertions[87].path	"/result"
+field	expectations.mcp_assertions[88].equals	-32002
+field	expectations.mcp_assertions[88].id	25
+field	expectations.mcp_assertions[88].operation	"equals"
+field	expectations.mcp_assertions[88].path	"/error/code"
+field	expectations.mcp_assertions[89].equals	"resource_not_found"
+field	expectations.mcp_assertions[89].id	25
+field	expectations.mcp_assertions[89].operation	"equals"
+field	expectations.mcp_assertions[89].path	"/error/data/code"
 field	expectations.mcp_assertions[8].contains	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/lexical-structure"
 field	expectations.mcp_assertions[8].id	3
 field	expectations.mcp_assertions[8].operation	"contains"
 field	expectations.mcp_assertions[8].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[90].id	25
+field	expectations.mcp_assertions[90].operation	"missing"
+field	expectations.mcp_assertions[90].path	"/result"
 field	expectations.mcp_assertions[9].equals	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/lexical-structure"
 field	expectations.mcp_assertions[9].id	4
 field	expectations.mcp_assertions[9].operation	"equals"
@@ -15212,16 +15284,18 @@ field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"resources\":{\"listChanged\":false,\"subscribe\":false}"
 field	expectations.stdout.contains[1]	"\"name\":\"language-index\""
 field	expectations.stdout.contains[2]	"\"name\":\"lexical-structure\""
-field	expectations.stdout.contains[3]	"# Veln Language Reference"
-field	expectations.stdout.contains[4]	"\"name\":\"search_docs\""
-field	expectations.stdout.contains[5]	"\"name\":\"read_doc\""
-field	expectations.stdout.contains[6]	"\"scope\":\"language\""
-field	expectations.stdout.contains[7]	"\"code\":\"resource_not_found\""
+field	expectations.stdout.contains[3]	"\"name\":\"bytes.veln\""
+field	expectations.stdout.contains[4]	"\"title\":\"Veln standard library source: prelude.veln\""
+field	expectations.stdout.contains[5]	"# Veln Language Reference"
+field	expectations.stdout.contains[6]	"\"name\":\"search_docs\""
+field	expectations.stdout.contains[7]	"\"name\":\"read_doc\""
+field	expectations.stdout.contains[8]	"\"scope\":\"language\""
+field	expectations.stdout.contains[9]	"\"code\":\"resource_not_found\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2898,"sha256":"232f018fad61c4d42e4d976a7ab224b0067a8889d2f3e8fdfcce52d6a0386bb3"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3773,"sha256":"abf8af8789fd831c2f003cd2850bcd041d051755902113c3fb6d69c6369e968c"}
 field	source_errors	"forbidden"
-case_digest	"a882f2cf8553521e772a92e028462a1fe04beb1bd17143e7f54ef056466e111a"
+case_digest	"5db5b5e561a39f1641308b44248e88476b438e7a6e13242c56aeebe91d0a7454"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -54296,4 +54370,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9a1190b979246f921778af44153d14f6b40c1aeff8dcbbffed156a0ffa1801db"
+aggregate_digest	"6e8973b24a8f263eb6243daf1a173471b36c3af3d1b3852d68124f88e4332a64"

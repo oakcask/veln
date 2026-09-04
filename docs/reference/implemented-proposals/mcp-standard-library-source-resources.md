@@ -1,16 +1,22 @@
 ---
-role: proposal
-update-when: The embedded standard-library bundle, package virtual-source catalog, MCP resource contract, or planned standard-library source-resource evidence changes.
+role: implementation-record
+update-when: The embedded standard-library source-resource MCP implementation, specification route, executable MCP case, or completed proposal catalog entry changes.
 ---
 
 # MCP Standard Library Source Resources
 
 ## Summary
 
-Publish every distribution source in the embedded Veln standard library as an
+This record preserves the completed proposal to publish every distribution
+source in the embedded Veln standard library as an
 immutable MCP resource. This slice gives clients an exact read route for
 canonical `veln-pkg:` source URIs without adding dependency loading, package
 documentation, navigation expansion, or mutable snapshot state.
+
+Current behavior is specified in
+[../../specification/mcp.md](../../specification/mcp.md). Executable stdio
+evidence is under
+`../../../examples/specification/mcp/language-reference-resources/`.
 
 ## Scope
 
@@ -71,24 +77,15 @@ the package-snapshot capacity, coexistence, or eviction behavior required for
 loaded dependencies. A later dependency-resource proposal must define those
 state transitions independently.
 
-## Acceptance Model
+## Completion Evidence
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence |
 | --- | --- | --- |
-| Start the server with the shipped standard-library bundle. | One validated embedded `std` snapshot supplies the complete virtual-source catalog; invalid bundle or catalog input fails startup without partial resources. | Embedded-capture and startup-failure unit cases. |
-| List resources after initialization. | The combined list contains every language resource and exactly one entry for every standard-library distribution source, sorted by URI bytes with no cursor or duplicate. | Catalog-to-resource bidirectional completeness test and exact stdio list case. |
-| Read each listed standard-library source. | URI and media type equal the listed metadata, and text equals the captured bundle bytes exactly, including line endings. | Table-driven route round trips and representative exact stdio reads. |
+| Start the server with the shipped standard-library bundle. | One validated embedded `std` snapshot supplies the complete virtual-source catalog; invalid bundle or catalog input fails startup without partial resources. | Embedded-capture and startup-failure unit cases in `veln-mcp`. |
+| List resources after initialization. | The combined list contains every language resource and exactly one entry for every standard-library distribution source, sorted by URI bytes with no cursor or duplicate. | Catalog-to-resource bidirectional completeness unit test and stdio list case. |
+| Read each listed standard-library source. | URI and media type equal the listed metadata, and text equals the captured bundle bytes exactly, including line endings. | Table-driven route round trips in `veln-mcp` and representative stdio reads. |
 | Read private and non-exported distribution sources. | They remain readable because distribution membership, not semantic visibility, controls source publication. | Exported and private source read cases. |
 | Read a test-shaped source or a path absent from the captured distribution. | No such resource is listed, and exact reads return `resource_not_found`. | Distribution-exclusion and missing-path cases. |
 | Read an unknown-identity, wrong-digest, malformed, or noncanonical `veln-pkg:` URI. | The request returns structured `resource_not_found` without normalization or filesystem fallback. | Shared virtual-source rejection table mapped through MCP. |
-| Refresh the workspace, analyze a project, and use the language-reference tools between list and read requests. | Standard-library resource metadata, URIs, ordering, and bytes remain identical. | MCP lifecycle state-preservation case. |
+| Refresh the workspace, analyze a project, and use the language-reference tools between list and read requests. | Standard-library resource metadata, URIs, ordering, and bytes remain identical. | MCP lifecycle state-preservation cases. |
 | Supply malformed list or read parameters. | Existing invalid-params behavior remains unchanged and publishes no partial resource content. | Protocol parameter matrix. |
-
-## Completion
-
-This proposal is complete when every acceptance row passes and the MCP
-specification and executable examples state the implemented standard-library
-source-resource behavior. Move completion history under
-`../reference/implemented-proposals/`, remove this page from the Ready catalog,
-and leave the umbrella proposal unselectable until another finite slice is
-extracted.

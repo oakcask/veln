@@ -30,7 +30,7 @@ is not obvious.
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   or [specification/json-output.md](specification/json-output.md).
 - Update MCP workspace selection, saved diagnostics, saved navigation,
-  language-reference resources, or tool schemas:
+  resources, or tool schemas:
   [specification/mcp.md](specification/mcp.md).
 - Check rationale behind current behavior:
   [specification/source-decisions.md](specification/source-decisions.md).
