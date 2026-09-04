@@ -1,9 +1,15 @@
 ---
-role: proposal
-update-when: Shared package definition selection, MCP definition results, package source resources, or planned package navigation evidence changes.
+role: implementation-record
+update-when: Shared package definition selection, MCP definition results, package source resources, or executable package navigation evidence changes.
 ---
 
 # MCP Package Definition Navigation
+
+This record preserves the completed proposal history for returning retained
+package source locations from the MCP `definition` tool. Current behavior is
+specified by [MCP saved workspace navigation](../../specification/mcp.md#saved-workspace-navigation)
+and checked by the `definition-package-navigation` executable MCP case plus
+focused `veln-mcp` adapter tests.
 
 ## Summary
 
@@ -83,26 +89,17 @@ reference locations, prepare-rename range, rename edits, or documentation URI.
 Workspace refresh or later dependency changes do not mutate a package source
 resource that was already returned.
 
-## Acceptance Model
+## Completion Evidence
 
-| Case | Expected result | Planned evidence |
-| --- | --- | --- |
-| Select each supported public declaration class from an exported direct-dependency module. | `definition` returns its canonical dependency `veln-pkg:` URI and exact declaration range. | Table-driven MCP adapter cases for functions, types, constructors, schemas, and public member aliases. |
-| Select an implicit-prelude or explicitly imported public standard-library declaration. | `definition` returns the canonical embedded `std` source URI and exact declaration range. | Table-driven standard-library cases covering implicit and explicit imports. |
-| Use direct path, vendor, mirror, and locally available git inputs with byte-identical package snapshots. | Results use the same identity-and-digest URI form and contain no physical source kind or materialization path. | Source-kind matrix reusing captured dependency fixtures. |
-| Select a private declaration, a declaration in a non-exported or invalid-cased source, an invalid declaration, or a mismatched package import. | The request succeeds with `definition: null` and does not reinterpret the selection. | Visibility, casing, and exact-import rejection matrix. |
-| Read the URI returned by `definition`. | The listed resource returns the exact captured source bytes, and the result range addresses the selected declaration token. | Definition-to-resource round trip with LF, CRLF, and non-ASCII text. |
-| Edit or remove the physical dependency after the package location is returned. | The retained URI continues to return the original bytes and range target until server shutdown. | Saved-snapshot lifetime transition case. |
-| Change a manifest or included source byte in a later stable capture. | A later definition uses the new snapshot URI while the earlier URI remains readable. | Same-identity, different-digest coexistence case. |
-| Exhaust package resource capacity during a dependency definition operation. | The operation returns `resource_capacity`, no definition or new resource is published, and prior resources remain unchanged. | Capacity-boundary and atomic state-preservation case. |
-| Change captured inputs during the operation. | Stable capture retries under the existing bound, then returns `snapshot_changed` with no partial definition or resource admission. | Injected capture-change case. |
-| Select a package declaration and request references, prepare-rename, or rename through existing adapters. | MCP exposes no package reference or mutation capability in this slice; existing LSP package mutation rejection remains unchanged. | MCP schema checks and existing LSP package-boundary cases. |
-
-## Completion
-
-This proposal is complete when every acceptance row passes and the MCP
-specification and executable MCP examples state the implemented package
-definition and source-resource relationship. Move completion history under
-`../reference/implemented-proposals/`, remove this page from the Ready catalog,
-and leave the umbrella proposal unselectable until another finite slice is
-extracted.
+| Case | Evidence |
+| --- | --- |
+| Public declaration classes in exported direct-dependency modules return canonical dependency `veln-pkg:` locations and exact declaration ranges. | `definition_resolves_public_package_symbol_classes` covers functions, types, constructors, schemas, and public function aliases. |
+| Implicit-prelude and explicitly imported public standard-library declarations return canonical embedded `std` source locations. | `definition_resolves_implicit_and_explicit_standard_library_symbols` |
+| Direct path, vendor, mirror, and locally available git inputs use the identity-and-digest URI form without source-kind or materialization-path leakage. | `definition_dependency_package_uris_are_independent_of_source_kind` |
+| Private declarations, non-exported sources, invalid declaration casing, mismatched package imports, and module-segment selections return `definition: null`. | `definition_rejects_ineligible_package_selections_without_reinterpreting_them` |
+| A returned package definition URI resolves through retained source resources to exact captured source bytes and the declaration range addresses the selected token. | `definition_resolves_public_package_symbol_classes`, `definition_resolves_implicit_and_explicit_standard_library_symbols`, and `definition-package-navigation` |
+| Editing or removing a physical dependency after returning a package location does not mutate the retained resource. | `definition_retains_package_snapshot_bytes_across_dependency_changes` |
+| A later stable capture with changed dependency source bytes receives a new snapshot URI while the earlier URI remains readable. | `definition_retains_package_snapshot_bytes_across_dependency_changes` |
+| Dependency definition resource-capacity failure is atomic and preserves prior resources. | `saved_project_capacity_failures_match_advertised_result_schemas` |
+| Changed captured inputs fail with `snapshot_changed` and no success-only definition member. | `definition_rejects_paths_and_changed_workspace_identity` and stable-capture unit coverage |
+| MCP exposes package definition locations without package reference or mutation capability. | `definition-package-navigation`, `references-workspace`, and existing LSP package-boundary tests |

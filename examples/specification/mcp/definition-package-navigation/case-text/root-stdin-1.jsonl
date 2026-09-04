@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":4,"column":8}}}
+{"jsonrpc":"2.0","id":3,"method":"resources/list","params":{}}
+{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"veln-pkg:///example%2Fdep/snapshot/e6a80e5fae08eab4aa7b443f99eba9ef0c32334032b5eb3546fa586cd15c9007/dep.veln"}}

@@ -157,7 +157,9 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<Symbol> {
         if is_schema_path_leaf_token(tokens, token_index) {
-            return self.schema_for_reference(file, name).map(Symbol::Schema);
+            return self
+                .schema_for_reference(file, tokens, token_index, name)
+                .map(Symbol::Schema);
         }
         if is_effect_reference_token(tokens, token_index)
             || is_perform_effect_qualifier_token(tokens, token_index)

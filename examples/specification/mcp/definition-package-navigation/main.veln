@@ -1,0 +1,5 @@
+use dep from "example/dep"
+
+fn main() -> Int
+  dep::increment(1)
+end

@@ -1,0 +1,47 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"definition\":{\"range\":{\"end\":{\"column\":17,\"line\":1},\"start\":{\"column\":8,\"line\":1}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/",
+  "\"name\":\"dep.veln\",\"title\":\"Veln package source: example/dep: dep.veln\"",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/uri"
+contains = "veln-pkg:///example%2Fdep/snapshot/"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":8},"end":{"line":1,"column":17}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 2
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/uri"
+equals = "veln-pkg:///example%2Fdep/snapshot/e6a80e5fae08eab4aa7b443f99eba9ef0c32334032b5eb3546fa586cd15c9007/dep.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/text"
+equals_file = "vendor/dep/dep.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/error"
+missing = true

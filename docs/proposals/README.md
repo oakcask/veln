@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Return canonical package source locations from MCP `definition` for visible
-  direct-dependency and standard-library declarations:
-  [mcp-package-definition-navigation.md](mcp-package-definition-navigation.md).
+No proposal is currently ready for implementation.
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.

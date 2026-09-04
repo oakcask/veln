@@ -71,10 +71,10 @@ recorded by
 The bounded dependency source-resource slice is implemented and recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
 
-### Extracted Ready Package Definition Slice
+### Implemented Package Definition Slice
 
-The next bounded navigation slice is separately selectable as
-[MCP Package Definition Navigation](mcp-package-definition-navigation.md).
+The bounded package definition navigation slice is implemented and recorded by
+[MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -1080,14 +1080,16 @@ returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
 access to private target functions. The saved-workspace function-reference
 slice returns project-owned function reference locations through MCP.
-Dependency and standard-library locations, the proposal's additional symbol
-kinds, and broader reference search remain planned.
+Dependency and standard-library definition locations for the bounded package
+symbol set are specified by
+[MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
+Broader reference search remains planned.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
-The package definition navigation slice is extracted as
-[MCP Package Definition Navigation](mcp-package-definition-navigation.md).
+The package definition navigation slice is recorded by
+[MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 Later slices are:
 
 1. Extend the existing `veln mcp` server with package and standard-library

@@ -269,15 +269,25 @@ accepted source uses anonymous single-file scope. A source below an unselected
 descendant manifest is therefore not analyzed with the outer project.
 
 The implemented symbol set is the shared language-service definition selection
-set for captured saved workspace sources, including functions, type
-constructors, handler context parameters, handler operation clause parameters,
-exact test-companion access to target-private functions, and unique
-class-compatible invalid source declaration or binding recovery records. MCP
-only exposes the recovery record source range through `definition`;
-prepare-rename, rename edits, dependencies, and the standard library do not
-produce definition locations through this MCP slice.
+set for captured saved workspace sources. Workspace selections include
+functions, type constructors, handler context parameters, handler operation
+clause parameters, exact test-companion access to target-private functions, and
+unique class-compatible invalid source declaration or binding recovery records.
+Eligible package selections include public functions, types, constructors,
+schemas, and public function aliases in exported direct-dependency modules and
+the embedded standard library. The source must select the exact visible import
+or implicit standard-library prelude path required by name resolution. Invalid
+casing records, private declarations, non-exported sources, mismatched package
+imports, unsupported symbol classes, and package module-segment selections
+succeed with `definition: null`.
+MCP only exposes the recovery record source range through `definition`.
+Prepare-rename, rename edits, and package reference locations are outside the
+MCP definition result.
 A supported workspace declaration returns one canonical `file:` URI based on
-the resolved workspace-base identity and a half-open range. A valid position
+the resolved workspace-base identity and a half-open range. A supported package
+declaration returns the canonical retained `veln-pkg:` URI from the package
+virtual-source catalog. The returned range is the one-based Unicode-scalar
+half-open declaration-token range in that retained source. A valid position
 without a supported symbol succeeds with `definition: null`.
 
 `references` exposes only the shared language-service workspace function
@@ -310,6 +320,11 @@ member. `snapshot_changed` references failures publish no success-only
 If dependency resource admission exceeds retained package capacity after
 navigation succeeds, `definition` and `references` return `resource_capacity`
 and publish no success-only `definition`, `references`, or scope member.
+When `definition` returns a direct-dependency package URI, the same successful
+operation has admitted the dependency snapshot. `resources/read` for the exact
+returned URI returns the captured UTF-8 source text for that immutable package
+snapshot. A capacity failure or `snapshot_changed` failure does not publish a
+partial package definition or new package resource state.
 
 ## Executable Evidence
 
@@ -351,6 +366,10 @@ reviewability evidence and do not add a distinct MCP response field contract.
 Response-local string containment checks in that case are harness evidence
 over selected JSON strings and do not add a distinct MCP response field
 contract.
+The `definition-package-navigation` MCP specification case checks that
+`definition` returns a canonical direct-dependency `veln-pkg:` URI and
+declaration range, and that the returned snapshot source is listed as an MCP
+resource in the same session.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
 ordinary calls, unsupported constructor success, function-shaped recovery
