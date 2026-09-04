@@ -197,7 +197,7 @@ fn capture_stable_with<T>(
 
 pub(crate) struct CapturedProject {
     pub(crate) project: Project,
-    pub(super) dependencies: Vec<CapturedDependencyProject>,
+    pub(crate) dependencies: Vec<CapturedDependencyProject>,
     pub(super) key: Value,
 }
 

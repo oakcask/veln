@@ -1,0 +1,6 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"check_project","arguments":{"project":"."}}}
+{"jsonrpc":"2.0","id":3,"method":"resources/list","params":{}}
+{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/dep.veln"}}
+{"jsonrpc":"2.0","id":5,"method":"resources/read","params":{"uri":"veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/private.veln"}}
+{"jsonrpc":"2.0","id":6,"method":"resources/read","params":{"uri":"veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/dep_test.veln"}}

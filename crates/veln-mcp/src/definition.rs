@@ -7,6 +7,7 @@ use veln_language_service::{EffectiveProjectSnapshot, NavigationSource, SourcePo
 use veln_source::SourcePath;
 
 use crate::check_project::capture_navigation_source;
+use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -19,6 +20,7 @@ pub(crate) enum Coordinate {
 pub(crate) fn definition(
     base: &WorkspaceBase,
     selection: &Selection,
+    language_resources: &mut LanguageResources,
     arguments: &Value,
 ) -> ToolOutcome {
     let source = arguments["source"]
@@ -73,6 +75,9 @@ pub(crate) fn definition(
         })),
         NavigationSource::Package { .. } => None,
     });
+    if let Err(error) = language_resources.admit_dependencies(&captured.dependencies) {
+        return error.into();
+    }
     ToolOutcome::Success(json!({"definition": definition}))
 }
 

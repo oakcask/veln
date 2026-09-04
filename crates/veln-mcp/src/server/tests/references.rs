@@ -172,7 +172,7 @@ fn references_reject_paths_and_changed_workspace_identity() {
     let selection = Selection::discover(base.path()).unwrap();
     fs::remove_dir_all(&workspace.root).unwrap();
     workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
-    let server = Server {
+    let mut server = Server {
         base,
         selection,
         initialized: true,

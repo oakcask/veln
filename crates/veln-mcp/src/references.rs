@@ -6,12 +6,14 @@ use veln_source::{SourcePath, SourceSpan};
 
 use crate::check_project::capture_navigation_source;
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
+use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
 
 pub(crate) fn references(
     base: &WorkspaceBase,
     selection: &Selection,
+    language_resources: &mut LanguageResources,
     arguments: &Value,
 ) -> ToolOutcome {
     let source = arguments["source"]
@@ -65,6 +67,9 @@ pub(crate) fn references(
     })
     .unwrap_or_default();
 
+    if let Err(error) = language_resources.admit_dependencies(&captured.dependencies) {
+        return error.into();
+    }
     ToolOutcome::Success(json!({
         "references": references,
         "scope": scope.metadata(selection.generation())

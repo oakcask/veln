@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"2cfef151b3039402cb90061f8a92a53008a756db"
+source_git_tree	"0739c979238199d7d63d87b3bd067eadecc97bd8"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1659
+case_count	1660
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -14930,6 +14930,54 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
 case_digest	"fb4fcefd1a48d338181c86c31078b3208a785c9121335fc379747e98fa6a480b"
+case	"examples/specification/mcp/dependency-source-resources"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].equals	false
+field	expectations.mcp_assertions[0].id	2
+field	expectations.mcp_assertions[0].operation	"equals"
+field	expectations.mcp_assertions[0].path	"/result/isError"
+field	expectations.mcp_assertions[1].id	3
+field	expectations.mcp_assertions[1].operation	"missing"
+field	expectations.mcp_assertions[1].path	"/result/nextCursor"
+field	expectations.mcp_assertions[2].equals	"veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/dep.veln"
+field	expectations.mcp_assertions[2].id	4
+field	expectations.mcp_assertions[2].operation	"equals"
+field	expectations.mcp_assertions[2].path	"/result/contents/0/uri"
+field	expectations.mcp_assertions[3].equals	"text/x-veln; charset=utf-8"
+field	expectations.mcp_assertions[3].id	4
+field	expectations.mcp_assertions[3].operation	"equals"
+field	expectations.mcp_assertions[3].path	"/result/contents/0/mimeType"
+field	expectations.mcp_assertions[4].equals_file	"pub fn value() -> Int\n  7\nend\n"
+field	expectations.mcp_assertions[4].id	4
+field	expectations.mcp_assertions[4].operation	"equals_file"
+field	expectations.mcp_assertions[4].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[5].equals	"veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/private.veln"
+field	expectations.mcp_assertions[5].id	5
+field	expectations.mcp_assertions[5].operation	"equals"
+field	expectations.mcp_assertions[5].path	"/result/contents/0/uri"
+field	expectations.mcp_assertions[6].equals_file	"fn secret() -> Int\n  9\nend\n"
+field	expectations.mcp_assertions[6].id	5
+field	expectations.mcp_assertions[6].operation	"equals_file"
+field	expectations.mcp_assertions[6].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[7].equals	"resource_not_found"
+field	expectations.mcp_assertions[7].id	6
+field	expectations.mcp_assertions[7].operation	"equals"
+field	expectations.mcp_assertions[7].path	"/error/data/code"
+field	expectations.mcp_assertions[8].id	6
+field	expectations.mcp_assertions[8].operation	"missing"
+field	expectations.mcp_assertions[8].path	"/result"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"isError\":false"
+field	expectations.stdout.contains[1]	"\"name\":\"dep.veln\""
+field	expectations.stdout.contains[2]	"\"name\":\"private.veln\""
+field	expectations.stdout.contains[3]	"\"title\":\"Veln package source: example/dep: dep.veln\""
+field	expectations.stdout.contains[4]	"\"title\":\"Veln package source: example/dep: private.veln\""
+field	expectations.stdout.contains[5]	"\"code\":\"resource_not_found\""
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":868,"sha256":"ab8ce2c4f6c90b8f0eec55b3cd104a2426e3c625055e689bf5312f20047f4bc2"}
+field	source_errors	"forbidden"
+case_digest	"a2a196beeaf09dc9bd61cf71588d10f31af2e02ab2882266b74fb78c2d9db40f"
 case	"examples/specification/mcp/language-reference-resources"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	{"listChanged":false,"subscribe":false}
@@ -54370,4 +54418,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"6e8973b24a8f263eb6243daf1a173471b36c3af3d1b3852d68124f88e4332a64"
+aggregate_digest	"c94f493b106354d6eb04aad94f3128335074b40955f14d2b4d1d5c1dc6498815"

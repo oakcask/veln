@@ -602,7 +602,12 @@ mod tests {
     fn definition_result_accepts_empty_location_and_domain_failures() {
         let tool = tool("definition").unwrap();
         assert!(tool.accepts_result(&serde_json::json!({"definition": null})));
-        for code in ["invalid_path", "invalid_position", "snapshot_changed"] {
+        for code in [
+            "invalid_path",
+            "invalid_position",
+            "snapshot_changed",
+            "resource_capacity",
+        ] {
             let result = serde_json::json!({
                 "code": code,
                 "message": "failed",
@@ -641,7 +646,12 @@ mod tests {
                 "project_wide": false
             }
         })));
-        for code in ["invalid_path", "invalid_position", "snapshot_changed"] {
+        for code in [
+            "invalid_path",
+            "invalid_position",
+            "snapshot_changed",
+            "resource_capacity",
+        ] {
             let result = serde_json::json!({
                 "code": code,
                 "message": "failed",
@@ -811,6 +821,11 @@ mod tests {
         assert!(tool.accepts_result(&serde_json::json!({
             "code": "snapshot_changed",
             "message": "workspace files changed during capture",
+            "details": {}
+        })));
+        assert!(tool.accepts_result(&serde_json::json!({
+            "code": "resource_capacity",
+            "message": "dependency source resource capacity exceeded",
             "details": {}
         })));
 

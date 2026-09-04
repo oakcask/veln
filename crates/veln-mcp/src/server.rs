@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use crate::check_project;
 use crate::definition;
-use crate::language_resources::LanguageResources;
+use crate::language_resources::{LanguageResources, ResourceCapacityError};
 use crate::language_tools;
 use crate::outcome::ToolOutcome;
 use crate::references;
@@ -186,24 +186,39 @@ impl Server {
         )
     }
 
-    fn references_tool(&self, arguments: &Value) -> Value {
+    fn references_tool(&mut self, arguments: &Value) -> Value {
         render_tool_outcome(
             "references",
-            references::references(&self.base, &self.selection, arguments),
+            references::references(
+                &self.base,
+                &self.selection,
+                &mut self.language_resources,
+                arguments,
+            ),
         )
     }
 
-    fn definition_tool(&self, arguments: &Value) -> Value {
+    fn definition_tool(&mut self, arguments: &Value) -> Value {
         render_tool_outcome(
             "definition",
-            definition::definition(&self.base, &self.selection, arguments),
+            definition::definition(
+                &self.base,
+                &self.selection,
+                &mut self.language_resources,
+                arguments,
+            ),
         )
     }
 
-    fn check_project_tool(&self, arguments: &Value) -> Value {
+    fn check_project_tool(&mut self, arguments: &Value) -> Value {
         render_tool_outcome(
             "check_project",
-            check_project::check_project(&self.base, &self.selection, arguments),
+            check_project::check_project(
+                &self.base,
+                &self.selection,
+                &mut self.language_resources,
+                arguments,
+            ),
         )
     }
 
@@ -227,6 +242,20 @@ impl Server {
             "generation": self.selection.generation(),
             "roots": self.selection.roots(),
         })
+    }
+}
+
+pub(crate) fn resource_capacity_failure() -> ToolOutcome {
+    ToolOutcome::DomainFailure {
+        code: "resource_capacity",
+        message: "dependency source resource capacity exceeded",
+        details: json!({}),
+    }
+}
+
+impl From<ResourceCapacityError> for ToolOutcome {
+    fn from(_: ResourceCapacityError) -> Self {
+        resource_capacity_failure()
     }
 }
 
