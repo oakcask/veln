@@ -1,0 +1,7 @@
+use api from "example/dep"
+use bad from "example/bad"
+
+pub fn main() -> Int
+  let value = api::answer()
+  bad::broken() + value
+end

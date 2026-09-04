@@ -18,8 +18,7 @@ also states it.
 
 ## Ready
 
-- Finish direct-dependency package documentation resources and package-backed
-  definition documentation links:
+- Finish package-backed definition documentation links:
   [mcp-package-documentation-resources.md](mcp-package-documentation-resources.md).
 
 Each entry in this section selects one complete proposal page. A subsection of

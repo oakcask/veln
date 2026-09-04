@@ -1,0 +1,4 @@
+## Missing reference {@schema Missing}.
+pub fn broken() -> Int
+  1
+end

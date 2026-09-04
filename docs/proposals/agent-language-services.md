@@ -31,9 +31,9 @@ The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus dependency and paginated reference lookup;
-- package and standard-library documentation search after the resource slice
-  in
-  [MCP Package Documentation Resources](mcp-package-documentation-resources.md);
+- package and standard-library documentation search after the definition-link
+  slice in
+  [MCP Package Definition Documentation Links](mcp-package-documentation-resources.md);
   and
 - plugin packaging for Codex and Claude Code.
 
@@ -355,16 +355,16 @@ explicitly retrieve a selected result as a model-controlled tool.
 The server lists and reads:
 
 - a language-reference index and individual language topics;
-- embedded standard-library package-documentation index resources, exact
-  module and declaration resources, and package-documentation resource
-  templates;
+- embedded standard-library and admitted direct-dependency
+  package-documentation index or status resources, exact module and
+  declaration resources, and package-documentation resource templates;
 - virtual source files for loaded dependencies and the standard library.
 
 The extracted
-[MCP Package Documentation Resources](mcp-package-documentation-resources.md)
-proposal owns the remaining direct-dependency documentation resource and
-package-backed definition-link contract. The implemented embedded
-standard-library package-documentation resource slice is recorded by
+[MCP Package Definition Documentation Links](mcp-package-documentation-resources.md)
+proposal owns the remaining package-backed definition-link contract. The
+implemented embedded standard-library package-documentation resource slice is
+recorded by
 [MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md).
 Package and standard-library search remains later work.
 
@@ -479,8 +479,8 @@ snapshot therefore use the same virtual location.
 The current URI and catalog behavior is specified by
 [Package Documentation Catalogs](../specification/package-documentation.md).
 The extracted
-[MCP Package Documentation Resources](mcp-package-documentation-resources.md)
-proposal owns the planned adapter and definition-link behavior.
+[MCP Package Definition Documentation Links](mcp-package-documentation-resources.md)
+proposal owns the planned definition-link behavior.
 
 ### Resolution And Failure
 
@@ -597,11 +597,13 @@ a different package snapshot digest.
 The transport-independent package-documentation catalog, identity, projection,
 generation gates, and declaration lookup are implemented and specified by
 [Package Documentation Catalogs](../specification/package-documentation.md).
-The extracted
-[MCP Package Documentation Resources](mcp-package-documentation-resources.md)
-proposal publishes that existing result without changing its generation
-semantics. Runtime doctest execution and expected-output comparison remain
-outside that bounded resource slice.
+MCP resource publication for embedded standard-library and admitted
+direct-dependency documentation results is implemented and specified by
+[MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+Package-backed definition documentation links remain planned under
+[MCP Package Definition Documentation Links](mcp-package-documentation-resources.md).
+Runtime doctest execution and expected-output comparison remain outside the
+resource publication boundary.
 
 ## Published Language Reference
 
@@ -959,8 +961,9 @@ that the behavior is already implemented.
 | Read a private distribution source or inspect package metadata. | Source resources are readable and expose only the closed metadata allowlist. | Implemented MCP disclosure-policy source-resource cases. |
 | Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Implemented Q10 MCP resource-lifetime cases. |
 
-The package-documentation publication acceptance model is extracted to
-[MCP Package Documentation Resources](mcp-package-documentation-resources.md).
+The remaining package-definition documentation-link acceptance model is
+extracted to
+[MCP Package Definition Documentation Links](mcp-package-documentation-resources.md).
 The embedded standard-library package-documentation resource slice is
 implemented and recorded by
 [MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md).
@@ -1047,8 +1050,8 @@ The package definition navigation slice is recorded by
 Later slices are:
 
 1. Finish the ready
-   [MCP Package Documentation Resources](mcp-package-documentation-resources.md)
-   slice for direct-dependency resources and package-backed definition links.
+   [MCP Package Definition Documentation Links](mcp-package-documentation-resources.md)
+   slice for package-backed definition links.
 1. Extend the existing `veln mcp` server with package and standard-library
    documentation search, dependency reference search, paginated references,
    recovery and casing-neutral symbol references, and definition beyond the
