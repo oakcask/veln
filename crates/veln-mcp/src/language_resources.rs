@@ -1,8 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
 
 use serde_json::{Value, json};
 use veln_analysis::CapturedDependencyProject;
-use veln_language_service::{DirectDependencySnapshot, VirtualSourceCatalog};
+use veln_language_service::{
+    DirectDependencySnapshot, EffectiveProjectSnapshot, VirtualSourceCatalog,
+};
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource,
     capture_embedded_package_snapshot,
@@ -19,25 +22,43 @@ pub(crate) struct LanguageResources {
     combined_resources: Vec<PublishedResource>,
     combined_by_uri: BTreeMap<String, PublishedResource>,
     retained_package_keys: BTreeSet<RetainedPackageKey>,
+    standard_library_snapshot: Option<DirectDependencySnapshot>,
+    standard_library_navigation: EffectiveProjectSnapshot,
 }
 
 impl LanguageResources {
     pub(crate) fn checked() -> Result<Self, String> {
+        static CHECKED: OnceLock<Result<LanguageResources, String>> = OnceLock::new();
+
+        CHECKED.get_or_init(Self::build_checked).clone()
+    }
+
+    fn build_checked() -> Result<Self, String> {
         let rendered = render_checked_language_reference()?;
         let topics = language_topics(&rendered.resources)?;
         let standard_library = StandardLibraryResources::checked()?;
+        let navigation_snapshot = standard_library.snapshot.clone();
         Self::from_parts(
             rendered.resources,
             topics,
             standard_library.resources,
             [standard_library.key],
+            Some(standard_library.snapshot),
+            EffectiveProjectSnapshot::new(Vec::new()).with_standard_library(navigation_snapshot),
         )
     }
 
     #[cfg(test)]
     pub(crate) fn for_test(resources: Vec<RenderedResource>, topics: Vec<LanguageTopic>) -> Self {
-        Self::from_parts(resources, topics, Vec::new(), [])
-            .expect("test resources should be unique")
+        Self::from_parts(
+            resources,
+            topics,
+            Vec::new(),
+            [],
+            None,
+            EffectiveProjectSnapshot::new(Vec::new()),
+        )
+        .expect("test resources should be unique")
     }
 
     fn from_parts(
@@ -45,6 +66,8 @@ impl LanguageResources {
         topics: Vec<LanguageTopic>,
         standard_resources: Vec<PublishedResource>,
         retained_package_keys: impl IntoIterator<Item = RetainedPackageKey>,
+        standard_library_snapshot: Option<DirectDependencySnapshot>,
+        standard_library_navigation: EffectiveProjectSnapshot,
     ) -> Result<Self, String> {
         let by_uri = resources
             .iter()
@@ -72,6 +95,8 @@ impl LanguageResources {
             combined_resources,
             combined_by_uri,
             retained_package_keys: retained_package_keys.into_iter().collect(),
+            standard_library_snapshot,
+            standard_library_navigation,
         })
     }
 
@@ -146,6 +171,18 @@ impl LanguageResources {
     pub(crate) fn topics(&self) -> &[LanguageTopic] {
         &self.topics
     }
+
+    pub(crate) fn standard_library_snapshot(&self) -> Option<DirectDependencySnapshot> {
+        self.standard_library_snapshot.clone()
+    }
+
+    pub(crate) fn with_standard_library_navigation(
+        &self,
+        files: Vec<veln_source::SourceFile>,
+    ) -> EffectiveProjectSnapshot {
+        self.standard_library_navigation
+            .with_workspace_overlays(files)
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -202,6 +239,7 @@ impl PublishedResource {
 pub(crate) struct StandardLibraryResources {
     pub(crate) resources: Vec<PublishedResource>,
     key: RetainedPackageKey,
+    snapshot: DirectDependencySnapshot,
 }
 
 impl StandardLibraryResources {
@@ -237,8 +275,9 @@ impl StandardLibraryResources {
         let snapshot = capture_embedded_package_snapshot(manifest.as_bytes(), sources)
             .map_err(|error| format!("capture embedded standard library snapshot: {error}"))?;
         let manifest = veln_project::parse_manifest_text("veln.toml", manifest);
-        DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
-            .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
+        let navigation_snapshot =
+            DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
+                .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
         let catalog = catalog_builder(PackageIdentity::embedded_standard(), snapshot.clone())?;
         let mut resources = Vec::with_capacity(snapshot.sources().len());
         for (source_index, source) in snapshot.sources().iter().enumerate() {
@@ -269,6 +308,7 @@ impl StandardLibraryResources {
                 identity: PackageIdentity::embedded_standard().as_str().to_string(),
                 digest: snapshot.digest().to_string(),
             },
+            snapshot: navigation_snapshot,
         })
     }
 }
@@ -391,6 +431,27 @@ fn string_array_field<'a>(value: &'a Value, field: &str) -> Result<Vec<&'a str>,
 #[cfg(test)]
 mod standard_library_tests {
     use super::*;
+
+    #[test]
+    fn checked_resources_retain_the_validated_standard_library_snapshot() {
+        let resources = LanguageResources::checked().unwrap();
+
+        assert!(resources.standard_library_snapshot().is_some());
+    }
+
+    #[test]
+    fn checked_resources_return_independent_mutable_state() {
+        let mut first = LanguageResources::checked().unwrap();
+        let second = LanguageResources::checked().unwrap();
+        let unique = RetainedPackageKey {
+            identity: "test/package".to_string(),
+            digest: "unique".to_string(),
+        };
+
+        first.retained_package_keys.insert(unique.clone());
+
+        assert!(!second.retained_package_keys.contains(&unique));
+    }
 
     #[test]
     fn standard_library_capture_rejects_invalid_embedded_inputs() {
