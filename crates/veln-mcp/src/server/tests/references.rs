@@ -1,4 +1,6 @@
 use super::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 #[test]
 fn references_return_sorted_project_function_locations_and_scope() {
@@ -1034,9 +1036,135 @@ fn references_reject_paths_and_changed_workspace_identity() {
     );
 }
 
+#[test]
+fn references_project_capture_exhausts_retries_after_owned_source_changes() {
+    let workspace = TempWorkspace::new("references-project-capture-retry");
+    write_workspace_with_dependency_and_sources(
+        &workspace,
+        "fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  1\nend\n",
+        Some("fn helper() -> Int\n  1\nend\n"),
+    );
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let main = root.join("main.veln");
+        fs::remove_file(&main).unwrap();
+        if attempt % 2 == 0 {
+            fs::write(
+                &main,
+                "fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  2\nend\n",
+            )
+            .unwrap();
+            fs::remove_file(root.join("helper.veln")).unwrap();
+        } else {
+            fs::write(
+                &main,
+                "fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  1\nend\n",
+            )
+            .unwrap();
+            fs::write(root.join("helper.veln"), "fn helper() -> Int\n  1\nend\n").unwrap();
+        }
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn references_anonymous_capture_exhausts_retries_after_requested_source_changes() {
+    let workspace = TempWorkspace::new("references-anonymous-capture-retry");
+    workspace.write(
+        "loose.veln",
+        "fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  1\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("loose.veln");
+        fs::remove_file(&source).unwrap();
+        let value = if attempt % 2 == 0 { 2 } else { 1 };
+        fs::write(
+            &source,
+            format!("fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  {value}\nend\n"),
+        )
+        .unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"loose.veln","line":2,"column":4}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+}
+
 fn references_result(workspace: &TempWorkspace, source: &str, line: usize, column: usize) -> Value {
     initialized_server(workspace)
         .references_tool(&json!({"source": source, "line": line, "column": column}))
+}
+
+fn assert_snapshot_changed_without_references_or_scope(result: &Value) {
+    assert_eq!(result["isError"], true, "{result:#}");
+    assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
+    let structured = result["structuredContent"].as_object().unwrap();
+    assert!(!structured.contains_key("references"), "{result:#}");
+    assert!(!structured.contains_key("scope"), "{result:#}");
+}
+
+fn all_resource_state(server: &mut Server) -> Value {
+    let resources = server
+        .handle_request(json!({"jsonrpc":"2.0","id":"references-state","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .clone();
+    json!(resources)
+}
+
+fn dependency_resource_is_listed(server: &mut Server, identity: &str) -> bool {
+    let prefix = format!("veln-pkg:///{}/snapshot/", identity.replace('/', "%2F"));
+    all_resource_state(server)
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"].as_str().unwrap().starts_with(&prefix))
+}
+
+fn write_workspace_with_dependency_and_sources(
+    workspace: &TempWorkspace,
+    main: &str,
+    helper: Option<&str>,
+) {
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write("main.veln", main);
+    if let Some(helper) = helper {
+        workspace.write("helper.veln", helper);
+    }
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  1\nend\n");
 }
 
 fn assert_reference_ranges(

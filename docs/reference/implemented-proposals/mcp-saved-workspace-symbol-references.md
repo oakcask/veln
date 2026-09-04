@@ -17,7 +17,8 @@ and the checked
 The focused MCP adapter tests cover the accepted symbol classes, identity and
 shadowing boundaries, unsupported classes, recovery exclusion, package
 exclusion, anonymous single-file isolation, coordinate boundaries, saved
-capture failure, and dependency resource capacity state preservation.
+capture retry exhaustion for project and anonymous navigation scopes, and
+dependency resource capacity state preservation.
 
 ## Completed Boundary
 
@@ -47,5 +48,6 @@ or package-resource behavior.
 | Anonymous single-file reference lookup for newly admitted symbol classes remains isolated from other saved sources. | `references_keep_anonymous_sources_isolated_for_new_symbol_classes` |
 | Recovery, package-backed, schema, effect-operation, unsupported, and absent selections succeed with empty references. | `references_reject_recovery_package_and_unsupported_symbols` and existing recovery/path tests |
 | Reference coordinates keep CRLF, Unicode-scalar, token-end, and invalid-position boundaries. | `references_preserve_unicode_coordinates_and_token_end_exclusion` and existing schema coordinate tests |
+| Stable capture changes during `references` exhaust bounded retries without success-only fields, dependency resource publication, or workspace selection changes. | `references_project_capture_exhausts_retries_after_owned_source_changes` and `references_anonymous_capture_exhausts_retries_after_requested_source_changes` |
 | Dependency resource capacity and admission are operation-atomic for `references`. | `saved_project_capacity_failures_match_advertised_result_schemas`, `dependency_resource_capacity_is_atomic`, and successful saved-project admission tests |
 | The stdio executable specification demonstrates the implemented symbol boundary. | `examples/specification/mcp/references-workspace/` |

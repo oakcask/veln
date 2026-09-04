@@ -25,6 +25,8 @@ use crate::workspace::{
 mod capture;
 
 pub(crate) use capture::capture_navigation_source;
+#[cfg(test)]
+pub(crate) use capture::set_after_first_stable_capture_hook;
 use capture::{CaptureError, capture_stable_project};
 #[cfg(test)]
 use capture::{
