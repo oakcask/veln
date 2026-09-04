@@ -202,6 +202,48 @@ fn successful_saved_project_tools_admit_dependency_resources_until_shutdown() {
 }
 
 #[test]
+fn each_successful_saved_project_tool_admits_dependency_resources() {
+    struct Case {
+        name: &'static str,
+        call: fn(&mut Server) -> Value,
+    }
+
+    let cases = [
+        Case {
+            name: "check_project",
+            call: |server| server.check_project_tool(&json!({"project":"."})),
+        },
+        Case {
+            name: "definition",
+            call: |server| {
+                server.definition_tool(&json!({"source":"main.veln","line":4,"column":8}))
+            },
+        },
+        Case {
+            name: "references",
+            call: |server| {
+                server.references_tool(&json!({"source":"main.veln","line":4,"column":8}))
+            },
+        },
+    ];
+
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        write_workspace_with_dependency(&workspace, "admitted");
+        let mut server = initialized_server(&workspace);
+        let before = all_resource_state(&mut server);
+
+        let result = (case.call)(&mut server);
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_ne!(all_resource_state(&mut server), before, "{}", case.name);
+
+        let states = dependency_resource_states(&mut server, "example/dep", "dep.veln");
+        assert_eq!(states.len(), 1, "{}: {states:#?}", case.name);
+        assert_eq!(states[0]["read"]["text"], dependency_source("admitted"));
+    }
+}
+
+#[test]
 fn dependency_resource_admission_deduplicates_and_preserves_state_on_failures() {
     let workspace = TempWorkspace::new("dependency-resource-dedup");
     write_workspace_with_dependency(&workspace, "stable");
@@ -250,6 +292,86 @@ fn dependency_resource_capacity_is_atomic() {
     let error = resources.admit_dependencies(&over_capacity).unwrap_err();
     assert_eq!(error, crate::language_resources::ResourceCapacityError);
     assert_eq!(resources.list_result(), before);
+
+    let mut resources = LanguageResources::checked().unwrap();
+    let boundary = (0..254)
+        .map(|index| synthetic_dependency_project(&format!("example/multi{index}"), "body"))
+        .collect::<Vec<_>>();
+    resources.admit_dependencies(&boundary).unwrap();
+    let before = resources.list_result();
+
+    let over_capacity = vec![
+        synthetic_dependency_project("example/overflow-a", "body"),
+        synthetic_dependency_project("example/overflow-b", "body"),
+    ];
+    let error = resources.admit_dependencies(&over_capacity).unwrap_err();
+    assert_eq!(error, crate::language_resources::ResourceCapacityError);
+    assert_eq!(resources.list_result(), before);
+    assert!(!resource_uri_prefix_is_listed(
+        &resources,
+        "example/overflow-a"
+    ));
+    assert!(!resource_uri_prefix_is_listed(
+        &resources,
+        "example/overflow-b"
+    ));
+}
+
+#[test]
+fn saved_project_capacity_failures_match_advertised_result_schemas() {
+    struct Case {
+        name: &'static str,
+        call: fn(&mut Server) -> Value,
+    }
+
+    let cases = [
+        Case {
+            name: "check_project",
+            call: |server| server.check_project_tool(&json!({"project":"."})),
+        },
+        Case {
+            name: "definition",
+            call: |server| {
+                server.definition_tool(&json!({"source":"main.veln","line":4,"column":8}))
+            },
+        },
+        Case {
+            name: "references",
+            call: |server| {
+                server.references_tool(&json!({"source":"main.veln","line":4,"column":8}))
+            },
+        },
+    ];
+
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        write_workspace_with_dependency(&workspace, "overflow");
+        let mut server = initialized_server(&workspace);
+        let boundary = (0..255)
+            .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
+            .collect::<Vec<_>>();
+        server
+            .language_resources
+            .admit_dependencies(&boundary)
+            .unwrap();
+        let before = all_resource_state(&mut server);
+
+        let result = (case.call)(&mut server);
+        assert_eq!(result["isError"], true, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["code"], "resource_capacity",
+            "{}: {result:#}",
+            case.name
+        );
+        assert!(
+            schema::tool(case.name)
+                .unwrap()
+                .accepts_result(&result["structuredContent"]),
+            "{}: {result:#}",
+            case.name
+        );
+        assert_eq!(all_resource_state(&mut server), before, "{}", case.name);
+    }
 }
 
 fn exercise_resource_state_preserving_operations(server: &mut Server) {
@@ -332,6 +454,45 @@ fn resources_reject_malformed_params_and_unknown_uris() {
         .into_iter()
         .chain(rejected_standard_library_resource_uris(&mut server));
     assert_unknown_resource_reads_rejected(&mut server, unknown_uris);
+}
+
+#[test]
+fn dependency_resource_rejections_are_exact_and_preserve_state() {
+    let workspace = TempWorkspace::new("dependency-resource-rejections");
+    write_workspace_with_dependency(&workspace, "retained");
+    let mut server = initialized_server(&workspace);
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+
+    let before = all_resource_state(&mut server);
+    let dep_uri = dependency_resource_uris(&mut server, "example/dep")
+        .into_iter()
+        .find(|uri| uri.ends_with("/dep.veln"))
+        .unwrap();
+    let digest = dep_uri
+        .strip_prefix("veln-pkg:///example%2Fdep/snapshot/")
+        .unwrap()
+        .split('/')
+        .next()
+        .unwrap();
+    let wrong_digest = "0000000000000000000000000000000000000000000000000000000000000000";
+    let rejected = [
+        format!("veln-pkg:///missing%2Fdep/snapshot/{digest}/dep.veln"),
+        format!("veln-pkg:///example%2Fdep/snapshot/{wrong_digest}/dep.veln"),
+        format!("veln-pkg:///example%2Fdep/snapshot/{digest}/missing.veln"),
+        format!("veln-pkg:///example%2Fdep/snapshot/{digest}/dep_test.veln"),
+        format!("veln-pkg:/example%2Fdep/snapshot/{digest}/dep.veln"),
+        dep_uri.replacen("veln-pkg", "VELN-pkg", 1),
+        dep_uri.replace("dep.veln", "dep%2Eveln"),
+        format!("{dep_uri}?x=1"),
+    ];
+
+    assert_unknown_resource_reads_rejected(&mut server, rejected);
+    assert_eq!(all_resource_state(&mut server), before);
+    assert_eq!(
+        read_resource(&mut server, 80, &dep_uri)["result"]["contents"][0]["text"],
+        dependency_source("retained")
+    );
 }
 
 fn read_all_listed_resources(server: &mut Server, resources: &[Value]) -> BTreeSet<String> {
@@ -615,6 +776,15 @@ fn dependency_resource_uris(server: &mut Server, identity: &str) -> Vec<String> 
             uri.starts_with(&prefix).then(|| uri.to_string())
         })
         .collect()
+}
+
+fn resource_uri_prefix_is_listed(resources: &LanguageResources, identity: &str) -> bool {
+    let prefix = format!("veln-pkg:///{}/snapshot/", identity.replace('/', "%2F"));
+    resources.list_result()["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"].as_str().unwrap().starts_with(&prefix))
 }
 
 fn write_workspace_with_dependency(workspace: &TempWorkspace, body: &str) {

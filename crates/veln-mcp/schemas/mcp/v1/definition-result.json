@@ -32,7 +32,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "code": { "enum": ["invalid_path", "invalid_position", "snapshot_changed"] },
+        "code": { "enum": ["invalid_path", "invalid_position", "snapshot_changed", "resource_capacity"] },
         "message": { "type": "string" },
         "details": { "type": "object" }
       },

@@ -226,7 +226,8 @@
             "source_required",
             "project_not_selected",
             "project_ambiguous",
-            "snapshot_changed"
+            "snapshot_changed",
+            "resource_capacity"
           ]
         },
         "message": {
