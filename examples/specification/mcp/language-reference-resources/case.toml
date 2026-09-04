@@ -7,6 +7,8 @@ contains = [
   "\"resources\":{\"listChanged\":false,\"subscribe\":false}",
   "\"name\":\"language-index\"",
   "\"name\":\"lexical-structure\"",
+  "\"name\":\"bytes.veln\"",
+  "\"title\":\"Veln standard library source: prelude.veln\"",
   "# Veln Language Reference",
   "\"name\":\"search_docs\"",
   "\"name\":\"read_doc\"",
@@ -376,3 +378,98 @@ equals = false
 id = 20
 path = "/result/structuredContent/results"
 length = 1
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/name"
+equals = "bytes.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/title"
+equals = "Veln standard library source: bytes.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/mimeType"
+equals = "text/x-veln; charset=utf-8"
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/description"
+missing = true
+
+[[mcp_assert]]
+id = 21
+path = "/result/contents/0/uri"
+equals = "veln-pkg:///std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/bytes.veln"
+
+[[mcp_assert]]
+id = 21
+path = "/result/contents/0/mimeType"
+equals = "text/x-veln; charset=utf-8"
+
+[[mcp_assert]]
+id = 21
+path = "/result/contents/0/text"
+contains = "type ByteView"
+
+[[mcp_assert]]
+id = 22
+path = "/result/contents/0/uri"
+equals = "veln-pkg:///std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/prelude.veln"
+
+[[mcp_assert]]
+id = 22
+path = "/result/contents/0/mimeType"
+equals = "text/x-veln; charset=utf-8"
+
+[[mcp_assert]]
+id = 22
+path = "/result/contents/0/text"
+contains = "pub type Byte = bytes::Byte"
+
+[[mcp_assert]]
+id = 23
+path = "/error/code"
+equals = -32002
+
+[[mcp_assert]]
+id = 23
+path = "/error/data/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 23
+path = "/result"
+missing = true
+
+[[mcp_assert]]
+id = 24
+path = "/error/code"
+equals = -32002
+
+[[mcp_assert]]
+id = 24
+path = "/error/data/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 24
+path = "/result"
+missing = true
+
+[[mcp_assert]]
+id = 25
+path = "/error/code"
+equals = -32002
+
+[[mcp_assert]]
+id = 25
+path = "/error/data/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 25
+path = "/result"
+missing = true

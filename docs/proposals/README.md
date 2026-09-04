@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Publish the embedded standard-library distribution sources as immutable MCP
-  resources through the existing `resources/list` and `resources/read` routes:
-  [mcp-standard-library-source-resources.md](mcp-standard-library-source-resources.md).
+No proposal is ready for implementation.
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.

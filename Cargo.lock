@@ -479,6 +479,7 @@ dependencies = [
  "veln-project",
  "veln-repo-language-reference",
  "veln-source",
+ "veln-stdlib",
 ]
 
 [[package]]

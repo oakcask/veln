@@ -21,7 +21,7 @@ fn initialize_advertises_immutable_resources() {
 }
 
 #[test]
-fn resources_list_returns_sorted_language_reference_metadata() {
+fn resources_list_returns_sorted_resource_metadata() {
     let workspace = TempWorkspace::new("resources-list");
     let mut server = initialized_server(&workspace);
     let response = server
@@ -57,6 +57,22 @@ fn resources_list_returns_sorted_language_reference_metadata() {
         topic["description"],
         "Source files use ASCII keyword and punctuation tokens, hash comments, identifiers, holes, literals, and the complete executable source grammar."
     );
+    let prelude = resources
+        .iter()
+        .find(|resource| resource["name"] == "prelude.veln")
+        .unwrap();
+    assert!(
+        prelude["uri"]
+            .as_str()
+            .unwrap()
+            .starts_with("veln-pkg:///std/snapshot/")
+    );
+    assert_eq!(
+        prelude["title"],
+        "Veln standard library source: prelude.veln"
+    );
+    assert_eq!(prelude["mimeType"], "text/x-veln; charset=utf-8");
+    assert!(prelude.get("description").is_none());
 }
 
 #[test]
@@ -104,7 +120,13 @@ fn resources_read_returns_complete_markdown_for_listed_uris() {
         .unwrap();
     let index_text = index["result"]["contents"][0]["text"].as_str().unwrap();
     assert!(index_text.starts_with("# Veln Language Reference\n\n"));
-    for resource in &resources[1..] {
+    for resource in resources.iter().filter(|resource| {
+        resource["uri"]
+            .as_str()
+            .unwrap()
+            .starts_with("veln-doc:///language/")
+            && resource["name"] != "language-index"
+    }) {
         assert!(index_text.contains(resource["uri"].as_str().unwrap()));
     }
 
@@ -127,7 +149,7 @@ fn resources_read_returns_complete_markdown_for_listed_uris() {
 
     let linked_uris = listed_uris
         .iter()
-        .filter(|uri| !uri.ends_with("/index"))
+        .filter(|uri| uri.starts_with("veln-doc:///language/") && !uri.ends_with("/index"))
         .cloned()
         .collect::<BTreeSet<_>>();
     assert_eq!(emitted_uris, linked_uris);
@@ -138,6 +160,50 @@ fn resources_read_returns_complete_markdown_for_listed_uris() {
             )
             .unwrap();
         assert_eq!(read["result"]["contents"][0]["uri"], uri);
+    }
+}
+
+#[test]
+fn standard_library_resources_match_captured_distribution_sources() {
+    let workspace = TempWorkspace::new("standard-resources");
+    let mut server = initialized_server(&workspace);
+    let list = server
+        .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
+        .unwrap();
+    let resources = list["result"]["resources"].as_array().unwrap();
+    let std_resources = resources
+        .iter()
+        .filter(|resource| {
+            resource["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-pkg:///std/snapshot/")
+        })
+        .collect::<Vec<_>>();
+    let bundle = veln_stdlib::package_bundle();
+
+    assert_eq!(std_resources.len(), bundle.files.len());
+    for file in bundle.files {
+        let resource = std_resources
+            .iter()
+            .find(|resource| resource["name"] == file.path)
+            .unwrap();
+        assert_eq!(
+            resource["title"],
+            format!("Veln standard library source: {}", file.path)
+        );
+        assert_eq!(resource["mimeType"], "text/x-veln; charset=utf-8");
+        assert!(resource.get("description").is_none());
+
+        let read = server
+            .handle_request(json!({"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":resource["uri"]}}))
+            .unwrap();
+        assert_eq!(read["result"]["contents"][0]["uri"], resource["uri"]);
+        assert_eq!(
+            read["result"]["contents"][0]["mimeType"],
+            resource["mimeType"]
+        );
+        assert_eq!(read["result"]["contents"][0]["text"], file.text);
     }
 }
 
@@ -226,6 +292,28 @@ fn resources_reject_malformed_params_and_unknown_uris() {
         format!("veln-doc:///language/snapshot/{digest}/topic/lexical-structure#section");
     let noncanonical_authority =
         format!("veln-doc://host/language/snapshot/{digest}/topic/lexical-structure");
+    let std_resource = server
+        .handle_request(json!({"jsonrpc":"2.0","id":4,"method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|resource| resource["name"] == "prelude.veln")
+        .unwrap()["uri"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let wrong_std_digest = std_resource.replace(
+        std_resource
+            .strip_prefix("veln-pkg:///std/snapshot/")
+            .unwrap()
+            .split('/')
+            .next()
+            .unwrap(),
+        wrong_digest,
+    );
+    let noncanonical_std_percent = std_resource.replace("prelude.veln", "prelude%2Eveln");
+    let noncanonical_std_query = format!("{std_resource}?x=1");
     let unknown_uris = [
         format!("veln-doc:///language/snapshot/{wrong_digest}/index"),
         format!("veln-doc:///language/snapshot/{wrong_digest}/topic/lexical-structure"),
@@ -235,6 +323,11 @@ fn resources_reject_malformed_params_and_unknown_uris() {
         noncanonical_query,
         noncanonical_fragment,
         noncanonical_authority,
+        wrong_std_digest,
+        noncanonical_std_percent,
+        noncanonical_std_query,
+        format!("veln-pkg:///other/snapshot/{wrong_digest}/prelude.veln"),
+        format!("veln-pkg:///std/snapshot/{wrong_digest}/prelude_test.veln"),
     ];
     for uri in unknown_uris {
         let response = server
@@ -269,6 +362,14 @@ fn expected_resource_metadata() -> Vec<Value> {
             "mimeType": veln_repo_language_reference::LANGUAGE_REFERENCE_MARKDOWN_MEDIA_TYPE,
         }));
     }
+    let standard_library = crate::language_resources::StandardLibraryResources::checked()
+        .unwrap()
+        .resources;
+    resources.extend(
+        standard_library
+            .iter()
+            .map(crate::language_resources::PublishedResource::metadata),
+    );
     resources.sort_by(|left, right| {
         left["uri"]
             .as_str()

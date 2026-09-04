@@ -124,6 +124,8 @@ under `../../specification/` and its executable example routes.
   [mcp-language-reference-resources.md](mcp-language-reference-resources.md).
 - MCP language-reference tools:
   [mcp-language-reference-tools.md](mcp-language-reference-tools.md).
+- MCP standard-library source resources:
+  [mcp-standard-library-source-resources.md](mcp-standard-library-source-resources.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:
