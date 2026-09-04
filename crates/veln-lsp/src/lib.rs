@@ -80,7 +80,6 @@ pub fn diagnostics(source: &SourceFile) -> Vec<Diagnostic> {
         handlers: lowered.handlers,
         types: lowered.types,
         schemas: lowered.schemas,
-        codecs: lowered.codecs,
         functions: lowered.functions,
         invalid_names: lowered.invalid_names,
     };

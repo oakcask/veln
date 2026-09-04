@@ -1,8 +1,7 @@
 use crate::{
-    BinaryOp, BodyLine, CodecDecl, CodecImplementationKind, ContractKind, Expr, ExprKind,
-    FunctionDecl, FunctionKind, HandlerDecl, Pattern, PatternKind, PrefixOp, SchemaDecl,
-    SchemaValidationClause, SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl,
-    TypeVariantFieldDelimiter, Visibility,
+    BinaryOp, BodyLine, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind, HandlerDecl,
+    Pattern, PatternKind, PrefixOp, SchemaDecl, SchemaValidationClause, SyntaxItem, SyntaxTree,
+    TokenKind, TypeDecl, TypeVariantDecl, TypeVariantFieldDelimiter, Visibility,
 };
 use veln_literals::parse_integer_literal;
 

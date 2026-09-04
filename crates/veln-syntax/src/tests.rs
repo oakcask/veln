@@ -10,7 +10,6 @@ fn first_function(output: &ParseOutput) -> &FunctionDecl {
         | SyntaxItem::Handler(_)
         | SyntaxItem::Type(_)
         | SyntaxItem::Schema(_)
-        | SyntaxItem::Codec(_)
         | SyntaxItem::PublicAlias(_) => {
             panic!("expected function item")
         }

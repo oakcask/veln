@@ -332,7 +332,6 @@ fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: first.types.into_iter().chain(second.types).collect(),
         functions: app.functions,
         invalid_names: Vec::new(),

@@ -137,7 +137,6 @@ fn dispatches_mixed_public_and_private_top_level_declarations_in_source_order() 
             SyntaxItem::Effect(_) => "effect",
             SyntaxItem::Handler(_) => "handler",
             SyntaxItem::PublicAlias(_) => "alias",
-            SyntaxItem::Codec(_) => "codec",
         })
         .collect::<Vec<_>>();
     assert_eq!(

@@ -360,7 +360,7 @@ fn separated_reachable_materialization_skips_unrelated_annotated_function_bodies
 
 #[test]
 fn separated_reachable_inputs_match_combined_resolution_results() {
-    let mut standard = lower(concat!(
+    let standard = lower(concat!(
         "mod std::prelude\n",
         "pub type StandardValue\n",
         "  Present\n",
@@ -372,8 +372,7 @@ fn separated_reachable_inputs_match_combined_resolution_results() {
         "  1\n",
         "end\n",
     ));
-    add_payload_codec_for_test(&mut standard);
-    let mut application = lower(concat!(
+    let application = lower(concat!(
         "mod app\n",
         "use std::prelude\n",
         "\n",
@@ -404,7 +403,6 @@ fn separated_reachable_inputs_match_combined_resolution_results() {
         "  handled + standard_value()\n",
         "end\n",
     ));
-    add_payload_codec_for_test(&mut application);
     let mut combined = standard.clone();
     combined.uses.extend(application.uses.clone());
     combined.aliases.extend(application.aliases.clone());
@@ -412,7 +410,6 @@ fn separated_reachable_inputs_match_combined_resolution_results() {
     combined.handlers.extend(application.handlers.clone());
     combined.types.extend(application.types.clone());
     combined.schemas.extend(application.schemas.clone());
-    combined.codecs.extend(application.codecs.clone());
     combined.functions.extend(application.functions.clone());
     combined
         .invalid_names
@@ -470,86 +467,4 @@ fn separated_reachable_inputs_match_combined_resolution_results() {
         separated_reachable.schemas.len(),
         combined_reachable.schemas.len()
     );
-    assert_eq!(
-        separated_reachable.codecs.len(),
-        combined_reachable.codecs.len()
-    );
-}
-
-#[test]
-fn separated_reachable_inputs_resolve_codec_with_targets() {
-    let mut standard = lower(concat!(
-        "mod std::prelude\n",
-        "pub schema Packet\n",
-        "  value: Int\n",
-        "end\n",
-        "\n",
-        "fn decode_payload_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
-        "  NeedMore(NeedEnd)\n",
-        "end\n",
-    ));
-    add_payload_codec_for_test(&mut standard);
-    let application = lower(concat!(
-        "mod app\n",
-        "use std::prelude\n",
-        "\n",
-        "pub fn main(source: ByteView, base: ByteOffset) -> DecodeStep<{value: Int}>\n",
-        "  std::prelude::PayloadCodec(source, base)\n",
-        "end\n",
-    ));
-    let mut combined = standard.clone();
-    combined.uses.extend(application.uses.clone());
-    combined.aliases.extend(application.aliases.clone());
-    combined.effects.extend(application.effects.clone());
-    combined.handlers.extend(application.handlers.clone());
-    combined.types.extend(application.types.clone());
-    combined.schemas.extend(application.schemas.clone());
-    combined.codecs.extend(application.codecs.clone());
-    combined.functions.extend(application.functions.clone());
-    combined
-        .invalid_names
-        .extend(application.invalid_names.clone());
-    combined.module = application.module.clone();
-
-    let combined_reachable = reachable_entry_module(&combined, "main", FunctionKind::Function);
-    let separated_reachable = reachable_entry_module_with_standard_cache(
-        &standard,
-        &application,
-        "main",
-        FunctionKind::Function,
-        &ReachabilityCache::default(),
-    );
-
-    let combined_functions = reachable_function_names(&combined_reachable);
-    let separated_functions = reachable_function_names(&separated_reachable);
-    assert_eq!(separated_functions, combined_functions);
-    assert_eq!(
-        separated_functions,
-        vec![("app", "main"), ("std::prelude", "decode_payload_packet")]
-    );
-}
-
-fn add_payload_codec_for_test(module: &mut SurfaceModule) {
-    let schema = module
-        .schemas
-        .iter()
-        .find(|schema| schema.name.as_deref() == Some("Packet"))
-        .expect("test standard module should define Packet schema");
-    module.codecs.push(CodecDecl {
-        node_id: schema.node_id,
-        module_name: Some("std::prelude".to_string()),
-        visibility: Visibility::Public,
-        name: Some("PayloadCodec".to_string()),
-        schema: Some("Packet".to_string()),
-        directions: vec![CodecDirection::Decode],
-        implementations: vec![CodecImplementationClause {
-            node_id: schema.node_id,
-            direction: CodecDirection::Decode,
-            kind: CodecImplementationKind::With {
-                function: Some("decode_payload_packet".to_string()),
-            },
-            span: schema.span.clone(),
-        }],
-        span: schema.span.clone(),
-    });
 }

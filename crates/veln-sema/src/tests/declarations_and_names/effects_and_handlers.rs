@@ -371,7 +371,6 @@ fn matching_companion_resolves_qualified_private_target_effects() {
         handlers: companion.handlers,
         types: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -423,7 +422,6 @@ fn wrong_companion_handler_effect_reports_target_mismatch() {
         handlers: companion.handlers,
         types: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         functions: companion.functions,
         invalid_names: Vec::new(),
     };
@@ -479,7 +477,6 @@ fn wrong_companion_private_target_effect_reports_target_mismatch() {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         functions: companion
             .functions
             .into_iter()
@@ -554,7 +551,6 @@ fn matching_companion_handles_with_private_target_handler() {
         handlers: target.handlers,
         types: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         functions: companion
             .functions
             .into_iter()
@@ -619,7 +615,6 @@ fn wrong_companion_private_target_handler_reports_target_mismatch() {
         handlers: target.handlers,
         types: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         functions: companion
             .functions
             .into_iter()

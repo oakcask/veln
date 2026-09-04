@@ -85,7 +85,7 @@ impl Writer {
         self.vec(&module.handlers, Self::handler_decl);
         self.vec(&module.types, Self::type_decl);
         self.vec(&module.schemas, Self::schema_decl);
-        self.vec(&module.codecs, Self::codec_decl);
+        self.u32(0);
         self.vec(&module.functions, Self::function);
         self.vec(&module.invalid_names, Self::invalid_name);
     }
@@ -269,43 +269,6 @@ impl Writer {
         self.node_id(value.node_id);
         self.string(&value.predicate);
         self.span(&value.span);
-    }
-
-    fn codec_decl(&mut self, value: &CodecDecl) {
-        self.node_id(value.node_id);
-        self.option(&value.module_name, |writer, value| writer.string(value));
-        self.visibility(value.visibility);
-        self.option(&value.name, |writer, value| writer.string(value));
-        self.option(&value.schema, |writer, value| writer.string(value));
-        self.vec(&value.directions, |writer, value| {
-            writer.codec_direction(*value)
-        });
-        self.vec(&value.implementations, Self::codec_implementation);
-        self.span(&value.span);
-    }
-
-    fn codec_direction(&mut self, value: CodecDirection) {
-        self.u8(match value {
-            CodecDirection::Decode => 0,
-            CodecDirection::Encode => 1,
-        });
-    }
-
-    fn codec_implementation(&mut self, value: &CodecImplementationClause) {
-        self.node_id(value.node_id);
-        self.codec_direction(value.direction);
-        self.codec_implementation_kind(&value.kind);
-        self.span(&value.span);
-    }
-
-    fn codec_implementation_kind(&mut self, value: &CodecImplementationKind) {
-        match value {
-            CodecImplementationKind::Derive => self.u8(0),
-            CodecImplementationKind::With { function } => {
-                self.u8(1);
-                self.option(function, |writer, value| writer.string(value));
-            }
-        }
     }
 
     fn function(&mut self, value: &Function) {

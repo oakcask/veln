@@ -31,7 +31,6 @@ impl TypeEnvironment {
                     && arg_count
                         .is_none_or(|count| function_signature_accepts_arg_count(function, count))
                     && function.visibility == Visibility::Public
-                    && !self.imported_codec_helper_is_hidden(function, use_decl)
             })
             .count()
     }

@@ -158,7 +158,6 @@ pub(super) fn application_module_is_empty(module: &SurfaceModule) -> bool {
         && module.handlers.is_empty()
         && module.types.is_empty()
         && module.schemas.is_empty()
-        && module.codecs.is_empty()
         && module.functions.is_empty()
 }
 
@@ -234,7 +233,6 @@ pub(super) fn module_standard_names(module: &SurfaceModule) -> BTreeSet<String> 
     collect_standard_names(&module.handlers, &mut names);
     collect_standard_names(&module.types, &mut names);
     collect_standard_names(&module.schemas, &mut names);
-    collect_standard_names(&module.codecs, &mut names);
     collect_standard_names(&module.functions, &mut names);
     names
 }
@@ -247,7 +245,6 @@ fn standard_declaration_counts(module: &SurfaceModule) -> BTreeMap<StandardDecla
     count_standard_declarations(&module.handlers, &mut counts);
     count_standard_declarations(&module.types, &mut counts);
     count_standard_declarations(&module.schemas, &mut counts);
-    count_standard_declarations(&module.codecs, &mut counts);
     count_standard_declarations(&module.functions, &mut counts);
     counts
 }
@@ -303,7 +300,6 @@ pub(crate) fn embedded_standard_surface_module() -> SurfaceModule {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
     };
@@ -351,7 +347,6 @@ fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModu
     merged.handlers.extend(module.handlers);
     merged.types.extend(module.types);
     merged.schemas.extend(module.schemas);
-    merged.codecs.extend(module.codecs);
     merged.functions.extend(module.functions);
     merged.invalid_names.extend(module.invalid_names);
 }
@@ -456,7 +451,6 @@ impl_named_standard_declaration!(EffectDecl, StandardDeclarationKind::Effect);
 impl_named_standard_declaration!(HandlerDecl, StandardDeclarationKind::Handler);
 impl_named_standard_declaration!(TypeDecl, StandardDeclarationKind::Type);
 impl_named_standard_declaration!(SchemaDecl, StandardDeclarationKind::Schema);
-impl_named_standard_declaration!(CodecDecl, StandardDeclarationKind::Codec);
 
 impl StandardDeclaration for Function {
     fn module_name(&self) -> Option<&str> {
@@ -489,7 +483,6 @@ enum StandardDeclarationKind {
     Handler,
     Type,
     Schema,
-    Codec,
     Function,
     Test,
 }
@@ -554,12 +547,6 @@ fn filter_module_declarations(
             .collect(),
         schemas: module
             .schemas
-            .iter()
-            .filter(|decl| keep(*decl))
-            .cloned()
-            .collect(),
-        codecs: module
-            .codecs
             .iter()
             .filter(|decl| keep(*decl))
             .cloned()

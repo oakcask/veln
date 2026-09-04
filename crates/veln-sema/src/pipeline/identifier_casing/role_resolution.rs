@@ -51,9 +51,6 @@ pub(super) fn invalid_function_segment_lacks_function_role_for_path(
     environment
         .function_path(segments, current_module)
         .is_none()
-        && environment
-            .codec_call_path(segments, current_module)
-            .is_empty()
         && !lowercase_corrected_function_path_resolves(
             invalid,
             segments,
@@ -76,9 +73,6 @@ pub(super) fn lowercase_corrected_function_path_resolves(
     environment
         .function_path(&corrected, current_module)
         .is_some()
-        || !environment
-            .codec_call_path(&corrected, current_module)
-            .is_empty()
 }
 
 pub(super) fn invalid_value_segment_lacks_value_role_for_path(
@@ -134,9 +128,6 @@ pub(super) fn module_segment_role_is_fixed(
         || environment
             .function_path(segments, current_module)
             .is_some()
-        || !environment
-            .codec_call_path(segments, current_module)
-            .is_empty()
         || environment.quarantined_import_value_recovery_candidate_count(segments, current_module)
             == 1
         || environment.quarantined_import_constructor_recovery_candidate_count(
@@ -161,9 +152,6 @@ pub(super) fn module_segment_role_is_fixed(
         || environment
             .function_path(&corrected, current_module)
             .is_some()
-        || !environment
-            .codec_call_path(&corrected, current_module)
-            .is_empty()
         || environment.quarantined_import_value_recovery_candidate_count(&corrected, current_module)
             == 1
         || environment.quarantined_import_constructor_recovery_candidate_count(
@@ -309,9 +297,6 @@ pub(super) fn invalid_constructor_segment_has_function_role_for_path(
     environment
         .function_path(&corrected, current_module)
         .is_some()
-        || !environment
-            .codec_call_path(&corrected, current_module)
-            .is_empty()
 }
 
 pub(super) fn invalid_constructor_segment_lacks_constructor_role_for_path(
@@ -352,9 +337,6 @@ pub(super) fn invalid_constructor_segment_lacks_constructor_role_for_path(
             environment
                 .function_path(segments, current_module)
                 .is_some()
-                || !environment
-                    .codec_call_path(segments, current_module)
-                    .is_empty()
         }
         NameClass::Function => {
             matches!(
@@ -363,9 +345,7 @@ pub(super) fn invalid_constructor_segment_lacks_constructor_role_for_path(
                     .constructor(segments, current_module, &environment.uses),
                 crate::adt::registry::ConstructorLookup::Found(_)
                     | crate::adt::registry::ConstructorLookup::Ambiguous
-            ) || !environment
-                .codec_call_path(segments, current_module)
-                .is_empty()
+            )
         }
         NameClass::Type | NameClass::Module | NameClass::ValueBinding => false,
     }
@@ -478,9 +458,6 @@ pub(super) fn invalid_type_segment_lacks_constructor_role_for_path(
     if environment
         .function_path(segments, current_module)
         .is_some()
-        || !environment
-            .codec_call_path(segments, current_module)
-            .is_empty()
     {
         return true;
     }

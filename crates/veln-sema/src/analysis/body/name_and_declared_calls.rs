@@ -333,7 +333,6 @@ impl<'a> FunctionChecker<'a> {
             args.first()
                 .and_then(|arg| self.shallow_expr_type(arg))
                 .as_ref(),
-            Some(args.len()),
         )?;
 
         let instantiated_effects =

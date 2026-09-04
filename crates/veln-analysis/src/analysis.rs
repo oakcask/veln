@@ -563,7 +563,6 @@ mod tests {
         merged.handlers.extend(application_module.handlers.clone());
         merged.types.extend(application_module.types.clone());
         merged.schemas.extend(application_module.schemas.clone());
-        merged.codecs.extend(application_module.codecs.clone());
         merged
             .functions
             .extend(application_module.functions.clone());

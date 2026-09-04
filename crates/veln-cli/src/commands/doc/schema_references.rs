@@ -221,11 +221,6 @@ fn doc_schema_wrong_kind(
     }) {
         return Some("type");
     }
-    if module.codecs.iter().any(|codec| {
-        codec.name.as_deref() == Some(name) && codec.module_name.as_deref() == module_name
-    }) {
-        return Some("codec");
-    }
     if let Some(alias) = module.aliases.iter().find(|alias| {
         alias.name.as_deref() == Some(name) && alias.module_name.as_deref() == module_name
     }) {

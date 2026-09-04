@@ -261,10 +261,6 @@ impl<'a> FunctionChecker<'a> {
         self.environment
             .function_path_for_value(corrected, self.function.module_name.as_deref())
             .is_some()
-            || !self
-                .environment
-                .codec_call_path(corrected, self.function.module_name.as_deref())
-                .is_empty()
             || self
                 .environment
                 .quarantined_import_call_recovery_candidate_count(
@@ -428,7 +424,6 @@ impl<'a> FunctionChecker<'a> {
         callee: &Expr,
         expected: Option<&Type>,
         handle_type: Option<&Type>,
-        arg_count: Option<usize>,
     ) -> Option<(Vec<Type>, Option<Type>, Type, CallOrigin)> {
         let bindings = self
             .bindings
@@ -442,7 +437,6 @@ impl<'a> FunctionChecker<'a> {
             callee,
             expected,
             handle_type,
-            arg_count,
             &bindings,
             self.environment,
             self.function.module_name.as_deref(),

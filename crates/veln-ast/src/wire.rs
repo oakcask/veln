@@ -1,8 +1,7 @@
 use veln_source::{LineCol, SourcePath, SourceSpan};
 
 use crate::{
-    BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
-    CodecImplementationKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
+    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
     HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader, NameClass,
     NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,

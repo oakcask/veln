@@ -17,12 +17,10 @@ pub(crate) struct TypeEnvironment {
     function_recoveries: BTreeMap<FunctionRecoveryKey, usize>,
     constructor_recoveries: BTreeMap<ConstructorRecoveryKey, usize>,
     import_constructor_recoveries: BTreeMap<ImportConstructorRecoveryKey, usize>,
-    codec_calls: Vec<CodecCallSignature>,
     effects: Vec<EffectSignature>,
     handlers: Vec<HandlerSignature>,
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
-    codec_symbols: Vec<NamedSymbol>,
     pub(crate) uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
     invalid_names: Vec<InvalidName>,
@@ -347,7 +345,6 @@ impl TypeEnvironment {
                             current_module,
                             allow_companion_private_access,
                         )
-                        && !self.imported_codec_helper_is_hidden(function, use_decl)
                 })
             }
             _ => None,
@@ -490,13 +487,6 @@ impl TypeEnvironment {
         }) {
             return Some("function");
         }
-        if self.codec_symbols.iter().any(|symbol| {
-            symbol.name == name.as_str()
-                && symbol.module_name.as_deref() == module_name.as_deref()
-                && self.symbol_is_visible(symbol, module_name.as_deref(), current_module)
-        }) {
-            return Some("codec");
-        }
         None
     }
 
@@ -545,18 +535,6 @@ impl TypeEnvironment {
             })
     }
 
-    fn imported_codec_helper_is_hidden(
-        &self,
-        function: &FunctionSignature,
-        use_decl: &UseDecl,
-    ) -> bool {
-        function.visibility != Visibility::Public
-            && self.codec_calls.iter().any(|codec| {
-                codec.module_name.as_deref() == Some(use_decl.name.as_str())
-                    && codec.target_name == function.target_name
-            })
-    }
-
     fn imported_function_is_visible(
         &self,
         function: &FunctionSignature,
@@ -588,46 +566,6 @@ impl TypeEnvironment {
                     .is_some_and(|allowed_target| allowed_target == target_module)
             })
         })
-    }
-
-    pub(crate) fn unqualified_codec_calls(
-        &self,
-        name: &str,
-        current_module: Option<&str>,
-    ) -> Vec<&CodecCallSignature> {
-        self.codec_calls
-            .iter()
-            .filter(|codec| codec.name == name && codec.module_name.as_deref() == current_module)
-            .collect()
-    }
-
-    pub(crate) fn codec_call_path(
-        &self,
-        segments: &[String],
-        current_module: Option<&str>,
-    ) -> Vec<&CodecCallSignature> {
-        match segments {
-            [name] => self.unqualified_codec_calls(name, current_module),
-            [_, .., name] => {
-                let Some(use_decl) = imported_use_for_path(
-                    &self.uses,
-                    &segments[..segments.len() - 1],
-                    current_module,
-                ) else {
-                    return Vec::new();
-                };
-                let module_name = use_decl.name.as_str();
-                self.codec_calls
-                    .iter()
-                    .filter(|codec| {
-                        codec.name == *name
-                            && codec.module_name.as_deref() == Some(module_name)
-                            && codec.visibility == Visibility::Public
-                    })
-                    .collect()
-            }
-            _ => Vec::new(),
-        }
     }
 }
 

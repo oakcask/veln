@@ -41,7 +41,6 @@ struct CallableFacts {
 struct SymbolFacts {
     schema_symbols: SchemaSymbolTable,
     type_symbols: Vec<NamedSymbol>,
-    codec_symbols: Vec<NamedSymbol>,
     uses: Vec<UseDecl>,
     quarantined_uses: Vec<UseDecl>,
     companion_function_access_targets: BTreeMap<String, String>,
@@ -77,11 +76,9 @@ pub(super) fn from_module_with_base(
 ) -> TypeEnvironment {
     let declarations = declaration_facts(module, base);
     let mut callables = callable_facts(module, base, &declarations);
-    let mut codec_calls = codec_facts(module, base, &callables.functions);
     let symbols = symbol_facts(module, base);
     let aliases = function_alias_signatures(module, &callables.functions);
     callables.functions.extend(aliases);
-    codec_calls.shrink_to_fit();
     let functions_by_name = function_name_index(&callables.functions);
     let recovery = recovery_facts(module, &callables.functions);
 
@@ -92,12 +89,10 @@ pub(super) fn from_module_with_base(
         function_recoveries: recovery.functions,
         constructor_recoveries: recovery.constructors,
         import_constructor_recoveries: recovery.import_constructors,
-        codec_calls,
         effects: declarations.effects,
         handlers: callables.handlers,
         schema_symbols: symbols.schema_symbols,
         type_symbols: symbols.type_symbols,
-        codec_symbols: symbols.codec_symbols,
         uses: symbols.uses,
         quarantined_uses: symbols.quarantined_uses,
         invalid_names: module.invalid_names.clone(),
@@ -350,23 +345,11 @@ fn callable_facts(
     }
 }
 
-fn codec_facts(
-    module: &SurfaceModule,
-    base: Option<&TypeEnvironment>,
-    functions: &[FunctionSignature],
-) -> Vec<CodecCallSignature> {
-    let mut codec_calls = codec_call_signatures(module, functions);
-    extend_with_base_facts(&mut codec_calls, base.map(|base| &base.codec_calls));
-    codec_calls
-}
-
 fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> SymbolFacts {
     let mut schema_symbols = SchemaSymbolTable::from_module(module);
     extend_with_base_facts(&mut schema_symbols, base.map(|base| &base.schema_symbols));
     let mut type_symbols = named_type_symbols(module);
     extend_with_base_facts(&mut type_symbols, base.map(|base| &base.type_symbols));
-    let mut codec_symbols = named_codec_symbols(module);
-    extend_with_base_facts(&mut codec_symbols, base.map(|base| &base.codec_symbols));
     let mut uses = crate::name_recovery::normal_use_decls(module);
     extend_with_base_facts(&mut uses, base.map(|base| &base.uses));
     let mut quarantined_uses = module
@@ -394,7 +377,6 @@ fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> Symbo
     SymbolFacts {
         schema_symbols,
         type_symbols,
-        codec_symbols,
         uses,
         quarantined_uses,
         companion_function_access_targets,

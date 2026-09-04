@@ -40,7 +40,6 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
             SyntaxItem::Handler(handler) => format_handler_decl(&mut out, &comments, handler),
             SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
             SyntaxItem::Schema(schema) => format_schema_decl(&mut out, &comments, schema),
-            SyntaxItem::Codec(codec) => format_codec_decl(&mut out, &comments, codec),
             SyntaxItem::PublicAlias(alias) => {
                 push_source_line(
                     &mut out,
@@ -162,47 +161,6 @@ fn format_handler_decl(out: &mut String, comments: &LineComments, handler: &Hand
         0,
         String::from("end"),
     );
-}
-
-fn format_codec_decl(out: &mut String, comments: &LineComments, codec: &CodecDecl) {
-    let mut header = String::new();
-    if codec.visibility == Visibility::Public {
-        header.push_str("pub ");
-    }
-    header.push_str("codec ");
-    header.push_str(codec.name.as_deref().unwrap_or("<missing>"));
-    header.push_str(" for ");
-    header.push_str(codec.schema.as_deref().unwrap_or("<missing>"));
-    for direction in &codec.directions {
-        header.push(' ');
-        header.push_str(direction.as_str());
-    }
-    push_source_line(out, comments, codec.span.start.line, 0, header);
-
-    for implementation in &codec.implementations {
-        push_source_line(
-            out,
-            comments,
-            implementation.span.start.line,
-            1,
-            format_codec_implementation(implementation),
-        );
-    }
-
-    push_source_line(out, comments, codec_end_line(codec), 0, String::from("end"));
-}
-
-fn format_codec_implementation(implementation: &crate::CodecImplementationClause) -> String {
-    match &implementation.kind {
-        CodecImplementationKind::Derive => {
-            format!("derive {}", implementation.direction.as_str())
-        }
-        CodecImplementationKind::With { function } => format!(
-            "{} with {}",
-            implementation.direction.as_str(),
-            function.as_deref().unwrap_or("<missing>")
-        ),
-    }
 }
 
 fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &SchemaDecl) {
@@ -401,28 +359,12 @@ fn schema_body_end_line(schema: &SchemaDecl) -> usize {
     field_end.max(validation_end).max(format_end)
 }
 
-fn codec_end_line(codec: &CodecDecl) -> usize {
-    if codec.end_present {
-        codec.span.end.line
-    } else {
-        codec.span.start.line.max(codec_body_end_line(codec))
-    }
-}
-
 fn handler_end_line(handler: &HandlerDecl) -> usize {
     if handler.end_present && handler.span.end.column == 1 {
         handler.span.end.line.saturating_sub(1)
     } else {
         handler.span.end.line
     }
-}
-
-fn codec_body_end_line(codec: &CodecDecl) -> usize {
-    codec
-        .implementations
-        .last()
-        .map(|implementation| implementation.span.end.line)
-        .unwrap_or(codec.span.start.line)
 }
 
 fn format_function(out: &mut String, comments: &LineComments, function: &FunctionDecl) {

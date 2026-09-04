@@ -7,8 +7,7 @@ mod wire;
 
 pub use lower::{lower_surface_ast, lower_surface_ast_with_module_identity};
 pub use model::{
-    BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
-    CodecImplementationKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
+    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectBinder, EffectDecl,
     EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
     HandlerOperationClauseDecl, IfBranch, InvalidName, MatchArm, ModuleHeader, NameClass,
     NameOccurrence, NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias,

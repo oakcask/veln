@@ -12,12 +12,11 @@ use crate::prelude::{
 };
 use crate::semantic_model::{CallOrigin, Type};
 use crate::type_lowering::core_type;
-use crate::type_relations::is_assignable;
 use crate::type_syntax::parse_type_annotation;
 use crate::types::environment::TypeEnvironment;
 use crate::types::signatures::{
-    CodecCallBoundary, CodecCallSignature, FunctionSignature, SCHEMA_DECODE_STEP_TARGET_PREFIX,
-    SCHEMA_DECODE_TARGET_PREFIX, SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
+    FunctionSignature, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_DECODE_TARGET_PREFIX,
+    SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX,
     SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX, SCHEMA_NEUTRAL_ENCODE_TARGET_PREFIX,
     SCHEMA_VALIDATE_TARGET_PREFIX,
 };
@@ -49,7 +48,6 @@ pub(crate) struct CoreCallSignature {
 struct TypeNamePathCallContext<'a> {
     expected: Option<&'a Type>,
     handle_type: Option<&'a Type>,
-    arg_count: Option<usize>,
     bindings: &'a [TypeBinding<'a>],
     environment: &'a TypeEnvironment,
     current_module: Option<&'a str>,
@@ -59,7 +57,6 @@ pub(crate) fn type_call_signature(
     callee: &Expr,
     expected: Option<&Type>,
     handle_type: Option<&Type>,
-    arg_count: Option<usize>,
     bindings: &[TypeBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -71,7 +68,6 @@ pub(crate) fn type_call_signature(
             TypeNamePathCallContext {
                 expected,
                 handle_type,
-                arg_count,
                 bindings,
                 environment,
                 current_module,
@@ -85,7 +81,6 @@ pub(crate) fn type_call_signature(
 pub(crate) fn core_call_signature(
     callee: &Expr,
     expected: Option<&CoreType>,
-    arg_count: Option<usize>,
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -97,7 +92,6 @@ pub(crate) fn core_call_signature(
         callee,
         segments,
         expected,
-        arg_count,
         bindings,
         environment,
         current_module,
@@ -122,16 +116,7 @@ fn type_name_path_call_signature(
             context.expected,
             context.environment,
             context.current_module,
-        )
-        .or_else(|| {
-            codec_type_call_signature(
-                segments,
-                context.expected,
-                context.arg_count,
-                context.environment,
-                context.current_module,
-            )
-        }),
+        ),
     }
 }
 
@@ -249,7 +234,6 @@ fn core_name_path_call_signature(
     callee: &Expr,
     segments: &[String],
     expected: Option<&CoreType>,
-    arg_count: Option<usize>,
     bindings: &[CoreBinding<'_>],
     environment: &TypeEnvironment,
     current_module: Option<&str>,
@@ -289,9 +273,7 @@ fn core_name_path_call_signature(
         BindingCallSignature::ShadowedNonCallable => return None,
         BindingCallSignature::Missing => {}
     }
-    core_function_call_signature(segments, expected, environment, current_module).or_else(|| {
-        core_codec_call_signature(segments, expected, arg_count, environment, current_module)
-    })
+    core_function_call_signature(segments, expected, environment, current_module)
 }
 
 fn qualified_core_prelude_builtin_call_signature(
@@ -439,173 +421,6 @@ fn resolve_function<'a>(
             .unqualified_function(name, current_module)
             .found(),
         _ => environment.function_path(segments, current_module),
-    }
-}
-
-fn codec_type_call_signature(
-    segments: &[String],
-    expected: Option<&Type>,
-    arg_count: Option<usize>,
-    environment: &TypeEnvironment,
-    current_module: Option<&str>,
-) -> Option<TypeCallSignature> {
-    let (mut codecs, symbol) = match segments {
-        [name] => (
-            environment.unqualified_codec_calls(name, current_module),
-            name.clone(),
-        ),
-        _ => (
-            environment.codec_call_path(segments, current_module),
-            segments.join("::"),
-        ),
-    };
-    narrow_codec_candidates_by_arity(&mut codecs, arg_count);
-    let codec = select_codec_type_call(codecs, expected)?;
-    Some(TypeCallSignature {
-        params: codec.params.clone(),
-        variadic: None,
-        return_type: codec.return_type.clone(),
-        origin: CallOrigin {
-            node_id: codec.node_id,
-            span: codec.span.clone(),
-            symbol,
-            effects: codec.effects.clone(),
-        },
-    })
-}
-
-fn core_codec_call_signature(
-    segments: &[String],
-    expected: Option<&CoreType>,
-    arg_count: Option<usize>,
-    environment: &TypeEnvironment,
-    current_module: Option<&str>,
-) -> Option<CoreCallSignature> {
-    let mut codecs = match segments {
-        [name] => environment.unqualified_codec_calls(name, current_module),
-        _ => environment.codec_call_path(segments, current_module),
-    };
-    narrow_codec_candidates_by_arity(&mut codecs, arg_count);
-    let codec = select_codec_core_call(codecs, expected)?;
-    Some(CoreCallSignature {
-        target: core_codec_call_target(codec),
-        params: codec.params.iter().map(core_type).collect(),
-        variadic: None,
-        return_type: core_type(&codec.return_type),
-    })
-}
-
-fn core_codec_call_target(codec: &CodecCallSignature) -> CoreCallTarget {
-    match codec.boundary {
-        CodecCallBoundary::Direct => core_target_from_signature_name(&codec.target_name),
-        CodecCallBoundary::HandWrittenDecode => CoreCallTarget::CodecDecode {
-            function: codec.target_name.clone(),
-            codec: codec.name.clone(),
-        },
-    }
-}
-
-fn narrow_codec_candidates_by_arity(
-    codecs: &mut Vec<&CodecCallSignature>,
-    arg_count: Option<usize>,
-) {
-    let Some(arg_count) = arg_count else {
-        return;
-    };
-    if codecs.iter().any(|codec| codec.params.len() == arg_count) {
-        codecs.retain(|codec| codec.params.len() == arg_count);
-    }
-}
-
-fn select_codec_type_call<'a>(
-    codecs: Vec<&'a CodecCallSignature>,
-    expected: Option<&Type>,
-) -> Option<&'a CodecCallSignature> {
-    if codecs.len() == 1 {
-        return codecs.into_iter().next();
-    }
-    let expected = expected.filter(|expected| expected != &&Type::Unknown)?;
-    codecs
-        .into_iter()
-        .find(|codec| is_assignable(expected, &codec.return_type))
-}
-
-fn select_codec_core_call<'a>(
-    codecs: Vec<&'a CodecCallSignature>,
-    expected: Option<&CoreType>,
-) -> Option<&'a CodecCallSignature> {
-    if codecs.len() == 1 {
-        return codecs.into_iter().next();
-    }
-    let expected = expected.filter(|expected| expected != &&CoreType::Unknown)?;
-    codecs
-        .into_iter()
-        .find(|codec| core_type_is_assignable(expected, &core_type(&codec.return_type)))
-}
-
-fn core_type_is_assignable(expected: &CoreType, actual: &CoreType) -> bool {
-    if expected == &CoreType::Unknown || actual == &CoreType::Unknown || expected == actual {
-        return true;
-    }
-    match (expected, actual) {
-        (CoreType::Record(expected_fields), CoreType::Record(actual_fields)) => {
-            expected_fields.iter().all(|(expected_name, expected_ty)| {
-                actual_fields
-                    .iter()
-                    .find(|(actual_name, _)| actual_name == expected_name)
-                    .is_some_and(|(_, actual_ty)| core_type_is_assignable(expected_ty, actual_ty))
-            })
-        }
-        (
-            CoreType::Named {
-                name: expected_name,
-                args: expected_args,
-            },
-            CoreType::Named {
-                name: actual_name,
-                args: actual_args,
-            },
-        ) => {
-            expected_name == actual_name
-                && expected_args.len() == actual_args.len()
-                && expected_args
-                    .iter()
-                    .zip(actual_args)
-                    .all(|(expected, actual)| core_type_is_assignable(expected, actual))
-        }
-        (
-            CoreType::Function {
-                params: expected_params,
-                variadic: expected_variadic,
-                return_type: expected_return,
-                effects: expected_effects,
-            },
-            CoreType::Function {
-                params: actual_params,
-                variadic: actual_variadic,
-                return_type: actual_return,
-                effects: actual_effects,
-            },
-        ) => {
-            expected_params.len() == actual_params.len()
-                && expected_params
-                    .iter()
-                    .zip(actual_params)
-                    .all(|(expected, actual)| core_type_is_assignable(expected, actual))
-                && match (expected_variadic, actual_variadic) {
-                    (Some(expected), Some(actual)) => core_type_is_assignable(expected, actual),
-                    (None, None) => true,
-                    _ => false,
-                }
-                && core_type_is_assignable(expected_return, actual_return)
-                && (expected_effects
-                    .iter()
-                    .any(|effect| effect.starts_with("..."))
-                    || actual_effects
-                        .iter()
-                        .all(|effect| expected_effects.iter().any(|expected| expected == effect)))
-        }
-        _ => false,
     }
 }
 

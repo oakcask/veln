@@ -225,7 +225,6 @@ pub(super) fn merge_surface_parts(parts: &mut SurfaceParts, additions: &SurfaceP
         .module
         .schemas
         .extend(additions.module.schemas.clone());
-    parts.module.codecs.extend(additions.module.codecs.clone());
     parts
         .module
         .functions

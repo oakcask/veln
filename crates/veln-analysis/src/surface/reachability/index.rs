@@ -179,13 +179,6 @@ impl<'a> ReachabilityInputs<'a> {
             .flat_map(|module| module.invalid_names.iter())
             .chain(self.application.invalid_names.iter())
     }
-
-    pub(super) fn codecs(&self) -> impl Iterator<Item = &'a veln_ast::CodecDecl> + '_ {
-        self.standard
-            .into_iter()
-            .flat_map(|module| module.codecs.iter())
-            .chain(self.application.codecs.iter())
-    }
 }
 
 #[derive(Clone, Copy)]

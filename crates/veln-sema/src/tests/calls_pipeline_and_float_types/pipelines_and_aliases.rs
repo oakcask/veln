@@ -39,7 +39,6 @@ fn public_function_alias_reexports_imported_target() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: app
             .functions
@@ -98,7 +97,6 @@ fn companion_function_alias_cannot_reexport_private_target_function() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: companion
             .functions
