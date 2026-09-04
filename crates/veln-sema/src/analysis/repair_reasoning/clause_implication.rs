@@ -14,159 +14,81 @@ pub(in crate::analysis) fn flattened_repair_keyword_clauses<'a>(
         .collect()
 }
 
-pub(in crate::analysis) struct RequiredPredicateProofContext<'a> {
-    predicates: &'a [String],
-    clauses: Vec<String>,
-    equivalences: RepairEquivalences,
-    static_antecedent: String,
-}
-
-impl<'a> RequiredPredicateProofContext<'a> {
-    pub(in crate::analysis) fn new(predicates: &'a [String]) -> Self {
-        let clauses = predicates
-            .iter()
-            .flat_map(|predicate| repair_set_clauses(predicate))
-            .collect::<Vec<_>>();
-        let equivalences = repair_equivalences(&clauses);
-        let static_antecedent = predicates
-            .iter()
-            .map(|required| format!("({required})"))
-            .collect::<Vec<_>>()
-            .join(" and ");
-        Self {
-            predicates,
-            clauses,
-            equivalences,
-            static_antecedent,
-        }
+pub(in crate::analysis) fn predicate_guaranteed_by_required_predicates(
+    predicate: &str,
+    required_predicates: &[String],
+) -> bool {
+    if required_predicate_set_statically_implies_predicate(required_predicates, predicate) {
+        return true;
     }
-
-    pub(in crate::analysis) fn guarantees(&self, predicate: &str) -> bool {
-        self.predicates
-            .iter()
-            .any(|required| required_predicate_implies_disjunctive_predicate(required, predicate))
-            || self.set_implies_disjunctive_predicate(predicate)
-            || self.clause_shape_guarantees(predicate)
-            || self.statically_implies(predicate)
+    if required_predicates
+        .iter()
+        .any(|required| required_predicate_implies_disjunctive_predicate(required, predicate))
+    {
+        return true;
     }
-
-    pub(in crate::analysis) fn guarantees_int_successor(&self, predicate: &str) -> bool {
-        repair_relevant_or_clause_strings(predicate)
-            .into_iter()
-            .map(|disjunct| repair_relevant_and_clauses(&disjunct))
-            .any(|disjunct_clauses| {
-                !disjunct_clauses.is_empty()
-                    && disjunct_clauses.iter().all(|clause| {
-                        self.clause_guaranteed(clause)
-                            || self.int_successor_clause_guaranteed(clause)
-                    })
-            })
+    if required_predicate_set_implies_disjunctive_predicate(required_predicates, predicate) {
+        return true;
     }
-
-    fn clause_shape_guarantees(&self, predicate: &str) -> bool {
-        repair_relevant_or_clause_strings(predicate)
-            .into_iter()
-            .map(|disjunct| repair_relevant_and_clauses(&disjunct))
-            .any(|disjunct_clauses| {
-                !disjunct_clauses.is_empty()
-                    && disjunct_clauses
-                        .iter()
-                        .all(|clause| self.clause_guaranteed(clause))
-            })
-    }
-
-    fn clause_guaranteed(&self, clause: &str) -> bool {
-        if has_true_disjunct(clause) {
-            return true;
-        }
-        let disjuncts = repair_relevant_or_clauses(clause);
-        if disjuncts.len() > 1 {
-            return disjuncts
-                .into_iter()
-                .any(|disjunct| self.clause_guaranteed(disjunct));
-        }
-        let Some(disjunct) = disjuncts.first() else {
-            return false;
-        };
-        let canonical = canonical_repair_clause(disjunct);
-        self.predicates
-            .iter()
-            .any(|required| required_predicate_implies_clause(required, &canonical))
-            || self.set_implies_clause(&canonical)
-    }
-
-    fn int_successor_clause_guaranteed(&self, clause: &str) -> bool {
-        repair_clause_set_int_successor_implies_clause_with_equivalences(
-            &self.clauses,
-            clause,
-            &self.equivalences,
-        ) || self
-            .predicates
-            .iter()
-            .any(|required| required_predicate_int_successor_implies_clause(required, clause))
-    }
-
-    fn statically_implies(&self, predicate: &str) -> bool {
-        contract_predicate_is_statically_true(&format!(
-            "not ({}) or ({predicate})",
-            self.static_antecedent
-        ))
-    }
-
-    fn set_implies_disjunctive_predicate(&self, wanted: &str) -> bool {
-        let wanted_disjuncts = repair_relevant_or_clauses(wanted)
-            .into_iter()
-            .map(canonical_repair_clause)
-            .collect::<Vec<_>>();
-        if wanted_disjuncts.len() <= 1 {
-            return false;
-        }
-        if disjunctive_branch_set_implies_disjunctive_predicate(self.predicates, &wanted_disjuncts)
-        {
-            return true;
-        }
-        self.clauses.iter().any(|required| {
-            disequality_implies_numeric_ordering_disjunction(
-                required,
-                &wanted_disjuncts,
-                &self.equivalences,
-            ) || inclusive_bound_implies_order_or_equality_disjunction(
-                required,
-                &wanted_disjuncts,
-                &self.equivalences,
-            )
+    repair_relevant_or_clause_strings(predicate)
+        .into_iter()
+        .map(|disjunct| repair_relevant_and_clauses(&disjunct))
+        .any(|disjunct_clauses| {
+            !disjunct_clauses.is_empty()
+                && disjunct_clauses.iter().all(|clause| {
+                    repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
+                })
         })
-    }
-
-    fn set_implies_clause(&self, wanted: &str) -> bool {
-        let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
-            return repair_clause_set_implies_clause_with_equivalences(
-                &self.clauses,
-                wanted,
-                &self.equivalences,
-            ) || disjunctive_branch_set_implies_clause(self.predicates, wanted);
-        };
-        repair_clause_set_implies_comparison_with_equivalences(
-            &self.clauses,
-            &wanted,
-            &self.equivalences,
-        ) || disjunctive_branch_set_implies_clause(self.predicates, wanted.clause)
-    }
 }
 
-fn repair_clause_set_int_successor_implies_clause_with_equivalences(
+pub(in crate::analysis) fn int_successor_predicate_guaranteed_by_required_predicates(
+    predicate: &str,
+    required_predicates: &[String],
+) -> bool {
+    repair_relevant_or_clause_strings(predicate)
+        .into_iter()
+        .map(|disjunct| repair_relevant_and_clauses(&disjunct))
+        .any(|disjunct_clauses| {
+            !disjunct_clauses.is_empty()
+                && disjunct_clauses.iter().all(|clause| {
+                    repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
+                        || int_successor_clause_guaranteed_by_required_predicates(
+                            clause,
+                            required_predicates,
+                        )
+                })
+        })
+}
+
+pub(in crate::analysis) fn int_successor_clause_guaranteed_by_required_predicates(
+    clause: &str,
+    required_predicates: &[String],
+) -> bool {
+    let required_clauses = required_predicates
+        .iter()
+        .flat_map(|predicate| repair_set_clauses(predicate))
+        .collect::<Vec<_>>();
+    if repair_clause_set_int_successor_implies_clause(&required_clauses, clause) {
+        return true;
+    }
+    required_predicates
+        .iter()
+        .any(|required| required_predicate_int_successor_implies_clause(required, clause))
+}
+
+pub(in crate::analysis) fn repair_clause_set_int_successor_implies_clause(
     required_clauses: &[String],
     wanted: &str,
-    equivalences: &RepairEquivalences,
 ) -> bool {
     let Some(wanted) = NormalizedRepairComparison::parse(wanted) else {
         return false;
     };
+    let equivalences = repair_equivalences(required_clauses);
     required_clauses.iter().any(|required| {
         let Some(required) = NormalizedRepairComparison::parse(required) else {
             return false;
         };
-        int_successor_repair_comparison_implies(&required, &wanted, equivalences)
+        int_successor_repair_comparison_implies(&required, &wanted, &equivalences)
     })
 }
 
@@ -318,6 +240,21 @@ fn integer_bound_offset_implies(
     })
 }
 
+pub(in crate::analysis) fn required_predicate_set_statically_implies_predicate(
+    required_predicates: &[String],
+    predicate: &str,
+) -> bool {
+    if required_predicates.is_empty() {
+        return false;
+    }
+    let antecedent = required_predicates
+        .iter()
+        .map(|required| format!("({required})"))
+        .collect::<Vec<_>>()
+        .join(" and ");
+    contract_predicate_is_statically_true(&format!("not ({antecedent}) or ({predicate})"))
+}
+
 pub(in crate::analysis) fn required_predicate_implies_disjunctive_predicate(
     required: &str,
     wanted: &str,
@@ -342,6 +279,36 @@ pub(in crate::analysis) fn required_predicate_implies_disjunctive_predicate(
         wanted_disjuncts
             .iter()
             .any(|wanted_disjunct| repair_clause_implies(required_disjunct, wanted_disjunct))
+    })
+}
+
+pub(in crate::analysis) fn required_predicate_set_implies_disjunctive_predicate(
+    required_predicates: &[String],
+    wanted: &str,
+) -> bool {
+    let wanted_disjuncts = repair_relevant_or_clauses(wanted)
+        .into_iter()
+        .map(canonical_repair_clause)
+        .collect::<Vec<_>>();
+    if wanted_disjuncts.len() <= 1 {
+        return false;
+    }
+    if disjunctive_branch_set_implies_disjunctive_predicate(required_predicates, &wanted_disjuncts)
+    {
+        return true;
+    }
+    let required_clauses = required_predicates
+        .iter()
+        .flat_map(|predicate| repair_set_clauses(predicate))
+        .collect::<Vec<_>>();
+    let equivalences = repair_equivalences(&required_clauses);
+    required_clauses.iter().any(|required| {
+        disequality_implies_numeric_ordering_disjunction(required, &wanted_disjuncts, &equivalences)
+            || inclusive_bound_implies_order_or_equality_disjunction(
+                required,
+                &wanted_disjuncts,
+                &equivalences,
+            )
     })
 }
 
@@ -381,6 +348,29 @@ pub(in crate::analysis) fn repair_relevant_or_clause_strings(predicate: &str) ->
             .map(ToString::to_string)
             .collect()
     })
+}
+
+pub(in crate::analysis) fn repair_clause_guaranteed_by_required_predicates(
+    clause: &str,
+    required_predicates: &[String],
+) -> bool {
+    if has_true_disjunct(clause) {
+        return true;
+    }
+    let disjuncts = repair_relevant_or_clauses(clause);
+    if disjuncts.len() > 1 {
+        return disjuncts.into_iter().any(|disjunct| {
+            repair_clause_guaranteed_by_required_predicates(disjunct, required_predicates)
+        });
+    }
+    if disjuncts.is_empty() {
+        return false;
+    }
+    let canonical = canonical_repair_clause(disjuncts[0]);
+    required_predicates
+        .iter()
+        .any(|required| required_predicate_implies_clause(required, &canonical))
+        || required_predicate_set_implies_clause(required_predicates, &canonical)
 }
 
 pub(in crate::analysis) fn required_predicate_implies_clause(
@@ -468,43 +458,55 @@ pub(in crate::analysis) fn repair_clause_implies(required: &str, wanted: &str) -
         && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
 }
 
+pub(in crate::analysis) fn required_predicate_set_implies_clause(
+    required_predicates: &[String],
+    wanted: &str,
+) -> bool {
+    let required_clauses = required_predicates
+        .iter()
+        .flat_map(|predicate| repair_set_clauses(predicate))
+        .collect::<Vec<_>>();
+    let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
+        return repair_clause_set_implies_clause(&required_clauses, wanted)
+            || disjunctive_branch_set_implies_clause(required_predicates, wanted);
+    };
+    if repair_clause_set_implies_comparison(&required_clauses, &wanted)
+        || disjunctive_branch_set_implies_clause(required_predicates, wanted.clause)
+    {
+        return true;
+    }
+    false
+}
+
 pub(in crate::analysis) fn repair_clause_set_implies_clause(
     required_clauses: &[String],
     wanted: &str,
 ) -> bool {
     let equivalences = repair_equivalences(required_clauses);
-    repair_clause_set_implies_clause_with_equivalences(required_clauses, wanted, &equivalences)
-}
-
-fn repair_clause_set_implies_clause_with_equivalences(
-    required_clauses: &[String],
-    wanted: &str,
-    equivalences: &RepairEquivalences,
-) -> bool {
     let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
         return required_clauses.iter().any(|required| {
-            repair_atoms_equivalent(required, wanted, equivalences)
-                || boolean_literal_comparison_implies_atom(required, wanted, equivalences)
+            repair_atoms_equivalent(required, wanted, &equivalences)
+                || boolean_literal_comparison_implies_atom(required, wanted, &equivalences)
         });
     };
-    repair_clause_set_implies_comparison_with_equivalences(required_clauses, &wanted, equivalences)
+    repair_clause_set_implies_comparison(required_clauses, &wanted)
 }
 
-fn repair_clause_set_implies_comparison_with_equivalences(
+pub(in crate::analysis) fn repair_clause_set_implies_comparison(
     required_clauses: &[String],
     wanted: &ParsedRepairComparison<'_>,
-    equivalences: &RepairEquivalences,
 ) -> bool {
+    let equivalences = repair_equivalences(required_clauses);
     if required_clauses
         .iter()
-        .any(|required| repair_clause_implies_with_equivalences(required, wanted, equivalences))
+        .any(|required| repair_clause_implies_with_equivalences(required, wanted, &equivalences))
     {
         return true;
     }
-    if boolean_disequality_alias_implies_comparison(required_clauses, wanted, equivalences) {
+    if boolean_disequality_alias_implies_comparison(required_clauses, wanted, &equivalences) {
         return true;
     }
-    if ordering_path_implies_clause(required_clauses, wanted, equivalences) {
+    if ordering_path_implies_clause(required_clauses, wanted, &equivalences) {
         return true;
     }
     if wanted.operator != "==" {
@@ -513,7 +515,7 @@ fn repair_clause_set_implies_comparison_with_equivalences(
     required_clauses.iter().any(|left| {
         required_clauses
             .iter()
-            .any(|right| inclusive_bounds_imply_equality(left, right, wanted, equivalences))
+            .any(|right| inclusive_bounds_imply_equality(left, right, wanted, &equivalences))
     })
 }
 

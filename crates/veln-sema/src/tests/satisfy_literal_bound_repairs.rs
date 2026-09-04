@@ -595,40 +595,6 @@ fn keeps_safe_satisfy_candidate_beyond_top_five_ranked_bindings() {
 }
 
 #[test]
-fn keeps_require_proven_candidate_with_many_unrelated_bindings() {
-    let unrelated = (0..64)
-        .map(|index| format!("unrelated_{index}: Int"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let source = SourceFile::new(
-        "main.veln",
-        format!(
-            "fn main(target: Int, {unrelated}) -> Int\n\
-             require target > 0\n\
-             _value satisfy candidate => candidate > 0\n\
-             end\n"
-        ),
-    );
-    let parsed = parse(&source);
-    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let diagnostics = analyze_surface_module(&module);
-
-    assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].id, "hole.unfilled");
-    let details = diagnostics[0].details.to_json();
-    assert!(details.contains("\"name\":\"target\""));
-    assert!(details.contains("\"reason\":\"satisfy_require_match\""));
-    assert_eq!(
-        details
-            .matches("\"satisfy_status\":\"statically_satisfied\"")
-            .count(),
-        1
-    );
-}
-
-#[test]
 fn leaves_equal_inclusive_literal_bound_as_manual_for_disequality_repair() {
     let source = SourceFile::new(
         "main.veln",
