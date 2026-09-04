@@ -57,7 +57,7 @@ to return its current canonical `file:` URI. A valid position with no eligible
 symbol returns `definition: null`.
 
 This slice exposes the package-backed function, type, constructor, schema, and
-public member-alias classes already represented by shared definition
+public function-alias classes already represented by shared definition
 selection. It does not reinterpret an import module segment, recovery record,
 private declaration, or unsupported occurrence as another symbol class.
 
