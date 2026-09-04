@@ -1,0 +1,84 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"definition\":{\"range\":{\"end\":{\"column\":17,\"line\":1},\"start\":{\"column\":8,\"line\":1}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/",
+  "\"definition\":{\"range\":{\"end\":{\"column\":13,\"line\":1},\"start\":{\"column\":8,\"line\":1}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/",
+  "\"name\":\"dep.veln\",\"title\":\"Veln package source: example/dep: dep.veln\"",
+  "\"name\":\"unicode.veln\",\"title\":\"Veln package source: example/dep: unicode.veln\"",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/uri"
+contains = "veln-pkg:///example%2Fdep/snapshot/"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":8},"end":{"line":1,"column":17}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 2
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/uri"
+equals = "veln-pkg:///example%2Fdep/snapshot/25ef22c68913114a282782954f7a639565406eb62de7426ee667bf18250bbc0c/dep.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/text"
+equals_file = "vendor/dep/dep.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/definition/uri"
+contains = "veln-pkg:///example%2Fdep/snapshot/"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":1,"column":8},"end":{"line":1,"column":13}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 5
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 6
+path = "/result/contents/0/uri"
+equals = "veln-pkg:///example%2Fdep/snapshot/25ef22c68913114a282782954f7a639565406eb62de7426ee667bf18250bbc0c/unicode.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/contents/0/text"
+equals_file = "vendor/dep/unicode.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/error"
+missing = true

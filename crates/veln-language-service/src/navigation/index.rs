@@ -279,7 +279,30 @@ impl SymbolIndex {
             .cloned()
     }
 
-    fn schema_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
+    fn schema_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            let qualified_modules = self.qualified_module_candidates(file, &qualifier);
+            return self
+                .schemas
+                .iter()
+                .find(|symbol| {
+                    symbol.name == name
+                        && qualified_modules.iter().any(|module| module == &symbol.module)
+                        && match &symbol.package {
+                            Some(package) => file
+                                .external_uses
+                                .contains(&(symbol.module.clone(), package.clone())),
+                            None => symbol.module == file.module || file.uses.contains(&symbol.module),
+                        }
+                })
+                .cloned();
+        }
         self.schemas
             .iter()
             .find(|symbol| {

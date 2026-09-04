@@ -3,7 +3,13 @@ use std::path::Path;
 use serde_json::{Value, json};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
-use veln_language_service::{EffectiveProjectSnapshot, NavigationSource, SourcePosition, navigate};
+use veln_analysis::CapturedDependencyProject;
+use veln_language_service::{
+    DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationSource, SourcePosition, navigate,
+};
+use veln_project::{
+    PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot, parse_manifest_text,
+};
 use veln_source::SourcePath;
 
 use crate::check_project::capture_navigation_source;
@@ -50,7 +56,7 @@ pub(crate) fn definition(
     };
 
     let root = captured.project.root.clone();
-    let snapshot = EffectiveProjectSnapshot::new(captured.project.files);
+    let snapshot = navigation_snapshot(captured.project.files, &captured.dependencies);
     let result = navigate(
         &snapshot,
         SourcePosition {
@@ -59,9 +65,15 @@ pub(crate) fn definition(
             column,
         },
     );
-    let definition = result.and_then(|result| match result.definition.source {
-        NavigationSource::Workspace => Some(json!({
-            "uri": path_to_uri(&root.join(result.definition.span.file.as_str())),
+    let definition = result.map(|result| {
+        let uri = match result.definition.source {
+            NavigationSource::Workspace => {
+                path_to_uri(&root.join(result.definition.span.file.as_str()))
+            }
+            NavigationSource::Package { uri } => uri,
+        };
+        json!({
+            "uri": uri,
             "range": {
                 "start": {
                     "line": result.definition.span.start.line,
@@ -72,13 +84,59 @@ pub(crate) fn definition(
                     "column": result.definition.span.end.column
                 }
             }
-        })),
-        NavigationSource::Package { .. } => None,
+        })
     });
     if let Err(error) = language_resources.admit_dependencies(&captured.dependencies) {
         return error.into();
     }
     ToolOutcome::Success(json!({"definition": definition}))
+}
+
+fn navigation_snapshot(
+    files: Vec<veln_source::SourceFile>,
+    dependencies: &[CapturedDependencyProject],
+) -> EffectiveProjectSnapshot {
+    let mut snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+        files,
+        dependency_snapshots(dependencies),
+    );
+    if let Some(standard_library) = standard_library_snapshot() {
+        snapshot = snapshot.with_standard_library(standard_library);
+    }
+    snapshot
+}
+
+fn dependency_snapshots(
+    dependencies: &[CapturedDependencyProject],
+) -> Vec<DirectDependencySnapshot> {
+    dependencies
+        .iter()
+        .filter_map(|dependency| {
+            let identity = PackageIdentity::new(&dependency.package).ok()?;
+            let project = dependency.project.as_ref()?;
+            let manifest = project.manifest.clone()?;
+            let sources = project.files.iter().map(|source| {
+                PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
+            });
+            let snapshot =
+                capture_embedded_package_snapshot(&manifest.source_bytes, sources).ok()?;
+            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).ok()
+        })
+        .collect()
+}
+
+fn standard_library_snapshot() -> Option<DirectDependencySnapshot> {
+    let bundle = veln_stdlib::package_bundle();
+    let snapshot = capture_embedded_package_snapshot(
+        bundle.manifest.as_bytes(),
+        bundle
+            .files
+            .iter()
+            .map(|file| PackageSnapshotSource::new(file.path, file.text.as_bytes())),
+    )
+    .ok()?;
+    let manifest = parse_manifest_text("veln.toml", bundle.manifest);
+    DirectDependencySnapshot::from_validated_standard_library(snapshot, manifest).ok()
 }
 
 pub(crate) fn coordinate(value: &Value) -> Coordinate {

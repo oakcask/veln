@@ -1,0 +1,5 @@
+[package]
+name = "example/dep"
+
+[lib]
+exports = ["dep.veln", "unicode.veln"]

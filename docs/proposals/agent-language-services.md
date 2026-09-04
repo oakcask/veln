@@ -14,23 +14,23 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 ## Implementation Status
 
 The workspace-project inventory, saved project diagnostics, bounded
-workspace-definition, and saved workspace function-reference slices are
-implemented and specified in
+workspace-definition, saved workspace function-reference, resource
+publication, language-reference search, and package definition navigation
+slices are implemented and specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
-workspace-only `definition` for the language service's current saved-source
-definition selection set, and workspace function `references`. Broader
-definition navigation, dependency and paginated reference navigation,
-documentation resources and search, snapshot resource lifetime, conformance
-completion, and client plugin work in this proposal remain planned.
+`definition` for the language service's current saved-source selection set,
+including bounded direct-dependency and standard-library package locations,
+workspace function `references`, `search_docs`, and `read_doc`. Broader
+definition navigation, dependency and paginated reference navigation, package
+documentation resources, conformance completion, and client plugin work in
+this proposal remain planned.
 
 The remaining first-capability work includes:
 
-- definition lookup beyond the implemented workspace symbol set, plus
-  dependency and paginated reference lookup;
-- language-reference search and retrieval;
-- exported package and standard-library documentation;
-- virtual source locations for dependencies and the standard library; and
+- definition lookup beyond the implemented workspace and package-backed symbol
+  set, plus dependency and paginated reference lookup;
+- exported package and standard-library documentation; and
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -71,10 +71,10 @@ recorded by
 The bounded dependency source-resource slice is implemented and recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
 
-### Extracted Ready Package Definition Slice
+### Implemented Package Definition Slice
 
-The next bounded navigation slice is separately selectable as
-[MCP Package Definition Navigation](mcp-package-definition-navigation.md).
+The bounded package definition navigation slice is implemented and recorded by
+[MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -546,8 +546,10 @@ implemented and specified in
 [Package Documentation Catalogs](../specification/package-documentation.md).
 Embedded package snapshot capture applies the same test-source distribution
 exclusions as filesystem capture before package documentation generation.
-MCP resources, MCP documentation publication, and snapshot lifetime rules
-remain planned below.
+MCP source resources and snapshot lifetime for admitted direct-dependency and
+embedded standard-library snapshots are implemented and specified in
+[MCP Workspace Projects And Navigation](../specification/mcp.md#resources).
+MCP package documentation publication remains planned below.
 
 The owned distribution set contains every captured regular file whose name
 ends in `.veln`, including private, non-exported, on-disk generated, and
@@ -921,7 +923,7 @@ The resolved-decision evidence groups are:
 | Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |
 | Q04 filesystem identity | Symbolic base, internal and external directory links, file links, missing leaves, alias URI equality, and link replacement. |
 | Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt, and saved workspace function `references` stable-capture failure without partial reference locations. Broader, dependency, and paginated reference capture remain planned. |
-| Q06 schemas and errors | Implemented for workspace inventory, `check_project`, workspace `definition`, and saved workspace function `references` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, protocol mapping, and advertised success and domain-failure result acceptance. Reference pagination, broader definition and reference coverage, resource, and documentation schemas remain planned. |
+| Q06 schemas and errors | Implemented for workspace inventory, resources, `check_project`, `definition`, saved workspace function `references`, `search_docs`, and `read_doc` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, protocol mapping, and advertised success and domain-failure result acceptance. Reference pagination, broader definition and reference coverage, package-documentation schemas, and conformance schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
 | Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |
@@ -1001,15 +1003,15 @@ that the behavior is already implemented.
 
 ### Virtual Locations And Package Documentation
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence or planned evidence |
 | --- | --- | --- |
-| Read a returned virtual source URI through MCP. | Resource text equals the source bytes used for analysis. The transport-independent exact-byte resolver is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). LSP `veln/virtualDocument` reads for direct path, vendor, mirror, locally available git, and embedded standard-library URIs are implemented and specified in [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename). | MCP resource round-trip case using a source URI returned by analysis. |
-| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. LSP virtual URI changes are implemented for retained direct path, vendor, mirror, and locally available git project snapshots. MCP virtual-resource changes remain planned. | Implemented Q12 capture digest-integration tests and LSP dependency virtual-URI tests; planned MCP virtual-resource cases. |
-| Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Analysis and resource consumers remain planned. | Implemented Q12 distribution-set and filesystem-boundary tests; planned analysis-resource equality cases. |
+| Read a returned virtual source URI through MCP. | Resource text equals the source bytes used for analysis. The transport-independent exact-byte resolver is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). LSP `veln/virtualDocument` reads for direct path, vendor, mirror, locally available git, and embedded standard-library URIs are implemented and specified in [Editor Support](../specification/editor-support.md#lsp-navigation-formatting-and-rename). | Implemented MCP resource round-trip coverage uses source URIs returned by package definition analysis. |
+| Change an included source or manifest byte in a captured distribution. | Snapshot capture passes the changed exact bytes to the implemented digest API. LSP virtual URI changes are implemented for retained direct path, vendor, mirror, and locally available git project snapshots. MCP source-resource URI changes are implemented for admitted dependency snapshots. | Implemented Q12 capture digest-integration tests, LSP dependency virtual-URI tests, and MCP package snapshot coexistence tests. |
+| Discover private, generated, test, descendant, symlink, non-regular, and `target` sources. | The captured distribution set includes private, non-exported, generated, and ordinary `target` sources, applies every stated exclusion, and errors on represented non-regular distribution sources. Admitted MCP source resources use the captured direct-dependency and embedded standard-library distribution sets. Analysis-resource set equality remains planned. | Implemented Q12 distribution-set and filesystem-boundary tests; implemented MCP private and non-exported source publication and test-source rejection tests; planned analysis-resource equality cases. |
 | Load nonportable names or colliding paths. | Invalid UTF-8, non-NFC, control-bearing, separator-bearing, case-colliding, or reserved identities are rejected before publication. | Q13 portable-domain matrix. |
-| Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | MCP adapter case mapping a catalog miss to `resource_not_found`. |
-| Read a private distribution source or inspect package metadata. | The source is readable; metadata contains only the closed public allowlist and no dependency, URL, tool, path, or credential-bearing fields. | Q15 disclosure-policy cases. |
-| Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Q10 resource-lifetime cases. |
+| Read a noncanonical, unknown, or mismatched snapshot URI through MCP. | The server returns `resource_not_found` without normalization, fallback, or filesystem access. The transport-independent resolver rejection table is already implemented and specified in [Package Virtual Sources](../specification/package-virtual-sources.md). | Implemented MCP adapter cases map catalog misses to `resource_not_found`. |
+| Read a private distribution source or inspect package metadata. | Source resources are readable and expose only the closed metadata allowlist. Package documentation metadata remains planned. | Implemented MCP disclosure-policy source-resource cases; planned package-documentation metadata cases. |
+| Keep returned dependency URIs while projects refresh or disappear. | Every published snapshot remains readable until shutdown; capacity failure never evicts an older URI. | Implemented Q10 MCP resource-lifetime cases. |
 | Generate package docs. | The transport-independent catalog contains only exported modules and their public API; attached contracts, visible doctests that can reference the same exported package API, stream-aware expected-output fences, import-aware resolved schema documentation references, public schema alias targets, effect-row-binder signatures, and declaration-location URI lookup are preserved. MCP publication remains planned. | Implemented package-documentation unit tests and readable `doc` examples; planned MCP resource case. |
 | Change catalog semantics without changing package bytes. | The package digest stays fixed and the documentation catalog digest and URIs change. | Implemented package-documentation document-identity tests; planned MCP resource case. |
 | Package documentation generation or doctest validation fails. | The transport-independent result contains ordered status diagnostics and no partial module or declaration catalog. Export paths that cannot derive compiler-valid source module identities, including source-path casing failures, fail generation package-atomically. Negative doctests require parse diagnostics rather than semantic-only diagnostics. MCP status-resource publication remains planned. | Implemented atomic-generation-failure, invalid-export, and source-path casing gate unit tests; planned MCP resource case. |
@@ -1074,20 +1076,22 @@ unique selector and `subdir` validation, snapshot-URI independence from
 physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
-does not implement dependency reference search or MCP resources.
+does not implement dependency reference search.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
 access to private target functions. The saved-workspace function-reference
 slice returns project-owned function reference locations through MCP.
-Dependency and standard-library locations, the proposal's additional symbol
-kinds, and broader reference search remain planned.
+Dependency and standard-library definition locations for the bounded package
+symbol set are specified by
+[MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
+Broader reference search remains planned.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
-The package definition navigation slice is extracted as
-[MCP Package Definition Navigation](mcp-package-definition-navigation.md).
+The package definition navigation slice is recorded by
+[MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 Later slices are:
 
 1. Extend the existing `veln mcp` server with package and standard-library
