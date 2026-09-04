@@ -9,8 +9,8 @@ This record preserves the completed slice that publishes embedded `std`
 package-documentation Markdown resources through MCP. Current behavior is
 specified by [MCP resources](../../specification/mcp.md#resources) and
 [Package Documentation Catalogs](../../specification/package-documentation.md).
-The remaining package-backed definition-link work stays under
-[MCP Package Definition Documentation Links](../../proposals/mcp-package-documentation-resources.md).
+Package-backed definition-link behavior is recorded by
+[MCP Package Definition Documentation Links](mcp-package-documentation-resources.md).
 
 ## Completed Boundary
 
@@ -30,9 +30,9 @@ the package-documentation result. It does not expose raw manifests, physical
 paths, dependency selectors, environment values, or fields excluded from the
 catalog.
 
-This slice does not attach documentation URIs to package-backed definition
-results, add package search, change `veln doc`, or change
-package-documentation catalog identity.
+This slice does not add package search, change `veln doc`, change
+package-documentation catalog identity, or define the later
+package-backed definition-link contract.
 
 ## Completion Evidence
 

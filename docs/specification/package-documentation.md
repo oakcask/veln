@@ -240,3 +240,6 @@ specified in [mcp.md](mcp.md) and checked by
 `examples/specification/mcp/standard-library-package-documentation-resources/`
 and
 `examples/specification/mcp/dependency-package-documentation-resources/`.
+Package-backed `definition` results that link to retained declaration
+documentation are specified in [mcp.md](mcp.md) and checked by
+`examples/specification/mcp/definition-package-navigation/`.

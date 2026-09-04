@@ -9,6 +9,7 @@ fn lifecycle_lists_and_calls_only_implemented_tools() {
 
     assert_eq!(responses.len(), 4);
     assert_implemented_tool_names(&responses[1]);
+    assert_definition_result_schema_advertises_package_documentation_uri(&responses[1]);
     assert_eq!(
         responses[2]["result"]["structuredContent"],
         json!({
@@ -17,6 +18,20 @@ fn lifecycle_lists_and_calls_only_implemented_tools() {
         })
     );
     assert_eq!(responses[3]["result"]["structuredContent"]["generation"], 1);
+}
+
+fn assert_definition_result_schema_advertises_package_documentation_uri(response: &Value) {
+    let definition_tool = response["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["name"] == "definition")
+        .unwrap();
+    let properties = &definition_tool["outputSchema"]["$defs"]["location"]["properties"];
+    assert_eq!(
+        properties["packageDocumentationUri"],
+        json!({"type": "string"})
+    );
 }
 
 fn run_lifecycle_session(workspace: &TempWorkspace) -> Vec<Value> {

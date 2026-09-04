@@ -1,10 +1,27 @@
 use dep from "example/dep"
 use unicode from "example/dep"
+use bad from "example/bad"
 
 fn main() -> Int
   dep::increment(1)
 end
 
+fn token() -> dep::Token
+  dep::Value(1)
+end
+
 fn label() -> String
   unicode::label()
+end
+
+fn broken() -> Int
+  bad::broken()
+end
+
+fn hidden() -> Int
+  dep::hidden(1)
+end
+
+fn unsupported() -> Int
+  dep::increment(1)
 end

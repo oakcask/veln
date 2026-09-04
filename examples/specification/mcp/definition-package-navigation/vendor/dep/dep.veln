@@ -1,3 +1,11 @@
+pub type Token
+  pub Value(Int)
+end
+
+fn hidden(value: Int) -> Int
+  value
+end
+
 pub fn increment(value: Int) -> Int
   value + 1
 end

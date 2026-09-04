@@ -266,6 +266,121 @@ fn definition_resolves_public_package_symbol_classes() {
 }
 
 #[test]
+fn definition_returns_readable_dependency_documentation_links() {
+    let workspace = TempWorkspace::new("definition-dependency-documentation-links");
+    write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
+    let mut server = initialized_server(&workspace);
+
+    let function = server.definition_tool(&json!({"source":"main.veln","line":13,"column":19}));
+    assert_eq!(function["isError"], false, "{function:#}");
+    let function_doc_uri = definition_documentation_uri(&function);
+    assert!(function_doc_uri.starts_with("veln-doc:///package/example%2Fdep/snapshot/"));
+    assert!(function_doc_uri.contains("/documentation/"));
+    assert!(function_doc_uri.contains("/declaration/"));
+    let function_doc = read_resource(&mut server, &function_doc_uri);
+    let function_doc_text = function_doc["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap();
+    assert!(function_doc_text.starts_with("# Function increment\n"));
+    assert!(function_doc_text.contains("- Package identity: example/dep"));
+
+    let constructor = server.definition_tool(&json!({"source":"main.veln","line":13,"column":8}));
+    assert_eq!(constructor["isError"], false, "{constructor:#}");
+    let constructor_doc_uri = definition_documentation_uri(&constructor);
+    let constructor_doc = read_resource(&mut server, &constructor_doc_uri);
+    let constructor_doc_text = constructor_doc["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap();
+    assert!(constructor_doc_text.starts_with("# Type Token\n"));
+    assert!(constructor_doc_text.contains("### Value"));
+}
+
+#[test]
+fn definition_returns_readable_standard_library_documentation_links() {
+    let workspace = TempWorkspace::new("definition-standard-documentation-links");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use prelude from \"std\"\n\n",
+            "fn implicit() -> Result<Byte, String>\n",
+            "  byte(1)\n",
+            "end\n\n",
+            "fn explicit() -> Result<Byte, String>\n",
+            "  prelude::byte(1)\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    for (case, line, column) in [("implicit", 4, 4), ("explicit", 8, 12)] {
+        let result =
+            server.definition_tool(&json!({"source":"main.veln","line":line,"column":column}));
+        assert_eq!(result["isError"], false, "{case}: {result:#}");
+        let doc_uri = definition_documentation_uri(&result);
+        assert!(doc_uri.starts_with("veln-doc:///package/std/snapshot/"));
+        let doc = read_resource(&mut server, &doc_uri);
+        let text = doc["result"]["contents"][0]["text"].as_str().unwrap();
+        assert!(text.starts_with("# Function byte\n"), "{case}: {text}");
+    }
+}
+
+#[test]
+fn definition_omits_documentation_link_for_status_only_package_docs() {
+    let workspace = TempWorkspace::new("definition-status-only-documentation-link");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::value()\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "## Broken reference {@schema Missing}.\n",
+            "pub fn value() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+
+    let result = definition_result(&workspace, "main.veln", 4, 8);
+    assert_eq!(result["isError"], false, "{result:#}");
+    let location = &result["structuredContent"]["definition"];
+    assert!(
+        location["uri"]
+            .as_str()
+            .unwrap()
+            .starts_with("veln-pkg:///example%2Fdep/snapshot/")
+    );
+    assert_eq!(location.get("packageDocumentationUri"), None, "{result:#}");
+}
+
+#[test]
+fn workspace_definition_omits_package_documentation_link() {
+    let workspace = TempWorkspace::new("definition-workspace-no-documentation-link");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper() -> Int\n  1\nend\n\nfn main() -> Int\n  helper()\nend\n",
+    );
+
+    let result = definition_result(&workspace, "main.veln", 6, 4);
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["definition"].get("packageDocumentationUri"),
+        None,
+        "{result:#}"
+    );
+}
+
+#[test]
 fn definition_prepares_each_dependency_snapshot_once() {
     let workspace = TempWorkspace::new("definition-single-dependency-snapshot");
     write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
@@ -512,6 +627,7 @@ fn definition_retains_package_snapshot_bytes_across_dependency_changes() {
         .as_str()
         .unwrap()
         .to_string();
+    let first_doc_uri = definition_documentation_uri(&first);
     fs::remove_dir_all(workspace.path("vendor/dep")).unwrap();
     workspace.write("vendor/dep/veln.toml", &navigation_dependency_manifest());
     workspace.write(
@@ -530,7 +646,9 @@ fn definition_retains_package_snapshot_bytes_across_dependency_changes() {
     let second_uri = second["structuredContent"]["definition"]["uri"]
         .as_str()
         .unwrap();
+    let second_doc_uri = definition_documentation_uri(&second);
     assert_ne!(second_uri, first_uri);
+    assert_ne!(second_doc_uri, first_doc_uri);
     assert_eq!(
         read_resource(&mut server, second_uri)["result"]["contents"][0]["text"],
         navigation_dependency_source().replace("value + 1", "value + 2")
@@ -538,6 +656,14 @@ fn definition_retains_package_snapshot_bytes_across_dependency_changes() {
     assert_eq!(
         read_resource(&mut server, &first_uri)["result"]["contents"][0]["text"],
         navigation_dependency_source()
+    );
+    assert_eq!(
+        read_resource(&mut server, &first_doc_uri)["result"]["contents"][0]["uri"],
+        first_doc_uri
+    );
+    assert_eq!(
+        read_resource(&mut server, &second_doc_uri)["result"]["contents"][0]["uri"],
+        second_doc_uri
     );
 }
 
@@ -943,6 +1069,13 @@ fn read_resource(server: &mut Server, uri: &str) -> Value {
             json!({"jsonrpc":"2.0","id":"read-definition-resource","method":"resources/read","params":{"uri":uri}}),
         )
         .unwrap()
+}
+
+fn definition_documentation_uri(result: &Value) -> String {
+    result["structuredContent"]["definition"]["packageDocumentationUri"]
+        .as_str()
+        .unwrap_or_else(|| panic!("definition has no documentation URI: {result:#}"))
+        .to_string()
 }
 
 fn refresh_workspace(server: &mut Server) {

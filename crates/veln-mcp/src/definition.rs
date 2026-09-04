@@ -69,9 +69,9 @@ pub(crate) fn definition(
             NavigationSource::Workspace => {
                 path_to_uri(&root.join(result.definition.span.file.as_str()))
             }
-            NavigationSource::Package { uri } => uri,
+            NavigationSource::Package { ref uri } => uri.clone(),
         };
-        json!({
+        let mut location = json!({
             "uri": uri,
             "range": {
                 "start": {
@@ -83,7 +83,11 @@ pub(crate) fn definition(
                     "column": result.definition.span.end.column
                 }
             }
-        })
+        });
+        if let Some(uri) = language_resources.package_documentation_uri_for(&result.definition) {
+            location["packageDocumentationUri"] = json!(uri);
+        }
+        location
     });
     ToolOutcome::Success(json!({"definition": definition}))
 }

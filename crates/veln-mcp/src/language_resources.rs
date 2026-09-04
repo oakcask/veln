@@ -57,6 +57,7 @@ pub(crate) struct LanguageResources {
     combined_resources: Vec<PublishedResource>,
     combined_by_uri: BTreeMap<String, PublishedResource>,
     retained_package_keys: BTreeSet<RetainedPackageKey>,
+    package_docs: BTreeMap<RetainedPackageKey, PackageDocResult>,
     standard_library_snapshot: Option<DirectDependencySnapshot>,
     standard_library_navigation: EffectiveProjectSnapshot,
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
@@ -73,12 +74,14 @@ impl LanguageResources {
         let rendered = render_checked_language_reference()?;
         let topics = language_topics(&rendered.resources)?;
         let standard_library = StandardLibraryResources::checked()?;
+        let standard_library_key = standard_library.key.clone();
         let navigation_snapshot = standard_library.snapshot.clone();
         Self::from_parts(
             rendered.resources,
             topics,
             standard_library.resources,
-            [standard_library.key],
+            [standard_library_key],
+            [(standard_library.key, standard_library.package_doc_result)],
             Some(standard_library.snapshot),
             EffectiveProjectSnapshot::new(Vec::new()).with_standard_library(navigation_snapshot),
         )
@@ -91,6 +94,7 @@ impl LanguageResources {
             topics,
             Vec::new(),
             [],
+            [],
             None,
             EffectiveProjectSnapshot::new(Vec::new()),
         )
@@ -102,6 +106,7 @@ impl LanguageResources {
         topics: Vec<LanguageTopic>,
         standard_resources: Vec<PublishedResource>,
         retained_package_keys: impl IntoIterator<Item = RetainedPackageKey>,
+        package_docs: impl IntoIterator<Item = (RetainedPackageKey, PackageDocResult)>,
         standard_library_snapshot: Option<DirectDependencySnapshot>,
         standard_library_navigation: EffectiveProjectSnapshot,
     ) -> Result<Self, String> {
@@ -131,6 +136,7 @@ impl LanguageResources {
             combined_resources,
             combined_by_uri,
             retained_package_keys: retained_package_keys.into_iter().collect(),
+            package_docs: package_docs.into_iter().collect(),
             standard_library_snapshot,
             standard_library_navigation,
             dependency_navigation: None,
@@ -157,7 +163,8 @@ impl LanguageResources {
         let mut navigation_snapshots = Vec::with_capacity(new_snapshots.len());
         for snapshot in new_snapshots {
             navigation_snapshots.push(snapshot.navigation);
-            if !self.retained_package_keys.insert(snapshot.key) {
+            let key = snapshot.key.clone();
+            if !self.retained_package_keys.insert(key.clone()) {
                 continue;
             }
             for resource in snapshot.resources {
@@ -168,6 +175,7 @@ impl LanguageResources {
                     .insert(resource.uri.clone(), resource.clone());
                 self.combined_resources.push(resource);
             }
+            self.package_docs.insert(key, snapshot.package_doc_result);
         }
         self.combined_resources
             .sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
@@ -276,6 +284,15 @@ impl LanguageResources {
             .1
             .with_workspace_overlays(files)
     }
+
+    pub(crate) fn package_documentation_uri_for(
+        &self,
+        location: &veln_language_service::NavigationLocation,
+    ) -> Option<&str> {
+        self.package_docs
+            .values()
+            .find_map(|package_doc| package_doc.declaration_uri_for_location(location))
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -297,6 +314,7 @@ struct DependencyResources {
     key: RetainedPackageKey,
     resources: Vec<PublishedResource>,
     navigation: DirectDependencySnapshot,
+    package_doc_result: PackageDocResult,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -368,6 +386,7 @@ pub(crate) struct StandardLibraryResources {
     pub(crate) resources: Vec<PublishedResource>,
     key: RetainedPackageKey,
     snapshot: DirectDependencySnapshot,
+    package_doc_result: PackageDocResult,
 }
 
 impl StandardLibraryResources {
@@ -388,14 +407,24 @@ impl StandardLibraryResources {
                     format!("build embedded standard library source catalog: {error}")
                 })
             },
-            |snapshot, _manifest| {
+            |snapshot, _manifest, package_doc_result| {
                 veln_repo_mcp_standard_library_docs::checked_bundle_for_snapshot(snapshot.digest())
-                    .map(|bundle| {
-                        bundle
-                            .resources
-                            .into_iter()
-                            .map(PublishedResource::from_checked_package_doc)
-                            .collect()
+                    .and_then(|bundle| {
+                        if bundle.metadata.documentation_digest != package_doc_result.doc_digest()
+                        {
+                            return Err(format!(
+                                "regenerate the checked MCP standard-library package-documentation resources for documentation `{}`; checked documentation is `{}`",
+                                package_doc_result.doc_digest(),
+                                bundle.metadata.documentation_digest
+                            ));
+                        }
+                        Ok(
+                            bundle
+                                .resources
+                                .into_iter()
+                                .map(PublishedResource::from_checked_package_doc)
+                                .collect(),
+                        )
                     })
             },
         )
@@ -425,16 +454,8 @@ impl StandardLibraryResources {
             manifest,
             sources,
             catalog_builder,
-            |snapshot, manifest| {
-                let package_doc_result = PackageDocResult::generate(
-                    &PackageIdentity::embedded_standard(),
-                    snapshot,
-                    manifest,
-                    PackageDocGeneratorContract::new(
-                        veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT,
-                    ),
-                );
-                Ok(render_package_documentation(&package_doc_result)
+            |_, _, package_doc_result| {
+                Ok(render_package_documentation(package_doc_result)
                     .iter()
                     .map(PublishedResource::from_package_doc)
                     .collect())
@@ -452,12 +473,22 @@ impl StandardLibraryResources {
         documentation_builder: impl FnOnce(
             &CapturedPackageSnapshot,
             &veln_project::ProjectManifest,
+            &PackageDocResult,
         ) -> Result<Vec<PublishedResource>, String>,
     ) -> Result<Self, String> {
         let snapshot = capture_embedded_package_snapshot(manifest.as_bytes(), sources)
             .map_err(|error| format!("capture embedded standard library snapshot: {error}"))?;
         let manifest = veln_project::parse_manifest_text("veln.toml", manifest);
-        let documentation_resources = documentation_builder(&snapshot, &manifest)?;
+        let package_doc_result = PackageDocResult::generate(
+            &PackageIdentity::embedded_standard(),
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new(
+                veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT,
+            ),
+        );
+        let documentation_resources =
+            documentation_builder(&snapshot, &manifest, &package_doc_result)?;
         let navigation_snapshot =
             DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
                 .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
@@ -471,6 +502,7 @@ impl StandardLibraryResources {
                 digest: snapshot.digest().to_string(),
             },
             snapshot: navigation_snapshot,
+            package_doc_result,
         })
     }
 }
@@ -553,6 +585,7 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
         },
         resources,
         navigation,
+        package_doc_result,
     })
 }
 
