@@ -14977,13 +14977,100 @@ field	expectations.mcp_assertions[1].equals	"veln-doc:///language/snapshot/4fc58
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
 field	expectations.mcp_assertions[1].path	"/result/resources/0/uri"
+field	expectations.mcp_assertions[20].id	8
+field	expectations.mcp_assertions[20].length	7
+field	expectations.mcp_assertions[20].operation	"length"
+field	expectations.mcp_assertions[20].path	"/result/tools"
+field	expectations.mcp_assertions[21].equals	"search_docs"
+field	expectations.mcp_assertions[21].id	8
+field	expectations.mcp_assertions[21].operation	"equals"
+field	expectations.mcp_assertions[21].path	"/result/tools/5/name"
+field	expectations.mcp_assertions[22].equals	256
+field	expectations.mcp_assertions[22].id	8
+field	expectations.mcp_assertions[22].operation	"equals"
+field	expectations.mcp_assertions[22].path	"/result/tools/5/inputSchema/properties/query/maxLength"
+field	expectations.mcp_assertions[23].equals	50
+field	expectations.mcp_assertions[23].id	8
+field	expectations.mcp_assertions[23].operation	"equals"
+field	expectations.mcp_assertions[23].path	"/result/tools/5/inputSchema/properties/limit/maximum"
+field	expectations.mcp_assertions[24].equals	"read_doc"
+field	expectations.mcp_assertions[24].id	8
+field	expectations.mcp_assertions[24].operation	"equals"
+field	expectations.mcp_assertions[24].path	"/result/tools/6/name"
+field	expectations.mcp_assertions[25].equals	"resource_not_found"
+field	expectations.mcp_assertions[25].id	8
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/tools/6/outputSchema/$defs/failure/properties/code/const"
+field	expectations.mcp_assertions[26].equals	false
+field	expectations.mcp_assertions[26].id	9
+field	expectations.mcp_assertions[26].operation	"equals"
+field	expectations.mcp_assertions[26].path	"/result/isError"
+field	expectations.mcp_assertions[27].equals	"language"
+field	expectations.mcp_assertions[27].id	9
+field	expectations.mcp_assertions[27].operation	"equals"
+field	expectations.mcp_assertions[27].path	"/result/structuredContent/scope"
+field	expectations.mcp_assertions[28].id	9
+field	expectations.mcp_assertions[28].length	1
+field	expectations.mcp_assertions[28].operation	"length"
+field	expectations.mcp_assertions[28].path	"/result/structuredContent/results"
+field	expectations.mcp_assertions[29].equals	"Schemas"
+field	expectations.mcp_assertions[29].id	9
+field	expectations.mcp_assertions[29].operation	"equals"
+field	expectations.mcp_assertions[29].path	"/result/structuredContent/results/0/title"
 field	expectations.mcp_assertions[2].equals	"language-index"
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals"
 field	expectations.mcp_assertions[2].path	"/result/resources/0/name"
+field	expectations.mcp_assertions[30].equals	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"
+field	expectations.mcp_assertions[30].id	9
+field	expectations.mcp_assertions[30].operation	"equals"
+field	expectations.mcp_assertions[30].path	"/result/structuredContent/results/0/uri"
+field	expectations.mcp_assertions[31].contains	"Schemas"
+field	expectations.mcp_assertions[31].id	9
+field	expectations.mcp_assertions[31].operation	"contains"
+field	expectations.mcp_assertions[31].path	"/result/structuredContent/results/0/excerpt"
+field	expectations.mcp_assertions[32].id	10
+field	expectations.mcp_assertions[32].length	0
+field	expectations.mcp_assertions[32].operation	"length"
+field	expectations.mcp_assertions[32].path	"/result/structuredContent/results"
+field	expectations.mcp_assertions[33].equals	-32602
+field	expectations.mcp_assertions[33].id	11
+field	expectations.mcp_assertions[33].operation	"equals"
+field	expectations.mcp_assertions[33].path	"/error/code"
+field	expectations.mcp_assertions[34].id	11
+field	expectations.mcp_assertions[34].operation	"missing"
+field	expectations.mcp_assertions[34].path	"/result"
+field	expectations.mcp_assertions[35].equals	false
+field	expectations.mcp_assertions[35].id	12
+field	expectations.mcp_assertions[35].operation	"equals"
+field	expectations.mcp_assertions[35].path	"/result/isError"
+field	expectations.mcp_assertions[36].equals	"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/lexical-structure"
+field	expectations.mcp_assertions[36].id	12
+field	expectations.mcp_assertions[36].operation	"equals"
+field	expectations.mcp_assertions[36].path	"/result/structuredContent/uri"
+field	expectations.mcp_assertions[37].equals	"text/markdown; charset=utf-8"
+field	expectations.mcp_assertions[37].id	12
+field	expectations.mcp_assertions[37].operation	"equals"
+field	expectations.mcp_assertions[37].path	"/result/structuredContent/mimeType"
+field	expectations.mcp_assertions[38].contains	"### Accepted source-surface case"
+field	expectations.mcp_assertions[38].id	12
+field	expectations.mcp_assertions[38].operation	"contains"
+field	expectations.mcp_assertions[38].path	"/result/structuredContent/text"
+field	expectations.mcp_assertions[39].equals	true
+field	expectations.mcp_assertions[39].id	13
+field	expectations.mcp_assertions[39].operation	"equals"
+field	expectations.mcp_assertions[39].path	"/result/isError"
 field	expectations.mcp_assertions[3].id	2
 field	expectations.mcp_assertions[3].operation	"missing"
 field	expectations.mcp_assertions[3].path	"/result/resources/0/description"
+field	expectations.mcp_assertions[40].equals	"resource_not_found"
+field	expectations.mcp_assertions[40].id	13
+field	expectations.mcp_assertions[40].operation	"equals"
+field	expectations.mcp_assertions[40].path	"/result/structuredContent/code"
+field	expectations.mcp_assertions[41].equals	"veln-doc:///language/snapshot/wrong/topic/lexical-structure"
+field	expectations.mcp_assertions[41].id	13
+field	expectations.mcp_assertions[41].operation	"equals"
+field	expectations.mcp_assertions[41].path	"/result/structuredContent/details/uri"
 field	expectations.mcp_assertions[4].id	2
 field	expectations.mcp_assertions[4].operation	"missing"
 field	expectations.mcp_assertions[4].path	"/result/nextCursor"
@@ -15012,12 +15099,15 @@ field	expectations.stdout.contains[0]	"\"resources\":{\"listChanged\":false,\"su
 field	expectations.stdout.contains[1]	"\"name\":\"language-index\""
 field	expectations.stdout.contains[2]	"\"name\":\"lexical-structure\""
 field	expectations.stdout.contains[3]	"# Veln Language Reference"
-field	expectations.stdout.contains[4]	"\"code\":\"resource_not_found\""
+field	expectations.stdout.contains[4]	"\"name\":\"search_docs\""
+field	expectations.stdout.contains[5]	"\"name\":\"read_doc\""
+field	expectations.stdout.contains[6]	"\"scope\":\"language\""
+field	expectations.stdout.contains[7]	"\"code\":\"resource_not_found\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":891,"sha256":"f67fcdc873a819a4f585fb6350ce46bd4a85c5e6f5221bdca454faef243af6dc"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1683,"sha256":"d23ecbdc4e0324c1720459d4a6090d417345dae8c71c7429e5fd326c2639e067"}
 field	source_errors	"forbidden"
-case_digest	"788b0c7a1c7209bdfb5ae40ffb94dfd04f229552b1c149fd7c704f293180e0e9"
+case_digest	"b41e431190c586d158ffdbb955430150573b04cdfc10489af8447aa32c7d0454"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -54092,4 +54182,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"634ade3da318173ea54793e3fa44b7be5418ff140b7df4f8a3c6965e106af176"
+aggregate_digest	"ae01b685b24ac87fcfcf0621f8e6c187a25c3450497522bf84db8668676f388a"

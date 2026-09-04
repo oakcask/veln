@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uri": { "type": "string" },
+        "name": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "required": ["uri", "name", "title", "mimeType", "text"]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "const": "resource_not_found" },
+        "message": { "type": "string" },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "uri": { "type": "string" }
+          },
+          "required": ["uri"]
+        }
+      },
+      "required": ["code", "message", "details"]
+    }
+  },
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/success" },
+    { "$ref": "#/$defs/failure" }
+  ]
+}

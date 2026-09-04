@@ -56,16 +56,16 @@ The bounded MCP language-reference publication slice is implemented and
 recorded by
 [MCP Language Reference Resources](../reference/implemented-proposals/mcp-language-reference-resources.md).
 
-### Extracted Ready Tool Slice
+### Implemented Tool Slice
 
-The next bounded model-controlled language-reference search and read slice is
-separately selectable as
-[MCP Language Reference Tools](mcp-language-reference-tools.md).
+The bounded model-controlled language-reference search and read slice is
+implemented and recorded by
+[MCP Language Reference Tools](../reference/implemented-proposals/mcp-language-reference-tools.md).
 
 This umbrella remains planning input for later navigation, documentation,
 virtual-source, conformance, and plugin work. It is not itself selectable.
 Extract another finite proposal page with its own acceptance model before
-moving work after the MCP language-reference tool slice to Ready.
+moving more MCP documentation work to Ready.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -1075,8 +1075,8 @@ The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The subsequent slices are:
 
-1. Add bounded language-reference search and read tools through
-   [MCP Language Reference Tools](mcp-language-reference-tools.md).
+1. Extract another finite language-reference or documentation publication
+   slice before selecting more MCP documentation work.
 1. Extend the existing `veln mcp` server with package and virtual-source
    resources, package and standard-library documentation search, dependency
    reference search, paginated references, and definition beyond the

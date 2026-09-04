@@ -54,7 +54,9 @@ fn assert_implemented_tool_names(response: &Value) {
             "refresh_workspace",
             "check_project",
             "definition",
-            "references"
+            "references",
+            "search_docs",
+            "read_doc"
         ]
     );
 }

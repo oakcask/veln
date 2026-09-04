@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use crate::check_project;
 use crate::definition;
 use crate::language_resources::LanguageResources;
+use crate::language_tools;
 use crate::outcome::ToolOutcome;
 use crate::references;
 use crate::schema;
@@ -165,8 +166,24 @@ impl Server {
             "check_project" => self.check_project_tool(arguments),
             "definition" => self.definition_tool(arguments),
             "references" => self.references_tool(arguments),
+            "search_docs" => self.search_docs_tool(arguments),
+            "read_doc" => self.read_doc_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
         })
+    }
+
+    fn search_docs_tool(&self, arguments: &Value) -> Value {
+        render_tool_outcome(
+            "search_docs",
+            language_tools::search_docs(&self.language_resources, arguments),
+        )
+    }
+
+    fn read_doc_tool(&self, arguments: &Value) -> Value {
+        render_tool_outcome(
+            "read_doc",
+            language_tools::read_doc(&self.language_resources, arguments),
+        )
     }
 
     fn references_tool(&self, arguments: &Value) -> Value {

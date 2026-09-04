@@ -11,8 +11,9 @@ standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
 The current MCP surface contains language-reference resources plus the
-`workspace_projects`, `refresh_workspace`, `check_project`, `definition`, and
-`references` tools. Initialization advertises `resources` with
+`workspace_projects`, `refresh_workspace`, `check_project`, `definition`,
+`references`, `search_docs`, and `read_doc` tools. Initialization advertises
+`resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
 `listChanged: false`.
 The checked declarations under
@@ -67,6 +68,61 @@ non-object, or unknown-field read parameters fail with invalid params.
 The resource set is independent of workspace project discovery, refresh, and
 project analysis. Its URIs, metadata, and bytes remain stable until server
 shutdown.
+
+## Language Reference Tools
+
+`search_docs` searches only the checked language-reference topic resources.
+The input requires `query`, accepts optional `scope: "language"`, and accepts
+optional integer `limit` from 1 through 50. The default scope is `language`,
+and the default limit is 10. The query must contain 1 through 256 Unicode
+scalars before normalization and must contain at least one non-whitespace
+scalar after normalization. Unknown fields, `null`, non-object input,
+unsupported scopes, non-integer limits, and out-of-range limits fail with
+invalid params.
+
+Search normalizes searched text and query text to NFC, applies the pinned full
+default Unicode case fold used by the portable project contract, trims Unicode
+whitespace, and splits query text on Unicode whitespace. A topic matches only
+when every query token occurs in the searched fields for the winning rank.
+The index resource is not a search candidate. Searchable topic fields are
+identifier, title, keywords, summary, and body. Grammar and example source
+blocks are not searched.
+
+Search ranks topic results by the first matching tier:
+
+| Rank | Match |
+| --- | --- |
+| 1 | The complete normalized query equals the identifier or title. |
+| 2 | The identifier or title starts with the complete normalized query. |
+| 3 | Every token occurs in the title or keywords. |
+| 4 | Every token occurs in the summary. |
+| 5 | Every token occurs in the body. |
+
+Equal-rank results sort by resource URI UTF-8 bytes. One URI appears at most
+once. A successful search returns the effective scope and at most the
+effective limit of results. Each result contains `uri`, `title`, `summary`,
+`excerpt`, `prefix_truncated`, and `suffix_truncated`. The excerpt comes from
+the first match in the first matching field for the winning rank, using field
+order identifier, title, keywords in catalog order, summary, and body. It
+preserves original field text, contains at most 160 Unicode scalars, and
+keeps the complete matched-token source span when that span is not longer than
+160 scalars. The truncation flags report whether original field content was
+omitted before or after the excerpt. A search with no match succeeds with an
+empty `results` array and no cursor.
+
+`read_doc` accepts one exact `uri` for the checked language index or checked
+language topic resources. Success returns `uri`, `name`, `title`, optional
+`description`, `mimeType`, and the same complete Markdown `text` as
+`resources/read`. Missing, nullable, non-string, non-object, or unknown-field
+parameters fail with invalid params. Syntactically valid but unknown,
+noncanonical, wrong-digest, non-language, or unknown-topic URIs return an MCP
+tool result with `isError: true`, structured code `resource_not_found`, and no
+partial document text.
+
+The language tool candidate set, result URIs, read metadata, and read bytes
+are independent of workspace project discovery, refresh, and project
+analysis. Invalid input and `resource_not_found` failures do not change saved
+workspace state or language-reference resource state.
 
 ## Workspace Selection
 
@@ -213,7 +269,10 @@ standard output, and clean end-of-file termination. The
 read success, index and topic Markdown fragments, malformed list and read
 parameters, and structured `resource_not_found` failures over stdio. It also
 checks that every listed resource can be read and that every emitted
-language-reference topic URI resolves through `resources/read`. The
+language-reference topic URI resolves through `resources/read`. The same case
+checks `search_docs` and `read_doc` tool schema advertisement, a normalized
+bounded search, empty search results, search invalid params, exact `read_doc`
+topic text, and a `resource_not_found` read tool failure over stdio. The
 `check-project-diagnostics` MCP specification case checks the
 advertised `check_project` schema and a diagnostic result with a spanless
 compiler-owned related note over stdio. The `anonymous-single-file-isolation`

@@ -232,7 +232,7 @@ pub(crate) fn validate_source_path(path: &str) -> Result<(), PortableSourcePathE
     Ok(())
 }
 
-pub(crate) fn default_case_fold(path: &str) -> String {
+pub fn default_case_fold(path: &str) -> String {
     if !path
         .chars()
         .any(|character| full_case_fold_three(character).is_some())
@@ -249,6 +249,10 @@ pub(crate) fn default_case_fold(path: &str) -> String {
         }
     }
     folded
+}
+
+pub fn portable_normalized_case_fold(text: &str) -> String {
+    default_case_fold(&text.nfc().collect::<String>())
 }
 
 fn full_case_fold_three(character: char) -> Option<&'static str> {

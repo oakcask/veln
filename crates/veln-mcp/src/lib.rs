@@ -3,6 +3,7 @@
 mod check_project;
 mod definition;
 mod language_resources;
+mod language_tools;
 mod outcome;
 mod references;
 mod schema;

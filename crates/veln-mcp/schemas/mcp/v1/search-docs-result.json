@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "scope": { "const": "language" },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "uri": { "type": "string" },
+          "title": { "type": "string" },
+          "summary": { "type": "string" },
+          "excerpt": { "type": "string", "maxLength": 160 },
+          "prefix_truncated": { "type": "boolean" },
+          "suffix_truncated": { "type": "boolean" }
+        },
+        "required": [
+          "uri",
+          "title",
+          "summary",
+          "excerpt",
+          "prefix_truncated",
+          "suffix_truncated"
+        ]
+      }
+    }
+  },
+  "required": ["scope", "results"]
+}

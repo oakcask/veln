@@ -1,16 +1,17 @@
 ---
-role: proposal
-update-when: The checked language-reference catalog, published MCP language resources, documentation tool schemas, Unicode search contract, or planned language-tool evidence changes.
+role: implementation-record
+authority: supporting
+update-when: The completed MCP language-reference tool scope, checked schemas, executable MCP evidence, or current MCP specification changes.
 ---
 
 # MCP Language Reference Tools
 
-## Summary
+## Completed Scope
 
-Add model-controlled `search_docs` and `read_doc` tools for the checked
-language-reference topics already published through MCP resources. This slice
-lets an agent discover a bounded topic result and read its complete Markdown
-without adding package catalogs, virtual sources, or snapshot state.
+The completed slice adds model-controlled `search_docs` and `read_doc` tools
+for the checked language-reference topics already published through MCP
+resources. Current behavior is specified by
+[MCP Workspace Projects And Navigation](../../specification/mcp.md).
 
 ## Scope
 
@@ -106,11 +107,9 @@ partial content.
 | Read an unknown, noncanonical, wrong-digest, non-language, or unknown-topic URI. | The tool returns `resource_not_found` with no content and performs no filesystem fallback. | URI rejection table and stdio domain-failure case. |
 | Refresh the workspace and analyze a project between searches and reads. | Search order, result URIs, metadata, and read bytes remain identical. | MCP lifecycle state-preservation test. |
 
-## Completion
+## Completion Evidence
 
-This proposal is complete when every acceptance row passes and the MCP
-specification and executable examples state the implemented language-only
-tool behavior. Move completion history under
-`../reference/implemented-proposals/`, remove this page from the Ready catalog,
-and leave the umbrella proposal unselectable until another finite slice is
-extracted.
+This slice is complete for language-only documentation search and exact
+language-reference reads. It does not add package documentation search,
+workspace analysis, pagination, subscriptions, navigation expansion, rename
+support, plugins, or conformance-manifest completion.

@@ -8,6 +8,9 @@ contains = [
   "\"name\":\"language-index\"",
   "\"name\":\"lexical-structure\"",
   "# Veln Language Reference",
+  "\"name\":\"search_docs\"",
+  "\"name\":\"read_doc\"",
+  "\"scope\":\"language\"",
   "\"code\":\"resource_not_found\"",
 ]
 
@@ -113,3 +116,113 @@ equals = "resource_not_found"
 id = 7
 path = "/result"
 missing = true
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools"
+length = 7
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/5/name"
+equals = "search_docs"
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/5/inputSchema/properties/query/maxLength"
+equals = 256
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/5/inputSchema/properties/limit/maximum"
+equals = 50
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/6/name"
+equals = "read_doc"
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/6/outputSchema/$defs/failure/properties/code/const"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 9
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/scope"
+equals = "language"
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/results"
+length = 1
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/results/0/title"
+equals = "Schemas"
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/results/0/uri"
+equals = "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/results/0/excerpt"
+contains = "Schemas"
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/results"
+length = 0
+
+[[mcp_assert]]
+id = 11
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 11
+path = "/result"
+missing = true
+
+[[mcp_assert]]
+id = 12
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/uri"
+equals = "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/lexical-structure"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/mimeType"
+equals = "text/markdown; charset=utf-8"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/text"
+contains = "### Accepted source-surface case"
+
+[[mcp_assert]]
+id = 13
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/details/uri"
+equals = "veln-doc:///language/snapshot/wrong/topic/lexical-structure"
