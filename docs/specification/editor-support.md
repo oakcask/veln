@@ -213,6 +213,9 @@ occurrences stays in the namespace fixed by the selected source position.
 Focused `veln-language-service` tests cover that namespace-by-use-role
 boundary, including lower-case exact spelling collisions where casing-neutral
 declarations coexist with accepted value names.
+Local binding selection starts after the binding declaration and initializer,
+so a function reference in `let name = name` remains a function reference
+while later same-scope `name` expressions select the local binding.
 For selected workspace type, constructor, function, and value-binding symbols,
 `textDocument/rename` first validates that the requested replacement stays in
 the selected symbol's existing identifier class. Type rename selection covers

@@ -376,9 +376,9 @@ non-ASCII UTF-8 text for the exact returned package URI.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
 ordinary calls, workspace type references, workspace constructor references,
-handler operation clause parameter references, unsupported schema success,
-function-shaped recovery exclusion, invalid positions, and schema-invalid
-coordinates over stdio.
+workspace value-binding references, handler operation clause parameter
+references, unsupported schema success, function-shaped recovery exclusion,
+invalid positions, and schema-invalid coordinates over stdio.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
