@@ -1,4 +1,12 @@
 use super::*;
+#[cfg(test)]
+use std::cell::RefCell;
+
+#[cfg(test)]
+thread_local! {
+    static AFTER_FIRST_STABLE_CAPTURE_HOOK: RefCell<Option<Box<dyn FnMut()>>> =
+        RefCell::new(None);
+}
 
 pub(super) enum CaptureError {
     Changed,
@@ -179,6 +187,8 @@ fn capture_stable_with<T>(
     let mut first_error = None;
     for _ in 0..SNAPSHOT_ATTEMPTS {
         let first = capture();
+        #[cfg(test)]
+        run_after_first_stable_capture_hook();
         let second = capture();
         match (first, second) {
             (Ok(first), Ok(second)) if key(&first) == key(&second) => {
@@ -193,6 +203,39 @@ fn capture_stable_with<T>(
     } else {
         Err(CaptureError::Changed)
     }
+}
+
+#[cfg(test)]
+pub(crate) struct StableCaptureHookGuard;
+
+#[cfg(test)]
+impl Drop for StableCaptureHookGuard {
+    fn drop(&mut self) {
+        AFTER_FIRST_STABLE_CAPTURE_HOOK.with(|hook| {
+            *hook.borrow_mut() = None;
+        });
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn set_after_first_stable_capture_hook(
+    hook: impl FnMut() + 'static,
+) -> StableCaptureHookGuard {
+    AFTER_FIRST_STABLE_CAPTURE_HOOK.with(|current| {
+        let mut current = current.borrow_mut();
+        assert!(current.is_none(), "stable capture test hook is already set");
+        *current = Some(Box::new(hook));
+    });
+    StableCaptureHookGuard
+}
+
+#[cfg(test)]
+fn run_after_first_stable_capture_hook() {
+    AFTER_FIRST_STABLE_CAPTURE_HOOK.with(|hook| {
+        if let Some(hook) = &mut *hook.borrow_mut() {
+            hook();
+        }
+    });
 }
 
 pub(crate) struct CapturedProject {

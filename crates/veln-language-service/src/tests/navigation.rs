@@ -429,6 +429,32 @@
     }
 
     #[test]
+    fn valid_local_let_binding_selects_local_symbol_after_initializer() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "fn read() -> Int\n",
+                    "  let worker: fn() -> Int = target\n",
+                    "  worker()\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            7,
+            4,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_location(&result.definition, "main.veln", 6, 7);
+        assert_eq!(locations(&result.references), [("main.veln", 7, 3)]);
+    }
+
+    #[test]
     fn invalid_local_binding_recovery_stays_in_lexical_scope() {
         let result = query(
             vec![source(

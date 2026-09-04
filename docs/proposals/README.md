@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Expose the shared workspace type, constructor, and lexical-binding reference
-  sets through the existing MCP `references` tool:
-  [mcp-saved-workspace-symbol-references.md](mcp-saved-workspace-symbol-references.md).
+No proposal is ready for implementation.
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.
@@ -34,8 +32,8 @@ another page is not a selectable target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
-  saved workspace symbol-reference slice is extracted under Ready; select that
-  finite page instead of the umbrella:
+  saved workspace symbol-reference slice is implemented; do not select the
+  umbrella until another finite page is extracted under Ready:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

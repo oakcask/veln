@@ -6,16 +6,37 @@ fn main() -> Int
   helper(1)
 end
 
-type Left
-  Thing
+type Item
+  Some(Int)
+  None
 end
 
-type Right
-  Thing
+fn make_item() -> Item
+  Item::Some(1)
 end
 
-fn make() -> Left
-  Thing()
+fn read_item(input: Item) -> Int
+  match input
+    Item::Some(value) => value
+    Item::None => 0
+  end
+end
+
+effect Choose
+  pick(value: Bool) -> Int
+end
+
+handler choose() handles Choose
+  pick(value) => match value
+    true => value
+    value => value
+    false => record.value
+  end
+end
+
+schema Packet
+  format binary
+  value: UInt8
 end
 
 test Bad() -> Int

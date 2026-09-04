@@ -213,6 +213,9 @@ occurrences stays in the namespace fixed by the selected source position.
 Focused `veln-language-service` tests cover that namespace-by-use-role
 boundary, including lower-case exact spelling collisions where casing-neutral
 declarations coexist with accepted value names.
+Local binding selection starts after the binding declaration and initializer,
+so a function reference in `let name = name` remains a function reference
+while later same-scope `name` expressions select the local binding.
 For selected workspace type, constructor, function, and value-binding symbols,
 `textDocument/rename` first validates that the requested replacement stays in
 the selected symbol's existing identifier class. Type rename selection covers
@@ -220,12 +223,14 @@ type declarations and syntax-retained type-role references. It does not select
 same-spelled effect names or effect operation names as type symbols. A bare
 type-role reference with multiple visible same-spelled imported type candidates
 has no selected symbol. A qualified type-role reference selects only the
-visible type identity named by its qualifier. Constructor rename edits selected
-constructor declarations, constructor calls, and source-declared bare nullary
-constructor expression and pattern uses in workspace sources. Type and
-constructor replacement names start with an ASCII uppercase letter. Function
-and value-binding replacement names start with an ASCII lowercase letter. A
-class-changing replacement returns JSON-RPC invalid params with code `-32602`.
+visible type identity named by its qualifier. Constructor declarations select
+the declared constructor identity, but they are not constructor reference
+sites. Constructor rename edits selected constructor declarations,
+constructor calls, and source-declared bare nullary constructor expression and
+pattern uses in workspace sources. Type and constructor replacement names
+start with an ASCII uppercase letter. Function and value-binding replacement
+names start with an ASCII lowercase letter. A class-changing replacement
+returns JSON-RPC invalid params with code `-32602`.
 The error payload preserves the shared `rename.invalid_case` code and includes
 the selected symbol class, requested name, and required initial class. The
 request returns no workspace edits in that failure response.

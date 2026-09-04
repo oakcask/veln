@@ -25,12 +25,13 @@ impl SymbolIndex {
                         && !is_local_binding_name(&tokens, *index)
                         && (symbol.kind != LocalSymbolKind::HandlerContextParameter
                             || inside_handler_operation_clause_body(&tokens, token.range.start))
-                        && !local_binding_shadows_name(
+                        && !local_binding_shadows_other_name(
                             &tokens,
                             &symbol.name,
                             token.range.start,
                             symbol.scope_start,
                             symbol.scope_end,
+                            symbol.declaration.start.offset,
                         )
                         && (symbol.kind != LocalSymbolKind::HandlerContextParameter
                             || !handler_operation_clause_parameter_shadows_name(

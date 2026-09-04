@@ -95,7 +95,7 @@ pub(crate) const TOOLS: [ToolSchema; 7] = [
     },
     ToolSchema {
         name: "references",
-        description: "Return references for a supported function in one saved workspace source",
+        description: "Return references for a supported symbol in one saved workspace source",
         input: REFERENCES_INPUT,
         result: REFERENCES_RESULT,
     },
