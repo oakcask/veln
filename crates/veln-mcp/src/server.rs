@@ -96,6 +96,9 @@ impl Server {
             "resources/list" => self
                 .list_resources(params)
                 .map_err(RequestError::InvalidParams),
+            "resources/templates/list" => self
+                .list_resource_templates(params)
+                .map_err(RequestError::InvalidParams),
             "resources/read" => self.read_resource(params),
             _ => Err(RequestError::MethodNotFound),
         }
@@ -132,6 +135,11 @@ impl Server {
     fn list_resources(&self, params: Option<&Value>) -> Result<Value, &'static str> {
         list_resources_params(params)?;
         Ok(self.language_resources.list_result())
+    }
+
+    fn list_resource_templates(&self, params: Option<&Value>) -> Result<Value, &'static str> {
+        list_resources_params(params).map_err(|_| "Invalid resource templates list params")?;
+        Ok(self.language_resources.resource_templates_result())
     }
 
     fn read_resource(&self, params: Option<&Value>) -> Result<Value, RequestError> {

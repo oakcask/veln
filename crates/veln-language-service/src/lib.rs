@@ -13,11 +13,12 @@ pub use navigation::{
     SymbolKind, navigate, validate_rename, validate_rename_in_snapshot,
 };
 pub use package_documentation::{
-    PackageDocAlias, PackageDocCatalog, PackageDocDeclaration, PackageDocDiagnostic,
-    PackageDocDiagnosticSpan, PackageDocDoctest, PackageDocExpectedOutput,
-    PackageDocFunctionContract, PackageDocGeneration, PackageDocGenerationStatus,
-    PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule, PackageDocReference,
-    PackageDocResult, PackageDocResultKind, PackageDocTypeConstructor,
+    PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE, PackageDocAlias, PackageDocCatalog,
+    PackageDocDeclaration, PackageDocDiagnostic, PackageDocDiagnosticSpan, PackageDocDoctest,
+    PackageDocExpectedOutput, PackageDocFunctionContract, PackageDocGeneration,
+    PackageDocGenerationStatus, PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule,
+    PackageDocReference, PackageDocResult, PackageDocResultKind, PackageDocTypeConstructor,
+    RenderedPackageDocResource, render_package_documentation,
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};
 

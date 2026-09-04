@@ -1,0 +1,112 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"name\":\"std-documentation-index\"",
+  "\"name\":\"package-documentation-module\"",
+  "\"name\":\"package-documentation-declaration\"",
+  "# Package Documentation: std",
+  "# Module prelude",
+  "# Alias Byte",
+  "\"code\":\"resource_not_found\"",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/name"
+equals = "std-documentation-index"
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/title"
+equals = "Veln package documentation: std"
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/mimeType"
+equals = "text/markdown; charset=utf-8"
+
+[[mcp_assert]]
+id = 2
+path = "/result/resources/11/description"
+missing = true
+
+[[mcp_assert]]
+id = 2
+path = "/result/nextCursor"
+missing = true
+
+[[mcp_assert]]
+id = 3
+path = "/result/resourceTemplates"
+length = 2
+
+[[mcp_assert]]
+id = 3
+path = "/result/resourceTemplates/0/name"
+equals = "package-documentation-module"
+
+[[mcp_assert]]
+id = 3
+path = "/result/resourceTemplates/0/uriTemplate"
+equals = "veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/module/{module_id}"
+
+[[mcp_assert]]
+id = 3
+path = "/result/resourceTemplates/1/name"
+equals = "package-documentation-declaration"
+
+[[mcp_assert]]
+id = 3
+path = "/result/resourceTemplates/1/uriTemplate"
+equals = "veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/declaration/{declaration_id}"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/mimeType"
+equals = "text/markdown; charset=utf-8"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/text"
+contains = "- Package identity: std"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/text"
+contains = "veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+contains = "- Source path: prelude.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+contains = "veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+
+[[mcp_assert]]
+id = 6
+path = "/result/contents/0/text"
+contains = "- Kind: alias"
+
+[[mcp_assert]]
+id = 6
+path = "/result/contents/0/text"
+contains = "- Target: bytes::Byte"
+
+[[mcp_assert]]
+id = 7
+path = "/error/code"
+equals = -32002
+
+[[mcp_assert]]
+id = 7
+path = "/error/data/code"
+equals = "resource_not_found"

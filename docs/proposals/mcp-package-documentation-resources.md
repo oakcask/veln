@@ -7,11 +7,11 @@ update-when: MCP package-documentation resource publication, package documentati
 
 ## Outcome
 
-Publish the existing package-documentation catalog through `veln mcp` for the
-embedded standard library and for admitted direct-dependency snapshots. A
-client can follow a documentation URI returned by definition lookup and read
-the exact immutable documentation resource without access to a physical
-package cache path.
+Finish publishing the existing package-documentation catalog through `veln
+mcp` for admitted direct-dependency snapshots and package-backed definition
+results. A client can follow a documentation URI returned by definition lookup
+and read the exact immutable documentation resource without access to a
+physical package cache path.
 
 ## Existing Foundations
 
@@ -28,27 +28,30 @@ specified:
   package snapshot admission, retained source resources, resource capacity,
   and package-backed definition results.
 
-This proposal adds a deterministic Markdown projection and the MCP adapter for
-the existing documentation result. It does not change catalog generation
-semantics or identity.
+The embedded standard-library index, module, declaration, template, exact-read,
+status-only, and rejection boundary is implemented in
+[MCP Workspace Projects And Navigation](../specification/mcp.md). This
+remaining proposal adds direct-dependency publication and definition-result
+links for the same package-documentation result. It does not change catalog
+generation semantics or identity.
 
 ## Scope
 
 | Included | Excluded |
 | --- | --- |
-| Documentation resources for the embedded standard library and each successfully admitted direct-dependency snapshot. | Workspace-package documentation and arbitrary `veln doc` invocation. |
-| Deterministic Markdown index, module, declaration, and status resources projected from the existing catalog. | A new package-documentation catalog schema or identity. |
-| Bounded index or status metadata in `resources/list`, module and declaration resource templates, and exact `resources/read` access. | Package and standard-library search through `search_docs` or reads through `read_doc`. |
+| Documentation resources for each successfully admitted direct-dependency snapshot. | Workspace-package documentation and arbitrary `veln doc` invocation. |
+| Direct-dependency Markdown index, module, declaration, and status resources projected from the existing catalog. | A new package-documentation catalog schema or identity. |
+| Bounded direct-dependency index or status metadata in `resources/list`, exact `resources/read` access, and reuse of the implemented package-documentation resource templates. | Package and standard-library search through `search_docs` or reads through `read_doc`. |
 | Documentation links on package-backed definition results when the selected declaration has a published resource. | Dependency reference expansion, pagination, rename, formatting, or mutation. |
 | Snapshot retention and capacity behavior shared with existing package source resources. | Resource subscriptions, completion, hover, and client plugin packaging. |
 
 ## Resource Contract
 
-For each retained package snapshot, the MCP adapter generates the existing
-package-documentation result from that same captured snapshot. A successful
-result publishes its index, module, and declaration Markdown resources. A
-failed result publishes only its status Markdown resource. Package source
-resources remain available in either case.
+For each retained direct-dependency package snapshot, the MCP adapter
+generates the existing package-documentation result from that same captured
+snapshot. A successful result publishes its index, module, and declaration
+Markdown resources. A failed result publishes only its status Markdown
+resource. Package source resources remain available in either case.
 
 The renderer is a pure projection of the immutable result. The index preserves
 the catalog metadata and ordered module links. A module resource preserves its
@@ -80,11 +83,10 @@ unpublished URI returns the existing `resource_not_found` domain failure. The
 adapter does not normalize the URI, regenerate from a newer snapshot, or fall
 back to a physical path.
 
-The embedded standard-library documentation result is available after MCP
-initialization. Direct-dependency documentation becomes available atomically
-with the existing successful snapshot admission path. Re-admitting the same
-package identity and snapshot digest does not duplicate resources. A different
-digest for the same package identity can coexist until server shutdown.
+Direct-dependency documentation becomes available atomically with the existing
+successful snapshot admission path. Re-admitting the same package identity and
+snapshot digest does not duplicate resources. A different digest for the same
+package identity can coexist until server shutdown.
 
 If admitting a new package snapshot would exceed the existing retained-package
 capacity, the operation returns `resource_capacity` before publishing source
@@ -108,7 +110,6 @@ resource remain unchanged.
 
 | Case | Expected result | Planned evidence |
 | --- | --- | --- |
-| Initialize the server with the embedded standard library. | `resources/list` includes its package-documentation index, `resources/templates/list` advertises module and declaration resources, and index-linked URIs round-trip through `resources/read`. | MCP resource unit cases and an executable stdio specification case. |
 | Admit a direct dependency whose documentation generation succeeds. | Source resources and the documentation index appear atomically in URI byte order; index-linked resources become readable and repeated admission adds no duplicates. | Path-dependency admission and repeated-admission cases. |
 | Read a published index, module, or declaration URI. | The response contains the complete Markdown bytes and media type rendered from the admitted catalog. | Route-equality cases against the transport-independent package-documentation result. |
 | Render catalog metadata, documentation, signatures, contracts, constructors, doctests, expected outputs, references, or status diagnostics. | The Markdown preserves the corresponding ordered semantic fields and does not expose catalog-excluded metadata. | Renderer projection and disclosure-boundary cases. |

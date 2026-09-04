@@ -6,7 +6,9 @@ use std::sync::OnceLock;
 use serde_json::{Value, json};
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, VirtualSourceCatalog,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, PackageDocGeneratorContract,
+    PackageDocResult, RenderedPackageDocResource, VirtualSourceCatalog,
+    render_package_documentation,
 };
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource,
@@ -15,6 +17,7 @@ use veln_project::{
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
 const VELN_SOURCE_MEDIA_TYPE: &str = "text/x-veln; charset=utf-8";
+const PACKAGE_DOC_GENERATOR_CONTRACT: &str = "veln-mcp-package-documentation/v1";
 const RETAINED_PACKAGE_CAPACITY: usize = 256;
 
 #[cfg(test)]
@@ -177,7 +180,26 @@ impl LanguageResources {
 
     pub(crate) fn list_result(&self) -> Value {
         json!({
-            "resources": self.combined_resources.iter().map(PublishedResource::metadata).collect::<Vec<_>>()
+            "resources": self.combined_resources.iter().filter(|resource| resource.listed).map(PublishedResource::metadata).collect::<Vec<_>>()
+        })
+    }
+
+    pub(crate) fn resource_templates_result(&self) -> Value {
+        json!({
+            "resourceTemplates": [
+                {
+                    "uriTemplate": "veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/module/{module_id}",
+                    "name": "package-documentation-module",
+                    "title": "Veln package documentation module",
+                    "mimeType": veln_language_service::PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE,
+                },
+                {
+                    "uriTemplate": "veln-doc:///package/{package}/snapshot/{snapshot_digest}/documentation/{documentation_digest}/declaration/{declaration_id}",
+                    "name": "package-documentation-declaration",
+                    "title": "Veln package documentation declaration",
+                    "mimeType": veln_language_service::PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE,
+                },
+            ]
         })
     }
 
@@ -286,6 +308,7 @@ pub(crate) struct PublishedResource {
     description: Option<String>,
     mime_type: &'static str,
     text: String,
+    pub(crate) listed: bool,
 }
 
 impl PublishedResource {
@@ -297,6 +320,19 @@ impl PublishedResource {
             description: resource.description.clone(),
             mime_type: resource.mime_type,
             text: resource.text.clone(),
+            listed: true,
+        }
+    }
+
+    fn from_package_doc(resource: &RenderedPackageDocResource) -> Self {
+        Self {
+            uri: resource.uri.clone(),
+            name: resource.name.clone(),
+            title: resource.title.clone(),
+            description: resource.description.clone(),
+            mime_type: resource.mime_type,
+            text: resource.text.clone(),
+            listed: resource.listed,
         }
     }
 
@@ -354,33 +390,22 @@ impl StandardLibraryResources {
         let snapshot = capture_embedded_package_snapshot(manifest.as_bytes(), sources)
             .map_err(|error| format!("capture embedded standard library snapshot: {error}"))?;
         let manifest = veln_project::parse_manifest_text("veln.toml", manifest);
+        let package_doc_result = PackageDocResult::generate(
+            &PackageIdentity::embedded_standard(),
+            &snapshot,
+            &manifest,
+            PackageDocGeneratorContract::new(PACKAGE_DOC_GENERATOR_CONTRACT),
+        );
         let navigation_snapshot =
             DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
                 .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
         let catalog = catalog_builder(PackageIdentity::embedded_standard(), snapshot.clone())?;
-        let mut resources = Vec::with_capacity(snapshot.sources().len());
-        for (source_index, source) in snapshot.sources().iter().enumerate() {
-            let entry = catalog
-                .entry_for_source(0, source_index)
-                .ok_or("embedded standard library source catalog is incomplete")?;
-            let text = std::str::from_utf8(source.bytes())
-                .map_err(|error| {
-                    format!(
-                        "embedded standard library source `{}` is not valid UTF-8 at byte {}",
-                        source.path(),
-                        error.valid_up_to()
-                    )
-                })?
-                .to_string();
-            resources.push(PublishedResource {
-                uri: entry.uri().to_string(),
-                name: source.path().to_string(),
-                title: format!("Veln standard library source: {}", source.path()),
-                description: None,
-                mime_type: VELN_SOURCE_MEDIA_TYPE,
-                text,
-            });
-        }
+        let mut resources = standard_library_source_resources(&snapshot, &catalog)?;
+        resources.extend(
+            render_package_documentation(&package_doc_result)
+                .iter()
+                .map(PublishedResource::from_package_doc),
+        );
         Ok(Self {
             resources,
             key: RetainedPackageKey {
@@ -390,6 +415,44 @@ impl StandardLibraryResources {
             snapshot: navigation_snapshot,
         })
     }
+}
+
+fn standard_library_source_resources(
+    snapshot: &CapturedPackageSnapshot,
+    catalog: &VirtualSourceCatalog,
+) -> Result<Vec<PublishedResource>, String> {
+    snapshot
+        .sources()
+        .iter()
+        .enumerate()
+        .map(|(source_index, source)| {
+            let entry = catalog
+                .entry_for_source(0, source_index)
+                .ok_or("embedded standard library source catalog is incomplete")?;
+            let text = embedded_source_text(source.path(), source.bytes())?;
+            Ok(PublishedResource {
+                uri: entry.uri().to_string(),
+                name: source.path().to_string(),
+                title: format!("Veln standard library source: {}", source.path()),
+                description: None,
+                mime_type: VELN_SOURCE_MEDIA_TYPE,
+                text,
+                listed: true,
+            })
+        })
+        .collect()
+}
+
+fn embedded_source_text(path: &str, bytes: &[u8]) -> Result<String, String> {
+    std::str::from_utf8(bytes)
+        .map_err(|error| {
+            format!(
+                "embedded standard library source `{}` is not valid UTF-8 at byte {}",
+                path,
+                error.valid_up_to()
+            )
+        })
+        .map(str::to_string)
 }
 
 fn dependency_resources(dependencies: &[CapturedDependencyProject]) -> Vec<DependencyResources> {
@@ -405,36 +468,12 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
     let manifest = project.manifest.clone()?;
     #[cfg(test)]
     record_dependency_snapshot_capture();
-    let sources = project
-        .files
-        .iter()
-        .map(|source| PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes()));
-    let snapshot = capture_embedded_package_snapshot(&manifest.source_bytes, sources).ok()?;
+    let snapshot = captured_dependency_snapshot(project, &manifest.source_bytes)?;
     let navigation =
         DirectDependencySnapshot::from_validated_manifest(&identity, snapshot.clone(), manifest)
             .ok()?;
     let catalog = VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).ok()?;
-    let resources = snapshot
-        .sources()
-        .iter()
-        .enumerate()
-        .filter_map(|(source_index, source)| {
-            let entry = catalog.entry_for_source(0, source_index)?;
-            let text = std::str::from_utf8(source.bytes()).ok()?.to_string();
-            Some(PublishedResource {
-                uri: entry.uri().to_string(),
-                name: source.path().to_string(),
-                title: format!(
-                    "Veln package source: {}: {}",
-                    identity.as_str(),
-                    source.path()
-                ),
-                description: None,
-                mime_type: VELN_SOURCE_MEDIA_TYPE,
-                text,
-            })
-        })
-        .collect();
+    let resources = dependency_source_resources(&identity, &snapshot, &catalog);
     Some(DependencyResources {
         key: RetainedPackageKey {
             identity: identity.as_str().to_string(),
@@ -442,6 +481,62 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
         },
         resources,
         navigation,
+    })
+}
+
+fn captured_dependency_snapshot(
+    project: &veln_project::Project,
+    manifest_source: &[u8],
+) -> Option<CapturedPackageSnapshot> {
+    let sources = project
+        .files
+        .iter()
+        .map(|source| PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes()));
+    capture_embedded_package_snapshot(manifest_source, sources).ok()
+}
+
+fn dependency_source_resources(
+    identity: &PackageIdentity,
+    snapshot: &CapturedPackageSnapshot,
+    catalog: &VirtualSourceCatalog,
+) -> Vec<PublishedResource> {
+    snapshot
+        .sources()
+        .iter()
+        .enumerate()
+        .filter_map(|(source_index, source)| {
+            dependency_source_resource(
+                identity,
+                catalog,
+                source_index,
+                source.path(),
+                source.bytes(),
+            )
+        })
+        .collect()
+}
+
+fn dependency_source_resource(
+    identity: &PackageIdentity,
+    catalog: &VirtualSourceCatalog,
+    source_index: usize,
+    source_path: &str,
+    source_bytes: &[u8],
+) -> Option<PublishedResource> {
+    let entry = catalog.entry_for_source(0, source_index)?;
+    let text = std::str::from_utf8(source_bytes).ok()?.to_string();
+    Some(PublishedResource {
+        uri: entry.uri().to_string(),
+        name: source_path.to_string(),
+        title: format!(
+            "Veln package source: {}: {}",
+            identity.as_str(),
+            source_path
+        ),
+        description: None,
+        mime_type: VELN_SOURCE_MEDIA_TYPE,
+        text,
+        listed: true,
     })
 }
 
@@ -456,38 +551,49 @@ pub(crate) struct LanguageTopic {
 }
 
 fn language_topics(resources: &[RenderedResource]) -> Result<Vec<LanguageTopic>, String> {
-    let catalog: Value =
-        serde_json::from_str(veln_repo_language_reference::checked_catalog_bytes())
-            .map_err(|error| format!("parse checked language-reference catalog: {error}"))?;
-    let topics = catalog
-        .get("topics")
-        .and_then(Value::as_array)
-        .ok_or("checked language-reference catalog must contain topics")?;
+    let catalog = checked_language_catalog()?;
+    let topics = checked_language_topics(&catalog)?;
     let uri_by_name = resources
         .iter()
         .map(|resource| (resource.name.as_str(), resource.uri.as_str()))
         .collect::<BTreeMap<_, _>>();
     topics
         .iter()
-        .map(|topic| {
-            let id = string_field(topic, "id")?;
-            let body = string_array_field(topic, "body")?.join("\n\n");
-            Ok(LanguageTopic {
-                uri: uri_by_name
-                    .get(id)
-                    .ok_or("checked topic resource must exist")?
-                    .to_string(),
-                id: id.to_string(),
-                title: string_field(topic, "title")?.to_string(),
-                summary: string_field(topic, "summary")?.to_string(),
-                keywords: string_array_field(topic, "keywords")?
-                    .into_iter()
-                    .map(str::to_string)
-                    .collect(),
-                body,
-            })
-        })
+        .map(|topic| language_topic(topic, &uri_by_name))
         .collect()
+}
+
+fn checked_language_catalog() -> Result<Value, String> {
+    serde_json::from_str(veln_repo_language_reference::checked_catalog_bytes())
+        .map_err(|error| format!("parse checked language-reference catalog: {error}"))
+}
+
+fn checked_language_topics(catalog: &Value) -> Result<&Vec<Value>, String> {
+    catalog
+        .get("topics")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "checked language-reference catalog must contain topics".to_string())
+}
+
+fn language_topic(
+    topic: &Value,
+    uri_by_name: &BTreeMap<&str, &str>,
+) -> Result<LanguageTopic, String> {
+    let id = string_field(topic, "id")?;
+    Ok(LanguageTopic {
+        uri: uri_by_name
+            .get(id)
+            .ok_or("checked topic resource must exist")?
+            .to_string(),
+        id: id.to_string(),
+        title: string_field(topic, "title")?.to_string(),
+        summary: string_field(topic, "summary")?.to_string(),
+        keywords: string_array_field(topic, "keywords")?
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        body: string_array_field(topic, "body")?.join("\n\n"),
+    })
 }
 
 fn string_field<'a>(value: &'a Value, field: &str) -> Result<&'a str, String> {
@@ -512,76 +618,5 @@ fn string_array_field<'a>(value: &'a Value, field: &str) -> Result<Vec<&'a str>,
 }
 
 #[cfg(test)]
-mod standard_library_tests {
-    use super::*;
-
-    #[test]
-    fn checked_resources_retain_the_validated_standard_library_snapshot() {
-        let resources = LanguageResources::checked().unwrap();
-
-        assert!(resources.standard_library_snapshot().is_some());
-    }
-
-    #[test]
-    fn checked_resources_return_independent_mutable_state() {
-        let mut first = LanguageResources::checked().unwrap();
-        let second = LanguageResources::checked().unwrap();
-        let unique = RetainedPackageKey {
-            identity: "test/package".to_string(),
-            digest: "unique".to_string(),
-        };
-
-        first.retained_package_keys.insert(unique.clone());
-
-        assert!(!second.retained_package_keys.contains(&unique));
-    }
-
-    #[test]
-    fn standard_library_capture_rejects_invalid_embedded_inputs() {
-        let error = StandardLibraryResources::from_embedded_inputs(
-            "name = \"std\"\n",
-            [PackageSnapshotSource::new(
-                "bad/../main.veln",
-                b"pub fn main() -> Int\n  1\nend\n",
-            )],
-        )
-        .unwrap_err();
-
-        assert!(error.contains("capture embedded standard library snapshot"));
-    }
-
-    #[test]
-    fn standard_library_capture_rejects_invalid_manifest_identity() {
-        let error = StandardLibraryResources::from_embedded_inputs(
-            "name = \"other\"\n",
-            [PackageSnapshotSource::new(
-                "main.veln",
-                b"pub fn main() -> Int\n  1\nend\n",
-            )],
-        )
-        .unwrap_err();
-
-        assert!(error.contains("validate embedded standard library snapshot"));
-    }
-
-    #[test]
-    fn standard_library_capture_propagates_catalog_construction_failure() {
-        let error = StandardLibraryResources::from_embedded_inputs_with_catalog_builder(
-            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
-            [PackageSnapshotSource::new(
-                "prelude.veln",
-                b"pub fn main() -> Int\n  1\nend\n",
-            )],
-            |_identity, _snapshot| {
-                Err(
-                    "build embedded standard library source catalog: injected construction failure"
-                        .to_string(),
-                )
-            },
-        )
-        .unwrap_err();
-
-        assert!(error.contains("build embedded standard library source catalog"));
-        assert!(error.contains("injected construction failure"));
-    }
-}
+#[path = "language_resources_tests.rs"]
+mod standard_library_tests;

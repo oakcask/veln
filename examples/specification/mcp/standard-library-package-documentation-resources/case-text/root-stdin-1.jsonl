@@ -1,0 +1,7 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":2,"method":"resources/list"}
+{"jsonrpc":"2.0","id":3,"method":"resources/templates/list","params":{"_meta":{"progressToken":"templates"}}}
+{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/index"}}
+{"jsonrpc":"2.0","id":5,"method":"resources/read","params":{"uri":"veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"}}
+{"jsonrpc":"2.0","id":6,"method":"resources/read","params":{"uri":"veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"}}
+{"jsonrpc":"2.0","id":7,"method":"resources/read","params":{"uri":"veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/0000000000000000000000000000000000000000000000000000000000000000/index"}}

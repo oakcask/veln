@@ -128,6 +128,8 @@ under `../../specification/` and its executable example routes.
   [mcp-language-reference-tools.md](mcp-language-reference-tools.md).
 - MCP standard-library source resources:
   [mcp-standard-library-source-resources.md](mcp-standard-library-source-resources.md).
+- MCP standard-library package-documentation resources:
+  [mcp-standard-library-package-documentation-resources.md](mcp-standard-library-package-documentation-resources.md).
 - MCP dependency source resources:
   [mcp-dependency-source-resources.md](mcp-dependency-source-resources.md).
 - MCP package definition navigation:
