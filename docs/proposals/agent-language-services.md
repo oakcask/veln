@@ -75,6 +75,11 @@ The bounded dependency source-resource slice is implemented and recorded by
 
 The bounded package definition navigation slice is implemented and recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
+
+### Extracted Ready Workspace Symbol-Reference Slice
+
+The next bounded reference slice is separately selectable as
+[MCP Saved Workspace Symbol References](mcp-saved-workspace-symbol-references.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -990,7 +995,7 @@ that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Planned table-driven cases covering each matrix symbol kind and its declared collision boundary; the bounded saved-workspace function slice above is only the first subset. |
+| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Planned table-driven cases covering each matrix symbol kind and its declared collision boundary; the bounded saved-workspace function slice and extracted workspace type, constructor, and lexical-binding slice are subsets. |
 | Search references to a dependency symbol from one selected project. | Consumer uses and the optional exported declaration are returned; other projects and dependency-internal uses are excluded, and the scope is explicit. | Q08 reference-universe cases. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |
@@ -1092,11 +1097,15 @@ The dependency source-resource slice is recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
 The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
+The next workspace type, constructor, and lexical-binding reference slice is
+extracted as
+[MCP Saved Workspace Symbol References](mcp-saved-workspace-symbol-references.md).
 Later slices are:
 
 1. Extend the existing `veln mcp` server with package and standard-library
    documentation resources and search, dependency reference search, paginated
-   references, and definition beyond the package-backed symbol inventory.
+   references, recovery and casing-neutral symbol references, and definition
+   beyond the package-backed symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their
