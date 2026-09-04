@@ -70,6 +70,11 @@ recorded by
 
 The bounded dependency source-resource slice is implemented and recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
+
+### Extracted Ready Package Definition Slice
+
+The next bounded navigation slice is separately selectable as
+[MCP Package Definition Navigation](mcp-package-definition-navigation.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -1081,12 +1086,13 @@ The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
-Remaining slices are:
+The package definition navigation slice is extracted as
+[MCP Package Definition Navigation](mcp-package-definition-navigation.md).
+Later slices are:
 
 1. Extend the existing `veln mcp` server with package and standard-library
    documentation resources and search, dependency reference search, paginated
-   references, and definition beyond the implemented workspace-only symbol
-   inventory.
+   references, and definition beyond the package-backed symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their

@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is currently selected for implementation.
+- Return canonical package source locations from MCP `definition` for visible
+  direct-dependency and standard-library declarations:
+  [mcp-package-definition-navigation.md](mcp-package-definition-navigation.md).
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.
@@ -32,8 +34,8 @@ another page is not a selectable target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
-  completed dependency source publication slice is recorded under implemented
-  proposal history; do not select the umbrella:
+  package definition navigation slice is extracted under Ready; select that
+  finite page instead of the umbrella:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
