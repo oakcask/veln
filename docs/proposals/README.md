@@ -31,10 +31,10 @@ another page is not a selectable target.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- The agent-language-services umbrella remains a planning inventory. Its next
-  standard-library source publication slice is routed by the separate Ready
-  proposal above; extract another finite proposal page before selecting later
-  work:
+- The agent-language-services umbrella remains a planning inventory. Its
+  standard-library source publication slice is implemented and routed by the
+  implemented proposal records; extract another finite proposal page before
+  selecting later work:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
