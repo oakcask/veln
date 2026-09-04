@@ -18,7 +18,8 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Publish captured direct-dependency sources through MCP resources:
+  [mcp-dependency-source-resources.md](mcp-dependency-source-resources.md).
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.
@@ -32,9 +33,8 @@ another page is not a selectable target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
-  standard-library source publication slice is implemented and routed by the
-  implemented proposal records; extract another finite proposal page before
-  selecting later work:
+  dependency source publication slice is extracted under Ready; select that
+  finite page instead of the umbrella:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
