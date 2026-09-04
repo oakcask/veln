@@ -715,7 +715,7 @@
     }
 
     #[test]
-    fn workspace_overlays_reuse_dependency_source_indexing() {
+    fn workspace_overlays_reuse_prepared_dependency_sources() {
         let dependency = dependency_snapshot(
             "example/pkg",
             &[("math.veln", "pub fn answer() -> Int\n  42\nend\n")],
@@ -733,8 +733,12 @@
         );
 
         reset_dependency_source_indexes();
+        reset_dependency_source_parses();
+        reset_dependency_path_classifications();
         assert!(query_snapshot(&snapshot, "main.veln", 4, 10).is_some());
         assert_eq!(dependency_source_indexes(), 1);
+        assert_eq!(dependency_source_parses(), 1);
+        assert_eq!(dependency_path_classifications(), 1);
 
         let overlay = snapshot.with_workspace_overlays([source("main.veln", source_text)]);
         assert!(query_snapshot(&overlay, "main.veln", 4, 10).is_some());
@@ -742,5 +746,15 @@
             dependency_source_indexes(),
             1,
             "workspace overlays should reuse indexed dependency sources",
+        );
+        assert_eq!(
+            dependency_source_parses(),
+            1,
+            "workspace overlays should reuse parsed dependency sources",
+        );
+        assert_eq!(
+            dependency_path_classifications(),
+            1,
+            "workspace overlays should reuse classified dependency paths",
         );
     }

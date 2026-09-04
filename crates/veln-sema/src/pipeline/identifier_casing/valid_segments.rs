@@ -476,6 +476,13 @@ fn qualified_path_segment_from_parts(
 pub fn classified_project_qualified_path_segments(
     module: &SurfaceModule,
 ) -> Vec<QualifiedPathSegment> {
-    let environment = TypeEnvironment::from_module(module);
+    classified_project_qualified_path_segments_with_context(module, module)
+}
+
+pub fn classified_project_qualified_path_segments_with_context(
+    module: &SurfaceModule,
+    project: &SurfaceModule,
+) -> Vec<QualifiedPathSegment> {
+    let environment = TypeEnvironment::from_module(project);
     classified_qualified_path_segments(module, &environment)
 }

@@ -5,10 +5,11 @@ impl IndexedDependencies {
     ) -> Self {
         let mut files = Vec::new();
         let mut declarations = FileDeclarations::default();
+        let mut module = empty_surface_module();
         for dependency in dependencies.into_iter().chain(standard_library) {
-            index_dependency_sources(&mut files, &mut declarations, dependency);
+            index_dependency_sources(&mut files, &mut declarations, &mut module, dependency);
         }
-        let module = merged_surface_module(&files);
+        attach_classified_path_segments(&mut files, &module, &module);
         Self {
             files,
             declarations,
@@ -26,11 +27,12 @@ impl SymbolIndex {
             declarations.extend(file_declarations);
             files.push(file);
         }
-        let mut module = merged_surface_module(&files);
-        files.extend(dependencies.files.clone());
+        let workspace_module = merged_surface_module(&files);
+        let mut module = workspace_module.clone();
         declarations.extend(dependencies.declarations.clone());
         append_surface_module(&mut module, dependencies.module.clone());
-        attach_classified_path_segments(&mut files, &module);
+        attach_classified_path_segments(&mut files, &workspace_module, &module);
+        files.extend(dependencies.files.clone());
         Self {
             schemas: declarations.schemas,
             effects: declarations.effects,
