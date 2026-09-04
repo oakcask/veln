@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"45449bdb7f9eab3190d820bc8636858c3bc8544a"
+source_git_tree	"a049a535dcb355a4a06deaf5772b3ba4e1f12eb8"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1662
@@ -15311,18 +15311,18 @@ field	expectations.mcp_assertions[71].path	"/result/structuredContent/results"
 field	expectations.mcp_assertions[72].equals	"bytes.veln"
 field	expectations.mcp_assertions[72].id	2
 field	expectations.mcp_assertions[72].operation	"equals"
-field	expectations.mcp_assertions[72].path	"/result/resources/11/name"
+field	expectations.mcp_assertions[72].path	"/result/resources/12/name"
 field	expectations.mcp_assertions[73].equals	"Veln standard library source: bytes.veln"
 field	expectations.mcp_assertions[73].id	2
 field	expectations.mcp_assertions[73].operation	"equals"
-field	expectations.mcp_assertions[73].path	"/result/resources/11/title"
+field	expectations.mcp_assertions[73].path	"/result/resources/12/title"
 field	expectations.mcp_assertions[74].equals	"text/x-veln; charset=utf-8"
 field	expectations.mcp_assertions[74].id	2
 field	expectations.mcp_assertions[74].operation	"equals"
-field	expectations.mcp_assertions[74].path	"/result/resources/11/mimeType"
+field	expectations.mcp_assertions[74].path	"/result/resources/12/mimeType"
 field	expectations.mcp_assertions[75].id	2
 field	expectations.mcp_assertions[75].operation	"missing"
-field	expectations.mcp_assertions[75].path	"/result/resources/11/description"
+field	expectations.mcp_assertions[75].path	"/result/resources/12/description"
 field	expectations.mcp_assertions[76].equals	"veln-pkg:///std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/bytes.veln"
 field	expectations.mcp_assertions[76].id	21
 field	expectations.mcp_assertions[76].operation	"equals"
@@ -15407,7 +15407,7 @@ field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3773,"sha256":"abf8af8789fd831c2f003cd2850bcd041d051755902113c3fb6d69c6369e968c"}
 field	source_errors	"forbidden"
-case_digest	"5db5b5e561a39f1641308b44248e88476b438e7a6e13242c56aeebe91d0a7454"
+case_digest	"47ba6dc228567c5ff50099b393fc7e02e5209889574c5def22ecb5e200352d78"
 case	"examples/specification/mcp/references-workspace"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	3
@@ -54659,4 +54659,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"3f6735566825e35086f94d5df09cc902c097382fdb6376fe7c51a014b4389997"
+aggregate_digest	"3b10856fe9f1c5c9277af4ab20db56bfc68b27f2c40ad33497d8ece248a4ed54"

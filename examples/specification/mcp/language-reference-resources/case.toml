@@ -381,22 +381,22 @@ length = 1
 
 [[mcp_assert]]
 id = 2
-path = "/result/resources/11/name"
+path = "/result/resources/12/name"
 equals = "bytes.veln"
 
 [[mcp_assert]]
 id = 2
-path = "/result/resources/11/title"
+path = "/result/resources/12/title"
 equals = "Veln standard library source: bytes.veln"
 
 [[mcp_assert]]
 id = 2
-path = "/result/resources/11/mimeType"
+path = "/result/resources/12/mimeType"
 equals = "text/x-veln; charset=utf-8"
 
 [[mcp_assert]]
 id = 2
-path = "/result/resources/11/description"
+path = "/result/resources/12/description"
 missing = true
 
 [[mcp_assert]]
