@@ -14728,7 +14728,7 @@ field	expectations.mcp_assertions[0].contains	"veln-pkg:///example%2Fdep/snapsho
 field	expectations.mcp_assertions[0].id	2
 field	expectations.mcp_assertions[0].operation	"contains"
 field	expectations.mcp_assertions[0].path	"/result/structuredContent/definition/uri"
-field	expectations.mcp_assertions[10].equals	{"logical_field":"expectations.mcp_assertions[10].equals","byte_length":263,"sha256":"e99b1f1a40f7a171b79727b98d1c670065dabfa6d1a9ef1e9fa65fbf30b60ecf"}
+field	expectations.mcp_assertions[10].equals	{"logical_field":"expectations.mcp_assertions[10].equals","byte_length":263,"sha256":"0df2fab723487f2686b3f001e1adec961016dc2160ecc2d907ba6d235fce6955"}
 field	expectations.mcp_assertions[10].id	5
 field	expectations.mcp_assertions[10].operation	"equals"
 field	expectations.mcp_assertions[10].path	"/result/structuredContent/definition/packageDocumentationUri"
@@ -14739,11 +14739,11 @@ field	expectations.mcp_assertions[11].path	"/result/isError"
 field	expectations.mcp_assertions[12].id	5
 field	expectations.mcp_assertions[12].operation	"missing"
 field	expectations.mcp_assertions[12].path	"/error"
-field	expectations.mcp_assertions[13].equals	{"logical_field":"expectations.mcp_assertions[13].equals","byte_length":263,"sha256":"ea5b945d4919f3844a32f6ecd1796b10e823c9b1633584e7dca116b797a5c022"}
+field	expectations.mcp_assertions[13].equals	{"logical_field":"expectations.mcp_assertions[13].equals","byte_length":263,"sha256":"ddd071adb1ae2427e00b39d03e912c9194e24c1bdef7c8b4b8a6332cb7aecf2b"}
 field	expectations.mcp_assertions[13].id	6
 field	expectations.mcp_assertions[13].operation	"equals"
 field	expectations.mcp_assertions[13].path	"/result/structuredContent/definition/packageDocumentationUri"
-field	expectations.mcp_assertions[14].equals	"veln-pkg:///example%2Fdep/snapshot/88dc6771d1f3235472d76fca32da90cc102a69f093913d49f81be309dffc4fd2/unicode.veln"
+field	expectations.mcp_assertions[14].equals	"veln-pkg:///example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/unicode.veln"
 field	expectations.mcp_assertions[14].id	7
 field	expectations.mcp_assertions[14].operation	"equals"
 field	expectations.mcp_assertions[14].path	"/result/contents/0/uri"
@@ -14766,7 +14766,7 @@ field	expectations.mcp_assertions[19].contains	"veln-pkg:///example%2Fbad/snapsh
 field	expectations.mcp_assertions[19].id	10
 field	expectations.mcp_assertions[19].operation	"contains"
 field	expectations.mcp_assertions[19].path	"/result/structuredContent/definition/uri"
-field	expectations.mcp_assertions[1].equals	{"end":{"column":17,"line":5},"start":{"column":8,"line":5}}
+field	expectations.mcp_assertions[1].equals	{"end":{"column":17,"line":9},"start":{"column":8,"line":9}}
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
 field	expectations.mcp_assertions[1].path	"/result/structuredContent/definition/range"
@@ -14784,7 +14784,29 @@ field	expectations.mcp_assertions[22].path	"/result/isError"
 field	expectations.mcp_assertions[23].id	10
 field	expectations.mcp_assertions[23].operation	"missing"
 field	expectations.mcp_assertions[23].path	"/error"
-field	expectations.mcp_assertions[2].equals	{"logical_field":"expectations.mcp_assertions[2].equals","byte_length":263,"sha256":"26dbb190c17cf5e8bfb2acfc4b8551227c65f63d11606ed0d5c2be93048363b3"}
+field	expectations.mcp_assertions[24].equals	null
+field	expectations.mcp_assertions[24].id	11
+field	expectations.mcp_assertions[24].operation	"equals"
+field	expectations.mcp_assertions[24].path	"/result/structuredContent/definition"
+field	expectations.mcp_assertions[25].equals	false
+field	expectations.mcp_assertions[25].id	11
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/isError"
+field	expectations.mcp_assertions[26].id	11
+field	expectations.mcp_assertions[26].operation	"missing"
+field	expectations.mcp_assertions[26].path	"/error"
+field	expectations.mcp_assertions[27].equals	null
+field	expectations.mcp_assertions[27].id	12
+field	expectations.mcp_assertions[27].operation	"equals"
+field	expectations.mcp_assertions[27].path	"/result/structuredContent/definition"
+field	expectations.mcp_assertions[28].equals	false
+field	expectations.mcp_assertions[28].id	12
+field	expectations.mcp_assertions[28].operation	"equals"
+field	expectations.mcp_assertions[28].path	"/result/isError"
+field	expectations.mcp_assertions[29].id	12
+field	expectations.mcp_assertions[29].operation	"missing"
+field	expectations.mcp_assertions[29].path	"/error"
+field	expectations.mcp_assertions[2].equals	{"logical_field":"expectations.mcp_assertions[2].equals","byte_length":263,"sha256":"f852deddfbc8084ac50e905ddc96aa6015c992727bd0356e3478c9ce74c27832"}
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals"
 field	expectations.mcp_assertions[2].path	"/result/structuredContent/definition/packageDocumentationUri"
@@ -14795,11 +14817,11 @@ field	expectations.mcp_assertions[3].path	"/result/isError"
 field	expectations.mcp_assertions[4].id	2
 field	expectations.mcp_assertions[4].operation	"missing"
 field	expectations.mcp_assertions[4].path	"/error"
-field	expectations.mcp_assertions[5].equals	"veln-pkg:///example%2Fdep/snapshot/88dc6771d1f3235472d76fca32da90cc102a69f093913d49f81be309dffc4fd2/dep.veln"
+field	expectations.mcp_assertions[5].equals	"veln-pkg:///example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/dep.veln"
 field	expectations.mcp_assertions[5].id	4
 field	expectations.mcp_assertions[5].operation	"equals"
 field	expectations.mcp_assertions[5].path	"/result/contents/0/uri"
-field	expectations.mcp_assertions[6].equals_file	"pub type Token\n  pub Value(Int)\nend\n\npub fn increment(value: Int) -> Int\n  value + 1\nend\n"
+field	expectations.mcp_assertions[6].equals_file	"pub type Token\n  pub Value(Int)\nend\n\nfn hidden(value: Int) -> Int\n  value\nend\n\npub fn increment(value: Int) -> Int\n  value + 1\nend\n"
 field	expectations.mcp_assertions[6].id	4
 field	expectations.mcp_assertions[6].operation	"equals_file"
 field	expectations.mcp_assertions[6].path	"/result/contents/0/text"
@@ -14816,18 +14838,19 @@ field	expectations.mcp_assertions[9].operation	"equals"
 field	expectations.mcp_assertions[9].path	"/result/structuredContent/definition/range"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"definition\":{\"packageDocumentationUri\":\"veln-doc:///package/example%2Fdep/snapshot/"
-field	expectations.stdout.contains[1]	"\"range\":{\"end\":{\"column\":17,\"line\":5},\"start\":{\"column\":8,\"line\":5}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/"
+field	expectations.stdout.contains[1]	"\"range\":{\"end\":{\"column\":17,\"line\":9},\"start\":{\"column\":8,\"line\":9}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/"
 field	expectations.stdout.contains[2]	"\"range\":{\"end\":{\"column\":12,\"line\":2},\"start\":{\"column\":7,\"line\":2}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/"
 field	expectations.stdout.contains[3]	"\"range\":{\"end\":{\"column\":14,\"line\":2},\"start\":{\"column\":8,\"line\":2}},\"uri\":\"veln-pkg:///example%2Fbad/snapshot/"
 field	expectations.stdout.contains[4]	"\"name\":\"dep.veln\",\"title\":\"Veln package source: example/dep: dep.veln\""
 field	expectations.stdout.contains[5]	"\"name\":\"unicode.veln\",\"title\":\"Veln package source: example/dep: unicode.veln\""
-field	expectations.stdout.contains[6]	"# Function increment"
-field	expectations.stdout.contains[7]	"# Type Token"
+field	expectations.stdout.contains[6]	"\"packageDocumentationUri\":{\"type\":\"string\"}"
+field	expectations.stdout.contains[7]	"# Function increment"
+field	expectations.stdout.contains[8]	"# Type Token"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1780,"sha256":"fd0f1a1c04035e6e2f00da0c8fc2d50b302dc8182ef8b8843c0f96d6e923ab48"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2110,"sha256":"9c0a12cde2c9d1d3336ecaebfa83bb36ec09fe4c53e4aa0d2de3e401c809275c"}
 field	source_errors	"forbidden"
-case_digest	"bcf5e2d3bb94766233e39220158b0a6e6396150cc3a3428a32f1360da93d43e1"
+case_digest	"b1850c7ad564a932ea2742e6ca1b79f460e23c210dc6f9fd7c569657f06cff14"
 case	"examples/specification/mcp/definition-recovery-navigation"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -54789,4 +54812,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"9de298dee726e4c0d364f92f06a3094e08df32a61f73e420cb79a5e2d842292b"
+aggregate_digest	"073fa98129244cfcffd8e9addf5f5a2ed0e9473a23dc8f385bef88efb4b5627a"

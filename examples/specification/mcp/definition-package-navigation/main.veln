@@ -17,3 +17,11 @@ end
 fn broken() -> Int
   bad::broken()
 end
+
+fn hidden() -> Int
+  dep::hidden(1)
+end
+
+fn unsupported() -> Int
+  dep::increment(1)
+end

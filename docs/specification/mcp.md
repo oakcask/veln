@@ -457,10 +457,12 @@ declaration range, that `definition` returns package-documentation declaration
 URIs for an ordinary package function and a constructor-to-type mapping, that
 `definition` omits `packageDocumentationUri` while retaining the package
 source location for a status-only package-documentation result, that
-the returned snapshot source is listed as an MCP resource in the same session,
-and that `resources/read` follows the returned package source and
-documentation URIs. It also preserves CRLF and non-ASCII UTF-8 text for the
-exact returned package URI.
+unsupported package selections return no definition or documentation URI, that
+the advertised `definition` result schema includes the optional
+`packageDocumentationUri` location field, that the returned snapshot source is
+listed as an MCP resource in the same session, and that `resources/read`
+follows the returned package source and documentation URIs. It also preserves
+CRLF and non-ASCII UTF-8 text for the exact returned package URI.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
 ordinary calls, workspace type references, workspace constructor references,

@@ -30,9 +30,9 @@ the package-documentation result. It does not expose raw manifests, physical
 paths, dependency selectors, environment values, or fields excluded from the
 catalog.
 
-This slice does not attach documentation URIs to package-backed definition
-results, add package search, change `veln doc`, or change
-package-documentation catalog identity.
+This slice does not add package search, change `veln doc`, change
+package-documentation catalog identity, or define the later
+package-backed definition-link contract.
 
 ## Completion Evidence
 
