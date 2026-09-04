@@ -50,6 +50,48 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
     context: &mut PrivatePreludeCallbackConstraintContext<'_>,
 ) {
     match &expr.kind {
+        ExprKind::List(_) | ExprKind::Dict(_) | ExprKind::Record(_) => {
+            collect_private_prelude_callback_collection_constraints(expr, expected, context);
+        }
+        ExprKind::Call { callee, args } => {
+            collect_private_prelude_callback_call_constraints(callee, args, expected, context);
+        }
+        ExprKind::Perform { .. }
+        | ExprKind::Handle { .. }
+        | ExprKind::SchemaDecode { .. }
+        | ExprKind::SchemaEncode { .. }
+        | ExprKind::FieldAccess { .. }
+        | ExprKind::Try(_)
+        | ExprKind::Prefix { .. } => {
+            collect_private_prelude_callback_wrapped_expr_constraints(expr, expected, context);
+        }
+        ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
+            collect_private_prelude_callback_control_flow_constraints(expr, expected, context);
+        }
+        ExprKind::NamePath { segments, .. } => {
+            if let Some(expected) = expected {
+                collect_private_callback_return_constraint_for_segments(
+                    segments, expected, context,
+                );
+            }
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit
+        | ExprKind::TypeApply { .. } => {}
+    }
+}
+
+pub(crate) fn collect_private_prelude_callback_collection_constraints(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivatePreludeCallbackConstraintContext<'_>,
+) {
+    match &expr.kind {
         ExprKind::List(items) => {
             let item_expected = expected.and_then(Type::vec_part);
             for item in items {
@@ -84,9 +126,16 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
                 );
             }
         }
-        ExprKind::Call { callee, args } => {
-            collect_private_prelude_callback_call_constraints(callee, args, expected, context);
-        }
+        _ => {}
+    }
+}
+
+pub(crate) fn collect_private_prelude_callback_wrapped_expr_constraints(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivatePreludeCallbackConstraintContext<'_>,
+) {
+    match &expr.kind {
         ExprKind::Perform { args, .. } => {
             for arg in args {
                 collect_private_prelude_callback_expr_constraints(arg, None, context);
@@ -118,6 +167,16 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
         | ExprKind::Prefix { expr: base, .. } => {
             collect_private_prelude_callback_expr_constraints(base, None, context);
         }
+        _ => {}
+    }
+}
+
+pub(crate) fn collect_private_prelude_callback_control_flow_constraints(
+    expr: &Expr,
+    expected: Option<&Type>,
+    context: &mut PrivatePreludeCallbackConstraintContext<'_>,
+) {
+    match &expr.kind {
         ExprKind::Match { scrutinee, arms } => {
             collect_private_prelude_callback_expr_constraints(scrutinee, None, context);
             for arm in arms {
@@ -150,21 +209,7 @@ pub(crate) fn collect_private_prelude_callback_expr_constraints(
             collect_private_prelude_callback_expr_constraints(left, expected, context);
             collect_private_prelude_callback_expr_constraints(right, expected, context);
         }
-        ExprKind::NamePath { segments, .. } => {
-            if let Some(expected) = expected {
-                collect_private_callback_return_constraint_for_segments(
-                    segments, expected, context,
-                );
-            }
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit
-        | ExprKind::TypeApply { .. } => {}
+        _ => {}
     }
 }
 

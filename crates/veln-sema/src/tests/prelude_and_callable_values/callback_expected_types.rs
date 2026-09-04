@@ -315,6 +315,40 @@ fn prelude_helper_result_context_refines_empty_callback_return_type() {
 }
 
 #[test]
+fn prelude_helper_result_context_reaches_callback_control_flow_branches() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose_empty_items(value: Int)\n",
+            "  if value == 0\n",
+            "    []\n",
+            "  else if value == 1\n",
+            "    []\n",
+            "  else\n",
+            "    []\n",
+            "  end\n",
+            "end\n",
+            "pub fn main() -> Vec<Vec<String>>\n",
+            "  vec_map([0, 1, 2], choose_empty_items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let callback = core
+        .functions
+        .iter()
+        .find(|function| function.name == "choose_empty_items")
+        .expect("callback should be lowered");
+    assert_eq!(callback.return_type, CoreType::vec(CoreType::string()));
+}
+
+#[test]
 fn prelude_helper_result_context_refines_non_empty_callback_return_type() {
     let source = SourceFile::new(
         "main.veln",
