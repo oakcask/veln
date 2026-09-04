@@ -478,6 +478,7 @@ dependencies = [
  "veln-language-service",
  "veln-project",
  "veln-repo-language-reference",
+ "veln-repo-mcp-standard-library-docs",
  "veln-source",
  "veln-stdlib",
 ]
@@ -515,6 +516,17 @@ dependencies = [
  "veln-repo-toolchain-case",
  "veln-source",
  "veln-syntax",
+]
+
+[[package]]
+name = "veln-repo-mcp-standard-library-docs"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2",
+ "veln-language-service",
+ "veln-project",
+ "veln-stdlib",
 ]
 
 [[package]]

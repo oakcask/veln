@@ -1,19 +1,14 @@
 [package]
-name = "veln-mcp"
+name = "veln-repo-mcp-standard-library-docs"
 edition.workspace = true
 version.workspace = true
 publish = false
 
 [dependencies]
-rustix.workspace = true
 serde_json.workspace = true
-veln-analysis.workspace = true
-veln-diagnostics.workspace = true
+sha2.workspace = true
 veln-language-service.workspace = true
 veln-project.workspace = true
-veln-repo-language-reference.workspace = true
-veln-repo-mcp-standard-library-docs.workspace = true
-veln-source.workspace = true
 veln-stdlib.workspace = true
 
 [lints]

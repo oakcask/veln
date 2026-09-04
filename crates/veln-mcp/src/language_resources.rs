@@ -6,8 +6,11 @@ use std::sync::OnceLock;
 use serde_json::{Value, json};
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, PackageDocGeneratorContract,
-    PackageDocResult, RenderedPackageDocResource, VirtualSourceCatalog,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, VirtualSourceCatalog,
+};
+#[cfg(test)]
+use veln_language_service::{
+    PackageDocGeneratorContract, PackageDocResult, RenderedPackageDocResource,
     render_package_documentation,
 };
 use veln_project::{
@@ -17,7 +20,6 @@ use veln_project::{
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
 const VELN_SOURCE_MEDIA_TYPE: &str = "text/x-veln; charset=utf-8";
-const PACKAGE_DOC_GENERATOR_CONTRACT: &str = "veln-mcp-package-documentation/v1";
 const RETAINED_PACKAGE_CAPACITY: usize = 256;
 
 #[cfg(test)]
@@ -324,6 +326,7 @@ impl PublishedResource {
         }
     }
 
+    #[cfg(test)]
     fn from_package_doc(resource: &RenderedPackageDocResource) -> Self {
         Self {
             uri: resource.uri.clone(),
@@ -332,6 +335,20 @@ impl PublishedResource {
             description: resource.description.clone(),
             mime_type: resource.mime_type,
             text: resource.text.clone(),
+            listed: resource.listed,
+        }
+    }
+
+    fn from_checked_package_doc(
+        resource: veln_repo_mcp_standard_library_docs::CheckedResource,
+    ) -> Self {
+        Self {
+            uri: resource.uri,
+            name: resource.name,
+            title: resource.title,
+            description: resource.description,
+            mime_type: veln_language_service::PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE,
+            text: resource.text,
             listed: resource.listed,
         }
     }
@@ -359,16 +376,36 @@ pub(crate) struct StandardLibraryResources {
 
 impl StandardLibraryResources {
     pub(crate) fn checked() -> Result<Self, String> {
+        Self::from_checked_embedded_inputs()
+    }
+
+    fn from_checked_embedded_inputs() -> Result<Self, String> {
         let bundle = veln_stdlib::package_bundle();
-        Self::from_embedded_inputs(
+        Self::from_embedded_inputs_with_builders(
             bundle.manifest,
             bundle
                 .files
                 .iter()
                 .map(|file| PackageSnapshotSource::new(file.path, file.text.as_bytes())),
+            |identity, snapshot| {
+                VirtualSourceCatalog::new([(identity, snapshot)]).map_err(|error| {
+                    format!("build embedded standard library source catalog: {error}")
+                })
+            },
+            |snapshot, _manifest| {
+                veln_repo_mcp_standard_library_docs::checked_bundle_for_snapshot(snapshot.digest())
+                    .map(|bundle| {
+                        bundle
+                            .resources
+                            .into_iter()
+                            .map(PublishedResource::from_checked_package_doc)
+                            .collect()
+                    })
+            },
         )
     }
 
+    #[cfg(test)]
     fn from_embedded_inputs<'a>(
         manifest: &str,
         sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
@@ -379,6 +416,7 @@ impl StandardLibraryResources {
         })
     }
 
+    #[cfg(test)]
     fn from_embedded_inputs_with_catalog_builder<'a>(
         manifest: &str,
         sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
@@ -387,25 +425,49 @@ impl StandardLibraryResources {
             CapturedPackageSnapshot,
         ) -> Result<VirtualSourceCatalog, String>,
     ) -> Result<Self, String> {
+        Self::from_embedded_inputs_with_builders(
+            manifest,
+            sources,
+            catalog_builder,
+            |snapshot, manifest| {
+                let package_doc_result = PackageDocResult::generate(
+                    &PackageIdentity::embedded_standard(),
+                    snapshot,
+                    manifest,
+                    PackageDocGeneratorContract::new(
+                        veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT,
+                    ),
+                );
+                Ok(render_package_documentation(&package_doc_result)
+                    .iter()
+                    .map(PublishedResource::from_package_doc)
+                    .collect())
+            },
+        )
+    }
+
+    fn from_embedded_inputs_with_builders<'a>(
+        manifest: &str,
+        sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
+        catalog_builder: impl FnOnce(
+            PackageIdentity,
+            CapturedPackageSnapshot,
+        ) -> Result<VirtualSourceCatalog, String>,
+        documentation_builder: impl FnOnce(
+            &CapturedPackageSnapshot,
+            &veln_project::ProjectManifest,
+        ) -> Result<Vec<PublishedResource>, String>,
+    ) -> Result<Self, String> {
         let snapshot = capture_embedded_package_snapshot(manifest.as_bytes(), sources)
             .map_err(|error| format!("capture embedded standard library snapshot: {error}"))?;
         let manifest = veln_project::parse_manifest_text("veln.toml", manifest);
-        let package_doc_result = PackageDocResult::generate(
-            &PackageIdentity::embedded_standard(),
-            &snapshot,
-            &manifest,
-            PackageDocGeneratorContract::new(PACKAGE_DOC_GENERATOR_CONTRACT),
-        );
+        let documentation_resources = documentation_builder(&snapshot, &manifest)?;
         let navigation_snapshot =
             DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
                 .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
         let catalog = catalog_builder(PackageIdentity::embedded_standard(), snapshot.clone())?;
         let mut resources = standard_library_source_resources(&snapshot, &catalog)?;
-        resources.extend(
-            render_package_documentation(&package_doc_result)
-                .iter()
-                .map(PublishedResource::from_package_doc),
-        );
+        resources.extend(documentation_resources);
         Ok(Self {
             resources,
             key: RetainedPackageKey {

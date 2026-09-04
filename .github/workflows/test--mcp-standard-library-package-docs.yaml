@@ -1,0 +1,36 @@
+name: test / MCP standard-library package docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/test--mcp-standard-library-package-docs.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**
+      - docs/reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md
+      - docs/specification/mcp.md
+      - rust-toolchain.toml
+      - tools/veln-repo-mcp-standard-library-docs/**
+  pull_request:
+    paths:
+      - .github/workflows/test--mcp-standard-library-package-docs.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**
+      - docs/reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md
+      - docs/specification/mcp.md
+      - rust-toolchain.toml
+      - tools/veln-repo-mcp-standard-library-docs/**
+
+permissions:
+  contents: read
+
+jobs:
+  check-fresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Check standard-library package-documentation resources are fresh
+        run: cargo run --locked -p veln-repo-mcp-standard-library-docs -- . check-fresh

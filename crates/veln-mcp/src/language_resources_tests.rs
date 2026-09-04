@@ -8,6 +8,28 @@ fn checked_resources_retain_the_validated_standard_library_snapshot() {
 }
 
 #[test]
+fn checked_standard_library_resources_load_the_prebuilt_documentation_bundle() {
+    let standard_library = StandardLibraryResources::from_checked_embedded_inputs().unwrap();
+    let checked = veln_repo_mcp_standard_library_docs::checked_bundle().unwrap();
+    let documentation = standard_library
+        .resources
+        .iter()
+        .filter(|resource| resource.uri.starts_with("veln-doc:///package/std/"))
+        .collect::<Vec<_>>();
+
+    assert_eq!(documentation.len(), checked.resources.len());
+    for (published, embedded) in documentation.into_iter().zip(checked.resources) {
+        assert_eq!(published.uri, embedded.uri);
+        assert_eq!(published.name, embedded.name);
+        assert_eq!(published.title, embedded.title);
+        assert_eq!(published.description, embedded.description);
+        assert_eq!(published.mime_type, embedded.mime_type);
+        assert_eq!(published.text, embedded.text);
+        assert_eq!(published.listed, embedded.listed);
+    }
+}
+
+#[test]
 fn checked_resources_return_independent_mutable_state() {
     let mut first = LanguageResources::checked().unwrap();
     let second = LanguageResources::checked().unwrap();

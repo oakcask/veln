@@ -74,9 +74,11 @@ Distribution membership controls publication, so private and non-exported
 standard-library sources are readable. Test-shaped sources and paths absent
 from the embedded distribution source set are not listed.
 
-The embedded standard-library package-documentation resource is generated from
-the same retained `std` snapshot during MCP startup. A successful result lists
-only the index resource with name `std-documentation-index`, title `Veln
+The embedded standard-library package-documentation resources come from a
+checked bundle generated from the embedded `std` snapshot. MCP startup rejects
+the bundle when its recorded digest is invalid or its snapshot digest does not
+match the retained `std` snapshot. A successful result lists only the
+index resource with name `std-documentation-index`, title `Veln
 package documentation: std`, and media type `text/markdown; charset=utf-8`.
 The index Markdown preserves the package-documentation catalog metadata and
 ordered module links. Exact linked module resources preserve module
@@ -456,11 +458,12 @@ failures, bounded stable-capture retry exhaustion without partial reference
 locations or scope metadata, and accepted success and domain-failure result
 schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
-catalog construction failure propagation, bidirectional completeness between
-the embedded bundle and MCP source resources, exact-byte reads for every
-listed standard-library source, combined URI-byte ordering, duplicate
-prevention, lifecycle state preservation across refresh and analysis, private
-and non-exported source publication, absent test-source rejection, direct
+checked package-documentation bundle loading, catalog construction failure
+propagation, bidirectional completeness between the embedded bundle and MCP
+source resources, exact-byte reads for every listed standard-library source,
+combined URI-byte ordering, duplicate prevention, lifecycle state preservation
+across refresh and analysis, private and non-exported source publication,
+absent test-source rejection, direct
 dependency admission, identity-and-digest deduplication, same-identity digest
 coexistence, retained-byte reads after refresh and dependency replacement,
 state preservation after invalid saved navigation, package snapshot capacity
@@ -472,6 +475,9 @@ metadata, exact index-linked reads, module and declaration omission from
 `resources/list`, byte-for-byte read preservation, and `resource_not_found`
 mapping for unknown, noncanonical, wrong-snapshot,
 wrong-documentation-digest, and unpublished package-documentation URIs.
+The `veln-repo-mcp-standard-library-docs` freshness check regenerates the
+bundle from compiler, renderer, and standard-library inputs and rejects any
+byte or digest difference from the checked artifact.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected
