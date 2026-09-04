@@ -27,6 +27,20 @@ impl LanguageResources {
         })
     }
 
+    #[cfg(test)]
+    pub(crate) fn for_test(resources: Vec<RenderedResource>, topics: Vec<LanguageTopic>) -> Self {
+        let by_uri = resources
+            .iter()
+            .cloned()
+            .map(|resource| (resource.uri.clone(), resource))
+            .collect();
+        Self {
+            resources,
+            by_uri,
+            topics,
+        }
+    }
+
     pub(crate) fn list_result(&self) -> Value {
         json!({
             "resources": self.resources.iter().map(resource_metadata).collect::<Vec<_>>()

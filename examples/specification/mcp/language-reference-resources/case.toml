@@ -226,3 +226,143 @@ equals = "resource_not_found"
 id = 13
 path = "/result/structuredContent/details/uri"
 equals = "veln-doc:///language/snapshot/wrong/topic/lexical-structure"
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/text"
+missing = true
+
+[[mcp_assert]]
+id = 14
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/uri"
+equals = "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/index"
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/name"
+equals = "language-index"
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/title"
+equals = "Veln Language Reference"
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/description"
+missing = true
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/mimeType"
+equals = "text/markdown; charset=utf-8"
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/text"
+contains = "# Veln Language Reference"
+
+[[mcp_assert]]
+id = 15
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 15
+path = "/result/structuredContent/results"
+length = 1
+
+[[mcp_assert]]
+id = 15
+path = "/result/structuredContent/results/0/title"
+equals = "Schemas"
+
+[[mcp_assert]]
+id = 15
+path = "/result/structuredContent/results/0/excerpt"
+contains = "format-neutral and binary fields"
+
+[[mcp_assert]]
+id = 16
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 16
+path = "/result/structuredContent/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 16
+path = "/result/structuredContent/details/uri"
+equals = "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/Lexical-Structure"
+
+[[mcp_assert]]
+id = 16
+path = "/result/structuredContent/text"
+missing = true
+
+[[mcp_assert]]
+id = 17
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/details/uri"
+equals = "veln-doc:///package/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/index"
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/text"
+missing = true
+
+[[mcp_assert]]
+id = 18
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/details/uri"
+equals = "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/missing"
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/text"
+missing = true
+
+[[mcp_assert]]
+id = 19
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/details/uri"
+equals = "veln-doc:///language/snapshot/missing/index"
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/text"
+missing = true

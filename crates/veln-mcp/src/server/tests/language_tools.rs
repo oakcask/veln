@@ -1,4 +1,5 @@
 use super::*;
+use crate::language_resources::LanguageTopic;
 
 #[test]
 fn search_docs_ranks_exact_prefix_and_ties_by_uri_bytes() {
@@ -59,6 +60,38 @@ fn search_docs_normalizes_case_unicode_whitespace_tokens_and_limits() {
             .len(),
         2
     );
+
+    server.language_resources = LanguageResources::for_test(
+        vec![veln_repo_language_reference::RenderedResource {
+            uri: "veln-doc:///language/snapshot/test/index".to_string(),
+            name: "language-index".to_string(),
+            title: "Veln Language Reference".to_string(),
+            description: None,
+            mime_type: veln_repo_language_reference::LANGUAGE_REFERENCE_MARKDOWN_MEDIA_TYPE,
+            text: "# Veln Language Reference\n".to_string(),
+        }],
+        vec![LanguageTopic {
+            uri: "veln-doc:///language/snapshot/test/topic/unicode-boundary".to_string(),
+            id: "unicode-boundary".to_string(),
+            title: "Unicode Boundary".to_string(),
+            summary: "Search normalization fixture.".to_string(),
+            keywords: vec!["normalization".to_string()],
+            body: "Café efficient handlers preserve matching behavior.".to_string(),
+        }],
+    );
+    let normalized = search(
+        &mut server,
+        json!({"query": "Cafe\u{301}\u{2003}e\u{fb03}cient"}),
+    );
+    let results = normalized["structuredContent"]["results"]
+        .as_array()
+        .unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["title"], "Unicode Boundary");
+    assert_eq!(
+        results[0]["excerpt"],
+        "Café efficient handlers preserve matching behavior."
+    );
 }
 
 #[test]
@@ -103,53 +136,83 @@ fn read_doc_matches_resource_reads_and_rejects_unknown_uris_as_tool_errors() {
     let list = server
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
         .unwrap();
-    let resource = list["result"]["resources"]
-        .as_array()
-        .unwrap()
+    let resources = list["result"]["resources"].as_array().unwrap();
+    let index = resources[0].clone();
+    let topic = resources
         .iter()
         .find(|resource| resource["name"] == "lexical-structure")
         .unwrap()
         .clone();
-    let uri = resource["uri"].as_str().unwrap();
+    for resource in [index, topic] {
+        let uri = resource["uri"].as_str().unwrap();
+        let resource_read = server
+            .handle_request(
+                json!({"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":uri}}),
+            )
+            .unwrap();
+        let doc_read = server
+            .handle_request(json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":uri}}}))
+            .unwrap();
+        let structured = &doc_read["result"]["structuredContent"];
+        assert_eq!(structured["uri"], uri);
+        assert_eq!(structured["name"], resource["name"]);
+        assert_eq!(structured["title"], resource["title"]);
+        assert_eq!(structured.get("description"), resource.get("description"));
+        assert_eq!(structured["mimeType"], resource["mimeType"]);
+        assert_eq!(
+            structured["text"],
+            resource_read["result"]["contents"][0]["text"]
+        );
+        assert_eq!(
+            structured["mimeType"],
+            resource_read["result"]["contents"][0]["mimeType"]
+        );
+        assert_eq!(doc_read["result"]["isError"], false);
+    }
 
-    let resource_read = server
-        .handle_request(
-            json!({"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":uri}}),
-        )
-        .unwrap();
-    let doc_read = server
-        .handle_request(json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":uri}}}))
-        .unwrap();
-    let structured = &doc_read["result"]["structuredContent"];
-    assert_eq!(structured["uri"], uri);
-    assert_eq!(structured["name"], resource["name"]);
-    assert_eq!(structured["title"], resource["title"]);
-    assert_eq!(structured["description"], resource["description"]);
-    assert_eq!(structured["mimeType"], resource["mimeType"]);
-    assert_eq!(
-        structured["text"],
-        resource_read["result"]["contents"][0]["text"]
-    );
-    assert_eq!(
-        structured["mimeType"],
-        resource_read["result"]["contents"][0]["mimeType"]
-    );
-    assert_eq!(doc_read["result"]["isError"], false);
-
-    let missing = server
-        .handle_request(json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/missing/index"}}}))
-        .unwrap();
-    assert!(missing.get("error").is_none());
-    assert_eq!(missing["result"]["isError"], true);
-    assert_eq!(
-        missing["result"]["structuredContent"]["code"],
-        "resource_not_found"
-    );
-    assert!(
-        missing["result"]["structuredContent"]
-            .get("content")
-            .is_none()
-    );
+    let digest = veln_repo_language_reference::checked_catalog_digest();
+    let wrong_digest = "0000000000000000000000000000000000000000000000000000000000000000";
+    let rejection_cases = [
+        (
+            "unknown",
+            "veln-doc:///language/snapshot/missing/index".to_string(),
+        ),
+        (
+            "noncanonical",
+            format!("veln-doc:///language/snapshot/{digest}/topic/Lexical-Structure"),
+        ),
+        (
+            "wrong-digest",
+            format!("veln-doc:///language/snapshot/{wrong_digest}/topic/lexical-structure"),
+        ),
+        (
+            "non-language",
+            format!("veln-doc:///package/snapshot/{digest}/index"),
+        ),
+        (
+            "unknown-topic",
+            format!("veln-doc:///language/snapshot/{digest}/topic/missing"),
+        ),
+    ];
+    for (case, uri) in rejection_cases {
+        let missing = server
+            .handle_request(json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":uri}}}))
+            .unwrap();
+        assert!(missing.get("error").is_none(), "{case}");
+        assert_eq!(missing["result"]["isError"], true, "{case}");
+        assert_eq!(
+            missing["result"]["structuredContent"]["code"], "resource_not_found",
+            "{case}"
+        );
+        assert_eq!(
+            missing["result"]["structuredContent"]["details"]["uri"],
+            uri
+        );
+        assert!(
+            missing["result"]["structuredContent"].get("text").is_none(),
+            "{case}"
+        );
+    }
 }
 
 #[test]

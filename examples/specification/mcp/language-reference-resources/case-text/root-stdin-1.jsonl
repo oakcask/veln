@@ -11,3 +11,9 @@
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"schema","limit":0}}}
 {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/lexical-structure"}}}
 {"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/wrong/topic/lexical-structure"}}}
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/index"}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"format-neutral ﬁelds"}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/Lexical-Structure"}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///package/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/index"}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/missing"}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"read_doc","arguments":{"uri":"veln-doc:///language/snapshot/missing/index"}}}
