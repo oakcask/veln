@@ -7,9 +7,7 @@ use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
     DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationSource, SourcePosition, navigate,
 };
-use veln_project::{
-    PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot, parse_manifest_text,
-};
+use veln_project::{PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot};
 use veln_source::SourcePath;
 
 use crate::check_project::capture_navigation_source;
@@ -56,7 +54,11 @@ pub(crate) fn definition(
     };
 
     let root = captured.project.root.clone();
-    let snapshot = navigation_snapshot(captured.project.files, &captured.dependencies);
+    let snapshot = navigation_snapshot(
+        captured.project.files,
+        &captured.dependencies,
+        language_resources,
+    );
     let result = navigate(
         &snapshot,
         SourcePosition {
@@ -95,12 +97,16 @@ pub(crate) fn definition(
 fn navigation_snapshot(
     files: Vec<veln_source::SourceFile>,
     dependencies: &[CapturedDependencyProject],
+    language_resources: &LanguageResources,
 ) -> EffectiveProjectSnapshot {
+    if dependencies.is_empty() {
+        return language_resources.with_standard_library_navigation(files);
+    }
     let mut snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
         files,
         dependency_snapshots(dependencies),
     );
-    if let Some(standard_library) = standard_library_snapshot() {
+    if let Some(standard_library) = language_resources.standard_library_snapshot() {
         snapshot = snapshot.with_standard_library(standard_library);
     }
     snapshot
@@ -123,20 +129,6 @@ fn dependency_snapshots(
             DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).ok()
         })
         .collect()
-}
-
-fn standard_library_snapshot() -> Option<DirectDependencySnapshot> {
-    let bundle = veln_stdlib::package_bundle();
-    let snapshot = capture_embedded_package_snapshot(
-        bundle.manifest.as_bytes(),
-        bundle
-            .files
-            .iter()
-            .map(|file| PackageSnapshotSource::new(file.path, file.text.as_bytes())),
-    )
-    .ok()?;
-    let manifest = parse_manifest_text("veln.toml", bundle.manifest);
-    DirectDependencySnapshot::from_validated_standard_library(snapshot, manifest).ok()
 }
 
 pub(crate) fn coordinate(value: &Value) -> Coordinate {
