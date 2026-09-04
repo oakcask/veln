@@ -617,7 +617,6 @@ fn merged_modules_with_names<const N: usize>(sources: [(&str, SourceFile); N]) -
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
@@ -642,9 +641,6 @@ fn merged_modules_with_names<const N: usize>(sources: [(&str, SourceFile); N]) -
         for schema in &mut module.schemas {
             schema.module_name = Some(name.to_string());
         }
-        for codec in &mut module.codecs {
-            codec.module_name = Some(name.to_string());
-        }
         for function in &mut module.functions {
             function.module_name = Some(name.to_string());
         }
@@ -653,7 +649,6 @@ fn merged_modules_with_names<const N: usize>(sources: [(&str, SourceFile); N]) -
         merged.effects.extend(module.effects);
         merged.handlers.extend(module.handlers);
         merged.schemas.extend(module.schemas);
-        merged.codecs.extend(module.codecs);
         merged.types.extend(module.types);
         merged.functions.extend(module.functions);
         merged.invalid_names.extend(module.invalid_names);

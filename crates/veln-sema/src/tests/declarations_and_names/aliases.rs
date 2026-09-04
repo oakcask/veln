@@ -62,7 +62,6 @@ fn duplicate_use_aliases_are_scoped_to_declaring_module() {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         functions: [first.functions, second.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -179,7 +178,6 @@ fn public_type_alias_resolves_nested_import_path_target() {
         handlers: [api.handlers, detail.handlers].concat(),
         types: [api.types, detail.types].concat(),
         schemas: [api.schemas, detail.schemas].concat(),
-        codecs: [api.codecs, detail.codecs].concat(),
         functions: [api.functions, detail.functions].concat(),
         invalid_names: [api.invalid_names, detail.invalid_names].concat(),
     };

@@ -260,12 +260,6 @@ pub(super) fn push_recovered_function_segment(
     };
     let mut corrected = segments.to_vec();
     corrected[index] = lowercase_initial(name);
-    if !environment
-        .codec_call_path(segments, current_module)
-        .is_empty()
-    {
-        return;
-    }
     if environment
         .function_path(&corrected, current_module)
         .is_none()

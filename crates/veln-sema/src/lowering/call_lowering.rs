@@ -264,7 +264,7 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        let signature = self.core_call_signature(callee, expected, Some(args.len()));
+        let signature = self.core_call_signature(callee, expected);
         if let Some(signature) = &signature {
             self.validate_call_arity(
                 expr,

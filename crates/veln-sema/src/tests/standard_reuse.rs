@@ -26,7 +26,6 @@ fn reusable_standard_environment_matches_uncached_analysis_for_table_cases() {
                 "pub fn main(input: ByteView, base: ByteOffset, value: {value: Int}) -> Result<{value: Int}, String>\n",
                 "  let observed = handle compute() with prelude::ask(1)\n",
                 "  let boxed = prelude::answer(prelude::PayloadShape(observed))\n",
-                "  let decoded = prelude::PayloadCodec(input, base)\n",
                 "  prelude::byte_decode_public_packet(value)\n",
                 "end\n",
             ),
@@ -478,7 +477,7 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
             "pub fn main(input: ByteView, base: ByteOffset, payload: prelude::SharedPayload) -> DecodeStep<{value: Int}>\n",
             "  let observed = handle compute() with prelude::ask(1)\n",
             "  let boxed = payload\n",
-            "  prelude::PayloadCodec(input, base)\n",
+            "  NeedMore(NeedEnd)\n",
             "end\n",
         ),
     )
@@ -498,7 +497,6 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
         core.effects
     );
     assert_core_function(core, "__veln_std$prelude$provide");
-    assert_core_function(core, "__veln_std$prelude$decode_payload_packet");
     assert!(
         core.functions.iter().any(|function| {
             function.name == "main"
@@ -518,27 +516,6 @@ fn reachable_project_lowering_with_reusable_standard_environment_keeps_standard_
                 })
         }),
         "application entry should retain the standard handler provider: {:#?}",
-        core.functions
-    );
-    assert!(
-        core.functions.iter().any(|function| {
-            function.name == "main"
-                && function.body.iter().any(|stmt| {
-                    matches!(
-                        &stmt.kind,
-                        CoreStmtKind::Return { expr }
-                            if matches!(
-                                &expr.kind,
-                                CoreExprKind::Call {
-                                    target: CoreCallTarget::CodecDecode { function, codec },
-                                    ..
-                                } if function == "__veln_std$prelude$decode_payload_packet"
-                                    && codec == "PayloadCodec"
-                            )
-                    )
-                })
-        }),
-        "application entry should call the standard codec: {:#?}",
         core.functions
     );
     assert!(

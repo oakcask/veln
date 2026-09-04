@@ -9,7 +9,7 @@ pub(super) fn tree_has_commented_match_rewrite(tree: &SyntaxTree, comments: &Lin
             }
         }),
         SyntaxItem::Schema(_) | SyntaxItem::Effect(_) | SyntaxItem::Handler(_) => false,
-        SyntaxItem::Type(_) | SyntaxItem::Codec(_) | SyntaxItem::PublicAlias(_) => false,
+        SyntaxItem::Type(_) | SyntaxItem::PublicAlias(_) => false,
     })
 }
 

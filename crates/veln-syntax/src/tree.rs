@@ -1,8 +1,8 @@
 use veln_source::{SourceSpan, TextRange};
 
 use crate::{
-    BodyLine, CodecDecl, EffectDecl, FunctionDecl, HandlerDecl, ModuleDecl, PublicAliasDecl,
-    SchemaDecl, SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
+    BodyLine, EffectDecl, FunctionDecl, HandlerDecl, ModuleDecl, PublicAliasDecl, SchemaDecl,
+    SyntaxItem, Token, TokenKind, TypeDecl, UseDecl,
 };
 
 #[derive(Clone, Debug)]
@@ -71,7 +71,6 @@ pub enum SyntaxNodeKind {
     HandlerDecl,
     TypeDecl,
     SchemaDecl,
-    CodecDecl,
     PublicAliasDecl,
     FunctionSignature,
     ContractClause,
@@ -170,7 +169,6 @@ enum TopLevelNode<'a> {
     Handler(&'a HandlerDecl),
     Type(&'a TypeDecl),
     Schema(&'a SchemaDecl),
-    Codec(&'a CodecDecl),
     PublicAlias(&'a PublicAliasDecl),
 }
 
@@ -182,7 +180,6 @@ impl<'a> From<&'a SyntaxItem> for TopLevelNode<'a> {
             SyntaxItem::Handler(handler) => Self::Handler(handler),
             SyntaxItem::Type(type_decl) => Self::Type(type_decl),
             SyntaxItem::Schema(schema) => Self::Schema(schema),
-            SyntaxItem::Codec(codec) => Self::Codec(codec),
             SyntaxItem::PublicAlias(alias) => Self::PublicAlias(alias),
         }
     }
@@ -197,7 +194,6 @@ impl TopLevelNode<'_> {
             Self::Handler(handler) => span_range(&handler.span),
             Self::Type(type_decl) => span_range(&type_decl.span),
             Self::Schema(schema) => span_range(&schema.span),
-            Self::Codec(codec) => span_range(&codec.span),
             Self::PublicAlias(alias) => span_range(&alias.span),
         }
     }
@@ -212,7 +208,6 @@ impl TopLevelNode<'_> {
             Self::Handler(_) => token_node(SyntaxNodeKind::HandlerDecl, range, tokens),
             Self::Type(_) => token_node(SyntaxNodeKind::TypeDecl, range, tokens),
             Self::Schema(_) => token_node(SyntaxNodeKind::SchemaDecl, range, tokens),
-            Self::Codec(_) => token_node(SyntaxNodeKind::CodecDecl, range, tokens),
             Self::PublicAlias(_) => token_node(SyntaxNodeKind::PublicAliasDecl, range, tokens),
         }
     }

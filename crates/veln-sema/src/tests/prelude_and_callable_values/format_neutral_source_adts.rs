@@ -654,7 +654,6 @@ fn generated_format_neutral_schema_decode_helpers_accept_public_imported_source_
         handlers: Vec::new(),
         types: wire.types,
         schemas: app.schemas,
-        codecs: Vec::new(),
         functions: app.functions,
         invalid_names: Vec::new(),
     };

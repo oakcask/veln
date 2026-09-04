@@ -348,12 +348,6 @@ fn collect_valid_call_path_segments(
     if segments.len() < 2 {
         return;
     }
-    if !environment
-        .codec_call_path(segments, current_module)
-        .is_empty()
-    {
-        return;
-    }
     if environment
         .function_path(segments, current_module)
         .is_some()

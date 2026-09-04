@@ -378,20 +378,6 @@ pub(super) fn named_type_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
     symbols
 }
 
-pub(super) fn named_codec_symbols(module: &SurfaceModule) -> Vec<NamedSymbol> {
-    module
-        .codecs
-        .iter()
-        .filter_map(|codec| {
-            Some(NamedSymbol {
-                name: codec.name.clone()?,
-                module_name: codec.module_name.clone(),
-                visibility: codec.visibility,
-            })
-        })
-        .collect()
-}
-
 fn selected_symbols<T: Clone>(
     symbols: &[T],
     selected_modules: &BTreeSet<String>,

@@ -2,8 +2,8 @@ use std::cell::{OnceCell, RefCell};
 use std::collections::{HashMap, HashSet};
 
 use veln_ast::{
-    BodyLine, BodyLineKind, CodecImplementationKind, Expr, ExprKind, Function, FunctionKind,
-    Pattern, PatternKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility,
+    BodyLine, BodyLineKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
+    PublicAliasKind, SurfaceModule, UseDecl, Visibility,
 };
 use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourceFile, SourceSpan};
@@ -85,7 +85,6 @@ fn reachable_module_for_inputs(
 fn reachable_function_targets(inputs: &ReachabilityInputs<'_>) -> ReachabilityIndex {
     let mut function_targets = function_targets(inputs);
     function_targets.extend(function_alias_targets(inputs, &function_targets));
-    function_targets.extend(codec_with_targets(inputs));
     ReachabilityIndex::new(inputs, function_targets)
 }
 
@@ -128,46 +127,6 @@ fn function_shape(function: &Function) -> FunctionShape {
         fixed_arity,
         variadic,
     }
-}
-
-fn codec_with_targets(inputs: &ReachabilityInputs<'_>) -> Vec<FunctionTarget> {
-    inputs
-        .codecs()
-        .flat_map(|codec| {
-            let name = codec.name.clone()?;
-            Some(
-                codec
-                    .implementations
-                    .iter()
-                    .filter_map(move |implementation| {
-                        let CodecImplementationKind::With {
-                            function: Some(function_name),
-                        } = &implementation.kind
-                        else {
-                            return None;
-                        };
-                        let target = inputs.functions().find(|function| {
-                            function.kind == FunctionKind::Function
-                                && function.name.as_deref() == Some(function_name.as_str())
-                                && function.module_name == codec.module_name
-                        })?;
-                        Some(FunctionTarget {
-                            name: name.clone(),
-                            module_name: codec.module_name.clone(),
-                            target_name: function_name.clone(),
-                            target_module_name: target.module_name.clone(),
-                            target_node_id: target.node_id,
-                            visibility: codec.visibility,
-                            shape: function_shape(target),
-                            bare_importable: false,
-                            requires_public_import: true,
-                            recovery: false,
-                        })
-                    }),
-            )
-        })
-        .flatten()
-        .collect()
 }
 
 fn reachable_functions(
@@ -271,7 +230,6 @@ fn module_with_reachable_functions(
             .collect(),
         types: inputs.cloned_declarations(|module| &module.types),
         schemas: inputs.cloned_declarations(|module| &module.schemas),
-        codecs: inputs.cloned_declarations(|module| &module.codecs),
         functions,
         invalid_names,
     }

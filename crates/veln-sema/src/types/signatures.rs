@@ -100,26 +100,6 @@ pub(crate) struct FunctionSignature {
     pub(crate) span: SourceSpan,
 }
 
-#[derive(Clone)]
-pub(crate) struct CodecCallSignature {
-    pub(crate) name: String,
-    pub(crate) target_name: String,
-    pub(crate) boundary: CodecCallBoundary,
-    pub(crate) module_name: Option<String>,
-    pub(crate) visibility: Visibility,
-    pub(crate) params: Vec<Type>,
-    pub(crate) return_type: Type,
-    pub(crate) effects: Vec<String>,
-    pub(crate) node_id: NodeId,
-    pub(crate) span: SourceSpan,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum CodecCallBoundary {
-    Direct,
-    HandWrittenDecode,
-}
-
 pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
 pub(crate) const SCHEMA_DECODE_STEP_TARGET_PREFIX: &str = "schema-decode-step:";
 pub(crate) const SCHEMA_NEUTRAL_DECODE_TARGET_PREFIX: &str = "schema-neutral-decode:";

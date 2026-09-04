@@ -505,7 +505,7 @@ impl<'a> FunctionChecker<'a> {
                 _ => None,
             },
             ExprKind::Call { callee, .. } => self
-                .call_signature(callee, None, None, None)
+                .call_signature(callee, None, None)
                 .map(|(_, _, return_type, _)| return_type),
             ExprKind::List(items) => items
                 .first()

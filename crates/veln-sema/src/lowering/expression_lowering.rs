@@ -309,7 +309,7 @@ impl<'a> CoreLowerer<'a> {
                     .map(|function| core_type(&function.ty())),
             },
             ExprKind::Call { callee, .. } => self
-                .core_call_signature(callee, None, None)
+                .core_call_signature(callee, None)
                 .map(|signature| signature.return_type),
             _ => None,
         }

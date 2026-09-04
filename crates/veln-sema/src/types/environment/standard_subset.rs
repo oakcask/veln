@@ -15,9 +15,6 @@ impl TypeEnvironment {
             function_recoveries: recoveries.functions,
             constructor_recoveries: recoveries.constructors,
             import_constructor_recoveries: recoveries.import_constructors,
-            codec_calls: selected_standard_facts(&self.codec_calls, module_names, |signature| {
-                signature.module_name.as_deref()
-            }),
             effects: selected_standard_facts(&self.effects, module_names, |signature| {
                 signature.module_name.as_deref()
             }),
@@ -26,9 +23,6 @@ impl TypeEnvironment {
             }),
             schema_symbols: self.schema_symbols.standard_subset(module_names),
             type_symbols: selected_standard_facts(&self.type_symbols, module_names, |symbol| {
-                symbol.module_name.as_deref()
-            }),
-            codec_symbols: selected_standard_facts(&self.codec_symbols, module_names, |symbol| {
                 symbol.module_name.as_deref()
             }),
             uses: selected_standard_facts(&self.uses, module_names, |use_decl| {

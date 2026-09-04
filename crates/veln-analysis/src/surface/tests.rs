@@ -3,10 +3,7 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 
-use veln_ast::{
-    CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, FunctionKind,
-    SurfaceModule, UseOrigin, Visibility, lower_surface_ast,
-};
+use veln_ast::{FunctionKind, SurfaceModule, UseOrigin, lower_surface_ast};
 use veln_project::{
     ManifestExport, ManifestField, ManifestLib, ManifestTool, ManifestUnsupportedSection, Project,
     ProjectManifest, parse_manifest_text,

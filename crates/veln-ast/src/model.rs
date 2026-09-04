@@ -26,7 +26,6 @@ pub struct SurfaceModule {
     pub handlers: Vec<HandlerDecl>,
     pub types: Vec<TypeDecl>,
     pub schemas: Vec<SchemaDecl>,
-    pub codecs: Vec<CodecDecl>,
     pub functions: Vec<Function>,
     pub invalid_names: Vec<InvalidName>,
 }
@@ -283,38 +282,6 @@ pub struct SchemaValidationClause {
     pub node_id: NodeId,
     pub predicate: String,
     pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug)]
-pub struct CodecDecl {
-    pub node_id: NodeId,
-    pub module_name: Option<String>,
-    pub visibility: Visibility,
-    pub name: Option<String>,
-    pub schema: Option<String>,
-    pub directions: Vec<CodecDirection>,
-    pub implementations: Vec<CodecImplementationClause>,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CodecDirection {
-    Decode,
-    Encode,
-}
-
-#[derive(Clone, Debug)]
-pub struct CodecImplementationClause {
-    pub node_id: NodeId,
-    pub direction: CodecDirection,
-    pub kind: CodecImplementationKind,
-    pub span: SourceSpan,
-}
-
-#[derive(Clone, Debug)]
-pub enum CodecImplementationKind {
-    Derive,
-    With { function: Option<String> },
 }
 
 #[derive(Clone, Debug)]

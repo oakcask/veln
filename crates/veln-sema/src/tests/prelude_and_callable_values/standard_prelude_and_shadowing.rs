@@ -40,7 +40,6 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: wire.schemas,
-        codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -123,7 +122,6 @@ fn imported_public_codec_encode_resolves_through_qualified_module_path() {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: wire.schemas,
-        codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -202,7 +200,6 @@ fn imported_public_derived_codec_decode_resolves_through_qualified_module_path()
         handlers: Vec::new(),
         types: wire.types,
         schemas: wire.schemas,
-        codecs: wire.codecs,
         functions: app.functions,
         invalid_names: Vec::new(),
     };
@@ -264,7 +261,6 @@ fn imported_public_derived_codec_encode_resolves_through_qualified_module_path()
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: wire.schemas,
-        codecs: wire.codecs,
         functions: app.functions,
         invalid_names: Vec::new(),
     };
@@ -334,7 +330,6 @@ fn imported_codec_private_implementation_items_do_not_resolve_as_calls() {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: wire.schemas,
-        codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -387,7 +382,6 @@ fn imported_codec_decode_does_not_resolve_as_bare_call() {
         handlers: Vec::new(),
         types: Vec::new(),
         schemas: wire.schemas,
-        codecs: wire.codecs,
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };

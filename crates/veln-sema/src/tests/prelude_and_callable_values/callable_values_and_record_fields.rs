@@ -282,7 +282,6 @@ fn standard_package_sources_are_embedded_and_checkable() {
             !module.types.is_empty()
                 || !module.effects.is_empty()
                 || !module.schemas.is_empty()
-                || !module.codecs.is_empty()
                 || !module.handlers.is_empty()
                 || !module.functions.is_empty(),
             "embedded source should define a checkable declaration"
@@ -320,7 +319,6 @@ fn imported_public_function_conflicts_with_implicit_prelude_bare_call() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: main
             .functions

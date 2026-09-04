@@ -527,9 +527,6 @@ fn assign_module_name(module: &mut SurfaceModule, name: &str) {
     for schema in &mut module.schemas {
         schema.module_name = Some(name.to_string());
     }
-    for codec in &mut module.codecs {
-        codec.module_name = Some(name.to_string());
-    }
     for type_decl in &mut module.types {
         type_decl.module_name = Some(name.to_string());
     }
@@ -546,7 +543,6 @@ fn merge_surface_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
@@ -557,7 +553,6 @@ fn merge_surface_modules(modules: Vec<SurfaceModule>) -> SurfaceModule {
         merged.effects.extend(module.effects);
         merged.handlers.extend(module.handlers);
         merged.schemas.extend(module.schemas);
-        merged.codecs.extend(module.codecs);
         merged.types.extend(module.types);
         merged.functions.extend(module.functions);
         merged.invalid_names.extend(module.invalid_names);

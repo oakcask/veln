@@ -417,7 +417,6 @@ fn generated_schema_decode_helpers_keep_imported_dispatch_schema_metadata() {
         handlers: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas: [app.schemas, wire.schemas].concat(),
-        codecs: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };
@@ -508,7 +507,6 @@ fn generated_schema_encode_helpers_keep_imported_dispatch_schema_metadata() {
         handlers: Vec::new(),
         types: [app.types, wire.types].concat(),
         schemas: [app.schemas, wire.schemas].concat(),
-        codecs: Vec::new(),
         functions: [app.functions, wire.functions].concat(),
         invalid_names: Vec::new(),
     };

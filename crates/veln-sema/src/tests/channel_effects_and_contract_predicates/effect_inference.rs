@@ -63,7 +63,6 @@ fn infers_import_alias_call_effects_from_function_body() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: main.types.into_iter().chain(console.types).collect(),
         functions: main
             .functions

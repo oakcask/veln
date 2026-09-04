@@ -131,15 +131,22 @@ impl<'a> Reader<'a> {
     }
 
     fn surface_module(&mut self) -> Result<SurfaceModule, String> {
+        let module = self.option(Self::module_header)?;
+        let uses = self.vec(Self::use_decl)?;
+        let aliases = self.vec(Self::public_alias)?;
+        let effects = self.vec(Self::effect_decl)?;
+        let handlers = self.vec(Self::handler_decl)?;
+        let types = self.vec(Self::type_decl)?;
+        let schemas = self.vec(Self::schema_decl)?;
+        self.skip_legacy_codec_slot()?;
         Ok(SurfaceModule {
-            module: self.option(Self::module_header)?,
-            uses: self.vec(Self::use_decl)?,
-            aliases: self.vec(Self::public_alias)?,
-            effects: self.vec(Self::effect_decl)?,
-            handlers: self.vec(Self::handler_decl)?,
-            types: self.vec(Self::type_decl)?,
-            schemas: self.vec(Self::schema_decl)?,
-            codecs: self.vec(Self::codec_decl)?,
+            module,
+            uses,
+            aliases,
+            effects,
+            handlers,
+            types,
+            schemas,
             functions: self.vec(Self::function)?,
             invalid_names: self.vec(Self::invalid_name)?,
         })
@@ -362,42 +369,54 @@ impl<'a> Reader<'a> {
         })
     }
 
-    fn codec_decl(&mut self) -> Result<CodecDecl, String> {
-        Ok(CodecDecl {
-            node_id: self.node_id()?,
-            module_name: self.option(Self::string)?,
-            visibility: self.visibility()?,
-            name: self.option(Self::string)?,
-            schema: self.option(Self::string)?,
-            directions: self.vec(Self::codec_direction)?,
-            implementations: self.vec(Self::codec_implementation)?,
-            span: self.span()?,
-        })
+    fn skip_legacy_codec_slot(&mut self) -> Result<(), String> {
+        let len = self.u32()?;
+        for _ in 0..len {
+            self.skip_legacy_codec_decl()?;
+        }
+        Ok(())
     }
 
-    fn codec_direction(&mut self) -> Result<CodecDirection, String> {
+    fn skip_legacy_codec_decl(&mut self) -> Result<(), String> {
+        self.node_id()?;
+        self.option(Self::string)?;
+        self.visibility()?;
+        self.option(Self::string)?;
+        self.option(Self::string)?;
+        let direction_count = self.u32()?;
+        for _ in 0..direction_count {
+            self.skip_legacy_codec_direction()?;
+        }
+        let implementation_count = self.u32()?;
+        for _ in 0..implementation_count {
+            self.skip_legacy_codec_implementation()?;
+        }
+        self.span()?;
+        Ok(())
+    }
+
+    fn skip_legacy_codec_direction(&mut self) -> Result<(), String> {
         match self.u8()? {
-            0 => Ok(CodecDirection::Decode),
-            1 => Ok(CodecDirection::Encode),
+            0 | 1 => Ok(()),
             value => Err(format!("invalid codec direction tag {value}")),
         }
     }
 
-    fn codec_implementation(&mut self) -> Result<CodecImplementationClause, String> {
-        Ok(CodecImplementationClause {
-            node_id: self.node_id()?,
-            direction: self.codec_direction()?,
-            kind: self.codec_implementation_kind()?,
-            span: self.span()?,
-        })
+    fn skip_legacy_codec_implementation(&mut self) -> Result<(), String> {
+        self.node_id()?;
+        self.skip_legacy_codec_direction()?;
+        self.skip_legacy_codec_implementation_kind()?;
+        self.span()?;
+        Ok(())
     }
 
-    fn codec_implementation_kind(&mut self) -> Result<CodecImplementationKind, String> {
+    fn skip_legacy_codec_implementation_kind(&mut self) -> Result<(), String> {
         match self.u8()? {
-            0 => Ok(CodecImplementationKind::Derive),
-            1 => Ok(CodecImplementationKind::With {
-                function: self.option(Self::string)?,
-            }),
+            0 => Ok(()),
+            1 => {
+                self.option(Self::string)?;
+                Ok(())
+            }
             value => Err(format!("invalid codec implementation tag {value}")),
         }
     }

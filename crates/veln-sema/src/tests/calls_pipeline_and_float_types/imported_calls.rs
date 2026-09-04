@@ -81,7 +81,6 @@ fn resolves_qualified_calls_through_import_aliases() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
         invalid_names: Vec::new(),
@@ -135,7 +134,6 @@ fn nested_module_only_function_paths_keep_function_leaf_role() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: main.types.into_iter().chain(helper.types).collect(),
         functions: main.functions.into_iter().chain(helper.functions).collect(),
         invalid_names: main
@@ -193,7 +191,6 @@ fn resolves_qualified_function_values_through_import_aliases() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
         invalid_names: Vec::new(),
@@ -250,7 +247,6 @@ fn resolves_unqualified_public_function_imports() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
         invalid_names: Vec::new(),
@@ -304,7 +300,6 @@ fn resolves_unqualified_imported_function_values() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
         invalid_names: Vec::new(),
@@ -364,7 +359,6 @@ fn local_functions_shadow_unqualified_function_imports() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
         invalid_names: Vec::new(),
@@ -411,7 +405,6 @@ fn ambiguous_unqualified_public_function_imports_are_rejected() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: main
             .functions
@@ -479,7 +472,6 @@ fn private_functions_are_hidden_from_unqualified_imports() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
         invalid_names: Vec::new(),
@@ -524,7 +516,6 @@ fn matching_companion_resolves_qualified_private_function_imports() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: companion
             .functions
@@ -571,7 +562,6 @@ fn matching_companion_cannot_bind_qualified_private_function_values() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: companion
             .functions
@@ -623,7 +613,6 @@ fn non_matching_companion_cannot_resolve_qualified_private_function_imports() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: companion
             .functions
@@ -671,7 +660,6 @@ fn integration_test_module_cannot_resolve_qualified_private_function_imports() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: integration
             .functions
@@ -733,7 +721,6 @@ fn matching_companion_private_function_access_is_not_transitive() {
         effects: Vec::new(),
         handlers: Vec::new(),
         schemas: Vec::new(),
-        codecs: Vec::new(),
         types: Vec::new(),
         functions: companion
             .functions

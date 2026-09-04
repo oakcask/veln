@@ -1,8 +1,6 @@
 use veln_source::SourceSpan;
 use veln_syntax::{
-    BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, CodecDecl as SyntaxCodecDecl,
-    CodecDirection as SyntaxCodecDirection,
-    CodecImplementationKind as SyntaxCodecImplementationKind, ContractKind as SyntaxContractKind,
+    BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
     DictEntry as SyntaxDictEntry, EffectDecl as SyntaxEffectDecl,
     EffectOperationDecl as SyntaxEffectOperationDecl, Expr as SyntaxExpr,
     ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction, HandlerDecl as SyntaxHandlerDecl,
@@ -15,13 +13,13 @@ use veln_syntax::{
 };
 
 use crate::{
-    BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
-    CodecImplementationKind, Contract, ContractKind, DictEntry, EffectDecl, EffectOperationDecl,
-    Expr, ExprKind, Function, FunctionKind, HandlerDecl, HandlerOperationClauseDecl, InvalidName,
-    MatchArm, ModuleHeader, NameClass, NameOccurrence, NodeId, Param, Pattern, PatternField,
-    PatternKind, PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl,
-    SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaValidationClause, SurfaceModule,
-    TypeDecl, TypePathSegments, TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
+    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, EffectDecl,
+    EffectOperationDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
+    HandlerOperationClauseDecl, InvalidName, MatchArm, ModuleHeader, NameClass, NameOccurrence,
+    NodeId, Param, Pattern, PatternField, PatternKind, PrefixOp, PublicAlias, PublicAliasKind,
+    RecordField, ResultBinding, SchemaDecl, SchemaField, SchemaFieldWhereClause,
+    SchemaFormatClause, SchemaValidationClause, SurfaceModule, TypeDecl, TypePathSegments,
+    TypeVariantDecl, TypeVariantField, UseDecl, UseOrigin, Visibility,
 };
 
 mod expressions;
@@ -77,7 +75,6 @@ impl AstBuilder {
         let mut effects = Vec::new();
         let mut handlers = Vec::new();
         let mut schemas = Vec::new();
-        let mut codecs = Vec::new();
         let mut functions = Vec::new();
         let mut aliases = Vec::new();
         let mut invalid_names = Vec::new();
@@ -107,9 +104,6 @@ impl AstBuilder {
                     collect_invalid_schema_names(schema, &mut invalid_names);
                     schemas.push(self.lower_schema_decl(schema, module_name.clone()));
                 }
-                SyntaxItem::Codec(codec) => {
-                    codecs.push(self.lower_codec_decl(codec, module_name.clone()));
-                }
                 SyntaxItem::PublicAlias(alias) => {
                     collect_invalid_alias_name(alias, &mut invalid_names);
                     aliases.push(self.lower_public_alias(alias, module_name.clone()));
@@ -128,7 +122,6 @@ impl AstBuilder {
             handlers,
             types,
             schemas,
-            codecs,
             functions,
             invalid_names,
         }
@@ -178,13 +171,6 @@ fn lower_binary_op(op: SyntaxBinaryOp) -> BinaryOp {
         SyntaxBinaryOp::Subtract => BinaryOp::Subtract,
         SyntaxBinaryOp::Multiply => BinaryOp::Multiply,
         SyntaxBinaryOp::Divide => BinaryOp::Divide,
-    }
-}
-
-fn lower_codec_direction(direction: SyntaxCodecDirection) -> CodecDirection {
-    match direction {
-        SyntaxCodecDirection::Decode => CodecDirection::Decode,
-        SyntaxCodecDirection::Encode => CodecDirection::Encode,
     }
 }
 
@@ -425,47 +411,6 @@ impl AstBuilder {
                 })
                 .collect(),
             span: schema.span.clone(),
-        }
-    }
-
-    fn lower_codec_decl(
-        &mut self,
-        codec: &SyntaxCodecDecl,
-        module_name: Option<String>,
-    ) -> CodecDecl {
-        CodecDecl {
-            node_id: self.alloc(),
-            module_name,
-            visibility: match codec.visibility {
-                SyntaxVisibility::Public => Visibility::Public,
-                SyntaxVisibility::Private => Visibility::Private,
-            },
-            name: codec.name.clone(),
-            schema: codec.schema.clone(),
-            directions: codec
-                .directions
-                .iter()
-                .copied()
-                .map(lower_codec_direction)
-                .collect(),
-            implementations: codec
-                .implementations
-                .iter()
-                .map(|implementation| CodecImplementationClause {
-                    node_id: self.alloc(),
-                    direction: lower_codec_direction(implementation.direction),
-                    kind: match &implementation.kind {
-                        SyntaxCodecImplementationKind::Derive => CodecImplementationKind::Derive,
-                        SyntaxCodecImplementationKind::With { function } => {
-                            CodecImplementationKind::With {
-                                function: function.clone(),
-                            }
-                        }
-                    },
-                    span: implementation.span.clone(),
-                })
-                .collect(),
-            span: codec.span.clone(),
         }
     }
 

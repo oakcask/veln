@@ -71,11 +71,6 @@ pub(super) fn standard_declaration_count(module: &SurfaceModule) -> usize {
             .filter(|decl| is_standard(&decl.module_name))
             .count()
         + module
-            .codecs
-            .iter()
-            .filter(|decl| is_standard(&decl.module_name))
-            .count()
-        + module
             .functions
             .iter()
             .filter(|decl| is_standard(&decl.module_name))
