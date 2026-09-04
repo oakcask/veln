@@ -82,11 +82,8 @@ invalid params.
 
 Search normalizes searched text and query text to NFC, applies the pinned full
 default Unicode case fold used by the portable project contract, trims Unicode
-whitespace, and splits query text on Unicode whitespace. A topic matches only
-when every query token occurs in the searched fields for the winning rank.
-The index resource is not a search candidate. Searchable topic fields are
-identifier, title, keywords, summary, and body. Grammar and example source
-blocks are not searched.
+whitespace, and splits query text on Unicode whitespace. The index resource is
+not a search candidate. Grammar and example source blocks are not searched.
 
 Search ranks topic results by the first matching tier:
 
@@ -98,17 +95,19 @@ Search ranks topic results by the first matching tier:
 | 4 | Every token occurs in the summary. |
 | 5 | Every token occurs in the body. |
 
-Equal-rank results sort by resource URI UTF-8 bytes. One URI appears at most
-once. A successful search returns the effective scope and at most the
-effective limit of results. Each result contains `uri`, `title`, `summary`,
-`excerpt`, `prefix_truncated`, and `suffix_truncated`. The excerpt comes from
-the first match in the first matching field for the winning rank, using field
-order identifier, title, keywords in catalog order, summary, and body. It
-preserves original field text, contains at most 160 Unicode scalars, and
-keeps the complete matched-token source span when that span is not longer than
-160 scalars. The truncation flags report whether original field content was
-omitted before or after the excerpt. A search with no match succeeds with an
-empty `results` array and no cursor.
+A topic matches the first tier whose field set satisfies that tier. Tokens do
+not match across different ranks. Equal-rank results sort by resource URI
+UTF-8 bytes. One URI appears at most once. A successful search returns the
+effective scope and at most the effective limit of results. Each result
+contains `uri`, `title`, `summary`, `excerpt`, `prefix_truncated`, and
+`suffix_truncated`. The excerpt comes from the first match in the first
+matching field for the winning rank, using field order identifier, title,
+keywords in catalog order, summary, and body. It preserves original field
+text, contains at most 160 Unicode scalars, and keeps the complete
+matched-token source span when that span is not longer than 160 scalars. The
+truncation flags report whether original field content was omitted before or
+after the excerpt. A search with no match succeeds with an empty `results`
+array and no cursor.
 
 `read_doc` accepts one exact `uri` for the checked language index or checked
 language topic resources. Success returns `uri`, `name`, `title`, optional

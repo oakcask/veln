@@ -63,10 +63,8 @@ Initialization and `tools/list` advertise them with the existing tools.
 Search normalizes the query and each searched field to NFC, applies full
 Unicode default case folding under the workspace's pinned Unicode 17 contract,
 trims Unicode whitespace, and splits the query on one or more Unicode
-whitespace scalars. A topic matches only when every query token occurs in at
-least one searchable field. Searchable fields are topic identifier, title,
-keywords, summary, and body. Grammar and example source blocks are not searched
-in this slice.
+whitespace scalars. Grammar and example source blocks are not searched in this
+slice.
 
 The first matching tier determines rank:
 
@@ -76,14 +74,15 @@ The first matching tier determines rank:
 4. every token occurs in the summary; or
 5. every token occurs in the body.
 
-Equal-tier results sort by resource URI UTF-8 bytes. One URI appears at most
-once. The excerpt comes from the first match in the first field of the winning
-tier, using field order identifier, title, keywords in catalog order, summary,
-then body. It preserves the original field text, contains at most 160 Unicode
-scalars, and includes the complete source span corresponding to the first
-matched token when that span itself is no longer than the excerpt limit. The
-truncation flags report whether original field content was omitted before or
-after the excerpt.
+A topic matches the first tier whose field set satisfies that tier. Tokens do
+not match across different ranks. Equal-tier results sort by resource URI
+UTF-8 bytes. One URI appears at most once. The excerpt comes from the first
+match in the first field of the winning tier, using field order identifier,
+title, keywords in catalog order, summary, then body. It preserves the
+original field text, contains at most 160 Unicode scalars, and includes the
+complete source span corresponding to the first matched token when that span
+itself is no longer than the excerpt limit. The truncation flags report
+whether original field content was omitted before or after the excerpt.
 
 ## State And Failure Boundaries
 
@@ -95,7 +94,7 @@ partial content.
 
 ## Acceptance Model
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence |
 | --- | --- | --- |
 | List tools after initialization. | Both declarations exactly match the checked v1 schemas and coexist with the implemented tools and resources. | Schema freshness test and exact stdio tool-list case. |
 | Search by exact identifier or title and by prefix. | Exact results precede prefix results, equal-tier results use URI byte order, and each topic appears once. | Table-driven rank and tie cases. |
