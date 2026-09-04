@@ -220,12 +220,14 @@ type declarations and syntax-retained type-role references. It does not select
 same-spelled effect names or effect operation names as type symbols. A bare
 type-role reference with multiple visible same-spelled imported type candidates
 has no selected symbol. A qualified type-role reference selects only the
-visible type identity named by its qualifier. Constructor rename edits selected
-constructor declarations, constructor calls, and source-declared bare nullary
-constructor expression and pattern uses in workspace sources. Type and
-constructor replacement names start with an ASCII uppercase letter. Function
-and value-binding replacement names start with an ASCII lowercase letter. A
-class-changing replacement returns JSON-RPC invalid params with code `-32602`.
+visible type identity named by its qualifier. Constructor declarations select
+the declared constructor identity, but they are not constructor reference
+sites. Constructor rename edits selected constructor declarations,
+constructor calls, and source-declared bare nullary constructor expression and
+pattern uses in workspace sources. Type and constructor replacement names
+start with an ASCII uppercase letter. Function and value-binding replacement
+names start with an ASCII lowercase letter. A class-changing replacement
+returns JSON-RPC invalid params with code `-32602`.
 The error payload preserves the shared `rename.invalid_case` code and includes
 the selected symbol class, requested name, and required initial class. The
 request returns no workspace edits in that failure response.
