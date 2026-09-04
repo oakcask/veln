@@ -619,9 +619,13 @@ fn selected_overlay_invalid_casing_replaces_saved_symbol() {
         "unchanged overlays should reuse their navigation snapshot",
     );
 
-    server.handle_message(&format!(
+    let unchanged_responses = server.handle_message(&format!(
         r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}"}},"contentChanges":[{{"text":"fn Bad() -> Int\n  1\nend\n\nfn caller() -> Int\n  Bad()\nend\n"}}]}}}}"#
     ));
+    assert!(
+        unchanged_responses.is_empty(),
+        "an unchanged document should not republish diagnostics",
+    );
     assert!(Arc::ptr_eq(
         server
             .overlaid_project_snapshots

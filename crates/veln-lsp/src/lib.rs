@@ -169,13 +169,13 @@ impl Server {
         let Some((uri, text)) = document_uri_and_text(message) else {
             return Vec::new();
         };
+        if self.documents.get(&uri) == Some(&text) {
+            return Vec::new();
+        }
         let workspace_root = self.owned_workspace_root(&uri);
-        let document_changed = self.documents.get(&uri) != Some(&text);
         self.documents.insert(uri.clone(), text);
         if let Some(root) = workspace_root {
-            if document_changed {
-                self.refresh_overlaid_project_snapshot(&root);
-            }
+            self.refresh_overlaid_project_snapshot(&root);
             self.publish_workspace_diagnostics()
         } else {
             vec![publish_diagnostics(&uri, self.document_text(&uri))]
