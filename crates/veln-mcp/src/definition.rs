@@ -3,11 +3,7 @@ use std::path::Path;
 use serde_json::{Value, json};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
-use veln_analysis::CapturedDependencyProject;
-use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationSource, SourcePosition, navigate,
-};
-use veln_project::{PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot};
+use veln_language_service::{NavigationSource, SourcePosition, navigate};
 use veln_source::SourcePath;
 
 use crate::check_project::capture_navigation_source;
@@ -54,11 +50,12 @@ pub(crate) fn definition(
     };
 
     let root = captured.project.root.clone();
-    let snapshot = navigation_snapshot(
-        captured.project.files,
-        &captured.dependencies,
-        language_resources,
-    );
+    let dependencies = match language_resources.admit_dependencies(&captured.dependencies) {
+        Ok(dependencies) => dependencies,
+        Err(error) => return error.into(),
+    };
+    let snapshot =
+        language_resources.with_dependency_navigation(captured.project.files, dependencies);
     let result = navigate(
         &snapshot,
         SourcePosition {
@@ -88,47 +85,7 @@ pub(crate) fn definition(
             }
         })
     });
-    if let Err(error) = language_resources.admit_dependencies(&captured.dependencies) {
-        return error.into();
-    }
     ToolOutcome::Success(json!({"definition": definition}))
-}
-
-fn navigation_snapshot(
-    files: Vec<veln_source::SourceFile>,
-    dependencies: &[CapturedDependencyProject],
-    language_resources: &LanguageResources,
-) -> EffectiveProjectSnapshot {
-    if dependencies.is_empty() {
-        return language_resources.with_standard_library_navigation(files);
-    }
-    let mut snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-        files,
-        dependency_snapshots(dependencies),
-    );
-    if let Some(standard_library) = language_resources.standard_library_snapshot() {
-        snapshot = snapshot.with_standard_library(standard_library);
-    }
-    snapshot
-}
-
-fn dependency_snapshots(
-    dependencies: &[CapturedDependencyProject],
-) -> Vec<DirectDependencySnapshot> {
-    dependencies
-        .iter()
-        .filter_map(|dependency| {
-            let identity = PackageIdentity::new(&dependency.package).ok()?;
-            let project = dependency.project.as_ref()?;
-            let manifest = project.manifest.clone()?;
-            let sources = project.files.iter().map(|source| {
-                PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes())
-            });
-            let snapshot =
-                capture_embedded_package_snapshot(&manifest.source_bytes, sources).ok()?;
-            DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).ok()
-        })
-        .collect()
 }
 
 pub(crate) fn coordinate(value: &Value) -> Coordinate {
