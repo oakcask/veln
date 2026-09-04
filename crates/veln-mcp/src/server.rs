@@ -138,7 +138,7 @@ impl Server {
     }
 
     fn list_resource_templates(&self, params: Option<&Value>) -> Result<Value, &'static str> {
-        list_resource_templates_params(params)?;
+        list_resources_params(params).map_err(|_| "Invalid resource templates list params")?;
         Ok(self.language_resources.resource_templates_result())
     }
 
@@ -388,19 +388,6 @@ fn list_resources_params(params: Option<&Value>) -> Result<(), &'static str> {
             Ok(())
         }
         _ => Err("Invalid resource list params"),
-    }
-}
-
-fn list_resource_templates_params(params: Option<&Value>) -> Result<(), &'static str> {
-    match params {
-        None => Ok(()),
-        Some(Value::Object(object))
-            if object.keys().all(|key| key == "_meta")
-                && metadata_is_valid(object.get("_meta")) =>
-        {
-            Ok(())
-        }
-        _ => Err("Invalid resource templates list params"),
     }
 }
 

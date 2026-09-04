@@ -4,9 +4,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 mod check_project;
 mod definition;
+mod dependency_resources;
 mod language_tools;
 mod lifecycle;
 mod outcome;
+mod package_documentation_resources;
 mod protocol;
 mod references;
 mod resources;

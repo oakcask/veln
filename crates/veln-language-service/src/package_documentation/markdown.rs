@@ -161,26 +161,8 @@ fn render_declaration(
         ],
     );
     documentation(&mut out, &declaration.doc);
-    if !declaration.contracts.is_empty() {
-        heading(&mut out, 2, "Contracts");
-        for contract in &declaration.contracts {
-            out.push_str("- ");
-            out.push_str(&contract.kind);
-            out.push_str(": `");
-            out.push_str(&contract.text);
-            out.push_str("`\n");
-        }
-        out.push('\n');
-    }
-    if let Some(alias) = &declaration.alias {
-        heading(&mut out, 2, "Alias");
-        out.push_str("- Kind: ");
-        out.push_str(&alias.kind);
-        out.push('\n');
-        out.push_str("- Target: ");
-        out.push_str(&alias.target.join("::"));
-        out.push_str("\n\n");
-    }
+    contracts(&mut out, &declaration.contracts);
+    alias(&mut out, declaration.alias.as_ref());
     constructors(&mut out, &declaration.constructors);
     doctests(&mut out, &declaration.doctests);
     references(&mut out, &declaration.references);
@@ -246,6 +228,34 @@ fn documentation(out: &mut String, lines: &[String]) {
         out.push('\n');
     }
     out.push('\n');
+}
+
+fn contracts(out: &mut String, contracts: &[PackageDocFunctionContract]) {
+    if contracts.is_empty() {
+        return;
+    }
+    heading(out, 2, "Contracts");
+    for contract in contracts {
+        out.push_str("- ");
+        out.push_str(&contract.kind);
+        out.push_str(": `");
+        out.push_str(&contract.text);
+        out.push_str("`\n");
+    }
+    out.push('\n');
+}
+
+fn alias(out: &mut String, alias: Option<&PackageDocAlias>) {
+    let Some(alias) = alias else {
+        return;
+    };
+    heading(out, 2, "Alias");
+    out.push_str("- Kind: ");
+    out.push_str(&alias.kind);
+    out.push('\n');
+    out.push_str("- Target: ");
+    out.push_str(&alias.target.join("::"));
+    out.push_str("\n\n");
 }
 
 fn constructors(out: &mut String, constructors: &[PackageDocTypeConstructor]) {
@@ -517,6 +527,15 @@ mod tests {
         );
 
         let resources = render_package_documentation(&result);
+        assert_successful_index(&result, &resources);
+        assert_successful_function(&resources);
+        assert_successful_type(&resources);
+    }
+
+    fn assert_successful_index(
+        result: &PackageDocResult,
+        resources: &[RenderedPackageDocResource],
+    ) {
         let listed = resources
             .iter()
             .filter(|resource| resource.listed)
@@ -530,7 +549,9 @@ mod tests {
         assert!(index.contains("- Keywords: docs, api"));
         assert!(index.contains("- Exported modules: main"));
         assert!(index.contains("](veln-doc:///package/demo/"));
+    }
 
+    fn assert_successful_function(resources: &[RenderedPackageDocResource]) {
         let declaration = resources
             .iter()
             .find(|resource| resource.text.starts_with("# Function value\n\n"))
@@ -545,7 +566,9 @@ mod tests {
         assert!(text.contains("## Doctests"));
         assert!(text.contains("#### Expected Output"));
         assert!(text.contains("- Stream: stdout"));
+    }
 
+    fn assert_successful_type(resources: &[RenderedPackageDocResource]) {
         let type_resource = resources
             .iter()
             .find(|resource| resource.text.starts_with("# Type Choice\n\n"))
