@@ -1,4 +1,7 @@
-use super::*;
+use veln_core::CoreType;
+
+use crate::adt::type_operations as adt;
+use crate::semantic_model::Type;
 
 pub(super) fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     byte_prelude_signature::<Type>(name)

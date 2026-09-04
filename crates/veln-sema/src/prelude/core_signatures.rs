@@ -1,4 +1,13 @@
-use super::*;
+use veln_core::{CoreCallTarget, CoreType};
+
+use super::byte_signatures::core_byte_prelude_signature;
+use super::source_signatures::compiler_adapter_callback_signature;
+use crate::adt::type_operations as adt;
+use crate::source_less_lookup::{
+    compiler_adapter_symbol, prelude_builtin_module, prelude_symbol, standard_module,
+};
+use crate::standard_symbols::StandardSymbolDescriptor;
+use crate::type_lowering::core_type;
 
 fn core_vec_try_map_signature(
     result_value: &CoreType,
