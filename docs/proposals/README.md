@@ -32,8 +32,8 @@ another page is not a selectable target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
-  dependency source publication slice is extracted under Ready; select that
-  finite page instead of the umbrella:
+  completed dependency source publication slice is recorded under implemented
+  proposal history; do not select the umbrella:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

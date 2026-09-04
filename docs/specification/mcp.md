@@ -253,6 +253,9 @@ diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md),
 including span-less `toolchain.invalid_symbol_case` entries with diagnostic
 kind `toolchain` and details for `provider`, `name`, `name_class`, and
 `required_initial`.
+If dependency resource admission exceeds retained package capacity after
+analysis succeeds, `check_project` returns `resource_capacity` and publishes no
+partial diagnostics, summary, or analysis metadata.
 
 ## Saved Workspace Navigation
 
@@ -304,6 +307,9 @@ anonymous source bytes belong to the same stable capture attempt.
 `snapshot_changed` definition failures publish no success-only `definition`
 member. `snapshot_changed` references failures publish no success-only
 `references` locations.
+If dependency resource admission exceeds retained package capacity after
+navigation succeeds, `definition` and `references` return `resource_capacity`
+and publish no success-only `definition`, `references`, or scope member.
 
 ## Executable Evidence
 
