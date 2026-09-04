@@ -62,10 +62,15 @@ The bounded model-controlled language-reference search and read slice is
 implemented and recorded by
 [MCP Language Reference Tools](../reference/implemented-proposals/mcp-language-reference-tools.md).
 
+### Extracted Ready Standard-Library Source Slice
+
+The next bounded virtual-source publication slice is separately selectable as
+[MCP Standard Library Source Resources](mcp-standard-library-source-resources.md).
+
 This umbrella remains planning input for later navigation, documentation,
 virtual-source, conformance, and plugin work. It is not itself selectable.
 Extract another finite proposal page with its own acceptance model before
-moving more MCP documentation work to Ready.
+moving work after the standard-library source resource slice to Ready.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
@@ -1075,12 +1080,12 @@ The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The subsequent slices are:
 
-1. Extract another finite language-reference or documentation publication
-   slice before selecting more MCP documentation work.
-1. Extend the existing `veln mcp` server with package and virtual-source
-   resources, package and standard-library documentation search, dependency
-   reference search, paginated references, and definition beyond the
-   implemented workspace-only symbol inventory.
+1. Publish the embedded standard-library distribution sources through
+   [MCP Standard Library Source Resources](mcp-standard-library-source-resources.md).
+1. Extend the existing `veln mcp` server with dependency virtual-source
+   resources, package and standard-library documentation resources and search,
+   dependency reference search, paginated references, and definition beyond
+   the implemented workspace-only symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their
