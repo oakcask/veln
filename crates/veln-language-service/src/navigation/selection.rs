@@ -17,6 +17,7 @@ impl SymbolIndex {
             return None;
         }
         self.declaration_symbol_for_selection(file, tokens, token_index, name, selection)
+            .or_else(|| self.bare_nullary_constructor_pattern_symbol(file, tokens, token_index, name))
             .or_else(|| {
                 self.local_or_recovery_declaration_symbol(
                     file,
@@ -37,6 +38,20 @@ impl SymbolIndex {
                     prepared_scopes,
                 )
             })
+    }
+
+    fn bare_nullary_constructor_pattern_symbol(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<SelectedNavigationSymbol> {
+        is_bare_nullary_constructor_pattern(tokens, token_index)
+            .then(|| self.constructor_symbol_for_call(file, tokens, token_index, name))
+            .flatten()
+            .map(Symbol::Constructor)
+            .map(SelectedNavigationSymbol::bare)
     }
 
     fn declaration_symbol_for_selection(
@@ -192,7 +207,9 @@ impl SymbolIndex {
         {
             return Some(symbol);
         }
-        if is_qualified_path_token(tokens, token_index) && !is_call_target_token(tokens, token_index)
+        if is_qualified_path_token(tokens, token_index)
+            && !is_call_target_token(tokens, token_index)
+            && !is_constructor_reference_token(tokens, token_index)
         {
             return None;
         }
@@ -260,13 +277,15 @@ impl SymbolIndex {
         name: &str,
         prepared_scopes: Option<&[FunctionScope]>,
     ) -> Option<SelectedNavigationSymbol> {
-        self.symbol_for_bare_call(file, tokens, token_index, name)
+        self.local_binding_symbol_for_selection(file, tokens, token_index, name, prepared_scopes)
+            .map(|symbol| SelectedNavigationSymbol::bare(Symbol::Local(symbol)))
+            .or_else(|| self.symbol_for_bare_call(file, tokens, token_index, name)
             .map(SelectedNavigationSymbol::bare)
             .or_else(|| {
                 (!self.bare_call_recovery_blocked(file, tokens, token_index, name, prepared_scopes))
                     .then(|| self.recovery_bare_call_selection(file, tokens, token_index, name))
                     .flatten()
-            })
+            }))
     }
 
     fn type_reference_selection(

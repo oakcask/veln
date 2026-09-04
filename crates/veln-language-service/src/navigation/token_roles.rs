@@ -155,11 +155,24 @@ fn is_bare_nullary_constructor_pattern(tokens: &[Token], index: usize) -> bool {
         .chars()
         .next()
         .is_some_and(|initial| initial.is_ascii_uppercase())
-        && is_match_arm_pattern_binding_name(tokens, index)
+        && is_match_arm_pattern_token(tokens, index)
         && previous_non_layout_token(tokens, index)
             .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| !matches!(next.kind, TokenKind::DoubleColon | TokenKind::Colon))
+}
+
+fn is_match_arm_pattern_token(tokens: &[Token], index: usize) -> bool {
+    let token = &tokens[index];
+    token.kind == TokenKind::Ident
+        && tokens[index + 1..]
+            .iter()
+            .take_while(|next| next.kind != TokenKind::Newline && next.kind != TokenKind::Eof)
+            .position(|next| next.kind == TokenKind::FatArrow)
+            .is_some_and(|relative_arrow| {
+                let arrow_index = index + 1 + relative_arrow;
+                token.range.start >= match_arm_pattern_start(tokens, arrow_index, 0)
+            })
 }
 
 fn is_type_declaration_name(tokens: &[Token], index: usize) -> bool {

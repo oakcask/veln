@@ -343,6 +343,40 @@ mod navigation_qualified_and_package_tests {
     }
 
     #[test]
+    fn constructor_selection_covers_bare_nullary_pattern() {
+        let result = query(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "type Status\n",
+                    "  Ready\n",
+                    "  Waiting\n",
+                    "end\n\n",
+                    "fn ready() -> Status\n",
+                    "  Ready\n",
+                    "end\n\n",
+                    "fn observe(status: Status) -> Bool\n",
+                    "  match status\n",
+                    "    Ready => true\n",
+                    "    Waiting => false\n",
+                    "  end\n",
+                    "end\n",
+                ),
+            )],
+            "main.veln",
+            12,
+            7,
+        )
+        .unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 7, 3), ("main.veln", 12, 5)]
+        );
+    }
+
+    #[test]
     fn rename_validation_preserves_value_binding_case_class() {
         let result = query(
             vec![source(

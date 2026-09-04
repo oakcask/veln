@@ -302,6 +302,24 @@ fn local_binding_shadows_name(
         .any(|binding| binding.name == name && offset >= binding.start && offset < binding.end)
 }
 
+fn local_binding_shadows_other_name(
+    tokens: &[Token],
+    name: &str,
+    offset: usize,
+    scope_start: usize,
+    scope_end: usize,
+    declaration_start: usize,
+) -> bool {
+    local_bindings(tokens, scope_start, scope_end)
+        .iter()
+        .any(|binding| {
+            binding.name == name
+                && binding.declaration_start != declaration_start
+                && offset >= binding.start
+                && offset < binding.end
+        })
+}
+
 fn handler_operation_clause_parameter_shadows_name(
     tokens: &[Token],
     name: &str,

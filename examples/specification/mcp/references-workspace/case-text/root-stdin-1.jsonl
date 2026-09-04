@@ -10,3 +10,4 @@
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":9,"column":6}}}
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":15,"column":9}}}
 {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":31,"column":14}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2,"column":10}}}

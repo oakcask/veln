@@ -149,6 +149,11 @@ equals = {"start":{"line":14,"column":19},"end":{"line":14,"column":23}}
 
 [[mcp_assert]]
 id = 10
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 10
 path = "/result/structuredContent/references/1/range"
 equals = {"start":{"line":15,"column":3},"end":{"line":15,"column":7}}
 
@@ -184,6 +189,11 @@ equals = {"start":{"line":15,"column":9},"end":{"line":15,"column":13}}
 
 [[mcp_assert]]
 id = 11
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 11
 path = "/result/structuredContent/references/1/range"
 equals = {"start":{"line":20,"column":11},"end":{"line":20,"column":15}}
 
@@ -204,10 +214,35 @@ equals = {"start":{"line":30,"column":24},"end":{"line":30,"column":29}}
 
 [[mcp_assert]]
 id = 12
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 12
 path = "/result/structuredContent/references/1/range"
 equals = {"start":{"line":31,"column":13},"end":{"line":31,"column":18}}
 
 [[mcp_assert]]
 id = 12
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":10},"end":{"line":2,"column":15}}
+
+[[mcp_assert]]
+id = 13
 path = "/result/isError"
 equals = false
