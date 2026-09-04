@@ -355,12 +355,18 @@ explicitly retrieve a selected result as a model-controlled tool.
 The server lists and reads:
 
 - a language-reference index and individual language topics;
+- embedded standard-library package-documentation index resources, exact
+  module and declaration resources, and package-documentation resource
+  templates;
 - virtual source files for loaded dependencies and the standard library.
 
 The extracted
 [MCP Package Documentation Resources](mcp-package-documentation-resources.md)
-proposal owns the planned package and standard-library documentation resource
-contract. Package and standard-library search remains later work.
+proposal owns the remaining direct-dependency documentation resource and
+package-backed definition-link contract. The implemented embedded
+standard-library package-documentation resource slice is recorded by
+[MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md).
+Package and standard-library search remains later work.
 
 Large catalogs use resource templates and bounded indexes rather than listing
 every declaration eagerly. Documentation resources use Markdown text. Virtual
@@ -955,6 +961,9 @@ that the behavior is already implemented.
 
 The package-documentation publication acceptance model is extracted to
 [MCP Package Documentation Resources](mcp-package-documentation-resources.md).
+The embedded standard-library package-documentation resource slice is
+implemented and recorded by
+[MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md).
 
 ### Published Language Reference
 
@@ -1037,9 +1046,9 @@ The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 Later slices are:
 
-1. Implement the ready
+1. Finish the ready
    [MCP Package Documentation Resources](mcp-package-documentation-resources.md)
-   slice.
+   slice for direct-dependency resources and package-backed definition links.
 1. Extend the existing `veln mcp` server with package and standard-library
    documentation search, dependency reference search, paginated references,
    recovery and casing-neutral symbol references, and definition beyond the
