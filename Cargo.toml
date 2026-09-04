@@ -21,6 +21,7 @@ members = [
     "crates/veln-test",
     "tools/veln-repo-metrics",
     "tools/veln-repo-language-reference",
+    "tools/veln-repo-toolchain-case",
     "tools/veln-repo-toolchain-cases",
 ]
 resolver = "3"
@@ -52,6 +53,7 @@ veln-mcp = { path = "crates/veln-mcp" }
 veln-metrics = { path = "crates/veln-metrics" }
 veln-project = { path = "crates/veln-project" }
 veln-repo-language-reference = { path = "tools/veln-repo-language-reference" }
+veln-repo-toolchain-case = { path = "tools/veln-repo-toolchain-case" }
 veln-sema = { path = "crates/veln-sema" }
 veln-source = { path = "crates/veln-source" }
 veln-stdlib = { path = "crates/veln-stdlib" }

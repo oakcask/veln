@@ -16,6 +16,7 @@ on:
       - examples/specification/**
       - rust-toolchain.toml
       - tools/veln-repo-language-reference/**
+      - tools/veln-repo-toolchain-case/**
   pull_request:
     paths:
       - .github/workflows/test--language-reference-catalog.yaml
@@ -29,6 +30,7 @@ on:
       - examples/specification/**
       - rust-toolchain.toml
       - tools/veln-repo-language-reference/**
+      - tools/veln-repo-toolchain-case/**
 
 permissions:
   contents: read
