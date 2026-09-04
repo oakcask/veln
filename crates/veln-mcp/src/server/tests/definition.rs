@@ -227,11 +227,11 @@ fn definition_resolves_public_package_symbol_classes() {
         },
     ];
 
-    for case in cases {
-        let workspace = TempWorkspace::new(case.name);
-        write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
-        let mut server = initialized_server(&workspace);
+    let workspace = TempWorkspace::new("definition-package-symbol-classes");
+    write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
+    let mut server = initialized_server(&workspace);
 
+    for case in cases {
         let result = server
             .definition_tool(&json!({"source":"main.veln","line":case.line,"column":case.column}));
         assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
@@ -263,6 +263,35 @@ fn definition_resolves_public_package_symbol_classes() {
             navigation_dependency_source()
         );
     }
+}
+
+#[test]
+fn definition_prepares_each_dependency_snapshot_once() {
+    let workspace = TempWorkspace::new("definition-single-dependency-snapshot");
+    write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
+    crate::language_resources::reset_dependency_snapshot_captures();
+
+    let result = definition_result(&workspace, "main.veln", 13, 19);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(crate::language_resources::dependency_snapshot_captures(), 1);
+}
+
+#[test]
+fn repeated_definitions_reuse_the_dependency_navigation_base() {
+    let workspace = TempWorkspace::new("definition-reused-dependency-navigation");
+    write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
+    let mut server = initialized_server(&workspace);
+    crate::language_resources::reset_dependency_navigation_builds();
+
+    for (line, column) in [(3, 25), (13, 19)] {
+        let result =
+            server.definition_tool(&json!({"source":"main.veln","line":line,"column":column}));
+        assert_eq!(result["isError"], false, "{result:#}");
+        assert!(result["structuredContent"]["definition"].is_object());
+    }
+
+    assert_eq!(crate::language_resources::dependency_navigation_builds(), 1);
 }
 
 #[test]

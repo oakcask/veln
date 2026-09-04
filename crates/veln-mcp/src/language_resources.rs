@@ -1,3 +1,5 @@
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
@@ -15,6 +17,37 @@ use veln_repo_language_reference::{RenderedResource, render_checked_language_ref
 const VELN_SOURCE_MEDIA_TYPE: &str = "text/x-veln; charset=utf-8";
 const RETAINED_PACKAGE_CAPACITY: usize = 256;
 
+#[cfg(test)]
+thread_local! {
+    static DEPENDENCY_SNAPSHOT_CAPTURES: Cell<usize> = const { Cell::new(0) };
+    static DEPENDENCY_NAVIGATION_BUILDS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn record_dependency_snapshot_capture() {
+    DEPENDENCY_SNAPSHOT_CAPTURES.set(DEPENDENCY_SNAPSHOT_CAPTURES.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_dependency_snapshot_captures() {
+    DEPENDENCY_SNAPSHOT_CAPTURES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn dependency_snapshot_captures() -> usize {
+    DEPENDENCY_SNAPSHOT_CAPTURES.get()
+}
+
+#[cfg(test)]
+pub(crate) fn reset_dependency_navigation_builds() {
+    DEPENDENCY_NAVIGATION_BUILDS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn dependency_navigation_builds() -> usize {
+    DEPENDENCY_NAVIGATION_BUILDS.get()
+}
+
 #[derive(Clone)]
 pub(crate) struct LanguageResources {
     by_uri: BTreeMap<String, RenderedResource>,
@@ -24,6 +57,7 @@ pub(crate) struct LanguageResources {
     retained_package_keys: BTreeSet<RetainedPackageKey>,
     standard_library_snapshot: Option<DirectDependencySnapshot>,
     standard_library_navigation: EffectiveProjectSnapshot,
+    dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
 }
 
 impl LanguageResources {
@@ -97,14 +131,19 @@ impl LanguageResources {
             retained_package_keys: retained_package_keys.into_iter().collect(),
             standard_library_snapshot,
             standard_library_navigation,
+            dependency_navigation: None,
         })
     }
 
     pub(crate) fn admit_dependencies(
         &mut self,
         dependencies: &[CapturedDependencyProject],
-    ) -> Result<(), ResourceCapacityError> {
+    ) -> Result<AdmittedDependencies, ResourceCapacityError> {
         let new_snapshots = dependency_resources(dependencies);
+        let keys = new_snapshots
+            .iter()
+            .map(|snapshot| snapshot.key.clone())
+            .collect::<Vec<_>>();
         let new_keys = new_snapshots
             .iter()
             .map(|snapshot| snapshot.key.clone())
@@ -113,10 +152,9 @@ impl LanguageResources {
         if self.retained_package_keys.len() + new_keys.len() > RETAINED_PACKAGE_CAPACITY {
             return Err(ResourceCapacityError);
         }
-        if new_keys.is_empty() {
-            return Ok(());
-        }
+        let mut navigation_snapshots = Vec::with_capacity(new_snapshots.len());
         for snapshot in new_snapshots {
+            navigation_snapshots.push(snapshot.navigation);
             if !self.retained_package_keys.insert(snapshot.key) {
                 continue;
             }
@@ -131,7 +169,10 @@ impl LanguageResources {
         }
         self.combined_resources
             .sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
-        Ok(())
+        Ok(AdmittedDependencies {
+            keys,
+            snapshots: navigation_snapshots,
+        })
     }
 
     pub(crate) fn list_result(&self) -> Value {
@@ -183,6 +224,37 @@ impl LanguageResources {
         self.standard_library_navigation
             .with_workspace_overlays(files)
     }
+
+    pub(crate) fn with_dependency_navigation(
+        &mut self,
+        files: Vec<veln_source::SourceFile>,
+        dependencies: AdmittedDependencies,
+    ) -> EffectiveProjectSnapshot {
+        if dependencies.snapshots.is_empty() {
+            return self.with_standard_library_navigation(files);
+        }
+        let reuse = self
+            .dependency_navigation
+            .as_ref()
+            .is_some_and(|(keys, _)| *keys == dependencies.keys);
+        if !reuse {
+            #[cfg(test)]
+            DEPENDENCY_NAVIGATION_BUILDS.set(DEPENDENCY_NAVIGATION_BUILDS.get() + 1);
+            let mut snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                Vec::new(),
+                dependencies.snapshots,
+            );
+            if let Some(standard_library) = self.standard_library_snapshot() {
+                snapshot = snapshot.with_standard_library(standard_library);
+            }
+            self.dependency_navigation = Some((dependencies.keys, snapshot));
+        }
+        self.dependency_navigation
+            .as_ref()
+            .expect("dependency navigation was prepared")
+            .1
+            .with_workspace_overlays(files)
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -194,9 +266,16 @@ pub(crate) struct RetainedPackageKey {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct ResourceCapacityError;
 
+#[derive(Debug)]
+pub(crate) struct AdmittedDependencies {
+    keys: Vec<RetainedPackageKey>,
+    snapshots: Vec<DirectDependencySnapshot>,
+}
+
 struct DependencyResources {
     key: RetainedPackageKey,
     resources: Vec<PublishedResource>,
+    navigation: DirectDependencySnapshot,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -324,13 +403,16 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
     let identity = PackageIdentity::new(&dependency.package).ok()?;
     let project = dependency.project.as_ref()?;
     let manifest = project.manifest.clone()?;
+    #[cfg(test)]
+    record_dependency_snapshot_capture();
     let sources = project
         .files
         .iter()
         .map(|source| PackageSnapshotSource::new(source.path().as_str(), source.text().as_bytes()));
     let snapshot = capture_embedded_package_snapshot(&manifest.source_bytes, sources).ok()?;
-    DirectDependencySnapshot::from_validated_manifest(&identity, snapshot.clone(), manifest)
-        .ok()?;
+    let navigation =
+        DirectDependencySnapshot::from_validated_manifest(&identity, snapshot.clone(), manifest)
+            .ok()?;
     let catalog = VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).ok()?;
     let resources = snapshot
         .sources()
@@ -359,6 +441,7 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
             digest: snapshot.digest().to_string(),
         },
         resources,
+        navigation,
     })
 }
 
