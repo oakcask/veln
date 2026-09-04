@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::navigation::{
-    dependency_source_indexes, function_scope_collections, reset_dependency_source_indexes,
+    dependency_path_classifications, dependency_source_indexes, dependency_source_parses,
+    function_scope_collections,
+    reset_dependency_path_classifications, reset_dependency_source_indexes,
+    reset_dependency_source_parses,
     reset_function_scope_collections, reset_type_reference_collections, type_reference_collections,
 };
 use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};

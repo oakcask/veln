@@ -24,7 +24,10 @@ use crate::types::{
 mod identifier_casing;
 
 use identifier_casing::check_invalid_name_casing;
-pub use identifier_casing::classified_project_qualified_path_segments;
+pub use identifier_casing::{
+    classified_project_qualified_path_segments,
+    classified_project_qualified_path_segments_with_context,
+};
 
 #[derive(Clone, Debug)]
 pub struct LoweredSurfaceModule {

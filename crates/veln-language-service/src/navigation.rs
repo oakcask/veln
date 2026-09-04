@@ -37,6 +37,8 @@ thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
+    static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
+    static DEPENDENCY_PATH_CLASSIFICATIONS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -82,6 +84,36 @@ pub(crate) fn reset_dependency_source_indexes() {
 #[cfg(test)]
 pub(crate) fn dependency_source_indexes() -> usize {
     DEPENDENCY_SOURCE_INDEXES.get()
+}
+
+#[cfg(test)]
+fn record_dependency_source_parse() {
+    DEPENDENCY_SOURCE_PARSES.set(DEPENDENCY_SOURCE_PARSES.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_dependency_source_parses() {
+    DEPENDENCY_SOURCE_PARSES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn dependency_source_parses() -> usize {
+    DEPENDENCY_SOURCE_PARSES.get()
+}
+
+#[cfg(test)]
+fn record_dependency_path_classifications(count: usize) {
+    DEPENDENCY_PATH_CLASSIFICATIONS.set(DEPENDENCY_PATH_CLASSIFICATIONS.get() + count);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_dependency_path_classifications() {
+    DEPENDENCY_PATH_CLASSIFICATIONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn dependency_path_classifications() -> usize {
+    DEPENDENCY_PATH_CLASSIFICATIONS.get()
 }
 
 #[cfg(test)]

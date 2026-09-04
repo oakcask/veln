@@ -80,11 +80,17 @@ fn module_identity_has_invalid_casing(module: &str) -> bool {
 fn index_dependency_sources(
     files: &mut Vec<IndexedFile>,
     declarations: &mut FileDeclarations,
+    module: &mut veln_ast::SurfaceModule,
     dependency: DirectDependencySnapshot,
 ) {
     for (source, entry) in dependency.indexed_sources() {
         let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
         declarations.extend(file_declarations(&file, &parsed.tree));
+        if parsed.diagnostics.is_empty() {
+            let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
+            assign_module_name(&mut source_module, &file.module);
+            append_surface_module(module, source_module);
+        }
         files.push(file);
     }
 }
@@ -96,6 +102,8 @@ fn indexed_dependency_source(
 ) -> (IndexedFile, ParseOutput) {
     #[cfg(test)]
     record_dependency_source_index();
+    #[cfg(test)]
+    record_dependency_source_parse();
 
     let text =
         std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
@@ -131,8 +139,20 @@ fn indexed_dependency_source(
     (file, parsed)
 }
 
-fn attach_classified_path_segments(files: &mut [IndexedFile], module: &veln_ast::SurfaceModule) {
-    let segments = veln_sema::classified_project_qualified_path_segments(module);
+fn attach_classified_path_segments(
+    files: &mut [IndexedFile],
+    module: &veln_ast::SurfaceModule,
+    project: &veln_ast::SurfaceModule,
+) {
+    #[cfg(test)]
+    record_dependency_path_classifications(
+        files
+            .iter()
+            .filter(|file| matches!(file.origin, IndexedOrigin::Package { .. }))
+            .count(),
+    );
+    let segments =
+        veln_sema::classified_project_qualified_path_segments_with_context(module, project);
     for file in files {
         file.classified_path_segments = segments
             .iter()
@@ -145,6 +165,10 @@ fn attach_classified_path_segments(files: &mut [IndexedFile], module: &veln_ast:
 fn merged_surface_module(files: &[IndexedFile]) -> veln_ast::SurfaceModule {
     let mut merged = empty_surface_module();
     for file in files.iter().filter(|file| !file.navigation_isolated) {
+        #[cfg(test)]
+        if matches!(file.origin, IndexedOrigin::Package { .. }) {
+            record_dependency_source_parse();
+        }
         let parsed = parse(&file.source);
         if !parsed.diagnostics.is_empty() {
             continue;

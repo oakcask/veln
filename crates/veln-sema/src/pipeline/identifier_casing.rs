@@ -31,8 +31,11 @@ use occurrence_index::{
 use recovered_segments::*;
 use recovered_traversal::*;
 use role_resolution::*;
-pub use valid_segments::classified_project_qualified_path_segments;
 use valid_segments::valid_qualified_path_segments;
+pub use valid_segments::{
+    classified_project_qualified_path_segments,
+    classified_project_qualified_path_segments_with_context,
+};
 
 pub(super) fn check_invalid_name_casing(
     module: &SurfaceModule,
