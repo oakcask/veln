@@ -1,7 +1,11 @@
 use super::*;
 use std::collections::BTreeSet;
 use veln_analysis::CapturedDependencyProject;
-use veln_project::{Project, parse_manifest_text};
+use veln_language_service::VirtualSourceCatalog;
+use veln_project::{
+    PackageIdentity, PackageSnapshotSource, Project, capture_embedded_package_snapshot,
+    parse_manifest_text,
+};
 use veln_source::SourceFile;
 
 #[test]
@@ -240,6 +244,63 @@ fn each_successful_saved_project_tool_admits_dependency_resources() {
         let states = dependency_resource_states(&mut server, "example/dep", "dep.veln");
         assert_eq!(states.len(), 1, "{}: {states:#?}", case.name);
         assert_eq!(states[0]["read"]["text"], dependency_source("admitted"));
+    }
+}
+
+#[test]
+fn saved_project_dependency_resources_list_with_complete_sorted_metadata() {
+    struct Case {
+        name: &'static str,
+        call: fn(&mut Server) -> Value,
+    }
+
+    let cases = [
+        Case {
+            name: "check_project",
+            call: |server| server.check_project_tool(&json!({"project":"."})),
+        },
+        Case {
+            name: "definition",
+            call: |server| {
+                server.definition_tool(&json!({"source":"main.veln","line":4,"column":8}))
+            },
+        },
+        Case {
+            name: "references",
+            call: |server| {
+                server.references_tool(&json!({"source":"main.veln","line":4,"column":8}))
+            },
+        },
+    ];
+
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        write_workspace_with_dependency(&workspace, "listed");
+        let mut server = initialized_server(&workspace);
+
+        let result = (case.call)(&mut server);
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        let response = server
+            .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
+            .unwrap();
+        let resources = response["result"]["resources"].as_array().unwrap();
+        let mut expected = expected_resource_metadata();
+        expected.extend(expected_dependency_resource_metadata(
+            "example/dep",
+            [
+                ("dep.veln", dependency_source("listed")),
+                (
+                    "private.veln",
+                    "fn private_value() -> Int\n  1\nend\n".to_string(),
+                ),
+            ],
+        ));
+        sort_resource_metadata(&mut expected);
+
+        assert_eq!(response["result"].get("nextCursor"), None, "{}", case.name);
+        assert_eq!(resources, &expected, "{}", case.name);
+        assert_resource_uris_are_unique(resources, case.name);
+        assert_resources_are_sorted(resources);
     }
 }
 
@@ -860,6 +921,45 @@ fn expected_resource_metadata() -> Vec<Value> {
             .iter()
             .map(crate::language_resources::PublishedResource::metadata),
     );
+    sort_resource_metadata(&mut resources);
+    resources
+}
+
+fn expected_dependency_resource_metadata(
+    identity: &str,
+    sources: impl IntoIterator<Item = (&'static str, String)>,
+) -> Vec<Value> {
+    let identity = PackageIdentity::new(identity).unwrap();
+    let manifest = dependency_manifest(identity.as_str());
+    let source_inputs = sources
+        .into_iter()
+        .map(|(path, text)| (path, text))
+        .collect::<Vec<_>>();
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        source_inputs
+            .iter()
+            .map(|(path, text)| PackageSnapshotSource::new(path, text.as_bytes())),
+    )
+    .unwrap();
+    let catalog = VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).unwrap();
+    snapshot
+        .sources()
+        .iter()
+        .enumerate()
+        .map(|(source_index, source)| {
+            let entry = catalog.entry_for_source(0, source_index).unwrap();
+            json!({
+                "uri": entry.uri(),
+                "name": source.path(),
+                "title": format!("Veln package source: {}: {}", identity.as_str(), source.path()),
+                "mimeType": "text/x-veln; charset=utf-8",
+            })
+        })
+        .collect()
+}
+
+fn sort_resource_metadata(resources: &mut [Value]) {
     resources.sort_by(|left, right| {
         left["uri"]
             .as_str()
@@ -867,7 +967,14 @@ fn expected_resource_metadata() -> Vec<Value> {
             .as_bytes()
             .cmp(right["uri"].as_str().unwrap().as_bytes())
     });
-    resources
+}
+
+fn assert_resource_uris_are_unique(resources: &[Value], case: &str) {
+    let uris = resources
+        .iter()
+        .map(|resource| resource["uri"].as_str().unwrap())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(uris.len(), resources.len(), "{case}");
 }
 
 fn extract_resource_uris(text: &str) -> BTreeSet<String> {
