@@ -33,9 +33,10 @@ another page is not a selectable target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
-  saved workspace symbol-reference slice is implemented, and its package
-  documentation resource slice is extracted under Ready. Do not select the
-  umbrella directly:
+  saved workspace symbol-reference, standard-library package-documentation
+  resource, and dependency package-documentation resource slices are
+  implemented. Its package-backed definition-link slice is extracted under
+  Ready. Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

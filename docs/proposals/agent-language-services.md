@@ -363,9 +363,10 @@ The server lists and reads:
 The extracted
 [MCP Package Definition Documentation Links](mcp-package-documentation-resources.md)
 proposal owns the remaining package-backed definition-link contract. The
-implemented embedded standard-library package-documentation resource slice is
-recorded by
-[MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md).
+implemented package-documentation resource slices are recorded by
+[MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md)
+and
+[MCP Dependency Package Documentation Resources](../reference/implemented-proposals/mcp-dependency-package-documentation-resources.md).
 Package and standard-library search remains later work.
 
 Large catalogs use resource templates and bounded indexes rather than listing
@@ -967,6 +968,9 @@ extracted to
 The embedded standard-library package-documentation resource slice is
 implemented and recorded by
 [MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md).
+The direct-dependency package-documentation resource slice is implemented and
+recorded by
+[MCP Dependency Package Documentation Resources](../reference/implemented-proposals/mcp-dependency-package-documentation-resources.md).
 
 ### Published Language Reference
 
