@@ -1,0 +1,8 @@
+[package]
+name = "veln-repo-toolchain-case"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[lints]
+workspace = true

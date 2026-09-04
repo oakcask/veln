@@ -23,6 +23,12 @@ veln-stdlib.workspace = true
 veln-syntax.workspace = true
 veln-test.workspace = true
 
+[build-dependencies]
+veln-repo-toolchain-case.workspace = true
+
+[dev-dependencies]
+veln-repo-toolchain-case.workspace = true
+
 [lints]
 workspace = true
 

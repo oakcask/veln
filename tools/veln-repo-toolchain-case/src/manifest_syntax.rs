@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::manifest_error;
+use crate::manifest_error;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Delimiter {
@@ -99,7 +99,7 @@ struct Token<'a> {
 }
 
 #[derive(Debug)]
-pub(super) enum Statement<'a> {
+pub enum Statement<'a> {
     Section {
         name: String,
         line: usize,
@@ -112,7 +112,7 @@ pub(super) enum Statement<'a> {
 }
 
 #[derive(Debug)]
-pub(super) struct Value<'a> {
+pub struct Value<'a> {
     raw: &'a str,
     line: usize,
     tokens: Vec<Token<'a>>,
@@ -120,19 +120,19 @@ pub(super) struct Value<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ManifestPolicyFinding {
-    pub(crate) field: String,
-    pub(crate) line: usize,
-    pub(crate) start: usize,
-    pub(crate) end: usize,
-    pub(crate) spelling: String,
-    pub(crate) category: &'static str,
+pub struct ManifestPolicyFinding {
+    pub field: String,
+    pub line: usize,
+    pub start: usize,
+    pub end: usize,
+    pub spelling: String,
+    pub category: &'static str,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ManifestPolicyScan {
-    pub(crate) findings: Vec<ManifestPolicyFinding>,
-    pub(crate) error: Option<String>,
+pub struct ManifestPolicyScan {
+    pub findings: Vec<ManifestPolicyFinding>,
+    pub error: Option<String>,
 }
 
 struct Lexed<'a> {
@@ -141,15 +141,15 @@ struct Lexed<'a> {
 }
 
 impl Value<'_> {
-    pub(super) fn line(&self) -> usize {
+    pub fn line(&self) -> usize {
         self.line
     }
 
-    pub(super) fn raw(&self) -> &str {
+    pub fn raw(&self) -> &str {
         self.raw
     }
 
-    pub(super) fn parse_string(&self, path: &Path) -> String {
+    pub fn parse_string(&self, path: &Path) -> String {
         if self.tokens.len() != 1 {
             manifest_error(path, self.line, "expected string");
         }
@@ -166,11 +166,11 @@ impl Value<'_> {
             .text()
     }
 
-    pub(super) fn is_string(&self) -> bool {
+    pub fn is_string(&self) -> bool {
         self.tokens.len() == 1 && matches!(self.tokens[0].kind, TokenKind::String(_))
     }
 
-    pub(super) fn parse_string_array(&self, path: &Path) -> Vec<String> {
+    pub fn parse_string_array(&self, path: &Path) -> Vec<String> {
         let Some(Token {
             kind: TokenKind::Open(Delimiter::Square),
             ..
@@ -245,7 +245,7 @@ impl Value<'_> {
         values
     }
 
-    pub(super) fn json_error_line(&self, byte_offset: usize) -> usize {
+    pub fn json_error_line(&self, byte_offset: usize) -> usize {
         self.line
             + self.raw.as_bytes()[..byte_offset.min(self.raw.len())]
                 .iter()
@@ -253,7 +253,7 @@ impl Value<'_> {
                 .count()
     }
 
-    pub(super) fn report_unterminated(&self, path: &Path) -> ! {
+    pub fn report_unterminated(&self, path: &Path) -> ! {
         let (delimiter, line) = self
             .unterminated
             .expect("unterminated value should retain its innermost opener");
@@ -264,7 +264,7 @@ impl Value<'_> {
         )
     }
 
-    pub(super) fn is_unterminated(&self) -> bool {
+    pub fn is_unterminated(&self) -> bool {
         self.unterminated.is_some()
     }
 
@@ -346,12 +346,12 @@ fn field_accepts_json_array_root(field: &str) -> bool {
     )
 }
 
-pub(crate) fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
+pub fn parse_document<'a>(path: &Path, text: &'a str) -> Vec<Statement<'a>> {
     let tokens = Lexer::new(path, text).lex().tokens;
     DocumentParser::new(path, text, tokens).parse()
 }
 
-pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestPolicyFinding> {
+pub fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestPolicyFinding> {
     let scan = manifest_policy_scan(path, text);
     if let Some(error) = scan.error {
         manifest_error(path, 0, error);
@@ -359,7 +359,7 @@ pub(crate) fn manifest_policy_findings(path: &Path, text: &str) -> Vec<ManifestP
     scan.findings
 }
 
-pub(crate) fn manifest_policy_scan(path: &Path, text: &str) -> ManifestPolicyScan {
+pub fn manifest_policy_scan(path: &Path, text: &str) -> ManifestPolicyScan {
     let lexed = Lexer::new(path, text).lex_with_boundary();
     let boundary_error = lexed.boundary_error;
     let tokens = if boundary_error.is_some() {
@@ -671,11 +671,8 @@ fn matches_forbidden_wide_hex(digits: &str) -> bool {
     digits.eq_ignore_ascii_case("0000000a") || digits.eq_ignore_ascii_case("0000000d")
 }
 
-#[path = "manifest_syntax/document.rs"]
 mod document;
-#[path = "manifest_syntax/lexer.rs"]
 mod lexer;
-#[path = "manifest_syntax/strings.rs"]
 mod strings;
 
 use document::DocumentParser;
@@ -683,5 +680,4 @@ use lexer::Lexer;
 use strings::{decode_toml_string, is_prohibited_control};
 
 #[cfg(test)]
-#[path = "manifest_syntax/tests.rs"]
 mod tests;

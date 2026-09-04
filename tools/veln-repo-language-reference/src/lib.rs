@@ -8,12 +8,6 @@ use unicode_normalization::UnicodeNormalization;
 use veln_source::SourceFile;
 use veln_syntax::{PUBLIC_FIXED_SPELLING_TOKENS, PUBLIC_KEYWORDS, PUBLIC_PUNCTUATION, lex};
 
-#[allow(dead_code)]
-#[path = "../../../crates/veln-cli/tests/toolchain_harness/manifest_syntax.rs"]
-mod manifest_syntax;
-
-use manifest_syntax::Statement as ManifestStatement;
-
 mod descriptors;
 mod examples;
 mod grammar;
@@ -647,13 +641,6 @@ fn slash_path(path: &Path) -> String {
         .map(|component| component.as_os_str().to_string_lossy())
         .collect::<Vec<_>>()
         .join("/")
-}
-
-fn manifest_error(path: &Path, line_number: usize, message: impl std::fmt::Display) -> ! {
-    if line_number == 0 {
-        panic!("{}: {message}", path.display());
-    }
-    panic!("{}:{line_number}: {message}", path.display());
 }
 
 fn repository_relative(path: &Path) -> bool {

@@ -9,9 +9,6 @@ on:
       - Cargo.lock
       - Cargo.toml
       - crates/veln-cli/tests/toolchain_cases/**
-      - crates/veln-cli/tests/toolchain_harness/manifest_syntax/**
-      - crates/veln-cli/tests/toolchain_harness/manifest_syntax.rs
-      - crates/veln-cli/toolchain_case_inventory.rs
       - crates/veln-project/**
       - crates/veln-source/**
       - docs/specification/source-surface-executable.pl
@@ -20,6 +17,7 @@ on:
       - examples/specification/**
       - rust-toolchain.toml
       - tools/veln-repo-toolchain-cases/**
+      - tools/veln-repo-toolchain-case/**
       - workflow-scripts/check-source-surface-executable.mjs
   pull_request:
     paths:
@@ -27,9 +25,6 @@ on:
       - Cargo.lock
       - Cargo.toml
       - crates/veln-cli/tests/toolchain_cases/**
-      - crates/veln-cli/tests/toolchain_harness/manifest_syntax/**
-      - crates/veln-cli/tests/toolchain_harness/manifest_syntax.rs
-      - crates/veln-cli/toolchain_case_inventory.rs
       - crates/veln-project/**
       - crates/veln-source/**
       - docs/specification/source-surface-executable.pl
@@ -38,6 +33,7 @@ on:
       - examples/specification/**
       - rust-toolchain.toml
       - tools/veln-repo-toolchain-cases/**
+      - tools/veln-repo-toolchain-case/**
       - workflow-scripts/check-source-surface-executable.mjs
 
 permissions:

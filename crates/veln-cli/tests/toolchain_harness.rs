@@ -17,6 +17,7 @@ use veln_analysis::{
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility};
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_project::Project;
+use veln_repo_toolchain_case::{inventory as toolchain_case_inventory, manifest_syntax};
 
 #[path = "toolchain_harness/assertion_json.rs"]
 mod assertion_json;
@@ -25,12 +26,8 @@ mod assertion_json;
 mod jvm_cache_coordination;
 #[path = "toolchain_harness/manifest_preflight.rs"]
 mod manifest_preflight;
-#[path = "toolchain_harness/manifest_syntax.rs"]
-mod manifest_syntax;
 #[path = "toolchain_harness/result_value.rs"]
 mod result_value;
-#[path = "../toolchain_case_inventory.rs"]
-mod toolchain_case_inventory;
 
 use assertion_json::{JsonValue, escape_json_string, parse_json};
 use manifest_syntax::{Statement as ManifestStatement, Value as ManifestValue};

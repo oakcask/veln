@@ -391,6 +391,7 @@ dependencies = [
  "veln-mcp",
  "veln-metrics",
  "veln-project",
+ "veln-repo-toolchain-case",
  "veln-sema",
  "veln-source",
  "veln-stdlib",
@@ -510,6 +511,7 @@ dependencies = [
  "sha2",
  "unicode-normalization",
  "veln-project",
+ "veln-repo-toolchain-case",
  "veln-source",
  "veln-syntax",
 ]
@@ -523,10 +525,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "veln-repo-toolchain-case"
+version = "0.1.0"
+
+[[package]]
 name = "veln-repo-toolchain-cases"
 version = "0.1.0"
 dependencies = [
  "veln-project",
+ "veln-repo-toolchain-case",
 ]
 
 [[package]]

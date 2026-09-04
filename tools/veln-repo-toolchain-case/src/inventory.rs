@@ -4,25 +4,25 @@ use std::panic::{self, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct DiscoveryRoot {
-    pub(crate) id: &'static str,
-    pub(crate) relative: &'static str,
+pub struct DiscoveryRoot {
+    pub id: &'static str,
+    pub relative: &'static str,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct CaseDescriptor {
-    pub(crate) id: String,
-    pub(crate) root_id: &'static str,
-    pub(crate) case_relative: PathBuf,
-    pub(crate) manifest_relative: PathBuf,
+pub struct CaseDescriptor {
+    pub id: String,
+    pub root_id: &'static str,
+    pub case_relative: PathBuf,
+    pub manifest_relative: PathBuf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct Preflight {
-    pub(crate) cases: Vec<CaseDescriptor>,
+pub struct Preflight {
+    pub cases: Vec<CaseDescriptor>,
 }
 
-pub(crate) const DISCOVERY_ROOTS: [DiscoveryRoot; 2] = [
+pub const DISCOVERY_ROOTS: [DiscoveryRoot; 2] = [
     DiscoveryRoot {
         id: "crates/veln-cli/tests/toolchain_cases",
         relative: "tests/toolchain_cases",
@@ -33,18 +33,18 @@ pub(crate) const DISCOVERY_ROOTS: [DiscoveryRoot; 2] = [
     },
 ];
 
-pub(crate) fn run_preflight(manifest_dir: &Path) -> Result<Preflight, String> {
+pub fn run_preflight(manifest_dir: &Path) -> Result<Preflight, String> {
     run_preflight_with_roots(manifest_dir, &DISCOVERY_ROOTS)
 }
 
-pub(crate) fn run_preflight_with_roots(
+pub fn run_preflight_with_roots(
     manifest_dir: &Path,
     roots: &[DiscoveryRoot],
 ) -> Result<Preflight, String> {
     run_preflight_with_roots_and_policy(manifest_dir, roots, true)
 }
 
-pub(crate) fn run_preflight_with_roots_and_policy(
+pub fn run_preflight_with_roots_and_policy(
     manifest_dir: &Path,
     roots: &[DiscoveryRoot],
     enforce_policy: bool,
@@ -73,14 +73,14 @@ pub(crate) fn run_preflight_with_roots_and_policy(
     }
 }
 
-pub(crate) fn compare_generated_inventory(
+pub fn compare_generated_inventory(
     manifest_dir: &Path,
     generated: &[&str],
 ) -> Result<Preflight, String> {
     compare_generated_inventory_with_policy(manifest_dir, generated, true)
 }
 
-pub(crate) fn compare_generated_inventory_with_policy(
+pub fn compare_generated_inventory_with_policy(
     manifest_dir: &Path,
     generated: &[&str],
     enforce_policy: bool,
@@ -117,7 +117,7 @@ pub(crate) fn compare_generated_inventory_with_policy(
     Err(render_preflight_errors(errors))
 }
 
-pub(crate) fn generated_toolchain_tests_from_preflight(
+pub fn generated_toolchain_tests_from_preflight(
     manifest_dir: &Path,
     roots: &[DiscoveryRoot],
     enforce_policy: bool,
@@ -131,7 +131,7 @@ pub(crate) fn generated_toolchain_tests_from_preflight(
     Ok(generated_toolchain_tests(&cases))
 }
 
-pub(crate) fn generated_toolchain_tests(cases: &[PathBuf]) -> String {
+pub fn generated_toolchain_tests(cases: &[PathBuf]) -> String {
     let mut names = BTreeSet::new();
     let mut out = String::from(
         "mod toolchain_semantic_baseline {\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/tests/toolchain_semantic_baseline/mod.rs\"));\n}\n\nconst GENERATED_TOOLCHAIN_CASES: &[&str] = &[\n",
@@ -590,7 +590,7 @@ fn display_root_path(root_id: &str, relative: &Path) -> String {
     }
 }
 
-pub(crate) fn slash_path(path: &Path) -> String {
+pub fn slash_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
