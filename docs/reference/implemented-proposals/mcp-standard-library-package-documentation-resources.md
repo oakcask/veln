@@ -15,9 +15,11 @@ stays under
 
 ## Completed Boundary
 
-Server startup generates the existing package-documentation result from the
-retained embedded `std` package snapshot. A successful result publishes one
-listed index resource and exact linked module and declaration resources. A
+The repository generates a checked package-documentation resource bundle from
+the embedded `std` package snapshot. Server startup validates the bundle digest,
+requires its snapshot digest to match the retained snapshot, and publishes its
+resources without rerunning package analysis. A successful result publishes
+one listed index resource and exact linked module and declaration resources. A
 failed result publishes one listed status resource instead. Module and
 declaration resources are readable only by exact URI and are advertised by
 `resources/templates/list`; they are not eagerly listed by `resources/list`.
@@ -42,3 +44,4 @@ change `veln doc`, or change package-documentation catalog identity.
 | Malformed template-list parameters and unpublished, noncanonical, wrong-snapshot, wrong-documentation-digest, and missing package-documentation URIs fail through the specified protocol errors. | `standard-library-package-documentation-resources`, `resource_templates_list_advertises_package_documentation_forms`, and `resources_reject_malformed_params_and_unknown_uris` |
 | Markdown rendering preserves ordered catalog fields and status diagnostics while enforcing the catalog disclosure boundary. | `successful_rendering_preserves_ordered_fields_and_links` and `status_rendering_preserves_diagnostics_and_disclosure_boundary` |
 | A failed embedded `std` package-documentation result publishes only a listed status document. | `standard_library_documentation_failure_publishes_only_status_documentation` |
+| Startup loads the digest-validated checked bundle for the exact embedded snapshot, while generator or renderer changes cannot leave it stale. | `checked_standard_library_resources_load_the_prebuilt_documentation_bundle` and the `veln-repo-mcp-standard-library-docs` freshness check |
