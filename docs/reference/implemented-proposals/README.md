@@ -132,6 +132,8 @@ under `../../specification/` and its executable example routes.
   [mcp-standard-library-package-documentation-resources.md](mcp-standard-library-package-documentation-resources.md).
 - MCP dependency source resources:
   [mcp-dependency-source-resources.md](mcp-dependency-source-resources.md).
+- MCP dependency package-documentation resources:
+  [mcp-dependency-package-documentation-resources.md](mcp-dependency-package-documentation-resources.md).
 - MCP package definition navigation:
   [mcp-package-definition-navigation.md](mcp-package-definition-navigation.md).
 - Self-hosting standard library:

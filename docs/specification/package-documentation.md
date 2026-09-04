@@ -9,9 +9,9 @@ update-when: The package documentation catalog API, canonical result bytes, dige
 `veln-language-service` exposes a transport-independent package documentation
 catalog for one validated package identity, one captured package snapshot, and
 the validated manifest parsed from that same capture. The catalog is not the
-`veln doc` Markdown output. `veln mcp` currently exposes a Markdown projection
-for the embedded `std` package-documentation result; direct-dependency
-documentation resources remain planned.
+`veln doc` Markdown output. `veln mcp` exposes a Markdown projection for the
+embedded `std` package-documentation result and for admitted direct-dependency
+package snapshots.
 
 ## Read First
 
@@ -234,6 +234,9 @@ The tests also read fixtures under `examples/specification/doc/` to observe:
 
 The readable CLI documentation boundary remains checked by
 `examples/specification/doc/`. The transport-independent catalog itself is a
-Rust API and is not exposed by `veln doc`. MCP exposure for the embedded
-standard-library documentation result is specified in [mcp.md](mcp.md) and
-checked by `examples/specification/mcp/standard-library-package-documentation-resources/`.
+Rust API and is not exposed by `veln doc`. MCP exposure for embedded
+standard-library and admitted direct-dependency documentation results is
+specified in [mcp.md](mcp.md) and checked by
+`examples/specification/mcp/standard-library-package-documentation-resources/`
+and
+`examples/specification/mcp/dependency-package-documentation-resources/`.

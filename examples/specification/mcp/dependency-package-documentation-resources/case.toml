@@ -1,0 +1,109 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"name\":\"example-dep-documentation-index\"",
+  "\"name\":\"example-bad-documentation-status\"",
+  "\"name\":\"package-documentation-module\"",
+  "\"name\":\"package-documentation-declaration\"",
+  "# Package Documentation: example/dep",
+  "# Module api",
+  "# Function answer",
+  "package_doc.unresolved_schema_reference",
+  "\"code\":\"resource_not_found\"",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 3
+path = "/result/resources/11/name"
+equals = "example-bad-documentation-status"
+
+[[mcp_assert]]
+id = 3
+path = "/result/resources/12/name"
+equals = "example-dep-documentation-index"
+
+[[mcp_assert]]
+id = 3
+path = "/result/resources/12/description"
+equals = "Dependency documentation fixture"
+
+[[mcp_assert]]
+id = 3
+path = "/result/resources/12/mimeType"
+equals = "text/markdown; charset=utf-8"
+
+[[mcp_assert]]
+id = 3
+path = "/result/nextCursor"
+missing = true
+
+[[mcp_assert]]
+id = 4
+path = "/result/resourceTemplates"
+length = 2
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+contains = "- Package identity: example/dep"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+contains = "- Exported modules: api"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/a0c2519c0b82be2f8ec66bfe7fc428fd175acfc63c0c3591a6a1c3f627600adf/module/b09c429c2c2b962da90ceed199c3dcf25e73c5444c6023162f62ae3addabd008"
+
+[[mcp_assert]]
+id = 6
+path = "/result/contents/0/text"
+contains = "- Source path: api.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/contents/0/text"
+contains = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/a0c2519c0b82be2f8ec66bfe7fc428fd175acfc63c0c3591a6a1c3f627600adf/declaration/fb1a8a064dd32af6cfa68eeb45a34065ccdc049850e97bdc07ccaf9ae2aeccf3"
+
+[[mcp_assert]]
+id = 7
+path = "/result/contents/0/text"
+contains = "- Signature: fn answer() -> Int"
+
+[[mcp_assert]]
+id = 8
+path = "/error/data/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 10
+path = "/result/resources/12/name"
+equals = "example-dep-documentation-index"
+
+[[mcp_assert]]
+id = 11
+path = "/result/contents/0/text"
+contains = "- State: failed"
+
+[[mcp_assert]]
+id = 11
+path = "/result/contents/0/text"
+contains = "package_doc.unresolved_schema_reference"
+
+[[mcp_assert]]
+id = 12
+path = "/error/data/code"
+equals = "resource_not_found"

@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"a049a535dcb355a4a06deaf5772b3ba4e1f12eb8"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1662
+case_count	1663
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -14994,6 +14994,94 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1489,"sha256":"e2b4d5447b2dc59fe02b8523e695cee21a53e3b32c1a7f0cdcd1919eb1631384"}
 field	source_errors	"forbidden"
 case_digest	"fb4fcefd1a48d338181c86c31078b3208a785c9121335fc379747e98fa6a480b"
+case	"examples/specification/mcp/dependency-package-documentation-resources"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].equals	false
+field	expectations.mcp_assertions[0].id	2
+field	expectations.mcp_assertions[0].operation	"equals"
+field	expectations.mcp_assertions[0].path	"/result/isError"
+field	expectations.mcp_assertions[10].contains	"- Source path: api.veln"
+field	expectations.mcp_assertions[10].id	6
+field	expectations.mcp_assertions[10].operation	"contains"
+field	expectations.mcp_assertions[10].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[11].contains	{"logical_field":"expectations.mcp_assertions[11].contains","byte_length":263,"sha256":"add9412534589f9b38716c6fbadeb7f8944f1a3abce8c139886e55bba407488f"}
+field	expectations.mcp_assertions[11].id	6
+field	expectations.mcp_assertions[11].operation	"contains"
+field	expectations.mcp_assertions[11].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[12].contains	"- Signature: fn answer() -> Int"
+field	expectations.mcp_assertions[12].id	7
+field	expectations.mcp_assertions[12].operation	"contains"
+field	expectations.mcp_assertions[12].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[13].equals	"resource_not_found"
+field	expectations.mcp_assertions[13].id	8
+field	expectations.mcp_assertions[13].operation	"equals"
+field	expectations.mcp_assertions[13].path	"/error/data/code"
+field	expectations.mcp_assertions[14].equals	"example-dep-documentation-index"
+field	expectations.mcp_assertions[14].id	10
+field	expectations.mcp_assertions[14].operation	"equals"
+field	expectations.mcp_assertions[14].path	"/result/resources/12/name"
+field	expectations.mcp_assertions[15].contains	"- State: failed"
+field	expectations.mcp_assertions[15].id	11
+field	expectations.mcp_assertions[15].operation	"contains"
+field	expectations.mcp_assertions[15].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[16].contains	"package_doc.unresolved_schema_reference"
+field	expectations.mcp_assertions[16].id	11
+field	expectations.mcp_assertions[16].operation	"contains"
+field	expectations.mcp_assertions[16].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[17].equals	"resource_not_found"
+field	expectations.mcp_assertions[17].id	12
+field	expectations.mcp_assertions[17].operation	"equals"
+field	expectations.mcp_assertions[17].path	"/error/data/code"
+field	expectations.mcp_assertions[1].equals	"example-bad-documentation-status"
+field	expectations.mcp_assertions[1].id	3
+field	expectations.mcp_assertions[1].operation	"equals"
+field	expectations.mcp_assertions[1].path	"/result/resources/11/name"
+field	expectations.mcp_assertions[2].equals	"example-dep-documentation-index"
+field	expectations.mcp_assertions[2].id	3
+field	expectations.mcp_assertions[2].operation	"equals"
+field	expectations.mcp_assertions[2].path	"/result/resources/12/name"
+field	expectations.mcp_assertions[3].equals	"Dependency documentation fixture"
+field	expectations.mcp_assertions[3].id	3
+field	expectations.mcp_assertions[3].operation	"equals"
+field	expectations.mcp_assertions[3].path	"/result/resources/12/description"
+field	expectations.mcp_assertions[4].equals	"text/markdown; charset=utf-8"
+field	expectations.mcp_assertions[4].id	3
+field	expectations.mcp_assertions[4].operation	"equals"
+field	expectations.mcp_assertions[4].path	"/result/resources/12/mimeType"
+field	expectations.mcp_assertions[5].id	3
+field	expectations.mcp_assertions[5].operation	"missing"
+field	expectations.mcp_assertions[5].path	"/result/nextCursor"
+field	expectations.mcp_assertions[6].id	4
+field	expectations.mcp_assertions[6].length	2
+field	expectations.mcp_assertions[6].operation	"length"
+field	expectations.mcp_assertions[6].path	"/result/resourceTemplates"
+field	expectations.mcp_assertions[7].contains	"- Package identity: example/dep"
+field	expectations.mcp_assertions[7].id	5
+field	expectations.mcp_assertions[7].operation	"contains"
+field	expectations.mcp_assertions[7].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[8].contains	"- Exported modules: api"
+field	expectations.mcp_assertions[8].id	5
+field	expectations.mcp_assertions[8].operation	"contains"
+field	expectations.mcp_assertions[8].path	"/result/contents/0/text"
+field	expectations.mcp_assertions[9].contains	{"logical_field":"expectations.mcp_assertions[9].contains","byte_length":258,"sha256":"1bce10607eb042b59a2d54f634ac9ef1ce2eb0be1ae025a222a909eb964e197d"}
+field	expectations.mcp_assertions[9].id	5
+field	expectations.mcp_assertions[9].operation	"contains"
+field	expectations.mcp_assertions[9].path	"/result/contents/0/text"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"name\":\"example-dep-documentation-index\""
+field	expectations.stdout.contains[1]	"\"name\":\"example-bad-documentation-status\""
+field	expectations.stdout.contains[2]	"\"name\":\"package-documentation-module\""
+field	expectations.stdout.contains[3]	"\"name\":\"package-documentation-declaration\""
+field	expectations.stdout.contains[4]	"# Package Documentation: example/dep"
+field	expectations.stdout.contains[5]	"# Module api"
+field	expectations.stdout.contains[6]	"# Function answer"
+field	expectations.stdout.contains[7]	"package_doc.unresolved_schema_reference"
+field	expectations.stdout.contains[8]	"\"code\":\"resource_not_found\""
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2274,"sha256":"4e22d95b3885294297f63e3f2e6c0e39a53ecef4ceafacd53c5bb1cd626021ed"}
+field	source_errors	"forbidden"
+case_digest	"0c003ae244e6830a06047845bea2a6e1df29db33a0533e970ca3e9b9b2a20c6f"
 case	"examples/specification/mcp/dependency-source-resources"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	false
@@ -54659,4 +54747,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"3b10856fe9f1c5c9277af4ab20db56bfc68b27f2c40ad33497d8ece248a4ed54"
+aggregate_digest	"3a9d28cf4685f0a67d6818057931eecf53f66b43d1d4594626e36cf539a6b0a6"

@@ -18,8 +18,7 @@ also states it.
 
 ## Ready
 
-- Finish direct-dependency package documentation resources and package-backed
-  definition documentation links:
+- Finish package-backed definition documentation links:
   [mcp-package-documentation-resources.md](mcp-package-documentation-resources.md).
 
 Each entry in this section selects one complete proposal page. A subsection of
@@ -34,9 +33,10 @@ another page is not a selectable target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
-  saved workspace symbol-reference slice is implemented, and its package
-  documentation resource slice is extracted under Ready. Do not select the
-  umbrella directly:
+  saved workspace symbol-reference, standard-library package-documentation
+  resource, and dependency package-documentation resource slices are
+  implemented. Its package-backed definition-link slice is extracted under
+  Ready. Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

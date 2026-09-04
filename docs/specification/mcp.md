@@ -11,9 +11,10 @@ standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
 The current MCP surface contains language-reference, standard-library source,
-standard-library package-documentation, and admitted direct-dependency source
-resources plus the `workspace_projects`, `refresh_workspace`, `check_project`,
-`definition`, `references`, `search_docs`, and `read_doc` tools.
+standard-library package-documentation, admitted direct-dependency source,
+and admitted direct-dependency package-documentation resources plus the
+`workspace_projects`, `refresh_workspace`, `check_project`, `definition`,
+`references`, `search_docs`, and `read_doc` tools.
 Initialization advertises
 `resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
@@ -54,9 +55,12 @@ package-documentation status URI when that generation fails, one
 standard-library source URI for each distribution source retained by the
 embedded `std` package snapshot, and one dependency source URI for each
 distribution source retained from an admitted direct-dependency package
-snapshot. Module and declaration package-documentation resources are readable
-only through exact URIs linked from the package-documentation index or module
-Markdown; they are not eagerly enumerated in `resources/list`.
+snapshot. For each admitted direct-dependency snapshot, it also includes one
+package-documentation index URI when generation succeeds or one
+package-documentation status URI when generation fails. Module and declaration
+package-documentation resources are readable only through exact URIs linked
+from the package-documentation index or module Markdown; they are not eagerly
+enumerated in `resources/list`.
 `resources/list` accepts omitted parameters or request metadata. It
 rejects a cursor, unknown field, `null`, or non-object parameters with
 JSON-RPC invalid params.
@@ -104,14 +108,21 @@ Successful `check_project`, `definition`, and `references` calls on a selected
 manifest project atomically admit every valid direct-dependency package
 snapshot captured by the same stable saved-project operation. A valid snapshot
 has a manifest package name that equals the dependency table key and a captured
-package distribution snapshot. Repeating the same package identity and digest
-adds no state. A later digest for the same identity coexists with the earlier
-snapshot. The server retains at most 256 package snapshots, including the
-embedded standard-library snapshot. If one operation would exceed that limit,
-the tool returns `resource_capacity`, admits none of that operation's new
-snapshots, and preserves the previous resource state. Capture failure,
-validation failure, tool domain failure, and invalid tool parameters admit no
-new dependency resources.
+package distribution snapshot. The server generates the existing
+transport-independent package-documentation result from that retained snapshot
+and the parsed manifest used for admission. If generation succeeds, the
+dependency documentation index is listed, and its linked module and
+declaration resources are available only through exact `resources/read`
+requests. If generation fails, only the dependency documentation status
+resource is listed and readable. Source resources are retained in either
+case. Repeating the same package identity and digest adds no state. A later
+digest for the same identity coexists with the earlier snapshot. The server
+retains at most 256 package snapshots, including the embedded standard-library
+snapshot. If one operation would exceed that limit, the tool returns
+`resource_capacity`, admits none of that operation's new snapshots, publishes
+no source or documentation resources for the rejected snapshots, and preserves
+the previous resource state. Capture failure, validation failure, tool domain
+failure, and invalid tool parameters admit no new dependency resources.
 
 Dependency source resources use the canonical `veln-pkg:` URI from the
 admitted dependency snapshot virtual-source catalog. Their `name` is the
@@ -121,17 +132,27 @@ package-relative source path. Their `title` is
 membership controls publication, so private and non-exported dependency
 sources are readable while test-shaped sources are not listed.
 
+Dependency package-documentation resources use the same `veln-doc:` URI forms,
+Markdown media type, renderer-provided names, titles, descriptions, and
+allowlisted metadata as the embedded standard-library documentation
+projection. A successful dependency result lists only its index resource. A
+failed dependency result lists only its status resource. Neither result lists
+module or declaration resources eagerly.
+
 `resources/read` accepts one exact `uri` plus optional request metadata. A
 successful read returns one complete text content entry with the requested
 URI, media type, and deterministic text. Language-reference resource text is
 Markdown rendered from the checked catalog artifact. Standard-library
 package-documentation resource text is Markdown rendered from the retained
-embedded `std` package-documentation result. Standard-library source resource
-text is the exact UTF-8 source text captured from the embedded package
-snapshot at server startup. Dependency source resource text is the exact
-UTF-8 source text retained from the admitted saved-project capture. The server
-does not truncate, paginate, normalize, regenerate resource content, or fall
-back to dependency filesystem paths during a session.
+embedded `std` package-documentation result. Dependency
+package-documentation resource text is Markdown rendered from the
+documentation result retained with the admitted dependency snapshot.
+Standard-library source resource text is the exact UTF-8 source text captured
+from the embedded package snapshot at server startup. Dependency source
+resource text is the exact UTF-8 source text retained from the admitted
+saved-project capture. The server does not truncate, paginate, normalize,
+regenerate resource content, or fall back to dependency filesystem paths
+during a session.
 
 Lookup uses exact URI spelling. Unknown, noncanonical, wrong-digest, and
 unknown-topic language-reference URIs fail with the MCP resource-not-found
@@ -139,12 +160,16 @@ protocol error and structured domain code `resource_not_found`. Unknown
 identity, wrong-snapshot, wrong-documentation-digest, unpublished status,
 missing module, missing declaration, malformed, and noncanonical
 standard-library package-documentation URIs fail with the same protocol error
-and structured domain code. Unknown identity, wrong-digest, malformed,
-noncanonical, absent-path, and test-shaped `veln-pkg:` URIs fail with the
-same protocol error and structured domain code. Rejected `veln-doc:` and
-`veln-pkg:` URIs are not normalized and do not fall back to the filesystem.
-Missing, nullable, non-string, non-object, or unknown-field read parameters
-fail with invalid params.
+and structured domain code. Unknown identity, wrong-snapshot,
+wrong-documentation-digest, unpublished status, unpublished index, missing
+module, missing declaration, malformed, and noncanonical direct-dependency
+package-documentation URIs fail with the same protocol error and structured
+domain code. Unknown identity, wrong-digest, malformed, noncanonical,
+absent-path, and test-shaped `veln-pkg:` URIs fail with the same protocol
+error and structured domain code. Rejected `veln-doc:` and `veln-pkg:` URIs
+are not normalized and do not fall back to the filesystem. Missing, nullable,
+non-string, non-object, or unknown-field read parameters fail with invalid
+params.
 
 Admitted dependency resource snapshots remain available until server shutdown.
 Workspace refresh, project removal, dependency removal, dependency relocation,
@@ -432,7 +457,14 @@ retained invalid binding records.
 The `dependency-source-resources` MCP specification case checks successful
 saved-project admission, dependency metadata listing, exported and private
 source exact-byte reads, test-source rejection, omitted `nextCursor`, and
-structured `resource_not_found` failures over stdio.
+structured `resource_not_found` failures over stdio. The
+`dependency-package-documentation-resources` MCP specification case checks
+successful and status-only direct-dependency documentation publication, listed
+index and status metadata, exact index read, exact index-linked module read,
+exact module-linked declaration read, package-documentation templates, omitted
+`nextCursor`, hidden module and declaration resources, and
+`resource_not_found` failures for wrong-documentation-digest and unpublished
+direct-dependency documentation URIs over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -474,7 +506,14 @@ status-only documentation publication, listed index metadata, template
 metadata, exact index-linked reads, module and declaration omission from
 `resources/list`, byte-for-byte read preservation, and `resource_not_found`
 mapping for unknown, noncanonical, wrong-snapshot,
-wrong-documentation-digest, and unpublished package-documentation URIs.
+wrong-documentation-digest, and unpublished package-documentation URIs. They
+also check direct-dependency package-documentation resource generation from
+the admitted snapshot, renderer-equal bytes, listed success indexes,
+status-only failure publication, exact linked reads, module and declaration
+omission from `resources/list`, rejection of unknown, noncanonical,
+wrong-snapshot, wrong-documentation-digest, and unpublished documentation
+URIs, deduplication, same-identity snapshot coexistence, capacity atomicity,
+and retained reads across refresh and dependency replacement.
 The `veln-repo-mcp-standard-library-docs` freshness check regenerates the
 bundle from compiler, renderer, and standard-library inputs and rejects any
 byte or digest difference from the checked artifact.

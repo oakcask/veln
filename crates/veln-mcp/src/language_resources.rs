@@ -6,11 +6,8 @@ use std::sync::OnceLock;
 use serde_json::{Value, json};
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, VirtualSourceCatalog,
-};
-#[cfg(test)]
-use veln_language_service::{
-    PackageDocGeneratorContract, PackageDocResult, RenderedPackageDocResource,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, PackageDocGeneratorContract,
+    PackageDocResult, RenderedPackageDocResource, VirtualSourceCatalog,
     render_package_documentation,
 };
 use veln_project::{
@@ -326,7 +323,6 @@ impl PublishedResource {
         }
     }
 
-    #[cfg(test)]
     fn from_package_doc(resource: &RenderedPackageDocResource) -> Self {
         Self {
             uri: resource.uri.clone(),
@@ -531,11 +527,25 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
     #[cfg(test)]
     record_dependency_snapshot_capture();
     let snapshot = captured_dependency_snapshot(project, &manifest.source_bytes)?;
-    let navigation =
-        DirectDependencySnapshot::from_validated_manifest(&identity, snapshot.clone(), manifest)
-            .ok()?;
+    let navigation = DirectDependencySnapshot::from_validated_manifest(
+        &identity,
+        snapshot.clone(),
+        manifest.clone(),
+    )
+    .ok()?;
+    let package_doc_result = PackageDocResult::generate(
+        &identity,
+        &snapshot,
+        &manifest,
+        PackageDocGeneratorContract::new(veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT),
+    );
     let catalog = VirtualSourceCatalog::new([(identity.clone(), snapshot.clone())]).ok()?;
-    let resources = dependency_source_resources(&identity, &snapshot, &catalog);
+    let mut resources = dependency_source_resources(&identity, &snapshot, &catalog);
+    resources.extend(
+        render_package_documentation(&package_doc_result)
+            .iter()
+            .map(PublishedResource::from_package_doc),
+    );
     Some(DependencyResources {
         key: RetainedPackageKey {
             identity: identity.as_str().to_string(),

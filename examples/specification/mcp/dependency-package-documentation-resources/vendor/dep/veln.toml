@@ -1,0 +1,7 @@
+[package]
+name = "example/dep"
+version = "1.0.0"
+description = "Dependency documentation fixture"
+
+[lib]
+exports = ["api.veln"]

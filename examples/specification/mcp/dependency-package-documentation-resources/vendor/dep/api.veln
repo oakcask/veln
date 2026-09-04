@@ -1,0 +1,10 @@
+## Public API module.
+## Links to {@schema Payload}.
+pub schema Payload
+  count: Int
+end
+
+## Return the documented answer.
+pub fn answer() -> Int
+  42
+end

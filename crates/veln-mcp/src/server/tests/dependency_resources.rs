@@ -1,7 +1,10 @@
 use super::*;
 use std::collections::BTreeSet;
 use veln_analysis::CapturedDependencyProject;
-use veln_language_service::VirtualSourceCatalog;
+use veln_language_service::{
+    PackageDocGeneratorContract, PackageDocResult, VirtualSourceCatalog,
+    render_package_documentation,
+};
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, capture_embedded_package_snapshot,
     parse_manifest_text,
@@ -147,6 +150,16 @@ fn saved_project_dependency_resources_list_with_complete_sorted_metadata() {
                 ),
             ],
         ));
+        expected.extend(expected_dependency_documentation_metadata(
+            "example/dep",
+            [
+                ("dep.veln", dependency_source("listed")),
+                (
+                    "private.veln",
+                    "fn private_value() -> Int\n  1\nend\n".to_string(),
+                ),
+            ],
+        ));
         sort_resource_metadata(&mut expected);
 
         assert_eq!(response["result"].get("nextCursor"), None, "{}", case.name);
@@ -154,6 +167,181 @@ fn saved_project_dependency_resources_list_with_complete_sorted_metadata() {
         assert_resource_uris_are_unique(resources, case.name);
         assert_resources_are_sorted(resources);
     }
+}
+
+#[test]
+fn successful_dependency_documentation_resources_round_trip_from_rendered_result() {
+    let workspace = TempWorkspace::new("dependency-doc-resources");
+    write_workspace_with_dependency(&workspace, "documented");
+    let mut server = initialized_server(&workspace);
+
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+    let listed = listed_resources(&mut server);
+    let rendered = expected_dependency_documentation_resources(
+        "example/dep",
+        [
+            ("dep.veln", dependency_source("documented")),
+            (
+                "private.veln",
+                "fn private_value() -> Int\n  1\nend\n".to_string(),
+            ),
+        ],
+    );
+
+    for resource in &rendered {
+        let read = read_resource(&mut server, 101, &resource.uri);
+        assert_eq!(read["result"]["contents"][0]["uri"], resource.uri);
+        assert_eq!(
+            read["result"]["contents"][0]["mimeType"],
+            resource.mime_type
+        );
+        assert_eq!(read["result"]["contents"][0]["text"], resource.text);
+        assert_eq!(
+            listed.iter().any(|listed| listed["uri"] == resource.uri),
+            resource.listed,
+            "{}",
+            resource.uri
+        );
+    }
+
+    let index = rendered.iter().find(|resource| resource.listed).unwrap();
+    assert_eq!(index.name, "example-dep-documentation-index");
+    assert!(index.text.contains("# Package Documentation: example/dep"));
+    assert!(rendered.iter().any(|resource| !resource.listed
+        && resource.uri.contains("/module/")
+        && resource.text.contains("- Source path: dep.veln")));
+    assert!(rendered.iter().any(|resource| !resource.listed
+        && resource.uri.contains("/declaration/")
+        && resource.text.contains("- Kind: function")));
+}
+
+#[test]
+fn failed_dependency_documentation_publishes_only_status_resource() {
+    let workspace = TempWorkspace::new("dependency-doc-status");
+    write_workspace_with_dependency_source(
+        &workspace,
+        concat!(
+            "## Missing reference {@schema Missing}.\n",
+            "pub fn value() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+    let listed = listed_resources(&mut server);
+    let rendered = expected_dependency_documentation_resources(
+        "example/dep",
+        [
+            (
+                "dep.veln",
+                concat!(
+                    "## Missing reference {@schema Missing}.\n",
+                    "pub fn value() -> Int\n",
+                    "  1\n",
+                    "end\n",
+                )
+                .to_string(),
+            ),
+            (
+                "private.veln",
+                "fn private_value() -> Int\n  1\nend\n".to_string(),
+            ),
+        ],
+    );
+
+    assert_eq!(rendered.len(), 1);
+    let status = &rendered[0];
+    assert_eq!(status.name, "example-dep-documentation-status");
+    assert!(status.listed);
+    assert!(status.uri.ends_with("/status"));
+    assert!(listed.iter().any(|resource| resource["uri"] == status.uri));
+    let read = read_resource(&mut server, 102, &status.uri);
+    assert_eq!(read["result"]["contents"][0]["text"], status.text);
+    assert!(
+        status
+            .text
+            .contains("package_doc.unresolved_schema_reference")
+    );
+
+    let unpublished = status.uri.replace("/status", "/index");
+    assert_unknown_resource_reads_rejected(&mut server, [unpublished]);
+    assert!(!dependency_resource_uris(&mut server, "example/dep").is_empty());
+}
+
+#[test]
+fn dependency_documentation_resource_rejections_are_exact() {
+    let workspace = TempWorkspace::new("dependency-doc-rejections");
+    write_workspace_with_dependency(&workspace, "retained-doc");
+    let mut server = initialized_server(&workspace);
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+    let before = all_resource_state(&mut server);
+
+    let index_uri = listed_dependency_documentation_uri(&mut server, "example/dep");
+    let (snapshot_digest, doc_digest) = documentation_uri_digests_for(&index_uri, "example%2Fdep");
+    let declaration_uri = linked_dependency_declaration_uri(&mut server, &index_uri);
+    let wrong_digest = "0000000000000000000000000000000000000000000000000000000000000000";
+    let rejected = [
+        index_uri.replace(snapshot_digest, wrong_digest),
+        index_uri.replace(doc_digest, wrong_digest),
+        declaration_uri.replace(declaration_uri.rsplit('/').next().unwrap(), "missing"),
+        format!(
+            "veln-doc:///package/missing%2Fdep/snapshot/{snapshot_digest}/documentation/{doc_digest}/index"
+        ),
+        format!(
+            "veln-doc:///package/example%2Fdep/snapshot/{snapshot_digest}/documentation/{doc_digest}/module/missing"
+        ),
+        format!(
+            "veln-doc:///package/example%2Fdep/snapshot/{snapshot_digest}/documentation/{doc_digest}/status"
+        ),
+        index_uri.replacen("veln-doc", "VELN-doc", 1),
+        index_uri.replace("/index", "/Index"),
+        format!("{index_uri}?x=1"),
+    ];
+
+    assert_unknown_resource_reads_rejected(&mut server, rejected);
+    assert_eq!(all_resource_state(&mut server), before);
+    assert_eq!(
+        read_resource(&mut server, 103, &index_uri)["result"]["contents"][0]["uri"],
+        index_uri
+    );
+}
+
+#[test]
+fn dependency_documentation_snapshots_coexist_and_remain_retained() {
+    let workspace = TempWorkspace::new("dependency-doc-coexistence");
+    write_workspace_with_dependency(&workspace, "old-doc");
+    let mut server = initialized_server(&workspace);
+    let first = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(first["isError"], false, "{first:#}");
+    let first_uri = listed_dependency_documentation_uri(&mut server, "example/dep");
+    let first_text = read_resource(&mut server, 104, &first_uri)["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    fs::remove_dir_all(workspace.path("vendor/dep")).unwrap();
+    workspace.write("vendor/dep/veln.toml", &dependency_manifest("example/dep"));
+    workspace.write("vendor/dep/dep.veln", &dependency_source("new-doc"));
+    refresh_workspace(&mut server);
+    let second = server.definition_tool(&json!({"source":"main.veln","line":5,"column":3}));
+    assert_eq!(second["isError"], false, "{second:#}");
+
+    let doc_uris = dependency_documentation_uris(&mut server, "example/dep");
+    assert_eq!(doc_uris.len(), 2, "{doc_uris:#?}");
+    assert!(doc_uris.contains(&first_uri));
+    assert_eq!(
+        read_resource(&mut server, 105, &first_uri)["result"]["contents"][0]["text"],
+        first_text
+    );
+    assert!(doc_uris.iter().any(|uri| {
+        uri != &first_uri
+            && read_resource(&mut server, 106, uri)["result"]["contents"][0]["text"] != first_text
+    }));
 }
 
 #[test]
@@ -535,6 +723,10 @@ fn resource_uri_prefix_is_listed(resources: &LanguageResources, identity: &str) 
 }
 
 fn write_workspace_with_dependency(workspace: &TempWorkspace, body: &str) {
+    write_workspace_with_dependency_source(workspace, &dependency_source(body));
+}
+
+fn write_workspace_with_dependency_source(workspace: &TempWorkspace, source: &str) {
     workspace.write(
         "veln.toml",
         "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
@@ -544,7 +736,7 @@ fn write_workspace_with_dependency(workspace: &TempWorkspace, body: &str) {
         "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::value()\nend\n",
     );
     workspace.write("vendor/dep/veln.toml", &dependency_manifest("example/dep"));
-    workspace.write("vendor/dep/dep.veln", &dependency_source(body));
+    workspace.write("vendor/dep/dep.veln", source);
     workspace.write(
         "vendor/dep/private.veln",
         "fn private_value() -> Int\n  1\nend\n",
@@ -643,6 +835,51 @@ fn expected_dependency_resource_metadata(
         .collect()
 }
 
+fn expected_dependency_documentation_metadata(
+    identity: &str,
+    sources: impl IntoIterator<Item = (&'static str, String)>,
+) -> Vec<Value> {
+    expected_dependency_documentation_resources(identity, sources)
+        .into_iter()
+        .filter(|resource| resource.listed)
+        .map(|resource| {
+            let mut value = json!({
+                "uri": resource.uri,
+                "name": resource.name,
+                "title": resource.title,
+                "mimeType": resource.mime_type,
+            });
+            if let Some(description) = resource.description {
+                value["description"] = json!(description);
+            }
+            value
+        })
+        .collect()
+}
+
+fn expected_dependency_documentation_resources(
+    identity: &str,
+    sources: impl IntoIterator<Item = (&'static str, String)>,
+) -> Vec<veln_language_service::RenderedPackageDocResource> {
+    let identity = PackageIdentity::new(identity).unwrap();
+    let manifest = parse_manifest_text("veln.toml", &dependency_manifest(identity.as_str()));
+    let source_inputs = sources.into_iter().collect::<Vec<_>>();
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.source_bytes.as_slice(),
+        source_inputs
+            .iter()
+            .map(|(path, text)| PackageSnapshotSource::new(path, text.as_bytes())),
+    )
+    .unwrap();
+    let result = PackageDocResult::generate(
+        &identity,
+        &snapshot,
+        &manifest,
+        PackageDocGeneratorContract::new(veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT),
+    );
+    render_package_documentation(&result)
+}
+
 fn sort_resource_metadata(resources: &mut [Value]) {
     resources.sort_by(|left, right| {
         left["uri"]
@@ -651,6 +888,77 @@ fn sort_resource_metadata(resources: &mut [Value]) {
             .as_bytes()
             .cmp(right["uri"].as_str().unwrap().as_bytes())
     });
+}
+
+fn listed_resources(server: &mut Server) -> Vec<Value> {
+    server
+        .handle_request(json!({"jsonrpc":"2.0","id":"listed","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .clone()
+}
+
+fn listed_dependency_documentation_uri(server: &mut Server, identity: &str) -> String {
+    dependency_documentation_uris(server, identity)
+        .into_iter()
+        .next()
+        .unwrap()
+}
+
+fn dependency_documentation_uris(server: &mut Server, identity: &str) -> Vec<String> {
+    let prefix = format!(
+        "veln-doc:///package/{}/snapshot/",
+        identity.replace('/', "%2F")
+    );
+    listed_resources(server)
+        .into_iter()
+        .filter_map(|resource| {
+            let uri = resource["uri"].as_str().unwrap();
+            uri.starts_with(&prefix).then(|| uri.to_string())
+        })
+        .collect()
+}
+
+fn documentation_uri_digests_for<'a>(
+    index_uri: &'a str,
+    encoded_identity: &str,
+) -> (&'a str, &'a str) {
+    let prefix = format!("veln-doc:///package/{encoded_identity}/snapshot/");
+    let rest = index_uri.strip_prefix(&prefix).unwrap();
+    let mut parts = rest.split('/');
+    let snapshot_digest = parts.next().unwrap();
+    assert_eq!(parts.next(), Some("documentation"));
+    (snapshot_digest, parts.next().unwrap())
+}
+
+fn linked_dependency_declaration_uri(server: &mut Server, index_uri: &str) -> String {
+    let index = read_resource(server, 107, index_uri);
+    let index_text = index["result"]["contents"][0]["text"].as_str().unwrap();
+    let module_uri = extract_uris_with_prefix(index_text, "veln-doc:///package/")
+        .into_iter()
+        .find(|uri| uri.contains("/module/"))
+        .unwrap();
+    let module = read_resource(server, 108, &module_uri);
+    let module_text = module["result"]["contents"][0]["text"].as_str().unwrap();
+    extract_uris_with_prefix(module_text, "veln-doc:///package/")
+        .into_iter()
+        .find(|uri| uri.contains("/declaration/"))
+        .unwrap()
+}
+
+fn extract_uris_with_prefix(text: &str, prefix: &str) -> BTreeSet<String> {
+    let mut uris = BTreeSet::new();
+    let mut rest = text;
+    while let Some(start) = rest.find(prefix) {
+        let after_start = &rest[start..];
+        let end = after_start
+            .find(|character: char| character == ')' || character.is_whitespace())
+            .unwrap_or(after_start.len());
+        uris.insert(after_start[..end].to_string());
+        rest = &after_start[end..];
+    }
+    uris
 }
 
 fn assert_resource_uris_are_unique(resources: &[Value], case: &str) {
