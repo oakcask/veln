@@ -127,6 +127,7 @@ fn saved_project_dependency_resources_list_with_complete_sorted_metadata() {
             },
         },
     ];
+    let expected_base = expected_resource_metadata();
 
     for case in cases {
         let workspace = TempWorkspace::new(case.name);
@@ -139,7 +140,7 @@ fn saved_project_dependency_resources_list_with_complete_sorted_metadata() {
             .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
             .unwrap();
         let resources = response["result"]["resources"].as_array().unwrap();
-        let mut expected = expected_resource_metadata();
+        let mut expected = expected_base.clone();
         expected.extend(expected_dependency_resource_metadata(
             "example/dep",
             [
