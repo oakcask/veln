@@ -931,10 +931,7 @@ fn expected_dependency_resource_metadata(
 ) -> Vec<Value> {
     let identity = PackageIdentity::new(identity).unwrap();
     let manifest = dependency_manifest(identity.as_str());
-    let source_inputs = sources
-        .into_iter()
-        .map(|(path, text)| (path, text))
-        .collect::<Vec<_>>();
+    let source_inputs = sources.into_iter().collect::<Vec<_>>();
     let snapshot = capture_embedded_package_snapshot(
         manifest.as_bytes(),
         source_inputs
