@@ -292,115 +292,99 @@ impl<'a> PackageDocBuilder<'a> {
         message: String,
         span: &SourceSpan,
     ) {
-        self.diagnostics.push(PackageDocDiagnostic {
-            gate: gate.to_string(),
-            code: code.to_string(),
+        self.diagnostics.push(manifest_diagnostic(
+            gate,
+            code,
             message,
-            span: Some(PackageDocDiagnosticSpan::from_span(
-                &source_uri(
-                    self.identity,
-                    self.snapshot.digest(),
-                    SNAPSHOT_MANIFEST_PATH,
-                ),
-                span,
-            )),
-        });
+            &self.manifest_source_uri(),
+            Some(span),
+        ));
     }
 
     pub(super) fn validate_manifest_gate(&mut self) {
-        match manifest_field_with_span(&self.manifest.package.fields, "name") {
-            Some(name) if name.value == self.identity => {}
-            Some(name) => self.diagnostics.push(PackageDocDiagnostic {
-                gate: "manifest".to_string(),
-                code: "package_doc.package_identity_mismatch".to_string(),
-                message: format!(
+        self.validate_manifest_identity();
+        self.validate_unsupported_manifest_sections();
+        self.validate_git_dependency_selectors();
+    }
+
+    fn validate_manifest_identity(&mut self) {
+        let manifest_uri = self.manifest_source_uri();
+        let diagnostic = match manifest_field_with_span(&self.manifest.package.fields, "name") {
+            Some(name) if name.value == self.identity => return,
+            Some(name) => manifest_diagnostic(
+                "manifest",
+                "package_doc.package_identity_mismatch",
+                format!(
                     "manifest package name `{}` does not match package identity `{}`",
                     name.value, self.identity
                 ),
-                span: Some(PackageDocDiagnosticSpan::from_span(
-                    &source_uri(
-                        self.identity,
-                        self.snapshot.digest(),
-                        SNAPSHOT_MANIFEST_PATH,
-                    ),
-                    &name.value_span,
-                )),
-            }),
-            None => self.diagnostics.push(PackageDocDiagnostic {
-                gate: "manifest".to_string(),
-                code: "package_doc.missing_package_name".to_string(),
-                message: "manifest package name is required for package documentation generation"
+                &manifest_uri,
+                Some(&name.value_span),
+            ),
+            None => manifest_diagnostic(
+                "manifest",
+                "package_doc.missing_package_name",
+                "manifest package name is required for package documentation generation"
                     .to_string(),
-                span: Some(PackageDocDiagnosticSpan {
-                    source_uri: source_uri(
-                        self.identity,
-                        self.snapshot.digest(),
-                        SNAPSHOT_MANIFEST_PATH,
-                    ),
-                    line: 1,
-                    column: 1,
-                    offset: 0,
-                }),
-            }),
-        }
+                &manifest_uri,
+                None,
+            ),
+        };
+        self.diagnostics.push(diagnostic);
+    }
 
+    fn validate_unsupported_manifest_sections(&mut self) {
+        let manifest_uri = self.manifest_source_uri();
         for section in &self.manifest.unsupported_sections {
-            self.diagnostics.push(PackageDocDiagnostic {
-                gate: "manifest".to_string(),
-                code: "package_doc.unsupported_manifest_section".to_string(),
-                message: format!(
+            self.diagnostics.push(manifest_diagnostic(
+                "manifest",
+                "package_doc.unsupported_manifest_section",
+                format!(
                     "manifest section `[{}]` is not supported by package documentation generation",
                     section.name
                 ),
-                span: Some(PackageDocDiagnosticSpan::from_span(
-                    &source_uri(
-                        self.identity,
-                        self.snapshot.digest(),
-                        SNAPSHOT_MANIFEST_PATH,
-                    ),
-                    &section.span,
-                )),
-            });
+                &manifest_uri,
+                Some(&section.span),
+            ));
         }
+    }
 
+    fn validate_git_dependency_selectors(&mut self) {
+        let manifest_uri = self.manifest_source_uri();
         for dependency in &self.manifest.dependencies {
             if dependency.git.is_some() && dependency.selectors.is_empty() {
-                self.diagnostics.push(PackageDocDiagnostic {
-                    gate: "manifest".to_string(),
-                    code: "package_doc.missing_git_selector".to_string(),
-                    message: format!(
+                self.diagnostics.push(manifest_diagnostic(
+                    "manifest",
+                    "package_doc.missing_git_selector",
+                    format!(
                         "git dependency `{}` must specify exactly one selector: `rev`, `tag`, or `branch`",
                         dependency.package
                     ),
-                    span: Some(PackageDocDiagnosticSpan::from_span(
-                        &source_uri(
-                            self.identity,
-                            self.snapshot.digest(),
-                            SNAPSHOT_MANIFEST_PATH,
-                        ),
-                        &dependency.package_span,
-                    )),
-                });
+                    &manifest_uri,
+                    Some(&dependency.package_span),
+                ));
             }
             for selector in dependency.selectors.iter().skip(1) {
-                self.diagnostics.push(PackageDocDiagnostic {
-                    gate: "manifest".to_string(),
-                    code: "package_doc.multiple_git_selectors".to_string(),
-                    message: format!(
+                self.diagnostics.push(manifest_diagnostic(
+                    "manifest",
+                    "package_doc.multiple_git_selectors",
+                    format!(
                         "git dependency `{}` specifies multiple selectors; use exactly one of `rev`, `tag`, or `branch`",
                         dependency.package
                     ),
-                    span: Some(PackageDocDiagnosticSpan::from_span(
-                        &source_uri(
-                            self.identity,
-                            self.snapshot.digest(),
-                            SNAPSHOT_MANIFEST_PATH,
-                        ),
-                        &selector.field.key_span,
-                    )),
-                });
+                    &manifest_uri,
+                    Some(&selector.field.key_span),
+                ));
             }
         }
+    }
+
+    fn manifest_source_uri(&self) -> String {
+        source_uri(
+            self.identity,
+            self.snapshot.digest(),
+            SNAPSHOT_MANIFEST_PATH,
+        )
     }
 
     pub(super) fn validate_manifest_snapshot_binding(&mut self) {
@@ -589,6 +573,30 @@ impl<'a> PackageDocBuilder<'a> {
                     .push(self.project_diagnostic("doctest", diagnostic));
             }
         }
+    }
+}
+
+fn manifest_diagnostic(
+    gate: &str,
+    code: &str,
+    message: String,
+    manifest_uri: &str,
+    span: Option<&SourceSpan>,
+) -> PackageDocDiagnostic {
+    let span = span.map_or_else(
+        || PackageDocDiagnosticSpan {
+            source_uri: manifest_uri.to_string(),
+            line: 1,
+            column: 1,
+            offset: 0,
+        },
+        |span| PackageDocDiagnosticSpan::from_span(manifest_uri, span),
+    );
+    PackageDocDiagnostic {
+        gate: gate.to_string(),
+        code: code.to_string(),
+        message,
+        span: Some(span),
     }
 }
 
