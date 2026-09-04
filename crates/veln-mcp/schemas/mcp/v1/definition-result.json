@@ -24,6 +24,7 @@
       "additionalProperties": false,
       "properties": {
         "uri": { "type": "string" },
+        "packageDocumentationUri": { "type": "string" },
         "range": { "$ref": "#/$defs/range" }
       },
       "required": ["uri", "range"]

@@ -1,3 +1,7 @@
+pub type Token
+  pub Value(Int)
+end
+
 pub fn increment(value: Int) -> Int
   value + 1
 end

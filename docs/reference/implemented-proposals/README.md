@@ -136,6 +136,8 @@ under `../../specification/` and its executable example routes.
   [mcp-dependency-package-documentation-resources.md](mcp-dependency-package-documentation-resources.md).
 - MCP package definition navigation:
   [mcp-package-definition-navigation.md](mcp-package-definition-navigation.md).
+- MCP package definition documentation links:
+  [mcp-package-documentation-resources.md](mcp-package-documentation-resources.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:

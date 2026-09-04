@@ -1,5 +1,5 @@
 ---
-role: proposal
+role: implementation-record
 update-when: MCP package-backed definition documentation links, package documentation catalogs, or package snapshot admission change.
 ---
 
@@ -7,7 +7,7 @@ update-when: MCP package-backed definition documentation links, package document
 
 ## Outcome
 
-Finish returning package-documentation declaration URIs from package-backed
+Return package-documentation declaration URIs from package-backed
 `definition` results. A client can follow a documentation URI returned by
 definition lookup and read the exact immutable documentation resource without
 access to a physical package cache path.
@@ -17,20 +17,20 @@ access to a physical package cache path.
 The required transport-independent behavior is already implemented and
 specified:
 
-- [Package Documentation Catalogs](../specification/package-documentation.md)
+- [Package Documentation Catalogs](../../specification/package-documentation.md)
   defines package-atomic generation, canonical `veln-doc:` URIs, catalog
   content, status-only failures, and declaration-location lookup.
-- [Package Snapshot Digests](../specification/package-snapshots.md) and
-  [Package Virtual Sources](../specification/package-virtual-sources.md)
+- [Package Snapshot Digests](../../specification/package-snapshots.md) and
+  [Package Virtual Sources](../../specification/package-virtual-sources.md)
   define immutable admitted snapshots and canonical package identities.
-- [MCP Workspace Projects And Navigation](../specification/mcp.md) defines
+- [MCP Workspace Projects And Navigation](../../specification/mcp.md) defines
   package snapshot admission, retained source resources, resource capacity,
   and package-backed definition results.
 
 The embedded standard-library and direct-dependency package-documentation
 resource publication boundary is implemented in
-[MCP Workspace Projects And Navigation](../specification/mcp.md). This
-remaining proposal adds definition-result links for the same retained
+[MCP Workspace Projects And Navigation](../../specification/mcp.md). This
+record covers definition-result links for the same retained
 package-documentation result. It does not change catalog generation semantics,
 resource publication, or identity.
 
@@ -55,19 +55,12 @@ failure, the declaration is not published, or the selected location does not
 belong to that package snapshot. The definition location itself and the source
 resource remain unchanged.
 
-## Acceptance Model
+## Completion Evidence
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence |
 | --- | --- | --- |
-| Resolve an exported dependency or standard-library declaration with published documentation. | The definition result contains the exact readable declaration URI from the same snapshot and documentation digest. | Definition-to-documentation round-trip cases, including a constructor-to-type case. |
-| Resolve a constructor selection with published documentation. | The definition result contains the owning type declaration documentation URI from the same snapshot and documentation digest. | Constructor-to-type definition documentation round-trip case. |
-| Resolve a package declaration whose documentation result is status-only. | The definition result omits the documentation URI while retaining the package source location. | Status-only definition omission case. |
-| Resolve a package declaration that is not published in the package-documentation catalog. | The definition result omits the documentation URI while retaining the package source location. | Private, non-exported, and unsupported selection omission cases. |
-| Resolve a package location from another snapshot or a stale retained URI. | The definition result omits the documentation URI instead of recomputing or normalizing documentation identity. | Same-identity snapshot coexistence and stale-location cases. |
-
-## Completion
-
-This proposal is complete when every remaining acceptance row has executable
-MCP coverage, the stdio specification case checks the definition-link surface,
-and the MCP specification states the implemented package-backed documentation
-link boundary. Move the completed record out of this directory at that time.
+| Resolve an exported dependency or standard-library declaration with published documentation. | The definition result contains the exact readable declaration URI from the same snapshot and documentation digest. | `definition_returns_readable_dependency_documentation_links`, `definition_returns_readable_standard_library_documentation_links`, and `definition-package-navigation` |
+| Resolve a constructor selection with published documentation. | The definition result contains the owning type declaration documentation URI from the same snapshot and documentation digest. | `definition_returns_readable_dependency_documentation_links` and `definition-package-navigation` |
+| Resolve a package declaration whose documentation result is status-only. | The definition result omits the documentation URI while retaining the package source location. | `definition_omits_documentation_link_for_status_only_package_docs` |
+| Resolve a package declaration that is not published in the package-documentation catalog. | The definition result omits the documentation URI while retaining the package source location. | `definition_omits_documentation_link_for_status_only_package_docs`, `workspace_definition_omits_package_documentation_link`, and `definition_rejects_ineligible_package_selections_without_reinterpreting_them` |
+| Resolve a package location from another snapshot or a stale retained URI. | The definition result omits the documentation URI instead of recomputing or normalizing documentation identity. | `definition_retains_package_snapshot_bytes_across_dependency_changes` and package-documentation location lookup tests |

@@ -143,6 +143,16 @@ fn assert_position_input_schema(tool: ToolSchema) {
 fn definition_result_accepts_empty_location_and_domain_failures() {
     let tool = tool("definition").unwrap();
     assert!(tool.accepts_result(&serde_json::json!({"definition": null})));
+    assert!(tool.accepts_result(&serde_json::json!({
+        "definition": {
+            "uri": "veln-pkg:///example%2Fdep/snapshot/d/source/main.veln",
+            "packageDocumentationUri": "veln-doc:///package/example%2Fdep/snapshot/d/documentation/e/declaration/value",
+            "range": {
+                "start": {"line": 2, "column": 3},
+                "end": {"line": 2, "column": 8}
+            }
+        }
+    })));
     for code in [
         "invalid_path",
         "invalid_position",

@@ -9,8 +9,8 @@ This record preserves the completed slice that publishes embedded `std`
 package-documentation Markdown resources through MCP. Current behavior is
 specified by [MCP resources](../../specification/mcp.md#resources) and
 [Package Documentation Catalogs](../../specification/package-documentation.md).
-The remaining package-backed definition-link work stays under
-[MCP Package Definition Documentation Links](../../proposals/mcp-package-documentation-resources.md).
+Package-backed definition-link behavior is recorded by
+[MCP Package Definition Documentation Links](mcp-package-documentation-resources.md).
 
 ## Completed Boundary
 

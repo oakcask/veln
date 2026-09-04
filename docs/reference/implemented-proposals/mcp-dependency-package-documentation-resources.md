@@ -9,8 +9,8 @@ This record preserves the completed proposal history for publishing retained
 direct-dependency package-documentation Markdown resources through MCP. Current
 behavior is specified by [MCP resources](../../specification/mcp.md#resources)
 and [Package Documentation Catalogs](../../specification/package-documentation.md).
-The remaining package-backed definition-link work stays under
-[MCP Package Definition Documentation Links](../../proposals/mcp-package-documentation-resources.md).
+Package-backed definition-link behavior is recorded by
+[MCP Package Definition Documentation Links](mcp-package-documentation-resources.md).
 
 ## Completed Boundary
 
@@ -39,8 +39,7 @@ for that rejected snapshot, and preserves the previous resource state.
 Workspace refreshes and later dependency file changes do not remove or mutate
 already admitted documentation resources.
 
-This slice does not attach documentation URIs to package-backed definition
-results, add package search, change `veln doc`, or change the
+This slice does not add package search, change `veln doc`, or change the
 package-documentation catalog identity or renderer contract.
 
 ## Completion Evidence

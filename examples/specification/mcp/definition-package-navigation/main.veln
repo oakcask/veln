@@ -5,6 +5,10 @@ fn main() -> Int
   dep::increment(1)
 end
 
+fn token() -> dep::Token
+  dep::Value(1)
+end
+
 fn label() -> String
   unicode::label()
 end

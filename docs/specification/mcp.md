@@ -353,6 +353,14 @@ declaration returns the canonical retained `veln-pkg:` URI from the package
 virtual-source catalog. The returned range is the one-based Unicode-scalar
 half-open declaration-token range in that retained source. A valid position
 without a supported symbol succeeds with `definition: null`.
+If the package declaration resolves through the successful package-documentation
+result retained for the same admitted package snapshot, the same location
+object includes `packageDocumentationUri`. The value is the exact published
+`veln-doc:` declaration URI. A selected constructor uses the owning type
+declaration documentation URI. The field is omitted for workspace definitions,
+status-only package-documentation results, unpublished declarations,
+unsupported symbol classes, and any package location that does not match a
+retained package-documentation location for that snapshot.
 
 `references` exposes the shared language-service workspace reference result
 for non-recovery workspace functions, types, constructors, value bindings,
@@ -391,6 +399,11 @@ operation has admitted the dependency snapshot. `resources/read` for the exact
 returned URI returns the captured UTF-8 source text for that immutable package
 snapshot. A capacity failure or `snapshot_changed` failure does not publish a
 partial package definition or new package resource state.
+When `definition` returns `packageDocumentationUri`, `resources/read` for that
+exact URI returns the retained declaration Markdown for the same package
+snapshot and package-documentation digest. Later dependency changes can admit a
+new source URI and documentation URI for the same package identity. Earlier
+returned package source and documentation URIs remain immutable resources.
 
 ## Executable Evidence
 
@@ -440,9 +453,12 @@ over selected JSON strings and do not add a distinct MCP response field
 contract.
 The `definition-package-navigation` MCP specification case checks that
 `definition` returns a canonical direct-dependency `veln-pkg:` URI and
-declaration range, that the returned snapshot source is listed as an MCP
-resource in the same session, and that `resources/read` preserves CRLF and
-non-ASCII UTF-8 text for the exact returned package URI.
+declaration range, that `definition` returns package-documentation declaration
+URIs for an ordinary package function and a constructor-to-type mapping, that
+the returned snapshot source is listed as an MCP resource in the same session,
+and that `resources/read` follows the returned package source and
+documentation URIs. It also preserves CRLF and non-ASCII UTF-8 text for the
+exact returned package URI.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
 ordinary calls, workspace type references, workspace constructor references,
