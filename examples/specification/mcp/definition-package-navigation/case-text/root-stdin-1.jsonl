@@ -1,9 +1,10 @@
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":5,"column":8}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":6,"column":8}}}
 {"jsonrpc":"2.0","id":3,"method":"resources/list","params":{}}
 {"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"veln-pkg:///example%2Fdep/snapshot/88dc6771d1f3235472d76fca32da90cc102a69f093913d49f81be309dffc4fd2/dep.veln"}}
-{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":9,"column":8}}}
-{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":13,"column":12}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":10,"column":8}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":14,"column":12}}}
 {"jsonrpc":"2.0","id":7,"method":"resources/read","params":{"uri":"veln-pkg:///example%2Fdep/snapshot/88dc6771d1f3235472d76fca32da90cc102a69f093913d49f81be309dffc4fd2/unicode.veln"}}
 {"jsonrpc":"2.0","id":8,"method":"resources/read","params":{"uri":"veln-doc:///package/example%2Fdep/snapshot/88dc6771d1f3235472d76fca32da90cc102a69f093913d49f81be309dffc4fd2/documentation/f1387b6b1049df6e86b3fdf2658761b0c861d463676b6a6b1dc204dea0c1ac62/declaration/29c5a3c2a4ea4e67209d67522630fad84d08420b32932d13b61f3383d269e18c"}}
 {"jsonrpc":"2.0","id":9,"method":"resources/read","params":{"uri":"veln-doc:///package/example%2Fdep/snapshot/88dc6771d1f3235472d76fca32da90cc102a69f093913d49f81be309dffc4fd2/documentation/f1387b6b1049df6e86b3fdf2658761b0c861d463676b6a6b1dc204dea0c1ac62/declaration/021696fb2fe91752dc966111ce2e5c9420068b7af750f77f9f0a964429c690e2"}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":18,"column":8}}}

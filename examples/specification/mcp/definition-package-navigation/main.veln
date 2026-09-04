@@ -1,5 +1,6 @@
 use dep from "example/dep"
 use unicode from "example/dep"
+use bad from "example/bad"
 
 fn main() -> Int
   dep::increment(1)
@@ -11,4 +12,8 @@ end
 
 fn label() -> String
   unicode::label()
+end
+
+fn broken() -> Int
+  bad::broken()
 end

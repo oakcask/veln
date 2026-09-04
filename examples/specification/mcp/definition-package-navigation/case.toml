@@ -7,6 +7,7 @@ contains = [
   "\"definition\":{\"packageDocumentationUri\":\"veln-doc:///package/example%2Fdep/snapshot/",
   "\"range\":{\"end\":{\"column\":17,\"line\":5},\"start\":{\"column\":8,\"line\":5}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/",
   "\"range\":{\"end\":{\"column\":12,\"line\":2},\"start\":{\"column\":7,\"line\":2}},\"uri\":\"veln-pkg:///example%2Fdep/snapshot/",
+  "\"range\":{\"end\":{\"column\":14,\"line\":2},\"start\":{\"column\":8,\"line\":2}},\"uri\":\"veln-pkg:///example%2Fbad/snapshot/",
   "\"name\":\"dep.veln\",\"title\":\"Veln package source: example/dep: dep.veln\"",
   "\"name\":\"unicode.veln\",\"title\":\"Veln package source: example/dep: unicode.veln\"",
   "# Function increment",
@@ -110,3 +111,28 @@ contains = "- Signature: fn increment(value: Int) -> Int"
 id = 9
 path = "/result/contents/0/text"
 contains = "### Value"
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/definition/uri"
+contains = "veln-pkg:///example%2Fbad/snapshot/"
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":2,"column":8},"end":{"line":2,"column":14}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/definition/packageDocumentationUri"
+missing = true
+
+[[mcp_assert]]
+id = 10
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 10
+path = "/error"
+missing = true
