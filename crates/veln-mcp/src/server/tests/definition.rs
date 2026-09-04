@@ -266,6 +266,51 @@ fn definition_resolves_public_package_symbol_classes() {
 }
 
 #[test]
+fn definition_round_trips_crlf_non_ascii_package_source() {
+    let workspace = TempWorkspace::new("definition-package-crlf-unicode");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use unicode from \"example/dep\"\n\n",
+            "fn main() -> String\n",
+            "  unicode::label()\n",
+            "end\n",
+        ),
+    );
+    workspace.write("vendor/dep/veln.toml", &unicode_dependency_manifest());
+    workspace.write_bytes(
+        "vendor/dep/unicode.veln",
+        unicode_dependency_source().as_bytes(),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let result = server.definition_tool(&json!({"source":"main.veln","line":4,"column":12}));
+    assert_eq!(result["isError"], false, "{result:#}");
+    let location = &result["structuredContent"]["definition"];
+    let uri = location["uri"].as_str().unwrap();
+    assert!(
+        uri.starts_with("veln-pkg:///example%2Fdep/snapshot/"),
+        "{uri}"
+    );
+    assert!(uri.ends_with("/unicode.veln"), "{uri}");
+    assert_eq!(
+        location["range"],
+        json!({"start":{"line":1,"column":8},"end":{"line":1,"column":13}})
+    );
+
+    let read = read_resource(&mut server, uri);
+    assert_eq!(read["result"]["contents"][0]["uri"], uri);
+    assert_eq!(
+        read["result"]["contents"][0]["text"],
+        unicode_dependency_source()
+    );
+}
+
+#[test]
 fn definition_resolves_implicit_and_explicit_standard_library_symbols() {
     let workspace = TempWorkspace::new("definition-standard-library");
     workspace.write("veln.toml", "");
@@ -836,6 +881,14 @@ fn navigation_dependency_root(
 
 fn navigation_dependency_manifest() -> String {
     "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n".to_string()
+}
+
+fn unicode_dependency_manifest() -> String {
+    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"unicode.veln\"]\n".to_string()
+}
+
+fn unicode_dependency_source() -> String {
+    "pub fn label() -> String\r\n  \"café\"\r\nend\r\n".to_string()
 }
 
 fn navigation_dependency_source() -> String {

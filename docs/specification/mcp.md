@@ -368,8 +368,9 @@ over selected JSON strings and do not add a distinct MCP response field
 contract.
 The `definition-package-navigation` MCP specification case checks that
 `definition` returns a canonical direct-dependency `veln-pkg:` URI and
-declaration range, and that the returned snapshot source is listed as an MCP
-resource in the same session.
+declaration range, that the returned snapshot source is listed as an MCP
+resource in the same session, and that `resources/read` preserves CRLF and
+non-ASCII UTF-8 text for the exact returned package URI.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
 ordinary calls, unsupported constructor success, function-shaped recovery

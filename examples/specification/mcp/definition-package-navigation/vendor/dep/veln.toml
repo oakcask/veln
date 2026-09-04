@@ -2,4 +2,4 @@
 name = "example/dep"
 
 [lib]
-exports = ["dep.veln"]
+exports = ["dep.veln", "unicode.veln"]

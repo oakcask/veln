@@ -1,5 +1,10 @@
 use dep from "example/dep"
+use unicode from "example/dep"
 
 fn main() -> Int
   dep::increment(1)
+end
+
+fn label() -> String
+  unicode::label()
 end
