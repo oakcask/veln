@@ -317,8 +317,8 @@ lookup falls back from a selected outer project to anonymous single-file scope
 for a source below a descendant manifest, the ownership decision and the
 anonymous source bytes belong to the same stable capture attempt.
 `snapshot_changed` definition failures publish no success-only `definition`
-member. `snapshot_changed` references failures publish no success-only
-`references` locations.
+member. After bounded retry exhaustion, `snapshot_changed` references failures
+publish no success-only `references` locations or scope member.
 If dependency resource admission exceeds retained package capacity after
 navigation succeeds, `definition` and `references` return `resource_capacity`
 and publish no success-only `definition`, `references`, or scope member.
@@ -409,8 +409,9 @@ inference, single-file isolation outside selected projects, deterministic
 canonical locations, workspace type, constructor, value-binding, and handler
 parameter reference admission, unsupported-symbol success, recovery and package
 exclusion, function-shaped recovery exclusion, invalid positions, path
-failures, stable-capture failure without partial reference locations, and
-accepted success and domain-failure result schemas.
+failures, bounded stable-capture retry exhaustion without partial reference
+locations or scope metadata, and accepted success and domain-failure result
+schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 catalog construction failure propagation, bidirectional completeness between
 the embedded bundle and MCP source resources, exact-byte reads for every
