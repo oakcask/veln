@@ -124,6 +124,7 @@ fn is_bare_function_reference_token(
 fn is_constructor_reference_token(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
         && !is_effect_operation_declaration_name(tokens, index)
+        && !is_constructor_declaration_name(tokens, index)
         && !is_handler_operation_clause_operation_name(tokens, index)
         && (is_call_target_token(tokens, index)
             || is_bare_nullary_constructor_expression(tokens, index)

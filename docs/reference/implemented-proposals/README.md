@@ -120,6 +120,8 @@ under `../../specification/` and its executable example routes.
   [language-reference-catalog-foundation.md](language-reference-catalog-foundation.md).
 - MCP saved workspace function references:
   [mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
+- MCP saved workspace symbol references:
+  [mcp-saved-workspace-symbol-references.md](mcp-saved-workspace-symbol-references.md).
 - MCP language-reference resources:
   [mcp-language-reference-resources.md](mcp-language-reference-resources.md).
 - MCP language-reference tools:

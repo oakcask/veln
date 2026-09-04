@@ -3,7 +3,10 @@
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":4}}}
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2,"column":4}}}
 {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":6,"column":4}}}
-{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":17,"column":4}}}
-{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":30,"column":1}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":37,"column":8}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":70,"column":1}}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2.0000000000000001,"column":4}}}
-{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":26,"column":4}}}
+{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":47,"column":4}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":9,"column":6}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":15,"column":9}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":31,"column":14}}}

@@ -54,7 +54,7 @@ pub(crate) fn references(
         },
     )
     .filter(|result| {
-        result.selected_symbol.kind == SymbolKind::Function
+        supported_workspace_reference_symbol(result.selected_symbol.kind)
             && !result.is_recovery
             && matches!(result.definition.source, NavigationSource::Workspace)
     })
@@ -74,6 +74,18 @@ pub(crate) fn references(
         "references": references,
         "scope": scope.metadata(selection.generation())
     }))
+}
+
+fn supported_workspace_reference_symbol(kind: SymbolKind) -> bool {
+    matches!(
+        kind,
+        SymbolKind::Type
+            | SymbolKind::Function
+            | SymbolKind::Constructor
+            | SymbolKind::ValueBinding
+            | SymbolKind::HandlerContextParameter
+            | SymbolKind::HandlerOperationClauseParameter
+    )
 }
 
 fn location_json(root: &std::path::Path, span: &SourceSpan) -> Value {

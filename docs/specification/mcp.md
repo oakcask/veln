@@ -290,15 +290,17 @@ virtual-source catalog. The returned range is the one-based Unicode-scalar
 half-open declaration-token range in that retained source. A valid position
 without a supported symbol succeeds with `definition: null`.
 
-`references` exposes only the shared language-service workspace function
-reference result. It does not expose type, constructor, local binding, recovery,
-package, dependency, standard-library, or virtual reference locations. A
-selected workspace function returns sorted canonical `file:` locations for the
-function's project-owned reference sites and scope metadata. A valid position
-without a supported workspace function succeeds with an empty `references`
-array. Selected manifest sources report project scope metadata with
-`project_wide: true`. Sources outside the selected project-owned source set
-report single-file scope metadata with `project_wide: false`.
+`references` exposes the shared language-service workspace reference result
+for non-recovery workspace functions, types, constructors, value bindings,
+handler context parameters, and handler operation clause parameters. It does
+not expose recovery, package, dependency, standard-library, virtual, schema,
+effect, handler, or effect-operation reference locations. A selected supported
+workspace symbol returns sorted canonical `file:` locations for reference sites
+only, excluding the selected declaration, plus scope metadata. A valid
+position without a supported workspace symbol succeeds with an empty
+`references` array. Selected manifest sources report project scope metadata
+with `project_wide: true`. Sources outside the selected project-owned source
+set report single-file scope metadata with `project_wide: false`.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -373,8 +375,10 @@ resource in the same session, and that `resources/read` preserves CRLF and
 non-ASCII UTF-8 text for the exact returned package URI.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
-ordinary calls, unsupported constructor success, function-shaped recovery
-exclusion, invalid positions, and schema-invalid coordinates over stdio.
+ordinary calls, workspace type references, workspace constructor references,
+handler operation clause parameter references, unsupported schema success,
+function-shaped recovery exclusion, invalid positions, and schema-invalid
+coordinates over stdio.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
@@ -402,10 +406,11 @@ definition conversion for unique invalid-name recovery records and unsupported
 ambiguous recovery selection.
 `veln-mcp` tests check references schema rejection, selected-project
 inference, single-file isolation outside selected projects, deterministic
-canonical locations, unsupported-symbol success, function-shaped recovery
-exclusion, invalid positions, path failures, stable-capture failure without
-partial reference locations, and accepted success and domain-failure result
-schemas.
+canonical locations, workspace type, constructor, value-binding, and handler
+parameter reference admission, unsupported-symbol success, recovery and package
+exclusion, function-shaped recovery exclusion, invalid positions, path
+failures, stable-capture failure without partial reference locations, and
+accepted success and domain-failure result schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 catalog construction failure propagation, bidirectional completeness between
 the embedded bundle and MCP source resources, exact-byte reads for every

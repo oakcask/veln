@@ -79,7 +79,7 @@ The bounded package definition navigation slice is implemented and recorded by
 ### Extracted Ready Workspace Symbol-Reference Slice
 
 The next bounded reference slice is separately selectable as
-[MCP Saved Workspace Symbol References](mcp-saved-workspace-symbol-references.md).
+[MCP Saved Workspace Symbol References](../reference/implemented-proposals/mcp-saved-workspace-symbol-references.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -1099,7 +1099,7 @@ The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 The next workspace type, constructor, and lexical-binding reference slice is
 extracted as
-[MCP Saved Workspace Symbol References](mcp-saved-workspace-symbol-references.md).
+[MCP Saved Workspace Symbol References](../reference/implemented-proposals/mcp-saved-workspace-symbol-references.md).
 Later slices are:
 
 1. Extend the existing `veln mcp` server with package and standard-library

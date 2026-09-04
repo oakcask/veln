@@ -4,7 +4,7 @@ exit = 0
 
 [stdout]
 contains = [
-  "\"description\":\"Return references for a supported function in one saved workspace source\"",
+  "\"description\":\"Return references for a supported symbol in one saved workspace source\"",
   "\"name\":\"references\",\"outputSchema\"",
   "\"required\":[\"source\",\"line\",\"column\"]",
 ]
@@ -134,5 +134,80 @@ equals = true
 
 [[mcp_assert]]
 id = 9
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references"
+length = 5
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":14,"column":19},"end":{"line":14,"column":23}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":15,"column":3},"end":{"line":15,"column":7}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":18,"column":21},"end":{"line":18,"column":25}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":20,"column":5},"end":{"line":20,"column":9}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/4/range"
+equals = {"start":{"line":21,"column":5},"end":{"line":21,"column":9}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":15,"column":9},"end":{"line":15,"column":13}}
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":20,"column":11},"end":{"line":20,"column":15}}
+
+[[mcp_assert]]
+id = 11
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":30,"column":24},"end":{"line":30,"column":29}}
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":31,"column":13},"end":{"line":31,"column":18}}
+
+[[mcp_assert]]
+id = 12
 path = "/result/isError"
 equals = false

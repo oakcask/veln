@@ -304,6 +304,10 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   source declarations, ambiguous recovery refusal, and valid-symbol
   precedence:
   `../../examples/specification/mcp/definition-recovery-navigation/`.
+- MCP saved workspace `references` tool schema advertising, function, type,
+  constructor, and handler parameter references, unsupported-symbol success,
+  recovery exclusion, invalid-position results, and schema-rejection results:
+  `../../examples/specification/mcp/references-workspace/`.
 - MCP language-reference and standard-library source resource list/read
   behavior plus language-reference `search_docs` and `read_doc` tool behavior:
   `../../examples/specification/mcp/language-reference-resources/`.
