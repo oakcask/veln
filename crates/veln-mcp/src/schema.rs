@@ -16,6 +16,10 @@ const DEFINITION_INPUT: &str = include_str!("../schemas/mcp/v1/definition-input.
 const DEFINITION_RESULT: &str = include_str!("../schemas/mcp/v1/definition-result.json");
 const REFERENCES_INPUT: &str = include_str!("../schemas/mcp/v1/references-input.json");
 const REFERENCES_RESULT: &str = include_str!("../schemas/mcp/v1/references-result.json");
+const SEARCH_DOCS_INPUT: &str = include_str!("../schemas/mcp/v1/search-docs-input.json");
+const SEARCH_DOCS_RESULT: &str = include_str!("../schemas/mcp/v1/search-docs-result.json");
+const READ_DOC_INPUT: &str = include_str!("../schemas/mcp/v1/read-doc-input.json");
+const READ_DOC_RESULT: &str = include_str!("../schemas/mcp/v1/read-doc-result.json");
 
 #[derive(Clone, Copy)]
 pub(crate) struct ToolSchema {
@@ -46,6 +50,15 @@ impl ToolSchema {
                     && object.get("source").is_none_or(Value::is_string)
             }
             "definition" | "references" => matches_schema(&self.input_schema(), value),
+            "search_docs" => {
+                matches_schema(&self.input_schema(), value)
+                    && value["query"].as_str().is_some_and(|query| {
+                        !veln_project::portable_normalized_case_fold(query)
+                            .trim()
+                            .is_empty()
+                    })
+            }
+            "read_doc" => matches_schema(&self.input_schema(), value),
             _ => false,
         }
     }
@@ -55,7 +68,7 @@ impl ToolSchema {
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 5] = [
+pub(crate) const TOOLS: [ToolSchema; 7] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -85,6 +98,18 @@ pub(crate) const TOOLS: [ToolSchema; 5] = [
         description: "Return references for a supported function in one saved workspace source",
         input: REFERENCES_INPUT,
         result: REFERENCES_RESULT,
+    },
+    ToolSchema {
+        name: "search_docs",
+        description: "Search the checked Veln language reference topics",
+        input: SEARCH_DOCS_INPUT,
+        result: SEARCH_DOCS_RESULT,
+    },
+    ToolSchema {
+        name: "read_doc",
+        description: "Read one checked Veln language reference resource by exact URI",
+        input: READ_DOC_INPUT,
+        result: READ_DOC_RESULT,
     },
 ];
 
@@ -131,13 +156,31 @@ fn matches_schema_with_root(root: &Value, schema: &Value, value: &Value) -> bool
                     .all(|item| matches_schema_with_root(root, items, item))
             })
         }),
-        Some("string") => value.is_string(),
+        Some("string") => matches_string_schema(schema, value),
         Some("integer") => matches_integer_schema(schema, value),
         Some("boolean") => value.is_boolean(),
         Some("null") => value.is_null(),
         Some(_) => false,
         None => true,
     }
+}
+
+fn matches_string_schema(schema: &Value, value: &Value) -> bool {
+    let Some(text) = value.as_str() else {
+        return false;
+    };
+    let len = text.chars().count() as u64;
+    if let Some(minimum) = schema.get("minLength").and_then(Value::as_u64)
+        && len < minimum
+    {
+        return false;
+    }
+    if let Some(maximum) = schema.get("maxLength").and_then(Value::as_u64)
+        && len > maximum
+    {
+        return false;
+    }
+    true
 }
 
 fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
@@ -152,7 +195,56 @@ fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
     {
         return false;
     }
+    if let Some(maximum) = schema.get("maximum").and_then(Value::as_i64)
+        && !json_number_is_less_than_i64(&number.to_string(), maximum + 1)
+    {
+        return false;
+    }
     true
+}
+
+pub(crate) fn json_integer_usize(value: &Value) -> Option<usize> {
+    let number = value.as_number()?;
+    let text = number.to_string();
+    if !json_number_is_integer(&text) {
+        return None;
+    }
+    let parts = JsonNumberParts::parse(&text)?;
+    if parts.negative {
+        return None;
+    }
+    if parts.is_zero() {
+        return Some(0);
+    }
+    let scale = parts.signed_scale()?;
+    let mut digits = parts.digits;
+    let trailing_zeros = if scale > 0 {
+        digits.truncate(digits.len().checked_sub(scale as usize)?);
+        0
+    } else {
+        scale.unsigned_abs() as usize
+    };
+    let normalized = digits.trim_start_matches('0');
+    if normalized.is_empty() {
+        return Some(0);
+    }
+    let maximum = usize::MAX.to_string();
+    let total_len = normalized.len().checked_add(trailing_zeros)?;
+    if total_len > maximum.len() {
+        return None;
+    }
+    if total_len == maximum.len()
+        && normalized
+            .bytes()
+            .chain(std::iter::repeat_n(b'0', trailing_zeros))
+            .gt(maximum.bytes())
+    {
+        return None;
+    }
+    let mut canonical = String::with_capacity(total_len);
+    canonical.push_str(normalized);
+    canonical.extend(std::iter::repeat_n('0', trailing_zeros));
+    canonical.parse().ok()
 }
 
 fn json_number_is_integer(text: &str) -> bool {
@@ -562,6 +654,95 @@ mod tests {
             "message": "failed",
             "details": {},
             "references": []
+        })));
+    }
+
+    #[test]
+    fn search_docs_input_enforces_query_scope_and_limit_bounds() {
+        let tool = tool("search_docs").unwrap();
+        for value in [
+            serde_json::json!({"query": "schema"}),
+            serde_json::json!({"query": "schema", "scope": "language"}),
+            serde_json::json!({"query": "schema", "limit": 1}),
+            serde_json::json!({"query": "schema", "limit": 50}),
+            serde_json::json!({"query": "schema", "limit": 5.0}),
+        ] {
+            assert!(tool.accepts_input(&value), "{value}");
+        }
+        let exponent_limit = serde_json::from_str(r#"{"query":"schema","limit":1e0}"#).unwrap();
+        assert!(tool.accepts_input(&exponent_limit), "{exponent_limit}");
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"query": ""}),
+            serde_json::json!({"query": " \t\n"}),
+            serde_json::json!({"query": "x".repeat(257)}),
+            serde_json::json!({"query": null}),
+            serde_json::json!({"query": "schema", "scope": "all"}),
+            serde_json::json!({"query": "schema", "limit": 0}),
+            serde_json::json!({"query": "schema", "limit": 51}),
+            serde_json::json!({"query": "schema", "limit": 1.5}),
+            serde_json::json!({"query": "schema", "unknown": true}),
+            serde_json::json!(null),
+            serde_json::json!([]),
+        ] {
+            assert!(!tool.accepts_input(&value), "{value}");
+        }
+    }
+
+    #[test]
+    fn language_doc_result_schemas_accept_success_and_domain_failure() {
+        let search = tool("search_docs").unwrap();
+        assert!(search.accepts_result(&serde_json::json!({
+            "scope": "language",
+            "results": [{
+                "uri": "veln-doc:///language/snapshot/d/topic/schemas",
+                "title": "Schemas",
+                "summary": "Schemas describe format-neutral and binary fields.",
+                "excerpt": "Schemas",
+                "prefix_truncated": false,
+                "suffix_truncated": false
+            }]
+        })));
+        assert!(!search.accepts_result(&serde_json::json!({
+            "scope": "all",
+            "results": []
+        })));
+        assert!(!search.accepts_result(&serde_json::json!({
+            "scope": "language",
+            "results": [{
+                "uri": "uri",
+                "title": "title",
+                "summary": "summary",
+                "excerpt": "x".repeat(161),
+                "prefix_truncated": false,
+                "suffix_truncated": false
+            }]
+        })));
+
+        let read = tool("read_doc").unwrap();
+        assert!(
+            read.accepts_input(
+                &serde_json::json!({"uri": "veln-doc:///language/snapshot/d/index"})
+            )
+        );
+        assert!(!read.accepts_input(&serde_json::json!({"uri": null})));
+        assert!(!read.accepts_input(&serde_json::json!({"uri": "uri", "unknown": true})));
+        assert!(read.accepts_result(&serde_json::json!({
+            "uri": "veln-doc:///language/snapshot/d/index",
+            "name": "language-index",
+            "title": "Veln Language Reference",
+            "mimeType": "text/markdown; charset=utf-8",
+            "text": "# Veln Language Reference\n"
+        })));
+        assert!(read.accepts_result(&serde_json::json!({
+            "code": "resource_not_found",
+            "message": "language reference resource not found",
+            "details": {"uri": "missing"}
+        })));
+        assert!(!read.accepts_result(&serde_json::json!({
+            "code": "generation_failed",
+            "message": "failed",
+            "details": {"uri": "missing"}
         })));
     }
 

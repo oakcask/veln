@@ -31,7 +31,8 @@ pub use manifest::{
 };
 pub use portable::{
     PORTABLE_UNICODE_VERSION, PORTABLE_UNICODE_VERSION_STRING, PackageIdentity,
-    PackageIdentityError, PortableSourcePathError,
+    PackageIdentityError, PortableSourcePathError, default_case_fold,
+    portable_normalized_case_fold,
 };
 pub use project::Project;
 pub use snapshot::{
