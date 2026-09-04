@@ -10,10 +10,10 @@ update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, worksp
 standard output. Standard output contains only newline-delimited JSON-RPC
 messages. End-of-file ends the session successfully.
 
-The current MCP surface contains language-reference and standard-library
-source resources plus the `workspace_projects`, `refresh_workspace`,
-`check_project`, `definition`, `references`, `search_docs`, and `read_doc`
-tools. Initialization advertises
+The current MCP surface contains language-reference, standard-library source,
+and admitted direct-dependency source resources plus the `workspace_projects`,
+`refresh_workspace`, `check_project`, `definition`, `references`,
+`search_docs`, and `read_doc` tools. Initialization advertises
 `resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
 `listChanged: false`.
@@ -46,9 +46,11 @@ one response.
 `resources/list` returns the complete resource list in one response and omits
 `nextCursor`. The list is sorted by URI UTF-8 bytes and contains no duplicate
 URI. It includes the checked language-reference digest index, one topic URI for
-each checked language-reference catalog topic, and one standard-library source
-URI for each distribution source retained by the embedded `std` package
-snapshot. `resources/list` accepts omitted parameters or request metadata. It
+each checked language-reference catalog topic, one standard-library source URI
+for each distribution source retained by the embedded `std` package snapshot,
+and one dependency source URI for each distribution source retained from an
+admitted direct-dependency package snapshot. `resources/list` accepts omitted
+parameters or request metadata. It
 rejects a cursor, unknown field, `null`, or non-object parameters with
 JSON-RPC invalid params.
 
@@ -65,13 +67,36 @@ Distribution membership controls publication, so private and non-exported
 standard-library sources are readable. Test-shaped sources and paths absent
 from the embedded distribution source set are not listed.
 
+Successful `check_project`, `definition`, and `references` calls on a selected
+manifest project atomically admit every valid direct-dependency package
+snapshot captured by the same stable saved-project operation. A valid snapshot
+has a manifest package name that equals the dependency table key and a captured
+package distribution snapshot. Repeating the same package identity and digest
+adds no state. A later digest for the same identity coexists with the earlier
+snapshot. The server retains at most 256 package snapshots, including the
+embedded standard-library snapshot. If one operation would exceed that limit,
+the tool returns `resource_capacity`, admits none of that operation's new
+snapshots, and preserves the previous resource state. Capture failure,
+validation failure, tool domain failure, and invalid tool parameters admit no
+new dependency resources.
+
+Dependency source resources use the canonical `veln-pkg:` URI from the
+admitted dependency snapshot virtual-source catalog. Their `name` is the
+package-relative source path. Their `title` is
+`Veln package source: {identity}: {path}`. Their media type is
+`text/x-veln; charset=utf-8`. They have no description. Distribution
+membership controls publication, so private and non-exported dependency
+sources are readable while test-shaped sources are not listed.
+
 `resources/read` accepts one exact `uri` plus optional request metadata. A
 successful read returns one complete text content entry with the requested
 URI, media type, and deterministic text. Language-reference resource text is
 Markdown rendered from the checked catalog artifact. Standard-library source
 resource text is the exact UTF-8 source text captured from the embedded
-package snapshot at server startup. The server does not truncate, paginate,
-normalize, or regenerate resource content during a session.
+package snapshot at server startup. Dependency source resource text is the
+exact UTF-8 source text retained from the admitted saved-project capture. The
+server does not truncate, paginate, normalize, regenerate resource content, or
+fall back to dependency filesystem paths during a session.
 
 Lookup uses exact URI spelling. Unknown, noncanonical, wrong-digest, and
 unknown-topic language-reference URIs fail with the MCP resource-not-found
@@ -82,12 +107,15 @@ Rejected `veln-pkg:` URIs are not normalized and do not fall back to the
 filesystem. Missing, nullable, non-string, non-object, or unknown-field read
 parameters fail with invalid params.
 
-The resource set is independent of workspace project discovery, refresh, and
-project analysis, and is also independent of language-reference tool calls and
-failed resource requests. Its URIs, metadata, ordering, and bytes remain stable
-until server shutdown. If the embedded standard-library bundle, manifest
-validation, or virtual-source catalog construction fails, `veln mcp` startup
-fails instead of publishing a partial resource set.
+Admitted dependency resource snapshots remain available until server shutdown.
+Workspace refresh, project removal, dependency removal, dependency relocation,
+dependency source edits, and a later digest for the same identity do not remove
+or mutate an existing admitted snapshot. The resource set is independent of
+language-reference tool calls and failed resource requests. Existing resource
+URIs, metadata, ordering, and bytes remain stable until server shutdown. If the
+embedded standard-library bundle, manifest validation, or virtual-source
+catalog construction fails, `veln mcp` startup fails instead of publishing a
+partial resource set.
 
 ## Language Reference Tools
 
@@ -326,6 +354,10 @@ The `definition-recovery-navigation` MCP specification case checks
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
 The shared language-service selector supplies the same recovery boundary for
 retained invalid binding records.
+The `dependency-source-resources` MCP specification case checks successful
+saved-project admission, dependency metadata listing, exported and private
+source exact-byte reads, test-source rejection, omitted `nextCursor`, and
+structured `resource_not_found` failures over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
 client-root invariance, refresh transitions, failure state preservation,
 project/source decision rows, schema failures, path boundaries, anonymous
@@ -353,9 +385,12 @@ catalog construction failure propagation, bidirectional completeness between
 the embedded bundle and MCP source resources, exact-byte reads for every
 listed standard-library source, combined URI-byte ordering, duplicate
 prevention, lifecycle state preservation across refresh and analysis, private
-and non-exported source publication, absent test-source rejection, and mapped
-`resource_not_found` behavior for unknown, wrong-digest, malformed, and
-noncanonical `veln-pkg:` URIs.
+and non-exported source publication, absent test-source rejection, direct
+dependency admission, identity-and-digest deduplication, same-identity digest
+coexistence, retained-byte reads after refresh and dependency replacement,
+state preservation after invalid saved navigation, package snapshot capacity
+failure atomicity, and mapped `resource_not_found` behavior for unknown,
+wrong-digest, malformed, and noncanonical `veln-pkg:` URIs.
 Unix-only `veln-mcp` tests also
 check canonical resolved-base URI spelling, definition path symlink rejection,
 anonymous workspace-base symlink replacement, and that selected

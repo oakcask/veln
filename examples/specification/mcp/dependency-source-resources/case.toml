@@ -1,0 +1,61 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"isError\":false",
+  "\"name\":\"dep.veln\"",
+  "\"name\":\"private.veln\"",
+  "\"title\":\"Veln package source: example/dep: dep.veln\"",
+  "\"title\":\"Veln package source: example/dep: private.veln\"",
+  "\"code\":\"resource_not_found\"",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 3
+path = "/result/nextCursor"
+missing = true
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/uri"
+equals = "veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/dep.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/mimeType"
+equals = "text/x-veln; charset=utf-8"
+
+[[mcp_assert]]
+id = 4
+path = "/result/contents/0/text"
+equals_file = "case-text/dep-source.txt"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/uri"
+equals = "veln-pkg:///example%2Fdep/snapshot/303c9aada53b94e9ffd414a223710fe75ed2aeba62e23c4c6f92c97185998f78/private.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+equals_file = "case-text/private-source.txt"
+
+[[mcp_assert]]
+id = 6
+path = "/error/data/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 6
+path = "/result"
+missing = true

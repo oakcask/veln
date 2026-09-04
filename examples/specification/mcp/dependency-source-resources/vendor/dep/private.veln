@@ -1,0 +1,3 @@
+fn secret() -> Int
+  9
+end

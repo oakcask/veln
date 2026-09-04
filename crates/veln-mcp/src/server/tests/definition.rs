@@ -379,7 +379,7 @@ fn definition_rejects_paths_and_changed_workspace_identity() {
     let selection = Selection::discover(base.path()).unwrap();
     fs::remove_dir_all(&workspace.root).unwrap();
     workspace.write("main.veln", "fn main() -> Int\n  main()\nend\n");
-    let server = Server {
+    let mut server = Server {
         base,
         selection,
         initialized: true,
@@ -417,7 +417,7 @@ fn definition_rejects_symlink_paths_and_spells_uris_from_the_resolved_base() {
         workspace.root.file_name().unwrap().to_string_lossy()
     ));
     symlink(&workspace.root, &alias).unwrap();
-    let server = server_from_workspace_base_alias(&alias);
+    let mut server = server_from_workspace_base_alias(&alias);
     let result = server.definition_tool(&json!({"source":"main.veln","line":6,"column":4}));
     assert_definition_uri_uses_resolved_base(&result, &workspace);
     fs::remove_file(alias).unwrap();

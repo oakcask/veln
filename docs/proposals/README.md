@@ -18,8 +18,7 @@ also states it.
 
 ## Ready
 
-- Publish captured direct-dependency sources through MCP resources:
-  [mcp-dependency-source-resources.md](mcp-dependency-source-resources.md).
+No proposal is currently selected for implementation.
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.

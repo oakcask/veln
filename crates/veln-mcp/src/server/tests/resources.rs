@@ -1,5 +1,8 @@
 use super::*;
 use std::collections::BTreeSet;
+use veln_analysis::CapturedDependencyProject;
+use veln_project::{Project, parse_manifest_text};
+use veln_source::SourceFile;
 
 #[test]
 fn initialize_advertises_immutable_resources() {
@@ -161,6 +164,92 @@ fn resource_uris_are_exact_and_state_is_preserved_across_tools() {
 
     let after = standard_library_resource_state(&mut server);
     assert_eq!(after, before);
+}
+
+#[test]
+fn successful_saved_project_tools_admit_dependency_resources_until_shutdown() {
+    let workspace = TempWorkspace::new("dependency-resource-lifecycle");
+    write_workspace_with_dependency(&workspace, "before");
+    let mut server = initialized_server(&workspace);
+
+    let check = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(check["isError"], false, "{check:#}");
+    let before = dependency_resource_state(&mut server, "example/dep", "dep.veln");
+
+    fs::remove_dir_all(workspace.path("vendor/dep")).unwrap();
+    workspace.write("vendor/dep/veln.toml", &dependency_manifest("example/dep"));
+    workspace.write("vendor/dep/dep.veln", &dependency_source("after"));
+    refresh_workspace(&mut server);
+    let after_refresh = dependency_resource_state(&mut server, "example/dep", "dep.veln");
+    assert_eq!(after_refresh, before);
+
+    let definition = server.definition_tool(&json!({"source":"main.veln","line":5,"column":3}));
+    assert_eq!(definition["isError"], false, "{definition:#}");
+    let after_definition = dependency_resource_states(&mut server, "example/dep", "dep.veln");
+    assert_eq!(
+        dependency_resource_texts(&after_definition),
+        BTreeSet::from([dependency_source("before"), dependency_source("after")])
+    );
+
+    let uris = dependency_resource_uris(&mut server, "example/dep");
+    assert_eq!(uris.len(), 3);
+    for uri in uris {
+        assert_eq!(
+            read_resource(&mut server, 60, &uri)["result"]["contents"][0]["uri"],
+            uri
+        );
+    }
+}
+
+#[test]
+fn dependency_resource_admission_deduplicates_and_preserves_state_on_failures() {
+    let workspace = TempWorkspace::new("dependency-resource-dedup");
+    write_workspace_with_dependency(&workspace, "stable");
+    let mut server = initialized_server(&workspace);
+
+    let first = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(first["isError"], false, "{first:#}");
+    let listed_once = dependency_resource_uris(&mut server, "example/dep");
+    assert_eq!(listed_once.len(), 2);
+    let before = all_resource_state(&mut server);
+
+    let repeat = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(repeat["isError"], false, "{repeat:#}");
+    assert_eq!(
+        dependency_resource_uris(&mut server, "example/dep"),
+        listed_once
+    );
+
+    let invalid_position =
+        server.definition_tool(&json!({"source":"main.veln","line":200,"column":1}));
+    assert_eq!(invalid_position["isError"], true);
+    assert_eq!(
+        invalid_position["structuredContent"]["code"],
+        "invalid_position"
+    );
+    assert_eq!(all_resource_state(&mut server), before);
+
+    let missing = read_resource(
+        &mut server,
+        70,
+        "veln-pkg:///example%2Fdep/snapshot/missing/dep.veln",
+    );
+    assert_eq!(missing["error"]["data"]["code"], "resource_not_found");
+}
+
+#[test]
+fn dependency_resource_capacity_is_atomic() {
+    let mut resources = LanguageResources::checked().unwrap();
+    let boundary = (0..255)
+        .map(|index| synthetic_dependency_project(&format!("example/dep{index}"), "body"))
+        .collect::<Vec<_>>();
+    resources.admit_dependencies(&boundary).unwrap();
+    let before = resources.list_result();
+
+    let over_capacity = vec![synthetic_dependency_project("example/overflow", "body")];
+    let error = resources.admit_dependencies(&over_capacity).unwrap_err();
+    assert_eq!(error, crate::language_resources::ResourceCapacityError);
+    assert_eq!(resources.list_result(), before);
 }
 
 fn exercise_resource_state_preserving_operations(server: &mut Server) {
@@ -462,6 +551,114 @@ fn standard_library_resource_state(server: &mut Server) -> Value {
         })
         .collect::<Vec<_>>();
     json!({"resources": resources, "reads": reads})
+}
+
+fn all_resource_state(server: &mut Server) -> Value {
+    let resources = server
+        .handle_request(json!({"jsonrpc":"2.0","id":"all-state","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .clone();
+    json!(resources)
+}
+
+fn dependency_resource_state(server: &mut Server, identity: &str, name: &str) -> Value {
+    dependency_resource_states(server, identity, name)
+        .into_iter()
+        .next()
+        .unwrap()
+}
+
+fn dependency_resource_states(server: &mut Server, identity: &str, name: &str) -> Vec<Value> {
+    let resources = server
+        .handle_request(json!({"jsonrpc":"2.0","id":"dep-list","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|resource| {
+            resource["uri"].as_str().unwrap().starts_with(&format!(
+                "veln-pkg:///{}/snapshot/",
+                identity.replace('/', "%2F")
+            )) && resource["name"] == name
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    resources
+        .into_iter()
+        .map(|resource| {
+            let uri = resource["uri"].as_str().unwrap();
+            let read = read_resource(server, 50, uri)["result"]["contents"][0].clone();
+            json!({"metadata": resource, "read": read})
+        })
+        .collect()
+}
+
+fn dependency_resource_texts(states: &[Value]) -> BTreeSet<String> {
+    states
+        .iter()
+        .map(|state| state["read"]["text"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn dependency_resource_uris(server: &mut Server, identity: &str) -> Vec<String> {
+    let prefix = format!("veln-pkg:///{}/snapshot/", identity.replace('/', "%2F"));
+    server
+        .handle_request(json!({"jsonrpc":"2.0","id":"dep-uris","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|resource| {
+            let uri = resource["uri"].as_str().unwrap();
+            uri.starts_with(&prefix).then(|| uri.to_string())
+        })
+        .collect()
+}
+
+fn write_workspace_with_dependency(workspace: &TempWorkspace, body: &str) {
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::value()\nend\n",
+    );
+    workspace.write("vendor/dep/veln.toml", &dependency_manifest("example/dep"));
+    workspace.write("vendor/dep/dep.veln", &dependency_source(body));
+    workspace.write(
+        "vendor/dep/private.veln",
+        "fn private_value() -> Int\n  1\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/dep_test.veln",
+        "test excluded() -> Int\n  1\nend\n",
+    );
+}
+
+fn dependency_manifest(identity: &str) -> String {
+    format!("[package]\nname = \"{identity}\"\n\n[lib]\nexports = [\"dep.veln\"]\n")
+}
+
+fn dependency_source(body: &str) -> String {
+    format!("pub fn value() -> Int\n  # {body}\n  1\nend\n")
+}
+
+fn synthetic_dependency_project(identity: &str, body: &str) -> CapturedDependencyProject {
+    CapturedDependencyProject {
+        package: identity.to_string(),
+        source: format!("vendor/{identity}"),
+        project: Some(Project {
+            root: PathBuf::new(),
+            files: vec![SourceFile::new("dep.veln", dependency_source(body))],
+            manifest: Some(parse_manifest_text(
+                "veln.toml",
+                &dependency_manifest(identity),
+            )),
+        }),
+    }
 }
 
 fn expected_resource_metadata() -> Vec<Value> {

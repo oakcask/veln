@@ -16,6 +16,7 @@ use veln_diagnostics::diagnostic_to_json;
 use veln_project::{Project, parse_manifest_text};
 use veln_source::SourceFile;
 
+use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{
     FileIdentity, SelectedRootIdentity, SelectedRootKind, Selection, WorkspaceBase,
@@ -36,6 +37,7 @@ const SNAPSHOT_ATTEMPTS: usize = 3;
 pub(crate) fn check_project(
     base: &WorkspaceBase,
     selection: &Selection,
+    language_resources: &mut LanguageResources,
     arguments: &Value,
 ) -> ToolOutcome {
     let project = arguments.get("project").and_then(Value::as_str);
@@ -56,6 +58,7 @@ pub(crate) fn check_project(
         }
     };
 
+    let dependencies = captured.dependencies.clone();
     let diagnostics = checked_project_diagnostics_with_captured_dependencies(
         captured.project,
         DoctestMode::Exclude,
@@ -70,6 +73,9 @@ pub(crate) fn check_project(
         "diagnostics": diagnostics,
         "summary": summary(&diagnostics),
     });
+    if let Err(error) = language_resources.admit_dependencies(&dependencies) {
+        return error.into();
+    }
     ToolOutcome::Success(structured)
 }
 
