@@ -446,7 +446,8 @@ impl<'a> FunctionChecker<'a> {
         expected: &Type,
     ) -> Option<SatisfyRepairConstraint> {
         let allow_static_truth = self.valid_static_satisfy_predicate(satisfy, expected);
-        let direct_constraint = SatisfyRepairConstraint::from_satisfy(satisfy, allow_static_truth);
+        let mut direct_constraint =
+            SatisfyRepairConstraint::from_satisfy(satisfy, allow_static_truth);
         if direct_constraint
             .as_ref()
             .is_some_and(SatisfyRepairConstraint::allows_any_binding)
@@ -454,21 +455,6 @@ impl<'a> FunctionChecker<'a> {
             return direct_constraint;
         }
         let candidate = satisfy.candidate.as_ref()?;
-        let static_allowed_bindings = if allow_static_truth {
-            self.bindings
-                .iter()
-                .filter(|binding| {
-                    let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
-                    predicate_is_statically_true_with_literal_bounds(&replaced)
-                })
-                .map(|binding| SatisfyAllowedBinding {
-                    name: binding.name.clone(),
-                    reason: "satisfy_tautology",
-                })
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
         let required_predicates = self
             .function
             .contracts
@@ -482,47 +468,57 @@ impl<'a> FunctionChecker<'a> {
             })
             .map(|contract| contract.text.clone())
             .collect::<Vec<_>>();
-        if required_predicates.is_empty() {
-            if !static_allowed_bindings.is_empty() {
-                let Some(mut constraint) = direct_constraint else {
-                    return Some(SatisfyRepairConstraint {
-                        allowed_bindings: Some(static_allowed_bindings),
-                        reason: "satisfy_tautology",
-                    });
-                };
-                constraint.extend_allowed_bindings(static_allowed_bindings);
-                return Some(constraint);
-            }
+        let proof_context = (!required_predicates.is_empty())
+            .then(|| RequiredPredicateProofContext::new(&required_predicates));
+        let allowed_bindings = self.satisfy_allowed_bindings(
+            satisfy,
+            candidate,
+            allow_static_truth,
+            proof_context.as_ref(),
+        );
+        if let Some(constraint) = &mut direct_constraint {
+            constraint.extend_allowed_bindings(allowed_bindings);
             return direct_constraint;
         }
-        let require_allowed_bindings = self
-            .bindings
+        (!allowed_bindings.is_empty()).then_some(SatisfyRepairConstraint {
+            allowed_bindings: Some(allowed_bindings),
+            reason: if proof_context.is_some() {
+                "satisfy_require_match"
+            } else {
+                "satisfy_tautology"
+            },
+        })
+    }
+
+    fn satisfy_allowed_bindings(
+        &self,
+        satisfy: &SatisfyClause,
+        candidate: &str,
+        allow_static_truth: bool,
+        proof_context: Option<&RequiredPredicateProofContext<'_>>,
+    ) -> Vec<SatisfyAllowedBinding> {
+        self.bindings
             .iter()
-            .filter(|binding| {
+            .filter_map(|binding| {
                 let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
-                predicate_guaranteed_by_required_predicates(&replaced, &required_predicates)
-                    || (binding.ty == Type::int()
-                        && int_successor_predicate_guaranteed_by_required_predicates(
-                            &replaced,
-                            &required_predicates,
-                        ))
+                let reason = if allow_static_truth
+                    && predicate_is_statically_true_with_literal_bounds(&replaced)
+                {
+                    "satisfy_tautology"
+                } else if proof_context.is_some_and(|proof| {
+                    proof.guarantees(&replaced)
+                        || (binding.ty == Type::int() && proof.guarantees_int_successor(&replaced))
+                }) {
+                    "satisfy_require_match"
+                } else {
+                    return None;
+                };
+                Some(SatisfyAllowedBinding {
+                    name: binding.name.clone(),
+                    reason,
+                })
             })
-            .map(|binding| SatisfyAllowedBinding {
-                name: binding.name.clone(),
-                reason: "satisfy_require_match",
-            })
-            .collect::<Vec<_>>();
-        let Some(mut constraint) = direct_constraint else {
-            let mut allowed_bindings = static_allowed_bindings;
-            allowed_bindings.extend(require_allowed_bindings);
-            return (!allowed_bindings.is_empty()).then_some(SatisfyRepairConstraint {
-                allowed_bindings: Some(allowed_bindings),
-                reason: "satisfy_require_match",
-            });
-        };
-        constraint.extend_allowed_bindings(static_allowed_bindings);
-        constraint.extend_allowed_bindings(require_allowed_bindings);
-        Some(constraint)
+            .collect()
     }
 
     pub(super) fn valid_static_satisfy_predicate(
