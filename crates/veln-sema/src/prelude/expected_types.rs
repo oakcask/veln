@@ -1,4 +1,5 @@
-use super::*;
+use crate::adt::type_operations as adt;
+use crate::semantic_model::Type;
 
 pub(super) struct ExpectedPreludeParts {
     pub(super) direct: Type,

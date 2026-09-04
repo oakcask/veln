@@ -1,4 +1,13 @@
-use super::*;
+use std::collections::BTreeSet;
+use std::sync::OnceLock;
+
+use veln_ast::{SurfaceModule, lower_surface_ast};
+use veln_source::SourceFile;
+use veln_syntax::parse;
+
+use crate::semantic_model::Type;
+use crate::standard_symbols::StandardSymbolDescriptor;
+use crate::type_syntax::parse_type_or_unknown;
 
 #[derive(Clone)]
 pub(super) struct SourcePreludeSignature {

@@ -1,4 +1,10 @@
-use super::*;
+use veln_core::CoreType;
+
+use super::source_signatures::source_prelude_callback_signatures_from_text;
+use super::{core_prelude_signature, prelude_signature, prelude_signature_with_input};
+use crate::adt::type_operations as adt;
+use crate::semantic_model::Type;
+use crate::type_lowering::core_type;
 
 #[test]
 fn prelude_signature_is_gated_by_standard_symbol_descriptor() {
@@ -214,4 +220,33 @@ fn compiler_adapter_fallback_rejects_non_concrete_callback_parameter() {
             .all(|signature| signature.name != "future_generic"),
         "generic callback parameter should stay outside the fallback"
     );
+}
+
+#[test]
+fn surface_and_core_signature_routes_agree_for_each_builtin_family() {
+    for (name, expected) in [
+        ("float_add", Type::float()),
+        (
+            "string_parse_int",
+            adt::result_type(Type::int(), Type::string()),
+        ),
+        ("vec_map", Type::vec(Type::string())),
+        ("list_map", adt::list_type(Type::string())),
+        ("dict_map", Type::dict(Type::string(), Type::bool())),
+        ("option_and_then", adt::option_type(Type::string())),
+        ("result_map", adt::result_type(Type::string(), Type::int())),
+    ] {
+        let (surface_params, surface_return) = prelude_signature(name, Some(&expected))
+            .unwrap_or_else(|| panic!("surface signature for {name}"));
+        let core_expected = core_type(&expected);
+        let (_, core_params, core_return) = core_prelude_signature(name, Some(&core_expected))
+            .unwrap_or_else(|| panic!("core signature for {name}"));
+
+        assert_eq!(
+            surface_params.iter().map(core_type).collect::<Vec<_>>(),
+            core_params,
+            "parameters for {name}"
+        );
+        assert_eq!(core_type(&surface_return), core_return, "return for {name}");
+    }
 }
