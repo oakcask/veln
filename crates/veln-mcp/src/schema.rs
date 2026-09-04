@@ -203,6 +203,50 @@ fn matches_integer_schema(schema: &Value, value: &Value) -> bool {
     true
 }
 
+pub(crate) fn json_integer_usize(value: &Value) -> Option<usize> {
+    let number = value.as_number()?;
+    let text = number.to_string();
+    if !json_number_is_integer(&text) {
+        return None;
+    }
+    let parts = JsonNumberParts::parse(&text)?;
+    if parts.negative {
+        return None;
+    }
+    if parts.is_zero() {
+        return Some(0);
+    }
+    let scale = parts.signed_scale()?;
+    let mut digits = parts.digits;
+    let trailing_zeros = if scale > 0 {
+        digits.truncate(digits.len().checked_sub(scale as usize)?);
+        0
+    } else {
+        scale.unsigned_abs() as usize
+    };
+    let normalized = digits.trim_start_matches('0');
+    if normalized.is_empty() {
+        return Some(0);
+    }
+    let maximum = usize::MAX.to_string();
+    let total_len = normalized.len().checked_add(trailing_zeros)?;
+    if total_len > maximum.len() {
+        return None;
+    }
+    if total_len == maximum.len()
+        && normalized
+            .bytes()
+            .chain(std::iter::repeat_n(b'0', trailing_zeros))
+            .gt(maximum.bytes())
+    {
+        return None;
+    }
+    let mut canonical = String::with_capacity(total_len);
+    canonical.push_str(normalized);
+    canonical.extend(std::iter::repeat_n('0', trailing_zeros));
+    canonical.parse().ok()
+}
+
 fn json_number_is_integer(text: &str) -> bool {
     let Some(parts) = JsonNumberParts::parse(text) else {
         return false;
@@ -625,6 +669,8 @@ mod tests {
         ] {
             assert!(tool.accepts_input(&value), "{value}");
         }
+        let exponent_limit = serde_json::from_str(r#"{"query":"schema","limit":1e0}"#).unwrap();
+        assert!(tool.accepts_input(&exponent_limit), "{exponent_limit}");
         for value in [
             serde_json::json!({}),
             serde_json::json!({"query": ""}),

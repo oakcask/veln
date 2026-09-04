@@ -366,3 +366,13 @@ equals = "veln-doc:///language/snapshot/missing/index"
 id = 19
 path = "/result/structuredContent/text"
 missing = true
+
+[[mcp_assert]]
+id = 20
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 20
+path = "/result/structuredContent/results"
+length = 1

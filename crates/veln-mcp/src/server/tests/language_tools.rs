@@ -60,6 +60,17 @@ fn search_docs_normalizes_case_unicode_whitespace_tokens_and_limits() {
             .len(),
         2
     );
+    let exponent_limit = search(
+        &mut server,
+        serde_json::from_str(r#"{"query":"and","limit":1e0}"#).unwrap(),
+    );
+    assert_eq!(
+        exponent_limit["structuredContent"]["results"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 
     server.language_resources = LanguageResources::for_test(
         vec![veln_repo_language_reference::RenderedResource {

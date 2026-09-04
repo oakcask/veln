@@ -3,6 +3,7 @@ use veln_project::portable_normalized_case_fold;
 
 use crate::language_resources::{LanguageResources, LanguageTopic};
 use crate::outcome::ToolOutcome;
+use crate::schema;
 
 const DEFAULT_LIMIT: usize = 10;
 const EXCERPT_LIMIT: usize = 160;
@@ -17,7 +18,7 @@ pub(crate) fn search_docs(resources: &LanguageResources, arguments: &Value) -> T
         .unwrap_or("language");
     let limit = arguments
         .get("limit")
-        .and_then(json_integer_usize)
+        .and_then(schema::json_integer_usize)
         .unwrap_or(DEFAULT_LIMIT);
 
     let normalized_query = normalize_search_text(query);
@@ -169,14 +170,6 @@ fn excerpt(field: &str, matched_scalars: std::ops::Range<usize>) -> Excerpt {
 
 fn normalize_search_text(text: &str) -> String {
     portable_normalized_case_fold(text).trim().to_string()
-}
-
-fn json_integer_usize(value: &Value) -> Option<usize> {
-    if let Some(value) = value.as_u64() {
-        return usize::try_from(value).ok();
-    }
-    let value = value.as_f64()?;
-    (value.fract() == 0.0 && value >= 0.0).then_some(value as usize)
 }
 
 struct SearchResult {

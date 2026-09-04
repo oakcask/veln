@@ -271,8 +271,9 @@ parameters, and structured `resource_not_found` failures over stdio. It also
 checks that every listed resource can be read and that every emitted
 language-reference topic URI resolves through `resources/read`. The same case
 checks `search_docs` and `read_doc` tool schema advertisement, a normalized
-bounded search, compatibility-folded query input, empty search results, search
-invalid params, exact `read_doc` index and topic text, and `read_doc`
+bounded search, compatibility-folded query input, exponent-spelled integer
+limits, empty search results, search invalid params, exact `read_doc` index
+and topic text, and `read_doc`
 `resource_not_found` failures for wrong-digest, noncanonical, non-language,
 unknown-topic, and unknown URI classes over stdio. The
 `check-project-diagnostics` MCP specification case checks the
