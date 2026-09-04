@@ -353,6 +353,44 @@ fn manifest_gate_rejects_unvalidated_manifest_without_partial_catalog() {
 }
 
 #[test]
+fn manifest_gate_reports_each_excess_git_selector_at_its_field() {
+    let result = generate(
+        concat!(
+            "[package]\n",
+            "name = \"demo\"\n",
+            "[lib]\n",
+            "exports = [\"main.veln\"]\n",
+            "[dependencies.\"example\"]\n",
+            "git = \"https://example.invalid/repo.git\"\n",
+            "rev = \"abc123\"\n",
+            "tag = \"v1\"\n",
+            "branch = \"main\"\n",
+        ),
+        &[("main.veln", "pub fn value() -> Int\n\t1\nend\n")],
+    );
+
+    let diagnostics = &result.status().diagnostics;
+    assert_eq!(diagnostics.len(), 2);
+    assert!(diagnostics.iter().all(|diagnostic| {
+        diagnostic.gate == "manifest"
+            && diagnostic.code == "package_doc.multiple_git_selectors"
+            && diagnostic.message
+                == "git dependency `example` specifies multiple selectors; use exactly one of `rev`, `tag`, or `branch`"
+    }));
+    let manifest_uri = source_uri("demo", result.snapshot_digest(), "veln.toml");
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| {
+                let span = diagnostic.span.as_ref().expect("selector diagnostic span");
+                (span.line, span.column, span.source_uri.as_str())
+            })
+            .collect::<Vec<_>>(),
+        [(8, 1, manifest_uri.as_str()), (9, 1, manifest_uri.as_str()),]
+    );
+}
+
+#[test]
 fn executable_specification_fixture_observes_successful_catalog() {
     let result = generate_fixture("package-catalog-api-success");
     let catalog = catalog_or_panic(&result);
