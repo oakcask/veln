@@ -53,6 +53,7 @@ env:
 jobs:
   plan-test-shards:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       shard_count: ${{ steps.plan.outputs.shard_count }}
       shards: ${{ steps.plan.outputs.shards }}
@@ -67,6 +68,7 @@ jobs:
   seed-cache:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       rust-test-build-cache-key: ${{ steps.seed.outputs.rust-test-build-cache-key }}
     concurrency:
@@ -85,6 +87,7 @@ jobs:
   prune-cache:
     needs: seed-cache
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       actions: write
       contents: read
@@ -101,6 +104,7 @@ jobs:
     name: test shard ${{ matrix.shard }}
     needs: plan-test-shards
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -119,6 +123,7 @@ jobs:
     name: merge Rust test coverage
     needs: test
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Download Rust shard coverage reports
@@ -157,6 +162,7 @@ jobs:
 
   doc-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Prepare Cargo dependencies
