@@ -12,6 +12,9 @@ contains = [
   "# Module api",
   "# Function answer",
   "package_doc.unresolved_schema_reference",
+  "\"scope\":\"package\"",
+  "\"title\":\"Veln package documentation: example/dep\"",
+  "\"name\":\"example-dep-documentation-index\"",
   "\"code\":\"resource_not_found\"",
 ]
 
@@ -106,4 +109,44 @@ contains = "package_doc.unresolved_schema_reference"
 [[mcp_assert]]
 id = 12
 path = "/error/data/code"
+equals = "resource_not_found"
+
+[[mcp_assert]]
+id = 13
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/scope"
+equals = "package"
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/results/0/uri"
+equals = "veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/a0c2519c0b82be2f8ec66bfe7fc428fd175acfc63c0c3591a6a1c3f627600adf/index"
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/text"
+contains = "- Package identity: example/dep"
+
+[[mcp_assert]]
+id = 15
+path = "/result/structuredContent/text"
+contains = "- Source path: api.veln"
+
+[[mcp_assert]]
+id = 16
+path = "/result/structuredContent/text"
+contains = "- State: failed"
+
+[[mcp_assert]]
+id = 17
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/code"
 equals = "resource_not_found"

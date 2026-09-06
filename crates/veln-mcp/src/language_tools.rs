@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use veln_project::portable_normalized_case_fold;
 
-use crate::language_resources::{LanguageResources, LanguageTopic};
+use crate::language_resources::{LanguageResources, LanguageTopic, PackageSearchCandidate};
 use crate::outcome::ToolOutcome;
 use crate::schema;
 
@@ -26,11 +26,36 @@ pub(crate) fn search_docs(resources: &LanguageResources, arguments: &Value) -> T
         .split_whitespace()
         .map(str::to_string)
         .collect::<Vec<_>>();
-    let mut results = resources
-        .topics()
-        .iter()
-        .filter_map(|topic| ranked_match(topic, &normalized_query, &tokens))
-        .collect::<Vec<_>>();
+    let mut results = Vec::new();
+    if matches!(scope, "language" | "all") {
+        results.extend(
+            resources
+                .topics()
+                .iter()
+                .filter_map(|topic| ranked_language_match(topic, &normalized_query, &tokens)),
+        );
+    }
+    if matches!(scope, "stdlib" | "package" | "all") {
+        results.extend(
+            resources
+                .package_search_candidates()
+                .iter()
+                .filter(|candidate| match scope {
+                    "stdlib" => {
+                        candidate.scope
+                            == crate::language_resources::PackageSearchScope::StandardLibrary
+                    }
+                    "package" => {
+                        candidate.scope == crate::language_resources::PackageSearchScope::Package
+                    }
+                    "all" => true,
+                    _ => false,
+                })
+                .filter_map(|candidate| {
+                    ranked_package_match(candidate, &normalized_query, &tokens)
+                }),
+        );
+    }
     results.sort_by(|left, right| {
         left.rank
             .cmp(&right.rank)
@@ -65,9 +90,13 @@ pub(crate) fn read_doc(resources: &LanguageResources, arguments: &Value) -> Tool
     }
 }
 
-fn ranked_match(topic: &LanguageTopic, query: &str, tokens: &[String]) -> Option<SearchResult> {
+fn ranked_language_match(
+    topic: &LanguageTopic,
+    query: &str,
+    tokens: &[String],
+) -> Option<SearchResult> {
     for rank in 1..=5 {
-        let fields = tier_fields(topic, rank);
+        let fields = language_tier_fields(topic, rank);
         if tier_matches(rank, query, tokens, &fields) {
             let excerpt = first_excerpt(&fields, tokens);
             return Some(SearchResult {
@@ -75,6 +104,27 @@ fn ranked_match(topic: &LanguageTopic, query: &str, tokens: &[String]) -> Option
                 uri: topic.uri.clone(),
                 title: topic.title.clone(),
                 summary: topic.summary.clone(),
+                excerpt,
+            });
+        }
+    }
+    None
+}
+
+fn ranked_package_match(
+    candidate: &PackageSearchCandidate,
+    query: &str,
+    tokens: &[String],
+) -> Option<SearchResult> {
+    for rank in 1..=5 {
+        let fields = package_tier_fields(candidate, rank);
+        if tier_matches(rank, query, tokens, &fields) {
+            let excerpt = first_excerpt(&fields, tokens);
+            return Some(SearchResult {
+                rank,
+                uri: candidate.uri.clone(),
+                title: candidate.title.clone(),
+                summary: candidate.summary.clone(),
                 excerpt,
             });
         }
@@ -98,7 +148,7 @@ fn tier_matches(rank: u8, query: &str, tokens: &[String], fields: &[&str]) -> bo
     }
 }
 
-fn tier_fields(topic: &LanguageTopic, rank: u8) -> Vec<&str> {
+fn language_tier_fields(topic: &LanguageTopic, rank: u8) -> Vec<&str> {
     match rank {
         1 | 2 => vec![topic.id.as_str(), topic.title.as_str()],
         3 => std::iter::once(topic.title.as_str())
@@ -106,6 +156,21 @@ fn tier_fields(topic: &LanguageTopic, rank: u8) -> Vec<&str> {
             .collect(),
         4 => vec![topic.summary.as_str()],
         5 => vec![topic.body.as_str()],
+        _ => unreachable!("search tier is bounded"),
+    }
+}
+
+fn package_tier_fields(candidate: &PackageSearchCandidate, rank: u8) -> Vec<&str> {
+    match rank {
+        1 | 2 => vec![candidate.identifier.as_str(), candidate.title.as_str()],
+        3 => std::iter::once(candidate.title.as_str())
+            .chain(std::iter::once(candidate.name.as_str()))
+            .chain(candidate.keywords.iter().map(String::as_str))
+            .collect(),
+        4 => std::iter::once(candidate.summary.as_str())
+            .chain(candidate.signature.iter().map(String::as_str))
+            .collect(),
+        5 => candidate.documentation.iter().map(String::as_str).collect(),
         _ => unreachable!("search tier is bounded"),
     }
 }

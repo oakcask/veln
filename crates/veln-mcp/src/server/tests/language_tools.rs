@@ -1,5 +1,6 @@
 use super::*;
 use crate::language_resources::LanguageTopic;
+use std::collections::BTreeSet;
 
 #[test]
 fn search_docs_ranks_exact_prefix_and_ties_by_uri_bytes() {
@@ -265,7 +266,7 @@ fn language_doc_tool_inputs_use_checked_schema_rejection() {
         json!({"query": "x".repeat(257)}),
         json!({"query": "schema", "limit": 0}),
         json!({"query": "schema", "limit": 51}),
-        json!({"query": "schema", "scope": "all"}),
+        json!({"query": "schema", "scope": "other"}),
         json!({"query": "schema", "unknown": true}),
         Value::Null,
     ] {
@@ -289,6 +290,239 @@ fn language_doc_tool_inputs_use_checked_schema_rejection() {
     }
 }
 
+#[test]
+fn search_docs_scopes_package_candidates_and_orders_all_by_rank_then_uri() {
+    let workspace = TempWorkspace::new("package-tool-scopes");
+    write_documented_workspace(&workspace);
+    let mut server = initialized_server(&workspace);
+
+    let before = search(&mut server, json!({"query": "depfixture"}));
+    assert!(
+        before["structuredContent"]["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|result| !result["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-doc:///package/example%2Fdep/"))
+    );
+
+    let check = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(check["isError"], false, "{check:#}");
+
+    let package = search(
+        &mut server,
+        json!({"query": "depfixture", "scope": "package", "limit": 20}),
+    );
+    let package_results = package["structuredContent"]["results"].as_array().unwrap();
+    assert_eq!(package["structuredContent"]["scope"], "package");
+    assert!(package_results.iter().all(|result| {
+        result["uri"]
+            .as_str()
+            .unwrap()
+            .starts_with("veln-doc:///package/example%2Fdep/snapshot/")
+    }));
+    assert!(package_results.iter().any(|result| {
+        result["title"] == "Veln package documentation: example/dep"
+            && result["summary"] == "Transport dependency documentation."
+    }));
+
+    let stdlib = search(
+        &mut server,
+        json!({"query": "depfixture", "scope": "stdlib"}),
+    );
+    assert_eq!(stdlib["structuredContent"]["results"], json!([]));
+
+    let language = search(
+        &mut server,
+        json!({"query": "depfixture", "scope": "language"}),
+    );
+    assert!(
+        language["structuredContent"]["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|result| !result["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-doc:///package/"))
+    );
+
+    let all = search(
+        &mut server,
+        json!({"query": "depfixture", "scope": "all", "limit": 50}),
+    );
+    let all_uris = result_uris(&all);
+    let unique = all_uris.iter().collect::<BTreeSet<_>>();
+    assert_eq!(unique.len(), all_uris.len());
+    assert!(
+        unique
+            .iter()
+            .any(|uri| { uri.starts_with("veln-doc:///package/example%2Fdep/snapshot/") })
+    );
+    let mut sorted = all_uris.clone();
+    sorted.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+    assert_eq!(all_uris, sorted);
+}
+
+#[test]
+fn package_search_uses_catalog_field_tiers_and_retains_distinct_snapshots() {
+    let workspace = TempWorkspace::new("package-tool-ranking");
+    write_documented_workspace(&workspace);
+    let mut server = initialized_server(&workspace);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+
+    let title = search(
+        &mut server,
+        json!({"query": "Veln package declaration: function answer", "scope": "package"}),
+    );
+    assert_eq!(
+        title["structuredContent"]["results"][0]["title"],
+        "Veln package declaration: function answer"
+    );
+
+    let keyword = search(
+        &mut server,
+        json!({"query": "protocol", "scope": "package", "limit": 10}),
+    );
+    assert!(
+        result_titles(&keyword)
+            .iter()
+            .any(|title| title.contains("api"))
+    );
+
+    let signature = search(
+        &mut server,
+        json!({"query": "answer Int", "scope": "package", "limit": 10}),
+    );
+    assert_eq!(
+        signature["structuredContent"]["results"][0]["title"],
+        "Veln package declaration: function answer"
+    );
+    assert_eq!(
+        signature["structuredContent"]["results"][0]["excerpt"],
+        "fn answer() -> Int"
+    );
+
+    let documentation = search(
+        &mut server,
+        json!({"query": "stable catalog text", "scope": "package"}),
+    );
+    assert_eq!(
+        documentation["structuredContent"]["results"][0]["title"],
+        "Veln package declaration: function answer"
+    );
+
+    let before = result_uris(&search(
+        &mut server,
+        json!({"query": "stable catalog text", "scope": "package", "limit": 20}),
+    ));
+    assert_eq!(before.len(), 1);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+    assert_eq!(
+        result_uris(&search(
+            &mut server,
+            json!({"query": "stable catalog text", "scope": "package", "limit": 20}),
+        )),
+        before
+    );
+
+    fs::remove_dir_all(workspace.path("vendor/dep")).unwrap();
+    write_dependency(&workspace, "changed catalog text");
+    refresh_workspace(&mut server);
+    assert_eq!(
+        server.definition_tool(&json!({"source":"main.veln","line":5,"column":3}))["isError"],
+        false
+    );
+    let after = result_uris(&search(
+        &mut server,
+        json!({"query": "catalog text", "scope": "package", "limit": 20}),
+    ));
+    assert_eq!(after.len(), 2);
+    assert!(before.iter().all(|uri| after.contains(uri)));
+}
+
+#[test]
+fn read_doc_accepts_exact_package_documentation_reads_and_rejects_boundaries() {
+    let workspace = TempWorkspace::new("package-tool-read");
+    write_documented_workspace(&workspace);
+    let mut server = initialized_server(&workspace);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+
+    let index_uri = package_search_uri(&mut server, "package", "example/dep");
+    let index = assert_doc_tool_equals_resource(&mut server, &index_uri);
+    let module_uri = linked_package_doc_uri(index["text"].as_str().unwrap(), "/module/");
+    let module = assert_doc_tool_equals_resource(&mut server, &module_uri);
+    let declaration_uri = linked_package_doc_uri(module["text"].as_str().unwrap(), "/declaration/");
+    assert_doc_tool_equals_resource(&mut server, &declaration_uri);
+
+    let source_uri = listed_dependency_source_uri(&mut server);
+    let source_read = read_doc(&mut server, &source_uri);
+    assert_eq!(source_read["isError"], true);
+    assert_eq!(
+        source_read["structuredContent"]["code"],
+        "resource_not_found"
+    );
+
+    let wrong_digest = index_uri.replace(
+        index_uri
+            .split("/documentation/")
+            .nth(1)
+            .unwrap()
+            .split('/')
+            .next()
+            .unwrap(),
+        "0000000000000000000000000000000000000000000000000000000000000000",
+    );
+    let missing = read_doc(&mut server, &wrong_digest);
+    assert_eq!(missing["isError"], true);
+    assert_eq!(missing["structuredContent"]["code"], "resource_not_found");
+    assert!(missing["structuredContent"].get("text").is_none());
+}
+
+#[test]
+fn status_only_package_documentation_is_readable_but_not_searchable() {
+    let workspace = TempWorkspace::new("package-tool-status");
+    write_workspace_with_failed_dependency_documentation(&workspace);
+    let mut server = initialized_server(&workspace);
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+
+    let status_uri = listed_package_documentation_status_uri(&mut server);
+    let status = assert_doc_tool_equals_resource(&mut server, &status_uri);
+    assert!(
+        status["text"]
+            .as_str()
+            .unwrap()
+            .contains("package_doc.unresolved_schema_reference")
+    );
+
+    let search_result = search(
+        &mut server,
+        json!({"query": "unresolved_schema_reference", "scope": "package"}),
+    );
+    assert_eq!(search_result["structuredContent"]["results"], json!([]));
+    let unpublished_index = status_uri.replace("/status", "/index");
+    let unpublished = read_doc(&mut server, &unpublished_index);
+    assert_eq!(unpublished["isError"], true);
+    assert_eq!(
+        unpublished["structuredContent"]["code"],
+        "resource_not_found"
+    );
+}
+
 fn search(server: &mut Server, arguments: Value) -> Value {
     server
         .handle_request(json!({"jsonrpc":"2.0","id":"search","method":"tools/call","params":{"name":"search_docs","arguments":arguments}}))
@@ -301,4 +535,159 @@ fn read_doc(server: &mut Server, uri: &str) -> Value {
         .handle_request(json!({"jsonrpc":"2.0","id":"read","method":"tools/call","params":{"name":"read_doc","arguments":{"uri":uri}}}))
         .unwrap()["result"]
         .clone()
+}
+
+fn refresh_workspace(server: &mut Server) {
+    server
+        .handle_request(json!({"jsonrpc":"2.0","id":"refresh","method":"tools/call","params":{"name":"refresh_workspace","arguments":{}}}))
+        .unwrap();
+}
+
+fn result_uris(response: &Value) -> Vec<String> {
+    response["structuredContent"]["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|result| result["uri"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn result_titles(response: &Value) -> Vec<String> {
+    response["structuredContent"]["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|result| result["title"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn package_search_uri(server: &mut Server, scope: &str, query: &str) -> String {
+    search(server, json!({"query": query, "scope": scope, "limit": 1}))["structuredContent"]
+        ["results"][0]["uri"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+fn assert_doc_tool_equals_resource(server: &mut Server, uri: &str) -> Value {
+    let resource = server
+        .handle_request(
+            json!({"jsonrpc":"2.0","id":"resource-read","method":"resources/read","params":{"uri":uri}}),
+        )
+        .unwrap();
+    let doc = read_doc(server, uri);
+    assert_eq!(doc["isError"], false, "{doc:#}");
+    let structured = &doc["structuredContent"];
+    assert_eq!(structured["uri"], uri);
+    assert_eq!(
+        structured["mimeType"],
+        resource["result"]["contents"][0]["mimeType"]
+    );
+    assert_eq!(
+        structured["text"],
+        resource["result"]["contents"][0]["text"]
+    );
+    structured.clone()
+}
+
+fn linked_package_doc_uri(text: &str, segment: &str) -> String {
+    let mut rest = text;
+    while let Some(start) = rest.find("veln-doc:///package/") {
+        let after_start = &rest[start..];
+        let end = after_start
+            .find(|character: char| character == ')' || character.is_whitespace())
+            .unwrap_or(after_start.len());
+        let uri = &after_start[..end];
+        if uri.contains(segment) {
+            return uri.to_string();
+        }
+        rest = &after_start[end..];
+    }
+    panic!("missing package documentation URI containing {segment}");
+}
+
+fn listed_dependency_source_uri(server: &mut Server) -> String {
+    server
+        .handle_request(json!({"jsonrpc":"2.0","id":"listed-source","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|resource| {
+            let uri = resource["uri"].as_str().unwrap();
+            uri.starts_with("veln-pkg:///example%2Fdep/snapshot/")
+                .then(|| uri.to_string())
+        })
+        .unwrap()
+}
+
+fn listed_package_documentation_status_uri(server: &mut Server) -> String {
+    server
+        .handle_request(json!({"jsonrpc":"2.0","id":"listed-status","method":"resources/list"}))
+        .unwrap()["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|resource| {
+            let uri = resource["uri"].as_str().unwrap();
+            uri.starts_with("veln-doc:///package/example%2Fdep/snapshot/")
+                .then(|| uri.to_string())
+        })
+        .unwrap()
+}
+
+fn write_documented_workspace(workspace: &TempWorkspace) {
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use api from \"example/dep\"\n\nfn main() -> Int\n  api::answer()\nend\n",
+    );
+    write_dependency(workspace, "stable catalog text");
+}
+
+fn write_dependency(workspace: &TempWorkspace, doc_line: &str) {
+    workspace.write(
+        "vendor/dep/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example/dep\"\n",
+            "description = \"Transport dependency documentation.\"\n",
+            "keywords = \"protocol, depfixture\"\n\n",
+            "[lib]\n",
+            "exports = [\"api.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/api.veln",
+        &format!(
+            "## Module api handles packet transport.\n\n## {doc_line}.\npub fn answer() -> Int\n  1\nend\n"
+        ),
+    );
+}
+
+fn write_workspace_with_failed_dependency_documentation(workspace: &TempWorkspace) {
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use api from \"example/dep\"\n\nfn main() -> Int\n  api::answer()\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"api.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/api.veln",
+        concat!(
+            "## Missing schema {@schema Missing}.\n",
+            "pub fn answer() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
 }

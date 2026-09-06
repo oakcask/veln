@@ -101,13 +101,13 @@ pub(crate) const TOOLS: [ToolSchema; 7] = [
     },
     ToolSchema {
         name: "search_docs",
-        description: "Search the checked Veln language reference topics",
+        description: "Search checked Veln language and retained package documentation",
         input: SEARCH_DOCS_INPUT,
         result: SEARCH_DOCS_RESULT,
     },
     ToolSchema {
         name: "read_doc",
-        description: "Read one checked Veln language reference resource by exact URI",
+        description: "Read one checked Veln language or retained package documentation resource by exact URI",
         input: READ_DOC_INPUT,
         result: READ_DOC_RESULT,
     },

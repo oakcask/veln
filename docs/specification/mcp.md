@@ -181,23 +181,37 @@ embedded standard-library bundle, manifest validation, or virtual-source
 catalog construction fails, `veln mcp` startup fails instead of publishing a
 partial resource set.
 
-## Language Reference Tools
+## Documentation Tools
 
-`search_docs` searches only the checked language-reference topic resources.
-The input requires `query`, accepts optional `scope: "language"`, and accepts
-optional integer `limit` from 1 through 50. The default scope is `language`,
-and the default limit is 10. The query must contain 1 through 256 Unicode
-scalars before normalization and must contain at least one non-whitespace
-scalar after normalization. Unknown fields, `null`, non-object input,
-unsupported scopes, non-integer limits, and out-of-range limits fail with
-invalid params.
+`search_docs` searches checked language-reference topics and retained
+successful package-documentation catalogs. The input requires `query`, accepts
+optional `scope`, and accepts optional integer `limit` from 1 through 50. The
+accepted scopes are `language`, `stdlib`, `package`, and `all`. The default
+scope is `language`, and the default limit is 10. The query must contain 1
+through 256 Unicode scalars before normalization and must contain at least one
+non-whitespace scalar after normalization. Unknown fields, `null`, non-object
+input, unsupported scopes, non-integer limits, and out-of-range limits fail
+with invalid params.
+
+The scope selects the candidate set:
+
+| Scope | Candidate set |
+| --- | --- |
+| `language` | Checked language-reference topic resources. |
+| `stdlib` | Retained successful embedded `std` package-documentation index, module, and declaration resources. |
+| `package` | Retained successful non-standard direct-dependency package-documentation index, module, and declaration resources. |
+| `all` | The union of `language`, `stdlib`, and `package`. |
 
 Search normalizes searched text and query text to NFC, applies the pinned full
 default Unicode case fold used by the portable project contract, trims Unicode
 whitespace, and splits query text on Unicode whitespace. The index resource is
-not a search candidate. Grammar and example source blocks are not searched.
+not a language search candidate. Status-only package-documentation results,
+package source resources, workspace-package documentation, unpublished package
+documentation, grammar blocks, example source blocks, doctest code, expected
+output, diagnostic text, physical paths, and rendered Markdown decoration are
+not search candidates or searched fields.
 
-Search ranks topic results by the first matching tier:
+Search ranks language-topic results by the first matching tier:
 
 | Rank | Match |
 | --- | --- |
@@ -221,20 +235,46 @@ truncation flags report whether original field content was omitted before or
 after the excerpt. A search with no match succeeds with an empty `results`
 array and no cursor.
 
-`read_doc` accepts one exact `uri` for the checked language index or checked
-language topic resources. Success returns `uri`, `name`, `title`, optional
-`description`, `mimeType`, and the same complete Markdown `text` as
-`resources/read`. Missing, nullable, non-string, non-object, or unknown-field
-parameters fail with invalid params. Syntactically valid but unknown,
-noncanonical, wrong-digest, non-language, or unknown-topic URIs return an MCP
-tool result with `isError: true`, structured code `resource_not_found`, and no
-partial document text.
+Package-documentation candidates rank by the first matching tier:
 
-The language tool candidate set, result URIs, read metadata, and read bytes
-are independent of workspace project discovery, refresh, and project
-analysis. Invalid input and `resource_not_found` failures do not change saved
-workspace state, language-reference resource state, or standard-library source
-resource state.
+| Rank | Match |
+| --- | --- |
+| 1 | The complete normalized query equals the package identity, module ID, declaration ID, or rendered title. |
+| 2 | The package identity, module ID, declaration ID, or rendered title starts with the complete normalized query. |
+| 3 | Every token occurs in the rendered title, catalog name, or package keywords. |
+| 4 | Every token occurs in the rendered description or declaration signature. |
+| 5 | Every token occurs in catalog-owned documentation text, constructor documentation, or contract text. |
+
+For package-documentation results, one exact resource URI appears at most
+once. Different retained snapshot or documentation digests remain distinct.
+Equal-rank results sort by exact resource URI UTF-8 bytes across the complete
+selected scope.
+
+`read_doc` accepts one exact `uri` for the checked language index, checked
+language topic resources, or retained package-documentation index, status,
+module, and declaration resources. Success returns `uri`, `name`, `title`,
+optional `description`, `mimeType`, and the same complete Markdown `text` as
+`resources/read`. Hidden package-documentation module and declaration
+resources are readable through exact URIs. Missing, nullable, non-string,
+non-object, or unknown-field parameters fail with invalid params.
+Syntactically valid but unknown, noncanonical, wrong-snapshot,
+wrong-documentation-digest, source-resource, unpublished package
+documentation, or unknown-topic URIs return an MCP tool result with
+`isError: true`, structured code `resource_not_found`, and no partial document
+text.
+
+The documentation tool candidate set, result URIs, read metadata, and read
+bytes are retained server state. Embedded standard-library candidates exist
+after initialization. Successful saved-project dependency admission publishes
+dependency package search candidates and reads atomically. Repeated admission
+of the same retained package key adds no candidates. A later digest for the
+same identity coexists with older candidates and reads until shutdown.
+Status-only package documentation adds only its exact read route. Capacity
+failures and stable-capture failures add no package candidates or read routes
+and preserve earlier tool results and resources. Workspace refresh and later
+filesystem changes do not remove or mutate retained package search candidates
+or reads. Invalid input and `resource_not_found` failures do not change saved
+workspace state, language-reference resource state, or package resource state.
 
 ## Workspace Selection
 
@@ -482,7 +522,8 @@ structured `resource_not_found` failures over stdio. The
 successful and status-only direct-dependency documentation publication, listed
 index and status metadata, exact index read, exact index-linked module read,
 exact module-linked declaration read, package-documentation templates, omitted
-`nextCursor`, hidden module and declaration resources, and
+`nextCursor`, hidden module and declaration resources, package-scope
+`search_docs`, exact package-documentation `read_doc`, and
 `resource_not_found` failures for wrong-documentation-digest and unpublished
 direct-dependency documentation URIs over stdio.
 Table-driven tests in `veln-mcp` check discovery boundaries,
@@ -532,8 +573,12 @@ the admitted snapshot, renderer-equal bytes, listed success indexes,
 status-only failure publication, exact linked reads, module and declaration
 omission from `resources/list`, rejection of unknown, noncanonical,
 wrong-snapshot, wrong-documentation-digest, and unpublished documentation
-URIs, deduplication, same-identity snapshot coexistence, capacity atomicity,
-and retained reads across refresh and dependency replacement.
+URIs, package documentation tool schema acceptance, standard-library,
+dependency, language, and all-scope search selection, package field ranking,
+URI byte ordering, exact `read_doc` equality with `resources/read`,
+status-only read boundaries, source-resource rejection, deduplication,
+same-identity snapshot coexistence, capacity atomicity, and retained reads
+across refresh and dependency replacement.
 The `veln-repo-mcp-standard-library-docs` freshness check regenerates the
 bundle from compiler, renderer, and standard-library inputs and rejects any
 byte or digest difference from the checked artifact.
