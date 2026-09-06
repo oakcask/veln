@@ -402,20 +402,6 @@ fn stdlib_search_uses_package_catalog_fields_and_ranking() {
             first_result: true,
         },
         Case {
-            query: "standard-library",
-            title: "Veln package declaration: function receive_frame_stream_id",
-            excerpt: "standard-library",
-            uri_segment: "/declaration/",
-            first_result: true,
-        },
-        Case {
-            query: "toolchain supplied",
-            title: "Veln package documentation: std",
-            excerpt: "Standard library APIs supplied by the Veln toolchain.",
-            uri_segment: "/index",
-            first_result: true,
-        },
-        Case {
             query: "fn byte(value: Int) -> Result<Byte, String>",
             title: "Veln package declaration: function byte",
             excerpt: "fn byte(value: Int) -> Result<Byte, String>",

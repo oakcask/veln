@@ -76,7 +76,7 @@ fn private_workspace_import_does_not_hide_bare_prelude_definition() {
     );
     assert!(
         definition[0].contains(
-            r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            r#""range":{"start":{"line":98,"character":7},"end":{"line":98,"character":11}}"#
         ),
         "{}",
         definition[0]
@@ -116,7 +116,7 @@ fn invalid_imported_constructor_casing_falls_back_to_bare_prelude_function() {
     );
     assert!(
         definition[0].contains(
-            r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            r#""range":{"start":{"line":98,"character":7},"end":{"line":98,"character":11}}"#
         ),
         "{}",
         definition[0]
@@ -162,7 +162,7 @@ fn invalid_reexported_constructor_casing_does_not_hide_bare_prelude_function() {
     );
     assert!(
         bare[0].contains(
-            r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
+            r#""range":{"start":{"line":98,"character":7},"end":{"line":98,"character":11}}"#
         ),
         "{}",
         bare[0]
