@@ -367,6 +367,186 @@ fn search_docs_scopes_package_candidates_and_orders_all_by_rank_then_uri() {
 }
 
 #[test]
+fn stdlib_search_uses_package_catalog_fields_and_ranking() {
+    let workspace = TempWorkspace::new("stdlib-tool-ranking");
+    let mut server = initialized_server(&workspace);
+
+    struct Case {
+        query: &'static str,
+        title: &'static str,
+        excerpt: &'static str,
+        uri_segment: &'static str,
+        first_result: bool,
+    }
+
+    let cases = [
+        Case {
+            query: "std",
+            title: "Veln package documentation: std",
+            excerpt: "std",
+            uri_segment: "/index",
+            first_result: true,
+        },
+        Case {
+            query: "prelude",
+            title: "Veln package module: prelude",
+            excerpt: "Veln package module: prelude",
+            uri_segment: "/module/",
+            first_result: true,
+        },
+        Case {
+            query: "Veln package declaration: function byte",
+            title: "Veln package declaration: function byte",
+            excerpt: "Veln package declaration: function byte",
+            uri_segment: "/declaration/",
+            first_result: true,
+        },
+        Case {
+            query: "standard-library",
+            title: "Veln package declaration: function receive_frame_stream_id",
+            excerpt: "standard-library",
+            uri_segment: "/declaration/",
+            first_result: true,
+        },
+        Case {
+            query: "toolchain supplied",
+            title: "Veln package documentation: std",
+            excerpt: "Standard library APIs supplied by the Veln toolchain.",
+            uri_segment: "/index",
+            first_result: true,
+        },
+        Case {
+            query: "fn byte(value: Int) -> Result<Byte, String>",
+            title: "Veln package declaration: function byte",
+            excerpt: "fn byte(value: Int) -> Result<Byte, String>",
+            uri_segment: "/declaration/",
+            first_result: true,
+        },
+        Case {
+            query: "byte-oriented package APIs",
+            title: "Veln package declaration: function byte",
+            excerpt: "Builds a validated byte value for byte-oriented package APIs.",
+            uri_segment: "/declaration/",
+            first_result: true,
+        },
+    ];
+
+    for case in cases {
+        let limit = if case.first_result { 1 } else { 50 };
+        let result = search(
+            &mut server,
+            json!({"query": case.query, "scope": "stdlib", "limit": limit}),
+        );
+        let results = result["structuredContent"]["results"].as_array().unwrap();
+        assert_eq!(result["structuredContent"]["scope"], "stdlib");
+        let matched = if case.first_result {
+            &results[0]
+        } else {
+            results
+                .iter()
+                .find(|result| result["title"] == case.title)
+                .unwrap_or_else(|| panic!("missing stdlib result for {}: {result:#}", case.query))
+        };
+        assert_eq!(matched["title"], case.title);
+        assert_eq!(matched["excerpt"], case.excerpt);
+        assert!(
+            matched["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-doc:///package/std/snapshot/")
+        );
+        assert!(
+            matched["uri"].as_str().unwrap().contains(case.uri_segment),
+            "{result:#}"
+        );
+    }
+}
+
+#[test]
+fn search_docs_all_orders_equal_rank_language_stdlib_and_package_candidates_by_uri() {
+    let workspace = TempWorkspace::new("package-tool-cross-scope-order");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/overlap\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use prelude from \"example/overlap\"\n\nfn main() -> Int\n  prelude::answer()\nend\n",
+    );
+    write_workspace_with_named_dependency(
+        &workspace,
+        "example/overlap",
+        "Aaa package documentation.",
+        "sharedterm",
+        "prelude",
+        "Shared package docs.",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_language_resources(
+        vec![veln_repo_language_reference::RenderedResource {
+            uri: "veln-doc:///language/snapshot/test/index".to_string(),
+            name: "language-index".to_string(),
+            title: "Veln Language Reference".to_string(),
+            description: None,
+            mime_type: veln_repo_language_reference::LANGUAGE_REFERENCE_MARKDOWN_MEDIA_TYPE,
+            text: "# Veln Language Reference\n".to_string(),
+        }],
+        vec![LanguageTopic {
+            uri: "veln-doc:///language/snapshot/test/topic/package-module-prelude".to_string(),
+            id: "package-module-prelude".to_string(),
+            title: "Veln package module: prelude".to_string(),
+            summary: "Language overlap fixture.".to_string(),
+            keywords: Vec::new(),
+            body: String::new(),
+        }],
+    );
+    assert_eq!(
+        server.check_project_tool(&json!({"project":"."}))["isError"],
+        false
+    );
+
+    for scope in ["language", "stdlib", "package"] {
+        let result = search(
+            &mut server,
+            json!({"query": "Veln package module: prelude", "scope": scope, "limit": 20}),
+        );
+        assert!(
+            !result["structuredContent"]["results"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "{scope} should have candidates"
+        );
+    }
+
+    let all = search(
+        &mut server,
+        json!({"query": "Veln package module: prelude", "scope": "all", "limit": 20}),
+    );
+    let all_uris = result_uris(&all);
+    let unique = all_uris.iter().collect::<BTreeSet<_>>();
+    assert_eq!(unique.len(), all_uris.len());
+    assert!(
+        all_uris
+            .iter()
+            .any(|uri| uri.starts_with("veln-doc:///language/snapshot/test/topic/"))
+    );
+    assert!(
+        all_uris
+            .iter()
+            .any(|uri| uri.starts_with("veln-doc:///package/std/snapshot/"))
+    );
+    assert!(
+        all_uris
+            .iter()
+            .any(|uri| uri.starts_with("veln-doc:///package/example%2Foverlap/snapshot/"))
+    );
+    let mut sorted = all_uris.clone();
+    sorted.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+    assert_eq!(all_uris, sorted);
+}
+
+#[test]
 fn package_search_uses_catalog_field_tiers_and_retains_distinct_snapshots() {
     let workspace = TempWorkspace::new("package-tool-ranking");
     write_documented_workspace(&workspace);
@@ -649,21 +829,42 @@ fn write_documented_workspace(workspace: &TempWorkspace) {
 }
 
 fn write_dependency(workspace: &TempWorkspace, doc_line: &str) {
+    write_workspace_with_named_dependency(
+        workspace,
+        "example/dep",
+        "Transport dependency documentation.",
+        "protocol, depfixture",
+        "api",
+        doc_line,
+    );
+}
+
+fn write_workspace_with_named_dependency(
+    workspace: &TempWorkspace,
+    identity: &str,
+    description: &str,
+    keywords: &str,
+    module_name: &str,
+    doc_line: &str,
+) {
     workspace.write(
         "vendor/dep/veln.toml",
-        concat!(
-            "[package]\n",
-            "name = \"example/dep\"\n",
-            "description = \"Transport dependency documentation.\"\n",
-            "keywords = \"protocol, depfixture\"\n\n",
-            "[lib]\n",
-            "exports = [\"api.veln\"]\n",
+        &format!(
+            concat!(
+                "[package]\n",
+                "name = \"{}\"\n",
+                "description = \"{}\"\n",
+                "keywords = \"{}\"\n\n",
+                "[lib]\n",
+                "exports = [\"{}.veln\"]\n",
+            ),
+            identity, description, keywords, module_name
         ),
     );
     workspace.write(
-        "vendor/dep/api.veln",
+        &format!("vendor/dep/{module_name}.veln"),
         &format!(
-            "## Module api handles packet transport.\n\n## {doc_line}.\npub fn answer() -> Int\n  1\nend\n"
+            "## Module {module_name} handles packet transport.\n\npub fn byte() -> Int\n  1\nend\n\n## {doc_line}\npub fn answer() -> Int\n  1\nend\n"
         ),
     );
 }

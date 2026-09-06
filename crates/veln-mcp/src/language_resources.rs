@@ -107,6 +107,31 @@ impl LanguageResources {
         .expect("test resources should be unique")
     }
 
+    #[cfg(test)]
+    pub(crate) fn replace_test_language_resources(
+        &mut self,
+        resources: Vec<RenderedResource>,
+        topics: Vec<LanguageTopic>,
+    ) {
+        let replacement = Self::from_parts(
+            resources,
+            topics,
+            self.combined_resources
+                .iter()
+                .filter(|resource| !resource.uri.starts_with("veln-doc:///language/"))
+                .cloned()
+                .collect(),
+            self.retained_package_keys.clone(),
+            self.package_docs
+                .iter()
+                .map(|(key, result)| (key.clone(), result.clone())),
+            self.standard_library_snapshot.clone(),
+            self.standard_library_navigation.clone(),
+        )
+        .expect("test resources should be unique");
+        *self = replacement;
+    }
+
     fn from_parts(
         resources: Vec<RenderedResource>,
         topics: Vec<LanguageTopic>,

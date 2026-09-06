@@ -1,5 +1,7 @@
 [package]
 name = "std"
+description = "Standard library APIs supplied by the Veln toolchain."
+keywords = "toolchain, bytes, standard-library"
 
 [lib]
 exports = ["prelude.veln", "transport.veln", "transport/net.veln", "http2/frame.veln", "http2/diagnostic.veln", "http2/hpack.veln", "http2/hpack/diagnostic.veln", "http2/core.veln", "http2/connection.veln"]

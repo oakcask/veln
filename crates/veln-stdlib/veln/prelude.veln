@@ -95,6 +95,7 @@ pub type EncodeStep<TState>
 	Invalid(error: EncodeError)
 end
 
+## Builds a validated byte value for byte-oriented package APIs.
 pub fn byte(value: Int) -> Result<Byte, String>
 	if value < 0
 		Err("byte value must be between 0 and 255")
