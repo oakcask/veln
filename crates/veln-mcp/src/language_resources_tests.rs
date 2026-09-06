@@ -30,6 +30,16 @@ fn checked_standard_library_resources_load_the_prebuilt_documentation_bundle() {
 }
 
 #[test]
+fn checked_standard_library_resources_are_built_once() {
+    let before = standard_library_resource_builds();
+
+    StandardLibraryResources::checked().unwrap();
+    StandardLibraryResources::checked().unwrap();
+
+    assert!(standard_library_resource_builds() - before <= 1);
+}
+
+#[test]
 fn checked_resources_return_independent_mutable_state() {
     let mut first = LanguageResources::checked().unwrap();
     let second = LanguageResources::checked().unwrap();
