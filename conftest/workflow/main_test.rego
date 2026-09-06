@@ -9,6 +9,7 @@ workflow_with(paths, uses) := {
   "jobs": {
     "test": {
       "runs-on": "ubuntu-latest",
+      "timeout-minutes": 5,
       "steps": [{"uses": uses}],
     },
   },
@@ -21,6 +22,7 @@ workflow_with_run(run) := {
   "jobs": {
     "test": {
       "runs-on": "ubuntu-latest",
+      "timeout-minutes": 5,
       "steps": [{
         "name": "Prepare reports",
         "run": run,
@@ -44,6 +46,38 @@ test_accepts_exact_local_action_manifest_in_filtered_trigger if {
   violations := deny with input as workflow_with(
     [".github/workflows/test--local-action.yaml", ".github/actions/example/action.yaml"],
     "./.github/actions/example",
+  )
+  count(violations) == 0
+}
+
+test_accepts_job_timeout if {
+  violations := deny with input as workflow_with(
+    [".github/workflows/test--local-action.yaml"],
+    "actions/checkout@v4",
+  )
+  count(violations) == 0
+}
+
+test_rejects_missing_job_timeout if {
+  workflow := {
+    "name": "test / job timeout",
+    "on": {"pull_request": {}},
+    "permissions": {"contents": "read"},
+    "jobs": {
+      "test": {
+        "runs-on": "ubuntu-latest",
+        "steps": [{"uses": "actions/checkout@v4"}],
+      },
+    },
+  }
+  violations := deny with input as workflow
+  violations["job \"test\" must set timeout-minutes; use 5 by default or a measured higher limit so stalled jobs terminate promptly"]
+}
+
+test_accepts_reusable_workflow_without_job_timeout if {
+  violations := deny with input as workflow_with_reusable(
+    [".github/workflows/test--reusable-workflow.yaml"],
+    "example/repository/.github/workflows/shared.yaml@main",
   )
   count(violations) == 0
 }
@@ -79,6 +113,7 @@ test_requires_each_local_action_manifest if {
     "jobs": {
       "test": {
         "runs-on": "ubuntu-latest",
+        "timeout-minutes": 5,
         "steps": [
           {"uses": "./.github/actions/first"},
           {"uses": "./.github/actions/second"},
@@ -106,6 +141,7 @@ test_accepts_local_action_without_path_filter if {
     "jobs": {
       "test": {
         "runs-on": "ubuntu-latest",
+        "timeout-minutes": 5,
         "steps": [{"uses": "./.github/actions/example"}],
       },
     },
