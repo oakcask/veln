@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Extend the existing documentation tools to retained standard-library and
+  direct-dependency package documentation:
+  [mcp-package-documentation-tools.md](mcp-package-documentation-tools.md).
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.
@@ -33,8 +35,9 @@ another page is not a selectable target.
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
   saved workspace symbol-reference, standard-library package-documentation
-  resource, dependency package-documentation resource, and package-backed
-  definition-link slices are implemented. Do not select the umbrella directly:
+  resource, dependency package-documentation resource, package-backed
+  definition-link, and package-documentation tool prerequisites are
+  implemented. Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

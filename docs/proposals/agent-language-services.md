@@ -24,16 +24,16 @@ including bounded direct-dependency and standard-library package locations,
 workspace symbol `references`, `search_docs`, and `read_doc`. Broader
 definition navigation, dependency reference navigation, paginated references,
 recovery and casing-neutral reference navigation, package documentation
-resources, conformance completion, and client plugin work in this proposal
-remain planned.
+tool expansion, conformance completion, and client plugin work in this
+proposal remain planned.
 
 The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus dependency and paginated reference lookup;
-- package and standard-library documentation search after the completed
-  definition-link slice recorded in
-  [MCP Package Definition Documentation Links](../reference/implemented-proposals/mcp-package-documentation-resources.md);
+- package and standard-library documentation search and reads through the
+  extracted
+  [MCP Package Documentation Tools](mcp-package-documentation-tools.md) slice;
   and
 - plugin packaging for Codex and Claude Code.
 
@@ -67,6 +67,12 @@ recorded by
 The bounded model-controlled language-reference search and read slice is
 implemented and recorded by
 [MCP Language Reference Tools](../reference/implemented-proposals/mcp-language-reference-tools.md).
+
+### Ready Package Documentation Tool Slice
+
+The bounded standard-library and direct-dependency documentation search and
+read expansion is extracted to
+[MCP Package Documentation Tools](mcp-package-documentation-tools.md).
 
 ### Implemented Standard-Library Source Slice
 
@@ -366,7 +372,9 @@ The implemented package-documentation resource slices are recorded by
 [MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md)
 and
 [MCP Dependency Package Documentation Resources](../reference/implemented-proposals/mcp-dependency-package-documentation-resources.md).
-Package and standard-library search remains later work.
+Package and standard-library search and model-controlled reads are owned by
+the ready
+[MCP Package Documentation Tools](mcp-package-documentation-tools.md) slice.
 
 Large catalogs use resource templates and bounded indexes rather than listing
 every declaration eagerly. Documentation resources use Markdown text. Virtual
@@ -1051,10 +1059,11 @@ The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 Later slices are:
 
-1. Extend the existing `veln mcp` server with package and standard-library
-   documentation search, dependency reference search, paginated references,
-   recovery and casing-neutral symbol references, and definition beyond the
-   package-backed symbol inventory.
+1. Implement the ready
+   [MCP Package Documentation Tools](mcp-package-documentation-tools.md) slice.
+1. Extend the existing `veln mcp` server with dependency reference search,
+   paginated references, recovery and casing-neutral symbol references, and
+   definition beyond the package-backed symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their
