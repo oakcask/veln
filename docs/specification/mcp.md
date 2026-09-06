@@ -241,7 +241,7 @@ Package-documentation candidates rank by the first matching tier:
 | --- | --- |
 | 1 | The complete normalized query equals the package identity, module ID, declaration ID, or rendered title. |
 | 2 | The package identity, module ID, declaration ID, or rendered title starts with the complete normalized query. |
-| 3 | Every token occurs in the rendered title, catalog name, or package keywords. |
+| 3 | Every token occurs in the rendered title, resource name, or package keywords. |
 | 4 | Every token occurs in the rendered description or declaration signature. |
 | 5 | Every token occurs in catalog-owned documentation text, constructor documentation, or contract text. |
 

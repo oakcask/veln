@@ -312,3 +312,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP language-reference and standard-library source resource list/read
   behavior plus language-reference `search_docs` and `read_doc` tool behavior:
   `../../examples/specification/mcp/language-reference-resources/`.
+- MCP dependency package-documentation publication, hidden linked resource
+  reads, package-scope `search_docs`, exact package-documentation `read_doc`,
+  and documentation URI rejection behavior:
+  `../../examples/specification/mcp/dependency-package-documentation-resources/`.
