@@ -23,6 +23,7 @@ const RETAINED_PACKAGE_CAPACITY: usize = 256;
 thread_local! {
     static DEPENDENCY_SNAPSHOT_CAPTURES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_NAVIGATION_BUILDS: Cell<usize> = const { Cell::new(0) };
+    static STANDARD_LIBRARY_RESOURCE_BUILDS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -48,6 +49,11 @@ pub(crate) fn reset_dependency_navigation_builds() {
 #[cfg(test)]
 pub(crate) fn dependency_navigation_builds() -> usize {
     DEPENDENCY_NAVIGATION_BUILDS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn standard_library_resource_builds() -> usize {
+    STANDARD_LIBRARY_RESOURCE_BUILDS.get()
 }
 
 #[derive(Clone)]
@@ -381,7 +387,7 @@ impl PublishedResource {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct StandardLibraryResources {
     pub(crate) resources: Vec<PublishedResource>,
     key: RetainedPackageKey,
@@ -391,10 +397,16 @@ pub(crate) struct StandardLibraryResources {
 
 impl StandardLibraryResources {
     pub(crate) fn checked() -> Result<Self, String> {
-        Self::from_checked_embedded_inputs()
+        static CHECKED: OnceLock<Result<StandardLibraryResources, String>> = OnceLock::new();
+
+        CHECKED
+            .get_or_init(Self::from_checked_embedded_inputs)
+            .clone()
     }
 
     fn from_checked_embedded_inputs() -> Result<Self, String> {
+        #[cfg(test)]
+        STANDARD_LIBRARY_RESOURCE_BUILDS.set(STANDARD_LIBRARY_RESOURCE_BUILDS.get() + 1);
         let bundle = veln_stdlib::package_bundle();
         Self::from_embedded_inputs_with_builders(
             bundle.manifest,
