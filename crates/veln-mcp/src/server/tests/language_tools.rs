@@ -8,7 +8,7 @@ use veln_source::SourceFile;
 #[test]
 fn search_docs_ranks_exact_prefix_and_ties_by_uri_bytes() {
     let workspace = TempWorkspace::new("search-rank");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
 
     let exact = search(&mut server, json!({"query": "schemas", "limit": 3}));
     let exact_results = exact["structuredContent"]["results"].as_array().unwrap();
@@ -38,7 +38,7 @@ fn search_docs_ranks_exact_prefix_and_ties_by_uri_bytes() {
 #[test]
 fn search_docs_normalizes_case_unicode_whitespace_tokens_and_limits() {
     let workspace = TempWorkspace::new("search-normalization");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
 
     let folded = search(
         &mut server,
@@ -112,7 +112,7 @@ fn search_docs_normalizes_case_unicode_whitespace_tokens_and_limits() {
 #[test]
 fn search_docs_uses_field_tiers_token_intersection_and_bounded_excerpts() {
     let workspace = TempWorkspace::new("search-fields");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
 
     let title_or_keyword = search(&mut server, json!({"query": "effect rows"}));
     assert_eq!(
@@ -147,7 +147,7 @@ fn search_docs_uses_field_tiers_token_intersection_and_bounded_excerpts() {
 #[test]
 fn read_doc_matches_resource_reads_and_rejects_unknown_uris_as_tool_errors() {
     let workspace = TempWorkspace::new("read-doc");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     let list = server
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
         .unwrap();
@@ -235,7 +235,7 @@ fn language_doc_tools_preserve_state_across_refresh_and_analysis() {
     let workspace = TempWorkspace::new("language-tool-state");
     workspace.write("veln.toml", "");
     workspace.write("main.veln", "pub fn main() -> Int\n\t1\nend\n");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
 
     let before_search =
         search(&mut server, json!({"query": "schema"}))["structuredContent"].clone();
@@ -670,7 +670,7 @@ fn search_docs_all_orders_equal_rank_language_stdlib_and_package_candidates_by_u
         "prelude",
         "Shared package docs.",
     );
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     server.language_resources.replace_test_language_resources(
         vec![veln_repo_language_reference::RenderedResource {
             uri: "veln-doc:///language/snapshot/test/index".to_string(),
@@ -822,7 +822,7 @@ fn package_search_uses_catalog_field_tiers_and_retains_distinct_snapshots() {
 fn package_tool_state_is_preserved_across_capacity_and_capture_failures() {
     let workspace = TempWorkspace::new("package-tool-failure-state");
     write_documented_workspace(&workspace);
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     let before_capacity = package_tool_state(&mut server, "std", "std");
 
     let boundary = (0..255)
@@ -857,7 +857,7 @@ fn package_tool_state_is_preserved_across_capacity_and_capture_failures() {
 
     let capture_workspace = TempWorkspace::new("package-tool-capture-failure-state");
     write_documented_workspace(&capture_workspace);
-    let mut capture_server = initialized_server(&capture_workspace);
+    let mut capture_server = initialized_server_with_embedded_resources(&capture_workspace);
     assert_eq!(
         capture_server.check_project_tool(&json!({"project":"."}))["isError"],
         false

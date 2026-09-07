@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 #[test]
 fn standard_library_package_documentation_round_trips_from_index_links() {
     let workspace = TempWorkspace::new("standard-doc-resources");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     let list = server
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
         .unwrap();
@@ -115,7 +115,7 @@ fn resource_templates_list_advertises_package_documentation_forms() {
 #[test]
 fn standard_library_package_documentation_rejections_are_exact() {
     let workspace = TempWorkspace::new("standard-doc-resource-rejections");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     let unknown_uris = rejected_standard_library_documentation_uris(&mut server);
 
     assert_unknown_resource_reads_rejected(&mut server, unknown_uris);
