@@ -74,7 +74,7 @@ fn initialize_requires_the_declared_wire_shape() {
         base: WorkspaceBase::open(workspace.root.clone()).unwrap(),
         selection,
         initialized: false,
-        language_resources: LanguageResources::checked().unwrap(),
+        language_resources: minimal_language_resources(),
     };
     let valid = json!({
         "jsonrpc": "2.0",
@@ -120,7 +120,7 @@ fn lifecycle_rejects_operations_before_initialize() {
         base: WorkspaceBase::open(workspace.root.clone()).unwrap(),
         selection,
         initialized: false,
-        language_resources: LanguageResources::checked().unwrap(),
+        language_resources: minimal_language_resources(),
     };
 
     let response = server
