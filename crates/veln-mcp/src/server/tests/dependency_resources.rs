@@ -132,7 +132,7 @@ fn saved_project_dependency_resources_list_with_complete_sorted_metadata() {
     for case in cases {
         let workspace = TempWorkspace::new(case.name);
         write_workspace_with_dependency(&workspace, "listed");
-        let mut server = initialized_server(&workspace);
+        let mut server = initialized_server_with_embedded_resources(&workspace);
 
         let result = (case.call)(&mut server);
         assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
@@ -455,7 +455,7 @@ fn saved_project_capacity_failures_match_advertised_result_schemas() {
     for case in cases {
         let workspace = TempWorkspace::new(case.name);
         write_workspace_with_dependency(&workspace, "overflow");
-        let mut server = initialized_server(&workspace);
+        let mut server = initialized_server_with_embedded_resources(&workspace);
         let boundary = (0..255)
             .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
             .collect::<Vec<_>>();

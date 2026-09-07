@@ -23,7 +23,7 @@ fn initialize_advertises_immutable_resources() {
 #[test]
 fn resources_list_returns_sorted_resource_metadata() {
     let workspace = TempWorkspace::new("resources-list");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     let response = server
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list","params":{"_meta":{"progressToken":"list"}}}))
         .unwrap();
@@ -93,7 +93,7 @@ fn assert_standard_library_metadata(resources: &[Value]) {
 #[test]
 fn resources_read_returns_complete_markdown_for_listed_uris() {
     let workspace = TempWorkspace::new("resources-read");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     let list = server
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
         .unwrap();
@@ -108,7 +108,7 @@ fn resources_read_returns_complete_markdown_for_listed_uris() {
 #[test]
 fn standard_library_resources_match_captured_distribution_sources() {
     let workspace = TempWorkspace::new("standard-resources");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     let list = server
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
         .unwrap();
@@ -152,7 +152,7 @@ fn standard_library_resources_match_captured_distribution_sources() {
 #[test]
 fn resources_reject_malformed_params_and_unknown_uris() {
     let workspace = TempWorkspace::new("resource-rejections");
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
     assert_list_params_rejected(&mut server);
     assert_read_params_rejected(&mut server);
 

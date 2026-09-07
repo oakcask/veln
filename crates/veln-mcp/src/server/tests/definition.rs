@@ -311,7 +311,7 @@ fn definition_returns_readable_standard_library_documentation_links() {
             "end\n",
         ),
     );
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
 
     for (case, line, column) in [("implicit", 4, 4), ("explicit", 8, 12)] {
         let result =
@@ -470,7 +470,7 @@ fn definition_resolves_implicit_and_explicit_standard_library_symbols() {
             "end\n",
         ),
     );
-    let mut server = initialized_server(&workspace);
+    let mut server = initialized_server_with_embedded_resources(&workspace);
 
     for (case, line, column) in [("implicit", 4, 4), ("explicit", 8, 12)] {
         let result =
