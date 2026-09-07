@@ -32,7 +32,9 @@ The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency functions and
-  paginated reference lookup;
+  paginated reference lookup; the first bounded standard-library function
+  step is extracted as
+  [MCP Saved Standard-Library Function References](mcp-saved-standard-library-function-references.md);
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -1052,9 +1054,10 @@ locations through MCP.
 Dependency and standard-library definition locations for the bounded package
 symbol set are specified by
 [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
-Standard-library reference search, non-function dependency reference search,
-paginated references, recovery references, and casing-neutral references remain
-planned.
+Standard-library function reference search is selected by
+[MCP Saved Standard-Library Function References](mcp-saved-standard-library-function-references.md).
+Non-function package reference search, paginated references, recovery
+references, and casing-neutral references remain planned here.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
@@ -1063,12 +1066,17 @@ The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 The direct-dependency function-reference slice is recorded by
 [MCP Saved Dependency Function References](../reference/implemented-proposals/mcp-saved-dependency-function-references.md).
-Later slices are:
+The next selectable slice is:
 
-1. Extend the existing `veln mcp` server with standard-library references,
-   non-function dependency references, paginated references, recovery and
-   casing-neutral symbol references, and definition beyond the package-backed
-   symbol inventory.
+1. Extend the existing `veln mcp` server with standard-library function
+   references as defined by
+   [MCP Saved Standard-Library Function References](mcp-saved-standard-library-function-references.md).
+
+Later umbrella slices are:
+
+1. Extend package navigation with non-function dependency and standard-library
+   references, paginated references, recovery and casing-neutral symbol
+   references, and definition beyond the package-backed symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their
