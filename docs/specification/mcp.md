@@ -411,13 +411,14 @@ references to public functions from exported modules of one retained direct
 dependency when the selected project source uses the exact visible external
 import required by name resolution. Dependency function results include only
 qualified call targets and qualified function-value occurrences in the
-selected project's captured owned sources. They exclude the dependency
-declaration, dependency source bodies, other selected projects, equal spellings
-with different package or module identity, import-alias declaration segments,
-fields, strings, comments, and lexical bindings. Standard-library functions,
-transitive dependencies, private functions, non-exported dependency modules,
-invalid-casing records, recovery records, aliases, non-function package
-symbols, package module-segment selections, and anonymous single-file
+selected project's captured owned sources, including occurrences qualified by
+an import alias. They exclude the dependency declaration, dependency source
+bodies, other selected projects, equal spellings with different package or
+module identity, import-alias declaration segments, fields, strings, comments,
+and lexical bindings. Standard-library functions, transitive dependencies,
+private functions, non-exported dependency modules, invalid-casing records,
+recovery records, dependency public function alias symbols, non-function
+package symbols, package module-segment selections, and anonymous single-file
 selections succeed with an empty `references` array. `references` does not
 expose recovery, standard-library, virtual, schema, effect, handler, or
 effect-operation reference locations.
