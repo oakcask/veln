@@ -111,4 +111,8 @@ partial content.
 This slice is complete for language-only documentation search and exact
 language-reference reads. It does not add package documentation search,
 workspace analysis, pagination, subscriptions, navigation expansion, rename
-support, plugins, or conformance-manifest completion.
+support, plugins, or conformance-manifest completion. The later package
+documentation extension is recorded by
+[MCP Package Documentation Tools](mcp-package-documentation-tools.md), and the
+combined current behavior is specified by
+[MCP Workspace Projects And Navigation](../../specification/mcp.md).

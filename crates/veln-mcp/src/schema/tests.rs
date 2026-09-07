@@ -224,6 +224,9 @@ fn search_docs_input_enforces_query_scope_and_limit_bounds() {
     for value in [
         serde_json::json!({"query": "schema"}),
         serde_json::json!({"query": "schema", "scope": "language"}),
+        serde_json::json!({"query": "schema", "scope": "stdlib"}),
+        serde_json::json!({"query": "schema", "scope": "package"}),
+        serde_json::json!({"query": "schema", "scope": "all"}),
         serde_json::json!({"query": "schema", "limit": 1}),
         serde_json::json!({"query": "schema", "limit": 50}),
         serde_json::json!({"query": "schema", "limit": 5.0}),
@@ -238,7 +241,7 @@ fn search_docs_input_enforces_query_scope_and_limit_bounds() {
         serde_json::json!({"query": " \t\n"}),
         serde_json::json!({"query": "x".repeat(257)}),
         serde_json::json!({"query": null}),
-        serde_json::json!({"query": "schema", "scope": "all"}),
+        serde_json::json!({"query": "schema", "scope": "other"}),
         serde_json::json!({"query": "schema", "limit": 0}),
         serde_json::json!({"query": "schema", "limit": 51}),
         serde_json::json!({"query": "schema", "limit": 1.5}),
@@ -264,8 +267,12 @@ fn language_doc_result_schemas_accept_success_and_domain_failure() {
             "suffix_truncated": false
         }]
     })));
-    assert!(!search.accepts_result(&serde_json::json!({
+    assert!(search.accepts_result(&serde_json::json!({
         "scope": "all",
+        "results": []
+    })));
+    assert!(!search.accepts_result(&serde_json::json!({
+        "scope": "other",
         "results": []
     })));
     assert!(!search.accepts_result(&serde_json::json!({

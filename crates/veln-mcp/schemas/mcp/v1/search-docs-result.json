@@ -3,7 +3,7 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "scope": { "const": "language" },
+    "scope": { "enum": ["language", "stdlib", "package", "all"] },
     "results": {
       "type": "array",
       "items": {

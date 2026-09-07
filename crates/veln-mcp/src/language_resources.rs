@@ -6,9 +6,9 @@ use std::sync::OnceLock;
 use serde_json::{Value, json};
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, PackageDocGeneratorContract,
-    PackageDocResult, RenderedPackageDocResource, VirtualSourceCatalog,
-    render_package_documentation,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, PackageDocDeclaration,
+    PackageDocGeneratorContract, PackageDocResult, PackageDocResultKind,
+    RenderedPackageDocResource, VirtualSourceCatalog, render_package_documentation,
 };
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource,
@@ -105,6 +105,70 @@ impl LanguageResources {
             EffectiveProjectSnapshot::new(Vec::new()),
         )
         .expect("test resources should be unique")
+    }
+
+    #[cfg(test)]
+    pub(crate) fn replace_test_language_resources(
+        &mut self,
+        resources: Vec<RenderedResource>,
+        topics: Vec<LanguageTopic>,
+    ) {
+        let replacement = Self::from_parts(
+            resources,
+            topics,
+            self.combined_resources
+                .iter()
+                .filter(|resource| !resource.uri.starts_with("veln-doc:///language/"))
+                .cloned()
+                .collect(),
+            self.retained_package_keys.clone(),
+            self.package_docs
+                .iter()
+                .map(|(key, result)| (key.clone(), result.clone())),
+            self.standard_library_snapshot.clone(),
+            self.standard_library_navigation.clone(),
+        )
+        .expect("test resources should be unique");
+        *self = replacement;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn replace_test_standard_library<'a>(
+        &mut self,
+        manifest: &str,
+        sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
+    ) {
+        let standard_library = StandardLibraryResources::from_embedded_inputs(manifest, sources)
+            .expect("test standard library resources should build");
+        let mut retained_package_keys = self
+            .retained_package_keys
+            .iter()
+            .filter(|key| key.identity != "std")
+            .cloned()
+            .collect::<Vec<_>>();
+        retained_package_keys.push(standard_library.key.clone());
+        let mut package_docs = self
+            .package_docs
+            .iter()
+            .filter(|(key, _)| key.identity != "std")
+            .map(|(key, result)| (key.clone(), result.clone()))
+            .collect::<Vec<_>>();
+        package_docs.push((
+            standard_library.key.clone(),
+            standard_library.package_doc_result.clone(),
+        ));
+        let replacement = Self::from_parts(
+            self.by_uri.values().cloned().collect(),
+            self.topics.clone(),
+            standard_library.resources,
+            retained_package_keys,
+            package_docs,
+            Some(standard_library.snapshot.clone()),
+            EffectiveProjectSnapshot::new(Vec::new())
+                .with_standard_library(standard_library.snapshot),
+        )
+        .expect("test standard library resources should be unique");
+        *self = replacement;
     }
 
     fn from_parts(
@@ -229,7 +293,7 @@ impl LanguageResources {
     }
 
     pub(crate) fn read_doc_result(&self, uri: &str) -> Option<Value> {
-        self.by_uri.get(uri).map(|resource| {
+        if let Some(resource) = self.by_uri.get(uri) {
             let mut value = json!({
                 "uri": resource.uri,
                 "name": resource.name,
@@ -240,12 +304,26 @@ impl LanguageResources {
             if let Some(description) = &resource.description {
                 value["description"] = json!(description);
             }
-            value
-        })
+            return Some(value);
+        }
+        self.combined_by_uri
+            .get(uri)
+            .filter(|resource| {
+                resource.mime_type
+                    == veln_language_service::PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE
+            })
+            .map(PublishedResource::doc_tool_result)
     }
 
     pub(crate) fn topics(&self) -> &[LanguageTopic] {
         &self.topics
+    }
+
+    pub(crate) fn package_search_candidates(&self) -> Vec<PackageSearchCandidate> {
+        self.package_docs
+            .iter()
+            .flat_map(|(key, result)| package_search_candidates(key, result))
+            .collect()
     }
 
     pub(crate) fn standard_library_snapshot(&self) -> Option<DirectDependencySnapshot> {
@@ -385,6 +463,139 @@ impl PublishedResource {
         }
         value
     }
+
+    fn doc_tool_result(&self) -> Value {
+        let mut value = json!({
+            "uri": self.uri,
+            "name": self.name,
+            "title": self.title,
+            "mimeType": self.mime_type,
+            "text": self.text,
+        });
+        if let Some(description) = &self.description {
+            value["description"] = json!(description);
+        }
+        value
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PackageSearchScope {
+    StandardLibrary,
+    Package,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PackageSearchCandidate {
+    pub(crate) scope: PackageSearchScope,
+    pub(crate) uri: String,
+    pub(crate) identifier: String,
+    pub(crate) title: String,
+    pub(crate) name: String,
+    pub(crate) summary: String,
+    pub(crate) keywords: Vec<String>,
+    pub(crate) signature: Option<String>,
+    pub(crate) documentation: Vec<String>,
+}
+
+fn package_search_candidates(
+    key: &RetainedPackageKey,
+    result: &PackageDocResult,
+) -> Vec<PackageSearchCandidate> {
+    let PackageDocResultKind::Catalog(catalog) = result.kind() else {
+        return Vec::new();
+    };
+    let scope = if key.identity == "std" {
+        PackageSearchScope::StandardLibrary
+    } else {
+        PackageSearchScope::Package
+    };
+    let keywords = catalog.metadata.keywords.clone();
+    let mut candidates = vec![PackageSearchCandidate {
+        scope,
+        uri: catalog.index_uri.clone(),
+        identifier: catalog.package_identity.clone(),
+        title: format!("Veln package documentation: {}", catalog.package_identity),
+        name: catalog.metadata.package_name.clone().unwrap_or_default(),
+        summary: catalog.metadata.description.clone().unwrap_or_default(),
+        keywords: keywords.clone(),
+        signature: None,
+        documentation: Vec::new(),
+    }];
+    for module in &catalog.modules {
+        candidates.push(PackageSearchCandidate {
+            scope,
+            uri: module.uri.clone(),
+            identifier: module.id.clone(),
+            title: format!("Veln package module: {}", module.name),
+            name: module.name.clone(),
+            summary: first_doc_line(&module.doc).unwrap_or_default(),
+            keywords: keywords.clone(),
+            signature: None,
+            documentation: searchable_doc_lines(&module.doc),
+        });
+        candidates.extend(
+            module
+                .declarations
+                .iter()
+                .map(|declaration| declaration_search_candidate(scope, &keywords, declaration)),
+        );
+    }
+    candidates
+}
+
+fn declaration_search_candidate(
+    scope: PackageSearchScope,
+    keywords: &[String],
+    declaration: &PackageDocDeclaration,
+) -> PackageSearchCandidate {
+    PackageSearchCandidate {
+        scope,
+        uri: declaration.uri.clone(),
+        identifier: declaration.id.clone(),
+        title: format!(
+            "Veln package declaration: {} {}",
+            declaration.kind, declaration.name
+        ),
+        name: declaration.name.clone(),
+        summary: first_doc_line(&declaration.doc).unwrap_or_default(),
+        keywords: keywords.to_vec(),
+        signature: Some(declaration.signature.clone()),
+        documentation: declaration_documentation(declaration),
+    }
+}
+
+fn declaration_documentation(declaration: &PackageDocDeclaration) -> Vec<String> {
+    let mut documentation = searchable_doc_lines(&declaration.doc);
+    for constructor in &declaration.constructors {
+        documentation.extend(searchable_doc_lines(&constructor.doc));
+    }
+    documentation.extend(
+        declaration
+            .contracts
+            .iter()
+            .map(|contract| contract.text.clone()),
+    );
+    documentation
+}
+
+fn searchable_doc_lines(lines: &[String]) -> Vec<String> {
+    let mut in_fence = false;
+    let mut searchable = Vec::new();
+    for line in lines {
+        if line.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if !in_fence {
+            searchable.push(line.clone());
+        }
+    }
+    searchable
+}
+
+fn first_doc_line(lines: &[String]) -> Option<String> {
+    lines.iter().find(|line| !line.trim().is_empty()).cloned()
 }
 
 #[derive(Clone, Debug)]

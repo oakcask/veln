@@ -15,26 +15,21 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 
 The workspace-project inventory, saved project diagnostics, bounded
 workspace-definition, saved workspace symbol-reference, resource publication,
-language-reference search, and package definition navigation slices are
-implemented and specified in
+language-reference search, package documentation tool, and package definition
+navigation slices are implemented and specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol `references`, `search_docs`, and `read_doc`. Broader
 definition navigation, dependency reference navigation, paginated references,
-recovery and casing-neutral reference navigation, package documentation
-tool expansion, conformance completion, and client plugin work in this
-proposal remain planned.
+recovery and casing-neutral reference navigation, conformance completion, and
+client plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus dependency and paginated reference lookup;
-- package and standard-library documentation search and reads through the
-  extracted
-  [MCP Package Documentation Tools](mcp-package-documentation-tools.md) slice;
-  and
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -68,11 +63,11 @@ The bounded model-controlled language-reference search and read slice is
 implemented and recorded by
 [MCP Language Reference Tools](../reference/implemented-proposals/mcp-language-reference-tools.md).
 
-### Ready Package Documentation Tool Slice
+### Implemented Package Documentation Tool Slice
 
 The bounded standard-library and direct-dependency documentation search and
-read expansion is extracted to
-[MCP Package Documentation Tools](mcp-package-documentation-tools.md).
+read expansion is implemented and recorded by
+[MCP Package Documentation Tools](../reference/implemented-proposals/mcp-package-documentation-tools.md).
 
 ### Implemented Standard-Library Source Slice
 
@@ -372,9 +367,8 @@ The implemented package-documentation resource slices are recorded by
 [MCP Standard Library Package Documentation Resources](../reference/implemented-proposals/mcp-standard-library-package-documentation-resources.md)
 and
 [MCP Dependency Package Documentation Resources](../reference/implemented-proposals/mcp-dependency-package-documentation-resources.md).
-Package and standard-library search and model-controlled reads are owned by
-the ready
-[MCP Package Documentation Tools](mcp-package-documentation-tools.md) slice.
+Package and standard-library search and model-controlled reads are recorded by
+[MCP Package Documentation Tools](../reference/implemented-proposals/mcp-package-documentation-tools.md).
 
 Large catalogs use resource templates and bounded indexes rather than listing
 every declaration eagerly. Documentation resources use Markdown text. Virtual
@@ -878,7 +872,7 @@ The resolved-decision evidence groups are:
 | Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |
 | Q04 filesystem identity | Symbolic base, internal and external directory links, file links, missing leaves, alias URI equality, and link replacement. |
 | Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt, and saved workspace symbol `references` stable-capture failure without partial reference locations. Dependency and paginated reference capture remain planned. |
-| Q06 schemas and errors | Implemented for workspace inventory, resources, `check_project`, `definition`, saved workspace symbol `references`, `search_docs`, and `read_doc` schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, protocol mapping, and advertised success and domain-failure result acceptance. Reference pagination, broader definition and reference coverage, package-documentation schemas, and conformance schemas remain planned. |
+| Q06 schemas and errors | Implemented for workspace inventory, resources, `check_project`, `definition`, saved workspace symbol `references`, package-documentation `search_docs` and `read_doc`, schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, protocol mapping, and advertised success and domain-failure result acceptance. Reference pagination, broader definition and reference coverage, and conformance schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
 | Q09 cursors | Cursor-only continuation, page concatenation, tamper, cross-server, restart, reuse, eviction, unrelated changes, byte restoration, and refresh. |
@@ -1059,8 +1053,6 @@ The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 Later slices are:
 
-1. Implement the ready
-   [MCP Package Documentation Tools](mcp-package-documentation-tools.md) slice.
 1. Extend the existing `veln mcp` server with dependency reference search,
    paginated references, recovery and casing-neutral symbol references, and
    definition beyond the package-backed symbol inventory.

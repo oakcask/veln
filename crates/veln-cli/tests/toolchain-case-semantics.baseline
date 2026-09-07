@@ -15097,10 +15097,42 @@ field	expectations.mcp_assertions[17].equals	"resource_not_found"
 field	expectations.mcp_assertions[17].id	12
 field	expectations.mcp_assertions[17].operation	"equals"
 field	expectations.mcp_assertions[17].path	"/error/data/code"
+field	expectations.mcp_assertions[18].equals	false
+field	expectations.mcp_assertions[18].id	13
+field	expectations.mcp_assertions[18].operation	"equals"
+field	expectations.mcp_assertions[18].path	"/result/isError"
+field	expectations.mcp_assertions[19].equals	"package"
+field	expectations.mcp_assertions[19].id	13
+field	expectations.mcp_assertions[19].operation	"equals"
+field	expectations.mcp_assertions[19].path	"/result/structuredContent/scope"
 field	expectations.mcp_assertions[1].equals	"example-bad-documentation-status"
 field	expectations.mcp_assertions[1].id	3
 field	expectations.mcp_assertions[1].operation	"equals"
 field	expectations.mcp_assertions[1].path	"/result/resources/11/name"
+field	expectations.mcp_assertions[20].equals	"veln-doc:///package/example%2Fdep/snapshot/096347ca6b0712467c3488e936b5d9098afcd0e69c6e11be98c89c97fe4f2a9b/documentation/a0c2519c0b82be2f8ec66bfe7fc428fd175acfc63c0c3591a6a1c3f627600adf/index"
+field	expectations.mcp_assertions[20].id	13
+field	expectations.mcp_assertions[20].operation	"equals"
+field	expectations.mcp_assertions[20].path	"/result/structuredContent/results/0/uri"
+field	expectations.mcp_assertions[21].contains	"- Package identity: example/dep"
+field	expectations.mcp_assertions[21].id	14
+field	expectations.mcp_assertions[21].operation	"contains"
+field	expectations.mcp_assertions[21].path	"/result/structuredContent/text"
+field	expectations.mcp_assertions[22].contains	"- Source path: api.veln"
+field	expectations.mcp_assertions[22].id	15
+field	expectations.mcp_assertions[22].operation	"contains"
+field	expectations.mcp_assertions[22].path	"/result/structuredContent/text"
+field	expectations.mcp_assertions[23].contains	"- State: failed"
+field	expectations.mcp_assertions[23].id	16
+field	expectations.mcp_assertions[23].operation	"contains"
+field	expectations.mcp_assertions[23].path	"/result/structuredContent/text"
+field	expectations.mcp_assertions[24].equals	true
+field	expectations.mcp_assertions[24].id	17
+field	expectations.mcp_assertions[24].operation	"equals"
+field	expectations.mcp_assertions[24].path	"/result/isError"
+field	expectations.mcp_assertions[25].equals	"resource_not_found"
+field	expectations.mcp_assertions[25].id	17
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/structuredContent/code"
 field	expectations.mcp_assertions[2].equals	"example-dep-documentation-index"
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -15134,6 +15166,8 @@ field	expectations.mcp_assertions[9].operation	"contains"
 field	expectations.mcp_assertions[9].path	"/result/contents/0/text"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"name\":\"example-dep-documentation-index\""
+field	expectations.stdout.contains[10]	"\"name\":\"example-dep-documentation-index\""
+field	expectations.stdout.contains[11]	"\"code\":\"resource_not_found\""
 field	expectations.stdout.contains[1]	"\"name\":\"example-bad-documentation-status\""
 field	expectations.stdout.contains[2]	"\"name\":\"package-documentation-module\""
 field	expectations.stdout.contains[3]	"\"name\":\"package-documentation-declaration\""
@@ -15141,12 +15175,13 @@ field	expectations.stdout.contains[4]	"# Package Documentation: example/dep"
 field	expectations.stdout.contains[5]	"# Module api"
 field	expectations.stdout.contains[6]	"# Function answer"
 field	expectations.stdout.contains[7]	"package_doc.unresolved_schema_reference"
-field	expectations.stdout.contains[8]	"\"code\":\"resource_not_found\""
+field	expectations.stdout.contains[8]	"\"scope\":\"package\""
+field	expectations.stdout.contains[9]	"\"title\":\"Veln package documentation: example/dep\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2274,"sha256":"4e22d95b3885294297f63e3f2e6c0e39a53ecef4ceafacd53c5bb1cd626021ed"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3674,"sha256":"34d261a269358aa23a576505f33e55aa0343894511f621e185f8e4aa4a3522e0"}
 field	source_errors	"forbidden"
-case_digest	"0c003ae244e6830a06047845bea2a6e1df29db33a0533e970ca3e9b9b2a20c6f"
+case_digest	"68bf08918839c2775e5ea26b807b1e7cdcd11a07af7a98359b35ab6895f70adf"
 case	"examples/specification/mcp/dependency-source-resources"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	false
@@ -54812,4 +54847,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"073fa98129244cfcffd8e9addf5f5a2ed0e9473a23dc8f385bef88efb4b5627a"
+aggregate_digest	"e849f4a14507f54d73dbb82f3c5b5af4c736436dff518ceee92dfbe93b0e3668"
