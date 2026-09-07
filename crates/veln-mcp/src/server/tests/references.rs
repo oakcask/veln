@@ -3,6 +3,32 @@ use std::cell::Cell;
 use std::rc::Rc;
 use veln_project::PackageSnapshotSource;
 
+struct WorkspaceSymbolCase {
+    name: &'static str,
+    files: Vec<(&'static str, &'static str)>,
+    source: &'static str,
+    line: usize,
+    column: usize,
+    ranges: Vec<(&'static str, usize, usize, usize, usize)>,
+}
+
+fn assert_workspace_symbol_cases(cases: impl IntoIterator<Item = WorkspaceSymbolCase>) {
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        for (path, text) in case.files {
+            workspace.write(path, text);
+        }
+        let result = references_result(&workspace, case.source, case.line, case.column);
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["scope"]["project_wide"], true,
+            "{}: {result:#}",
+            case.name
+        );
+        assert_reference_ranges(&result, &case.ranges, case.name);
+    }
+}
+
 #[test]
 fn references_return_sorted_project_function_locations_and_scope() {
     let workspace = TempWorkspace::new("references-project");
@@ -66,18 +92,9 @@ fn references_return_sorted_project_function_locations_and_scope() {
 }
 
 #[test]
-fn references_resolve_supported_workspace_symbol_classes() {
-    struct Case {
-        name: &'static str,
-        files: Vec<(&'static str, &'static str)>,
-        source: &'static str,
-        line: usize,
-        column: usize,
-        ranges: Vec<(&'static str, usize, usize, usize, usize)>,
-    }
-
+fn references_resolve_types_and_constructors() {
     let cases = [
-        Case {
+        WorkspaceSymbolCase {
             name: "type selected at declaration",
             files: vec![
                 ("veln.toml", ""),
@@ -111,7 +128,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
                 ("main.veln", 13, 5, 13, 9),
             ],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "type selected at bare use",
             files: vec![
                 ("veln.toml", ""),
@@ -134,7 +151,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 19,
             ranges: vec![("main.veln", 8, 16, 8, 20), ("main.veln", 8, 25, 8, 29)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "type selected at qualified use with collisions",
             files: vec![
                 ("veln.toml", ""),
@@ -171,7 +188,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
                 ("main.veln", 10, 41, 10, 45),
             ],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "constructor selected at declaration",
             files: vec![
                 ("veln.toml", ""),
@@ -199,7 +216,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 4,
             ranges: vec![("main.veln", 7, 3, 7, 8), ("main.veln", 12, 5, 12, 10)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "constructor selected at qualified call with collisions",
             files: vec![
                 ("veln.toml", ""),
@@ -231,7 +248,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 9,
             ranges: vec![("main.veln", 14, 9, 14, 14), ("main.veln", 19, 11, 19, 16)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "constructor selected at nullary expression",
             files: vec![
                 ("veln.toml", ""),
@@ -259,7 +276,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 4,
             ranges: vec![("main.veln", 7, 3, 7, 8), ("main.veln", 12, 5, 12, 10)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "constructor selected at bare pattern",
             files: vec![
                 ("veln.toml", ""),
@@ -287,7 +304,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 7,
             ranges: vec![("main.veln", 7, 3, 7, 8), ("main.veln", 12, 5, 12, 10)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "constructor selected through imported alias",
             files: vec![
                 ("veln.toml", ""),
@@ -312,7 +329,15 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 17,
             ranges: vec![("main.veln", 4, 17, 4, 21), ("main.veln", 9, 19, 9, 23)],
         },
-        Case {
+    ];
+
+    assert_workspace_symbol_cases(cases);
+}
+
+#[test]
+fn references_resolve_callable_and_local_bindings() {
+    let cases = [
+        WorkspaceSymbolCase {
             name: "callable value binding",
             files: vec![
                 ("veln.toml", ""),
@@ -333,7 +358,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 4,
             ranges: vec![("main.veln", 6, 3, 6, 7)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "function parameter with shadowing and field collision",
             files: vec![
                 ("veln.toml", ""),
@@ -352,7 +377,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 15,
             ranges: vec![("main.veln", 2, 15, 2, 20)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "result binding",
             files: vec![
                 ("veln.toml", ""),
@@ -371,7 +396,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 11,
             ranges: vec![("main.veln", 2, 10, 2, 16)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "local let binding starts after initializer",
             files: vec![
                 ("veln.toml", ""),
@@ -390,7 +415,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 4,
             ranges: vec![("main.veln", 3, 3, 3, 9)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "local pattern binding",
             files: vec![
                 ("veln.toml", ""),
@@ -412,7 +437,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 4,
             ranges: vec![("main.veln", 7, 3, 7, 8)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "match arm pattern binding",
             files: vec![
                 ("veln.toml", ""),
@@ -435,7 +460,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 20,
             ranges: vec![("main.veln", 7, 20, 7, 25)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "satisfy candidate binding",
             files: vec![
                 ("veln.toml", ""),
@@ -454,7 +479,15 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 32,
             ranges: vec![("main.veln", 2, 31, 2, 40)],
         },
-        Case {
+    ];
+
+    assert_workspace_symbol_cases(cases);
+}
+
+#[test]
+fn references_resolve_handler_bindings() {
+    let cases = [
+        WorkspaceSymbolCase {
             name: "handler context parameter",
             files: vec![
                 ("veln.toml", ""),
@@ -477,7 +510,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 22,
             ranges: vec![("main.veln", 7, 20, 7, 28), ("main.veln", 8, 18, 8, 26)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "handler context callable parameter with inner shadowing",
             files: vec![
                 ("veln.toml", ""),
@@ -503,7 +536,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 22,
             ranges: vec![("main.veln", 11, 20, 11, 28), ("main.veln", 11, 38, 11, 46)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "handler operation clause parameter",
             files: vec![
                 ("veln.toml", ""),
@@ -528,7 +561,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 16,
             ranges: vec![("main.veln", 6, 24, 6, 29), ("main.veln", 7, 13, 7, 18)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "handler operation callable clause parameter",
             files: vec![
                 ("veln.toml", ""),
@@ -549,7 +582,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
             column: 20,
             ranges: vec![("main.veln", 6, 19, 6, 25)],
         },
-        Case {
+        WorkspaceSymbolCase {
             name: "handler operation clause parameter with inner shadowing",
             files: vec![
                 ("veln.toml", ""),
@@ -580,20 +613,7 @@ fn references_resolve_supported_workspace_symbol_classes() {
         },
     ];
 
-    for case in cases {
-        let workspace = TempWorkspace::new(case.name);
-        for (path, text) in case.files {
-            workspace.write(path, text);
-        }
-        let result = references_result(&workspace, case.source, case.line, case.column);
-        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
-        assert_eq!(
-            result["structuredContent"]["scope"]["project_wide"], true,
-            "{}: {result:#}",
-            case.name
-        );
-        assert_reference_ranges(&result, &case.ranges, case.name);
-    }
+    assert_workspace_symbol_cases(cases);
 }
 
 #[test]
