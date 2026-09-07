@@ -3,6 +3,7 @@ fn same_constructor(left: &ConstructorSymbol, right: &ConstructorSymbol) -> bool
         && left.module == right.module
         && left.type_name == right.type_name
         && left.name == right.name
+        && left.package_origin == right.package_origin
         && left.declaration == right.declaration
 }
 
@@ -16,6 +17,8 @@ fn same_function(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
     left.package == right.package
         && left.module == right.module
         && left.name == right.name
+        && left.package_origin == right.package_origin
+        && left.declaration_kind == right.declaration_kind
         && left.standard_prelude == right.standard_prelude
         && left.declaration == right.declaration
 }
@@ -24,6 +27,7 @@ fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
     left.package == right.package
         && left.module == right.module
         && left.name == right.name
+        && left.package_origin == right.package_origin
         && left.standard_prelude == right.standard_prelude
         && left.declaration == right.declaration
 }
@@ -216,7 +220,8 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     let tokens = &file.tokens;
     for (index, token) in tokens.iter().enumerate() {
         if matches!(token.kind, TokenKind::Fn | TokenKind::Test)
-            && let Some(name) = next_non_layout_token(tokens, index)
+            && let Some(name_index) = next_non_layout_index(tokens, index)
+            && let Some(name) = tokens.get(name_index)
             && is_identifier(&name.text)
         {
             let span = file.source.span(name.range);
@@ -225,8 +230,13 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             }
             let public = previous_non_layout_token(tokens, index)
                 .is_some_and(|previous| previous.kind == TokenKind::Pub);
-            let (declaration, package, standard_prelude) = match &file.origin {
-                IndexedOrigin::Workspace => (workspace_location(span), None, false),
+            let declaration_kind = next_non_layout_token(tokens, name_index)
+                .filter(|token| token.range.start >= name.range.end)
+                .is_some_and(|token| token.kind == TokenKind::Equal)
+                .then_some(SymbolDeclarationKind::PublicAlias)
+                .unwrap_or(SymbolDeclarationKind::Declaration);
+            let (declaration, package, package_origin, standard_prelude) = match &file.origin {
+                IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
                 IndexedOrigin::Package {
                     identity,
                     uri,
@@ -242,6 +252,11 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                             span,
                         },
                         Some(identity.clone()),
+                        Some(if *standard_library {
+                            PackageOrigin::StandardLibrary
+                        } else {
+                            PackageOrigin::DirectDependency
+                        }),
                         *standard_library && file.module == "prelude",
                     )
                 }
@@ -251,8 +266,10 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                 name: name.text.clone(),
                 declaration,
                 package,
+                package_origin,
                 public,
                 standard_prelude,
+                declaration_kind,
             });
         }
     }
@@ -271,8 +288,8 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     return None;
                 }
                 let public = type_decl.visibility == Visibility::Public;
-                let (declaration, package, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => (workspace_location(span), None, false),
+                let (declaration, package, package_origin, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
                     IndexedOrigin::Package {
                         identity,
                         uri,
@@ -289,6 +306,11 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                                 span,
                             },
                             Some(identity.clone()),
+                            Some(if *standard_library {
+                                PackageOrigin::StandardLibrary
+                            } else {
+                                PackageOrigin::DirectDependency
+                            }),
                             *standard_library && file.module == "prelude",
                         )
                     }
@@ -298,6 +320,7 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     name: name.clone(),
                     declaration,
                     package,
+                    package_origin,
                     public,
                     standard_prelude,
                 })
@@ -325,7 +348,7 @@ fn constructor_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Cons
                 if is_invalid_declaration_name(file, &span) {
                     return None;
                 }
-                let (declaration, package, standard_prelude) =
+                let (declaration, package, package_origin, standard_prelude) =
                     constructor_navigation_origin(file, span, public)?;
                 Some(ConstructorSymbol {
                     module: file.module.clone(),
@@ -333,6 +356,7 @@ fn constructor_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Cons
                     name: name.clone(),
                     declaration,
                     package,
+                    package_origin,
                     public,
                     standard_prelude,
                 })
@@ -368,9 +392,9 @@ fn constructor_navigation_origin(
     file: &IndexedFile,
     span: SourceSpan,
     public: bool,
-) -> Option<(NavigationLocation, Option<String>, bool)> {
+) -> Option<(NavigationLocation, Option<String>, Option<PackageOrigin>, bool)> {
     match &file.origin {
-        IndexedOrigin::Workspace => Some((workspace_location(span), None, false)),
+        IndexedOrigin::Workspace => Some((workspace_location(span), None, None, false)),
         IndexedOrigin::Package {
             identity,
             uri,
@@ -386,6 +410,11 @@ fn constructor_navigation_origin(
                     span,
                 },
                 Some(identity.clone()),
+                Some(if *standard_library {
+                    PackageOrigin::StandardLibrary
+                } else {
+                    PackageOrigin::DirectDependency
+                }),
                 *standard_library && file.module == "prelude",
             ))
         }

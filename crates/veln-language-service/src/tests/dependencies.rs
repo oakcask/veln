@@ -595,6 +595,76 @@
     }
 
     #[test]
+    fn direct_dependency_public_function_alias_definition_has_no_references() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                concat!(
+                    "pub fn target(value: Int) -> Int\n",
+                    "  value + 1\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["math.veln"],
+        );
+        let result = dependency_query(dependency, "math::renamed(1)").unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(result.selected_symbol.declaration_kind, SymbolDeclarationKind::PublicAlias);
+        assert_eq!(result.selected_symbol.package_origin, Some(PackageOrigin::DirectDependency));
+        assert_eq!(result.definition.span.file.as_str(), "math.veln");
+        assert_eq!(
+            (
+                result.definition.span.start.line,
+                result.definition.span.start.column
+            ),
+            (5, 8)
+        );
+        assert!(matches!(
+            result.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert!(result.references.is_empty());
+    }
+
+    #[test]
+    fn explicit_non_prelude_standard_library_function_definition_has_no_references() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "api.veln",
+                "pub fn exported(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use api from \"std\"\n\n",
+                "pub fn first(value: Int) -> Int\n",
+                "  api::exported(value)\n",
+                "end\n\n",
+                "pub fn second(value: Int) -> Int\n",
+                "  api::exported(value)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+        let result = query_snapshot(&snapshot, "main.veln", 4, 9).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(result.selected_symbol.declaration_kind, SymbolDeclarationKind::Declaration);
+        assert_eq!(result.selected_symbol.package_origin, Some(PackageOrigin::StandardLibrary));
+        assert_eq!(result.definition.span.file.as_str(), "api.veln");
+        assert!(matches!(
+            result.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert!(result.references.is_empty());
+    }
+
+    #[test]
     fn direct_dependency_invalid_function_casing_is_not_navigable() {
         let dependency = dependency_snapshot(
             "example/pkg",

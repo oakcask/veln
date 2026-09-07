@@ -138,12 +138,27 @@ pub struct SelectedSymbol {
     pub kind: SymbolKind,
     pub name: String,
     pub declaration: NavigationLocation,
+    pub declaration_kind: SymbolDeclarationKind,
+    pub package_origin: Option<PackageOrigin>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NavigationSource {
     Workspace,
     Package { uri: String },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SymbolDeclarationKind {
+    Declaration,
+    PublicAlias,
+    Recovery,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PackageOrigin {
+    DirectDependency,
+    StandardLibrary,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -247,6 +262,8 @@ impl Symbol {
             kind: self.kind(),
             name: self.name().to_string(),
             declaration,
+            declaration_kind: self.declaration_kind(),
+            package_origin: self.package_origin(),
         }
     }
 
@@ -294,6 +311,23 @@ impl Symbol {
     fn is_recovery(&self) -> bool {
         matches!(self, Self::Recovery(_))
     }
+
+    fn declaration_kind(&self) -> SymbolDeclarationKind {
+        match self {
+            Self::Function(symbol) => symbol.declaration_kind,
+            Self::Recovery(_) => SymbolDeclarationKind::Recovery,
+            _ => SymbolDeclarationKind::Declaration,
+        }
+    }
+
+    fn package_origin(&self) -> Option<PackageOrigin> {
+        match self {
+            Self::Function(symbol) => symbol.package_origin,
+            Self::Type(symbol) => symbol.package_origin,
+            Self::Constructor(symbol) => symbol.package_origin,
+            _ => None,
+        }
+    }
 }
 
 impl LocalSymbolKind {
@@ -327,8 +361,10 @@ struct FunctionSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
+    declaration_kind: SymbolDeclarationKind,
 }
 
 #[derive(Clone, Debug)]
@@ -337,6 +373,7 @@ struct TypeSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
 }
@@ -348,6 +385,7 @@ struct ConstructorSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
 }

@@ -69,6 +69,11 @@ impl SymbolIndex {
     }
 
     fn function_references(&self, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
+        if symbol.declaration_kind != SymbolDeclarationKind::Declaration
+            || symbol.package_origin == Some(PackageOrigin::StandardLibrary)
+        {
+            return Vec::new();
+        }
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
@@ -83,7 +88,7 @@ impl SymbolIndex {
     ) -> bool {
         match &symbol.package {
             Some(package) => {
-                !symbol.standard_prelude
+                symbol.package_origin == Some(PackageOrigin::DirectDependency)
                     && symbol.public
                     && file
                         .external_uses

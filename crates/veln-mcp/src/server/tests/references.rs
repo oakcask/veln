@@ -1,6 +1,7 @@
 use super::*;
 use std::cell::Cell;
 use std::rc::Rc;
+use veln_project::PackageSnapshotSource;
 
 #[test]
 fn references_return_sorted_project_function_locations_and_scope() {
@@ -731,6 +732,101 @@ fn references_keep_direct_dependency_function_identity_boundaries() {
         &result,
         &[("main.veln", 6, 9, 6, 15)],
         "dependency function identity",
+    );
+}
+
+#[test]
+fn references_keep_package_function_alias_and_standard_library_boundaries_empty() {
+    let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
+    alias_workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    alias_workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "pub fn main() -> Int\n",
+            "  dep::renamed()\n",
+            "end\n",
+        ),
+    );
+    alias_workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    alias_workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub fn target() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "pub fn renamed = target\n",
+        ),
+    );
+    let mut alias_server = initialized_server(&alias_workspace);
+
+    let alias_definition =
+        alias_server.definition_tool(&json!({"source":"main.veln","line":4,"column":8}));
+    assert_eq!(alias_definition["isError"], false, "{alias_definition:#}");
+    let alias_uri = alias_definition["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap();
+    assert!(alias_uri.starts_with("veln-pkg:///example%2Fdep/snapshot/"));
+    assert!(alias_uri.ends_with("/dep.veln"));
+    assert_eq!(
+        alias_definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":5,"column":8},"end":{"line":5,"column":15}})
+    );
+    let alias_references =
+        alias_server.references_tool(&json!({"source":"main.veln","line":4,"column":8}));
+    assert_eq!(alias_references["isError"], false, "{alias_references:#}");
+    assert_eq!(
+        alias_references["structuredContent"]["references"],
+        json!([]),
+        "{alias_references:#}"
+    );
+
+    let std_workspace = TempWorkspace::new("references-standard-library-boundary");
+    std_workspace.write("veln.toml", "");
+    std_workspace.write(
+        "main.veln",
+        concat!(
+            "use math from \"std\"\n\n",
+            "fn first(value: Int) -> Int\n",
+            "  math::exported(value)\n",
+            "end\n\n",
+            "fn second(value: Int) -> Int\n",
+            "  math::exported(value)\n",
+            "end\n",
+        ),
+    );
+    let mut std_server = initialized_server(&std_workspace);
+    std_server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "math.veln",
+            b"pub fn exported(value: Int) -> Int\n  value\nend\n",
+        )],
+    );
+
+    let std_definition =
+        std_server.definition_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(std_definition["isError"], false, "{std_definition:#}");
+    let std_uri = std_definition["structuredContent"]["definition"]["uri"]
+        .as_str()
+        .unwrap_or_else(|| {
+            panic!("standard library definition should resolve: {std_definition:#}")
+        });
+    assert!(std_uri.starts_with("veln-pkg:///std/snapshot/"));
+    assert!(std_uri.ends_with("/math.veln"));
+    let std_references =
+        std_server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
+    assert_eq!(std_references["isError"], false, "{std_references:#}");
+    assert_eq!(
+        std_references["structuredContent"]["references"],
+        json!([]),
+        "{std_references:#}"
     );
 }
 

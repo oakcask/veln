@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
 use veln_language_service::{
-    NavigationResult, NavigationSource, SourcePosition, SymbolKind, navigate,
+    NavigationResult, NavigationSource, PackageOrigin, SourcePosition, SymbolDeclarationKind,
+    SymbolKind, navigate,
 };
 use veln_source::{SourcePath, SourceSpan};
 
@@ -86,7 +87,9 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
                 | SymbolKind::HandlerOperationClauseParameter
         ),
         NavigationSource::Package { .. } => {
-            matches!(result.selected_symbol.kind, SymbolKind::Function)
+            result.selected_symbol.kind == SymbolKind::Function
+                && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
+                && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
         }
     }
 }
