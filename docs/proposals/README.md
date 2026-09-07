@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Return references to visible direct-dependency functions from the selected
+  saved workspace project through the existing MCP `references` tool:
+  [mcp-saved-dependency-function-references.md](mcp-saved-dependency-function-references.md).
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.
@@ -34,8 +36,9 @@ another page is not a selectable target.
 - The agent-language-services umbrella remains a planning inventory. Its
   saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
-  definition-link, and package-documentation tool slices are implemented. Do
-  not select the umbrella directly:
+  definition-link, and package-documentation tool slices are implemented. Its
+  direct-dependency function-reference slice is separately listed under
+  Ready. Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
