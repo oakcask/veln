@@ -242,13 +242,15 @@ Package-documentation candidates rank by the first matching tier:
 | 1 | The complete normalized query equals the package identity, module ID, declaration ID, or rendered title. |
 | 2 | The package identity, module ID, declaration ID, or rendered title starts with the complete normalized query. |
 | 3 | Every token occurs in the rendered title, package keywords, or the candidate-specific name field. For an index candidate, the name field is the manifest package name. For a module candidate, it is the module name. For a declaration candidate, it is the declaration name. |
-| 4 | Every token occurs in the rendered description or declaration signature. |
+| 4 | Every token occurs in the candidate summary or declaration signature. The summary is the manifest package description for an index candidate and the first documentation line for a module or declaration candidate. |
 | 5 | Every token occurs in catalog-owned documentation text, constructor documentation, or contract text. |
 
-For package-documentation results, one exact resource URI appears at most
-once. Different retained snapshot or documentation digests remain distinct.
-Equal-rank results sort by exact resource URI UTF-8 bytes across the complete
-selected scope.
+Package-documentation candidates use the same first matching tier, result
+shape, excerpt, truncation-flag, no-match, and no-cursor behavior as language
+topic results. For package-documentation results, one exact resource URI
+appears at most once. Different retained snapshot or documentation digests
+remain distinct. Equal-rank results sort by exact resource URI UTF-8 bytes
+across the complete selected scope.
 
 `read_doc` accepts one exact `uri` for the checked language index, checked
 language topic resources, or retained package-documentation index, status,
