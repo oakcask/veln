@@ -8,9 +8,10 @@ mod virtual_source;
 use uri_encoding::encoded_uri_segment;
 
 pub use navigation::{
-    NavigationLocation, NavigationResult, NavigationSource, RenameAffectedScope, RenameFailure,
-    RenameFailureKind, RenameNameClass, RenameRequiredInitial, SelectedSymbol, SourcePosition,
-    SymbolKind, navigate, validate_rename, validate_rename_in_snapshot,
+    NavigationLocation, NavigationResult, NavigationSource, PackageOrigin, RenameAffectedScope,
+    RenameFailure, RenameFailureKind, RenameNameClass, RenameRequiredInitial, SelectedSymbol,
+    SourcePosition, SymbolDeclarationKind, SymbolKind, navigate, validate_rename,
+    validate_rename_in_snapshot,
 };
 pub use package_documentation::{
     PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE, PackageDocAlias, PackageDocCatalog,

@@ -1,0 +1,10 @@
+use dep from "example/dep"
+
+pub fn first(value: Int) -> Int
+  dep::increase(value)
+end
+
+pub fn second(value: Int) -> Int
+  let callback: fn(Int) -> Int = dep::increase
+  callback(dep::increase(value))
+end

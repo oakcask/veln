@@ -47,6 +47,7 @@ impl SymbolIndex {
             name: symbol.name,
             declaration: workspace_location(symbol.declaration),
             package: None,
+            package_origin: None,
             public: symbol.public,
             standard_prelude: false,
         };
@@ -85,6 +86,7 @@ impl SymbolIndex {
             name: symbol.name,
             declaration: workspace_location(symbol.declaration),
             package: None,
+            package_origin: None,
             public: symbol.public,
             standard_prelude: false,
         };
@@ -128,8 +130,10 @@ impl SymbolIndex {
             name: symbol.name,
             declaration: workspace_location(symbol.declaration),
             package: None,
+            package_origin: None,
             public: symbol.public,
             standard_prelude: false,
+            declaration_kind: SymbolDeclarationKind::Declaration,
         };
         self.function_module_conflict(&selected, requested_name)
             .or_else(|| self.function_post_rename_visibility_conflict(&selected, requested_name))
