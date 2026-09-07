@@ -230,11 +230,14 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             }
             let public = previous_non_layout_token(tokens, index)
                 .is_some_and(|previous| previous.kind == TokenKind::Pub);
-            let declaration_kind = next_non_layout_token(tokens, name_index)
+            let is_public_alias = next_non_layout_token(tokens, name_index)
                 .filter(|token| token.range.start >= name.range.end)
-                .is_some_and(|token| token.kind == TokenKind::Equal)
-                .then_some(SymbolDeclarationKind::PublicAlias)
-                .unwrap_or(SymbolDeclarationKind::Declaration);
+                .is_some_and(|token| token.kind == TokenKind::Equal);
+            let declaration_kind = if is_public_alias {
+                SymbolDeclarationKind::PublicAlias
+            } else {
+                SymbolDeclarationKind::Declaration
+            };
             let (declaration, package, package_origin, standard_prelude) = match &file.origin {
                 IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
                 IndexedOrigin::Package {
