@@ -132,6 +132,45 @@ impl LanguageResources {
         *self = replacement;
     }
 
+    #[cfg(test)]
+    pub(crate) fn replace_test_standard_library<'a>(
+        &mut self,
+        manifest: &str,
+        sources: impl IntoIterator<Item = PackageSnapshotSource<'a>>,
+    ) {
+        let standard_library = StandardLibraryResources::from_embedded_inputs(manifest, sources)
+            .expect("test standard library resources should build");
+        let mut retained_package_keys = self
+            .retained_package_keys
+            .iter()
+            .filter(|key| key.identity != "std")
+            .cloned()
+            .collect::<Vec<_>>();
+        retained_package_keys.push(standard_library.key.clone());
+        let mut package_docs = self
+            .package_docs
+            .iter()
+            .filter(|(key, _)| key.identity != "std")
+            .map(|(key, result)| (key.clone(), result.clone()))
+            .collect::<Vec<_>>();
+        package_docs.push((
+            standard_library.key.clone(),
+            standard_library.package_doc_result.clone(),
+        ));
+        let replacement = Self::from_parts(
+            self.by_uri.values().cloned().collect(),
+            self.topics.clone(),
+            standard_library.resources,
+            retained_package_keys,
+            package_docs,
+            Some(standard_library.snapshot.clone()),
+            EffectiveProjectSnapshot::new(Vec::new())
+                .with_standard_library(standard_library.snapshot),
+        )
+        .expect("test standard library resources should be unique");
+        *self = replacement;
+    }
+
     fn from_parts(
         resources: Vec<RenderedResource>,
         topics: Vec<LanguageTopic>,
@@ -493,7 +532,7 @@ fn package_search_candidates(
             summary: first_doc_line(&module.doc).unwrap_or_default(),
             keywords: keywords.clone(),
             signature: None,
-            documentation: module.doc.clone(),
+            documentation: searchable_doc_lines(&module.doc),
         });
         candidates.extend(
             module
@@ -527,18 +566,32 @@ fn declaration_search_candidate(
 }
 
 fn declaration_documentation(declaration: &PackageDocDeclaration) -> Vec<String> {
-    declaration
-        .doc
-        .iter()
-        .chain(
-            declaration
-                .constructors
-                .iter()
-                .flat_map(|constructor| constructor.doc.iter()),
-        )
-        .chain(declaration.contracts.iter().map(|contract| &contract.text))
-        .cloned()
-        .collect()
+    let mut documentation = searchable_doc_lines(&declaration.doc);
+    for constructor in &declaration.constructors {
+        documentation.extend(searchable_doc_lines(&constructor.doc));
+    }
+    documentation.extend(
+        declaration
+            .contracts
+            .iter()
+            .map(|contract| contract.text.clone()),
+    );
+    documentation
+}
+
+fn searchable_doc_lines(lines: &[String]) -> Vec<String> {
+    let mut in_fence = false;
+    let mut searchable = Vec::new();
+    for line in lines {
+        if line.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if !in_fence {
+            searchable.push(line.clone());
+        }
+    }
+    searchable
 }
 
 fn first_doc_line(lines: &[String]) -> Option<String> {
