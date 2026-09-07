@@ -404,14 +404,28 @@ status-only package-documentation results, unpublished declarations,
 unsupported symbol classes, and any package location that does not match a
 retained package-documentation location for that snapshot.
 
-`references` exposes the shared language-service workspace reference result
-for non-recovery workspace functions, types, constructors, value bindings,
-handler context parameters, and handler operation clause parameters. It does
-not expose recovery, package, dependency, standard-library, virtual, schema,
-effect, handler, or effect-operation reference locations. A selected supported
-workspace symbol returns sorted canonical `file:` locations for reference sites
-only, excluding the selected declaration, plus scope metadata. A valid
-position without a supported workspace symbol succeeds with an empty
+`references` exposes the shared language-service reference result for
+non-recovery workspace functions, types, constructors, value bindings, handler
+context parameters, and handler operation clause parameters. It also exposes
+references to public functions from exported modules of one retained direct
+dependency when the selected project source uses the exact visible external
+import required by name resolution. Dependency function results include only
+qualified call targets and qualified function-value occurrences in the
+selected project's captured owned sources. They exclude the dependency
+declaration, dependency source bodies, other selected projects, equal spellings
+with different package or module identity, import-alias declaration segments,
+fields, strings, comments, and lexical bindings. Standard-library functions,
+transitive dependencies, private functions, non-exported dependency modules,
+invalid-casing records, recovery records, aliases, non-function package
+symbols, package module-segment selections, and anonymous single-file
+selections succeed with an empty `references` array. `references` does not
+expose recovery, standard-library, virtual, schema, effect, handler, or
+effect-operation reference locations.
+
+A selected supported symbol returns sorted canonical `file:` locations for
+reference sites only, excluding the selected declaration, plus scope metadata.
+Dependency function references never return `veln-pkg:` locations. A valid
+position without a supported reference symbol succeeds with an empty
 `references` array. Selected manifest sources report project scope metadata
 with `project_wide: true`. Sources outside the selected project-owned source
 set report single-file scope metadata with `project_wide: false`.
@@ -433,9 +447,9 @@ anonymous source bytes belong to the same stable capture attempt.
 `snapshot_changed` definition failures publish no success-only `definition`
 member. After bounded retry exhaustion, `snapshot_changed` references failures
 publish no success-only `references` locations or scope member.
-If dependency resource admission exceeds retained package capacity after
-navigation succeeds, `definition` and `references` return `resource_capacity`
-and publish no success-only `definition`, `references`, or scope member.
+If dependency resource admission exceeds retained package capacity for the
+operation, `definition` and `references` return `resource_capacity` and publish
+no success-only `definition`, `references`, or scope member.
 When `definition` returns a direct-dependency package URI, the same successful
 operation has admitted the dependency snapshot. `resources/read` for the exact
 returned URI returns the captured UTF-8 source text for that immutable package
@@ -511,6 +525,13 @@ ordinary calls, workspace type references, workspace constructor references,
 workspace value-binding references, handler operation clause parameter
 references, unsupported schema success, function-shaped recovery exclusion,
 invalid positions, and schema-invalid coordinates over stdio.
+The `references-dependency-function` MCP specification case checks that a
+saved selected project returns only workspace `file:` locations for a visible
+direct-dependency function selected through a qualified call or qualified
+function-value occurrence, excludes the dependency declaration and dependency
+source body, keeps unsupported import-alias segment selection successful and
+empty, reports project-wide scope, and admits the dependency source resource in
+the same session.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.

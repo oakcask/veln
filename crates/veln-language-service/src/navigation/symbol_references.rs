@@ -50,22 +50,13 @@ impl SymbolIndex {
     }
 
     fn references_in_file(&self, file: &IndexedFile, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
-        if symbol.package.is_some() {
-            return Vec::new();
-        }
         if !matches!(file.origin, IndexedOrigin::Workspace) {
             return Vec::new();
         }
-        if file.module == symbol.module {
+        if symbol.package.is_none() && file.module == symbol.module {
             return call_references(file, &symbol.name);
         }
-        if file.uses.contains(&symbol.module)
-            && (symbol.public
-                || file
-                    .companion_target_module
-                    .as_ref()
-                    .is_some_and(|target| target == &symbol.module))
-        {
+        if self.function_references_visible_from(file, symbol) {
             return self
                 .qualifiers_for_module(file, &symbol.module, symbol.package.as_deref())
                 .into_iter()
@@ -83,6 +74,30 @@ impl SymbolIndex {
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| self.references_in_file(file, symbol))
             .collect()
+    }
+
+    fn function_references_visible_from(
+        &self,
+        file: &IndexedFile,
+        symbol: &FunctionSymbol,
+    ) -> bool {
+        match &symbol.package {
+            Some(package) => {
+                !symbol.standard_prelude
+                    && symbol.public
+                    && file
+                        .external_uses
+                        .contains(&(symbol.module.clone(), package.clone()))
+            }
+            None => {
+                file.uses.contains(&symbol.module)
+                    && (symbol.public
+                        || file
+                            .companion_target_module
+                            .as_ref()
+                            .is_some_and(|target| target == &symbol.module))
+            }
+        }
     }
 
     fn qualified_function_references(

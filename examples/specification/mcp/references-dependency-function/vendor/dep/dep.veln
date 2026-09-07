@@ -1,0 +1,3 @@
+pub fn increase(value: Int) -> Int
+  increase(value - 1)
+end

@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 use veln_language_service::{
-    EffectiveProjectSnapshot, NavigationSource, SourcePosition, SymbolKind, navigate,
+    NavigationResult, NavigationSource, SourcePosition, SymbolKind, navigate,
 };
 use veln_source::{SourcePath, SourceSpan};
 
@@ -44,7 +44,12 @@ pub(crate) fn references(
     };
 
     let root = captured.project.root.clone();
-    let snapshot = EffectiveProjectSnapshot::new(captured.project.files);
+    let dependencies = match language_resources.admit_dependencies(&captured.dependencies) {
+        Ok(dependencies) => dependencies,
+        Err(error) => return error.into(),
+    };
+    let snapshot =
+        language_resources.with_dependency_navigation(captured.project.files, dependencies);
     let references = navigate(
         &snapshot,
         SourcePosition {
@@ -53,11 +58,7 @@ pub(crate) fn references(
             column,
         },
     )
-    .filter(|result| {
-        supported_workspace_reference_symbol(result.selected_symbol.kind)
-            && !result.is_recovery
-            && matches!(result.definition.source, NavigationSource::Workspace)
-    })
+    .filter(|result| supported_reference_symbol(result) && !result.is_recovery)
     .map(|result| {
         result
             .references
@@ -67,25 +68,27 @@ pub(crate) fn references(
     })
     .unwrap_or_default();
 
-    if let Err(error) = language_resources.admit_dependencies(&captured.dependencies) {
-        return error.into();
-    }
     ToolOutcome::Success(json!({
         "references": references,
         "scope": scope.metadata(selection.generation())
     }))
 }
 
-fn supported_workspace_reference_symbol(kind: SymbolKind) -> bool {
-    matches!(
-        kind,
-        SymbolKind::Type
-            | SymbolKind::Function
-            | SymbolKind::Constructor
-            | SymbolKind::ValueBinding
-            | SymbolKind::HandlerContextParameter
-            | SymbolKind::HandlerOperationClauseParameter
-    )
+fn supported_reference_symbol(result: &NavigationResult) -> bool {
+    match result.definition.source {
+        NavigationSource::Workspace => matches!(
+            result.selected_symbol.kind,
+            SymbolKind::Type
+                | SymbolKind::Function
+                | SymbolKind::Constructor
+                | SymbolKind::ValueBinding
+                | SymbolKind::HandlerContextParameter
+                | SymbolKind::HandlerOperationClauseParameter
+        ),
+        NavigationSource::Package { .. } => {
+            matches!(result.selected_symbol.kind, SymbolKind::Function)
+        }
+    }
 }
 
 fn location_json(root: &std::path::Path, span: &SourceSpan) -> Value {

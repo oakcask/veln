@@ -496,6 +496,105 @@
     }
 
     #[test]
+    fn direct_dependency_function_references_cover_qualified_calls_and_values() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                concat!(
+                    "pub fn increment(value: Int) -> Int\n",
+                    "  increment(value - 1)\n",
+                    "end\n",
+                ),
+            )],
+            ["math.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use math from \"example/pkg\"\n\n",
+                        "pub fn first(value: Int) -> Int\n",
+                        "  math::increment(value)\n",
+                        "end\n\n",
+                        "pub fn second(value: Int) -> Int\n",
+                        "  let callback: fn(Int) -> Int = math::increment\n",
+                        "  callback(math::increment(value))\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use math from \"example/pkg\"\n\n",
+                        "pub fn other(value: Int) -> Int\n",
+                        "  math::increment(value)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        for (line, column) in [(4, 10), (8, 40), (9, 18)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(result.definition.span.file.as_str(), "math.veln");
+            assert!(matches!(
+                result.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 4, 9),
+                    ("main.veln", 8, 40),
+                    ("main.veln", 9, 18),
+                    ("other.veln", 4, 9),
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn direct_dependency_function_references_keep_identity_boundaries() {
+        let selected = dependency_snapshot(
+            "example/pkg",
+            &[("lib/math.veln", "pub fn increment(value: Int) -> Int\n  value + 1\nend\n")],
+            ["lib/math.veln"],
+        );
+        let collision = dependency_snapshot(
+            "other/pkg",
+            &[("other_math.veln", "pub fn increment(value: Int) -> Int\n  value + 2\nend\n")],
+            ["other_math.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use lib::math from \"example/pkg\"\n",
+                        "use other_math from \"other/pkg\"\n\n",
+                        "pub fn read(record: {field: Int}, value: Int) -> Int\n",
+                        "  let local = value\n",
+                        "  math::increment(value)\n",
+                        "  other_math::increment(value)\n",
+                        "  record.field + local\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![selected, collision],
+        );
+
+        let result = query_snapshot(&snapshot, "main.veln", 6, 10).unwrap();
+
+        assert_eq!(result.definition.span.file.as_str(), "lib/math.veln");
+        assert_eq!(locations(&result.references), [("main.veln", 6, 9)]);
+    }
+
+    #[test]
     fn direct_dependency_invalid_function_casing_is_not_navigable() {
         let dependency = dependency_snapshot(
             "example/pkg",
