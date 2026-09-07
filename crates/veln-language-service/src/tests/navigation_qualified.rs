@@ -587,7 +587,7 @@ mod navigation_qualified_and_package_tests {
         assert!(uri.starts_with("veln-pkg:///example%2Fpkg/snapshot/"));
         assert!(uri.ends_with("/math.veln"));
         assert!(!uri.contains("veln-language-service-navigation"));
-        assert!(result.references.is_empty());
+        assert_eq!(locations(&result.references), [("main.veln", 4, 9)]);
     }
 
     #[test]
