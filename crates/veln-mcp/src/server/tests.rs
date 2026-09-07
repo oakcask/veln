@@ -32,8 +32,12 @@ fn initialized_server(workspace: &TempWorkspace) -> Server {
         base,
         selection,
         initialized: true,
-        language_resources: LanguageResources::for_test(Vec::new(), Vec::new()),
+        language_resources: minimal_language_resources(),
     }
+}
+
+fn minimal_language_resources() -> LanguageResources {
+    LanguageResources::for_test(Vec::new(), Vec::new())
 }
 
 fn initialized_server_with_embedded_resources(workspace: &TempWorkspace) -> Server {
@@ -43,12 +47,11 @@ fn initialized_server_with_embedded_resources(workspace: &TempWorkspace) -> Serv
 }
 
 #[test]
-fn initialized_server_avoids_embedded_language_resources() {
-    let workspace = TempWorkspace::new("minimal-language-resources");
-    let server = initialized_server(&workspace);
+fn minimal_language_resources_avoid_embedded_resources() {
+    let resources = minimal_language_resources();
 
     assert!(
-        server.language_resources.list_result()["resources"]
+        resources.list_result()["resources"]
             .as_array()
             .unwrap()
             .is_empty()
