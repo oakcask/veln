@@ -48,7 +48,7 @@ fn assert_standard_prelude_navigation(server: &mut Server, main_uri: &str) -> St
     );
     assert!(
         implicit[0].contains(
-            r#""range":{"start":{"line":98,"character":7},"end":{"line":98,"character":11}}"#
+            r#""range":{"start":{"line":97,"character":7},"end":{"line":97,"character":11}}"#
         ),
         "{}",
         implicit[0]
