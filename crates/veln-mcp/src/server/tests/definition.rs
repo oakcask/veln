@@ -381,6 +381,27 @@ fn workspace_definition_omits_package_documentation_link() {
 }
 
 #[test]
+fn repeated_workspace_definitions_reuse_navigation() {
+    let workspace = TempWorkspace::new("definition-reused-workspace-navigation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper() -> Int\n  1\nend\n\nfn main() -> Int\n  helper()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    crate::language_resources::reset_workspace_navigation_builds();
+
+    for (line, column) in [(1, 4), (6, 4)] {
+        let result =
+            server.definition_tool(&json!({"source":"main.veln","line":line,"column":column}));
+        assert_eq!(result["isError"], false, "{result:#}");
+        assert!(result["structuredContent"]["definition"].is_object());
+    }
+
+    assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
+}
+
+#[test]
 fn definition_prepares_each_dependency_snapshot_once() {
     let workspace = TempWorkspace::new("definition-single-dependency-snapshot");
     write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
@@ -398,6 +419,7 @@ fn repeated_definitions_reuse_the_dependency_navigation_base() {
     write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
     let mut server = initialized_server(&workspace);
     crate::language_resources::reset_dependency_navigation_builds();
+    crate::language_resources::reset_workspace_navigation_builds();
 
     for (line, column) in [(3, 25), (13, 19)] {
         let result =
@@ -407,6 +429,7 @@ fn repeated_definitions_reuse_the_dependency_navigation_base() {
     }
 
     assert_eq!(crate::language_resources::dependency_navigation_builds(), 1);
+    assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
 }
 
 #[test]
@@ -621,6 +644,7 @@ fn definition_retains_package_snapshot_bytes_across_dependency_changes() {
     let workspace = TempWorkspace::new("definition-package-snapshot-lifetime");
     write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
     let mut server = initialized_server(&workspace);
+    crate::language_resources::reset_workspace_navigation_builds();
 
     let first = server.definition_tool(&json!({"source":"main.veln","line":13,"column":19}));
     let first_uri = first["structuredContent"]["definition"]["uri"]
@@ -665,6 +689,7 @@ fn definition_retains_package_snapshot_bytes_across_dependency_changes() {
         read_resource(&mut server, &second_doc_uri)["result"]["contents"][0]["uri"],
         second_doc_uri
     );
+    assert_eq!(crate::language_resources::workspace_navigation_builds(), 2);
 }
 
 #[test]

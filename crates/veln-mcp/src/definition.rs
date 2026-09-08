@@ -3,7 +3,7 @@ use std::path::Path;
 use serde_json::{Value, json};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
-use veln_language_service::{NavigationSource, SourcePosition, navigate};
+use veln_language_service::{NavigationSource, SourcePosition, definition_at};
 use veln_source::SourcePath;
 
 use crate::check_project::capture_navigation_source;
@@ -50,41 +50,43 @@ pub(crate) fn definition(
     };
 
     let root = captured.project.root.clone();
+    let workspace_key = captured.key;
     let dependencies = match language_resources.admit_dependencies(&captured.dependencies) {
         Ok(dependencies) => dependencies,
         Err(error) => return error.into(),
     };
-    let snapshot =
-        language_resources.with_dependency_navigation(captured.project.files, dependencies);
-    let result = navigate(
-        &snapshot,
+    let snapshot = language_resources.with_dependency_navigation(
+        captured.project.files,
+        dependencies,
+        workspace_key,
+    );
+    let result = definition_at(
+        snapshot.as_ref(),
         SourcePosition {
             source: SourcePath::new(captured_source),
             line,
             column,
         },
     );
-    let definition = result.map(|result| {
-        let uri = match result.definition.source {
-            NavigationSource::Workspace => {
-                path_to_uri(&root.join(result.definition.span.file.as_str()))
-            }
-            NavigationSource::Package { ref uri } => uri.clone(),
+    let definition = result.map(|definition| {
+        let uri = match &definition.source {
+            NavigationSource::Workspace => path_to_uri(&root.join(definition.span.file.as_str())),
+            NavigationSource::Package { uri } => uri.clone(),
         };
         let mut location = json!({
             "uri": uri,
             "range": {
                 "start": {
-                    "line": result.definition.span.start.line,
-                    "column": result.definition.span.start.column
+                    "line": definition.span.start.line,
+                    "column": definition.span.start.column
                 },
                 "end": {
-                    "line": result.definition.span.end.line,
-                    "column": result.definition.span.end.column
+                    "line": definition.span.end.line,
+                    "column": definition.span.end.column
                 }
             }
         });
-        if let Some(uri) = language_resources.package_documentation_uri_for(&result.definition) {
+        if let Some(uri) = language_resources.package_documentation_uri_for(&definition) {
             location["packageDocumentationUri"] = json!(uri);
         }
         location

@@ -241,7 +241,7 @@ fn run_after_first_stable_capture_hook() {
 pub(crate) struct CapturedProject {
     pub(crate) project: Project,
     pub(crate) dependencies: Vec<CapturedDependencyProject>,
-    pub(super) key: Value,
+    pub(crate) key: Value,
 }
 
 fn capture_once(target: &Target) -> io::Result<CapturedProject> {
