@@ -9,38 +9,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         args: &[IrExpr],
     ) {
         match target {
-            IrCallTarget::Function(name) => {
-                for arg in args {
-                    self.emit_expr(code, arg);
-                }
-                code.invokestatic(
-                    &self.program.options.program_class,
-                    &self.program.function_name(name),
-                    &object_method_descriptor(args.len()),
-                );
-            }
+            IrCallTarget::Function(name) => self.emit_program_function_call(code, name, args),
             IrCallTarget::CodecDecode { function, codec } => {
-                let [view, base_offset] = args else {
-                    panic!(
-                        "codec decode boundary call should receive ByteView and ByteOffset arguments"
-                    );
-                };
-                self.emit_expr(code, view);
-                self.emit_expr(code, base_offset);
-                for arg in args {
-                    self.emit_expr(code, arg);
-                }
-                code.invokestatic(
-                    &self.program.options.program_class,
-                    &self.program.function_name(function),
-                    &object_method_descriptor(args.len()),
-                );
-                code.ldc_string(codec);
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "validateCodecDecodeStep",
-                    "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-                );
+                self.emit_codec_decode_call(code, function, codec, args)
             }
             IrCallTarget::SchemaDecode(name) => {
                 self.emit_schema_decode_call(code, name, args);
@@ -63,18 +34,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::SchemaValidate(name) => {
                 self.emit_schema_validate_call(code, name, args);
             }
-            IrCallTarget::StdioBuiltin(name) => {
-                for arg in args {
-                    self.emit_expr(code, arg);
-                }
-                code.ldc_string(&expr.node_id.display("call"));
-                code.ldc_string(expr.span.file.as_str());
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    stdio_method(name),
-                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;",
-                );
-            }
+            IrCallTarget::StdioBuiltin(name) => self.emit_stdio_call(code, expr, name, args),
             IrCallTarget::ConcurrencyBuiltin(name) => {
                 self.emit_runtime_call(code, concurrency_method(name), args);
             }
@@ -84,18 +44,71 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::PreludeBuiltin(name) => {
                 self.emit_runtime_call(code, prelude_method(name), args);
             }
-            IrCallTarget::Value(name) => {
-                code.aload(self.local_slot(name));
-                self.emit_object_array(code, args.len(), |this, code, index| {
-                    this.emit_expr(code, &args[index]);
-                });
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "call",
-                    "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
-                );
-            }
+            IrCallTarget::Value(name) => self.emit_value_call(code, name, args),
         }
+    }
+
+    fn emit_program_function_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
+        for arg in args {
+            self.emit_expr(code, arg);
+        }
+        code.invokestatic(
+            &self.program.options.program_class,
+            &self.program.function_name(name),
+            &object_method_descriptor(args.len()),
+        );
+    }
+
+    fn emit_codec_decode_call(
+        &mut self,
+        code: &mut MethodCode,
+        function: &str,
+        codec: &str,
+        args: &[IrExpr],
+    ) {
+        let [view, base_offset] = args else {
+            panic!("codec decode boundary call should receive ByteView and ByteOffset arguments");
+        };
+        self.emit_expr(code, view);
+        self.emit_expr(code, base_offset);
+        self.emit_program_function_call(code, function, args);
+        code.ldc_string(codec);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "validateCodecDecodeStep",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_stdio_call(
+        &mut self,
+        code: &mut MethodCode,
+        expr: &IrExpr,
+        name: &str,
+        args: &[IrExpr],
+    ) {
+        for arg in args {
+            self.emit_expr(code, arg);
+        }
+        code.ldc_string(&expr.node_id.display("call"));
+        code.ldc_string(expr.span.file.as_str());
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            stdio_method(name),
+            "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_value_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
+        code.aload(self.local_slot(name));
+        self.emit_object_array(code, args.len(), |this, code, index| {
+            this.emit_expr(code, &args[index]);
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "call",
+            "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+        );
     }
 
     pub(super) fn emit_perform(

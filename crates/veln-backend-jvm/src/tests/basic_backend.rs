@@ -52,6 +52,35 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_preserves_distinct_calling_conventions() {
+    let ir = lower_to_ir(concat!(
+        "fn increment(value: Int) -> Int\n",
+        "  value + 1\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let direct = increment(1)\n",
+        "  let callable: fn(Int) -> Int = increment\n",
+        "  let indirect = callable(direct)\n",
+        "  stdio::println(int_to_string(indirect))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-calling-conventions", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "3\n");
+}
+
+#[test]
 fn bytecode_backend_schema_encode_step_calls_match_runtime_metadata_contract() {
     for budgeted in [false, true] {
         let mut ir = lower_to_ir(concat!(
