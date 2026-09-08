@@ -1,0 +1,3 @@
+pub fn vec_len(items: Vec<Int>) -> Int
+  0
+end

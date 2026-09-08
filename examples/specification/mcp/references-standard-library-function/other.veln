@@ -1,0 +1,14 @@
+use dep from "example/dep"
+
+pub fn vec_len(items: Vec<Int>) -> Int
+  0
+end
+
+# vec_len is not a reference in comments.
+pub fn collisions(items: Vec<Int>, record: {vec_len: Int}) -> Int
+  let vec_len = 1
+  dep::vec_len(items)
+  record.vec_len
+  let text = "vec_len"
+  vec_len
+end

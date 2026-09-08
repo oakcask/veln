@@ -75,3 +75,8 @@ length = 3
 id = 4
 path = "/result/structuredContent/references/2/range"
 equals = {"start":{"line":7,"column":21},"end":{"line":7,"column":28}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+length = 0

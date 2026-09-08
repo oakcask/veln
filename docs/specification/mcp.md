@@ -539,7 +539,8 @@ The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,
 qualified-call, and qualified function-value forms while reporting
-project-wide scope.
+project-wide scope, and excludes workspace, dependency, field, string,
+comment, declaration, package-source, and import-alias collisions.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.

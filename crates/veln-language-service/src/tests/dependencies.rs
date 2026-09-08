@@ -678,6 +678,73 @@
     }
 
     #[test]
+    fn standard_library_function_references_exclude_collisions() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "api.veln",
+                concat!(
+                    "pub fn exported(value: Int) -> Int\n",
+                    "  exported(value - 1)\n",
+                    "end\n",
+                ),
+            )],
+            ["api.veln"],
+        );
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "dep.veln",
+                "pub fn exported(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use api from \"std\"\n",
+                    "use dep from \"example/pkg\"\n\n",
+                    "# exported mention\n",
+                    "pub fn exported(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn first(record: {exported: Int}, value: Int) -> Int\n",
+                    "  api::exported(value)\n",
+                    "  dep::exported(value)\n",
+                    "  record.exported\n",
+                    "  \"exported\"\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn second(value: Int) -> Int\n",
+                    "  let exported = value\n",
+                    "  let callback: fn(Int) -> Int = api::exported\n",
+                    "  callback(api::exported(exported))\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        let result = query_snapshot(&snapshot, "main.veln", 10, 9).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(result.definition.span.file.as_str(), "api.veln");
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 10, 8),
+                ("main.veln", 19, 39),
+                ("main.veln", 20, 17),
+            ]
+        );
+    }
+
+    #[test]
     fn standard_library_prelude_function_references_cover_implicit_forms_and_shadowing() {
         let standard_library = standard_library_snapshot(
             &[(
