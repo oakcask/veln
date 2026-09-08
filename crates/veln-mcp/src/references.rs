@@ -45,14 +45,18 @@ pub(crate) fn references(
     };
 
     let root = captured.project.root.clone();
+    let workspace_key = captured.key;
     let dependencies = match language_resources.admit_dependencies(&captured.dependencies) {
         Ok(dependencies) => dependencies,
         Err(error) => return error.into(),
     };
-    let snapshot =
-        language_resources.with_dependency_navigation(captured.project.files, dependencies);
+    let snapshot = language_resources.with_dependency_navigation(
+        captured.project.files,
+        dependencies,
+        workspace_key,
+    );
     let references = navigate(
-        &snapshot,
+        snapshot.as_ref(),
         SourcePosition {
             source: SourcePath::new(captured_source),
             line,

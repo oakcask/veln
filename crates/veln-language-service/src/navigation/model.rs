@@ -242,6 +242,16 @@ pub fn navigate(
     })
 }
 
+pub fn definition_at(
+    snapshot: &EffectiveProjectSnapshot,
+    position: SourcePosition,
+) -> Option<NavigationLocation> {
+    snapshot
+        .navigation_index()
+        .symbol_at_position(position.source.as_str(), &position)
+        .map(|request| request.symbol.definition())
+}
+
 impl Symbol {
     fn definition(&self) -> NavigationLocation {
         match self {

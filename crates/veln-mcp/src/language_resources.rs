@@ -23,6 +23,7 @@ const RETAINED_PACKAGE_CAPACITY: usize = 256;
 thread_local! {
     static DEPENDENCY_SNAPSHOT_CAPTURES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_NAVIGATION_BUILDS: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_NAVIGATION_BUILDS: Cell<usize> = const { Cell::new(0) };
     static STANDARD_LIBRARY_PACKAGE_DOC_BUILDS: Cell<usize> = const { Cell::new(0) };
     static STANDARD_LIBRARY_RESOURCE_BUILDS: Cell<usize> = const { Cell::new(0) };
 }
@@ -53,6 +54,16 @@ pub(crate) fn dependency_navigation_builds() -> usize {
 }
 
 #[cfg(test)]
+pub(crate) fn reset_workspace_navigation_builds() {
+    WORKSPACE_NAVIGATION_BUILDS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn workspace_navigation_builds() -> usize {
+    WORKSPACE_NAVIGATION_BUILDS.get()
+}
+
+#[cfg(test)]
 pub(crate) fn standard_library_resource_builds() -> usize {
     STANDARD_LIBRARY_RESOURCE_BUILDS.get()
 }
@@ -78,6 +89,11 @@ pub(crate) struct LanguageResources {
     standard_library_snapshot: Option<DirectDependencySnapshot>,
     standard_library_navigation: EffectiveProjectSnapshot,
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
+    workspace_navigation: Option<(
+        Value,
+        Vec<RetainedPackageKey>,
+        Arc<EffectiveProjectSnapshot>,
+    )>,
 }
 
 impl LanguageResources {
@@ -221,6 +237,7 @@ impl LanguageResources {
             standard_library_snapshot,
             standard_library_navigation,
             dependency_navigation: None,
+            workspace_navigation: None,
         })
     }
 
@@ -356,31 +373,55 @@ impl LanguageResources {
         &mut self,
         files: Vec<veln_source::SourceFile>,
         dependencies: AdmittedDependencies,
-    ) -> EffectiveProjectSnapshot {
-        if dependencies.snapshots.is_empty() {
-            return self.with_standard_library_navigation(files);
-        }
-        let reuse = self
-            .dependency_navigation
-            .as_ref()
-            .is_some_and(|(keys, _)| *keys == dependencies.keys);
-        if !reuse {
-            #[cfg(test)]
-            DEPENDENCY_NAVIGATION_BUILDS.set(DEPENDENCY_NAVIGATION_BUILDS.get() + 1);
-            let mut snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-                Vec::new(),
-                dependencies.snapshots,
+        workspace_key: Value,
+    ) -> Arc<EffectiveProjectSnapshot> {
+        let reuse = self.workspace_navigation.as_ref().is_some_and(
+            |(cached_workspace_key, cached_dependency_keys, _)| {
+                cached_workspace_key == &workspace_key
+                    && cached_dependency_keys == &dependencies.keys
+            },
+        );
+        if reuse {
+            return Arc::clone(
+                &self
+                    .workspace_navigation
+                    .as_ref()
+                    .expect("workspace navigation was prepared")
+                    .2,
             );
-            if let Some(standard_library) = self.standard_library_snapshot() {
-                snapshot = snapshot.with_standard_library(standard_library);
-            }
-            self.dependency_navigation = Some((dependencies.keys, snapshot));
         }
-        self.dependency_navigation
-            .as_ref()
-            .expect("dependency navigation was prepared")
-            .1
-            .with_workspace_overlays(files)
+
+        let dependency_keys = dependencies.keys;
+        let snapshot = if dependencies.snapshots.is_empty() {
+            self.with_standard_library_navigation(files)
+        } else {
+            let reuse = self
+                .dependency_navigation
+                .as_ref()
+                .is_some_and(|(keys, _)| *keys == dependency_keys);
+            if !reuse {
+                #[cfg(test)]
+                DEPENDENCY_NAVIGATION_BUILDS.set(DEPENDENCY_NAVIGATION_BUILDS.get() + 1);
+                let mut snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                    Vec::new(),
+                    dependencies.snapshots,
+                );
+                if let Some(standard_library) = self.standard_library_snapshot() {
+                    snapshot = snapshot.with_standard_library(standard_library);
+                }
+                self.dependency_navigation = Some((dependency_keys.clone(), snapshot));
+            }
+            self.dependency_navigation
+                .as_ref()
+                .expect("dependency navigation was prepared")
+                .1
+                .with_workspace_overlays(files)
+        };
+        #[cfg(test)]
+        WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
+        let snapshot = Arc::new(snapshot);
+        self.workspace_navigation = Some((workspace_key, dependency_keys, Arc::clone(&snapshot)));
+        snapshot
     }
 
     pub(crate) fn package_documentation_uri_for(

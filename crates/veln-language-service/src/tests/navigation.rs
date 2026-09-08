@@ -250,6 +250,31 @@
     }
 
     #[test]
+    fn definition_lookup_skips_reference_collection() {
+        let mut source_text = String::from("fn Bad() -> Int\n");
+        for _ in 0..800 {
+            source_text.push_str("  Bad()\n");
+        }
+        source_text.push_str("end\n");
+        let snapshot =
+            EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)]);
+        reset_function_scope_collections();
+
+        let definition = definition_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 4,
+            },
+        )
+        .unwrap();
+
+        assert_location(&definition, "main.veln", 1, 4);
+        assert_eq!(function_scope_collections(), 0);
+    }
+
+    #[test]
     fn invalid_recovery_navigation_keeps_valid_symbol_precedence() {
         let result = query(
             vec![source(
