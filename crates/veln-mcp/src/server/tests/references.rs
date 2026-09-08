@@ -756,7 +756,7 @@ fn references_keep_direct_dependency_function_identity_boundaries() {
 }
 
 #[test]
-fn references_keep_package_function_alias_and_standard_library_boundaries_empty() {
+fn references_keep_package_function_alias_boundary_empty() {
     let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
     alias_workspace.write(
         "veln.toml",
@@ -806,7 +806,10 @@ fn references_keep_package_function_alias_and_standard_library_boundaries_empty(
         json!([]),
         "{alias_references:#}"
     );
+}
 
+#[test]
+fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");
     std_workspace.write(
@@ -817,7 +820,8 @@ fn references_keep_package_function_alias_and_standard_library_boundaries_empty(
             "  math::exported(value)\n",
             "end\n\n",
             "fn second(value: Int) -> Int\n",
-            "  math::exported(value)\n",
+            "  let callback: fn(Int) -> Int = math::exported\n",
+            "  callback(math::exported(value))\n",
             "end\n",
         ),
     );
@@ -843,10 +847,92 @@ fn references_keep_package_function_alias_and_standard_library_boundaries_empty(
     let std_references =
         std_server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
     assert_eq!(std_references["isError"], false, "{std_references:#}");
+    assert_reference_ranges(
+        &std_references,
+        &[
+            ("main.veln", 4, 9, 4, 17),
+            ("main.veln", 8, 40, 8, 48),
+            ("main.veln", 9, 18, 9, 26),
+        ],
+        "standard library function",
+    );
+}
+
+#[test]
+fn references_keep_standard_library_function_collision_boundaries() {
+    let workspace = TempWorkspace::new("references-standard-library-collisions");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use math from \"std\"\n",
+            "use dep from \"example/dep\"\n\n",
+            "# exported mention\n",
+            "pub fn exported(value: Int) -> Int\n",
+            "  value\n",
+            "end\n\n",
+            "pub fn first(record: {exported: Int}, value: Int) -> Int\n",
+            "  math::exported(value)\n",
+            "  dep::exported(value)\n",
+            "  record.exported\n",
+            "  \"exported\"\n",
+            "  value\n",
+            "end\n\n",
+            "pub fn second(value: Int) -> Int\n",
+            "  let exported = value\n",
+            "  let callback: fn(Int) -> Int = math::exported\n",
+            "  callback(math::exported(exported))\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub fn exported(value: Int) -> Int\n  value\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "math.veln",
+            concat!(
+                "pub fn exported(value: Int) -> Int\n",
+                "  exported(value - 1)\n",
+                "end\n",
+            )
+            .as_bytes(),
+        )],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":10,"column":9}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
     assert_eq!(
-        std_references["structuredContent"]["references"],
+        result["structuredContent"]["scope"]["project_wide"], true,
+        "{result:#}"
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 10, 9, 10, 17),
+            ("main.veln", 19, 40, 19, 48),
+            ("main.veln", 20, 18, 20, 26),
+        ],
+        "standard library collision boundary",
+    );
+
+    let alias_segment = server.references_tool(&json!({"source":"main.veln","line":1,"column":5}));
+    assert_eq!(alias_segment["isError"], false, "{alias_segment:#}");
+    assert_eq!(
+        alias_segment["structuredContent"]["references"],
         json!([]),
-        "{std_references:#}"
+        "{alias_segment:#}"
     );
 }
 
@@ -1366,6 +1452,48 @@ fn references_project_capture_exhausts_retries_after_dependency_source_changes()
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
     assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_standard_library_selection() {
+    let workspace = TempWorkspace::new("references-standard-library-capture-retry");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "use math from \"std\"\n\nfn main() -> Int\n  math::value()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "math.veln",
+            b"pub fn value() -> Int\n  1\nend\n",
+        )],
+    );
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("main.veln");
+        fs::remove_file(&source).unwrap();
+        let value = if attempt % 2 == 0 { 1 } else { 2 };
+        fs::write(
+            &source,
+            format!("use math from \"std\"\n\nfn main() -> Int\n  math::value() + {value}\nend\n"),
+        )
+        .unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
 }
 
 #[test]

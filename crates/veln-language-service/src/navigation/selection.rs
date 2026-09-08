@@ -211,7 +211,9 @@ impl SymbolIndex {
             && !is_call_target_token(tokens, token_index)
             && !is_constructor_reference_token(tokens, token_index)
         {
-            return None;
+            return self
+                .qualified_function_value_selection(file, tokens, token_index, name)
+                .map(SelectedNavigationSymbol::bare);
         }
         if is_call_target_token(tokens, token_index) {
             self.call_target_selection(file, tokens, token_index, name, prepared_scopes)
@@ -286,6 +288,30 @@ impl SymbolIndex {
                     .then(|| self.recovery_bare_call_selection(file, tokens, token_index, name))
                     .flatten()
             }))
+    }
+
+    fn qualified_function_value_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<Symbol> {
+        name.chars()
+            .next()
+            .is_some_and(|initial| initial.is_ascii_lowercase())
+            .then(|| {
+                self.qualified_call_symbol(
+                    file,
+                    tokens,
+                    token_index,
+                    name,
+                    SymbolIndex::function_symbol,
+                )
+            })
+            .flatten()
+            .filter(|symbol| symbol.package.is_some() || symbol.public)
+            .map(Symbol::Function)
     }
 
     fn type_reference_selection(

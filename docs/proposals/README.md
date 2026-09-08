@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Extend saved MCP reference lookup to standard-library functions without
-  widening the existing unpaginated function boundary:
-  [mcp-saved-standard-library-function-references.md](mcp-saved-standard-library-function-references.md).
+No proposal is ready for implementation.
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.
@@ -38,8 +36,9 @@ another page is not a selectable target.
   resource, dependency package-documentation resource, package-backed
   definition-link, direct-dependency function-reference, and
   package-documentation tool slices are implemented. Its standard-library
-  function-reference slice is extracted under Ready. Do not select the
-  umbrella directly:
+  function-reference slice is also implemented and recorded by
+  [MCP Saved Standard-Library Function References](../reference/implemented-proposals/mcp-saved-standard-library-function-references.md).
+  Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

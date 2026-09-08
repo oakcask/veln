@@ -309,6 +309,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   unsupported-symbol success, recovery exclusion, invalid-position results,
   and schema-rejection results:
   `../../examples/specification/mcp/references-workspace/`.
+- MCP saved workspace `references` for embedded standard-library prelude
+  functions:
+  `../../examples/specification/mcp/references-standard-library-function/`.
 - MCP language-reference and standard-library source resource list/read
   behavior plus language-reference `search_docs` and `read_doc` tool behavior:
   `../../examples/specification/mcp/language-reference-resources/`.

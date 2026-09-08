@@ -630,7 +630,7 @@
     }
 
     #[test]
-    fn explicit_non_prelude_standard_library_function_definition_has_no_references() {
+    fn explicit_standard_library_function_references_cover_qualified_calls_and_values() {
         let standard_library = standard_library_snapshot(
             &[(
                 "api.veln",
@@ -646,21 +646,200 @@
                 "  api::exported(value)\n",
                 "end\n\n",
                 "pub fn second(value: Int) -> Int\n",
-                "  api::exported(value)\n",
+                "  let callback: fn(Int) -> Int = api::exported\n",
+                "  callback(api::exported(value))\n",
                 "end\n",
             ),
         )])
         .with_standard_library(standard_library);
-        let result = query_snapshot(&snapshot, "main.veln", 4, 9).unwrap();
+        for (line, column) in [(4, 9), (8, 40), (9, 18)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(result.selected_symbol.declaration_kind, SymbolDeclarationKind::Declaration);
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(result.definition.span.file.as_str(), "api.veln");
+            assert!(matches!(
+                result.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 4, 8),
+                    ("main.veln", 8, 39),
+                    ("main.veln", 9, 17),
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_function_references_exclude_collisions() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "api.veln",
+                concat!(
+                    "pub fn exported(value: Int) -> Int\n",
+                    "  exported(value - 1)\n",
+                    "end\n",
+                ),
+            )],
+            ["api.veln"],
+        );
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "dep.veln",
+                "pub fn exported(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use api from \"std\"\n",
+                    "use dep from \"example/pkg\"\n\n",
+                    "# exported mention\n",
+                    "pub fn exported(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn first(record: {exported: Int}, value: Int) -> Int\n",
+                    "  api::exported(value)\n",
+                    "  dep::exported(value)\n",
+                    "  record.exported\n",
+                    "  \"exported\"\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn second(value: Int) -> Int\n",
+                    "  let exported = value\n",
+                    "  let callback: fn(Int) -> Int = api::exported\n",
+                    "  callback(api::exported(exported))\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        let result = query_snapshot(&snapshot, "main.veln", 10, 9).unwrap();
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
-        assert_eq!(result.selected_symbol.declaration_kind, SymbolDeclarationKind::Declaration);
-        assert_eq!(result.selected_symbol.package_origin, Some(PackageOrigin::StandardLibrary));
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
         assert_eq!(result.definition.span.file.as_str(), "api.veln");
-        assert!(matches!(
-            result.definition.source,
-            NavigationSource::Package { .. }
-        ));
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 10, 8),
+                ("main.veln", 19, 39),
+                ("main.veln", 20, 17),
+            ]
+        );
+    }
+
+    #[test]
+    fn standard_library_prelude_function_references_cover_implicit_forms_and_shadowing() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub fn byte(value: Int) -> Int\n  value\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "pub fn first(value: Int) -> Int\n",
+                    "  byte(value)\n",
+                    "end\n\n",
+                    "pub fn second(value: Int) -> Int\n",
+                    "  let callback: fn(Int) -> Int = prelude::byte\n",
+                    "  callback(prelude::byte(value))\n",
+                    "end\n\n",
+                    "pub fn local_shadow(byte: fn(Int) -> Int) -> Int\n",
+                    "  byte(value)\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                concat!(
+                    "pub fn other(value: Int) -> Int\n",
+                    "  prelude::byte(value)\n",
+                    "end\n",
+                ),
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        for (line, column) in [(2, 4), (6, 44), (7, 21), (2, 12)] {
+            let (source_path, line, column) = if line == 2 && column == 12 {
+                ("other.veln", line, column)
+            } else {
+                ("main.veln", line, column)
+            };
+            let result = query_snapshot(&snapshot, source_path, line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 2, 3),
+                    ("main.veln", 6, 43),
+                    ("main.veln", 7, 21),
+                    ("other.veln", 2, 12),
+                ]
+            );
+        }
+
+        let shadowed = query_snapshot(&snapshot, "main.veln", 11, 4).unwrap();
+        assert_eq!(shadowed.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_eq!(locations(&shadowed.references), [("main.veln", 11, 3)]);
+    }
+
+    #[test]
+    fn standard_library_public_function_alias_definition_has_no_references() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "pub fn main() -> Int\n  prelude::renamed()\nend\n",
+        )])
+        .with_standard_library(standard_library);
+        let result = query_snapshot(&snapshot, "main.veln", 2, 12).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
         assert!(result.references.is_empty());
     }
 
