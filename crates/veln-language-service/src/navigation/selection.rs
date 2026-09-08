@@ -310,6 +310,7 @@ impl SymbolIndex {
                 )
             })
             .flatten()
+            .filter(|symbol| symbol.package.is_some() || symbol.public)
             .map(Symbol::Function)
     }
 

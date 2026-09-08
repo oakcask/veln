@@ -147,11 +147,11 @@ impl SymbolIndex {
                 token.text == symbol.name
                     && qualified_reference_matches(&tokens, *index, &module_segments)
                     && (is_call_target_token(&tokens, *index)
-                        || file.classified_path_segments.iter().any(|segment| {
-                            segment.role == NameClass::ValueBinding
-                                && same_span(&segment.span, &file.source.span(token.range))
-                        })
-                        || is_qualified_function_value_token(&tokens, *index))
+                        || ((symbol.package.is_some() || symbol.public)
+                            && (file.classified_path_segments.iter().any(|segment| {
+                                segment.role == NameClass::ValueBinding
+                                    && same_span(&segment.span, &file.source.span(token.range))
+                            }) || is_qualified_function_value_token(&tokens, *index))))
                     && self
                         .function_for_qualified_call(file, qualifier, &token.text)
                         .is_some_and(|candidate| same_function(&candidate, symbol))
