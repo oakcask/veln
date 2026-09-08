@@ -26,7 +26,7 @@ permissions:
 env:
   NODE_VERSION: "26"
   # renovate: datasource=npm depName=pnpm
-  PNPM_VERSION: "11.10.0"
+  PNPM_VERSION: "11.25.0"
 
 jobs:
   test:
