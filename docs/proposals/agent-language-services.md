@@ -16,25 +16,23 @@ intelligence without requiring them to drive the editor-oriented LSP protocol.
 The workspace-project inventory, saved project diagnostics, bounded
 workspace-definition, saved workspace symbol-reference, resource publication,
 language-reference search, package documentation tool, package definition
-navigation, and direct-dependency function-reference slices are implemented and
-specified in
+navigation, direct-dependency function-reference, and standard-library
+function-reference slices are implemented and specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
-workspace symbol and direct-dependency function `references`, `search_docs`,
-and `read_doc`. Broader definition navigation, standard-library and
-non-function dependency reference navigation, paginated references, recovery
-and casing-neutral reference navigation, conformance completion, and client
-plugin work in this proposal remain planned.
+workspace symbol, direct-dependency function, and standard-library function
+`references`, `search_docs`, and `read_doc`. Broader definition navigation,
+non-function package reference navigation, paginated references, recovery and
+casing-neutral reference navigation, conformance completion, and client plugin
+work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
-  set, plus package reference lookup beyond direct-dependency functions and
-  paginated reference lookup; the first bounded standard-library function
-  step is extracted as
-  [MCP Saved Standard-Library Function References](mcp-saved-standard-library-function-references.md);
+  set, plus package reference lookup beyond direct-dependency and
+  standard-library functions and paginated reference lookup;
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -1054,24 +1052,20 @@ locations through MCP.
 Dependency and standard-library definition locations for the bounded package
 symbol set are specified by
 [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
-Standard-library function reference search is selected by
-[MCP Saved Standard-Library Function References](mcp-saved-standard-library-function-references.md).
+Standard-library function reference search is recorded by
+[MCP Saved Standard-Library Function References](../reference/implemented-proposals/mcp-saved-standard-library-function-references.md).
 Non-function package reference search, paginated references, recovery
 references, and casing-neutral references remain planned here.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
 [MCP Dependency Source Resources](../reference/implemented-proposals/mcp-dependency-source-resources.md).
+The standard-library function-reference slice is recorded by
+[MCP Saved Standard-Library Function References](../reference/implemented-proposals/mcp-saved-standard-library-function-references.md).
 The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 The direct-dependency function-reference slice is recorded by
 [MCP Saved Dependency Function References](../reference/implemented-proposals/mcp-saved-dependency-function-references.md).
-The next selectable slice is:
-
-1. Extend the existing `veln mcp` server with standard-library function
-   references as defined by
-   [MCP Saved Standard-Library Function References](mcp-saved-standard-library-function-references.md).
-
 Later umbrella slices are:
 
 1. Extend package navigation with non-function dependency and standard-library

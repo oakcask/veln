@@ -756,7 +756,7 @@ fn references_keep_direct_dependency_function_identity_boundaries() {
 }
 
 #[test]
-fn references_keep_package_function_alias_and_standard_library_boundaries_empty() {
+fn references_keep_package_function_alias_boundary_empty() {
     let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
     alias_workspace.write(
         "veln.toml",
@@ -806,7 +806,10 @@ fn references_keep_package_function_alias_and_standard_library_boundaries_empty(
         json!([]),
         "{alias_references:#}"
     );
+}
 
+#[test]
+fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");
     std_workspace.write(
@@ -817,7 +820,8 @@ fn references_keep_package_function_alias_and_standard_library_boundaries_empty(
             "  math::exported(value)\n",
             "end\n\n",
             "fn second(value: Int) -> Int\n",
-            "  math::exported(value)\n",
+            "  let callback: fn(Int) -> Int = math::exported\n",
+            "  callback(math::exported(value))\n",
             "end\n",
         ),
     );
@@ -843,10 +847,14 @@ fn references_keep_package_function_alias_and_standard_library_boundaries_empty(
     let std_references =
         std_server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
     assert_eq!(std_references["isError"], false, "{std_references:#}");
-    assert_eq!(
-        std_references["structuredContent"]["references"],
-        json!([]),
-        "{std_references:#}"
+    assert_reference_ranges(
+        &std_references,
+        &[
+            ("main.veln", 4, 9, 4, 17),
+            ("main.veln", 8, 40, 8, 48),
+            ("main.veln", 9, 18, 9, 26),
+        ],
+        "standard library function",
     );
 }
 

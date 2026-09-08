@@ -56,28 +56,55 @@ impl SymbolIndex {
         if symbol.package.is_none() && file.module == symbol.module {
             return call_references(file, &symbol.name);
         }
+        let mut references = Vec::new();
+        if symbol.standard_prelude {
+            references.extend(self.bare_prelude_function_references(file, symbol));
+        }
         if self.function_references_visible_from(file, symbol) {
-            return self
+            references.extend(
+                self
                 .qualifiers_for_module(file, &symbol.module, symbol.package.as_deref())
                 .into_iter()
                 .flat_map(|qualifier| {
                     self.qualified_function_references(file, &qualifier, symbol)
-                })
-                .collect();
+                }),
+            );
         }
-        Vec::new()
+        references
     }
 
     fn function_references(&self, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
-        if symbol.declaration_kind != SymbolDeclarationKind::Declaration
-            || symbol.package_origin == Some(PackageOrigin::StandardLibrary)
-        {
+        if symbol.declaration_kind != SymbolDeclarationKind::Declaration {
             return Vec::new();
         }
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| self.references_in_file(file, symbol))
+            .collect()
+    }
+
+    fn bare_prelude_function_references(
+        &self,
+        file: &IndexedFile,
+        symbol: &FunctionSymbol,
+    ) -> Vec<SourceSpan> {
+        let tokens = lex(&file.source).tokens;
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(index, token)| {
+                token.text == symbol.name
+                    && previous_non_layout_token(&tokens, *index)
+                        .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+                    && is_call_target_token(&tokens, *index)
+                    && self
+                        .symbol_for_bare_call(file, &tokens, *index, &token.text)
+                        .is_some_and(|candidate| {
+                            matches!(candidate, Symbol::Function(candidate) if same_function(&candidate, symbol))
+                        })
+            })
+            .map(|(_, token)| file.source.span(token.range))
             .collect()
     }
 
@@ -88,11 +115,11 @@ impl SymbolIndex {
     ) -> bool {
         match &symbol.package {
             Some(package) => {
-                symbol.package_origin == Some(PackageOrigin::DirectDependency)
-                    && symbol.public
-                    && file
-                        .external_uses
-                        .contains(&(symbol.module.clone(), package.clone()))
+                symbol.public
+                    && (symbol.standard_prelude
+                        || file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone())))
             }
             None => {
                 file.uses.contains(&symbol.module)
@@ -123,7 +150,8 @@ impl SymbolIndex {
                         || file.classified_path_segments.iter().any(|segment| {
                             segment.role == NameClass::ValueBinding
                                 && same_span(&segment.span, &file.source.span(token.range))
-                        }))
+                        })
+                        || is_qualified_function_value_token(&tokens, *index))
                     && self
                         .function_for_qualified_call(file, qualifier, &token.text)
                         .is_some_and(|candidate| same_function(&candidate, symbol))
@@ -333,6 +361,13 @@ impl SymbolIndex {
         }
         qualifiers
     }
+}
+
+fn is_qualified_function_value_token(tokens: &[Token], token_index: usize) -> bool {
+    previous_non_layout_token(tokens, token_index)
+        .is_some_and(|previous| previous.kind == TokenKind::DoubleColon)
+        && next_non_layout_token(tokens, token_index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon && next.kind != TokenKind::LParen)
 }
 
 fn same_recovery_symbol(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {

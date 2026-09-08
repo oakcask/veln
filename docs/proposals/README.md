@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Extend saved MCP reference lookup to standard-library functions without
-  widening the existing unpaginated function boundary:
-  [mcp-saved-standard-library-function-references.md](mcp-saved-standard-library-function-references.md).
+No proposal is ready for implementation.
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.

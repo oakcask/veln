@@ -409,23 +409,25 @@ non-recovery workspace functions, types, constructors, value bindings, handler
 context parameters, and handler operation clause parameters. It also exposes
 references to public functions from exported modules of one retained direct
 dependency when the selected project source uses the exact visible external
-import required by name resolution. Dependency function results include only
-qualified call targets and qualified function-value occurrences in the
-selected project's captured owned sources, including occurrences qualified by
-an import alias. They exclude the dependency declaration, dependency source
-bodies, other selected projects, equal spellings with different package or
-module identity, import-alias declaration segments, fields, strings, comments,
-and lexical bindings. Standard-library functions, transitive dependencies,
-private functions, non-exported dependency modules, invalid-casing records,
-recovery records, dependency public function alias symbols, non-function
-package symbols, package module-segment selections, and anonymous single-file
-selections succeed with an empty `references` array. `references` does not
-expose recovery, standard-library, virtual, schema, effect, handler, or
-effect-operation reference locations.
+import required by name resolution. It exposes the same reference boundary for
+public function declarations from exported embedded standard-library modules.
+Standard-library prelude functions include the accepted bare implicit prelude
+calls plus qualified call targets and qualified function-value occurrences.
+Package function results include only occurrences in the selected project's
+captured owned sources. They include occurrences qualified by an import alias.
+They exclude the package declaration, package source bodies, other selected
+projects, equal spellings with different package or module identity,
+import-alias declaration segments, fields, strings, comments, and lexical
+bindings. Transitive dependencies, private functions, non-exported package
+modules, invalid-casing records, recovery records, package public function
+alias symbols, non-function package symbols, package module-segment
+selections, and anonymous single-file selections succeed with an empty
+`references` array. `references` does not expose recovery, virtual, schema,
+effect, handler, or effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
 reference sites only, excluding the selected declaration, plus scope metadata.
-Dependency function references never return `veln-pkg:` locations. A valid
+Package function references never return `veln-pkg:` locations. A valid
 position without a supported reference symbol succeeds with an empty
 `references` array. Selected manifest sources report project scope metadata
 with `project_wide: true`. Sources outside the selected project-owned source
@@ -533,6 +535,11 @@ function-value occurrence, excludes the dependency declaration and dependency
 source body, keeps unsupported import-alias segment selection successful and
 empty, reports project-wide scope, and admits the dependency source resource in
 the same session.
+The `references-standard-library-function` MCP specification case checks that a
+saved selected project returns only workspace `file:` locations for an
+embedded standard-library prelude function selected through accepted bare,
+qualified-call, and qualified function-value forms while reporting
+project-wide scope.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.

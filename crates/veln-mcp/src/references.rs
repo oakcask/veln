@@ -89,7 +89,10 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
         NavigationSource::Package { .. } => {
             result.selected_symbol.kind == SymbolKind::Function
                 && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
-                && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                && matches!(
+                    result.selected_symbol.package_origin,
+                    Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                )
         }
     }
 }
