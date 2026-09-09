@@ -24,15 +24,17 @@ currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol, direct-dependency function, and standard-library function
 `references`, `search_docs`, and `read_doc`. Broader definition navigation,
-non-function package reference navigation, paginated references, recovery and
-casing-neutral reference navigation, conformance completion, and client plugin
-work in this proposal remain planned.
+non-function package reference navigation beyond the extracted type slice,
+paginated references, recovery and casing-neutral reference navigation,
+conformance completion, and client plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency and
-  standard-library functions and paginated reference lookup;
+  standard-library functions and the type slice extracted as
+  [MCP Saved Package Type References](mcp-saved-package-type-references.md), and
+  paginated reference lookup;
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -1066,11 +1068,14 @@ The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 The direct-dependency function-reference slice is recorded by
 [MCP Saved Dependency Function References](../reference/implemented-proposals/mcp-saved-dependency-function-references.md).
+The package type-reference slice is ready as
+[MCP Saved Package Type References](mcp-saved-package-type-references.md).
 Later umbrella slices are:
 
-1. Extend package navigation with non-function dependency and standard-library
-   references, paginated references, recovery and casing-neutral symbol
-   references, and definition beyond the package-backed symbol inventory.
+1. Extend package navigation with constructor and other non-function dependency
+   and standard-library references, paginated references, recovery and
+   casing-neutral symbol references, and definition beyond the package-backed
+   symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their
