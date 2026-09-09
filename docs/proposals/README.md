@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Extend saved MCP reference lookup to direct-dependency and standard-library
+  types without adding pagination or package-source locations:
+  [mcp-saved-package-type-references.md](mcp-saved-package-type-references.md).
 
 Each entry in this section selects one complete proposal page. A subsection of
 another page is not a selectable target.
@@ -38,6 +40,7 @@ another page is not a selectable target.
   package-documentation tool slices are implemented. Its standard-library
   function-reference slice is also implemented and recorded by
   [MCP Saved Standard-Library Function References](../reference/implemented-proposals/mcp-saved-standard-library-function-references.md).
+  Its package type-reference slice is extracted under Ready.
   Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
