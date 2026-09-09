@@ -426,10 +426,11 @@ type references.
 
 Package function results include qualified calls, qualified function-value
 occurrences, and occurrences qualified by an import alias. Package type results
-include type annotations, type arguments, return types, type aliases, and the
-type segment used as a constructor qualifier, including when a package
-constructor has the same spelling as its owning type. Package reference results
-include only occurrences in the selected project's captured owned sources.
+include type annotations, type arguments, return types, type occurrences in
+type-alias right-hand sides, and the type segment used as a constructor
+qualifier, including when a package constructor has the same spelling as its
+owning type. Package reference results include only occurrences in the selected
+project's captured owned sources.
 They exclude the package declaration, package source bodies, other selected
 projects, equal spellings with different package or module identity,
 import-alias declaration segments, constructor-name segments, values, fields,
@@ -561,11 +562,11 @@ comment, declaration, package-source, and import-alias collisions.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
-type annotations, return types, aliases, type arguments, and constructor
-qualifier type segments, reports project-wide scope, excludes constructor-name
-segments and package source body occurrences, preserves canonical location
-order across project sources, and keeps unsupported import-alias segment
-selection successful and empty.
+type annotations, return types, type-alias right-hand sides, type arguments,
+and constructor qualifier type segments, reports project-wide scope, excludes
+constructor-name segments and package source body occurrences, preserves
+canonical location order across project sources, and keeps unsupported
+import-alias segment selection successful and empty.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.

@@ -16,10 +16,11 @@ Completion evidence:
   direct-dependency type and an exported standard-library type in the same
   saved selected project, workspace `file:` result locations, project-wide
   scope metadata, canonical ordering across project sources, type
-  annotations, type arguments, return types, aliases, constructor qualifier
-  type segments, package body exclusion, dependency source resource admission,
-  constructor-name segment, field, string, comment, and lexical-binding
-  collision exclusion, and unsupported import-alias segment selection.
+  annotations, type arguments, return types, type-alias right-hand sides,
+  constructor qualifier type segments, package body exclusion, dependency
+  source resource admission, constructor-name segment, field, string, comment,
+  and lexical-binding collision exclusion, and unsupported import-alias segment
+  selection.
 - `veln-language-service` tests check direct-dependency type references across
   project sources, package identity boundaries, module identity boundaries,
   workspace, other-package, same-package different-module, and constructor
