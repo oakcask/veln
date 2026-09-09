@@ -844,6 +844,125 @@
     }
 
     #[test]
+    fn direct_dependency_type_references_cover_project_type_roles_and_collisions() {
+        let selected = dependency_snapshot(
+            "example/pkg",
+            &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
+            ["model.veln"],
+        );
+        let collision = dependency_snapshot(
+            "other/pkg",
+            &[("model.veln", "pub type Item\nend\n")],
+            ["model.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n",
+                        "use other_model from \"other/pkg\"\n\n",
+                        "type Item\n",
+                        "end\n\n",
+                        "type Box\n",
+                        "  Wrap(model::Item)\n",
+                        "end\n\n",
+                        "pub type Alias = model::Item\n\n",
+                        "fn make(input: model::Item) -> model::Item\n",
+                        "  model::Item::Ready(1)\n",
+                        "end\n\n",
+                        "fn other(input: other_model::Item) -> Item\n",
+                        "  \"Item\"\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n\n",
+                        "fn second(input: model::Item) -> model::Item\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![selected, collision],
+        );
+
+        let result = query_snapshot(&snapshot, "main.veln", 13, 23).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(result.definition.span.file.as_str(), "model.veln");
+        assert!(matches!(
+            result.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 8, 15),
+                ("main.veln", 11, 25),
+                ("main.veln", 13, 23),
+                ("main.veln", 13, 39),
+                ("main.veln", 14, 10),
+                ("other.veln", 3, 25),
+                ("other.veln", 3, 41),
+            ]
+        );
+    }
+
+    #[test]
+    fn standard_library_type_references_cover_prelude_and_qualified_forms() {
+        let standard_library = standard_library_snapshot(
+            &[("prelude.veln", "pub type Vec\n  pub Empty\nend\n")],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "fn first(items: Vec<Int>) -> Vec<Int>\n",
+                    "  items\n",
+                    "end\n\n",
+                    "fn second(items: prelude::Vec<Int>) -> prelude::Vec<Int>\n",
+                    "  prelude::Vec::Empty()\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                "fn third(items: Vec<Int>) -> prelude::Vec<Int>\n  items\nend\n",
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        let result = query_snapshot(&snapshot, "main.veln", 1, 17).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 1, 17),
+                ("main.veln", 1, 30),
+                ("main.veln", 5, 27),
+                ("main.veln", 5, 49),
+                ("main.veln", 6, 12),
+                ("other.veln", 1, 17),
+                ("other.veln", 1, 39),
+            ]
+        );
+    }
+
+    #[test]
     fn direct_dependency_invalid_function_casing_is_not_navigable() {
         let dependency = dependency_snapshot(
             "example/pkg",

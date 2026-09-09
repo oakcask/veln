@@ -756,6 +756,96 @@ fn references_keep_direct_dependency_function_identity_boundaries() {
 }
 
 #[test]
+fn references_return_direct_dependency_type_locations_from_saved_project() {
+    let workspace = TempWorkspace::new("references-dependency-type");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/dep\"]\n",
+            "path = \"vendor/dep\"\n",
+            "\n",
+            "[dependencies.\"other/dep\"]\n",
+            "path = \"vendor/other\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n",
+            "use other_model from \"other/dep\"\n\n",
+            "type Item\n",
+            "end\n\n",
+            "type Box\n",
+            "  Wrap(model::Item)\n",
+            "end\n\n",
+            "pub type Alias = model::Item\n\n",
+            "fn make(input: model::Item) -> model::Item\n",
+            "  model::Item::Ready(1)\n",
+            "end\n\n",
+            "fn other(input: other_model::Item) -> Item\n",
+            "  \"Item\"\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "use model from \"example/dep\"\n\n",
+            "fn second(input: model::Item) -> model::Item\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/model.veln",
+        "pub type Item\n  pub Ready(Int)\nend\n\nfn package_body(input: Item) -> Item\n  input\nend\n",
+    );
+    workspace.write(
+        "vendor/other/veln.toml",
+        "[package]\nname = \"other/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write("vendor/other/model.veln", "pub type Item\nend\n");
+
+    let result = references_result(&workspace, "main.veln", 13, 23);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 8, 15, 8, 19),
+            ("main.veln", 11, 25, 11, 29),
+            ("main.veln", 13, 23, 13, 27),
+            ("main.veln", 13, 39, 13, 43),
+            ("main.veln", 14, 10, 14, 14),
+            ("other.veln", 3, 25, 3, 29),
+            ("other.veln", 3, 41, 3, 45),
+        ],
+        "dependency type references",
+    );
+    let references = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert!(references.iter().all(|reference| {
+        reference["uri"].as_str().unwrap().starts_with("file://")
+            && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
+            && !reference["uri"].as_str().unwrap().contains("vendor/dep")
+    }));
+}
+
+#[test]
 fn references_keep_package_function_alias_boundary_empty() {
     let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
     alias_workspace.write(
@@ -937,6 +1027,52 @@ fn references_keep_standard_library_function_collision_boundaries() {
 }
 
 #[test]
+fn references_return_standard_library_type_locations() {
+    let workspace = TempWorkspace::new("references-standard-library-type");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn first(items: Vec<Int>) -> Vec<Int>\n",
+            "  items\n",
+            "end\n\n",
+            "fn second(items: prelude::Vec<Int>) -> prelude::Vec<Int>\n",
+            "  prelude::Vec::Empty()\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        "fn third(items: Vec<Int>) -> prelude::Vec<Int>\n  items\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub type Vec\n  pub Empty\nend\n",
+        )],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":1,"column":17}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 1, 17, 1, 20),
+            ("main.veln", 1, 30, 1, 33),
+            ("main.veln", 5, 27, 5, 30),
+            ("main.veln", 5, 49, 5, 52),
+            ("main.veln", 6, 12, 6, 15),
+            ("other.veln", 1, 17, 1, 20),
+            ("other.veln", 1, 39, 1, 42),
+        ],
+        "standard library type",
+    );
+}
+
+#[test]
 fn references_keep_anonymous_sources_isolated_for_new_symbol_classes() {
     let workspace = TempWorkspace::new("references-anonymous-type-isolation");
     workspace.write("app/veln.toml", "");
@@ -1110,7 +1246,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 4,
         },
         Case {
-            name: "package type",
+            name: "package private type",
             files: vec![
                 (
                     "veln.toml",
@@ -1124,11 +1260,102 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
                     "vendor/dep/veln.toml",
                     "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
                 ),
-                ("vendor/dep/dep.veln", "pub type Item\nend\n"),
+                ("vendor/dep/dep.veln", "type Item\nend\n"),
             ],
             source: "main.veln",
             line: 3,
             column: 25,
+        },
+        Case {
+            name: "package type alias",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use dep from \"example/dep\"\n\nfn read(input: dep::Alias) -> dep::Alias\n  input\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    "pub type Item\nend\n\npub type Alias = Item\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 3,
+            column: 25,
+        },
+        Case {
+            name: "package non-exported type",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use hidden from \"example/dep\"\n\nfn read(input: hidden::Item) -> hidden::Item\n  input\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"public.veln\"]\n",
+                ),
+                ("vendor/dep/public.veln", "pub fn ok() -> Int\n  1\nend\n"),
+                ("vendor/dep/hidden.veln", "pub type Item\nend\n"),
+            ],
+            source: "main.veln",
+            line: 3,
+            column: 28,
+        },
+        Case {
+            name: "package invalid-casing type",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use dep from \"example/dep\"\n\nfn read(input: dep::item) -> dep::item\n  input\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                ("vendor/dep/dep.veln", "pub type item\nend\n"),
+            ],
+            source: "main.veln",
+            line: 3,
+            column: 25,
+        },
+        Case {
+            name: "package constructor",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use dep from \"example/dep\"\n\nfn make() -> dep::Item\n  dep::Item::Ready(1)\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    "pub type Item\n  pub Ready(Int)\nend\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 4,
+            column: 15,
         },
         Case {
             name: "schema",
