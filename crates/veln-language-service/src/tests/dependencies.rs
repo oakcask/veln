@@ -963,6 +963,200 @@
     }
 
     #[test]
+    fn unsupported_package_type_selections_do_not_expand_references() {
+        struct Case {
+            name: &'static str,
+            snapshot: EffectiveProjectSnapshot,
+            source_path: &'static str,
+            line: usize,
+            column: usize,
+            expect_symbol: Option<SymbolKind>,
+        }
+
+        let cases = [
+            Case {
+                name: "private direct dependency type",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source(
+                        "main.veln",
+                        concat!(
+                            "use model from \"example/pkg\"\n\n",
+                            "fn read(input: model::Item) -> model::Item\n",
+                            "  input\n",
+                            "end\n",
+                        ),
+                    )],
+                    vec![dependency_snapshot(
+                        "example/pkg",
+                        &[("model.veln", "type Item\nend\n")],
+                        ["model.veln"],
+                    )],
+                ),
+                source_path: "main.veln",
+                line: 3,
+                column: 25,
+                expect_symbol: None,
+            },
+            Case {
+                name: "non-exported direct dependency type",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source(
+                        "main.veln",
+                        concat!(
+                            "use hidden from \"example/pkg\"\n\n",
+                            "fn read(input: hidden::Item) -> hidden::Item\n",
+                            "  input\n",
+                            "end\n",
+                        ),
+                    )],
+                    vec![dependency_snapshot(
+                        "example/pkg",
+                        &[
+                            ("public.veln", "pub fn ok() -> Int\n  1\nend\n"),
+                            ("hidden.veln", "pub type Item\nend\n"),
+                        ],
+                        ["public.veln"],
+                    )],
+                ),
+                source_path: "main.veln",
+                line: 3,
+                column: 28,
+                expect_symbol: None,
+            },
+            Case {
+                name: "public direct dependency type alias",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source(
+                        "main.veln",
+                        concat!(
+                            "use model from \"example/pkg\"\n\n",
+                            "fn read(input: model::Alias) -> model::Alias\n",
+                            "  input\n",
+                            "end\n",
+                        ),
+                    )],
+                    vec![dependency_snapshot(
+                        "example/pkg",
+                        &[(
+                            "model.veln",
+                            "pub type Item\nend\n\npub type Alias = Item\n",
+                        )],
+                        ["model.veln"],
+                    )],
+                ),
+                source_path: "main.veln",
+                line: 3,
+                column: 25,
+                expect_symbol: None,
+            },
+            Case {
+                name: "invalid-casing direct dependency type",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source(
+                        "main.veln",
+                        concat!(
+                            "use model from \"example/pkg\"\n\n",
+                            "fn read(input: model::item) -> model::item\n",
+                            "  input\n",
+                            "end\n",
+                        ),
+                    )],
+                    vec![dependency_snapshot(
+                        "example/pkg",
+                        &[("model.veln", "pub type item\nend\n")],
+                        ["model.veln"],
+                    )],
+                ),
+                source_path: "main.veln",
+                line: 3,
+                column: 25,
+                expect_symbol: None,
+            },
+            Case {
+                name: "direct dependency constructor",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source(
+                        "main.veln",
+                        concat!(
+                            "use model from \"example/pkg\"\n\n",
+                            "fn make() -> model::Item\n",
+                            "  model::Item::Ready(1)\n",
+                            "end\n",
+                        ),
+                    )],
+                    vec![dependency_snapshot(
+                        "example/pkg",
+                        &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
+                        ["model.veln"],
+                    )],
+                ),
+                source_path: "main.veln",
+                line: 4,
+                column: 16,
+                expect_symbol: Some(SymbolKind::Constructor),
+            },
+            Case {
+                name: "standard library public type alias",
+                snapshot: EffectiveProjectSnapshot::new(vec![source(
+                    "main.veln",
+                    concat!(
+                        "fn read(input: prelude::Alias) -> prelude::Alias\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                )])
+                .with_standard_library(standard_library_snapshot(
+                    &[("prelude.veln", "pub type Vec\nend\n\npub type Alias = Vec\n")],
+                    ["prelude.veln"],
+                )),
+                source_path: "main.veln",
+                line: 1,
+                column: 27,
+                expect_symbol: None,
+            },
+            Case {
+                name: "standard library invalid-casing type",
+                snapshot: EffectiveProjectSnapshot::new(vec![source(
+                    "main.veln",
+                    "fn read(input: prelude::vec) -> prelude::vec\n  input\nend\n",
+                )])
+                .with_standard_library(standard_library_snapshot(
+                    &[("prelude.veln", "pub type vec\nend\n")],
+                    ["prelude.veln"],
+                )),
+                source_path: "main.veln",
+                line: 1,
+                column: 27,
+                expect_symbol: None,
+            },
+        ];
+
+        for case in cases {
+            let result = query_snapshot(&case.snapshot, case.source_path, case.line, case.column);
+            match case.expect_symbol {
+                Some(kind) => {
+                    let result = result.unwrap_or_else(|| {
+                        panic!("{} should navigate to an unsupported non-type symbol", case.name)
+                    });
+                    assert_eq!(result.selected_symbol.kind, kind, "{}", case.name);
+                    assert!(
+                        result.references.is_empty(),
+                        "{} unexpectedly returned references: {:?}",
+                        case.name,
+                        locations(&result.references)
+                    );
+                }
+                None => assert!(
+                    result.is_none(),
+                    "{} unexpectedly navigated to {:?}",
+                    case.name,
+                    result.map(|result| result.selected_symbol)
+                ),
+            }
+        }
+    }
+
+    #[test]
     fn direct_dependency_invalid_function_casing_is_not_navigable() {
         let dependency = dependency_snapshot(
             "example/pkg",

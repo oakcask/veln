@@ -200,6 +200,9 @@ impl SymbolIndex {
     }
 
     fn constructor_references(&self, symbol: &ConstructorSymbol) -> Vec<SourceSpan> {
+        if symbol.package.is_some() {
+            return Vec::new();
+        }
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
