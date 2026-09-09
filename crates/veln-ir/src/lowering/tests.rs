@@ -12,6 +12,7 @@ use veln_core::{
 use veln_source::SourceFile;
 use veln_syntax::parse;
 
+mod expression_variants;
 mod failures;
 mod successful_lowering;
 
@@ -89,34 +90,6 @@ fn call_parts(expr: &Expr) -> (&Expr, &[Expr]) {
         panic!("expected call expression");
     };
     (callee, args)
-}
-
-fn try_inner(expr: &Expr) -> &Expr {
-    let ExprKind::Try(inner) = &expr.kind else {
-        panic!("expected try expression");
-    };
-    inner
-}
-
-fn list_items(expr: &Expr) -> &[Expr] {
-    let ExprKind::List(items) = &expr.kind else {
-        panic!("expected list expression");
-    };
-    items
-}
-
-fn prefix_inner(expr: &Expr) -> &Expr {
-    let ExprKind::Prefix { expr, .. } = &expr.kind else {
-        panic!("expected prefix expression");
-    };
-    expr
-}
-
-fn binary_parts(expr: &Expr) -> (&Expr, &Expr) {
-    let ExprKind::Binary { left, right, .. } = &expr.kind else {
-        panic!("expected binary expression");
-    };
-    (left, right)
 }
 
 fn record_fields(expr: &Expr) -> &[RecordField] {
