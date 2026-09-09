@@ -18,8 +18,8 @@ Completion evidence:
   scope metadata, canonical ordering across project sources, type
   annotations, type arguments, return types, aliases, constructor qualifier
   type segments, package body exclusion, dependency source resource admission,
-  field, string, comment, and lexical-binding collision exclusion, and
-  unsupported import-alias segment selection.
+  constructor-name segment, field, string, comment, and lexical-binding
+  collision exclusion, and unsupported import-alias segment selection.
 - `veln-language-service` tests check direct-dependency type references across
   project sources, package identity boundaries, module identity boundaries,
   workspace, other-package, same-package different-module, and constructor
@@ -32,11 +32,11 @@ Completion evidence:
   direct-dependency and standard-library public type references, constructor
   qualifier selection, workspace `file:` location results, project-wide scope,
   package source exclusion, collision filtering, private type, non-exported
-  module, invalid-casing type, public type-alias, package constructor, package
-  module-segment, anonymous source, recovery, schema, effect, handler, and
-  effect-operation empty-result boundaries, and `snapshot_changed` retry
-  exhaustion without success-only fields or partial package resource
-  admission.
+  module, invalid-casing type, public type-alias, package constructor-symbol
+  selection, package module-segment, anonymous source, recovery, schema,
+  effect, handler, and effect-operation empty-result boundaries, and
+  `snapshot_changed` retry exhaustion without success-only fields or partial
+  package resource admission.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
 locations, constructor-symbol references, schema references, public-alias
