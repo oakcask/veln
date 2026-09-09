@@ -1,0 +1,18 @@
+use dep from "example/dep"
+use other from "other/dep"
+
+# dep::Item mention
+type Item
+end
+
+pub fn direct(record: {Item: Int}, local: Item, value: dep::Item) -> dep::Item
+  dep::Item::Ready(value)
+  other::Item::Ready(local)
+  record.Item
+  "dep::Item"
+  local
+end
+
+pub fn standard(input: StreamInput) -> prelude::StreamInput
+  input
+end

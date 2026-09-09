@@ -595,6 +595,133 @@
     }
 
     #[test]
+    fn direct_dependency_type_references_cover_qualified_type_roles() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "model.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n",
+                ),
+            )],
+            ["model.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n\n",
+                        "pub type Alias = model::Item\n\n",
+                        "pub fn make(value: Int) -> model::Item\n",
+                        "  model::Item::Ready(value)\n",
+                        "end\n\n",
+                        "pub fn read(input: model::Item) -> model::Item\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n\n",
+                        "pub fn other(input: model::Item) -> model::Item\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        for (source_path, line, column) in [
+            ("main.veln", 3, 25),
+            ("main.veln", 5, 35),
+            ("main.veln", 6, 10),
+            ("main.veln", 9, 27),
+            ("other.veln", 3, 28),
+        ] {
+            let result = query_snapshot(&snapshot, source_path, line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::DirectDependency)
+            );
+            assert_eq!(result.definition.span.file.as_str(), "model.veln");
+            assert!(matches!(
+                result.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 3, 25),
+                    ("main.veln", 5, 35),
+                    ("main.veln", 6, 10),
+                    ("main.veln", 9, 27),
+                    ("main.veln", 9, 43),
+                    ("other.veln", 3, 28),
+                    ("other.veln", 3, 44),
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn package_type_references_keep_identity_and_collision_boundaries() {
+        let selected = dependency_snapshot(
+            "example/pkg",
+            &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
+            ["model.veln"],
+        );
+        let collision = dependency_snapshot(
+            "other/pkg",
+            &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
+            ["model.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n",
+                    "use other_model::model from \"other/pkg\"\n\n",
+                    "# model::Item mention\n",
+                    "type Item\n",
+                    "  Ready(Int)\n",
+                    "end\n\n",
+                    "pub fn read(record: {Item: Int}, local: Item, value: model::Item) -> model::Item\n",
+                    "  let Item = local\n",
+                    "  model::Item::Ready(value)\n",
+                    "  other_model::Item::Ready(local)\n",
+                    "  record.Item\n",
+                    "  \"model::Item\"\n",
+                    "  local\n",
+                    "end\n",
+                ),
+            )],
+            vec![selected, collision],
+        );
+
+        let result = query_snapshot(&snapshot, "main.veln", 9, 61).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 9, 61),
+                ("main.veln", 9, 77),
+                ("main.veln", 11, 10),
+            ]
+        );
+    }
+
+    #[test]
     fn direct_dependency_public_function_alias_definition_has_no_references() {
         let dependency = dependency_snapshot(
             "example/pkg",
@@ -811,6 +938,64 @@
     }
 
     #[test]
+    fn standard_library_type_references_cover_explicit_and_prelude_paths() {
+        let standard_library = standard_library_snapshot(
+            &[
+                ("prelude.veln", "pub type Vec\n  pub Empty\nend\n"),
+                ("result.veln", "pub type Result\n  pub Ok(Int)\nend\n"),
+            ],
+            ["prelude.veln", "result.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use result from \"std\"\n\n",
+                "pub type Alias = Vec<Int>\n\n",
+                "pub fn first(items: Vec<Int>) -> prelude::Vec<Int>\n",
+                "  prelude::Vec::Empty\n",
+                "end\n\n",
+                "pub fn explicit(value: result::Result) -> result::Result\n",
+                "  result::Result::Ok(1)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        let prelude = query_snapshot(&snapshot, "main.veln", 5, 21).unwrap();
+        assert_eq!(prelude.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            prelude.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(prelude.definition.span.file.as_str(), "prelude.veln");
+        assert_eq!(
+            locations(&prelude.references),
+            [
+                ("main.veln", 3, 18),
+                ("main.veln", 5, 21),
+                ("main.veln", 5, 43),
+                ("main.veln", 6, 12),
+            ]
+        );
+
+        let explicit = query_snapshot(&snapshot, "main.veln", 9, 32).unwrap();
+        assert_eq!(explicit.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            explicit.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(explicit.definition.span.file.as_str(), "result.veln");
+        assert_eq!(
+            locations(&explicit.references),
+            [
+                ("main.veln", 9, 32),
+                ("main.veln", 9, 51),
+                ("main.veln", 10, 11),
+            ]
+        );
+    }
+
+    #[test]
     fn standard_library_public_function_alias_definition_has_no_references() {
         let standard_library = standard_library_snapshot(
             &[(
@@ -852,6 +1037,44 @@
         );
 
         assert!(dependency_query(dependency, "math::Bad(1)").is_none());
+    }
+
+    #[test]
+    fn unsupported_package_type_selections_stay_absent() {
+        let private_type = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "type Item\nend\n")],
+            ["math.veln"],
+        );
+        assert!(dependency_query(private_type, "math::Item").is_none());
+
+        let unexported_type = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub type Item\nend\n")],
+            Vec::new(),
+        );
+        assert!(dependency_query(unexported_type, "math::Item").is_none());
+
+        let alias_type = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                concat!(
+                    "pub type Item\n",
+                    "end\n\n",
+                    "pub type Renamed = Item\n",
+                ),
+            )],
+            ["math.veln"],
+        );
+        assert!(dependency_query(alias_type, "math::Renamed").is_none());
+
+        let invalid_casing_type = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub type item\nend\n")],
+            ["math.veln"],
+        );
+        assert!(dependency_query(invalid_casing_type, "math::item").is_none());
     }
 
     #[test]

@@ -407,20 +407,25 @@ retained package-documentation location for that snapshot.
 `references` exposes the shared language-service reference result for
 non-recovery workspace functions, types, constructors, value bindings, handler
 context parameters, and handler operation clause parameters. It also exposes
-references to public functions from exported modules of one retained direct
-dependency when the selected project source uses the exact visible external
-import required by name resolution. It exposes the same reference boundary for
-public function declarations from exported embedded standard-library modules.
-Standard-library prelude functions include the accepted bare implicit prelude
-calls plus qualified call targets and qualified function-value occurrences.
-Package function results include only occurrences in the selected project's
-captured owned sources. They include occurrences qualified by an import alias.
+references to public functions and types from exported modules of one retained
+direct dependency when the selected project source uses the exact visible
+external import required by name resolution. It exposes the same reference
+boundary for public function and type declarations from exported embedded
+standard-library modules. Standard-library prelude functions include the
+accepted bare implicit prelude calls plus qualified call targets and qualified
+function-value occurrences. Standard-library prelude types include accepted
+bare implicit-prelude type references and qualified type references. Package
+function and type results include only occurrences in the selected project's
+captured owned sources. Type results include type annotations, type arguments,
+return types, type alias targets, and the type segment used as a constructor
+qualifier. They include occurrences qualified by an import alias.
 They exclude the package declaration, package source bodies, other selected
 projects, equal spellings with different package or module identity,
 import-alias declaration segments, fields, strings, comments, and lexical
 bindings. Transitive dependencies, private functions, non-exported package
-modules, invalid-casing records, recovery records, package public function
-alias symbols, non-function package symbols, package module-segment
+types or functions, invalid-casing records, recovery records, package public
+function alias symbols, package public type alias symbols, package
+constructor-symbol selections, schema selections, package module-segment
 selections, and anonymous single-file selections succeed with an empty
 `references` array. `references` does not expose recovery, virtual, schema,
 effect, handler, or effect-operation reference locations.
@@ -541,6 +546,12 @@ embedded standard-library prelude function selected through accepted bare,
 qualified-call, and qualified function-value forms while reporting
 project-wide scope, and excludes workspace, dependency, field, string,
 comment, declaration, package-source, and import-alias collisions.
+The `references-package-type` MCP specification case checks that a saved
+selected project returns only workspace `file:` locations for visible
+direct-dependency and embedded standard-library package types. It covers type
+annotations, return types, constructor qualifier type segments, project-wide
+scope metadata, import-alias segment exclusion, workspace type collisions,
+other-package collisions, fields, strings, and comments.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.

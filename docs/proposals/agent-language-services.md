@@ -23,8 +23,8 @@ currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol, direct-dependency function, and standard-library function
-`references`, `search_docs`, and `read_doc`. Broader definition navigation,
-non-function package reference navigation beyond the extracted type slice,
+`references`, package type `references`, `search_docs`, and `read_doc`.
+Broader definition navigation, non-function package reference navigation,
 paginated references, recovery and casing-neutral reference navigation,
 conformance completion, and client plugin work in this proposal remain planned.
 
@@ -32,9 +32,7 @@ The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency and
-  standard-library functions and the type slice extracted as
-  [MCP Saved Package Type References](mcp-saved-package-type-references.md), and
-  paginated reference lookup;
+  standard-library functions and types, and paginated reference lookup;
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -1056,8 +1054,8 @@ locations through MCP.
 Dependency and standard-library definition locations for the bounded package
 symbol set are specified by
 [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
-Non-function package reference search, paginated references, recovery
-references, and casing-neutral references remain planned here.
+Package reference search beyond functions and types, paginated references,
+recovery references, and casing-neutral references remain planned here.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
@@ -1068,8 +1066,8 @@ The package definition navigation slice is recorded by
 [MCP Package Definition Navigation](../reference/implemented-proposals/mcp-package-definition-navigation.md).
 The direct-dependency function-reference slice is recorded by
 [MCP Saved Dependency Function References](../reference/implemented-proposals/mcp-saved-dependency-function-references.md).
-The package type-reference slice is ready as
-[MCP Saved Package Type References](mcp-saved-package-type-references.md).
+The package type-reference slice is recorded by
+[MCP Saved Package Type References](../reference/implemented-proposals/mcp-saved-package-type-references.md).
 Later umbrella slices are:
 
 1. Extend package navigation with constructor and other non-function dependency
