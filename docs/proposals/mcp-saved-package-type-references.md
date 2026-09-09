@@ -44,6 +44,11 @@ inside package sources, constructor-symbol references, schema references,
 public alias references, recovery symbols, or transitive-dependency
 references.
 
+This slice does not change the existing package function-reference boundary.
+Selecting a supported public direct-dependency or standard-library function
+continues to return its resolved project-source references as specified by
+[MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
+
 ## Acceptance Model
 
 | Case | Expected result | Planned evidence |
@@ -52,7 +57,9 @@ references.
 | Select one exported standard-library type through explicit imports or accepted implicit-prelude paths. | Return qualified and implicit-prelude occurrences that resolve to the same standard-library declaration. | Language-service standard-library resolution cases and the executable MCP specification case. |
 | Use the selected type as a constructor qualifier. | Include the type segment while leaving selection of the constructor symbol outside this slice. | Language-service type-reference cases and MCP adapter boundary cases. |
 | Reuse the selected spelling for a workspace type, another package identity or module, constructor, value, field, string, or comment. | Exclude every occurrence that does not resolve to the selected package type. | Language-service collision table and MCP boundary cases. |
-| Select a private type, a type from a non-exported module, a function, a constructor symbol, a schema, a package module segment, a recovery symbol, or an invalid-casing record. | Return an empty `references` array without widening the supported symbol set. | Language-service unsupported-selection table and MCP success-boundary cases. |
+| Select a private type, a type from a non-exported module, a public type alias, or an invalid-casing type record. | Return an empty `references` array without widening the supported type set. | Language-service unsupported-type selection table and MCP success-boundary cases. |
+| Select a constructor symbol, a schema, a package module segment, or a recovery symbol. | Preserve the existing successful empty `references` boundary for these unsupported symbol classes. | MCP unsupported-symbol success-boundary cases. |
+| Select a supported public direct-dependency or standard-library function. | Preserve the existing package function-reference result instead of treating every non-type symbol as unsupported. | Existing MCP direct-dependency and standard-library package-function regression cases. |
 | Change the selected project or package inputs during capture until retry exhaustion. | Return `snapshot_changed` without reference locations or scope metadata and without partial package resource admission. | Existing saved-reference capture and state-preservation harnesses extended with package type selection. |
 
 ## Completion
