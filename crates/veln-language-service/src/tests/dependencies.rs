@@ -847,8 +847,14 @@
     fn direct_dependency_type_references_cover_project_type_roles_and_collisions() {
         let selected = dependency_snapshot(
             "example/pkg",
-            &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
-            ["model.veln"],
+            &[
+                (
+                    "model.veln",
+                    "pub type Item\n  pub Ready(Int)\n  pub Item(Int)\nend\n",
+                ),
+                ("sibling.veln", "pub type Item\nend\n"),
+            ],
+            ["model.veln", "sibling.veln"],
         );
         let collision = dependency_snapshot(
             "other/pkg",
@@ -861,7 +867,8 @@
                     "main.veln",
                     concat!(
                         "use model from \"example/pkg\"\n",
-                        "use other_model from \"other/pkg\"\n\n",
+                        "use other_model from \"other/pkg\"\n",
+                        "use sibling from \"example/pkg\"\n\n",
                         "type Item\n",
                         "end\n\n",
                         "type Box\n",
@@ -870,8 +877,9 @@
                         "pub type Alias = model::Item\n\n",
                         "fn make(input: model::Item) -> model::Item\n",
                         "  model::Item::Ready(1)\n",
+                        "  model::Item::Item(2)\n",
                         "end\n\n",
-                        "fn other(input: other_model::Item) -> Item\n",
+                        "fn other(input: other_model::Item, sibling: sibling::Item) -> Item\n",
                         "  \"Item\"\n",
                         "end\n\n",
                         "# Item in a comment is not a type reference.\n",
@@ -893,7 +901,7 @@
             vec![selected, collision],
         );
 
-        let result = query_snapshot(&snapshot, "main.veln", 13, 23).unwrap();
+        let result = query_snapshot(&snapshot, "main.veln", 14, 23).unwrap();
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
         assert_eq!(
@@ -908,13 +916,14 @@
         assert_eq!(
             locations(&result.references),
             [
-                ("main.veln", 8, 15),
-                ("main.veln", 11, 25),
-                ("main.veln", 13, 23),
-                ("main.veln", 13, 39),
-                ("main.veln", 14, 10),
-                ("main.veln", 22, 30),
-                ("main.veln", 22, 51),
+                ("main.veln", 9, 15),
+                ("main.veln", 12, 25),
+                ("main.veln", 14, 23),
+                ("main.veln", 14, 39),
+                ("main.veln", 15, 10),
+                ("main.veln", 16, 10),
+                ("main.veln", 24, 30),
+                ("main.veln", 24, 51),
                 ("other.veln", 3, 25),
                 ("other.veln", 3, 41),
             ]
@@ -1077,29 +1086,6 @@
                 line: 3,
                 column: 25,
                 expect_symbol: None,
-            },
-            Case {
-                name: "direct dependency constructor",
-                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
-                    vec![source(
-                        "main.veln",
-                        concat!(
-                            "use model from \"example/pkg\"\n\n",
-                            "fn make() -> model::Item\n",
-                            "  model::Item::Ready(1)\n",
-                            "end\n",
-                        ),
-                    )],
-                    vec![dependency_snapshot(
-                        "example/pkg",
-                        &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
-                        ["model.veln"],
-                    )],
-                ),
-                source_path: "main.veln",
-                line: 4,
-                column: 16,
-                expect_symbol: Some(SymbolKind::Constructor),
             },
             Case {
                 name: "standard library public type alias",

@@ -22,8 +22,9 @@ Completion evidence:
   unsupported import-alias segment selection.
 - `veln-language-service` tests check direct-dependency type references across
   project sources, package identity boundaries, module identity boundaries,
-  workspace and other-package spelling collision exclusion, constructor
-  qualifier type segments, explicit standard-library type references,
+  workspace, other-package, same-package different-module, and constructor
+  spelling collision exclusion, constructor qualifier type segments,
+  explicit standard-library type references,
   implicit standard-library prelude type references, package-origin identity,
   private and non-exported visibility, public type-alias selection exclusion,
   and invalid-casing rejection.
