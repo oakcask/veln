@@ -23,3 +23,8 @@ pub fn collisions(record: {Item: Int}, Item: Int) -> Int
   "Item"
   Item
 end
+
+# Item in a comment is not a type reference.
+pub fn wrapped(items: Vec<model::Item>) -> Vec<model::Item>
+  items
+end

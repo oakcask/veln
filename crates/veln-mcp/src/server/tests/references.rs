@@ -784,6 +784,10 @@ fn references_return_direct_dependency_type_locations_from_saved_project() {
             "end\n\n",
             "fn other(input: other_model::Item) -> Item\n",
             "  \"Item\"\n",
+            "end\n\n",
+            "# Item in a comment is not a type reference.\n",
+            "fn wrapped(items: Vec<model::Item>) -> Vec<model::Item>\n",
+            "  items\n",
             "end\n",
         ),
     );
@@ -830,6 +834,8 @@ fn references_return_direct_dependency_type_locations_from_saved_project() {
             ("main.veln", 13, 23, 13, 27),
             ("main.veln", 13, 39, 13, 43),
             ("main.veln", 14, 10, 14, 14),
+            ("main.veln", 22, 30, 22, 34),
+            ("main.veln", 22, 51, 22, 55),
             ("other.veln", 3, 25, 3, 29),
             ("other.veln", 3, 41, 3, 45),
         ],
@@ -1673,6 +1679,43 @@ fn references_project_capture_exhausts_retries_after_dependency_source_changes()
     });
 
     let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_dependency_type_selection() {
+    let workspace = TempWorkspace::new("references-dependency-type-capture-retry");
+    write_workspace_with_dependency_and_sources(
+        &workspace,
+        "use dep from \"example/dep\"\n\nfn main(input: dep::Item) -> dep::Item\n  input\nend\n",
+        None,
+    );
+    workspace.write("vendor/dep/dep.veln", "pub type Item\nend\n");
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("vendor/dep/dep.veln");
+        fs::remove_file(&source).unwrap();
+        let body = if attempt % 2 == 0 {
+            "pub type Item\n  pub Ready(Int)\nend\n"
+        } else {
+            "pub type Item\nend\n"
+        };
+        fs::write(&source, body).unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":3,"column":21}));
 
     assert_snapshot_changed_without_references_or_scope(&result);
     assert_eq!(attempts.get(), 3);
