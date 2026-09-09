@@ -1,0 +1,4 @@
+interface:
+  display_name: "Toolchain Test Authoring"
+  short_description: "Author and verify Veln CLI toolchain cases"
+  default_prompt: "Use $toolchain-test-authoring to add or update a focused Veln toolchain test case."
