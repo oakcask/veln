@@ -41,7 +41,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
-  NEXTEST_VERSION: "0.9.140"
+  NEXTEST_VERSION: "0.9.143"
   # renovate: datasource=github-releases depName=taiki-e/cargo-llvm-cov
   LLVM_COV_VERSION: "0.9.0"
   LCOV_VERSION: "2.0-4ubuntu2"
