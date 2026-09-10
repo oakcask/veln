@@ -867,11 +867,12 @@ evidence for implemented rows, orphaned evidence routes, and evidence marked
 passing without a successful check. It does not inventory headings,
 explanatory paragraphs, document layout, or other prose structure.
 
-Capability membership comes from the proposal's acceptance tables while it is
-planned and from checked implementation artifacts after it is implemented.
-The manifest references those identities instead of maintaining another copy
-of their membership. Adding a capability updates its authoritative artifact,
-acceptance evidence, and manifest route together.
+For each row below, the evidence column is authoritative for that row's
+lifecycle. Implemented rows point to checked artifacts. Planned rows name the
+remaining evidence to add before that behavior can move into the current
+specification. The manifest references those identities instead of maintaining
+another copy of their membership. Adding a capability updates its
+authoritative artifact, acceptance evidence, and manifest route together.
 
 The resolved-decision evidence groups are:
 
@@ -932,7 +933,7 @@ remain planned and do not imply that the behavior is already implemented.
 | Start `veln mcp` in a one-package project. | The package is selected as `.`. | Implemented `veln-mcp` selection table tests. |
 | Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. `check_project` reports ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; implemented `veln-mcp` multi-project ambiguity test. |
 | Start where no manifest exists. | The base is selected as one anonymous project. `check_project` requires `project: "."` and `source`, and analyzes exactly that source until refresh even if a manifest or companion target appears later. | Implemented MCP anonymous single-file executable case plus `veln-mcp` selection table, pre-refresh manifest addition, and companion-shaped source tests. |
-| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation and saved workspace symbol `references` single-file scope outside selected projects. Dependency and paginated descendant reference coverage remains planned. |
+| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation and saved workspace symbol `references` single-file scope outside selected projects. Implemented direct-dependency and standard-library function and type reference rows keep their selected-project boundary; descendant pagination and package symbol classes beyond functions and types remain planned. |
 | Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |
 | Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; broader Q04 symbolic-base cases remain planned. |
 | Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |
@@ -948,7 +949,7 @@ remain planned and do not imply that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, and visible direct-dependency and standard-library types. Remaining package rows, pagination, recovery, casing-neutral behavior, and unsupported package reference rows remain planned. |
+| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, and visible direct-dependency and standard-library types. Remaining package constructor-symbol, schema, public-alias, transitive-dependency, recovery, casing-neutral, unsupported package, and pagination rows remain planned. |
 | Search references to a direct-dependency or standard-library function or type from one selected project. | Consumer uses are returned; other projects and package-internal uses are excluded, and the scope is explicit. | Implemented for visible direct-dependency and standard-library functions and types without declaration or package-source inclusion. Remaining constructor-symbol, schema, public-alias, transitive-dependency, recovery, casing-neutral, and paginated package reference rows remain planned. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |
