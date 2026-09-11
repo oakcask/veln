@@ -12,13 +12,13 @@ use veln_project::{
     PackageIdentity, PackageSnapshotSource, capture_embedded_package_snapshot, parse_manifest_text,
 };
 
-pub const BUNDLE_SCHEMA_VERSION: u64 = 1;
+pub const BUNDLE_SCHEMA_VERSION: u64 = 2;
 pub const GENERATOR_CONTRACT: &str = "veln-mcp-package-documentation/v1";
-pub const DIGEST_DOMAIN: &[u8] = b"veln-mcp-standard-library-package-doc-resources/v1\0";
+pub const DIGEST_DOMAIN: &[u8] = b"veln-mcp-standard-library-package-doc-resources/v2\0";
 pub const CHECKED_ARTIFACT: &str =
-    include_str!("../generated/mcp-standard-library-package-doc-resources-v1.json");
+    include_str!("../generated/mcp-standard-library-package-doc-resources-v2.json");
 pub const CHECKED_DIGEST: &str =
-    include_str!("../generated/mcp-standard-library-package-doc-resources-v1.sha256");
+    include_str!("../generated/mcp-standard-library-package-doc-resources-v2.sha256");
 
 const PACKAGE_IDENTITY: &str = "std";
 const SNAPSHOT_MANIFEST_PATH: &str = "veln.toml";
@@ -47,6 +47,29 @@ pub struct CheckedResource {
 pub struct CheckedBundle {
     pub metadata: BundleMetadata,
     pub resources: Vec<CheckedResource>,
+    pub search_candidates: Vec<CheckedSearchCandidate>,
+    pub declaration_locations: Vec<CheckedDeclarationLocation>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CheckedSearchCandidate {
+    pub uri: String,
+    pub identifier: String,
+    pub title: String,
+    pub name: String,
+    pub summary: String,
+    pub keywords: Vec<String>,
+    pub signature: Option<String>,
+    pub documentation: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CheckedDeclarationLocation {
+    pub source_uri: String,
+    pub line: usize,
+    pub column: usize,
+    pub offset: usize,
+    pub declaration_uri: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -123,7 +146,16 @@ pub fn generate_checked_bundle() -> Result<GeneratedBundle, String> {
     );
     let mut resources = render_package_documentation(&result);
     resources.sort_by(|left, right| left.uri.as_bytes().cmp(right.uri.as_bytes()));
+    let search_candidates = result.search_candidates();
+    let declaration_locations = result.declaration_locations().collect::<Vec<_>>();
     let value = json!({
+        "declaration_locations": declaration_locations.into_iter().map(|location| json!({
+            "column": location.column,
+            "declaration_uri": location.declaration_uri,
+            "line": location.line,
+            "offset": location.offset,
+            "source_uri": location.source_uri,
+        })).collect::<Vec<_>>(),
         "documentation_digest": result.doc_digest(),
         "generator_contract": GENERATOR_CONTRACT,
         "package_identity": result.identity(),
@@ -135,6 +167,16 @@ pub fn generate_checked_bundle() -> Result<GeneratedBundle, String> {
             "text": resource.text,
             "title": resource.title,
             "uri": resource.uri,
+        })).collect::<Vec<_>>(),
+        "search_candidates": search_candidates.into_iter().map(|candidate| json!({
+            "documentation": candidate.documentation,
+            "identifier": candidate.identifier,
+            "keywords": candidate.keywords,
+            "name": candidate.name,
+            "signature": candidate.signature,
+            "summary": candidate.summary,
+            "title": candidate.title,
+            "uri": candidate.uri,
         })).collect::<Vec<_>>(),
         "schema_version": BUNDLE_SCHEMA_VERSION,
         "snapshot_digest": result.snapshot_digest(),
@@ -191,14 +233,14 @@ pub fn write_checked_outputs(repo_root: &Path, generated: &GeneratedBundle) -> R
         format!("create the MCP standard-library package-documentation output directory: {error}")
     })?;
     fs::write(
-        output_dir.join("mcp-standard-library-package-doc-resources-v1.json"),
+        output_dir.join("mcp-standard-library-package-doc-resources-v2.json"),
         &generated.bytes,
     )
     .map_err(|error| {
         format!("write the checked MCP standard-library package-documentation resources: {error}")
     })?;
     fs::write(
-        output_dir.join("mcp-standard-library-package-doc-resources-v1.sha256"),
+        output_dir.join("mcp-standard-library-package-doc-resources-v2.sha256"),
         format!("{}\n", generated.digest),
     )
     .map_err(|error| {
@@ -233,11 +275,13 @@ fn parse_bundle(bytes: &str) -> Result<CheckedBundle, String> {
     require_exact_keys(
         object.keys().map(String::as_str),
         [
+            "declaration_locations",
             "documentation_digest",
             "generator_contract",
             "package_identity",
             "resources",
             "schema_version",
+            "search_candidates",
             "snapshot_digest",
         ],
         "bundle",
@@ -259,9 +303,128 @@ fn parse_bundle(bytes: &str) -> Result<CheckedBundle, String> {
         .map(parse_resource)
         .collect::<Result<Vec<_>, _>>()?;
     validate_resources(&metadata, &resources)?;
+    let search_candidates = value["search_candidates"]
+        .as_array()
+        .ok_or_else(|| "checked resource bundle search_candidates must be an array".to_string())?
+        .iter()
+        .map(parse_search_candidate)
+        .collect::<Result<Vec<_>, _>>()?;
+    let declaration_locations = value["declaration_locations"]
+        .as_array()
+        .ok_or_else(|| {
+            "checked resource bundle declaration_locations must be an array".to_string()
+        })?
+        .iter()
+        .map(parse_declaration_location)
+        .collect::<Result<Vec<_>, _>>()?;
+    validate_indexes(
+        &metadata,
+        &resources,
+        &search_candidates,
+        &declaration_locations,
+    )?;
     Ok(CheckedBundle {
         metadata,
         resources,
+        search_candidates,
+        declaration_locations,
+    })
+}
+
+fn validate_indexes(
+    metadata: &BundleMetadata,
+    resources: &[CheckedResource],
+    search_candidates: &[CheckedSearchCandidate],
+    declaration_locations: &[CheckedDeclarationLocation],
+) -> Result<(), String> {
+    let status_only = resources.len() == 1 && resources[0].uri.ends_with("/status");
+    if status_only {
+        return if search_candidates.is_empty() && declaration_locations.is_empty() {
+            Ok(())
+        } else {
+            Err("a checked status bundle must not contain documentation indexes".to_string())
+        };
+    }
+    if search_candidates.is_empty() || declaration_locations.is_empty() {
+        return Err(
+            "checked resource bundle must contain search candidates and declaration locations"
+                .to_string(),
+        );
+    }
+    let resource_uris = resources
+        .iter()
+        .map(|resource| resource.uri.as_str())
+        .collect::<BTreeSet<_>>();
+    if let Some(candidate) = search_candidates
+        .iter()
+        .find(|candidate| !resource_uris.contains(candidate.uri.as_str()))
+    {
+        return Err(format!(
+            "checked search candidate URI `{}` must identify a checked resource",
+            candidate.uri
+        ));
+    }
+    let source_base = format!(
+        "veln-pkg:///{}/snapshot/{}/",
+        metadata.package_identity, metadata.snapshot_digest
+    );
+    if let Some(location) = declaration_locations.iter().find(|location| {
+        !location.source_uri.starts_with(&source_base)
+            || !resource_uris.contains(location.declaration_uri.as_str())
+    }) {
+        return Err(format!(
+            "checked declaration location `{}` must identify the checked package and a checked resource",
+            location.source_uri
+        ));
+    }
+    Ok(())
+}
+
+fn parse_search_candidate(value: &Value) -> Result<CheckedSearchCandidate, String> {
+    let object = value.as_object().ok_or_else(|| {
+        "each checked MCP standard-library search candidate must be an object".to_string()
+    })?;
+    require_exact_keys(
+        object.keys().map(String::as_str),
+        [
+            "documentation",
+            "identifier",
+            "keywords",
+            "name",
+            "signature",
+            "summary",
+            "title",
+            "uri",
+        ],
+        "search candidate",
+    )?;
+    Ok(CheckedSearchCandidate {
+        uri: string_field(value, "uri")?.to_string(),
+        identifier: string_field(value, "identifier")?.to_string(),
+        title: string_field(value, "title")?.to_string(),
+        name: string_field(value, "name")?.to_string(),
+        summary: string_field(value, "summary")?.to_string(),
+        keywords: string_array_field(value, "keywords")?,
+        signature: optional_string_field(value, "signature")?,
+        documentation: string_array_field(value, "documentation")?,
+    })
+}
+
+fn parse_declaration_location(value: &Value) -> Result<CheckedDeclarationLocation, String> {
+    let object = value.as_object().ok_or_else(|| {
+        "each checked MCP standard-library declaration location must be an object".to_string()
+    })?;
+    require_exact_keys(
+        object.keys().map(String::as_str),
+        ["column", "declaration_uri", "line", "offset", "source_uri"],
+        "declaration location",
+    )?;
+    Ok(CheckedDeclarationLocation {
+        source_uri: string_field(value, "source_uri")?.to_string(),
+        line: usize_field(value, "line")?,
+        column: usize_field(value, "column")?,
+        offset: usize_field(value, "offset")?,
+        declaration_uri: string_field(value, "declaration_uri")?.to_string(),
     })
 }
 
@@ -401,6 +564,40 @@ fn string_field<'a>(value: &'a Value, field: &str) -> Result<&'a str, String> {
         .get(field)
         .and_then(Value::as_str)
         .ok_or_else(|| format!("checked resource bundle field `{field}` must be a string"))
+}
+
+fn optional_string_field(value: &Value, field: &str) -> Result<Option<String>, String> {
+    match value.get(field) {
+        Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => Ok(Some(value.clone())),
+        _ => Err(format!(
+            "checked resource bundle field `{field}` must be a string or null"
+        )),
+    }
+}
+
+fn string_array_field(value: &Value, field: &str) -> Result<Vec<String>, String> {
+    value
+        .get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("checked resource bundle field `{field}` must be an array"))?
+        .iter()
+        .map(|item| {
+            item.as_str().map(str::to_string).ok_or_else(|| {
+                format!("checked resource bundle field `{field}` must contain only strings")
+            })
+        })
+        .collect()
+}
+
+fn usize_field(value: &Value, field: &str) -> Result<usize, String> {
+    value
+        .get(field)
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .ok_or_else(|| {
+            format!("checked resource bundle field `{field}` must be an unsigned integer")
+        })
 }
 
 fn digest_field<'a>(value: &'a Value, field: &str) -> Result<&'a str, String> {

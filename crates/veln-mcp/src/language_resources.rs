@@ -6,9 +6,9 @@ use std::sync::{Arc, OnceLock};
 use serde_json::{Value, json};
 use veln_analysis::CapturedDependencyProject;
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, PackageDocDeclaration,
-    PackageDocGeneratorContract, PackageDocResult, PackageDocResultKind,
-    RenderedPackageDocResource, VirtualSourceCatalog, render_package_documentation,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationSource,
+    PackageDocGeneratorContract, PackageDocResult, RenderedPackageDocResource,
+    VirtualSourceCatalog, render_package_documentation,
 };
 use veln_project::{
     CapturedPackageSnapshot, PackageIdentity, PackageSnapshotSource,
@@ -24,7 +24,6 @@ thread_local! {
     static DEPENDENCY_SNAPSHOT_CAPTURES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_NAVIGATION_BUILDS: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_NAVIGATION_BUILDS: Cell<usize> = const { Cell::new(0) };
-    static STANDARD_LIBRARY_PACKAGE_DOC_BUILDS: Cell<usize> = const { Cell::new(0) };
     static STANDARD_LIBRARY_RESOURCE_BUILDS: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -66,16 +65,6 @@ pub(crate) fn workspace_navigation_builds() -> usize {
 #[cfg(test)]
 pub(crate) fn standard_library_resource_builds() -> usize {
     STANDARD_LIBRARY_RESOURCE_BUILDS.get()
-}
-
-#[cfg(test)]
-pub(crate) fn reset_standard_library_package_doc_builds() {
-    STANDARD_LIBRARY_PACKAGE_DOC_BUILDS.set(0);
-}
-
-#[cfg(test)]
-pub(crate) fn standard_library_package_doc_builds() -> usize {
-    STANDARD_LIBRARY_PACKAGE_DOC_BUILDS.get()
 }
 
 #[derive(Clone)]
@@ -353,7 +342,7 @@ impl LanguageResources {
     pub(crate) fn package_search_candidates(&self) -> Vec<PackageSearchCandidate> {
         self.package_docs
             .iter()
-            .flat_map(|(key, documentation)| package_search_candidates(key, documentation.result()))
+            .flat_map(|(key, documentation)| documentation.search_candidates(key))
             .collect()
     }
 
@@ -428,11 +417,9 @@ impl LanguageResources {
         &self,
         location: &veln_language_service::NavigationLocation,
     ) -> Option<&str> {
-        self.package_docs.values().find_map(|documentation| {
-            documentation
-                .result()
-                .declaration_uri_for_location(location)
-        })
+        self.package_docs
+            .values()
+            .find_map(|documentation| documentation.declaration_uri_for_location(location))
     }
 }
 
@@ -461,37 +448,55 @@ struct DependencyResources {
 #[derive(Clone, Debug)]
 enum PackageDocumentation {
     Ready(PackageDocResult),
-    DeferredStandardLibrary(Arc<DeferredStandardLibraryDocumentation>),
+    CheckedStandardLibrary(Arc<CheckedStandardLibraryDocumentation>),
 }
 
 impl PackageDocumentation {
-    fn result(&self) -> &PackageDocResult {
+    fn search_candidates(&self, key: &RetainedPackageKey) -> Vec<PackageSearchCandidate> {
         match self {
-            Self::Ready(result) => result,
-            Self::DeferredStandardLibrary(documentation) => {
-                documentation.result.get_or_init(|| {
-                    #[cfg(test)]
-                    STANDARD_LIBRARY_PACKAGE_DOC_BUILDS
-                        .set(STANDARD_LIBRARY_PACKAGE_DOC_BUILDS.get() + 1);
-                    PackageDocResult::generate(
-                        &PackageIdentity::embedded_standard(),
-                        &documentation.snapshot,
-                        &documentation.manifest,
-                        PackageDocGeneratorContract::new(
-                            veln_repo_mcp_standard_library_docs::GENERATOR_CONTRACT,
-                        ),
-                    )
-                })
+            Self::Ready(result) => package_search_candidates(key, result),
+            Self::CheckedStandardLibrary(documentation) => documentation.search_candidates.clone(),
+        }
+    }
+
+    fn declaration_uri_for_location(&self, location: &NavigationLocation) -> Option<&str> {
+        match self {
+            Self::Ready(result) => result.declaration_uri_for_location(location),
+            Self::CheckedStandardLibrary(documentation) => {
+                documentation.declaration_uri_for_location(location)
             }
         }
     }
 }
 
 #[derive(Debug)]
-struct DeferredStandardLibraryDocumentation {
-    snapshot: CapturedPackageSnapshot,
-    manifest: veln_project::ProjectManifest,
-    result: OnceLock<PackageDocResult>,
+struct CheckedStandardLibraryDocumentation {
+    search_candidates: Vec<PackageSearchCandidate>,
+    declaration_locations: BTreeMap<DeclarationLocationKey, String>,
+}
+
+impl CheckedStandardLibraryDocumentation {
+    fn declaration_uri_for_location(&self, location: &NavigationLocation) -> Option<&str> {
+        let NavigationSource::Package { uri } = &location.source else {
+            return None;
+        };
+        self.declaration_locations
+            .get(&DeclarationLocationKey {
+                source_uri: uri.clone(),
+                line: location.span.start.line,
+                column: location.span.start.column,
+                offset: location.span.start.offset,
+            })
+            .map(String::as_str)
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct DeclarationLocationKey {
+    source_uri: String,
+    line: usize,
+    column: usize,
+    offset: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -595,100 +600,26 @@ fn package_search_candidates(
     key: &RetainedPackageKey,
     result: &PackageDocResult,
 ) -> Vec<PackageSearchCandidate> {
-    let PackageDocResultKind::Catalog(catalog) = result.kind() else {
-        return Vec::new();
-    };
     let scope = if key.identity == "std" {
         PackageSearchScope::StandardLibrary
     } else {
         PackageSearchScope::Package
     };
-    let keywords = catalog.metadata.keywords.clone();
-    let mut candidates = vec![PackageSearchCandidate {
-        scope,
-        uri: catalog.index_uri.clone(),
-        identifier: catalog.package_identity.clone(),
-        title: format!("Veln package documentation: {}", catalog.package_identity),
-        name: catalog.metadata.package_name.clone().unwrap_or_default(),
-        summary: catalog.metadata.description.clone().unwrap_or_default(),
-        keywords: keywords.clone(),
-        signature: None,
-        documentation: Vec::new(),
-    }];
-    for module in &catalog.modules {
-        candidates.push(PackageSearchCandidate {
+    result
+        .search_candidates()
+        .into_iter()
+        .map(|candidate| PackageSearchCandidate {
             scope,
-            uri: module.uri.clone(),
-            identifier: module.id.clone(),
-            title: format!("Veln package module: {}", module.name),
-            name: module.name.clone(),
-            summary: first_doc_line(&module.doc).unwrap_or_default(),
-            keywords: keywords.clone(),
-            signature: None,
-            documentation: searchable_doc_lines(&module.doc),
-        });
-        candidates.extend(
-            module
-                .declarations
-                .iter()
-                .map(|declaration| declaration_search_candidate(scope, &keywords, declaration)),
-        );
-    }
-    candidates
-}
-
-fn declaration_search_candidate(
-    scope: PackageSearchScope,
-    keywords: &[String],
-    declaration: &PackageDocDeclaration,
-) -> PackageSearchCandidate {
-    PackageSearchCandidate {
-        scope,
-        uri: declaration.uri.clone(),
-        identifier: declaration.id.clone(),
-        title: format!(
-            "Veln package declaration: {} {}",
-            declaration.kind, declaration.name
-        ),
-        name: declaration.name.clone(),
-        summary: first_doc_line(&declaration.doc).unwrap_or_default(),
-        keywords: keywords.to_vec(),
-        signature: Some(declaration.signature.clone()),
-        documentation: declaration_documentation(declaration),
-    }
-}
-
-fn declaration_documentation(declaration: &PackageDocDeclaration) -> Vec<String> {
-    let mut documentation = searchable_doc_lines(&declaration.doc);
-    for constructor in &declaration.constructors {
-        documentation.extend(searchable_doc_lines(&constructor.doc));
-    }
-    documentation.extend(
-        declaration
-            .contracts
-            .iter()
-            .map(|contract| contract.text.clone()),
-    );
-    documentation
-}
-
-fn searchable_doc_lines(lines: &[String]) -> Vec<String> {
-    let mut in_fence = false;
-    let mut searchable = Vec::new();
-    for line in lines {
-        if line.trim_start().starts_with("```") {
-            in_fence = !in_fence;
-            continue;
-        }
-        if !in_fence {
-            searchable.push(line.clone());
-        }
-    }
-    searchable
-}
-
-fn first_doc_line(lines: &[String]) -> Option<String> {
-    lines.iter().find(|line| !line.trim().is_empty()).cloned()
+            uri: candidate.uri,
+            identifier: candidate.identifier,
+            title: candidate.title,
+            name: candidate.name,
+            summary: candidate.summary,
+            keywords: candidate.keywords,
+            signature: candidate.signature,
+            documentation: candidate.documentation,
+        })
+        .collect()
 }
 
 #[derive(Clone, Debug)]
@@ -721,21 +652,48 @@ impl StandardLibraryResources {
         )
         .map_err(|error| format!("capture embedded standard library snapshot: {error}"))?;
         let manifest = veln_project::parse_manifest_text("veln.toml", bundle.manifest);
-        // The checked bundle is bound to these captured bytes by its snapshot digest. The
-        // repository freshness check compares the full generated documentation artifact, so MCP
-        // startup can defer package-documentation analysis until a tool requests its catalog.
+        // The checked bundle is bound to these captured bytes by its snapshot digest. It includes
+        // the derived documentation indexes so MCP startup does not repeat package analysis.
         let checked =
             veln_repo_mcp_standard_library_docs::checked_bundle_for_snapshot(snapshot.digest())?;
-        let navigation_snapshot = DirectDependencySnapshot::from_validated_standard_library(
-            snapshot.clone(),
-            manifest.clone(),
-        )
-        .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
+        let navigation_snapshot =
+            DirectDependencySnapshot::from_validated_standard_library(snapshot.clone(), manifest)
+                .map_err(|error| format!("validate embedded standard library snapshot: {error}"))?;
         let catalog = VirtualSourceCatalog::new([(
             PackageIdentity::embedded_standard(),
             snapshot.clone(),
         )])
         .map_err(|error| format!("build embedded standard library source catalog: {error}"))?;
+        let search_candidates = checked
+            .search_candidates
+            .into_iter()
+            .map(|candidate| PackageSearchCandidate {
+                scope: PackageSearchScope::StandardLibrary,
+                uri: candidate.uri,
+                identifier: candidate.identifier,
+                title: candidate.title,
+                name: candidate.name,
+                summary: candidate.summary,
+                keywords: candidate.keywords,
+                signature: candidate.signature,
+                documentation: candidate.documentation,
+            })
+            .collect();
+        let declaration_locations = checked
+            .declaration_locations
+            .into_iter()
+            .map(|location| {
+                (
+                    DeclarationLocationKey {
+                        source_uri: location.source_uri,
+                        line: location.line,
+                        column: location.column,
+                        offset: location.offset,
+                    },
+                    location.declaration_uri,
+                )
+            })
+            .collect();
         let mut resources = standard_library_source_resources(&snapshot, &catalog)?;
         resources.extend(
             checked
@@ -750,11 +708,10 @@ impl StandardLibraryResources {
                 digest: snapshot.digest().to_string(),
             },
             snapshot: navigation_snapshot,
-            package_documentation: PackageDocumentation::DeferredStandardLibrary(Arc::new(
-                DeferredStandardLibraryDocumentation {
-                    snapshot,
-                    manifest,
-                    result: OnceLock::new(),
+            package_documentation: PackageDocumentation::CheckedStandardLibrary(Arc::new(
+                CheckedStandardLibraryDocumentation {
+                    search_candidates,
+                    declaration_locations,
                 },
             )),
         })
