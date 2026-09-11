@@ -67,6 +67,31 @@ fn parser_rejects_open_or_mismatched_bundle_shapes() {
 }
 
 #[test]
+fn parser_identifies_each_invalid_bundle_collection() {
+    for (field, expected) in [
+        (
+            "resources",
+            "checked resource bundle resources must be an array",
+        ),
+        (
+            "search_candidates",
+            "checked resource bundle search_candidates must be an array",
+        ),
+        (
+            "declaration_locations",
+            "checked resource bundle declaration_locations must be an array",
+        ),
+    ] {
+        let mut value: Value = serde_json::from_str(checked_artifact_bytes()).unwrap();
+        value[field] = json!({});
+
+        let error = parse_bundle(&canonical_json(&value).unwrap()).unwrap_err();
+
+        assert_eq!(error, expected);
+    }
+}
+
+#[test]
 fn parser_rejects_resource_order_and_listed_boundary_drift() {
     let mut value: Value = serde_json::from_str(checked_artifact_bytes()).unwrap();
     value["resources"].as_array_mut().unwrap().reverse();
