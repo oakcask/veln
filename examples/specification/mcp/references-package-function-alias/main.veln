@@ -1,0 +1,17 @@
+use dep from "example/dep"
+
+pub fn first() -> Int
+  dep::renamed()
+end
+
+pub fn second() -> fn() -> Int
+  dep::renamed
+end
+
+pub fn target_call() -> Int
+  dep::target()
+end
+
+pub fn chain_call() -> Int
+  dep::chain()
+end

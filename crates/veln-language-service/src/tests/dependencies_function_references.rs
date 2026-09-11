@@ -176,7 +176,7 @@
     }
 
     #[test]
-    fn direct_dependency_public_function_alias_definition_has_no_references() {
+    fn direct_dependency_public_function_alias_references_keep_alias_identity() {
         let dependency = dependency_snapshot(
             "example/pkg",
             &[(
@@ -190,24 +190,122 @@
             )],
             ["math.veln"],
         );
-        let result = dependency_query(dependency, "math::renamed(1)").unwrap();
-
-        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
-        assert_eq!(result.selected_symbol.declaration_kind, SymbolDeclarationKind::PublicAlias);
-        assert_eq!(result.selected_symbol.package_origin, Some(PackageOrigin::DirectDependency));
-        assert_eq!(result.definition.span.file.as_str(), "math.veln");
-        assert_eq!(
-            (
-                result.definition.span.start.line,
-                result.definition.span.start.column
-            ),
-            (5, 8)
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use math from \"example/pkg\"\n\n",
+                        "pub fn first(value: Int) -> Int\n",
+                        "  math::renamed(value)\n",
+                        "end\n\n",
+                        "pub fn second(value: Int) -> Int\n",
+                        "  let callback: fn(Int) -> Int = math::renamed\n",
+                        "  callback(math::renamed(value)) + math::target(value)\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use math from \"example/pkg\"\n\n",
+                        "pub fn other(value: Int) -> Int\n",
+                        "  math::renamed(value)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
         );
-        assert!(matches!(
-            result.definition.source,
-            NavigationSource::Package { .. }
-        ));
-        assert!(result.references.is_empty());
+
+        for (line, column) in [(4, 10), (8, 40), (9, 18)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::DirectDependency)
+            );
+            assert_eq!(result.definition.span.file.as_str(), "math.veln");
+            assert_eq!(
+                (
+                    result.definition.span.start.line,
+                    result.definition.span.start.column
+                ),
+                (5, 8)
+            );
+            assert!(matches!(
+                result.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 4, 9),
+                    ("main.veln", 8, 40),
+                    ("main.veln", 9, 18),
+                    ("other.veln", 4, 9),
+                ]
+            );
+        }
+
+        let target = query_snapshot(&snapshot, "main.veln", 9, 42).unwrap();
+        assert_eq!(
+            target.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
+        );
+        assert_eq!(locations(&target.references), [("main.veln", 9, 42)]);
+    }
+
+    #[test]
+    fn direct_dependency_function_alias_reference_boundaries_are_empty() {
+        let fixtures = [
+            (
+                "alias chain",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                    "pub fn chain = renamed\n",
+                ),
+                "math::chain()",
+            ),
+            (
+                "type alias",
+                concat!(
+                    "pub type Item\n",
+                    "end\n\n",
+                    "pub type Renamed = Item\n",
+                ),
+                "math::Renamed",
+            ),
+            (
+                "schema alias",
+                concat!(
+                    "pub schema Packet\n",
+                    "  value: Int\n",
+                    "end\n\n",
+                    "pub schema Renamed = Packet\n",
+                ),
+                "math::Renamed",
+            ),
+        ];
+
+        for (case, dependency_text, expression) in fixtures {
+            let dependency =
+                dependency_snapshot("example/pkg", &[("math.veln", dependency_text)], ["math.veln"]);
+            let result = dependency_query(dependency, expression);
+
+            assert!(
+                result.is_none_or(|result| result.references.is_empty()),
+                "accepted {case}"
+            );
+        }
     }
 
     #[test]
@@ -392,7 +490,7 @@
     }
 
     #[test]
-    fn standard_library_public_function_alias_definition_has_no_references() {
+    fn standard_library_public_function_alias_references_cover_prelude_forms() {
         let standard_library = standard_library_snapshot(
             &[(
                 "prelude.veln",
@@ -405,22 +503,58 @@
             )],
             ["prelude.veln"],
         );
-        let snapshot = EffectiveProjectSnapshot::new(vec![source(
-            "main.veln",
-            "pub fn main() -> Int\n  prelude::renamed()\nend\n",
-        )])
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "pub fn first() -> Int\n",
+                    "  renamed()\n",
+                    "end\n\n",
+                    "pub fn second() -> fn() -> Int\n",
+                    "  prelude::renamed\n",
+                    "end\n\n",
+                    "pub fn target_call() -> Int\n",
+                    "  prelude::target()\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                "pub fn other() -> Int\n  prelude::renamed()\nend\n",
+            ),
+        ])
         .with_standard_library(standard_library);
-        let result = query_snapshot(&snapshot, "main.veln", 2, 12).unwrap();
 
-        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        for (source_path, line, column) in [
+            ("main.veln", 2, 4),
+            ("main.veln", 6, 12),
+            ("other.veln", 2, 12),
+        ] {
+            let result = query_snapshot(&snapshot, source_path, line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 2, 3),
+                    ("main.veln", 6, 12),
+                    ("other.veln", 2, 12),
+                ]
+            );
+        }
+
+        let target = query_snapshot(&snapshot, "main.veln", 10, 12).unwrap();
         assert_eq!(
-            result.selected_symbol.declaration_kind,
-            SymbolDeclarationKind::PublicAlias
+            target.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
         );
-        assert_eq!(
-            result.selected_symbol.package_origin,
-            Some(PackageOrigin::StandardLibrary)
-        );
-        assert!(result.references.is_empty());
+        assert_eq!(locations(&target.references), [("main.veln", 10, 12)]);
     }
-

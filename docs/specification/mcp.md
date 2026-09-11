@@ -433,25 +433,30 @@ composition targets, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
 strings, comments, and schema uses that resolve to another declaration.
 
-It also exposes references to public function, type, and constructor
-declarations from
+It also exposes references to public function declarations, public function
+aliases, public type declarations, and public constructor declarations from
 exported modules of one retained direct dependency when the selected project
 source uses the exact visible external import required by name resolution. It
-exposes the same reference boundary for public function, type, and constructor
-declarations from exported embedded standard-library modules. Standard-library
-prelude functions include the accepted bare implicit prelude calls plus
+exposes the same reference boundary for public functions, public function
+aliases, public types, and public constructors from exported embedded
+standard-library modules. Standard-library prelude functions and public
+function aliases include the accepted bare implicit prelude calls plus
 qualified call targets and qualified function-value occurrences.
 Standard-library prelude types include accepted bare implicit prelude type
 references plus qualified type references.
 
-Package function results include qualified calls, qualified function-value
-occurrences, and occurrences qualified by an import alias. Package type results
-include type annotations, type arguments, return types, type occurrences in
-type-alias right-hand sides, and the type segment used as a constructor
-qualifier, including when a package constructor has the same spelling as its
-owning type. Package constructor results include qualified calls, constructor
-patterns, and accepted bare constructor forms. A package constructor selection
-through a public type alias succeeds but returns an empty `references` array.
+Package function and public function-alias results include qualified calls,
+qualified function-value occurrences, and occurrences qualified by an import
+alias. Public function-alias references are distinct from the referenced
+function: selecting the alias returns only occurrences that resolve to that
+alias, and selecting the target function returns only target-function
+occurrences. Package type results include type annotations, type arguments,
+return types, type occurrences in type-alias right-hand sides, and the type
+segment used as a constructor qualifier, including when a package constructor
+has the same spelling as its owning type. Package constructor results include
+qualified calls, constructor patterns, and accepted bare constructor forms. A
+package constructor selection through a public type alias succeeds but returns
+an empty `references` array.
 Package reference results include only occurrences in the selected project's
 captured owned sources.
 They exclude the package declaration, package source bodies, other selected
@@ -460,9 +465,10 @@ import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, or constructors, non-exported package modules,
-invalid-casing records, recovery records, package public alias symbols,
-non-function, non-type, and non-constructor package symbols, and package
-module-segment selections succeed with an empty `references` array.
+invalid-casing records, recovery records, package public type aliases,
+package public schema aliases, function-alias chains, non-function, non-type,
+and non-constructor package symbols, and package module-segment selections
+succeed with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
@@ -591,6 +597,14 @@ embedded standard-library prelude function selected through accepted bare,
 qualified-call, and qualified function-value forms while reporting
 project-wide scope, and excludes workspace, dependency, field, string,
 comment, declaration, package-source, and import-alias collisions.
+The `references-package-function-alias` MCP specification case checks that a
+saved selected project returns only workspace `file:` locations for a visible
+direct-dependency public function alias selected through qualified calls and
+qualified function-value forms, keeps target-function references separate,
+reports project-wide scope, and keeps a package function-alias chain
+selection successful and empty. Language-service tests also check
+standard-library public function-alias references through accepted bare
+implicit-prelude and qualified forms.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes

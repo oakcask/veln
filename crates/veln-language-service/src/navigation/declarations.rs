@@ -21,6 +21,8 @@ fn same_function(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
         && left.declaration_kind == right.declaration_kind
         && left.standard_prelude == right.standard_prelude
         && left.declaration == right.declaration
+        && left.alias_target_module == right.alias_target_module
+        && left.alias_target_name == right.alias_target_name
 }
 
 fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
@@ -282,10 +284,35 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                 public,
                 standard_prelude,
                 declaration_kind,
+                alias_target_module: is_public_alias
+                    .then(|| function_alias_target_module(file, name_index))
+                    .flatten(),
+                alias_target_name: is_public_alias
+                    .then(|| function_alias_target_name(tokens, name_index))
+                    .flatten(),
             });
         }
     }
     functions
+}
+
+fn function_alias_target_index(tokens: &[Token], name_index: usize) -> Option<usize> {
+    let equal_index = next_non_layout_index(tokens, name_index)
+        .filter(|index| tokens[*index].kind == TokenKind::Equal)?;
+    tokens[equal_index + 1..]
+        .iter()
+        .enumerate()
+        .find(|(_, token)| token.kind == TokenKind::Ident)
+        .map(|(index, _)| equal_index + 1 + index)
+}
+
+fn function_alias_target_module(file: &IndexedFile, name_index: usize) -> Option<String> {
+    let target_index = function_alias_target_index(&file.tokens, name_index)?;
+    qualifier_for_token(&file.tokens, target_index)
+}
+
+fn function_alias_target_name(tokens: &[Token], name_index: usize) -> Option<String> {
+    function_alias_target_index(tokens, name_index).map(|index| tokens[index].text.clone())
 }
 
 fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol> {

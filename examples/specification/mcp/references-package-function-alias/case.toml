@@ -1,0 +1,83 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"references\":[{\"range\":{\"end\":{\"column\":15,\"line\":4},\"start\":{\"column\":8,\"line\":4}},\"uri\":\"file://",
+  "\"scope\":{\"generation\":0,\"mode\":\"project\",\"project\":\".\",\"project_wide\":true}",
+  "\"name\":\"dep.veln\",\"title\":\"Veln package source: example/dep: dep.veln\"",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":4,"column":8},"end":{"line":4,"column":15}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":8,"column":8},"end":{"line":8,"column":15}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":4,"column":8},"end":{"line":4,"column":15}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 2
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":12,"column":8},"end":{"line":12,"column":14}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = false

@@ -21,9 +21,6 @@ also states it.
 - Standard-library byte collections can gain consistent `len` spellings while
   retaining their typed `count` APIs:
   [standard-library-byte-length-aliases.md](standard-library-byte-length-aliases.md).
-- Direct-dependency public function-alias reference lookup is ready as an
-  independent saved-navigation slice:
-  [mcp-saved-dependency-function-alias-references.md](mcp-saved-dependency-function-alias-references.md).
 
 ## Blocked
 
@@ -33,10 +30,7 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- [Standard-library public function-alias references](mcp-saved-standard-library-function-alias-references.md)
-  are blocked until the shipped standard library exposes the meaningful public
-  aliases proposed by
-  [Standard-Library Byte Length Aliases](standard-library-byte-length-aliases.md).
+<<<<<<< HEAD
 - The agent-language-services umbrella remains a planning inventory. Its
   saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
@@ -50,9 +44,10 @@ also states it.
   [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
   Its workspace schema-reference slice is implemented and recorded by
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-  Its direct-dependency public function-alias reference slice has been
-  extracted under Ready. Its standard-library public function-alias reference
-  slice remains blocked. Do not select the umbrella directly:
+  Its package public function-alias reference slice is implemented and
+  recorded by
+  [MCP Saved Package Function-Alias References](../reference/implemented-proposals/mcp-saved-package-function-alias-references.md).
+  Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
