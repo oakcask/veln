@@ -41,6 +41,7 @@ impl FileDeclarations {
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
         self.functions.extend(other.functions);
+        self.function_aliases.extend(other.function_aliases);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
@@ -54,6 +55,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
         functions: function_declarations(file),
+        function_aliases: function_alias_declarations(file),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
@@ -296,14 +298,52 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     functions
 }
 
+fn function_alias_declarations(file: &IndexedFile) -> Vec<FunctionAliasSymbol> {
+    let mut aliases = Vec::new();
+    let tokens = &file.tokens;
+    for (index, token) in tokens.iter().enumerate() {
+        if matches!(token.kind, TokenKind::Fn | TokenKind::Test)
+            && let Some(name_index) = next_non_layout_index(tokens, index)
+            && let Some(name) = tokens.get(name_index)
+            && is_identifier(&name.text)
+            && next_non_layout_token(tokens, name_index)
+                .filter(|token| token.range.start >= name.range.end)
+                .is_some_and(|token| token.kind == TokenKind::Equal)
+        {
+            let span = file.source.span(name.range);
+            if is_invalid_declaration_name(file, &span) {
+                continue;
+            }
+            let package = match &file.origin {
+                IndexedOrigin::Workspace => None,
+                IndexedOrigin::Package { identity, .. } => Some(identity.clone()),
+            };
+            aliases.push(FunctionAliasSymbol {
+                module: file.module.clone(),
+                name: name.text.clone(),
+                package,
+                target_module: function_alias_target_module(file, name_index),
+                target_name: function_alias_target_name(tokens, name_index),
+                import_aliases: file.import_aliases.clone(),
+            });
+        }
+    }
+    aliases
+}
+
 fn function_alias_target_index(tokens: &[Token], name_index: usize) -> Option<usize> {
     let equal_index = next_non_layout_index(tokens, name_index)
         .filter(|index| tokens[*index].kind == TokenKind::Equal)?;
-    tokens[equal_index + 1..]
+    let first_index = tokens[equal_index + 1..]
         .iter()
         .enumerate()
         .find(|(_, token)| token.kind == TokenKind::Ident)
-        .map(|(index, _)| equal_index + 1 + index)
+        .map(|(index, _)| equal_index + 1 + index)?;
+    let mut leaf_index = first_index;
+    while let Some(next_index) = next_path_segment_index(tokens, leaf_index) {
+        leaf_index = next_index;
+    }
+    Some(leaf_index)
 }
 
 fn function_alias_target_module(file: &IndexedFile, name_index: usize) -> Option<String> {

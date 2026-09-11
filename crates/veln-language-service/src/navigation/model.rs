@@ -380,6 +380,16 @@ struct FunctionSymbol {
 }
 
 #[derive(Clone, Debug)]
+struct FunctionAliasSymbol {
+    module: String,
+    name: String,
+    package: Option<String>,
+    target_module: Option<String>,
+    target_name: Option<String>,
+    import_aliases: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug)]
 struct TypeSymbol {
     module: String,
     name: String,
@@ -606,6 +616,7 @@ struct FileDeclarations {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    function_aliases: Vec<FunctionAliasSymbol>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
@@ -637,6 +648,7 @@ pub(crate) struct SymbolIndex {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    function_aliases: Vec<FunctionAliasSymbol>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,

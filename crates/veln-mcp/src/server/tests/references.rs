@@ -1941,6 +1941,35 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             scope: None,
         },
         Case {
+            name: "package function alias chain through non-exported module",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use math from \"example/dep\"\n\nfn read() -> Int\n  math::chain()\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/math.veln",
+                    "use internal\n\npub fn chain = internal::renamed\n",
+                ),
+                (
+                    "vendor/dep/internal.veln",
+                    "pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 4,
+            column: 9,
+            scope: None,
+        },
+        Case {
             name: "private package function alias",
             files: vec![
                 (

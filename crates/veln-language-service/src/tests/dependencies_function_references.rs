@@ -325,6 +325,38 @@
     }
 
     #[test]
+    fn direct_dependency_function_alias_chain_through_non_exported_module_is_empty() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[
+                (
+                    "math.veln",
+                    concat!(
+                        "use internal\n\n",
+                        "pub fn chain = internal::renamed\n",
+                    ),
+                ),
+                (
+                    "internal.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  1\n",
+                        "end\n\n",
+                        "pub fn renamed = target\n",
+                    ),
+                ),
+            ],
+            ["math.veln"],
+        );
+        let result = dependency_query(dependency, "math::chain()");
+
+        assert!(
+            result.is_none_or(|result| result.references.is_empty()),
+            "accepted function alias chain through non-exported module"
+        );
+    }
+
+    #[test]
     fn package_function_alias_references_are_limited_to_selected_project_sources() {
         struct Case {
             name: &'static str,

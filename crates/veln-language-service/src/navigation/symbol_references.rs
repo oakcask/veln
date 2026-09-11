@@ -120,15 +120,34 @@ impl SymbolIndex {
     }
 
     fn function_alias_targets_alias(&self, symbol: &FunctionSymbol) -> bool {
-        let Some(target_name) = symbol.alias_target_name.as_deref() else {
+        let alias = self
+            .function_aliases
+            .iter()
+            .find(|alias| {
+                alias.package == symbol.package
+                    && alias.module == symbol.module
+                    && alias.name == symbol.name
+            });
+        let Some(target_name) = alias
+            .and_then(|alias| alias.target_name.as_deref())
+            .or(symbol.alias_target_name.as_deref())
+        else {
             return false;
         };
-        let target_module = symbol.alias_target_module.as_deref().unwrap_or(&symbol.module);
-        self.functions.iter().any(|candidate| {
+        let target_modules = alias
+            .map(|alias| function_alias_target_modules(alias))
+            .unwrap_or_else(|| {
+                vec![
+                    symbol
+                        .alias_target_module
+                        .clone()
+                        .unwrap_or_else(|| symbol.module.clone()),
+                ]
+            });
+        self.function_aliases.iter().any(|candidate| {
             candidate.package == symbol.package
-                && candidate.module == target_module
+                && target_modules.iter().any(|module| module == &candidate.module)
                 && candidate.name == target_name
-                && candidate.declaration_kind == SymbolDeclarationKind::PublicAlias
         })
     }
 
@@ -416,6 +435,19 @@ impl SymbolIndex {
             ),
         }
         qualifiers
+    }
+}
+
+fn function_alias_target_modules(alias: &FunctionAliasSymbol) -> Vec<String> {
+    match alias.target_module.as_deref() {
+        Some(qualifier) => {
+            let mut modules = vec![qualifier.to_string()];
+            if let Some(module) = resolve_qualified_alias(&alias.import_aliases, qualifier) {
+                modules.push(module);
+            }
+            modules
+        }
+        None => vec![alias.module.clone()],
     }
 }
 
