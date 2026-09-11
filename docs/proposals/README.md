@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Package public function-alias reference lookup is ready as an independent
+  saved-navigation slice:
+  [mcp-saved-package-function-alias-references.md](mcp-saved-package-function-alias-references.md).
 
 ## Blocked
 
@@ -41,7 +43,8 @@ No proposal is ready for implementation.
   [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
   Its workspace schema-reference slice is implemented and recorded by
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-  Do not select the umbrella directly:
+  Its package public function-alias reference slice has been extracted under
+  Ready. Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
