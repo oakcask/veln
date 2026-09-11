@@ -22,13 +22,15 @@ Completion evidence:
 - `veln-language-service` tests check direct-dependency and standard-library
   public function-alias identity, qualified call and qualified function-value
   references, target-function separation, collision exclusion, private and
-  non-exported visibility,
-  unsupported type and schema alias selections, alias-chain exclusion, package
-  source exclusion, and selected-project source boundaries.
+  non-exported visibility, invalid-cased alias exclusion, unsupported type and
+  schema alias selections, alias-chain exclusion, package source exclusion,
+  and selected-project source boundaries.
 - `veln-mcp` server tests check saved direct-dependency and standard-library
   adapter behavior, collision and visibility exclusions, source isolation,
-  retry exhaustion without success-only reference or scope fields, and state
-  preservation without partial package resource admission.
+  anonymous and descendant-manifest single-file scope for package alias
+  selections outside the selected project, retry exhaustion without
+  success-only reference or scope fields, and state preservation without
+  partial package resource admission.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
 locations, public type-alias references, public schema-alias references,
