@@ -328,7 +328,8 @@ impl SymbolIndex {
                 && !symbol.standard_prelude
                 && symbol.package.is_none()
                 && symbol.module != file.module
-                && file.uses.contains(&symbol.module)
+                && (file.uses.contains(&symbol.module)
+                    || self.constructor_reexport_visible_from(file, symbol, None))
                 && visible_workspace_constructor_from(file, symbol)
         })
     }
@@ -386,7 +387,10 @@ impl SymbolIndex {
                         || qualified_modules.iter().any(|module| {
                             module == &format!("{}::{}", symbol.module, symbol.type_name)
                         })
-                        || (qualifier == symbol.type_name && symbol.module == file.module))
+                        || (qualifier == symbol.type_name && symbol.module == file.module)
+                        || self.workspace_constructor_reexport_qualifier_matches(
+                            file, symbol, qualifier,
+                        ))
                     && match &symbol.package {
                         Some(package) => {
                             symbol.standard_prelude
@@ -396,7 +400,8 @@ impl SymbolIndex {
                         }
                         None => {
                             symbol.module == file.module
-                                || (file.uses.contains(&symbol.module)
+                                || ((file.uses.contains(&symbol.module)
+                                    || self.constructor_reexport_visible_from(file, symbol, None))
                                     && visible_workspace_constructor_from(file, symbol))
                         }
                     }
@@ -420,10 +425,29 @@ impl SymbolIndex {
                             .contains(&(symbol.module.clone(), package.clone()))
                 }
                 None => {
-                    file.uses.contains(&symbol.module)
+                    (file.uses.contains(&symbol.module)
+                        || self.constructor_reexport_visible_from(file, symbol, None))
                         && visible_workspace_constructor_from(file, symbol)
                 }
             }
+        })
+    }
+
+    fn workspace_constructor_reexport_qualifier_matches(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+        qualifier: &str,
+    ) -> bool {
+        if symbol.package.is_some() {
+            return false;
+        }
+        self.type_aliases.iter().any(|alias| {
+            alias.package.is_none()
+                && type_alias_targets_constructor(alias, symbol)
+                && (qualifier == alias.module
+                    || qualifier == format!("{}::{}", alias.module, alias.name))
+                && (file.uses.contains(&alias.module) || file.module == alias.module)
         })
     }
 
