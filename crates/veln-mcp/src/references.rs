@@ -91,8 +91,10 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
                 | SymbolKind::HandlerOperationClauseParameter
         ),
         NavigationSource::Package { .. } => {
-            result.selected_symbol.kind == SymbolKind::Function
-                && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
+            matches!(
+                result.selected_symbol.kind,
+                SymbolKind::Function | SymbolKind::Type
+            ) && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
                 && matches!(
                     result.selected_symbol.package_origin,
                     Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)

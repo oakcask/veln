@@ -1,0 +1,6 @@
+use model from "example/dep"
+use http2::frame from "std"
+
+pub fn second(input: model::Item, current: frame::Frame) -> frame::Frame
+  current
+end

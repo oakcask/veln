@@ -1,0 +1,7 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":13,"column":29}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":17,"column":33}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":14,"column":10}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":21,"column":30}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":5}}}
+{"jsonrpc":"2.0","id":7,"method":"resources/list","params":{}}
