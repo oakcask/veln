@@ -101,6 +101,39 @@ pub(super) fn manifest_jsonrpc_workspace_uri_directive_materializes_later_duplic
     fs::remove_dir_all(root).expect("case root should be removed");
 }
 
+#[test]
+pub(super) fn manifest_jsonrpc_workspace_uri_directive_materializes_nested_array_member() {
+    let root = test_temp_root("jsonrpc-workspace-uri-nested-array");
+    let case_dir = root.join("case");
+    fs::create_dir_all(&case_dir).expect("case directory should be created");
+    fs::write(case_dir.join("main.veln"), "").expect("workspace file should be written");
+    fs::write(
+        case_dir.join("requests.json"),
+        r#"[
+  {"jsonrpc":"2.0","method":"uri","params":{"edits":[null,{"target":{"$workspace_file_uri":"main.veln"}}]}}
+]"#,
+    )
+    .expect("JSON-RPC fixture should be written");
+
+    let manifest = parse_manifest(
+        &case_dir.join("case.toml"),
+        "command = [\"lsp\"]\nstdin_jsonrpc_file = \"requests.json\"\nexit = 0\n",
+    );
+    let framed = manifest
+        .invocation
+        .materialized_stdin(&case_dir)
+        .expect("JSON-RPC stdin should materialize");
+    let messages = decode_lsp_stdout(&framed).expect("framed JSON-RPC input should decode");
+    let expected_uri =
+        workspace_file_uri(&case_dir, "main.veln").expect("workspace URI should resolve");
+    assert_eq!(
+        json_path(&messages[0], "params.edits.1.target"),
+        Some(&JsonValue::String(expected_uri))
+    );
+
+    fs::remove_dir_all(root).expect("case root should be removed");
+}
+
 #[cfg(unix)]
 #[test]
 pub(super) fn manifest_jsonrpc_resources_fail_before_skip_fixture_copy_and_command_start() {
