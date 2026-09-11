@@ -19,19 +19,22 @@ Completion evidence:
   ordering across project sources, qualified calls, constructor patterns,
   accepted bare forms, package body exclusion, dependency source resource
   admission, workspace collision exclusion, unsupported import-alias segment
-  selection, and ambiguous module-qualified constructor-leaf empty success.
+  selection, ambiguous module-qualified constructor-leaf empty success, and
+  alias-qualified constructor definition selection without reference expansion.
 - `veln-language-service` tests check direct-dependency constructor references
   across project sources, package identity boundaries, explicit type-qualified
   constructor calls, module-qualified constructor calls, constructor patterns,
   standard-library prelude constructor references, package-origin identity,
   module-qualified constructor-leaf ambiguity, type-qualified constructor
-  disambiguation, other-package and workspace collision exclusion, public
-  alias route exclusion, private constructor visibility, and package source
+  disambiguation, alias-qualified constructor definition selection,
+  other-package and workspace collision exclusion, public alias route
+  reference exclusion, private constructor visibility, and package source
   exclusion.
 - `veln-mcp` server tests check saved-project adapter support for
   direct-dependency and standard-library public constructor references,
   workspace `file:` location results, project-wide scope, package source
   exclusion, collision filtering, ambiguous constructor-leaf empty success,
+  alias-qualified constructor definition selection with empty references,
   private constructor, import-alias segment, anonymous source, recovery,
   schema, effect, handler, and effect-operation empty-result boundaries, and
   `snapshot_changed` retry exhaustion without success-only fields or partial

@@ -395,6 +395,10 @@ declaration returns the canonical retained `veln-pkg:` URI from the package
 virtual-source catalog. The returned range is the one-based Unicode-scalar
 half-open declaration-token range in that retained source. A valid position
 without a supported symbol succeeds with `definition: null`.
+When a direct-dependency or embedded standard-library constructor is selected
+through a visible public type alias, `definition` returns the underlying
+constructor declaration location. It does not return the alias declaration
+location.
 If the package declaration resolves through the successful package-documentation
 result retained for the same admitted package snapshot, the same location
 object includes `packageDocumentationUri`. The value is the exact published
@@ -431,8 +435,10 @@ include type annotations, type arguments, return types, type occurrences in
 type-alias right-hand sides, and the type segment used as a constructor
 qualifier, including when a package constructor has the same spelling as its
 owning type. Package constructor results include qualified calls, constructor
-patterns, and accepted bare constructor forms. Package reference results
-include only occurrences in the selected project's captured owned sources.
+patterns, and accepted bare constructor forms. A package constructor selection
+through a public type alias succeeds but returns an empty `references` array.
+Package reference results include only occurrences in the selected project's
+captured owned sources.
 They exclude the package declaration, package source bodies, other selected
 projects, equal spellings with different package or module identity,
 import-alias declaration segments, type-qualifier segments for constructor
@@ -580,12 +586,15 @@ and accepted bare forms, reports project-wide scope, excludes package source
 body occurrences, preserves canonical location order across project sources,
 keeps unsupported import-alias segment selection successful and empty, and
 keeps an ambiguous module-qualified package constructor leaf successful and
-empty.
+empty. The same case checks that an alias-qualified constructor call can be
+used as a definition position while remaining outside package constructor
+reference results.
 Language service and MCP server package constructor-reference tests check
 package identity, standard-library prelude identity, qualification, collision
 exclusion, module-qualified constructor-leaf ambiguity, type-qualified
-constructor disambiguation, alias-route exclusion, workspace source isolation,
-and retry boundaries.
+constructor disambiguation, alias-qualified constructor definition selection,
+alias-route reference exclusion, workspace source isolation, and retry
+boundaries.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
