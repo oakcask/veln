@@ -99,12 +99,12 @@ documentation result.
 
 The successful catalog includes only modules listed by `[lib].exports`. For
 those modules it includes public type declarations, public type constructors,
-public schemas, public member aliases, public functions, attached
-documentation comments, public function contracts, visible doctest fences,
-expected-output fences, and resolved schema documentation references. Public
-type constructors carry their own attached documentation comments, visible
+public schemas, public member aliases, public functions, public function
+aliases, attached documentation comments, public function contracts, visible
 doctest fences, expected-output fences, and resolved schema documentation
-references.
+references. Public type constructors carry their own attached documentation
+comments, visible doctest fences, expected-output fences, and resolved schema
+documentation references.
 
 The catalog excludes non-exported modules, private declarations, exact test
 companions, integration-test sources, hidden doctest setup lines, ADR-lite
