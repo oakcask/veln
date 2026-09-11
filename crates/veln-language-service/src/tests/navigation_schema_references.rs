@@ -2,11 +2,11 @@ mod navigation_schema_references_tests {
     use super::*;
 
     #[test]
-    fn workspace_schema_references_cover_local_imported_and_qualified_operations() {
+    fn workspace_schema_references_cover_local_and_qualified_imported_operations() {
         let result = query(
             vec![
                 source(
-                    "main.veln",
+                    "app/wire.veln",
                     concat!(
                         "pub schema Packet\n",
                         "  format binary\n",
@@ -21,31 +21,67 @@ mod navigation_schema_references_tests {
                 source(
                     "other.veln",
                     concat!(
-                        "use main\n\n",
+                        "use app::wire\n\n",
                         "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
-                        "  let qualified = decode main::Packet from view at byte_offset(0)?\n",
-                        "  let bare = encode Packet from packet\n",
+                        "  let qualified = decode app::wire::Packet from view at byte_offset(0)?\n",
+                        "  let alias_qualified = encode wire::Packet from packet\n",
+                        "  let bare_decode = decode Packet from view at byte_offset(0)?\n",
+                        "  let bare_encode = encode Packet from packet\n",
                         "end\n",
                     ),
                 ),
             ],
-            "main.veln",
+            "app/wire.veln",
             1,
             12,
         )
         .unwrap();
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Schema);
-        assert_location(&result.definition, "main.veln", 1, 12);
+        assert_location(&result.definition, "app/wire.veln", 1, 12);
         assert_eq!(
             locations(&result.references),
             [
-                ("main.veln", 7, 24),
-                ("main.veln", 8, 24),
-                ("other.veln", 4, 32),
-                ("other.veln", 5, 21),
+                ("app/wire.veln", 7, 24),
+                ("app/wire.veln", 8, 24),
+                ("other.veln", 4, 37),
+                ("other.veln", 5, 38),
             ]
         );
+
+        let bare_decode = query(
+            vec![
+                source(
+                    "main.veln",
+                    "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+                ),
+                source(
+                    "other.veln",
+                    "use main\n\nfn read(view: ByteView) -> ()\n  decode Packet from view at byte_offset(0)?\nend\n",
+                ),
+            ],
+            "other.veln",
+            4,
+            10,
+        );
+        assert!(bare_decode.is_none());
+
+        let bare_encode = query(
+            vec![
+                source(
+                    "main.veln",
+                    "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+                ),
+                source(
+                    "other.veln",
+                    "use main\n\nfn write(packet: {value: Int}) -> ()\n  encode Packet from packet\nend\n",
+                ),
+            ],
+            "other.veln",
+            4,
+            10,
+        );
+        assert!(bare_encode.is_none());
     }
 
     #[test]
@@ -165,6 +201,9 @@ mod navigation_schema_references_tests {
                 "end\n\n",
                 "type packet\n",
                 "end\n\n",
+                "type Holder\n",
+                "  packet\n",
+                "end\n\n",
                 "effect packet\n",
                 "  packet() -> Int\n",
                 "end\n\n",
@@ -180,8 +219,8 @@ mod navigation_schema_references_tests {
         let result = query(sources.clone(), "main.veln", 1, 8).unwrap();
 
         assert_eq!(result.selected_symbol.kind, SymbolKind::Schema);
-        assert_eq!(locations(&result.references), [("main.veln", 18, 24)]);
-        assert!(query(sources, "main.veln", 18, 18).is_none());
+        assert_eq!(locations(&result.references), [("main.veln", 22, 24)]);
+        assert!(query(sources, "main.veln", 22, 18).is_none());
     }
 
     #[test]

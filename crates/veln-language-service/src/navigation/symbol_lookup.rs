@@ -4,24 +4,9 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        if let Some(symbol) = self.schemas.iter().find(|symbol| {
+        self.schemas.iter().find(|symbol| {
             symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-        }) {
-            return Some(symbol.clone());
-        }
-
-        let mut candidates = self.schemas.iter().filter(|symbol| {
-            symbol.name == name
-                && symbol.module != file.module
-                && match &symbol.package {
-                    Some(package) => file
-                        .external_uses
-                        .contains(&(symbol.module.clone(), package.clone())),
-                    None => file.uses.contains(&symbol.module) && symbol.public,
-                }
-        });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        }).cloned()
     }
 
     fn visible_schema_for_qualified_reference(

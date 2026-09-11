@@ -5,6 +5,10 @@ fn missing(value: {length: Int}) -> Result<ByteChunk, EncodeError>
 	encode MissingPacket from value
 end
 
+fn imported_bare(value: {length: Int}) -> Result<ByteChunk, EncodeError>
+	encode PublicPacket from value
+end
+
 fn private_schema(value: {length: Int}) -> Result<ByteChunk, EncodeError>
 	encode wire::PrivatePacket from value
 end

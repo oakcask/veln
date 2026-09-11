@@ -339,7 +339,7 @@ fn references_return_workspace_schema_operation_locations_and_scope() {
     let workspace = TempWorkspace::new("references-workspace-schema");
     workspace.write("veln.toml", "");
     workspace.write(
-        "main.veln",
+        "app/wire.veln",
         concat!(
             "pub schema Packet\n",
             "  format binary\n",
@@ -354,15 +354,17 @@ fn references_return_workspace_schema_operation_locations_and_scope() {
     workspace.write(
         "other.veln",
         concat!(
-            "use main\n\n",
+            "use app::wire\n\n",
             "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  let qualified = decode main::Packet from view at byte_offset(0)?\n",
-            "  let bare = encode Packet from packet\n",
+            "  let qualified = decode app::wire::Packet from view at byte_offset(0)?\n",
+            "  let alias_qualified = encode wire::Packet from packet\n",
+            "  let bare_decode = decode Packet from view at byte_offset(0)?\n",
+            "  let bare_encode = encode Packet from packet\n",
             "end\n",
         ),
     );
 
-    let result = references_result(&workspace, "main.veln", 1, 12);
+    let result = references_result(&workspace, "app/wire.veln", 1, 12);
 
     assert_eq!(result["isError"], false, "{result:#}");
     assert_eq!(
@@ -377,10 +379,10 @@ fn references_return_workspace_schema_operation_locations_and_scope() {
     assert_reference_ranges(
         &result,
         &[
-            ("main.veln", 7, 24, 7, 30),
-            ("main.veln", 8, 24, 8, 30),
-            ("other.veln", 4, 32, 4, 38),
-            ("other.veln", 5, 21, 5, 27),
+            ("app/wire.veln", 7, 24, 7, 30),
+            ("app/wire.veln", 8, 24, 8, 30),
+            ("other.veln", 4, 37, 4, 43),
+            ("other.veln", 5, 38, 5, 44),
         ],
         "workspace schema operation references",
     );
@@ -463,6 +465,9 @@ fn references_keep_workspace_schema_identity_visibility_and_companion_boundaries
                         "fn packet() -> Int\n",
                         "  1\n",
                         "end\n\n",
+                        "type Holder\n",
+                        "  packet\n",
+                        "end\n\n",
                         "effect packet\n",
                         "  packet() -> Int\n",
                         "end\n\n",
@@ -479,7 +484,7 @@ fn references_keep_workspace_schema_identity_visibility_and_companion_boundaries
             source: "main.veln",
             line: 1,
             column: 8,
-            ranges: vec![("main.veln", 15, 24, 15, 30)],
+            ranges: vec![("main.veln", 19, 24, 19, 30)],
         },
     ];
 
@@ -1569,6 +1574,118 @@ fn references_keep_descendant_package_sources_isolated_for_new_symbol_classes() 
             ("nested/main.veln", 4, 27, 4, 31),
         ],
         "descendant package type isolation",
+    );
+}
+
+#[test]
+fn references_keep_anonymous_sources_isolated_for_workspace_schema_selections() {
+    let workspace = TempWorkspace::new("references-anonymous-schema-isolation");
+    workspace.write("app/veln.toml", "");
+    workspace.write(
+        "app/main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn selected(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "loose.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "loose.veln", 1, 8);
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "loose.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[("loose.veln", 6, 10, 6, 16), ("loose.veln", 7, 10, 7, 16)],
+        "anonymous schema isolation",
+    );
+}
+
+#[test]
+fn references_keep_descendant_package_sources_isolated_for_workspace_schema_selections() {
+    let workspace = TempWorkspace::new("references-descendant-package-schema-isolation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn selected(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write("nested/veln.toml", "");
+    workspace.write(
+        "nested/main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "nested/main.veln", 1, 8);
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "nested/main.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("nested/main.veln", 6, 10, 6, 16),
+            ("nested/main.veln", 7, 10, 7, 16),
+        ],
+        "descendant package schema isolation",
     );
 }
 

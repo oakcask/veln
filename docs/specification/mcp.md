@@ -421,13 +421,15 @@ non-recovery workspace symbols:
 
 Workspace schema references are limited to schema path-leaf occurrences in
 `decode` and `encode` expressions in the selected project's captured owned
-sources. They include local, imported, and module-qualified occurrences that
-resolve to the selected workspace schema under ordinary import, visibility,
-exact test-companion, and shadowing rules. They exclude the declaration,
-module qualifiers, package schemas, public schema aliases, schema composition
-targets, recovery symbols, invalid-casing records, and same-spelled functions,
-types, constructors, values, fields, operations, strings, comments, and schema
-uses that resolve to another declaration.
+sources. They include same-module bare occurrences and qualified occurrences,
+including import-alias-qualified paths, that resolve to the selected workspace
+schema under ordinary import, visibility, exact test-companion, and shadowing
+rules. A written import does not put that imported module's schemas in the
+bare schema namespace. They exclude the declaration, module qualifiers,
+package schemas, public schema aliases, schema composition targets, recovery
+symbols, invalid-casing records, and same-spelled functions, types,
+constructors, values, fields, operations, strings, comments, and schema uses
+that resolve to another declaration.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -570,9 +572,11 @@ The `references-workspace-schema` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for `decode` and
 `encode` schema path leaves that resolve to a selected workspace schema,
 preserves project-wide scope, excludes the schema declaration, and excludes a
-same-spelled local schema use that shadows an imported target. The same case
-keeps public schema-alias, schema-composition target, and decode and encode
-module-qualifier selections successful and empty.
+same-spelled local schema use that shadows an imported target. It also checks
+that compiler-rejected bare `decode` and `encode` paths in a module that only
+imports the selected schema's module do not appear as references. The same
+case keeps public schema-alias, schema-composition target, and decode and
+encode module-qualifier selections successful and empty.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

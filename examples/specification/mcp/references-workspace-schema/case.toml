@@ -105,3 +105,23 @@ equals = false
 id = 7
 path = "/result/structuredContent/references"
 length = 0
+
+[[mcp_assert]]
+id = 8
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 9
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references"
+length = 0
