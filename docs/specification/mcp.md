@@ -602,10 +602,10 @@ comment, declaration, package-source, and import-alias collisions.
 The `references-package-function-alias` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency public function alias selected through qualified calls and
-qualified function-value forms, checks the same boundary for an explicitly
-imported standard-library public function alias, keeps target-function
-references separate, reports project-wide scope, and keeps a package
-function-alias chain selection successful and empty.
+qualified function-value forms, keeps target-function references separate,
+reports project-wide scope, and keeps a package function-alias chain selection
+successful and empty. Language-service and MCP server tests check the same
+public function-alias boundary for embedded standard-library modules.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes

@@ -16,10 +16,7 @@ Completion evidence:
   checks direct-dependency public function-alias references for qualified calls
   and qualified function-value occurrences, workspace `file:` result
   locations, project-wide scope metadata, target-function separation,
-  function-alias chain exclusion, and dependency source resource admission. It
-  also checks embedded standard-library public function-alias references for
-  qualified calls and qualified function-value occurrences, with
-  target-function separation.
+  function-alias chain exclusion, and dependency source resource admission.
 - `veln-language-service` tests check direct-dependency and standard-library
   public function-alias identity, qualified call and qualified function-value
   references, target-function separation, collision exclusion, private and
