@@ -605,9 +605,11 @@ qualified function-value forms and for an embedded standard-library prelude
 public function alias selected through accepted bare, qualified-call, and
 qualified function-value forms. The case keeps target-function references
 separate, reports project-wide scope, and keeps a package function-alias chain
-selection successful and empty. Language-service and MCP server tests cover
-additional direct-dependency and standard-library public function-alias
-boundaries.
+selection successful and empty. Language-service and MCP server tests also
+check direct-dependency and standard-library public function-alias selections
+outside the saved selected project, under a descendant manifest, and through
+invalid-cased aliases; those selections succeed with no references and retain
+single-file scope when the source is outside the selected project.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
