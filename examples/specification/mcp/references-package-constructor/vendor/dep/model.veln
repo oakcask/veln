@@ -1,0 +1,9 @@
+pub type Item
+  pub Ready(Int)
+end
+
+pub type Alias = Item
+
+fn package_body() -> Item
+  Ready(1)
+end

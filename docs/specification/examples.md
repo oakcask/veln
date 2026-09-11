@@ -312,6 +312,13 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `references` for embedded standard-library prelude
   functions:
   `../../examples/specification/mcp/references-standard-library-function/`.
+- MCP saved workspace `references` for visible direct-dependency functions:
+  `../../examples/specification/mcp/references-dependency-function/`.
+- MCP saved workspace `references` for visible direct-dependency and
+  standard-library types:
+  `../../examples/specification/mcp/references-package-type/`.
+- MCP saved workspace `references` for visible direct-dependency constructors:
+  `../../examples/specification/mcp/references-package-constructor/`.
 - MCP language-reference and standard-library source resource list/read
   behavior plus language-reference `search_docs` and `read_doc` tool behavior:
   `../../examples/specification/mcp/language-reference-resources/`.

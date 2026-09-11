@@ -36,6 +36,7 @@ include!("navigation/source_paths.rs");
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
+    static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_PATH_CLASSIFICATIONS: Cell<usize> = const { Cell::new(0) };
@@ -69,6 +70,21 @@ pub(crate) fn reset_type_reference_collections() {
 #[cfg(test)]
 pub(crate) fn type_reference_collections() -> usize {
     TYPE_REFERENCE_COLLECTIONS.get()
+}
+
+#[cfg(test)]
+fn record_constructor_reference_collection() {
+    CONSTRUCTOR_REFERENCE_COLLECTIONS.set(CONSTRUCTOR_REFERENCE_COLLECTIONS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_constructor_reference_collections() {
+    CONSTRUCTOR_REFERENCE_COLLECTIONS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn constructor_reference_collections() -> usize {
+    CONSTRUCTOR_REFERENCE_COLLECTIONS.get()
 }
 
 #[cfg(test)]

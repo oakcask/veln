@@ -200,6 +200,11 @@ impl SymbolIndex {
     }
 
     fn constructor_references(&self, symbol: &ConstructorSymbol) -> Vec<SourceSpan> {
+        if symbol.declaration_kind != SymbolDeclarationKind::Declaration {
+            return Vec::new();
+        }
+        #[cfg(test)]
+        record_constructor_reference_collection();
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
@@ -215,7 +220,10 @@ impl SymbolIndex {
                             && is_constructor_reference_token(&tokens, *index)
                             && self
                                 .constructor_symbol_for_call(file, &tokens, *index, &token.text)
-                                .is_some_and(|candidate| same_constructor(&candidate, symbol))
+                                .is_some_and(|candidate| {
+                                    candidate.declaration_kind == SymbolDeclarationKind::Declaration
+                                        && same_constructor(&candidate, symbol)
+                                })
                     })
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()

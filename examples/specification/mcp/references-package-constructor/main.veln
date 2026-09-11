@@ -1,0 +1,18 @@
+use model from "example/dep"
+
+type Local
+  Ready(Int)
+end
+
+pub fn make(input: Int) -> model::Item
+  model::Item::Ready(input)
+end
+
+pub fn collisions(record: {Ready: Int}, Ready: Int) -> Int
+  Local::Ready(2)
+  record.Ready + Ready
+end
+
+pub fn alias_route(input: Int) -> model::Alias
+  model::Alias::Ready(input)
+end

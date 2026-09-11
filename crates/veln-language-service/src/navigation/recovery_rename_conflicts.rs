@@ -89,6 +89,7 @@ impl SymbolIndex {
             package_origin: None,
             public: symbol.public,
             standard_prelude: false,
+            declaration_kind: SymbolDeclarationKind::Declaration,
         };
         self.constructors
             .iter()

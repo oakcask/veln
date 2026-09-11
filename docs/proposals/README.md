@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Extend saved MCP reference lookup to direct-dependency and standard-library
-  constructor symbols without adding pagination or package-source locations:
-  [mcp-saved-package-constructor-references.md](mcp-saved-package-constructor-references.md).
+No proposal target is currently ready.
 
 ## Blocked
 
@@ -39,7 +37,8 @@ also states it.
   [MCP Saved Standard-Library Function References](../reference/implemented-proposals/mcp-saved-standard-library-function-references.md).
   Its package type-reference slice is implemented and recorded by
   [MCP Saved Package Type References](../reference/implemented-proposals/mcp-saved-package-type-references.md).
-  Its package constructor-reference slice is extracted under Ready.
+  Its package constructor-reference slice is implemented and recorded by
+  [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
   Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 

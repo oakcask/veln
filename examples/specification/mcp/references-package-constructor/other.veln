@@ -1,0 +1,11 @@
+use model from "example/dep"
+
+pub fn other(input: model::Item) -> Int
+  match input
+    Ready(value) => value
+  end
+end
+
+pub fn qualified() -> model::Item
+  model::Ready(1)
+end

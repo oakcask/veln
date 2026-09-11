@@ -852,6 +852,231 @@ fn references_return_direct_dependency_type_locations_from_saved_project() {
 }
 
 #[test]
+fn references_return_direct_dependency_constructor_locations_from_saved_project() {
+    let workspace = TempWorkspace::new("references-dependency-constructor");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/dep\"]\n",
+            "path = \"vendor/dep\"\n",
+            "\n",
+            "[dependencies.\"other/dep\"]\n",
+            "path = \"vendor/other\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n",
+            "use other_model from \"other/dep\"\n\n",
+            "type Local\n",
+            "  Ready(Int)\n",
+            "end\n\n",
+            "fn make(input: Int) -> model::Item\n",
+            "  model::Item::Ready(input)\n",
+            "end\n\n",
+            "fn alias_route(input: Int) -> model::Alias\n",
+            "  model::Alias::Ready(input)\n",
+            "end\n\n",
+            "fn collisions(record: {Ready: Int}, Ready: Int) -> Int\n",
+            "  other_model::Ready(1)\n",
+            "  Local::Ready(2)\n",
+            "  record.Ready + Ready\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "use model from \"example/dep\"\n\n",
+            "fn other(input: model::Item) -> Int\n",
+            "  match input\n",
+            "    Ready(value) => value\n",
+            "  end\n",
+            "end\n\n",
+            "fn qualified() -> model::Item\n",
+            "  model::Ready(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/model.veln",
+        "pub type Item\n  pub Ready(Int)\nend\n\npub type Alias = Item\n\nfn package_body() -> Item\n  Ready(1)\nend\n",
+    );
+    workspace.write(
+        "vendor/other/veln.toml",
+        "[package]\nname = \"other/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/other/model.veln",
+        "pub type Item\n  pub Ready(Int)\nend\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 9, 17);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 9, 16, 9, 21),
+            ("other.veln", 5, 5, 5, 10),
+            ("other.veln", 10, 10, 10, 15),
+        ],
+        "dependency constructor references",
+    );
+    let references = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert!(references.iter().all(|reference| {
+        reference["uri"].as_str().unwrap().starts_with("file://")
+            && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
+            && !reference["uri"].as_str().unwrap().contains("vendor/dep")
+    }));
+}
+
+#[test]
+fn references_keep_ambiguous_package_constructor_leaf_empty() {
+    let workspace = TempWorkspace::new("references-ambiguous-package-constructor");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n\n",
+            "fn ambiguous() -> model::Left\n",
+            "  model::Ready(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/model.veln",
+        concat!(
+            "pub type Left\n",
+            "  pub Ready(Int)\n",
+            "end\n\n",
+            "pub type Right\n",
+            "  pub Ready(Int)\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 10);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["references"],
+        json!([]),
+        "{result:#}"
+    );
+}
+
+#[test]
+fn references_keep_package_constructor_alias_boundary_empty() {
+    let dependency_workspace = TempWorkspace::new("references-dependency-constructor-alias");
+    dependency_workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    dependency_workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n\n",
+            "fn make() -> model::Alias\n",
+            "  model::Alias::Ready(1)\n",
+            "end\n",
+        ),
+    );
+    dependency_workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    dependency_workspace.write(
+        "vendor/dep/model.veln",
+        "pub type Item\n  pub Ready(Int)\nend\n\npub type Alias = Item\n",
+    );
+    let mut dependency_server = initialized_server(&dependency_workspace);
+
+    let dependency_definition =
+        dependency_server.definition_tool(&json!({"source":"main.veln","line":4,"column":17}));
+    assert_eq!(
+        dependency_definition["isError"], false,
+        "{dependency_definition:#}"
+    );
+    assert_eq!(
+        dependency_definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}})
+    );
+    let dependency_references =
+        dependency_server.references_tool(&json!({"source":"main.veln","line":4,"column":17}));
+    assert_eq!(
+        dependency_references["isError"], false,
+        "{dependency_references:#}"
+    );
+    assert_eq!(
+        dependency_references["structuredContent"]["references"],
+        json!([]),
+        "{dependency_references:#}"
+    );
+
+    let standard_workspace = TempWorkspace::new("references-standard-constructor-alias");
+    standard_workspace.write(
+        "main.veln",
+        "fn make() -> prelude::Alias\n  prelude::Alias::Some(1)\nend\n",
+    );
+    let mut standard_server = initialized_server(&standard_workspace);
+    standard_server
+        .language_resources
+        .replace_test_standard_library(
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+            [PackageSnapshotSource::new(
+                "prelude.veln",
+                b"pub type Option\n  pub Some(Int)\nend\n\npub type Alias = Option\n",
+            )],
+        );
+
+    let standard_definition =
+        standard_server.definition_tool(&json!({"source":"main.veln","line":2,"column":19}));
+    assert_eq!(
+        standard_definition["isError"], false,
+        "{standard_definition:#}"
+    );
+    assert_eq!(
+        standard_definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":11}})
+    );
+    let standard_references =
+        standard_server.references_tool(&json!({"source":"main.veln","line":2,"column":19}));
+    assert_eq!(
+        standard_references["isError"], false,
+        "{standard_references:#}"
+    );
+    assert_eq!(
+        standard_references["structuredContent"]["references"],
+        json!([]),
+        "{standard_references:#}"
+    );
+}
+
+#[test]
 fn references_keep_package_function_alias_boundary_empty() {
     let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
     alias_workspace.write(
@@ -1075,6 +1300,51 @@ fn references_return_standard_library_type_locations() {
             ("other.veln", 1, 39, 1, 42),
         ],
         "standard library type",
+    );
+}
+
+#[test]
+fn references_return_standard_library_constructor_locations() {
+    let workspace = TempWorkspace::new("references-standard-library-constructor");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn first(input: Option<Int>) -> Int\n",
+            "  match input\n",
+            "    Some(value) => value\n",
+            "    None => 0\n",
+            "  end\n",
+            "end\n\n",
+            "fn second() -> Option<Int>\n",
+            "  prelude::Option::Some(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        "fn third() -> Option<Int>\n  prelude::Some(2)\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub type Option\n  pub Some(Int)\n  pub None\nend\n",
+        )],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":3,"column":6}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 3, 5, 3, 9),
+            ("main.veln", 9, 20, 9, 24),
+            ("other.veln", 2, 12, 2, 16),
+        ],
+        "standard library constructor",
     );
 }
 
@@ -1340,7 +1610,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 25,
         },
         Case {
-            name: "package constructor",
+            name: "private package constructor",
             files: vec![
                 (
                     "veln.toml",
@@ -1354,10 +1624,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
                     "vendor/dep/veln.toml",
                     "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
                 ),
-                (
-                    "vendor/dep/dep.veln",
-                    "pub type Item\n  pub Ready(Int)\nend\n",
-                ),
+                ("vendor/dep/dep.veln", "pub type Item\n  Ready(Int)\nend\n"),
             ],
             source: "main.veln",
             line: 4,
@@ -1716,6 +1983,46 @@ fn references_project_capture_exhausts_retries_for_dependency_type_selection() {
     });
 
     let result = server.references_tool(&json!({"source":"main.veln","line":3,"column":21}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_dependency_constructor_selection() {
+    let workspace = TempWorkspace::new("references-dependency-constructor-capture-retry");
+    write_workspace_with_dependency_and_sources(
+        &workspace,
+        "use dep from \"example/dep\"\n\nfn main() -> dep::Item\n  dep::Item::Ready(1)\nend\n",
+        None,
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub type Item\n  pub Ready(Int)\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("vendor/dep/dep.veln");
+        fs::remove_file(&source).unwrap();
+        let body = if attempt % 2 == 0 {
+            "pub type Item\n  pub Ready(Int)\n  pub Other(Int)\nend\n"
+        } else {
+            "pub type Item\n  pub Ready(Int)\nend\n"
+        };
+        fs::write(&source, body).unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":15}));
 
     assert_snapshot_changed_without_references_or_scope(&result);
     assert_eq!(attempts.get(), 3);

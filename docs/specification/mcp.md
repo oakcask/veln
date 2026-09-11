@@ -395,6 +395,10 @@ declaration returns the canonical retained `veln-pkg:` URI from the package
 virtual-source catalog. The returned range is the one-based Unicode-scalar
 half-open declaration-token range in that retained source. A valid position
 without a supported symbol succeeds with `definition: null`.
+When a direct-dependency or embedded standard-library constructor is selected
+through a visible public type alias, `definition` returns the underlying
+constructor declaration location. It does not return the alias declaration
+location.
 If the package declaration resolves through the successful package-documentation
 result retained for the same admitted package snapshot, the same location
 object includes `packageDocumentationUri`. The value is the exact published
@@ -414,42 +418,47 @@ non-recovery workspace symbols:
 - handler context parameters;
 - handler operation clause parameters.
 
-It also exposes references to public function and type declarations from
+It also exposes references to public function, type, and constructor
+declarations from
 exported modules of one retained direct dependency when the selected project
 source uses the exact visible external import required by name resolution. It
-exposes the same reference boundary for public function and type declarations
-from exported embedded standard-library modules. Standard-library prelude
-functions include the accepted bare implicit prelude calls plus qualified call
-targets and qualified function-value occurrences. Standard-library prelude
-types include accepted bare implicit prelude type references plus qualified
-type references.
+exposes the same reference boundary for public function, type, and constructor
+declarations from exported embedded standard-library modules. Standard-library
+prelude functions include the accepted bare implicit prelude calls plus
+qualified call targets and qualified function-value occurrences.
+Standard-library prelude types include accepted bare implicit prelude type
+references plus qualified type references.
 
 Package function results include qualified calls, qualified function-value
 occurrences, and occurrences qualified by an import alias. Package type results
 include type annotations, type arguments, return types, type occurrences in
 type-alias right-hand sides, and the type segment used as a constructor
 qualifier, including when a package constructor has the same spelling as its
-owning type. Package reference results include only occurrences in the selected
-project's captured owned sources.
+owning type. Package constructor results include qualified calls, constructor
+patterns, and accepted bare constructor forms. A package constructor selection
+through a public type alias succeeds but returns an empty `references` array.
+Package reference results include only occurrences in the selected project's
+captured owned sources.
 They exclude the package declaration, package source bodies, other selected
 projects, equal spellings with different package or module identity,
-import-alias declaration segments, constructor-name segments, values, fields,
+import-alias declaration segments, type-qualifier segments for constructor
+references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
-package types or functions, non-exported package modules, invalid-casing
-records, recovery records, package public alias symbols, package constructor
-symbols, non-type and non-function package symbols, package module-segment
-selections, and anonymous single-file selections succeed with an empty
-`references` array.
+package types, functions, or constructors, non-exported package modules,
+invalid-casing records, recovery records, package public alias symbols,
+non-function, non-type, and non-constructor package symbols, package
+module-segment selections, and anonymous single-file selections succeed with an
+empty `references` array.
 `references` does not expose recovery, virtual, schema, effect, handler, or
 effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
 reference sites only, excluding the selected declaration, plus scope metadata.
-Package function and type references never return `veln-pkg:` locations. A valid
-position without a supported reference symbol succeeds with an empty
-`references` array. Selected manifest sources report project scope metadata
-with `project_wide: true`. Sources outside the selected project-owned source
-set report single-file scope metadata with `project_wide: false`.
+Package function, type, and constructor references never return `veln-pkg:`
+locations. A valid position without a supported reference symbol succeeds with
+an empty `references` array. Selected manifest sources report project scope
+metadata with `project_wide: true`. Sources outside the selected project-owned
+source set report single-file scope metadata with `project_wide: false`.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -570,6 +579,22 @@ successful and empty. Language-service package type-reference tests check
 same-package different-module collisions and constructor-name spelling
 collisions, including a package constructor with the same spelling as its
 owning type.
+The `references-package-constructor` MCP specification case checks that a
+saved selected project returns only workspace `file:` locations for a visible
+direct-dependency constructor, includes qualified calls, constructor patterns,
+and accepted bare forms, reports project-wide scope, excludes package source
+body occurrences, preserves canonical location order across project sources,
+keeps unsupported import-alias segment selection successful and empty, and
+keeps an ambiguous module-qualified package constructor leaf successful and
+empty. The same case checks that an alias-qualified constructor call can be
+used as a definition position while remaining outside package constructor
+reference results.
+Language service and MCP server package constructor-reference tests check
+package identity, standard-library prelude identity, qualification, collision
+exclusion, module-qualified constructor-leaf ambiguity, type-qualified
+constructor disambiguation, alias-qualified constructor definition selection,
+alias-route reference exclusion, workspace source isolation, and retry
+boundaries.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
