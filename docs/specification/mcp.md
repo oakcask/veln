@@ -564,9 +564,12 @@ selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
 type annotations, return types, type-alias right-hand sides, type arguments,
 and constructor qualifier type segments, reports project-wide scope, excludes
-constructor-name segments and package source body occurrences, preserves
-canonical location order across project sources, and keeps unsupported
-import-alias segment selection successful and empty.
+package source body occurrences, preserves canonical location order across
+project sources, and keeps unsupported import-alias segment selection
+successful and empty. Language-service package type-reference tests check
+same-package different-module collisions and constructor-name spelling
+collisions, including a package constructor with the same spelling as its
+owning type.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
