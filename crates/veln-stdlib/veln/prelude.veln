@@ -121,6 +121,8 @@ pub fn byte_chunk_count(chunk: ByteChunk) -> ByteCount
 	end
 end
 
+pub fn byte_chunk_len = byte_chunk_count
+
 pub fn byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 	match left
 		ByteChunk(left_bytes) => match right

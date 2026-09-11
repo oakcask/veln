@@ -15,3 +15,19 @@ end
 pub fn chain_call() -> Int
   dep::chain()
 end
+
+pub fn standard_bare() -> ByteCount
+  byte_chunk_len(byte_chunk([]))
+end
+
+pub fn standard_qualified() -> ByteCount
+  prelude::byte_chunk_len(byte_chunk([]))
+end
+
+pub fn standard_callback() -> fn(ByteChunk) -> ByteCount
+  prelude::byte_chunk_len
+end
+
+pub fn standard_target() -> ByteCount
+  byte_chunk_count(byte_chunk([]))
+end
