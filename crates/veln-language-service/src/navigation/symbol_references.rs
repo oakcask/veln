@@ -135,7 +135,7 @@ impl SymbolIndex {
             return false;
         };
         let target_modules = alias
-            .map(|alias| function_alias_target_modules(alias))
+            .map(function_alias_target_modules)
             .unwrap_or_else(|| {
                 vec![
                     symbol
