@@ -670,11 +670,11 @@ ambiguous recovery selection.
 inference, single-file isolation outside selected projects, deterministic
 canonical locations, workspace type, constructor, value-binding, and handler
 parameter reference admission, unsupported-symbol success, recovery and package
-exclusion, direct-dependency public function-alias and standard-library
-function boundaries, function-shaped recovery exclusion, invalid positions,
-path failures, bounded stable-capture retry exhaustion without partial
-reference locations or scope metadata, and accepted success and domain-failure
-result schemas.
+exclusion, direct-dependency and standard-library public function-alias
+boundaries, standard-library function boundaries, function-shaped recovery
+exclusion, invalid positions, path failures, bounded stable-capture retry
+exhaustion without partial reference locations or scope metadata, and accepted
+success and domain-failure result schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 checked package-documentation bundle loading, catalog construction failure
 propagation, bidirectional completeness between the embedded bundle and MCP
