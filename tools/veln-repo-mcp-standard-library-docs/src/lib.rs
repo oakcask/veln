@@ -496,46 +496,60 @@ fn validate_resources(
         "veln-doc:///package/{}/snapshot/{}/documentation/{}/",
         metadata.package_identity, metadata.snapshot_digest, metadata.documentation_digest
     );
+    let listed = validate_resource_sequence(&base, resources)?;
+    validate_listed_resource(&base, resources, &listed)
+}
+
+fn validate_resource_sequence<'a>(
+    base: &str,
+    resources: &'a [CheckedResource],
+) -> Result<Vec<&'a CheckedResource>, String> {
     let mut previous_uri: Option<&str> = None;
-    let mut uris = BTreeSet::new();
     let mut listed = Vec::new();
     for resource in resources {
-        if !resource.uri.starts_with(&base) {
-            return Err(format!(
-                "checked resource URI `{}` must use the bundle identity and digests",
-                resource.uri
-            ));
-        }
-        if resource.mime_type != PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE {
-            return Err(format!(
-                "checked resource `{}` must use the package-documentation Markdown media type",
-                resource.uri
-            ));
-        }
-        if resource.name.is_empty() || resource.title.is_empty() || resource.text.is_empty() {
-            return Err(format!(
-                "checked resource `{}` must have non-empty name, title, and text",
-                resource.uri
-            ));
-        }
+        validate_resource(base, resource)?;
         if previous_uri.is_some_and(|previous| previous.as_bytes() >= resource.uri.as_bytes()) {
             return Err("checked resources must be strictly sorted by URI bytes".to_string());
         }
         previous_uri = Some(&resource.uri);
-        if !uris.insert(resource.uri.as_str()) {
-            return Err(format!(
-                "checked resource URI `{}` is duplicated",
-                resource.uri
-            ));
-        }
         if resource.listed {
             listed.push(resource);
         }
     }
+    Ok(listed)
+}
+
+fn validate_resource(base: &str, resource: &CheckedResource) -> Result<(), String> {
+    if !resource.uri.starts_with(base) {
+        return Err(format!(
+            "checked resource URI `{}` must use the bundle identity and digests",
+            resource.uri
+        ));
+    }
+    if resource.mime_type != PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE {
+        return Err(format!(
+            "checked resource `{}` must use the package-documentation Markdown media type",
+            resource.uri
+        ));
+    }
+    if resource.name.is_empty() || resource.title.is_empty() || resource.text.is_empty() {
+        return Err(format!(
+            "checked resource `{}` must have non-empty name, title, and text",
+            resource.uri
+        ));
+    }
+    Ok(())
+}
+
+fn validate_listed_resource(
+    base: &str,
+    resources: &[CheckedResource],
+    listed: &[&CheckedResource],
+) -> Result<(), String> {
     if listed.len() != 1 {
         return Err("checked resource bundle must contain exactly one listed resource".to_string());
     }
-    let listed_suffix = listed[0].uri.strip_prefix(&base).unwrap_or_default();
+    let listed_suffix = listed[0].uri.strip_prefix(base).unwrap_or_default();
     if listed_suffix != "index" && listed_suffix != "status" {
         return Err("the listed checked resource must be the package index or status".to_string());
     }

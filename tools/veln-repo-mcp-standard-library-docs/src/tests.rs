@@ -105,6 +105,36 @@ fn parser_rejects_resource_order_and_listed_boundary_drift() {
 }
 
 #[test]
+fn parser_reports_resource_content_before_sequence_rules() {
+    let mut value: Value = serde_json::from_str(checked_artifact_bytes()).unwrap();
+    let resources = value["resources"].as_array_mut().unwrap();
+    resources.reverse();
+    resources[0]["text"] = json!("");
+    let uri = resources[0]["uri"].as_str().unwrap().to_string();
+
+    let error = parse_bundle(&canonical_json(&value).unwrap()).unwrap_err();
+
+    assert_eq!(
+        error,
+        format!("checked resource `{uri}` must have non-empty name, title, and text")
+    );
+}
+
+#[test]
+fn parser_reports_duplicate_resource_uris_as_non_strict_order() {
+    let mut value: Value = serde_json::from_str(checked_artifact_bytes()).unwrap();
+    let resources = value["resources"].as_array_mut().unwrap();
+    resources[1]["uri"] = resources[0]["uri"].clone();
+
+    let error = parse_bundle(&canonical_json(&value).unwrap()).unwrap_err();
+
+    assert_eq!(
+        error,
+        "checked resources must be strictly sorted by URI bytes"
+    );
+}
+
+#[test]
 fn parser_accepts_one_listed_status_resource_without_partial_documentation() {
     let mut value: Value = serde_json::from_str(checked_artifact_bytes()).unwrap();
     let base = format!(
