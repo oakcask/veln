@@ -1847,6 +1847,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
         source: &'static str,
         line: usize,
         column: usize,
+        scope: Option<Value>,
     }
 
     let cases = [
@@ -1859,6 +1860,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 2,
             column: 4,
+            scope: None,
         },
         Case {
             name: "package private type",
@@ -1880,6 +1882,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 3,
             column: 25,
+            scope: None,
         },
         Case {
             name: "package type alias",
@@ -1904,6 +1907,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 3,
             column: 25,
+            scope: None,
         },
         Case {
             name: "package function alias chain",
@@ -1934,6 +1938,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 4,
             column: 8,
+            scope: None,
         },
         Case {
             name: "private package function alias",
@@ -1958,6 +1963,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 4,
             column: 8,
+            scope: None,
         },
         Case {
             name: "non-exported package function alias",
@@ -1983,6 +1989,130 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 4,
             column: 11,
+            scope: None,
+        },
+        Case {
+            name: "anonymous source direct-dependency function alias",
+            files: vec![
+                (
+                    "app/veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"../vendor/dep\"\n",
+                ),
+                (
+                    "app/main.veln",
+                    "use dep from \"example/dep\"\n\nfn selected() -> Int\n  dep::renamed()\nend\n",
+                ),
+                (
+                    "loose.veln",
+                    "use dep from \"example/dep\"\n\nfn outside() -> Int\n  dep::renamed()\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    "pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n",
+                ),
+            ],
+            source: "loose.veln",
+            line: 4,
+            column: 8,
+            scope: Some(json!({
+                "mode": "single_file",
+                "generation": 0,
+                "project": ".",
+                "source": "loose.veln",
+                "project_wide": false
+            })),
+        },
+        Case {
+            name: "descendant package source direct-dependency function alias",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use dep from \"example/dep\"\n\nfn selected() -> Int\n  dep::renamed()\nend\n",
+                ),
+                (
+                    "nested/veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"../vendor/dep\"\n",
+                ),
+                (
+                    "nested/main.veln",
+                    "use dep from \"example/dep\"\n\nfn outside() -> Int\n  dep::renamed()\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    "pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n",
+                ),
+            ],
+            source: "nested/main.veln",
+            line: 4,
+            column: 8,
+            scope: Some(json!({
+                "mode": "single_file",
+                "generation": 0,
+                "project": ".",
+                "source": "nested/main.veln",
+                "project_wide": false
+            })),
+        },
+        Case {
+            name: "anonymous source standard-library function alias",
+            files: vec![
+                ("app/veln.toml", ""),
+                (
+                    "app/main.veln",
+                    "fn selected(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
+                ),
+                (
+                    "loose.veln",
+                    "fn outside(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
+                ),
+            ],
+            source: "loose.veln",
+            line: 2,
+            column: 4,
+            scope: Some(json!({
+                "mode": "single_file",
+                "generation": 0,
+                "project": ".",
+                "source": "loose.veln",
+                "project_wide": false
+            })),
+        },
+        Case {
+            name: "descendant package source standard-library function alias",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    "fn selected(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
+                ),
+                ("nested/veln.toml", ""),
+                (
+                    "nested/main.veln",
+                    "fn outside(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
+                ),
+            ],
+            source: "nested/main.veln",
+            line: 2,
+            column: 4,
+            scope: Some(json!({
+                "mode": "single_file",
+                "generation": 0,
+                "project": ".",
+                "source": "nested/main.veln",
+                "project_wide": false
+            })),
         },
         Case {
             name: "package schema alias",
@@ -2007,6 +2137,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 4,
             column: 15,
+            scope: None,
         },
         Case {
             name: "package non-exported type",
@@ -2029,6 +2160,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 3,
             column: 28,
+            scope: None,
         },
         Case {
             name: "package invalid-casing type",
@@ -2050,6 +2182,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 3,
             column: 25,
+            scope: None,
         },
         Case {
             name: "package invalid-casing function alias",
@@ -2074,6 +2207,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 4,
             column: 8,
+            scope: None,
         },
         Case {
             name: "workspace public schema alias",
@@ -2093,6 +2227,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 6,
             column: 12,
+            scope: None,
         },
         Case {
             name: "workspace schema composition target",
@@ -2115,6 +2250,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 8,
             column: 11,
+            scope: None,
         },
         Case {
             name: "workspace schema decode qualifier",
@@ -2142,6 +2278,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "other.veln",
             line: 4,
             column: 12,
+            scope: None,
         },
         Case {
             name: "workspace schema encode qualifier",
@@ -2169,6 +2306,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "other.veln",
             line: 4,
             column: 12,
+            scope: None,
         },
         Case {
             name: "private package constructor",
@@ -2190,6 +2328,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 4,
             column: 15,
+            scope: None,
         },
         Case {
             name: "package schema",
@@ -2214,6 +2353,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 4,
             column: 15,
+            scope: None,
         },
         Case {
             name: "effect operation",
@@ -2227,6 +2367,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 6,
             column: 17,
+            scope: None,
         },
         Case {
             name: "effect",
@@ -2240,6 +2381,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 5,
             column: 32,
+            scope: None,
         },
         Case {
             name: "handler",
@@ -2253,6 +2395,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 10,
             column: 34,
+            scope: None,
         },
         Case {
             name: "casing neutral type selection",
@@ -2266,6 +2409,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 5,
             column: 17,
+            scope: None,
         },
         Case {
             name: "no symbol",
@@ -2273,6 +2417,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 2,
             column: 3,
+            scope: None,
         },
     ];
 
@@ -2283,6 +2428,13 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
         }
         let result = references_result(&workspace, case.source, case.line, case.column);
         assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        if let Some(scope) = case.scope {
+            assert_eq!(
+                result["structuredContent"]["scope"], scope,
+                "{}: {result:#}",
+                case.name
+            );
+        }
         assert_eq!(
             result["structuredContent"]["references"],
             json!([]),
