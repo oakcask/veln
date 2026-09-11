@@ -28,7 +28,8 @@ Completion evidence:
   and `snapshot_changed` retry exhaustion without success-only fields.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
-locations, standard-library public function-alias references,
-function-alias chains, non-function package symbols, recovery symbols, and
-transitive-dependency references remain outside the implemented `references`
-result.
+locations, function-alias chains, non-function package symbols, recovery
+symbols, and transitive-dependency references remain outside this implemented
+standard-library function-reference slice. Standard-library public
+function-alias references are recorded separately by
+[MCP Saved Package Function-Alias References](mcp-saved-package-function-alias-references.md).
