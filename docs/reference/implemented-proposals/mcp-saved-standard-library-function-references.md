@@ -22,13 +22,13 @@ Completion evidence:
   function references, implicit prelude function references, qualified
   function-value references, package-origin identity, lexical shadowing,
   collision exclusion, private and non-exported visibility, public
-  function-alias exclusion, and invalid-casing rejection.
+  function-alias reference identity, and invalid-casing rejection.
 - `veln-mcp` server tests check the saved-project adapter boundary for
   standard-library public function references, collision filtering,
-  `snapshot_changed` retry exhaustion without success-only fields, and package
-  public function-alias selections empty.
+  `snapshot_changed` retry exhaustion without success-only fields, and
+  standard-library public function-alias selections.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
-locations, public function-alias references, non-function package symbols,
-recovery symbols, and transitive-dependency references remain outside the
-implemented `references` result.
+locations, function-alias chains, non-function package symbols, recovery
+symbols, and transitive-dependency references remain outside the implemented
+`references` result.

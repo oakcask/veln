@@ -1,0 +1,6 @@
+pub fn target() -> Int
+  1
+end
+
+pub fn renamed = target
+pub fn chain = renamed

@@ -99,7 +99,7 @@ impl SymbolIndex {
     }
 
     fn function_references(&self, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
-        if symbol.declaration_kind != SymbolDeclarationKind::Declaration {
+        if !self.supports_function_reference_symbol(symbol) {
             return Vec::new();
         }
         self.files
@@ -107,6 +107,29 @@ impl SymbolIndex {
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| self.references_in_file(file, symbol))
             .collect()
+    }
+
+    fn supports_function_reference_symbol(&self, symbol: &FunctionSymbol) -> bool {
+        match symbol.declaration_kind {
+            SymbolDeclarationKind::Declaration => true,
+            SymbolDeclarationKind::Recovery => false,
+            SymbolDeclarationKind::PublicAlias => {
+                symbol.package.is_some() && !self.function_alias_targets_alias(symbol)
+            }
+        }
+    }
+
+    fn function_alias_targets_alias(&self, symbol: &FunctionSymbol) -> bool {
+        let Some(target_name) = symbol.alias_target_name.as_deref() else {
+            return false;
+        };
+        let target_module = symbol.alias_target_module.as_deref().unwrap_or(&symbol.module);
+        self.functions.iter().any(|candidate| {
+            candidate.package == symbol.package
+                && candidate.module == target_module
+                && candidate.name == target_name
+                && candidate.declaration_kind == SymbolDeclarationKind::PublicAlias
+        })
     }
 
     fn bare_prelude_function_references(

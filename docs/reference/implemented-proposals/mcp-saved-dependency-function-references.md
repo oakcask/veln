@@ -20,7 +20,7 @@ Completion evidence:
 - `veln-language-service` tests check direct-dependency function selection and
   reference collection for qualified calls, qualified function-value
   occurrences, package identity boundaries, module identity boundaries, public
-  function-alias exclusion, local binding and field exclusion, and
+  function-alias target separation, local binding and field exclusion, and
   selected-project source boundaries.
 - `veln-mcp` server tests check saved-project inference, path, vendor, mirror,
   and local git source forms, import-alias selection, identity collisions,

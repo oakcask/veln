@@ -1,0 +1,5 @@
+use dep from "example/dep"
+
+pub fn other() -> Int
+  dep::renamed()
+end

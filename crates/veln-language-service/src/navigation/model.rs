@@ -375,6 +375,8 @@ struct FunctionSymbol {
     public: bool,
     standard_prelude: bool,
     declaration_kind: SymbolDeclarationKind,
+    alias_target_module: Option<String>,
+    alias_target_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]

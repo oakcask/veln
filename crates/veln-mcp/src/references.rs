@@ -92,10 +92,17 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
                 | SymbolKind::HandlerOperationClauseParameter
         ),
         NavigationSource::Package { .. } => {
-            matches!(
-                result.selected_symbol.kind,
-                SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor
-            ) && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
+            let supported_declaration = match result.selected_symbol.kind {
+                SymbolKind::Function => matches!(
+                    result.selected_symbol.declaration_kind,
+                    SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias
+                ),
+                SymbolKind::Type | SymbolKind::Constructor => {
+                    result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
+                }
+                _ => false,
+            };
+            supported_declaration
                 && matches!(
                     result.selected_symbol.package_origin,
                     Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
