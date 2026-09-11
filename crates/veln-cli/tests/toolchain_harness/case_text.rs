@@ -110,13 +110,7 @@ pub(super) fn load_jsonrpc_stdin(
             case_text_cache,
             workspace_file_uri_directives,
         };
-        expand_case_text_directives(
-            &mut context,
-            &position,
-            &mut Vec::new(),
-            &mut Vec::new(),
-            &mut message,
-        );
+        expand_case_text_directives(&mut context, &position, &mut Vec::new(), &mut message);
         validate_jsonrpc_input_message(manifest_path, line_number, index, &message);
         let body = message.to_compact_string();
         let length = body.len();
@@ -136,106 +130,33 @@ pub(super) struct JsonrpcDirectiveExpansion<'a> {
 pub(super) fn expand_case_text_directives(
     context: &mut JsonrpcDirectiveExpansion<'_>,
     position: &str,
-    pointer_tokens: &mut Vec<String>,
     pointer_route: &mut Vec<JsonPointerRouteSegment>,
     value: &mut JsonValue,
 ) {
     match value {
         JsonValue::Array(values) => {
             for (index, value) in values.iter_mut().enumerate() {
-                pointer_tokens.push(index.to_string());
                 pointer_route.push(JsonPointerRouteSegment::ArrayIndex(index));
                 expand_case_text_directives(
                     context,
                     &format!("{position}[{index}]"),
-                    pointer_tokens,
                     pointer_route,
                     value,
                 );
-                pointer_tokens.pop();
                 pointer_route.pop();
             }
         }
         JsonValue::Object(entries) => {
-            if let Some((_, directive)) =
-                entries.iter().find(|(key, _)| key == "$workspace_file_uri")
+            if let Some(replacement) =
+                object_directive_replacement(context, position, pointer_route, entries)
             {
-                if entries.len() != 1 {
-                    jsonrpc_fixture_error(
-                        context.manifest_path,
-                        context.line_number,
-                        context.message_index,
-                        position,
-                        "`$workspace_file_uri` directive object must contain no other members",
-                    );
-                }
-                let JsonValue::String(relative) = directive else {
-                    jsonrpc_fixture_error(
-                        context.manifest_path,
-                        context.line_number,
-                        context.message_index,
-                        position,
-                        "`$workspace_file_uri` directive value must be a string",
-                    );
-                };
-                validate_workspace_file_uri_operand(
-                    context.manifest_path,
-                    context.line_number,
-                    relative,
-                );
-                context
-                    .workspace_file_uri_directives
-                    .push(WorkspaceFileUriDirective {
-                        message_index: context.message_index,
-                        pointer_route: pointer_route.clone(),
-                        relative: relative.clone(),
-                    });
-                *value = JsonValue::String(workspace_file_uri_marker(relative));
-                return;
-            }
-            if let Some((_, directive)) = entries.iter().find(|(key, _)| key == "$case_text") {
-                if entries.len() != 1 {
-                    jsonrpc_fixture_error(
-                        context.manifest_path,
-                        context.line_number,
-                        context.message_index,
-                        position,
-                        "`$case_text` directive object must contain no other members",
-                    );
-                }
-                let JsonValue::String(relative) = directive else {
-                    jsonrpc_fixture_error(
-                        context.manifest_path,
-                        context.line_number,
-                        context.message_index,
-                        position,
-                        "`$case_text` directive value must be a string",
-                    );
-                };
-                let replacement = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    context.case_text_cache.read_path(
-                        context.manifest_path,
-                        context.line_number,
-                        relative,
-                    )
-                }))
-                .unwrap_or_else(|panic| {
-                    jsonrpc_fixture_error(
-                        context.manifest_path,
-                        context.line_number,
-                        context.message_index,
-                        position,
-                        &format!("case-text reference failed: {}", panic_message(panic)),
-                    )
-                });
-                *value = JsonValue::String(replacement);
+                *value = replacement;
                 return;
             }
             let mut seen_keys = BTreeMap::<String, usize>::new();
             for (key, value) in entries {
                 let occurrence = *seen_keys.get(key).unwrap_or(&0);
                 seen_keys.insert(key.clone(), occurrence + 1);
-                pointer_tokens.push(key.clone());
                 pointer_route.push(JsonPointerRouteSegment::ObjectMember {
                     key: key.clone(),
                     occurrence,
@@ -243,16 +164,77 @@ pub(super) fn expand_case_text_directives(
                 expand_case_text_directives(
                     context,
                     &format!("{position}.{}", escape_json_position_key(key)),
-                    pointer_tokens,
                     pointer_route,
                     value,
                 );
-                pointer_tokens.pop();
                 pointer_route.pop();
             }
         }
         _ => {}
     }
+}
+
+fn object_directive_replacement(
+    context: &mut JsonrpcDirectiveExpansion<'_>,
+    position: &str,
+    pointer_route: &[JsonPointerRouteSegment],
+    entries: &[(String, JsonValue)],
+) -> Option<JsonValue> {
+    if let Some(relative) = directive_operand(context, position, entries, "$workspace_file_uri") {
+        validate_workspace_file_uri_operand(context.manifest_path, context.line_number, relative);
+        context
+            .workspace_file_uri_directives
+            .push(WorkspaceFileUriDirective {
+                message_index: context.message_index,
+                pointer_route: pointer_route.to_vec(),
+                relative: relative.to_string(),
+            });
+        return Some(JsonValue::String(workspace_file_uri_marker(relative)));
+    }
+    let relative = directive_operand(context, position, entries, "$case_text")?;
+    let replacement = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        context
+            .case_text_cache
+            .read_path(context.manifest_path, context.line_number, relative)
+    }))
+    .unwrap_or_else(|panic| {
+        jsonrpc_fixture_error(
+            context.manifest_path,
+            context.line_number,
+            context.message_index,
+            position,
+            &format!("case-text reference failed: {}", panic_message(panic)),
+        )
+    });
+    Some(JsonValue::String(replacement))
+}
+
+fn directive_operand<'a>(
+    context: &JsonrpcDirectiveExpansion<'_>,
+    position: &str,
+    entries: &'a [(String, JsonValue)],
+    name: &str,
+) -> Option<&'a str> {
+    let (_, directive) = entries.iter().find(|(key, _)| key == name)?;
+    if entries.len() != 1 {
+        jsonrpc_fixture_error(
+            context.manifest_path,
+            context.line_number,
+            context.message_index,
+            position,
+            &format!("`{name}` directive object must contain no other members"),
+        );
+    }
+    let JsonValue::String(relative) = directive else {
+        jsonrpc_fixture_error(
+            context.manifest_path,
+            context.line_number,
+            context.message_index,
+            position,
+            &format!("`{name}` directive value must be a string"),
+        );
+    };
+    Some(relative)
 }
 
 pub(super) const WORKSPACE_FILE_URI_MARKER: &str = "veln-harness-workspace-file-uri:";
