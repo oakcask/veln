@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal target is currently ready.
+- Extend saved MCP reference lookup to workspace schema uses in `decode` and
+  `encode` expressions without adding package-schema or public-alias traversal:
+  [mcp-saved-workspace-schema-references.md](mcp-saved-workspace-schema-references.md).
 
 ## Blocked
 
@@ -39,6 +41,7 @@ No proposal target is currently ready.
   [MCP Saved Package Type References](../reference/implemented-proposals/mcp-saved-package-type-references.md).
   Its package constructor-reference slice is implemented and recorded by
   [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
+  Its workspace schema-reference slice is extracted under Ready.
   Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
