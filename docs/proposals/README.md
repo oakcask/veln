@@ -18,6 +18,9 @@ also states it.
 
 ## Ready
 
+- Standard-library byte collections can gain consistent `len` spellings while
+  retaining their typed `count` APIs:
+  [standard-library-byte-length-aliases.md](standard-library-byte-length-aliases.md).
 - Direct-dependency public function-alias reference lookup is ready as an
   independent saved-navigation slice:
   [mcp-saved-dependency-function-alias-references.md](mcp-saved-dependency-function-alias-references.md).
@@ -30,9 +33,10 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- Standard-library public function-alias references are blocked until the
-  shipped standard library exposes a meaningful public function alias:
-  [mcp-saved-standard-library-function-alias-references.md](mcp-saved-standard-library-function-alias-references.md).
+- [Standard-library public function-alias references](mcp-saved-standard-library-function-alias-references.md)
+  are blocked until the shipped standard library exposes the meaningful public
+  aliases proposed by
+  [Standard-Library Byte Length Aliases](standard-library-byte-length-aliases.md).
 - The agent-language-services umbrella remains a planning inventory. Its
   saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
