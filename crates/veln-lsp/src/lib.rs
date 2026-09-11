@@ -95,7 +95,7 @@ struct Server {
     documents: BTreeMap<String, String>,
     workspace_roots: Vec<PathBuf>,
     workspace_root_aliases: BTreeMap<PathBuf, Vec<PathBuf>>,
-    published_diagnostic_uris: BTreeSet<String>,
+    published_diagnostic_uris: BTreeMap<PathBuf, BTreeSet<String>>,
     project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
     overlaid_project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
     should_exit: bool,
@@ -175,7 +175,7 @@ impl Server {
         self.documents.insert(uri.clone(), text);
         if let Some(root) = workspace_root {
             self.refresh_overlaid_project_snapshot(&root);
-            self.publish_workspace_diagnostics()
+            self.publish_workspace_diagnostics_for_roots([root])
         } else {
             vec![publish_diagnostics(&uri, self.document_text(&uri))]
         }
@@ -191,7 +191,7 @@ impl Server {
             if document_removed {
                 self.refresh_overlaid_project_snapshot(&root);
             }
-            self.publish_workspace_diagnostics()
+            self.publish_workspace_diagnostics_for_roots([root])
         } else {
             vec![empty_publish_diagnostics(&uri)]
         }
@@ -330,20 +330,31 @@ impl Server {
     }
 
     fn publish_workspace_diagnostics(&mut self) -> Vec<String> {
-        let mut next_uris = BTreeSet::new();
+        self.publish_workspace_diagnostics_for_roots(self.workspace_roots.clone())
+    }
+
+    fn publish_workspace_diagnostics_for_roots(
+        &mut self,
+        roots: impl IntoIterator<Item = PathBuf>,
+    ) -> Vec<String> {
         let mut responses = Vec::new();
-        for root in self.workspace_roots.clone() {
-            let Ok(mut project) = Project::discover(root.clone(), &[]) else {
-                continue;
-            };
-            self.overlay_open_workspace_documents(&root, &mut project);
-            let diagnostics = checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
-            let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
-            for source in &project.files {
-                diagnostics_by_path
-                    .entry(source.path().as_str().to_string())
-                    .or_default();
-            }
+        for root in roots {
+            let diagnostics_by_path = Project::discover(root.clone(), &[])
+                .ok()
+                .map(|mut project| {
+                    self.overlay_open_workspace_documents(&root, &mut project);
+                    let diagnostics =
+                        checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
+                    let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
+                    for source in &project.files {
+                        diagnostics_by_path
+                            .entry(source.path().as_str().to_string())
+                            .or_default();
+                    }
+                    diagnostics_by_path
+                })
+                .unwrap_or_default();
+            let mut next_uris = BTreeSet::new();
 
             for (source_path, diagnostics) in diagnostics_by_path {
                 let uri = path_to_uri(
@@ -352,16 +363,13 @@ impl Server {
                 next_uris.insert(uri.clone());
                 responses.push(publish_diagnostics_for_uri(&uri, &diagnostics));
             }
+            if let Some(previous_uris) = self.published_diagnostic_uris.get(&root) {
+                for uri in previous_uris.difference(&next_uris) {
+                    responses.push(empty_publish_diagnostics(uri));
+                }
+            }
+            self.published_diagnostic_uris.insert(root, next_uris);
         }
-        for uri in self
-            .published_diagnostic_uris
-            .difference(&next_uris)
-            .cloned()
-            .collect::<Vec<_>>()
-        {
-            responses.push(empty_publish_diagnostics(&uri));
-        }
-        self.published_diagnostic_uris = next_uris;
         responses
     }
 

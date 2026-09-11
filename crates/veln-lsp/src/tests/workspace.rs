@@ -105,6 +105,39 @@ fn server_initializes_all_workspace_roots_from_workspace_folders() {
 }
 
 #[test]
+fn document_update_only_republishes_owned_workspace_diagnostics() {
+    let mut server = Server::default();
+    let alpha = TempProject::new("diagnostics-alpha-workspace-folder");
+    let beta = TempProject::new("diagnostics-beta-workspace-folder");
+    alpha.write("main.veln", "fn alpha() -> Int\n  1\nend\n");
+    beta.write("main.veln", "fn beta() -> Int\n  2\nend\n");
+    let alpha_root_uri = path_to_uri(&alpha.root);
+    let beta_root_uri = path_to_uri(&beta.root);
+    let alpha_main_uri = path_to_uri(&alpha.root.join("main.veln"));
+    let beta_main_uri = path_to_uri(&beta.root.join("main.veln"));
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{alpha_root_uri}","name":"alpha"}},{{"uri":"{beta_root_uri}","name":"beta"}}]}}}}"#
+    ));
+
+    let responses = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{alpha_main_uri}","text":"fn alpha() -> Int\n  3\nend\n"}}}}}}"#
+    ));
+
+    assert!(
+        responses
+            .iter()
+            .any(|response| response.contains(&alpha_main_uri)),
+        "the changed workspace should republish diagnostics"
+    );
+    assert!(
+        responses
+            .iter()
+            .all(|response| !response.contains(&beta_main_uri)),
+        "an unchanged workspace should not republish diagnostics"
+    );
+}
+
+#[test]
 fn server_stops_workspace_root_selection_at_manifest_root() {
     let mut server = Server::default();
     let workspace = TempProject::new("manifest-workspace-root");
