@@ -254,6 +254,47 @@ fn run_entry_conservatively_reaches_opaque_function_value_call_targets() {
 }
 
 #[test]
+fn separated_standard_reachability_drops_alias_when_only_application_node_id_matches_target() {
+    let standard = lower(concat!(
+        "mod std::prelude\n",
+        "pub fn hidden(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+        "pub fn hidden_alias = hidden\n",
+    ));
+    let application = lower(concat!(
+        "mod app\n",
+        "pub fn main() -> Int\n",
+        "  helper(1)\n",
+        "end\n",
+        "fn helper(value: Int) -> Int\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let reachable = reachable_entry_module_with_standard_cache(
+        &standard,
+        &application,
+        "main",
+        FunctionKind::Function,
+        &ReachabilityCache::default(),
+    );
+    let aliases = reachable
+        .aliases
+        .iter()
+        .map(|alias| {
+            (
+                alias.module_name.as_deref(),
+                alias.name.as_deref(),
+                alias.target.as_slice(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert!(aliases.is_empty(), "{aliases:#?}");
+}
+
+#[test]
 fn test_entry_can_reach_qualified_function_value_reference() {
     let project = Project {
         root: ".".into(),
