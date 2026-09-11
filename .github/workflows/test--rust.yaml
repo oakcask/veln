@@ -43,7 +43,7 @@ env:
   # renovate: datasource=github-releases depName=nextest-rs/nextest versioning=semver extractVersion=^cargo-nextest-(?<version>.*)$
   NEXTEST_VERSION: "0.9.143"
   # renovate: datasource=github-releases depName=taiki-e/cargo-llvm-cov
-  LLVM_COV_VERSION: "0.9.0"
+  LLVM_COV_VERSION: "0.9.1"
   LCOV_VERSION: "2.0-4ubuntu2"
   # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
   NEXTEST_TARGET_SECONDS: "90"
