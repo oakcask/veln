@@ -54,6 +54,11 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 
 [[mcp_assert]]
 id = 2
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 2
 path = "/result/isError"
 equals = false
 
