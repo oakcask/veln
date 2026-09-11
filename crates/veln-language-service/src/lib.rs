@@ -15,10 +15,11 @@ pub use navigation::{
 };
 pub use package_documentation::{
     PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE, PackageDocAlias, PackageDocCatalog,
-    PackageDocDeclaration, PackageDocDiagnostic, PackageDocDiagnosticSpan, PackageDocDoctest,
-    PackageDocExpectedOutput, PackageDocFunctionContract, PackageDocGeneration,
-    PackageDocGenerationStatus, PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule,
-    PackageDocReference, PackageDocResult, PackageDocResultKind, PackageDocTypeConstructor,
+    PackageDocDeclaration, PackageDocDeclarationLocation, PackageDocDiagnostic,
+    PackageDocDiagnosticSpan, PackageDocDoctest, PackageDocExpectedOutput,
+    PackageDocFunctionContract, PackageDocGeneration, PackageDocGenerationStatus,
+    PackageDocGeneratorContract, PackageDocMetadata, PackageDocModule, PackageDocReference,
+    PackageDocResult, PackageDocResultKind, PackageDocSearchCandidate, PackageDocTypeConstructor,
     RenderedPackageDocResource, render_package_documentation,
 };
 pub use virtual_source::{VirtualSourceCatalog, VirtualSourceCatalogError, VirtualSourceEntry};

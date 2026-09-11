@@ -148,6 +148,119 @@ impl PackageDocResult {
             .get(&PackageDocLocationKey::new(source_uri, &location.span))
             .map(String::as_str)
     }
+
+    pub fn declaration_locations(&self) -> impl Iterator<Item = PackageDocDeclarationLocation<'_>> {
+        self.declaration_locations
+            .iter()
+            .map(
+                |(location, declaration_uri)| PackageDocDeclarationLocation {
+                    source_uri: &location.source_uri,
+                    line: location.line,
+                    column: location.column,
+                    offset: location.offset,
+                    declaration_uri,
+                },
+            )
+    }
+
+    pub fn search_candidates(&self) -> Vec<PackageDocSearchCandidate> {
+        let PackageDocResultKind::Catalog(catalog) = self.kind() else {
+            return Vec::new();
+        };
+        let keywords = catalog.metadata.keywords.clone();
+        let mut candidates = vec![PackageDocSearchCandidate {
+            uri: catalog.index_uri.clone(),
+            identifier: catalog.package_identity.clone(),
+            title: format!("Veln package documentation: {}", catalog.package_identity),
+            name: catalog.metadata.package_name.clone().unwrap_or_default(),
+            summary: catalog.metadata.description.clone().unwrap_or_default(),
+            keywords: keywords.clone(),
+            signature: None,
+            documentation: Vec::new(),
+        }];
+        for module in &catalog.modules {
+            candidates.push(PackageDocSearchCandidate {
+                uri: module.uri.clone(),
+                identifier: module.id.clone(),
+                title: format!("Veln package module: {}", module.name),
+                name: module.name.clone(),
+                summary: first_doc_line(&module.doc).unwrap_or_default(),
+                keywords: keywords.clone(),
+                signature: None,
+                documentation: searchable_doc_lines(&module.doc),
+            });
+            candidates.extend(module.declarations.iter().map(|declaration| {
+                PackageDocSearchCandidate {
+                    uri: declaration.uri.clone(),
+                    identifier: declaration.id.clone(),
+                    title: format!(
+                        "Veln package declaration: {} {}",
+                        declaration.kind, declaration.name
+                    ),
+                    name: declaration.name.clone(),
+                    summary: first_doc_line(&declaration.doc).unwrap_or_default(),
+                    keywords: keywords.clone(),
+                    signature: Some(declaration.signature.clone()),
+                    documentation: declaration_documentation(declaration),
+                }
+            }));
+        }
+        candidates
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PackageDocDeclarationLocation<'a> {
+    pub source_uri: &'a str,
+    pub line: usize,
+    pub column: usize,
+    pub offset: usize,
+    pub declaration_uri: &'a str,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PackageDocSearchCandidate {
+    pub uri: String,
+    pub identifier: String,
+    pub title: String,
+    pub name: String,
+    pub summary: String,
+    pub keywords: Vec<String>,
+    pub signature: Option<String>,
+    pub documentation: Vec<String>,
+}
+
+fn declaration_documentation(declaration: &PackageDocDeclaration) -> Vec<String> {
+    let mut documentation = searchable_doc_lines(&declaration.doc);
+    for constructor in &declaration.constructors {
+        documentation.extend(searchable_doc_lines(&constructor.doc));
+    }
+    documentation.extend(
+        declaration
+            .contracts
+            .iter()
+            .map(|contract| contract.text.clone()),
+    );
+    documentation
+}
+
+fn searchable_doc_lines(lines: &[String]) -> Vec<String> {
+    let mut in_fence = false;
+    let mut searchable = Vec::new();
+    for line in lines {
+        if line.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if !in_fence {
+            searchable.push(line.clone());
+        }
+    }
+    searchable
+}
+
+fn first_doc_line(lines: &[String]) -> Option<String> {
+    lines.iter().find(|line| !line.trim().is_empty()).cloned()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -33,6 +33,8 @@ fn checked_bundle_has_closed_identity_and_publication_boundary() {
             .iter()
             .any(|resource| resource.uri.contains("/declaration/") && !resource.listed)
     );
+    assert!(!bundle.search_candidates.is_empty());
+    assert!(!bundle.declaration_locations.is_empty());
 }
 
 #[test]
@@ -95,6 +97,8 @@ fn parser_accepts_one_listed_status_resource_without_partial_documentation() {
         "title": "Veln package documentation status: std",
         "uri": base,
     }]);
+    value["search_candidates"] = json!([]);
+    value["declaration_locations"] = json!([]);
 
     let bundle = parse_bundle(&canonical_json(&value).unwrap()).unwrap();
 

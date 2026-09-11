@@ -30,12 +30,15 @@ fn checked_standard_library_resources_load_the_prebuilt_documentation_bundle() {
 }
 
 #[test]
-fn checked_standard_library_resources_defer_package_documentation_analysis() {
-    reset_standard_library_package_doc_builds();
+fn checked_standard_library_resources_load_prebuilt_search_index() {
+    let standard_library = StandardLibraryResources::from_checked_embedded_inputs().unwrap();
 
-    StandardLibraryResources::from_checked_embedded_inputs().unwrap();
-
-    assert_eq!(standard_library_package_doc_builds(), 0);
+    assert!(
+        !standard_library
+            .package_documentation
+            .search_candidates(&standard_library.key)
+            .is_empty()
+    );
 }
 
 #[test]
