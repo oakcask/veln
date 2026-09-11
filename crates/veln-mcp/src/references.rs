@@ -93,7 +93,7 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
         NavigationSource::Package { .. } => {
             matches!(
                 result.selected_symbol.kind,
-                SymbolKind::Function | SymbolKind::Type
+                SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor
             ) && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
                 && matches!(
                     result.selected_symbol.package_origin,

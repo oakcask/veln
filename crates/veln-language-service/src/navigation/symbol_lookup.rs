@@ -328,8 +328,7 @@ impl SymbolIndex {
                 && !symbol.standard_prelude
                 && symbol.package.is_none()
                 && symbol.module != file.module
-                && (file.uses.contains(&symbol.module)
-                    || self.constructor_reexport_visible_from(file, symbol, None))
+                && file.uses.contains(&symbol.module)
                 && visible_workspace_constructor_from(file, symbol)
         })
     }
@@ -341,12 +340,12 @@ impl SymbolIndex {
     ) -> Option<ConstructorSymbol> {
         self.unique_constructor_matching(|symbol| {
             symbol.name == name
-                && !symbol.standard_prelude
                 && symbol.public
                 && symbol.package.as_ref().is_some_and(|package| {
-                    file.external_uses
-                        .contains(&(symbol.module.clone(), package.clone()))
-                        || self.constructor_reexport_visible_from(file, symbol, Some(package))
+                    symbol.standard_prelude
+                        || file
+                            .external_uses
+                            .contains(&(symbol.module.clone(), package.clone()))
                 })
         })
     }
@@ -387,48 +386,22 @@ impl SymbolIndex {
                         || qualified_modules.iter().any(|module| {
                             module == &format!("{}::{}", symbol.module, symbol.type_name)
                         })
-                        || (qualifier == symbol.type_name && symbol.module == file.module)
-                        || self.constructor_reexport_qualifier_matches(file, symbol, qualifier))
+                        || (qualifier == symbol.type_name && symbol.module == file.module))
                     && match &symbol.package {
                         Some(package) => {
                             symbol.standard_prelude
                                 || file
                                     .external_uses
                                     .contains(&(symbol.module.clone(), package.clone()))
-                                || self.constructor_reexport_visible_from(
-                                    file,
-                                    symbol,
-                                    Some(package),
-                                )
                         }
                         None => {
                             symbol.module == file.module
-                                || ((file.uses.contains(&symbol.module)
-                                    || self.constructor_reexport_visible_from(file, symbol, None))
+                                || (file.uses.contains(&symbol.module)
                                     && visible_workspace_constructor_from(file, symbol))
                         }
                     }
             })
             .cloned()
-    }
-
-    fn constructor_reexport_qualifier_matches(
-        &self,
-        file: &IndexedFile,
-        symbol: &ConstructorSymbol,
-        qualifier: &str,
-    ) -> bool {
-        self.type_aliases.iter().any(|alias| {
-            type_alias_targets_constructor(alias, symbol)
-                && (qualifier == alias.module
-                    || qualifier == format!("{}::{}", alias.module, alias.name))
-                && match &alias.package {
-                    Some(alias_package) => file
-                        .external_uses
-                        .contains(&(alias.module.clone(), alias_package.clone())),
-                    None => file.uses.contains(&alias.module) || file.module == alias.module,
-                }
-        })
     }
 
     fn has_visible_non_prelude_imported_constructor(&self, file: &IndexedFile, name: &str) -> bool {
@@ -447,8 +420,7 @@ impl SymbolIndex {
                             .contains(&(symbol.module.clone(), package.clone()))
                 }
                 None => {
-                    (file.uses.contains(&symbol.module)
-                        || self.constructor_reexport_visible_from(file, symbol, None))
+                    file.uses.contains(&symbol.module)
                         && visible_workspace_constructor_from(file, symbol)
                 }
             }

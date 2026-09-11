@@ -133,6 +133,171 @@
     }
 
     #[test]
+    fn direct_dependency_constructor_references_cover_qualified_calls_and_patterns() {
+        let selected = dependency_snapshot(
+            "example/pkg",
+            &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
+            ["model.veln"],
+        );
+        let collision = dependency_snapshot(
+            "other/pkg",
+            &[("model.veln", "pub type Item\n  pub Ready(Int)\nend\n")],
+            ["model.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n",
+                        "use other_model from \"other/pkg\"\n\n",
+                        "type Local\n",
+                        "  Ready(Int)\n",
+                        "end\n\n",
+                        "fn make(input: Int) -> model::Item\n",
+                        "  model::Item::Ready(input)\n",
+                        "end\n\n",
+                        "fn collisions(record: {Ready: Int}, Ready: Int) -> Int\n",
+                        "  other_model::Ready(1)\n",
+                        "  Local::Ready(2)\n",
+                        "  record.Ready + Ready\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n\n",
+                        "fn other(input: model::Item) -> Int\n",
+                        "  match input\n",
+                        "    Ready(value) => value\n",
+                        "  end\n",
+                        "end\n\n",
+                        "fn qualified() -> model::Item\n",
+                        "  model::Ready(1)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![selected, collision],
+        );
+
+        let result = query_snapshot(&snapshot, "main.veln", 9, 17).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(result.definition.span.file.as_str(), "model.veln");
+        assert!(matches!(
+            result.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 9, 16),
+                ("other.veln", 5, 5),
+                ("other.veln", 10, 10),
+            ]
+        );
+    }
+
+    #[test]
+    fn standard_library_constructor_references_cover_prelude_and_qualified_forms() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub type Option\n  pub Some(Int)\n  pub None\nend\n",
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "fn first(input: Option<Int>) -> Int\n",
+                    "  match input\n",
+                    "    Some(value) => value\n",
+                    "    None => 0\n",
+                    "  end\n",
+                    "end\n\n",
+                    "fn second() -> Option<Int>\n",
+                    "  prelude::Option::Some(1)\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                "fn third() -> Option<Int>\n  prelude::Some(2)\nend\n",
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        let result = query_snapshot(&snapshot, "main.veln", 3, 6).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor);
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(result.definition.span.file.as_str(), "prelude.veln");
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("main.veln", 3, 5),
+                ("main.veln", 9, 20),
+                ("other.veln", 2, 12),
+            ]
+        );
+    }
+
+    #[test]
+    fn package_constructor_alias_routes_do_not_expand_references() {
+        let direct = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n\n",
+                    "fn make() -> model::Alias\n",
+                    "  model::Alias::Ready(1)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[(
+                    "model.veln",
+                    "pub type Item\n  pub Ready(Int)\nend\n\npub type Alias = Item\n",
+                )],
+                ["model.veln"],
+            )],
+        );
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "fn make() -> prelude::Alias\n  prelude::Alias::Some(1)\nend\n",
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub type Option\n  pub Some(Int)\nend\n\npub type Alias = Option\n",
+            )],
+            ["prelude.veln"],
+        ));
+
+        for (name, snapshot, line, column) in [
+            ("direct dependency alias", direct, 4, 17),
+            ("standard library alias", standard, 2, 19),
+        ] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "{name} unexpectedly selected a constructor"
+            );
+        }
+    }
+
+    #[test]
     fn unsupported_package_type_selections_do_not_expand_references() {
         struct Case {
             name: &'static str,
@@ -302,4 +467,3 @@
             }
         }
     }
-

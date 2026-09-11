@@ -24,9 +24,9 @@ currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol, direct-dependency function, standard-library function, and
-package type `references`, `search_docs`, and `read_doc`. Broader definition
-navigation, package reference navigation beyond the implemented function and
-type slices and the extracted constructor slice, paginated references,
+package type and constructor `references`, `search_docs`, and `read_doc`.
+Broader definition navigation, package reference navigation beyond the
+implemented function, type, and constructor slices, paginated references,
 recovery and casing-neutral reference navigation, conformance completion, and
 client plugin work in this proposal remain planned.
 
@@ -34,8 +34,7 @@ The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency and
-  standard-library functions and types and the constructor slice extracted as
-  [MCP Saved Package Constructor References](mcp-saved-package-constructor-references.md),
+  standard-library functions, types, and constructors,
   and paginated reference lookup;
 - plugin packaging for Codex and Claude Code.
 
@@ -101,10 +100,10 @@ The bounded direct-dependency function-reference slice is implemented and
 recorded by
 [MCP Saved Dependency Function References](../reference/implemented-proposals/mcp-saved-dependency-function-references.md).
 
-### Extracted Ready Package Constructor-Reference Slice
+### Implemented Package Constructor-Reference Slice
 
-The next bounded navigation slice is separately selectable as
-[MCP Saved Package Constructor References](mcp-saved-package-constructor-references.md).
+The bounded package constructor-reference slice is implemented and recorded by
+[MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -1050,9 +1049,9 @@ unique selector and `subdir` validation, snapshot-URI independence from
 physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
-also implements saved direct-dependency and standard-library function and type
-reference search. It does not implement package constructor-symbol, schema,
-public-alias, transitive-dependency, or paginated reference search.
+also implements saved direct-dependency and standard-library function, type,
+and constructor reference search. It does not implement schema, public-alias,
+transitive-dependency, or paginated reference search.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
@@ -1063,8 +1062,8 @@ locations through MCP.
 Dependency and standard-library definition locations for the bounded package
 symbol set are specified by
 [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
-Package constructor-symbol reference search is extracted as
-[MCP Saved Package Constructor References](mcp-saved-package-constructor-references.md).
+Package constructor-symbol reference search is recorded by
+[MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
 Package reference search beyond function, type, and constructor declarations,
 paginated references, recovery references, and casing-neutral references remain
 planned here.
@@ -1080,8 +1079,8 @@ The direct-dependency function-reference slice is recorded by
 [MCP Saved Dependency Function References](../reference/implemented-proposals/mcp-saved-dependency-function-references.md).
 The package type-reference slice is recorded by
 [MCP Saved Package Type References](../reference/implemented-proposals/mcp-saved-package-type-references.md).
-The package constructor-reference slice is ready as
-[MCP Saved Package Constructor References](mcp-saved-package-constructor-references.md).
+The package constructor-reference slice is recorded by
+[MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
 Later umbrella slices are:
 
 1. Extend package navigation with schema, public-alias, and other remaining

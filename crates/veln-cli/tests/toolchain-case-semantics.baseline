@@ -2,7 +2,7 @@ schema	"veln-toolchain-case-semantics/v0"
 source_git_tree	"e5be55fe181f1f5eda1d8ffd45d76c85d2941ffe"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1666
+case_count	1667
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -15659,6 +15659,53 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":613,"sha256":"68f55439822b8d594bd94b49b333745050a8502d34c1f54f72b0566e6bc69894"}
 field	source_errors	"forbidden"
 case_digest	"5709a313476da18a8b4263caa00b4e43f14263de12ddaa733f06aa5a8c74bc32"
+case	"examples/specification/mcp/references-package-constructor"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].id	2
+field	expectations.mcp_assertions[0].length	3
+field	expectations.mcp_assertions[0].operation	"length"
+field	expectations.mcp_assertions[0].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[1].equals	{"end":{"column":21,"line":8},"start":{"column":16,"line":8}}
+field	expectations.mcp_assertions[1].id	2
+field	expectations.mcp_assertions[1].operation	"equals"
+field	expectations.mcp_assertions[1].path	"/result/structuredContent/references/0/range"
+field	expectations.mcp_assertions[2].equals	{"end":{"column":10,"line":5},"start":{"column":5,"line":5}}
+field	expectations.mcp_assertions[2].id	2
+field	expectations.mcp_assertions[2].operation	"equals"
+field	expectations.mcp_assertions[2].path	"/result/structuredContent/references/1/range"
+field	expectations.mcp_assertions[3].id	2
+field	expectations.mcp_assertions[3].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[3].path	"/result/structuredContent/references/1/uri"
+field	expectations.mcp_assertions[3].workspace_file_uri	"other.veln"
+field	expectations.mcp_assertions[4].equals	{"end":{"column":15,"line":10},"start":{"column":10,"line":10}}
+field	expectations.mcp_assertions[4].id	2
+field	expectations.mcp_assertions[4].operation	"equals"
+field	expectations.mcp_assertions[4].path	"/result/structuredContent/references/2/range"
+field	expectations.mcp_assertions[5].id	2
+field	expectations.mcp_assertions[5].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[5].path	"/result/structuredContent/references/2/uri"
+field	expectations.mcp_assertions[5].workspace_file_uri	"other.veln"
+field	expectations.mcp_assertions[6].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
+field	expectations.mcp_assertions[6].id	2
+field	expectations.mcp_assertions[6].operation	"equals"
+field	expectations.mcp_assertions[6].path	"/result/structuredContent/scope"
+field	expectations.mcp_assertions[7].equals	[]
+field	expectations.mcp_assertions[7].id	3
+field	expectations.mcp_assertions[7].operation	"equals"
+field	expectations.mcp_assertions[7].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[8].equals	false
+field	expectations.mcp_assertions[8].id	3
+field	expectations.mcp_assertions[8].operation	"equals"
+field	expectations.mcp_assertions[8].path	"/result/isError"
+field	expectations.stderr.format	"empty"
+field	expectations.stdout.contains[0]	"\"references\":[{\"range\":{\"end\":{\"column\":21,\"line\":8},\"start\":{\"column\":16,\"line\":8}},\"uri\":\"file://"
+field	expectations.stdout.contains[1]	"\"scope\":{\"generation\":0,\"mode\":\"project\",\"project\":\".\",\"project_wide\":true}"
+field	expectations.stdout.contains[2]	"\"name\":\"model.veln\",\"title\":\"Veln package source: example/dep: model.veln\""
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":480,"sha256":"17c4332ecae998b9dfff796b39f3b5c4fc56d877ef45fbabb1569f5d3ae24578"}
+field	source_errors	"forbidden"
+case_digest	"f3ed6fc3971b24e06931044de4ca1ed980051164a18a127af044fa7b6b0b16fd"
 case	"examples/specification/mcp/references-package-type"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -55088,4 +55135,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"0085974c3ae9959c10a9ba572879ffa0cf73b9f748e96159c0e498a989720318"
+aggregate_digest	"66f3524bf0c839f0ac266528a6ac1a5998121ef2b4e066fc2c5019003cd2aaa3"

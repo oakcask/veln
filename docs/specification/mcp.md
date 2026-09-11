@@ -570,6 +570,16 @@ successful and empty. Language-service package type-reference tests check
 same-package different-module collisions and constructor-name spelling
 collisions, including a package constructor with the same spelling as its
 owning type.
+The `references-package-constructor` MCP specification case checks that a
+saved selected project returns only workspace `file:` locations for a visible
+direct-dependency constructor, includes qualified calls, constructor patterns,
+and accepted bare forms, reports project-wide scope, excludes package source
+body occurrences, preserves canonical location order across project sources,
+and keeps unsupported import-alias segment selection successful and empty.
+Language service and MCP server package constructor-reference tests check
+package identity, standard-library prelude identity, qualification, collision
+exclusion, alias-route exclusion, workspace source isolation, and retry
+boundaries.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.
