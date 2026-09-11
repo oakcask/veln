@@ -28,8 +28,9 @@ Completion evidence:
   module-qualified constructor-leaf ambiguity, type-qualified constructor
   disambiguation, alias-qualified constructor definition selection,
   other-package and workspace collision exclusion, public alias route
-  reference exclusion, private constructor visibility, and package source
-  exclusion.
+  reference exclusion, bounded constructor-reference collection for
+  high-cardinality package uses, private constructor visibility, and package
+  source exclusion.
 - `veln-mcp` server tests check saved-project adapter support for
   direct-dependency and standard-library public constructor references,
   workspace `file:` location results, project-wide scope, package source

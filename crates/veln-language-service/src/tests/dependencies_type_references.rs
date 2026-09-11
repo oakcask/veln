@@ -362,7 +362,61 @@
                 NavigationSource::Package { .. }
             ));
             assert_eq!(result.definition.span.start.column, 7, "{name}");
+            assert!(
+                result.references.is_empty(),
+                "{name} unexpectedly expanded alias-qualified references: {:?}",
+                locations(&result.references)
+            );
         }
+    }
+
+    #[test]
+    fn package_constructor_reference_collection_excludes_alias_routes_in_one_pass() {
+        let direct_calls = (0..96)
+            .map(|index| format!("  model::Item::Ready({index})\n"))
+            .collect::<String>();
+        let alias_calls = (0..96)
+            .map(|index| format!("  model::Alias::Ready({index})\n"))
+            .collect::<String>();
+        let text = format!(
+            "use model from \"example/pkg\"\n\nfn direct() -> model::Item\n{direct_calls}end\n\nfn alias() -> model::Alias\n{alias_calls}end\n"
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", &text)],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[(
+                    "model.veln",
+                    "pub type Item\n  pub Ready(Int)\nend\n\npub type Alias = Item\n",
+                )],
+                ["model.veln"],
+            )],
+        );
+
+        reset_constructor_reference_collections();
+        let direct = query_snapshot(&snapshot, "main.veln", 4, 16)
+            .expect("direct constructor selection resolves");
+
+        assert_eq!(constructor_reference_collections(), 1);
+        assert_eq!(direct.references.len(), 96);
+        assert!(
+            locations(&direct.references)
+                .iter()
+                .all(|(_, line, _)| *line >= 4 && *line < 100),
+            "direct references included alias route spans: {:?}",
+            locations(&direct.references)
+        );
+
+        reset_constructor_reference_collections();
+        let alias = query_snapshot(&snapshot, "main.veln", 103, 17)
+            .expect("alias-qualified constructor selection resolves");
+
+        assert_eq!(constructor_reference_collections(), 0);
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert!(alias.references.is_empty());
     }
 
     #[test]

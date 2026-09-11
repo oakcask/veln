@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use veln_language_service::{
-    EffectiveProjectSnapshot, NavigationResult, NavigationSource, PackageOrigin, SourcePosition,
-    SymbolDeclarationKind, SymbolKind, navigate,
+    NavigationResult, NavigationSource, PackageOrigin, SourcePosition, SymbolDeclarationKind,
+    SymbolKind, navigate,
 };
 use veln_source::{SourcePath, SourceSpan};
 
@@ -65,8 +65,9 @@ pub(crate) fn references(
     )
     .filter(|result| supported_reference_symbol(result) && !result.is_recovery)
     .map(|result| {
-        reference_spans(snapshot.as_ref(), &result)
-            .into_iter()
+        result
+            .references
+            .iter()
             .map(|span| location_json(&root, span))
             .collect::<Vec<_>>()
     })
@@ -100,37 +101,6 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
                 )
         }
     }
-}
-
-fn reference_spans<'a>(
-    snapshot: &EffectiveProjectSnapshot,
-    result: &'a NavigationResult,
-) -> Vec<&'a SourceSpan> {
-    if result.selected_symbol.kind != SymbolKind::Constructor
-        || !matches!(result.definition.source, NavigationSource::Package { .. })
-    {
-        return result.references.iter().collect();
-    }
-    result
-        .references
-        .iter()
-        .filter(|span| {
-            navigate(
-                snapshot,
-                SourcePosition {
-                    source: SourcePath::new(span.file.as_str()),
-                    line: span.start.line,
-                    column: span.start.column,
-                },
-            )
-            .is_some_and(|candidate| {
-                candidate.selected_symbol.kind == SymbolKind::Constructor
-                    && candidate.selected_symbol.declaration == result.selected_symbol.declaration
-                    && candidate.selected_symbol.declaration_kind
-                        == SymbolDeclarationKind::Declaration
-            })
-        })
-        .collect()
 }
 
 fn location_json(root: &std::path::Path, span: &SourceSpan) -> Value {
