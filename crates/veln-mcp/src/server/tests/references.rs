@@ -1970,6 +1970,66 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             scope: None,
         },
         Case {
+            name: "package function alias chain through invalid-casing alias",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use dep from \"example/dep\"\n\nfn read() -> Int\n  dep::chain()\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  1\n",
+                        "end\n\n",
+                        "pub fn Bad = target\n",
+                        "pub fn chain = Bad\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 4,
+            column: 8,
+            scope: None,
+        },
+        Case {
+            name: "package function alias chain through invalid-casing non-exported alias",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use math from \"example/dep\"\n\nfn read() -> Int\n  math::chain()\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/math.veln",
+                    "use internal\n\npub fn chain = internal::Bad\n",
+                ),
+                (
+                    "vendor/dep/internal.veln",
+                    "pub fn target() -> Int\n  1\nend\n\npub fn Bad = target\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 4,
+            column: 9,
+            scope: None,
+        },
+        Case {
             name: "private package function alias",
             files: vec![
                 (

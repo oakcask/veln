@@ -653,6 +653,7 @@ pub(crate) struct SymbolIndex {
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
     function_rename_index: OnceLock<FunctionRenameIndex>,
+    function_alias_identities: OnceLock<BTreeSet<(Option<String>, String, String)>>,
 }
 
 #[derive(Debug)]

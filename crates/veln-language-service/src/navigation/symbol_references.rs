@@ -144,10 +144,22 @@ impl SymbolIndex {
                         .unwrap_or_else(|| symbol.module.clone()),
                 ]
             });
-        self.function_aliases.iter().any(|candidate| {
-            candidate.package == symbol.package
-                && target_modules.iter().any(|module| module == &candidate.module)
-                && candidate.name == target_name
+        let alias_identities = self.function_alias_identities();
+        target_modules.iter().any(|module| {
+            alias_identities.contains(&(
+                symbol.package.clone(),
+                module.clone(),
+                target_name.to_string(),
+            ))
+        })
+    }
+
+    fn function_alias_identities(&self) -> &BTreeSet<(Option<String>, String, String)> {
+        self.function_alias_identities.get_or_init(|| {
+            self.function_aliases
+                .iter()
+                .map(|alias| (alias.package.clone(), alias.module.clone(), alias.name.clone()))
+                .collect()
         })
     }
 
