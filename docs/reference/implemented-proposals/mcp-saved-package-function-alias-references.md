@@ -18,13 +18,14 @@ Completion evidence:
   locations, standard-library public function-alias references for accepted
   bare, qualified-call, and qualified function-value occurrences,
   project-wide scope metadata, target-function separation, function-alias
-  chain exclusion, and dependency source resource admission.
+  chain exclusion through a non-exported package module, and dependency source
+  resource admission.
 - `veln-language-service` tests check direct-dependency and standard-library
   public function-alias identity, qualified call and qualified function-value
   references, target-function separation, collision exclusion, private and
   non-exported visibility, invalid-cased alias exclusion, unsupported type and
-  schema alias selections, alias-chain exclusion, package source exclusion,
-  and selected-project source boundaries.
+  schema alias selections, same-module and non-exported-module alias-chain
+  exclusion, package source exclusion, and selected-project source boundaries.
 - `veln-mcp` server tests check saved direct-dependency and standard-library
   adapter behavior, collision and visibility exclusions, source isolation,
   anonymous and descendant-manifest single-file scope for package alias
