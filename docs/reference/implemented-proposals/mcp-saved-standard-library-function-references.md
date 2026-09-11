@@ -1,6 +1,6 @@
 ---
 role: implementation-record
-update-when: The MCP references tool schema, saved standard-library navigation boundary, standard-library function-reference behavior, or executable MCP standard-library-reference cases change.
+update-when: The MCP references tool schema, saved standard-library navigation boundary, standard-library function-reference behavior, public function-alias target separation, or executable MCP standard-library-reference cases change.
 ---
 
 # MCP Saved Standard-Library Function References
