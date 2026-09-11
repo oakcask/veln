@@ -17,14 +17,16 @@ The workspace-project inventory, saved project diagnostics, bounded
 workspace-definition, saved workspace symbol-reference, resource publication,
 language-reference search, package documentation tool, package definition
 navigation, direct-dependency function-reference, standard-library
-function-reference, and package type-reference slices are implemented and
-specified in
+function-reference, package type-reference, package constructor-reference,
+workspace schema-reference, and package public function-alias reference slices
+are implemented and specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol, workspace schema operation, direct-dependency function,
-standard-library function, and package type and constructor `references`,
+standard-library function, package type, package constructor, and package
+public function-alias `references`,
 `search_docs`, and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, type, and constructor slices, paginated references,
@@ -116,6 +118,13 @@ The bounded package constructor-reference slice is implemented and recorded by
 
 The bounded workspace schema-reference slice is implemented and recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
+
+### Implemented Package Public Function-Alias Reference Slice
+
+The bounded package public function-alias reference slice is implemented and
+recorded by
+[MCP Saved Package Function-Alias References](../reference/implemented-proposals/mcp-saved-package-function-alias-references.md).
+
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
