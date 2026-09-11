@@ -362,6 +362,7 @@ fn constructor_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Cons
                     package_origin,
                     public,
                     standard_prelude,
+                    declaration_kind: SymbolDeclarationKind::Declaration,
                 })
             })
         })

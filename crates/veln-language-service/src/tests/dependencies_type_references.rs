@@ -313,7 +313,7 @@
     }
 
     #[test]
-    fn package_constructor_alias_routes_do_not_expand_references() {
+    fn package_constructor_alias_routes_preserve_definition_without_direct_reference_support() {
         let direct = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(
                 "main.veln",
@@ -349,10 +349,19 @@
             ("direct dependency alias", direct, 4, 17),
             ("standard library alias", standard, 2, 19),
         ] {
-            assert!(
-                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
-                "{name} unexpectedly selected a constructor"
+            let result = query_snapshot(&snapshot, "main.veln", line, column)
+                .unwrap_or_else(|| panic!("{name} did not select the underlying constructor"));
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Constructor, "{name}");
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias,
+                "{name}"
             );
+            assert!(matches!(
+                result.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(result.definition.span.start.column, 7, "{name}");
         }
     }
 

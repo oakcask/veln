@@ -66,3 +66,13 @@ equals = []
 id = 4
 path = "/result/isError"
 equals = false
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = false

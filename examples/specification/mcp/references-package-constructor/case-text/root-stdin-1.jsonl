@@ -2,4 +2,5 @@
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":8,"column":17}}}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":5}}}
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"references","arguments":{"source":"ambiguous.veln","line":4,"column":14}}}
-{"jsonrpc":"2.0","id":5,"method":"resources/list","params":{}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":17,"column":18}}}
+{"jsonrpc":"2.0","id":6,"method":"resources/list","params":{}}

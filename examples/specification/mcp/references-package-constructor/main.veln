@@ -12,3 +12,7 @@ pub fn collisions(record: {Ready: Int}, Ready: Int) -> Int
   Local::Ready(2)
   record.Ready + Ready
 end
+
+pub fn alias_route(input: Int) -> model::Alias
+  model::Alias::Ready(input)
+end

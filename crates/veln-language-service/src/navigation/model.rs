@@ -325,6 +325,7 @@ impl Symbol {
     fn declaration_kind(&self) -> SymbolDeclarationKind {
         match self {
             Self::Function(symbol) => symbol.declaration_kind,
+            Self::Constructor(symbol) => symbol.declaration_kind,
             Self::Recovery(_) => SymbolDeclarationKind::Recovery,
             _ => SymbolDeclarationKind::Declaration,
         }
@@ -398,6 +399,7 @@ struct ConstructorSymbol {
     package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
+    declaration_kind: SymbolDeclarationKind,
 }
 
 #[derive(Clone, Debug)]

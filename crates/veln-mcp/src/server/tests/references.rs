@@ -875,6 +875,9 @@ fn references_return_direct_dependency_constructor_locations_from_saved_project(
             "fn make(input: Int) -> model::Item\n",
             "  model::Item::Ready(input)\n",
             "end\n\n",
+            "fn alias_route(input: Int) -> model::Alias\n",
+            "  model::Alias::Ready(input)\n",
+            "end\n\n",
             "fn collisions(record: {Ready: Int}, Ready: Int) -> Int\n",
             "  other_model::Ready(1)\n",
             "  Local::Ready(2)\n",
@@ -902,7 +905,7 @@ fn references_return_direct_dependency_constructor_locations_from_saved_project(
     );
     workspace.write(
         "vendor/dep/model.veln",
-        "pub type Item\n  pub Ready(Int)\nend\n\nfn package_body() -> Item\n  Ready(1)\nend\n",
+        "pub type Item\n  pub Ready(Int)\nend\n\npub type Alias = Item\n\nfn package_body() -> Item\n  Ready(1)\nend\n",
     );
     workspace.write(
         "vendor/other/veln.toml",
@@ -983,6 +986,93 @@ fn references_keep_ambiguous_package_constructor_leaf_empty() {
         result["structuredContent"]["references"],
         json!([]),
         "{result:#}"
+    );
+}
+
+#[test]
+fn references_keep_package_constructor_alias_boundary_empty() {
+    let dependency_workspace = TempWorkspace::new("references-dependency-constructor-alias");
+    dependency_workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    dependency_workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n\n",
+            "fn make() -> model::Alias\n",
+            "  model::Alias::Ready(1)\n",
+            "end\n",
+        ),
+    );
+    dependency_workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    dependency_workspace.write(
+        "vendor/dep/model.veln",
+        "pub type Item\n  pub Ready(Int)\nend\n\npub type Alias = Item\n",
+    );
+    let mut dependency_server = initialized_server(&dependency_workspace);
+
+    let dependency_definition =
+        dependency_server.definition_tool(&json!({"source":"main.veln","line":4,"column":17}));
+    assert_eq!(
+        dependency_definition["isError"], false,
+        "{dependency_definition:#}"
+    );
+    assert_eq!(
+        dependency_definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":12}})
+    );
+    let dependency_references =
+        dependency_server.references_tool(&json!({"source":"main.veln","line":4,"column":17}));
+    assert_eq!(
+        dependency_references["isError"], false,
+        "{dependency_references:#}"
+    );
+    assert_eq!(
+        dependency_references["structuredContent"]["references"],
+        json!([]),
+        "{dependency_references:#}"
+    );
+
+    let standard_workspace = TempWorkspace::new("references-standard-constructor-alias");
+    standard_workspace.write(
+        "main.veln",
+        "fn make() -> prelude::Alias\n  prelude::Alias::Some(1)\nend\n",
+    );
+    let mut standard_server = initialized_server(&standard_workspace);
+    standard_server
+        .language_resources
+        .replace_test_standard_library(
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+            [PackageSnapshotSource::new(
+                "prelude.veln",
+                b"pub type Option\n  pub Some(Int)\nend\n\npub type Alias = Option\n",
+            )],
+        );
+
+    let standard_definition =
+        standard_server.definition_tool(&json!({"source":"main.veln","line":2,"column":19}));
+    assert_eq!(
+        standard_definition["isError"], false,
+        "{standard_definition:#}"
+    );
+    assert_eq!(
+        standard_definition["structuredContent"]["definition"]["range"],
+        json!({"start":{"line":2,"column":7},"end":{"line":2,"column":11}})
+    );
+    let standard_references =
+        standard_server.references_tool(&json!({"source":"main.veln","line":2,"column":19}));
+    assert_eq!(
+        standard_references["isError"], false,
+        "{standard_references:#}"
+    );
+    assert_eq!(
+        standard_references["structuredContent"]["references"],
+        json!([]),
+        "{standard_references:#}"
     );
 }
 

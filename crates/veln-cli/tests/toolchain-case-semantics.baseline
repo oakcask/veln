@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"e5be55fe181f1f5eda1d8ffd45d76c85d2941ffe"
+source_git_tree	"d2d220fc7a258adec9b09f7582bc4db4728ea0dc"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1667
@@ -15669,6 +15669,14 @@ field	expectations.mcp_assertions[10].equals	false
 field	expectations.mcp_assertions[10].id	4
 field	expectations.mcp_assertions[10].operation	"equals"
 field	expectations.mcp_assertions[10].path	"/result/isError"
+field	expectations.mcp_assertions[11].equals	[]
+field	expectations.mcp_assertions[11].id	5
+field	expectations.mcp_assertions[11].operation	"equals"
+field	expectations.mcp_assertions[11].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[12].equals	false
+field	expectations.mcp_assertions[12].id	5
+field	expectations.mcp_assertions[12].operation	"equals"
+field	expectations.mcp_assertions[12].path	"/result/isError"
 field	expectations.mcp_assertions[1].equals	{"end":{"column":21,"line":8},"start":{"column":16,"line":8}}
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
@@ -15711,9 +15719,9 @@ field	expectations.stdout.contains[1]	"\"scope\":{\"generation\":0,\"mode\":\"pr
 field	expectations.stdout.contains[2]	"\"name\":\"model.veln\",\"title\":\"Veln package source: example/dep: model.veln\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":619,"sha256":"e017f6a1d0b4a678ecd371f1a9e66a281277fa81a5c0a2b0740abd7a3fda35a3"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":754,"sha256":"6f4647716c52670f6f1d7b52673ab6cde097ecf93a0882b1e643d7599c36df3d"}
 field	source_errors	"forbidden"
-case_digest	"9144317e4c11ea6596dc3c856952403da154a7789a5b77ad28ffd12a7417a79f"
+case_digest	"1942b70cbb6985f9cdba304f13151e5b2341dc3d36fb5a68f63afb26e2cb12f9"
 case	"examples/specification/mcp/references-package-type"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -55143,4 +55151,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e214272b4688d926234f027b61f9188f7162942535574ec3d76a452361cee83f"
+aggregate_digest	"2c6e999a28591a034c77f6599751d907b9b3a2948846fef95166b0276b2781da"

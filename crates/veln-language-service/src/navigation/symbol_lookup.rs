@@ -349,6 +349,17 @@ impl SymbolIndex {
                             .contains(&(symbol.module.clone(), package.clone()))
                 })
         })
+        .or_else(|| {
+            self.unique_constructor_matching(|symbol| {
+                symbol.name == name
+                    && symbol.public
+                    && !symbol.standard_prelude
+                    && symbol.package.as_ref().is_some_and(|package| {
+                        self.constructor_reexport_visible_from(file, symbol, Some(package))
+                    })
+            })
+            .map(constructor_selected_through_public_alias)
+        })
     }
 
     fn unique_constructor_matching(
@@ -411,6 +422,15 @@ impl SymbolIndex {
                         None => false,
                     }
             })
+        })
+        .or_else(|| {
+            self.unique_constructor_matching(|symbol| {
+                symbol.name == name
+                    && symbol.public
+                    && symbol.package.is_some()
+                    && self.package_constructor_reexport_qualifier_matches(file, symbol, qualifier)
+            })
+            .map(constructor_selected_through_public_alias)
         })
     }
 
@@ -478,11 +498,44 @@ impl SymbolIndex {
         })
     }
 
+    fn package_constructor_reexport_qualifier_matches(
+        &self,
+        file: &IndexedFile,
+        symbol: &ConstructorSymbol,
+        qualifier: &str,
+    ) -> bool {
+        let Some(symbol_package) = symbol.package.as_ref() else {
+            return false;
+        };
+        self.type_aliases.iter().any(|alias| {
+            if !type_alias_targets_constructor(alias, symbol) {
+                return false;
+            }
+            if alias.package.as_ref() != Some(symbol_package) {
+                return false;
+            }
+            if qualifier != alias.module && qualifier != format!("{}::{}", alias.module, alias.name)
+            {
+                return false;
+            }
+            if alias.standard_prelude {
+                return true;
+            }
+            file.external_uses
+                .contains(&(alias.module.clone(), symbol_package.clone()))
+        })
+    }
+
     fn has_visible_non_prelude_imported_function(&self, file: &IndexedFile, name: &str) -> bool {
         self.functions
             .iter()
             .any(|symbol| visible_imported_function_for_bare_call(file, symbol, name))
     }
+}
+
+fn constructor_selected_through_public_alias(mut symbol: ConstructorSymbol) -> ConstructorSymbol {
+    symbol.declaration_kind = SymbolDeclarationKind::PublicAlias;
+    symbol
 }
 
 fn visible_imported_function_for_bare_call(
