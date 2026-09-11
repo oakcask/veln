@@ -24,7 +24,7 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references"
-length = 3
+length = 4
 
 [[mcp_assert]]
 id = 3
@@ -55,3 +55,53 @@ workspace_file_uri = "other.veln"
 id = 3
 path = "/result/structuredContent/references/2/range"
 equals = {"start":{"line":9,"column":31},"end":{"line":9,"column":37}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/3/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":10,"column":30},"end":{"line":10,"column":36}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 6
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 7
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references"
+length = 0

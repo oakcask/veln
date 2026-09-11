@@ -570,7 +570,9 @@ The `references-workspace-schema` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for `decode` and
 `encode` schema path leaves that resolve to a selected workspace schema,
 preserves project-wide scope, excludes the schema declaration, and excludes a
-same-spelled local schema use that shadows an imported target.
+same-spelled local schema use that shadows an imported target. The same case
+keeps public schema-alias, schema-composition target, and decode and encode
+module-qualifier selections successful and empty.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

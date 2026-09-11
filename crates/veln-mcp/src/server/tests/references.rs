@@ -1762,6 +1762,101 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 25,
         },
         Case {
+            name: "workspace public schema alias",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n\n",
+                        "pub schema AliasPacket = Packet\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 6,
+            column: 12,
+        },
+        Case {
+            name: "workspace schema composition target",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n\n",
+                        "schema Frame\n",
+                        "  format binary\n",
+                        "  nested: Packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 8,
+            column: 11,
+        },
+        Case {
+            name: "workspace schema decode qualifier",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "other.veln",
+                    concat!(
+                        "use main\n\n",
+                        "fn imported(view: ByteView) -> ()\n",
+                        "  decode main::Packet from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "other.veln",
+            line: 4,
+            column: 12,
+        },
+        Case {
+            name: "workspace schema encode qualifier",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "other.veln",
+                    concat!(
+                        "use main\n\n",
+                        "fn imported(packet: {value: Int}) -> ()\n",
+                        "  encode main::Packet from packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "other.veln",
+            line: 4,
+            column: 12,
+        },
+        Case {
             name: "private package constructor",
             files: vec![
                 (

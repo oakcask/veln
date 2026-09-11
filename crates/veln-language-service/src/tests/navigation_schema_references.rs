@@ -183,4 +183,40 @@ mod navigation_schema_references_tests {
         assert_eq!(locations(&result.references), [("main.veln", 18, 24)]);
         assert!(query(sources, "main.veln", 18, 18).is_none());
     }
+
+    #[test]
+    fn workspace_schema_references_keep_schema_specific_unsupported_selections_empty() {
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "pub schema Packet\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n\n",
+                    "pub schema AliasPacket = Packet\n\n",
+                    "schema Frame\n",
+                    "  format binary\n",
+                    "  nested: Packet\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                concat!(
+                    "use main\n\n",
+                    "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  let decoded = decode main::Packet from view at byte_offset(0)?\n",
+                    "  let encoded = encode main::Packet from packet\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        assert!(query(sources.clone(), "main.veln", 6, 12).is_none());
+
+        assert!(query(sources.clone(), "main.veln", 10, 11).is_none());
+        assert!(query(sources.clone(), "other.veln", 4, 25).is_none());
+        assert!(query(sources, "other.veln", 5, 25).is_none());
+    }
 }
