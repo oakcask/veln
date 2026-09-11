@@ -310,10 +310,6 @@ fn function_alias_declarations(file: &IndexedFile) -> Vec<FunctionAliasSymbol> {
                 .filter(|token| token.range.start >= name.range.end)
                 .is_some_and(|token| token.kind == TokenKind::Equal)
         {
-            let span = file.source.span(name.range);
-            if is_invalid_declaration_name(file, &span) {
-                continue;
-            }
             let package = match &file.origin {
                 IndexedOrigin::Workspace => None,
                 IndexedOrigin::Package { identity, .. } => Some(identity.clone()),

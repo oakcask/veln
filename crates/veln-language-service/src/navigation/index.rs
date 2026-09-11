@@ -45,6 +45,7 @@ impl SymbolIndex {
             type_aliases: declarations.type_aliases,
             files,
             function_rename_index: OnceLock::new(),
+            function_alias_identities: OnceLock::new(),
         }
     }
 

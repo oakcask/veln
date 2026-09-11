@@ -292,6 +292,17 @@
                 "math::Renamed()",
             ),
             (
+                "function alias chain through invalid-casing alias",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn Bad = target\n",
+                    "pub fn chain = Bad\n",
+                ),
+                "math::chain()",
+            ),
+            (
                 "type alias",
                 concat!(
                     "pub type Item\n",
@@ -354,6 +365,90 @@
             result.is_none_or(|result| result.references.is_empty()),
             "accepted function alias chain through non-exported module"
         );
+    }
+
+    #[test]
+    fn direct_dependency_function_alias_chain_through_invalid_casing_non_exported_module_is_empty() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[
+                (
+                    "math.veln",
+                    concat!(
+                        "use internal\n\n",
+                        "pub fn chain = internal::Bad\n",
+                        "pub fn direct = internal::target\n",
+                    ),
+                ),
+                (
+                    "internal.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  1\n",
+                        "end\n\n",
+                        "pub fn Bad = target\n",
+                    ),
+                ),
+            ],
+            ["math.veln"],
+        );
+
+        let chain = dependency_query(dependency.clone(), "math::chain()");
+        assert!(
+            chain.is_none_or(|result| result.references.is_empty()),
+            "accepted function alias chain through invalid-casing non-exported alias"
+        );
+
+        let invalid = dependency_query(dependency.clone(), "internal::Bad()");
+        assert!(
+            invalid.is_none_or(|result| result.references.is_empty()),
+            "accepted invalid-casing alias selection"
+        );
+
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "pub fn first() -> Int\n",
+                    "  math::direct()\n",
+                    "end\n\n",
+                    "pub fn second() -> Int\n",
+                    "  math::direct()\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+        let direct = query_snapshot(&snapshot, "main.veln", 4, 9).unwrap();
+        assert_eq!(
+            locations(&direct.references),
+            [("main.veln", 4, 9), ("main.veln", 8, 9)]
+        );
+    }
+
+    #[test]
+    fn package_function_alias_chain_rejection_handles_many_aliases() {
+        let aliases = (0..128)
+            .map(|index| format!("pub fn Bad{index} = target\npub fn chain{index} = Bad{index}\n"))
+            .collect::<String>();
+        let dependency_text = format!(
+            "pub fn target() -> Int\n  1\nend\n\npub fn direct = target\n{aliases}"
+        );
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", dependency_text.as_str())],
+            ["math.veln"],
+        );
+
+        let chain = dependency_query(dependency.clone(), "math::chain127()");
+        assert!(
+            chain.is_none_or(|result| result.references.is_empty()),
+            "accepted high-count function alias chain through invalid-casing alias"
+        );
+
+        let direct = dependency_query(dependency, "math::direct()").unwrap();
+        assert_eq!(locations(&direct.references), [("main.veln", 4, 9)]);
     }
 
     #[test]
