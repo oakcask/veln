@@ -366,9 +366,11 @@ fn function_alias_target_is_materialized(
     ) else {
         return false;
     };
-    functions
-        .iter()
-        .any(|function| function.node_id == target.target_node_id)
+    functions.iter().any(|function| {
+        function.node_id == target.target_node_id
+            && function.name.as_deref() == Some(target.target_name.as_str())
+            && function.module_name.as_deref() == target.target_module_name.as_deref()
+    })
 }
 
 fn materialize_quarantined_import_proof_functions(
