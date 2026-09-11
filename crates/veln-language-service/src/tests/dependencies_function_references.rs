@@ -324,6 +324,158 @@
     }
 
     #[test]
+    fn package_function_alias_references_are_limited_to_selected_project_sources() {
+        struct Case {
+            name: &'static str,
+            snapshot: EffectiveProjectSnapshot,
+            selected_source: &'static str,
+            isolated_text: &'static str,
+            selected_line: usize,
+            selected_column: usize,
+        }
+
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                concat!(
+                    "pub fn target(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["math.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                concat!(
+                    "pub fn target(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["prelude.veln"],
+        );
+        let cases = [
+            Case {
+                name: "direct dependency",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![
+                        source(
+                            "main.veln",
+                            concat!(
+                                "use math from \"example/pkg\"\n\n",
+                                "pub fn main(value: Int) -> Int\n",
+                                "  math::renamed(value)\n",
+                                "end\n",
+                            ),
+                        ),
+                        source(
+                            "other.veln",
+                            concat!(
+                                "use math from \"example/pkg\"\n\n",
+                                "pub fn other(value: Int) -> Int\n",
+                                "  math::renamed(value)\n",
+                                "end\n",
+                            ),
+                        ),
+                    ],
+                    vec![dependency],
+                ),
+                selected_source: "main.veln",
+                isolated_text: concat!(
+                    "use math from \"example/pkg\"\n\n",
+                    "pub fn main(value: Int) -> Int\n",
+                    "  math::renamed(value)\n",
+                    "end\n",
+                ),
+                selected_line: 4,
+                selected_column: 10,
+            },
+            Case {
+                name: "standard library",
+                snapshot: EffectiveProjectSnapshot::new(vec![
+                    source(
+                        "main.veln",
+                        concat!(
+                            "pub fn main(value: Int) -> Int\n",
+                            "  renamed(value)\n",
+                            "end\n",
+                        ),
+                    ),
+                    source(
+                        "other.veln",
+                        concat!(
+                            "pub fn other(value: Int) -> Int\n",
+                            "  prelude::renamed(value)\n",
+                            "end\n",
+                        ),
+                    ),
+                ])
+                .with_standard_library(standard_library),
+                selected_source: "main.veln",
+                isolated_text: concat!(
+                    "pub fn main(value: Int) -> Int\n",
+                    "  renamed(value)\n",
+                    "end\n",
+                ),
+                selected_line: 2,
+                selected_column: 4,
+            },
+        ];
+
+        for case in cases {
+            let selected_project = query_snapshot(
+                &case.snapshot,
+                case.selected_source,
+                case.selected_line,
+                case.selected_column,
+            )
+            .unwrap_or_else(|| panic!("missing {}", case.name));
+
+            assert_eq!(
+                selected_project.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias,
+                "{}",
+                case.name
+            );
+            assert!(matches!(
+                selected_project.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(
+                locations(&selected_project.references),
+                match case.name {
+                    "direct dependency" => vec![("main.veln", 4, 9), ("other.veln", 4, 9)],
+                    "standard library" => vec![("main.veln", 2, 3), ("other.veln", 2, 12)],
+                    _ => unreachable!(),
+                },
+                "{}",
+                case.name
+            );
+
+            let isolated_source = EffectiveProjectSnapshot::new(vec![source(
+                case.selected_source,
+                case.isolated_text,
+            )]);
+            let isolated_result = query_snapshot(
+                &isolated_source,
+                case.selected_source,
+                case.selected_line,
+                case.selected_column,
+            );
+            assert!(
+                isolated_result.is_none_or(|result| result.references.is_empty()),
+                "{} leaked package alias references into an isolated source",
+                case.name
+            );
+        }
+    }
+
+    #[test]
     fn explicit_standard_library_function_references_cover_qualified_calls_and_values() {
         let standard_library = standard_library_snapshot(
             &[(
