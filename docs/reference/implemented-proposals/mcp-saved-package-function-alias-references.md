@@ -15,8 +15,10 @@ Completion evidence:
 - The `references-package-function-alias` executable MCP specification case
   checks direct-dependency public function-alias references for qualified calls
   and qualified function-value occurrences, workspace `file:` result
-  locations, project-wide scope metadata, target-function separation,
-  function-alias chain exclusion, and dependency source resource admission.
+  locations, standard-library public function-alias references for accepted
+  bare, qualified-call, and qualified function-value occurrences,
+  project-wide scope metadata, target-function separation, function-alias
+  chain exclusion, and dependency source resource admission.
 - `veln-language-service` tests check direct-dependency and standard-library
   public function-alias identity, qualified call and qualified function-value
   references, target-function separation, collision exclusion, private and
