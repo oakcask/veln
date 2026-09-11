@@ -18,7 +18,7 @@ workspace-definition, saved workspace symbol-reference, resource publication,
 language-reference search, package documentation tool, package definition
 navigation, direct-dependency function-reference, standard-library
 function-reference, package type-reference, package constructor-reference,
-workspace schema-reference, and direct-dependency public function-alias
+workspace schema-reference, and package public function-alias
 reference slices
 are implemented and specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
@@ -27,7 +27,7 @@ currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol, workspace schema operation, direct-dependency function,
 standard-library function, package type, package constructor, and
-direct-dependency public function-alias `references`,
+package public function-alias `references`,
 `search_docs`, and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, type, and constructor slices, paginated references,
@@ -40,9 +40,9 @@ The remaining first-capability work includes:
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency and
   standard-library functions, types, constructors, and direct-dependency
-  public function aliases; the direct-dependency public function-alias
+  public function aliases; the package public function-alias
   reference boundary is recorded as
-  [MCP Saved Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md),
+  [MCP Saved Package Function-Alias References](../reference/implemented-proposals/mcp-saved-package-function-alias-references.md),
   and paginated reference lookup;
 - workspace schema reference lookup beyond the implemented `decode` and
   `encode` slice recorded as
@@ -123,9 +123,9 @@ The bounded workspace schema-reference slice is implemented and recorded by
 
 ### Implemented Dependency Public Function-Alias Reference Slice
 
-The bounded direct-dependency public function-alias reference slice is implemented and
+The bounded package public function-alias reference slice is implemented and
 recorded by
-[MCP Saved Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
+[MCP Saved Package Function-Alias References](../reference/implemented-proposals/mcp-saved-package-function-alias-references.md).
 
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
@@ -1109,8 +1109,8 @@ The package constructor-reference slice is recorded by
 [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
 The workspace schema-reference slice is recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-The direct-dependency public function-alias reference slice is recorded by
-[MCP Saved Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
+The package public function-alias reference slice is recorded by
+[MCP Saved Package Function-Alias References](../reference/implemented-proposals/mcp-saved-package-function-alias-references.md).
 Later umbrella slices are:
 
 1. Extend schema navigation beyond the extracted workspace `decode` and

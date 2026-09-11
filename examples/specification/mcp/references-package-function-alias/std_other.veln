@@ -1,0 +1,5 @@
+use prelude from "std"
+
+pub fn other(chunk: ByteChunk) -> ByteCount
+  prelude::byte_chunk_len(chunk)
+end

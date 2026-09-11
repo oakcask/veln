@@ -1310,6 +1310,62 @@ fn references_return_package_function_alias_locations() {
         &[("main.veln", 5, 8, 5, 14)],
         "direct dependency alias target separation",
     );
+
+    let std_workspace = TempWorkspace::new("references-standard-library-alias-boundary");
+    std_workspace.write("veln.toml", "");
+    std_workspace.write(
+        "main.veln",
+        concat!(
+            "use prelude from \"std\"\n\n",
+            "pub fn first(chunk: ByteChunk) -> ByteCount\n",
+            "  byte_chunk_len(chunk)\n",
+            "end\n\n",
+            "pub fn second() -> fn(ByteChunk) -> ByteCount\n",
+            "  prelude::byte_chunk_len\n",
+            "end\n\n",
+            "pub fn target(chunk: ByteChunk) -> ByteCount\n",
+            "  byte_chunk_count(chunk)\n",
+            "end\n",
+        ),
+    );
+    std_workspace.write(
+        "other.veln",
+        concat!(
+            "use prelude from \"std\"\n\n",
+            "pub fn other(chunk: ByteChunk) -> ByteCount\n",
+            "  prelude::byte_chunk_len(chunk)\n",
+            "end\n",
+        ),
+    );
+    let mut std_server = initialized_server_with_embedded_resources(&std_workspace);
+
+    let std_alias_references =
+        std_server.references_tool(&json!({"source":"main.veln","line":4,"column":3}));
+    assert_eq!(
+        std_alias_references["isError"], false,
+        "{std_alias_references:#}"
+    );
+    assert_reference_ranges(
+        &std_alias_references,
+        &[
+            ("main.veln", 4, 3, 4, 17),
+            ("main.veln", 8, 12, 8, 26),
+            ("other.veln", 4, 12, 4, 26),
+        ],
+        "standard library function alias",
+    );
+
+    let std_target_references =
+        std_server.references_tool(&json!({"source":"main.veln","line":12,"column":3}));
+    assert_eq!(
+        std_target_references["isError"], false,
+        "{std_target_references:#}"
+    );
+    assert_reference_ranges(
+        &std_target_references,
+        &[("main.veln", 12, 3, 12, 19)],
+        "standard library alias target separation",
+    );
 }
 
 #[test]

@@ -149,6 +149,7 @@ byte(value: Int) -> Result<Byte, String>
 byte_to_int(value: Byte) -> Int
 byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 byte_chunk_count(chunk: ByteChunk) -> ByteCount
+byte_chunk_len(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 byte_chunk_from_hex(text: String) -> Result<ByteChunk, String>
 byte_chunk_to_visible_ascii_string(chunk: ByteChunk) -> Result<String, String>
@@ -158,6 +159,7 @@ byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
 byte_view_to_chunk(view: ByteView) -> ByteChunk
 byte_view_count(view: ByteView) -> ByteCount
+byte_view_len(view: ByteView) -> ByteCount
 byte_view_take(view: ByteView, count: ByteCount) -> Result<ByteView, String>
 byte_view_drop(view: ByteView, count: ByteCount) -> Result<ByteView, String>
 byte_view_slice(view: ByteView, offset: ByteCount, count: ByteCount) -> Result<ByteView, String>
@@ -321,7 +323,8 @@ fails. `int_to_string` renders an integer for display and string composition.
 for values outside that range.
 `byte_chunk(bytes)` returns an immutable owned
 chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the
-chunk length as `ByteCount`. `byte_append(left, right)` returns a new chunk
+chunk length as `ByteCount`. `byte_chunk_len` is a public function alias for
+`byte_chunk_count`. `byte_append(left, right)` returns a new chunk
 with the left bytes followed by the right bytes. `byte_chunk_from_hex(text)`
 accepts only ASCII hex byte pairs with ASCII whitespace between complete bytes
 and returns `Ok(ByteChunk)` for the decoded bytes. It returns `Err(String)`
@@ -356,6 +359,7 @@ an owned `ByteChunk`. The checked cases
 `../../examples/specification/run/binary-schema-byte-conversion-range-json/`
 cover the successful boundary and the requested-range failure.
 `byte_view_count(view)` returns the view length as `ByteCount`.
+`byte_view_len` is a public function alias for `byte_view_count`.
 `byte_view_take(view, count)`, `byte_view_drop(view, count)`, and
 `byte_view_slice(view, offset, count)` derive bounded immutable views within
 the supplied view and return `Err(String)` when the requested local range
@@ -506,10 +510,10 @@ helpers, rather than the public schema application surface.
 
 - public `std::prelude` functions with compiler type adapters: `byte`,
   `byte_to_int`, `byte_chunk`,
-  `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`,
+  `byte_chunk_count`, `byte_chunk_len`, `byte_append`, `byte_chunk_from_hex`,
   `byte_chunk_to_visible_ascii_string`,
   `byte_chunk_from_visible_ascii_string`, `byte_take`, `byte_drop`,
-  `byte_view`, `byte_view_to_chunk`, `byte_view_count`,
+  `byte_view`, `byte_view_to_chunk`, `byte_view_count`, `byte_view_len`,
   `byte_view_take`, `byte_view_drop`, `byte_view_slice`,
   `byte_chunks_empty`, `byte_chunks_one`, `byte_chunks_append`,
   `byte_chunks_produce`,
