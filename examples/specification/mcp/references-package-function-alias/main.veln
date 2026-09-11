@@ -1,5 +1,4 @@
 use dep from "example/dep"
-use http2::hpack from "std"
 
 pub fn first() -> Int
   dep::renamed()
@@ -15,16 +14,4 @@ end
 
 pub fn chain_call() -> Int
   dep::chain()
-end
-
-pub fn std_first() -> Result<ByteChunk, String>
-  hpack::encode_prefixed_integer(8, 5, 32)
-end
-
-pub fn std_callback() -> fn(Int, Int, Int) -> Result<ByteChunk, String>
-  hpack::encode_prefixed_integer
-end
-
-pub fn std_target_call() -> Result<ByteChunk, String>
-  hpack::encode_integer(9, 5, 32)
 end
