@@ -15,18 +15,21 @@ and the checked `references-workspace-schema` executable MCP case.
 
 ## Completed Boundary
 
-The selected symbol must be a schema declaration owned by the inferred saved
-project. Selection follows the same module import, visibility, exact
-test-companion, and shadowing rules used by definition lookup.
+The selected symbol must be a workspace schema declaration from either the
+inferred saved project or the requested anonymous source. Selection follows
+the same module import, visibility, exact test-companion, and shadowing rules
+used by definition lookup.
 
 The result contains only schema path-leaf occurrences in `decode` and
-`encode` expressions in the selected project's captured owned sources. It
-includes same-module bare forms and accepted qualified forms, including
+`encode` expressions in the selected navigation scope. For saved project
+sources, that scope is the selected project's captured owned sources. For an
+anonymous source, that scope is only the requested source. It includes
+same-module bare forms and accepted qualified forms, including
 import-alias-qualified forms, that resolve to the same workspace schema. A
 written import does not make imported schemas visible as bare schema paths. It
 excludes module qualifiers, the schema declaration, and same-spelled paths that
 resolve to another declaration. It retains sorted canonical `file:` locations
-and project-wide scope metadata.
+and the matching project-wide or single-file scope metadata.
 
 This slice does not add package-schema references, schema composition or
 public schema-alias references, package or workspace public-alias traversal,

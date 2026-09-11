@@ -420,16 +420,18 @@ non-recovery workspace symbols:
 - handler operation clause parameters.
 
 Workspace schema references are limited to schema path-leaf occurrences in
-`decode` and `encode` expressions in the selected project's captured owned
-sources. They include same-module bare occurrences and qualified occurrences,
-including import-alias-qualified paths, that resolve to the selected workspace
-schema under ordinary import, visibility, exact test-companion, and shadowing
-rules. A written import does not put that imported module's schemas in the
-bare schema namespace. They exclude the declaration, module qualifiers,
-package schemas, public schema aliases, schema composition targets, recovery
-symbols, invalid-casing records, and same-spelled functions, types,
-constructors, values, fields, operations, strings, comments, and schema uses
-that resolve to another declaration.
+`decode` and `encode` expressions in the selected navigation scope. For
+selected project sources, that scope is the selected project's captured owned
+sources. For anonymous single-file selections, that scope is only the
+requested source. They include same-module bare occurrences and qualified
+occurrences, including import-alias-qualified paths, that resolve to the
+selected workspace schema under ordinary import, visibility, exact
+test-companion, and shadowing rules. A written import does not put that
+imported module's schemas in the bare schema namespace. They exclude the
+declaration, module qualifiers, package schemas, public schema aliases, schema
+composition targets, recovery symbols, invalid-casing records, and
+same-spelled functions, types, constructors, values, fields, operations,
+strings, comments, and schema uses that resolve to another declaration.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -459,9 +461,8 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, or constructors, non-exported package modules,
 invalid-casing records, recovery records, package public alias symbols,
-non-function, non-type, and non-constructor package symbols, package
-module-segment selections, and anonymous single-file selections succeed with an
-empty `references` array.
+non-function, non-type, and non-constructor package symbols, and package
+module-segment selections succeed with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
