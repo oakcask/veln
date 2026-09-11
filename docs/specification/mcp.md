@@ -578,11 +578,14 @@ saved selected project returns only workspace `file:` locations for a visible
 direct-dependency constructor, includes qualified calls, constructor patterns,
 and accepted bare forms, reports project-wide scope, excludes package source
 body occurrences, preserves canonical location order across project sources,
-and keeps unsupported import-alias segment selection successful and empty.
+keeps unsupported import-alias segment selection successful and empty, and
+keeps an ambiguous module-qualified package constructor leaf successful and
+empty.
 Language service and MCP server package constructor-reference tests check
 package identity, standard-library prelude identity, qualification, collision
-exclusion, alias-route exclusion, workspace source isolation, and retry
-boundaries.
+exclusion, module-qualified constructor-leaf ambiguity, type-qualified
+constructor disambiguation, alias-route exclusion, workspace source isolation,
+and retry boundaries.
 The `definition-recovery-navigation` MCP specification case checks
 `definition` over a unique invalid source declaration recovery record, an
 ambiguous invalid source declaration boundary, and valid-symbol precedence.

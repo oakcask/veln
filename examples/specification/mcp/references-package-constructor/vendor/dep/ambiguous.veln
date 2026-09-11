@@ -1,0 +1,7 @@
+pub type Left
+  pub Ready(Int)
+end
+
+pub type Right
+  pub Ready(Int)
+end

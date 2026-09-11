@@ -377,20 +377,30 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<ConstructorSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        self.constructors
-            .iter()
-            .find(|symbol| {
+        self.first_constructor_matching(|symbol| {
+            symbol.package.is_none()
+                && symbol.name == name
+                && (qualified_modules
+                    .iter()
+                    .any(|module| constructor_qualifier_matches(symbol, module))
+                    || (qualifier == symbol.type_name && symbol.module == file.module)
+                    || self.workspace_constructor_reexport_qualifier_matches(
+                        file, symbol, qualifier,
+                    ))
+                && (symbol.module == file.module
+                    || ((file.uses.contains(&symbol.module)
+                        || self.constructor_reexport_visible_from(file, symbol, None))
+                        && visible_workspace_constructor_from(file, symbol)))
+        })
+        .or_else(|| {
+            self.unique_constructor_matching(|symbol| {
                 symbol.name == name
                     && (qualified_modules
                         .iter()
                         .any(|module| constructor_qualifier_matches(symbol, module))
-                        || qualified_modules.iter().any(|module| {
-                            module == &format!("{}::{}", symbol.module, symbol.type_name)
-                        })
-                        || (qualifier == symbol.type_name && symbol.module == file.module)
-                        || self.workspace_constructor_reexport_qualifier_matches(
-                            file, symbol, qualifier,
-                        ))
+                        || qualified_modules
+                            .iter()
+                            .any(|module| module == &format!("{}::{}", symbol.module, symbol.type_name)))
                     && match &symbol.package {
                         Some(package) => {
                             symbol.standard_prelude
@@ -398,15 +408,10 @@ impl SymbolIndex {
                                     .external_uses
                                     .contains(&(symbol.module.clone(), package.clone()))
                         }
-                        None => {
-                            symbol.module == file.module
-                                || ((file.uses.contains(&symbol.module)
-                                    || self.constructor_reexport_visible_from(file, symbol, None))
-                                    && visible_workspace_constructor_from(file, symbol))
-                        }
+                        None => false,
                     }
             })
-            .cloned()
+        })
     }
 
     fn has_visible_non_prelude_imported_constructor(&self, file: &IndexedFile, name: &str) -> bool {

@@ -15665,6 +15665,10 @@ field	expectations.mcp_assertions[0].id	2
 field	expectations.mcp_assertions[0].length	3
 field	expectations.mcp_assertions[0].operation	"length"
 field	expectations.mcp_assertions[0].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[10].equals	false
+field	expectations.mcp_assertions[10].id	4
+field	expectations.mcp_assertions[10].operation	"equals"
+field	expectations.mcp_assertions[10].path	"/result/isError"
 field	expectations.mcp_assertions[1].equals	{"end":{"column":21,"line":8},"start":{"column":16,"line":8}}
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
@@ -15697,15 +15701,19 @@ field	expectations.mcp_assertions[8].equals	false
 field	expectations.mcp_assertions[8].id	3
 field	expectations.mcp_assertions[8].operation	"equals"
 field	expectations.mcp_assertions[8].path	"/result/isError"
+field	expectations.mcp_assertions[9].equals	[]
+field	expectations.mcp_assertions[9].id	4
+field	expectations.mcp_assertions[9].operation	"equals"
+field	expectations.mcp_assertions[9].path	"/result/structuredContent/references"
 field	expectations.stderr.format	"empty"
 field	expectations.stdout.contains[0]	"\"references\":[{\"range\":{\"end\":{\"column\":21,\"line\":8},\"start\":{\"column\":16,\"line\":8}},\"uri\":\"file://"
 field	expectations.stdout.contains[1]	"\"scope\":{\"generation\":0,\"mode\":\"project\",\"project\":\".\",\"project_wide\":true}"
 field	expectations.stdout.contains[2]	"\"name\":\"model.veln\",\"title\":\"Veln package source: example/dep: model.veln\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":480,"sha256":"17c4332ecae998b9dfff796b39f3b5c4fc56d877ef45fbabb1569f5d3ae24578"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":619,"sha256":"e017f6a1d0b4a678ecd371f1a9e66a281277fa81a5c0a2b0740abd7a3fda35a3"}
 field	source_errors	"forbidden"
-case_digest	"f3ed6fc3971b24e06931044de4ca1ed980051164a18a127af044fa7b6b0b16fd"
+case_digest	"9144317e4c11ea6596dc3c856952403da154a7789a5b77ad28ffd12a7417a79f"
 case	"examples/specification/mcp/references-package-type"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -55135,4 +55143,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"66f3524bf0c839f0ac266528a6ac1a5998121ef2b4e066fc2c5019003cd2aaa3"
+aggregate_digest	"e214272b4688d926234f027b61f9188f7162942535574ec3d76a452361cee83f"

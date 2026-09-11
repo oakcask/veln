@@ -1,0 +1,5 @@
+use ambiguous from "example/dep"
+
+pub fn ambiguous() -> ambiguous::Left
+  ambiguous::Ready(1)
+end

@@ -205,6 +205,65 @@
     }
 
     #[test]
+    fn package_constructor_module_qualified_leaf_requires_unique_identity() {
+        let direct = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n\n",
+                    "fn ambiguous() -> model::Left\n",
+                    "  model::Ready(1)\n",
+                    "end\n\n",
+                    "fn exact() -> model::Left\n",
+                    "  model::Left::Ready(1)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[(
+                    "model.veln",
+                    "pub type Left\n  pub Ready(Int)\nend\n\npub type Right\n  pub Ready(Int)\nend\n",
+                )],
+                ["model.veln"],
+            )],
+        );
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "fn ambiguous() -> prelude::Left\n",
+                "  prelude::Ready(1)\n",
+                "end\n\n",
+                "fn exact() -> prelude::Left\n",
+                "  prelude::Left::Ready(1)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub type Left\n  pub Ready(Int)\nend\n\npub type Right\n  pub Ready(Int)\nend\n",
+            )],
+            ["prelude.veln"],
+        ));
+
+        for (name, snapshot, ambiguous_line, ambiguous_column, exact_line, exact_column, file) in [
+            ("direct dependency", direct, 4, 10, 8, 16, "model.veln"),
+            ("standard library", standard, 2, 12, 6, 18, "prelude.veln"),
+        ] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", ambiguous_line, ambiguous_column).is_none(),
+                "{name} module-qualified leaf unexpectedly selected a constructor"
+            );
+
+            let exact = query_snapshot(&snapshot, "main.veln", exact_line, exact_column)
+                .unwrap_or_else(|| panic!("{name} type-qualified constructor did not resolve"));
+            assert_eq!(exact.selected_symbol.kind, SymbolKind::Constructor, "{name}");
+            assert_eq!(exact.definition.span.file.as_str(), file, "{name}");
+        }
+    }
+
+    #[test]
     fn standard_library_constructor_references_cover_prelude_and_qualified_forms() {
         let standard_library = standard_library_snapshot(
             &[(

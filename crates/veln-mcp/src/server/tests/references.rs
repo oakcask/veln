@@ -945,6 +945,48 @@ fn references_return_direct_dependency_constructor_locations_from_saved_project(
 }
 
 #[test]
+fn references_keep_ambiguous_package_constructor_leaf_empty() {
+    let workspace = TempWorkspace::new("references-ambiguous-package-constructor");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n\n",
+            "fn ambiguous() -> model::Left\n",
+            "  model::Ready(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/model.veln",
+        concat!(
+            "pub type Left\n",
+            "  pub Ready(Int)\n",
+            "end\n\n",
+            "pub type Right\n",
+            "  pub Ready(Int)\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 10);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["references"],
+        json!([]),
+        "{result:#}"
+    );
+}
+
+#[test]
 fn references_keep_package_function_alias_boundary_empty() {
     let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
     alias_workspace.write(

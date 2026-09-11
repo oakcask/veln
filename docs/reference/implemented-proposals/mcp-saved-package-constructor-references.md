@@ -18,21 +18,24 @@ Completion evidence:
   workspace `file:` result locations, project-wide scope metadata, canonical
   ordering across project sources, qualified calls, constructor patterns,
   accepted bare forms, package body exclusion, dependency source resource
-  admission, workspace collision exclusion, and unsupported import-alias
-  segment selection.
+  admission, workspace collision exclusion, unsupported import-alias segment
+  selection, and ambiguous module-qualified constructor-leaf empty success.
 - `veln-language-service` tests check direct-dependency constructor references
   across project sources, package identity boundaries, explicit type-qualified
   constructor calls, module-qualified constructor calls, constructor patterns,
   standard-library prelude constructor references, package-origin identity,
-  other-package and workspace collision exclusion, public alias route
-  exclusion, private constructor visibility, and package source exclusion.
+  module-qualified constructor-leaf ambiguity, type-qualified constructor
+  disambiguation, other-package and workspace collision exclusion, public
+  alias route exclusion, private constructor visibility, and package source
+  exclusion.
 - `veln-mcp` server tests check saved-project adapter support for
   direct-dependency and standard-library public constructor references,
   workspace `file:` location results, project-wide scope, package source
-  exclusion, collision filtering, private constructor, import-alias segment,
-  anonymous source, recovery, schema, effect, handler, and effect-operation
-  empty-result boundaries, and `snapshot_changed` retry exhaustion without
-  success-only fields or partial package resource admission.
+  exclusion, collision filtering, ambiguous constructor-leaf empty success,
+  private constructor, import-alias segment, anonymous source, recovery,
+  schema, effect, handler, and effect-operation empty-result boundaries, and
+  `snapshot_changed` retry exhaustion without success-only fields or partial
+  package resource admission.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
 locations, type-reference widening, schema references, public-alias
