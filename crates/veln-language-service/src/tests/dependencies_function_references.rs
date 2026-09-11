@@ -490,45 +490,46 @@
     }
 
     #[test]
-    fn standard_library_public_function_alias_references_cover_prelude_forms() {
+    fn standard_library_public_function_alias_references_keep_alias_identity() {
         let standard_library = standard_library_snapshot(
             &[(
-                "prelude.veln",
+                "http2/hpack.veln",
                 concat!(
-                    "pub fn target() -> Int\n",
-                    "  1\n",
+                    "pub fn target(value: Int) -> Int\n",
+                    "  value\n",
                     "end\n\n",
                     "pub fn renamed = target\n",
                 ),
             )],
-            ["prelude.veln"],
+            ["http2/hpack.veln"],
         );
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source(
                 "main.veln",
                 concat!(
+                    "use http2::hpack from \"std\"\n\n",
                     "pub fn first() -> Int\n",
-                    "  renamed()\n",
+                    "  hpack::renamed(1)\n",
                     "end\n\n",
-                    "pub fn second() -> fn() -> Int\n",
-                    "  prelude::renamed\n",
+                    "pub fn second() -> fn(Int) -> Int\n",
+                    "  hpack::renamed\n",
                     "end\n\n",
                     "pub fn target_call() -> Int\n",
-                    "  prelude::target()\n",
+                    "  hpack::target(2)\n",
                     "end\n",
                 ),
             ),
             source(
                 "other.veln",
-                "pub fn other() -> Int\n  prelude::renamed()\nend\n",
+                "use http2::hpack from \"std\"\n\npub fn other() -> Int\n  hpack::renamed(3)\nend\n",
             ),
         ])
         .with_standard_library(standard_library);
 
         for (source_path, line, column) in [
-            ("main.veln", 2, 4),
-            ("main.veln", 6, 12),
-            ("other.veln", 2, 12),
+            ("main.veln", 4, 10),
+            ("main.veln", 8, 10),
+            ("other.veln", 4, 10),
         ] {
             let result = query_snapshot(&snapshot, source_path, line, column).unwrap();
 
@@ -544,17 +545,17 @@
             assert_eq!(
                 locations(&result.references),
                 [
-                    ("main.veln", 2, 3),
-                    ("main.veln", 6, 12),
-                    ("other.veln", 2, 12),
+                    ("main.veln", 4, 10),
+                    ("main.veln", 8, 10),
+                    ("other.veln", 4, 10),
                 ]
             );
         }
 
-        let target = query_snapshot(&snapshot, "main.veln", 10, 12).unwrap();
+        let target = query_snapshot(&snapshot, "main.veln", 12, 10).unwrap();
         assert_eq!(
             target.selected_symbol.declaration_kind,
             SymbolDeclarationKind::Declaration
         );
-        assert_eq!(locations(&target.references), [("main.veln", 10, 12)]);
+        assert_eq!(locations(&target.references), [("main.veln", 12, 10)]);
     }

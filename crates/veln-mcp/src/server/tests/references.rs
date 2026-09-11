@@ -1311,36 +1311,37 @@ fn references_return_package_function_alias_locations() {
     std_workspace.write(
         "main.veln",
         concat!(
-            "pub fn bare() -> Int\n",
-            "  renamed()\n",
+            "use http2::hpack from \"std\"\n\n",
+            "pub fn first() -> Int\n",
+            "  hpack::renamed(1)\n",
             "end\n\n",
-            "pub fn qualified() -> fn() -> Int\n",
-            "  prelude::renamed\n",
+            "pub fn callback() -> fn(Int) -> Int\n",
+            "  hpack::renamed\n",
             "end\n",
         ),
     );
     std_workspace.write(
         "other.veln",
-        "pub fn other() -> Int\n  prelude::renamed()\nend\n",
+        "use http2::hpack from \"std\"\n\npub fn other() -> Int\n  hpack::renamed(2)\nend\n",
     );
     let mut std_server = initialized_server(&std_workspace);
     std_server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"http2/hpack.veln\"]\n",
         [PackageSnapshotSource::new(
-            "prelude.veln",
-            b"pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n",
+            "http2/hpack.veln",
+            b"pub fn target(value: Int) -> Int\n  value\nend\n\npub fn renamed = target\n",
         )],
     );
 
     let std_references =
-        std_server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
+        std_server.references_tool(&json!({"source":"main.veln","line":4,"column":10}));
     assert_eq!(std_references["isError"], false, "{std_references:#}");
     assert_reference_ranges(
         &std_references,
         &[
-            ("main.veln", 2, 3, 2, 10),
-            ("main.veln", 6, 12, 6, 19),
-            ("other.veln", 2, 12, 2, 19),
+            ("main.veln", 4, 10, 4, 17),
+            ("main.veln", 8, 10, 8, 17),
+            ("other.veln", 4, 10, 4, 17),
         ],
         "standard library function alias",
     );
