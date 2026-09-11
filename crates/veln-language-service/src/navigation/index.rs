@@ -287,28 +287,9 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
-            let qualified_modules = self.qualified_module_candidates(file, &qualifier);
-            return self
-                .schemas
-                .iter()
-                .find(|symbol| {
-                    symbol.name == name
-                        && qualified_modules.iter().any(|module| module == &symbol.module)
-                        && match &symbol.package {
-                            Some(package) => file
-                                .external_uses
-                                .contains(&(symbol.module.clone(), package.clone())),
-                            None => symbol.module == file.module || file.uses.contains(&symbol.module),
-                        }
-                })
-                .cloned();
+            return self.visible_schema_for_qualified_reference(file, &qualifier, name);
         }
-        self.schemas
-            .iter()
-            .find(|symbol| {
-                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            })
-            .cloned()
+        self.visible_schema_for_bare_reference(file, name)
     }
 
     fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
@@ -346,6 +327,15 @@ impl SymbolIndex {
             .cloned()
     }
 
+}
+
+fn visible_schema_from_workspace_module(file: &IndexedFile, symbol: &NeutralSymbol) -> bool {
+    symbol.public
+        || symbol.module == file.module
+        || file
+            .companion_target_module
+            .as_ref()
+            .is_some_and(|target| target == &symbol.module)
 }
 
 fn resolve_qualified_alias(aliases: &BTreeMap<String, String>, qualifier: &str) -> Option<String> {

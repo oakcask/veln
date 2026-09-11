@@ -1,4 +1,53 @@
 impl SymbolIndex {
+    fn visible_schema_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        if let Some(symbol) = self.schemas.iter().find(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        }) {
+            return Some(symbol.clone());
+        }
+
+        let mut candidates = self.schemas.iter().filter(|symbol| {
+            symbol.name == name
+                && symbol.module != file.module
+                && match &symbol.package {
+                    Some(package) => file
+                        .external_uses
+                        .contains(&(symbol.module.clone(), package.clone())),
+                    None => file.uses.contains(&symbol.module) && symbol.public,
+                }
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn visible_schema_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        let mut candidates = self.schemas.iter().filter(|symbol| {
+            symbol.name == name
+                && qualified_modules.iter().any(|module| module == &symbol.module)
+                && match &symbol.package {
+                    Some(package) => file
+                        .external_uses
+                        .contains(&(symbol.module.clone(), package.clone())),
+                    None => {
+                        (symbol.module == file.module || file.uses.contains(&symbol.module))
+                            && visible_schema_from_workspace_module(file, symbol)
+                    }
+                }
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
     fn visible_type_for_reference(
         &self,
         file: &IndexedFile,

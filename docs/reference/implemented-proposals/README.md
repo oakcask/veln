@@ -126,6 +126,8 @@ under `../../specification/` and its executable example routes.
   [mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
 - MCP saved workspace symbol references:
   [mcp-saved-workspace-symbol-references.md](mcp-saved-workspace-symbol-references.md).
+- MCP saved workspace schema references:
+  [mcp-saved-workspace-schema-references.md](mcp-saved-workspace-schema-references.md).
 - MCP saved dependency function references:
   [mcp-saved-dependency-function-references.md](mcp-saved-dependency-function-references.md).
 - MCP saved standard-library function references:

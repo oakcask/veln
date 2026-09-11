@@ -1,4 +1,29 @@
 impl SymbolIndex {
+    fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
+        if symbol.package.is_some() {
+            return Vec::new();
+        }
+        self.files
+            .iter()
+            .filter(|file| workspace_navigation_file(file))
+            .flat_map(|file| {
+                file.tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        token.kind == TokenKind::Ident
+                            && token.text == symbol.name
+                            && is_schema_path_leaf_token(&file.tokens, *index)
+                            && self
+                                .schema_for_reference(file, &file.tokens, *index, &token.text)
+                                .is_some_and(|candidate| same_schema(&candidate, symbol))
+                    })
+                    .map(|(_, token)| file.source.span(token.range))
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {
         let Some(file) = self
             .files

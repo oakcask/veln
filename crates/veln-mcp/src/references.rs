@@ -83,7 +83,8 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
     match result.definition.source {
         NavigationSource::Workspace => matches!(
             result.selected_symbol.kind,
-            SymbolKind::Type
+            SymbolKind::Schema
+                | SymbolKind::Type
                 | SymbolKind::Function
                 | SymbolKind::Constructor
                 | SymbolKind::ValueBinding
