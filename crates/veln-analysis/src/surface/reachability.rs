@@ -212,10 +212,14 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.aliases)
             .into_iter()
             .filter(|alias| {
-                !declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration)
-                    || reachable_invalid_name_spans
-                        .iter()
-                        .any(|span| span.is_declaration(&alias.span))
+                let invalid_alias_is_reachable = reachable_invalid_name_spans
+                    .iter()
+                    .any(|span| span.is_declaration(&alias.span));
+                if declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration) {
+                    return invalid_alias_is_reachable;
+                }
+                alias.kind != PublicAliasKind::Function
+                    || function_alias_target_is_materialized(inputs, alias, &functions)
             })
             .collect(),
         effects: inputs.cloned_declarations(|module| &module.effects),
@@ -345,6 +349,26 @@ fn materialize_reachable_functions(
         })
         .cloned()
         .collect()
+}
+
+fn function_alias_target_is_materialized(
+    inputs: &ReachabilityInputs<'_>,
+    alias: &veln_ast::PublicAlias,
+    functions: &[Function],
+) -> bool {
+    let function_targets = function_targets(inputs);
+    let uses = inputs.uses();
+    let Some(target) = target_for_alias_path(
+        &alias.target,
+        &uses,
+        &function_targets,
+        alias.module_name.as_deref(),
+    ) else {
+        return false;
+    };
+    functions
+        .iter()
+        .any(|function| function.node_id == target.target_node_id)
 }
 
 fn materialize_quarantined_import_proof_functions(

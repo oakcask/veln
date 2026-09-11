@@ -223,7 +223,8 @@
             vec![dependency],
         );
 
-        for (line, column) in [(4, 10)] {
+        {
+            let (line, column) = (4, 10);
             let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
 
             assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
