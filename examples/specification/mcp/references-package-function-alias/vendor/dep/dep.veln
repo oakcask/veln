@@ -6,3 +6,7 @@ end
 
 pub fn renamed = target
 pub fn chain = internal::renamed
+
+pub fn package_body() -> Int
+  renamed()
+end

@@ -604,6 +604,139 @@
     }
 
     #[test]
+    fn direct_dependency_public_function_alias_references_exclude_collisions_and_package_sources() {
+        let selected = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "math.veln",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n\n",
+                    "pub fn package_body() -> Int\n",
+                    "  renamed()\n",
+                    "end\n",
+                ),
+            )],
+            ["math.veln"],
+        );
+        let collision = dependency_snapshot(
+            "other/pkg",
+            &[(
+                "math.veln",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  2\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["math.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use math from \"example/pkg\"\n",
+                        "use other_math from \"other/pkg\"\n\n",
+                        "fn renamed() -> Int\n",
+                        "  0\n",
+                        "end\n\n",
+                        "fn read(record: {renamed: Int}) -> Int\n",
+                        "  math::renamed()\n",
+                        "  other_math::renamed()\n",
+                        "  renamed()\n",
+                        "  record.renamed\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "helper.veln",
+                    concat!(
+                        "use math from \"example/pkg\"\n\n",
+                        "fn helper() -> Int\n",
+                        "  math::renamed()\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![selected, collision],
+        );
+
+        let result = query_snapshot(&snapshot, "main.veln", 9, 9).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&result.references),
+            [("helper.veln", 4, 9), ("main.veln", 9, 9)]
+        );
+    }
+
+    #[test]
+    fn direct_dependency_function_alias_references_require_public_exported_aliases() {
+        let cases = [
+            (
+                "private alias",
+                dependency_snapshot(
+                    "example/pkg",
+                    &[(
+                        "math.veln",
+                        concat!(
+                            "pub fn target() -> Int\n",
+                            "  1\n",
+                            "end\n\n",
+                            "fn hidden = target\n",
+                        ),
+                    )],
+                    ["math.veln"],
+                ),
+                "use math from \"example/pkg\"\n\nfn main() -> Int\n  math::hidden()\nend\n",
+                4,
+                9,
+            ),
+            (
+                "non-exported alias source",
+                dependency_snapshot(
+                    "example/pkg",
+                    &[
+                        ("public.veln", "pub fn ok() -> Int\n  1\nend\n"),
+                        (
+                            "hidden.veln",
+                            concat!(
+                                "pub fn target() -> Int\n",
+                                "  1\n",
+                                "end\n\n",
+                                "pub fn hidden = target\n",
+                            ),
+                        ),
+                    ],
+                    ["public.veln"],
+                ),
+                "use hidden from \"example/pkg\"\n\nfn main() -> Int\n  hidden::hidden()\nend\n",
+                4,
+                11,
+            ),
+        ];
+
+        for (name, dependency, source_text, line, column) in cases {
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("main.veln", source_text)],
+                vec![dependency],
+            );
+
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "accepted {name}"
+            );
+        }
+    }
+
+    #[test]
     fn explicit_standard_library_function_references_cover_qualified_calls_and_values() {
         let standard_library = standard_library_snapshot(
             &[(
@@ -866,4 +999,86 @@
             SymbolDeclarationKind::Declaration
         );
         assert_eq!(locations(&target.references), [("main.veln", 16, 12)]);
+    }
+
+    #[test]
+    fn standard_library_public_function_alias_references_exclude_collisions_and_hidden_aliases() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "prelude.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  1\n",
+                        "end\n\n",
+                        "pub fn renamed = target\n",
+                        "fn hidden = target\n",
+                    ),
+                ),
+                (
+                    "internal.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  2\n",
+                        "end\n\n",
+                        "pub fn internal_alias = target\n",
+                    ),
+                ),
+            ],
+            ["prelude.veln"],
+        );
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "dep.veln",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  3\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use dep from \"example/pkg\"\n\n",
+                        "fn renamed() -> Int\n",
+                        "  0\n",
+                        "end\n\n",
+                        "fn main(record: {renamed: Int}) -> Int\n",
+                        "  prelude::renamed()\n",
+                        "  dep::renamed()\n",
+                        "  renamed()\n",
+                        "  record.renamed\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    "fn other() -> Int\n  prelude::renamed()\nend\n",
+                ),
+            ],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        let result = query_snapshot(&snapshot, "main.veln", 8, 13).unwrap();
+
+        assert_eq!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 8, 12), ("other.veln", 2, 12)]
+        );
+        assert!(
+            query_snapshot(&snapshot, "main.veln", 9, 8)
+                .map(|result| result.selected_symbol.package_origin)
+                != Some(Some(PackageOrigin::StandardLibrary))
+        );
     }

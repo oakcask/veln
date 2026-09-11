@@ -1357,6 +1357,150 @@ fn references_return_package_function_alias_locations() {
 }
 
 #[test]
+fn references_keep_dependency_function_alias_boundary_cases() {
+    let workspace = TempWorkspace::new("references-dependency-alias-exclusions");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/dep\"]\n",
+            "path = \"vendor/dep\"\n\n",
+            "[dependencies.\"other/dep\"]\n",
+            "path = \"vendor/other\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n",
+            "use other from \"other/dep\"\n\n",
+            "fn renamed() -> Int\n",
+            "  0\n",
+            "end\n\n",
+            "fn main(record: {renamed: Int}) -> Int\n",
+            "  dep::renamed()\n",
+            "  other::renamed()\n",
+            "  renamed()\n",
+            "  record.renamed\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "helper.veln",
+        "use dep from \"example/dep\"\n\nfn helper() -> Int\n  dep::renamed()\nend\n",
+    );
+    workspace.write(
+        "nested/veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"../vendor/dep\"\n",
+    );
+    workspace.write(
+        "nested/main.veln",
+        "use dep from \"example/dep\"\n\nfn nested() -> Int\n  dep::renamed()\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub fn target() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "pub fn renamed = target\n\n",
+            "pub fn package_body() -> Int\n",
+            "  renamed()\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/other/veln.toml",
+        "[package]\nname = \"other/dep\"\n\n[lib]\nexports = [\"other.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/other/other.veln",
+        "pub fn target() -> Int\n  2\nend\n\npub fn renamed = target\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 9, 8);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[("helper.veln", 4, 8, 4, 15), ("main.veln", 9, 8, 9, 15)],
+        "dependency function alias exclusions",
+    );
+}
+
+#[test]
+fn references_return_empty_for_hidden_dependency_function_aliases() {
+    struct Case {
+        name: &'static str,
+        alias_source: &'static str,
+        alias_declaration: &'static str,
+        exports: &'static str,
+        main: &'static str,
+        line: usize,
+        column: usize,
+    }
+
+    let cases = [
+        Case {
+            name: "private dependency function alias",
+            alias_source: "dep.veln",
+            alias_declaration: "fn hidden = target\n",
+            exports: "\"dep.veln\"",
+            main: "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::hidden()\nend\n",
+            line: 4,
+            column: 8,
+        },
+        Case {
+            name: "non-exported dependency function alias",
+            alias_source: "hidden.veln",
+            alias_declaration: "pub fn hidden = target\n",
+            exports: "\"public.veln\"",
+            main: "use hidden from \"example/dep\"\n\nfn main() -> Int\n  hidden::hidden()\nend\n",
+            line: 4,
+            column: 11,
+        },
+    ];
+
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        workspace.write(
+            "veln.toml",
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+        );
+        workspace.write("main.veln", case.main);
+        workspace.write(
+            "vendor/dep/veln.toml",
+            &format!(
+                "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [{}]\n",
+                case.exports
+            ),
+        );
+        workspace.write("vendor/dep/public.veln", "pub fn ok() -> Int\n  1\nend\n");
+        workspace.write(
+            &format!("vendor/dep/{}", case.alias_source),
+            &format!(
+                "{}{}",
+                concat!("pub fn target() -> Int\n", "  1\n", "end\n\n",),
+                case.alias_declaration
+            ),
+        );
+
+        let result = references_result(&workspace, "main.veln", case.line, case.column);
+
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{}: {result:#}",
+            case.name
+        );
+    }
+}
+
+#[test]
 fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");
@@ -1403,6 +1547,78 @@ fn references_return_standard_library_function_locations() {
             ("main.veln", 9, 18, 9, 26),
         ],
         "standard library function",
+    );
+}
+
+#[test]
+fn references_keep_standard_library_function_alias_collision_boundaries() {
+    let workspace = TempWorkspace::new("references-standard-library-alias-collisions");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn renamed() -> Int\n",
+            "  0\n",
+            "end\n\n",
+            "fn main(record: {renamed: Int}) -> Int\n",
+            "  prelude::renamed()\n",
+            "  dep::renamed()\n",
+            "  renamed()\n",
+            "  record.renamed\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        "fn other() -> Int\n  prelude::renamed()\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            concat!(
+                "pub fn target() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "pub fn renamed = target\n",
+                "fn hidden = target\n",
+            )
+            .as_bytes(),
+        )],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":8,"column":12}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[("main.veln", 8, 12, 8, 19), ("other.veln", 2, 12, 2, 19)],
+        "standard library function alias collisions",
+    );
+
+    let dependency_collision =
+        server.references_tool(&json!({"source":"main.veln","line":9,"column":8}));
+    assert_eq!(
+        dependency_collision["isError"], false,
+        "{dependency_collision:#}"
+    );
+    assert_reference_ranges(
+        &dependency_collision,
+        &[("main.veln", 9, 8, 9, 15)],
+        "dependency collision with standard library function alias",
     );
 }
 
@@ -2897,6 +3113,46 @@ fn references_project_capture_exhausts_retries_for_dependency_constructor_select
 }
 
 #[test]
+fn references_project_capture_exhausts_retries_for_dependency_function_alias_selection() {
+    let workspace = TempWorkspace::new("references-dependency-alias-capture-retry");
+    write_workspace_with_dependency_and_sources(
+        &workspace,
+        "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::renamed()\nend\n",
+        None,
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub fn value() -> Int\n  1\nend\n\npub fn renamed = value\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("vendor/dep/dep.veln");
+        fs::remove_file(&source).unwrap();
+        let value = if attempt % 2 == 0 { 2 } else { 1 };
+        fs::write(
+            &source,
+            format!("pub fn value() -> Int\n  {value}\nend\n\npub fn renamed = value\n"),
+        )
+        .unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":8}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
 fn references_project_capture_exhausts_retries_for_standard_library_selection() {
     let workspace = TempWorkspace::new("references-standard-library-capture-retry");
     workspace.write("veln.toml", "");
@@ -2936,6 +3192,54 @@ fn references_project_capture_exhausts_retries_for_standard_library_selection() 
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_standard_library_function_alias_selection() {
+    let workspace = TempWorkspace::new("references-standard-library-alias-capture-retry");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write("main.veln", "fn main() -> Int\n  prelude::renamed()\nend\n");
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write("vendor/dep/dep.veln", "pub fn other() -> Int\n  1\nend\n");
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub fn value() -> Int\n  1\nend\n\npub fn renamed = value\n",
+        )],
+    );
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("main.veln");
+        fs::remove_file(&source).unwrap();
+        let value = if attempt % 2 == 0 { 1 } else { 2 };
+        fs::write(
+            &source,
+            format!("fn main() -> Int\n  prelude::renamed() + {value}\nend\n"),
+        )
+        .unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":2,"column":12}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
 }
 
 #[test]
