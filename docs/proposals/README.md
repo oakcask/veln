@@ -18,8 +18,8 @@ also states it.
 
 ## Ready
 
-- Standard-library byte collections can gain consistent `len` spellings while
-  retaining their typed `count` APIs:
+- Standard-library byte views can gain a consistent `len` spelling while
+  retaining the typed `count` API:
   [standard-library-byte-length-aliases.md](standard-library-byte-length-aliases.md).
 
 ## Blocked
@@ -30,7 +30,6 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-<<<<<<< HEAD
 - The agent-language-services umbrella remains a planning inventory. Its
   saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
