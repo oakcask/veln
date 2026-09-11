@@ -1,0 +1,17 @@
+use prelude from "std"
+
+pub fn first(chunk: ByteChunk) -> ByteCount
+  byte_chunk_len(chunk)
+end
+
+pub fn second() -> fn(ByteChunk) -> ByteCount
+  prelude::byte_chunk_len
+end
+
+pub fn target(chunk: ByteChunk) -> ByteCount
+  byte_chunk_count(chunk)
+end
+
+pub fn local_collision(byte_chunk_len: Int) -> Int
+  byte_chunk_len
+end

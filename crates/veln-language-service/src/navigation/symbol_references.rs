@@ -115,7 +115,10 @@ impl SymbolIndex {
             SymbolDeclarationKind::Recovery => false,
             SymbolDeclarationKind::PublicAlias => {
                 symbol.package.is_some()
-                    && symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                    && matches!(
+                        symbol.package_origin,
+                        Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                    )
                     && !self.function_alias_targets_alias(symbol)
             }
         }

@@ -34,6 +34,10 @@ fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
         && left.declaration == right.declaration
 }
 
+fn is_standard_prelude_module(module: &str) -> bool {
+    matches!(module, "prelude" | "std::prelude")
+}
+
 impl FileDeclarations {
     fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
@@ -273,7 +277,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                         } else {
                             PackageOrigin::DirectDependency
                         }),
-                        *standard_library && file.module == "prelude",
+                        *standard_library && is_standard_prelude_module(&file.module),
                     )
                 }
             };
@@ -386,7 +390,7 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                             } else {
                                 PackageOrigin::DirectDependency
                             }),
-                            *standard_library && file.module == "prelude",
+                            *standard_library && is_standard_prelude_module(&file.module),
                         )
                     }
                 };
@@ -491,7 +495,7 @@ fn constructor_navigation_origin(
                 } else {
                     PackageOrigin::DirectDependency
                 }),
-                *standard_library && file.module == "prelude",
+                *standard_library && is_standard_prelude_module(&file.module),
             ))
         }
     }
@@ -532,7 +536,7 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                                 span: name_span.clone(),
                             },
                             Some(identity.clone()),
-                            *standard_library && file.module == "prelude",
+                            *standard_library && is_standard_prelude_module(&file.module),
                         )
                     }
                 };

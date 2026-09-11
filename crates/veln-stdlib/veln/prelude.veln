@@ -121,6 +121,8 @@ pub fn byte_chunk_count(chunk: ByteChunk) -> ByteCount
 	end
 end
 
+pub fn byte_chunk_len = byte_chunk_count
+
 pub fn byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 	match left
 		ByteChunk(left_bytes) => match right
@@ -160,6 +162,8 @@ end
 pub fn byte_view_count(view: ByteView) -> ByteCount
 	prelude_builtin::byte_view_count(view)
 end
+
+pub fn byte_view_len = byte_view_count
 
 pub fn byte_view_take(view: ByteView, count: ByteCount) -> Result<ByteView, String>
 	prelude_builtin::byte_view_take(view, count)

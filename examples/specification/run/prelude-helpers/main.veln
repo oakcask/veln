@@ -14,9 +14,24 @@ fn add_value(total: Int, item: { prefix : String, value : Int }) -> Int
 	total + item.value
 end
 
+fn count_to_int(count: ByteCount) -> Int
+	byte_count_to_int(count)
+end
+
+fn chunk_len_with(callback: fn(ByteChunk) -> ByteCount, chunk: ByteChunk) -> Int
+	count_to_int(callback(chunk))
+end
+
+fn view_len_with(callback: fn(ByteView) -> ByteCount, view: ByteView) -> Int
+	count_to_int(callback(view))
+end
+
 pub fn main() -> () effects [stdio]
 	let mapped: Result<Vec<{ prefix : String, value : Int }>, String> = vec_try_map_with("ctx", [1, 2], attach)
 	let stopped: Result<Vec<{ prefix : String, value : Int }>, String> = vec_try_map_with("ctx", [1, 2, 3], stop_at_two)
+	let empty_chunk = byte_chunk([])
+	let chunk = byte_chunk([Byte(1), Byte(2)])
+	let view = ByteView(chunk, ByteOffset(0), ByteCount(1))
 	match mapped
 		Ok(items) => stdio::println(int_to_string(vec_fold(items, 0, add_value)))
 		Err(error) => stdio::println(error)
@@ -25,4 +40,12 @@ pub fn main() -> () effects [stdio]
 		Ok(_) => stdio::println("unexpected")
 		Err(error) => stdio::println(error)
 	end
+	stdio::println(int_to_string(count_to_int(byte_chunk_len(empty_chunk))))
+	stdio::println(int_to_string(count_to_int(prelude::byte_chunk_len(chunk))))
+	stdio::println(int_to_string(chunk_len_with(byte_chunk_len, chunk)))
+	stdio::println(int_to_string(count_to_int(byte_view_len(view))))
+	stdio::println(int_to_string(count_to_int(prelude::byte_view_len(view))))
+	stdio::println(int_to_string(view_len_with(byte_view_len, view)))
+	stdio::println(int_to_string(count_to_int(byte_chunk_count(chunk))))
+	stdio::println(int_to_string(count_to_int(byte_view_count(view))))
 end

@@ -918,7 +918,7 @@
     }
 
     #[test]
-    fn standard_library_public_function_alias_references_are_out_of_scope() {
+    fn standard_library_public_function_alias_references_keep_alias_identity() {
         let standard_library = standard_library_snapshot(
             &[(
                 "prelude.veln",
@@ -937,6 +937,9 @@
                 "pub fn first() -> Int\n",
                 "  renamed(1)\n",
                 "end\n\n",
+                "pub fn target_use(value: Int) -> Int\n",
+                "  target(value)\n",
+                "end\n\n",
                 "pub fn second() -> fn(Int) -> Int\n",
                 "  prelude::renamed\n",
                 "end\n",
@@ -944,7 +947,7 @@
         )])
         .with_standard_library(standard_library);
 
-        for (line, column) in [(2, 3), (6, 12)] {
+        for (line, column) in [(2, 3), (10, 12)] {
             let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
 
             assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
@@ -956,6 +959,16 @@
                 result.selected_symbol.package_origin,
                 Some(PackageOrigin::StandardLibrary)
             );
-            assert_eq!(locations(&result.references), []);
+            assert_eq!(
+                locations(&result.references),
+                [("main.veln", 2, 3), ("main.veln", 10, 12)]
+            );
         }
+
+        let target = query_snapshot(&snapshot, "main.veln", 6, 4).unwrap();
+        assert_eq!(
+            target.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
+        );
+        assert_eq!(locations(&target.references), [("main.veln", 6, 3)]);
     }
