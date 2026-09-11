@@ -474,11 +474,12 @@ handler, or effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
 reference sites only, excluding the selected declaration, plus scope metadata.
-Package function, type, and constructor references never return `veln-pkg:`
-locations. A valid position without a supported reference symbol succeeds with
-an empty `references` array. Selected manifest sources report project scope
-metadata with `project_wide: true`. Sources outside the selected project-owned
-source set report single-file scope metadata with `project_wide: false`.
+Package function, public function-alias, type, and constructor references never
+return `veln-pkg:` locations. A valid position without a supported reference
+symbol succeeds with an empty `references` array. Selected manifest sources
+report project scope metadata with `project_wide: true`. Sources outside the
+selected project-owned source set report single-file scope metadata with
+`project_wide: false`.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
