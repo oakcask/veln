@@ -24,11 +24,11 @@ declaration resources are readable only by exact URI and are advertised by
 `resources/templates/list`; they are not eagerly listed by `resources/list`.
 
 The Markdown renderer preserves the catalog metadata, module links,
-declaration links, documentation, signatures, contracts, constructors,
-doctests, expected outputs, references, and status diagnostics that exist in
-the package-documentation result. It does not expose raw manifests, physical
-paths, dependency selectors, environment values, or fields excluded from the
-catalog.
+declaration links, documentation, signatures, contracts, constructors, public
+function aliases, doctests, expected outputs, references, and status
+diagnostics that exist in the package-documentation result. It does not expose
+raw manifests, physical paths, dependency selectors, environment values, or
+fields excluded from the catalog.
 
 This slice does not add package search, change `veln doc`, change
 package-documentation catalog identity, or define the later
@@ -43,4 +43,4 @@ package-backed definition-link contract.
 | Malformed template-list parameters and unpublished, noncanonical, wrong-snapshot, wrong-documentation-digest, and missing package-documentation URIs fail through the specified protocol errors. | `standard-library-package-documentation-resources`, `resource_templates_list_advertises_package_documentation_forms`, and `resources_reject_malformed_params_and_unknown_uris` |
 | Markdown rendering preserves ordered catalog fields and status diagnostics while enforcing the catalog disclosure boundary. | `successful_rendering_preserves_ordered_fields_and_links` and `status_rendering_preserves_diagnostics_and_disclosure_boundary` |
 | A failed embedded `std` package-documentation result publishes only a listed status document. | `standard_library_documentation_failure_publishes_only_status_documentation` |
-| Startup loads the digest-validated checked bundle for the exact embedded snapshot, while generator or renderer changes cannot leave it stale. | `checked_standard_library_resources_load_the_prebuilt_documentation_bundle` and the `veln-repo-mcp-standard-library-docs` freshness check |
+| Startup loads the digest-validated checked bundle for the exact embedded snapshot, including public function aliases from the shipped standard library, while generator, renderer, or embedded snapshot changes cannot leave it stale. | `checked_standard_library_resources_load_the_prebuilt_documentation_bundle` and the `veln-repo-mcp-standard-library-docs` freshness check |
