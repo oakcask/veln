@@ -18,12 +18,12 @@ Completion evidence:
   locations, project-wide scope metadata, target-function separation,
   function-alias chain exclusion, and dependency source resource admission. It
   also checks embedded standard-library public function-alias references for
-  accepted bare implicit-prelude and qualified forms, with target-function
-  separation.
+  qualified calls and qualified function-value occurrences, with
+  target-function separation.
 - `veln-language-service` tests check direct-dependency and standard-library
-  public function-alias identity, accepted bare implicit-prelude references,
-  qualified call and qualified function-value references, target-function
-  separation, collision exclusion, private and non-exported visibility,
+  public function-alias identity, qualified call and qualified function-value
+  references, target-function separation, collision exclusion, private and
+  non-exported visibility,
   unsupported type and schema alias selections, alias-chain exclusion, package
   source exclusion, and selected-project source boundaries.
 - `veln-mcp` server tests check saved direct-dependency and standard-library
