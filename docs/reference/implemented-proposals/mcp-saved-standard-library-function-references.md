@@ -1,6 +1,6 @@
 ---
 role: implementation-record
-update-when: The MCP references tool schema, saved standard-library navigation boundary, standard-library function-reference behavior, public function-alias target separation, or executable MCP standard-library-reference cases change.
+update-when: The MCP references tool schema, saved standard-library navigation boundary, standard-library function-reference behavior, or executable MCP standard-library-reference cases change.
 ---
 
 # MCP Saved Standard-Library Function References
@@ -21,14 +21,14 @@ Completion evidence:
 - `veln-language-service` tests check explicit standard-library module
   function references, implicit prelude function references, qualified
   function-value references, package-origin identity, lexical shadowing,
-  collision exclusion, private and non-exported visibility, public
-  function-alias reference identity, and invalid-casing rejection.
+  collision exclusion, private and non-exported visibility, and
+  invalid-casing rejection.
 - `veln-mcp` server tests check the saved-project adapter boundary for
   standard-library public function references, collision filtering,
-  `snapshot_changed` retry exhaustion without success-only fields, and
-  standard-library public function-alias selections.
+  and `snapshot_changed` retry exhaustion without success-only fields.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
-locations, function-alias chains, non-function package symbols, recovery
-symbols, and transitive-dependency references remain outside the implemented
-`references` result.
+locations, standard-library public function-alias references,
+function-alias chains, non-function package symbols, recovery symbols, and
+transitive-dependency references remain outside the implemented `references`
+result.

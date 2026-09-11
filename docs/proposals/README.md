@@ -18,8 +18,8 @@ also states it.
 
 ## Ready
 
-- Standard-library byte views can gain a consistent `len` spelling while
-  retaining the typed `count` API:
+- Standard-library byte collections can gain consistent `len` spellings while
+  retaining their typed `count` APIs:
   [standard-library-byte-length-aliases.md](standard-library-byte-length-aliases.md).
 
 ## Blocked
@@ -30,6 +30,10 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
+- MCP saved standard-library function-alias references are blocked until a
+  separately accepted standard-library API proposal introduces a meaningful
+  exported function alias with checked bundle evidence:
+  [mcp-saved-standard-library-function-alias-references.md](mcp-saved-standard-library-function-alias-references.md).
 - The agent-language-services umbrella remains a planning inventory. Its
   saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
@@ -43,9 +47,9 @@ also states it.
   [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
   Its workspace schema-reference slice is implemented and recorded by
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-  Its package public function-alias reference slice is implemented and
+  Its direct-dependency public function-alias reference slice is implemented and
   recorded by
-  [MCP Saved Package Function-Alias References](../reference/implemented-proposals/mcp-saved-package-function-alias-references.md).
+  [MCP Saved Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
   Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 

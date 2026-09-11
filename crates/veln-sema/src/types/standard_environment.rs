@@ -14,7 +14,7 @@ pub struct ReusableStandardEnvironment {
     environment: Arc<TypeEnvironment>,
 }
 
-const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v2";
+const STANDARD_SEMANTIC_MODEL: &str = "standard-semantic-signatures-v1";
 
 impl ReusableStandardEnvironment {
     pub(super) fn environment_for_modules(

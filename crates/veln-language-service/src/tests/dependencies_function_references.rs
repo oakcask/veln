@@ -918,7 +918,7 @@
     }
 
     #[test]
-    fn standard_library_public_function_alias_references_keep_alias_identity() {
+    fn standard_library_public_function_alias_references_are_out_of_scope() {
         let standard_library = standard_library_snapshot(
             &[(
                 "prelude.veln",
@@ -931,47 +931,21 @@
             )],
             ["prelude.veln"],
         );
-        let snapshot = EffectiveProjectSnapshot::new(vec![
-            source(
-                "main.veln",
-                concat!(
-                    "pub fn first() -> Int\n",
-                    "  renamed(1)\n",
-                    "end\n\n",
-                    "# renamed mention\n",
-                    "pub fn second() -> fn(Int) -> Int\n",
-                    "  prelude::renamed\n",
-                    "end\n\n",
-                    "pub fn local(record: {renamed: Int}) -> Int\n",
-                    "  let renamed = record.renamed\n",
-                    "  renamed\n",
-                    "end\n\n",
-                    "pub fn target_call() -> Int\n",
-                    "  prelude::target(2)\n",
-                    "end\n",
-                ),
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "pub fn first() -> Int\n",
+                "  renamed(1)\n",
+                "end\n\n",
+                "pub fn second() -> fn(Int) -> Int\n",
+                "  prelude::renamed\n",
+                "end\n",
             ),
-            source(
-                "other.veln",
-                concat!(
-                    "pub fn bare() -> Int\n",
-                    "  renamed(0)\n",
-                    "end\n\n",
-                    "pub fn other() -> Int\n",
-                    "  prelude::renamed(3)\n",
-                    "end\n",
-                ),
-            ),
-        ])
+        )])
         .with_standard_library(standard_library);
 
-        for (source_path, line, column) in [
-            ("main.veln", 2, 3),
-            ("main.veln", 7, 12),
-            ("other.veln", 2, 3),
-            ("other.veln", 6, 12),
-        ] {
-            let result = query_snapshot(&snapshot, source_path, line, column).unwrap();
+        for (line, column) in [(2, 3), (6, 12)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
 
             assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
             assert_eq!(
@@ -982,103 +956,6 @@
                 result.selected_symbol.package_origin,
                 Some(PackageOrigin::StandardLibrary)
             );
-            assert_eq!(
-                locations(&result.references),
-                [
-                    ("main.veln", 2, 3),
-                    ("main.veln", 7, 12),
-                    ("other.veln", 2, 3),
-                    ("other.veln", 6, 12),
-                ]
-            );
+            assert_eq!(locations(&result.references), []);
         }
-
-        let target = query_snapshot(&snapshot, "main.veln", 16, 13).unwrap();
-        assert_eq!(
-            target.selected_symbol.declaration_kind,
-            SymbolDeclarationKind::Declaration
-        );
-        assert_eq!(locations(&target.references), [("main.veln", 16, 12)]);
-    }
-
-    #[test]
-    fn standard_library_public_function_alias_references_exclude_collisions_and_hidden_aliases() {
-        let standard_library = standard_library_snapshot(
-            &[
-                (
-                    "prelude.veln",
-                    concat!(
-                        "pub fn target() -> Int\n",
-                        "  1\n",
-                        "end\n\n",
-                        "pub fn renamed = target\n",
-                        "fn hidden = target\n",
-                    ),
-                ),
-                (
-                    "internal.veln",
-                    concat!(
-                        "pub fn target() -> Int\n",
-                        "  2\n",
-                        "end\n\n",
-                        "pub fn internal_alias = target\n",
-                    ),
-                ),
-            ],
-            ["prelude.veln"],
-        );
-        let dependency = dependency_snapshot(
-            "example/pkg",
-            &[(
-                "dep.veln",
-                concat!(
-                    "pub fn target() -> Int\n",
-                    "  3\n",
-                    "end\n\n",
-                    "pub fn renamed = target\n",
-                ),
-            )],
-            ["dep.veln"],
-        );
-        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-            vec![
-                source(
-                    "main.veln",
-                    concat!(
-                        "use dep from \"example/pkg\"\n\n",
-                        "fn renamed() -> Int\n",
-                        "  0\n",
-                        "end\n\n",
-                        "fn main(record: {renamed: Int}) -> Int\n",
-                        "  prelude::renamed()\n",
-                        "  dep::renamed()\n",
-                        "  renamed()\n",
-                        "  record.renamed\n",
-                        "end\n",
-                    ),
-                ),
-                source(
-                    "other.veln",
-                    "fn other() -> Int\n  prelude::renamed()\nend\n",
-                ),
-            ],
-            vec![dependency],
-        )
-        .with_standard_library(standard_library);
-
-        let result = query_snapshot(&snapshot, "main.veln", 8, 13).unwrap();
-
-        assert_eq!(
-            result.selected_symbol.declaration_kind,
-            SymbolDeclarationKind::PublicAlias
-        );
-        assert_eq!(
-            locations(&result.references),
-            [("main.veln", 8, 12), ("other.veln", 2, 12)]
-        );
-        assert!(
-            query_snapshot(&snapshot, "main.veln", 9, 8)
-                .map(|result| result.selected_symbol.package_origin)
-                != Some(Some(PackageOrigin::StandardLibrary))
-        );
     }

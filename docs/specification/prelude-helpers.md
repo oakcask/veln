@@ -149,7 +149,6 @@ byte(value: Int) -> Result<Byte, String>
 byte_to_int(value: Byte) -> Int
 byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 byte_chunk_count(chunk: ByteChunk) -> ByteCount
-byte_chunk_len(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 byte_chunk_from_hex(text: String) -> Result<ByteChunk, String>
 byte_chunk_to_visible_ascii_string(chunk: ByteChunk) -> Result<String, String>
@@ -322,9 +321,8 @@ fails. `int_to_string` renders an integer for display and string composition.
 for values outside that range.
 `byte_chunk(bytes)` returns an immutable owned
 chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the
-chunk length as `ByteCount`. `byte_chunk_len` is a public function alias for
-`byte_chunk_count`. `byte_append(left, right)` returns a new chunk with the
-left bytes followed by the right bytes. `byte_chunk_from_hex(text)`
+chunk length as `ByteCount`. `byte_append(left, right)` returns a new chunk
+with the left bytes followed by the right bytes. `byte_chunk_from_hex(text)`
 accepts only ASCII hex byte pairs with ASCII whitespace between complete bytes
 and returns `Ok(ByteChunk)` for the decoded bytes. It returns `Err(String)`
 with `fixture.hex.invalid_character` for non-hex text, prefixes, underscores,
@@ -508,7 +506,7 @@ helpers, rather than the public schema application surface.
 
 - public `std::prelude` functions with compiler type adapters: `byte`,
   `byte_to_int`, `byte_chunk`,
-  `byte_chunk_count`, `byte_chunk_len`, `byte_append`, `byte_chunk_from_hex`,
+  `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`,
   `byte_chunk_to_visible_ascii_string`,
   `byte_chunk_from_visible_ascii_string`, `byte_take`, `byte_drop`,
   `byte_view`, `byte_view_to_chunk`, `byte_view_count`,
