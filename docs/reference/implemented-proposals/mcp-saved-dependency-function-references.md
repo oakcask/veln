@@ -1,6 +1,6 @@
 ---
 role: implementation-record
-update-when: The MCP references tool schema, saved dependency navigation, direct-dependency function-reference boundary, or executable MCP dependency-reference cases change.
+update-when: The MCP references tool schema, saved dependency navigation, direct-dependency function-reference boundary, public function-alias target separation, or executable MCP dependency-reference cases change.
 ---
 
 # MCP Saved Dependency Function References
