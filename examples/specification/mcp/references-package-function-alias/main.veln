@@ -15,3 +15,15 @@ end
 pub fn chain_call() -> Int
   dep::chain()
 end
+
+pub fn std_bare() -> Int
+  byte_as_int(Byte(7))
+end
+
+pub fn std_qualified() -> Int
+  prelude::byte_as_int(prelude::Byte(8))
+end
+
+pub fn std_target_call() -> Int
+  prelude::byte_to_int(Byte(9))
+end

@@ -81,3 +81,63 @@ equals = []
 id = 5
 path = "/result/isError"
 equals = false
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":20,"column":3},"end":{"line":20,"column":14}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":24,"column":12},"end":{"line":24,"column":23}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 6
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":24,"column":12},"end":{"line":24,"column":23}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":28,"column":12},"end":{"line":28,"column":23}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/isError"
+equals = false

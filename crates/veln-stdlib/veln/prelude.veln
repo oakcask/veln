@@ -111,6 +111,8 @@ pub fn byte_to_int(value: Byte) -> Int
 	end
 end
 
+pub fn byte_as_int = byte_to_int
+
 pub fn byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 	ByteChunk(bytes)
 end
