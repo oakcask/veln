@@ -5,6 +5,10 @@ fn missing(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
 	decode MissingPacket from view at base
 end
 
+fn imported_bare(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
+	decode PublicPacket from view at base
+end
+
 fn private_schema(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>
 	decode wire::PrivatePacket from view at base
 end

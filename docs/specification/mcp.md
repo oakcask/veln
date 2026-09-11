@@ -411,12 +411,27 @@ retained package-documentation location for that snapshot.
 `references` exposes the shared language-service reference result for these
 non-recovery workspace symbols:
 
+- schemas;
 - functions;
 - types;
 - constructors;
 - value bindings;
 - handler context parameters;
 - handler operation clause parameters.
+
+Workspace schema references are limited to schema path-leaf occurrences in
+`decode` and `encode` expressions in the selected navigation scope. For
+selected project sources, that scope is the selected project's captured owned
+sources. For anonymous single-file selections, that scope is only the
+requested source. They include same-module bare occurrences and qualified
+occurrences, including import-alias-qualified paths, that resolve to the
+selected workspace schema under ordinary import, visibility, exact
+test-companion, and shadowing rules. A written import does not put that
+imported module's schemas in the bare schema namespace. They exclude the
+declaration, module qualifiers, package schemas, public schema aliases, schema
+composition targets, recovery symbols, invalid-casing records, and
+same-spelled functions, types, constructors, values, fields, operations,
+strings, comments, and schema uses that resolve to another declaration.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -446,11 +461,10 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, or constructors, non-exported package modules,
 invalid-casing records, recovery records, package public alias symbols,
-non-function, non-type, and non-constructor package symbols, package
-module-segment selections, and anonymous single-file selections succeed with an
-empty `references` array.
-`references` does not expose recovery, virtual, schema, effect, handler, or
-effect-operation reference locations.
+non-function, non-type, and non-constructor package symbols, and package
+module-segment selections succeed with an empty `references` array.
+`references` does not expose recovery, virtual, package schema, effect,
+handler, or effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
 reference sites only, excluding the selected declaration, plus scope metadata.
@@ -553,8 +567,17 @@ The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
 ordinary calls, workspace type references, workspace constructor references,
 workspace value-binding references, handler operation clause parameter
-references, unsupported schema success, function-shaped recovery exclusion,
-invalid positions, and schema-invalid coordinates over stdio.
+references, function-shaped recovery exclusion, invalid positions, and
+schema-invalid coordinates over stdio.
+The `references-workspace-schema` MCP specification case checks that a saved
+selected project returns only workspace `file:` locations for `decode` and
+`encode` schema path leaves that resolve to a selected workspace schema,
+preserves project-wide scope, excludes the schema declaration, and excludes a
+same-spelled local schema use that shadows an imported target. It also checks
+that compiler-rejected bare `decode` and `encode` paths in a module that only
+imports the selected schema's module do not appear as references. The same
+case keeps public schema-alias, schema-composition target, and decode and
+encode module-qualifier selections successful and empty.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

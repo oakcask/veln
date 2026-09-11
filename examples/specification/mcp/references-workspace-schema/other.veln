@@ -1,0 +1,11 @@
+use main
+
+schema Packet
+  local: Int
+end
+
+fn imported(view: ByteView, packet: {value: Int}) -> ()
+  let local = decode Packet from view at byte_offset(0)?
+  let selected = encode main::Packet from packet
+  let decoded = decode main::Packet from view at byte_offset(0)?
+end

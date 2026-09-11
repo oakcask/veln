@@ -307,9 +307,8 @@ impl Symbol {
 
     fn references(&self, index: &SymbolIndex) -> Vec<SourceSpan> {
         match self {
-            Self::Schema(_) | Self::Effect(_) | Self::Handler(_) | Self::EffectOperation(_) => {
-                Vec::new()
-            }
+            Self::Schema(symbol) => index.schema_references(symbol),
+            Self::Effect(_) | Self::Handler(_) | Self::EffectOperation(_) => Vec::new(),
             Self::Type(symbol) => index.type_references(symbol),
             Self::Function(symbol) => index.function_references(symbol),
             Self::Constructor(symbol) => index.constructor_references(symbol),
@@ -517,6 +516,7 @@ struct NeutralSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    public: bool,
 }
 
 #[derive(Clone, Debug)]

@@ -1,0 +1,6 @@
+use main
+
+fn imported_bare(view: ByteView, packet: {value: Int}) -> ()
+  decode Packet from view at byte_offset(0)?
+  encode Packet from packet
+end

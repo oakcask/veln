@@ -23,8 +23,9 @@ specified in
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
-workspace symbol, direct-dependency function, standard-library function, and
-package type and constructor `references`, `search_docs`, and `read_doc`.
+workspace symbol, workspace schema operation, direct-dependency function,
+standard-library function, and package type and constructor `references`,
+`search_docs`, and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, type, and constructor slices, paginated references,
 recovery and casing-neutral reference navigation, workspace schema references
@@ -37,9 +38,9 @@ The remaining first-capability work includes:
   set, plus package reference lookup beyond direct-dependency and
   standard-library functions, types, and constructors,
   and paginated reference lookup;
-- workspace schema reference lookup beyond the `decode` and `encode` slice
-  extracted as
-  [MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md);
+- workspace schema reference lookup beyond the implemented `decode` and
+  `encode` slice recorded as
+  [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md);
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -109,10 +110,10 @@ recorded by
 The bounded package constructor-reference slice is implemented and recorded by
 [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
 
-### Extracted Ready Workspace Schema-Reference Slice
+### Completed Workspace Schema-Reference Slice
 
-The next bounded workspace navigation slice is separately selectable as
-[MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md).
+The bounded workspace schema-reference slice is implemented and recorded by
+[MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -965,7 +966,7 @@ remain planned and do not imply that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, visible direct-dependency and standard-library types, and visible direct-dependency and standard-library constructors. Workspace schema uses in `decode` and `encode` expressions are extracted as a ready slice. Other schema, public-alias, transitive-dependency, recovery, casing-neutral, unsupported package, and pagination rows remain planned. |
+| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, visible direct-dependency and standard-library types, visible direct-dependency and standard-library constructors, and the bounded workspace schema `decode` and `encode` slice recorded by [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md). Schema-reference behavior beyond that bounded slice, public-alias, transitive-dependency, recovery, casing-neutral, unsupported package, and pagination rows remain planned. |
 | Search references to a direct-dependency or standard-library function, type, or constructor from one selected project. | Consumer uses are returned; other projects and package-internal uses are excluded, and the scope is explicit. | Implemented for visible direct-dependency and standard-library functions, types, and constructors without declaration or package-source inclusion. Schema, public-alias, transitive-dependency, recovery, casing-neutral, and paginated package reference rows remain planned. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |
@@ -1073,9 +1074,12 @@ symbol set are specified by
 [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
 Package constructor-symbol reference search is recorded by
 [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
+Workspace schema-reference search for `decode` and `encode` expressions is
+recorded by
+[MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
 Package reference search beyond function, type, and constructor declarations,
-paginated references, recovery references, and casing-neutral references remain
-planned here.
+paginated references, recovery references, and other casing-neutral references
+remain planned here.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
@@ -1090,8 +1094,8 @@ The package type-reference slice is recorded by
 [MCP Saved Package Type References](../reference/implemented-proposals/mcp-saved-package-type-references.md).
 The package constructor-reference slice is recorded by
 [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
-The workspace schema-reference slice is ready as
-[MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md).
+The workspace schema-reference slice is recorded by
+[MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
 Later umbrella slices are:
 
 1. Extend schema navigation beyond the extracted workspace `decode` and

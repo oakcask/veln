@@ -146,7 +146,16 @@ fn neutral_declaration(
         name: name.to_string(),
         declaration,
         package,
+        public,
     })
+}
+
+fn same_schema(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
+    left.package == right.package
+        && left.module == right.module
+        && left.name == right.name
+        && left.public == right.public
+        && left.declaration == right.declaration
 }
 
 fn neutral_navigation_origin(

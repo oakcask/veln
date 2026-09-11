@@ -335,6 +335,163 @@ fn references_resolve_types_and_constructors() {
 }
 
 #[test]
+fn references_return_workspace_schema_operation_locations_and_scope() {
+    let workspace = TempWorkspace::new("references-workspace-schema");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "app/wire.veln",
+        concat!(
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "end\n\n",
+            "fn local(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  let decoded = decode Packet from view at byte_offset(0)?\n",
+            "  let encoded = encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "use app::wire\n\n",
+            "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  let qualified = decode app::wire::Packet from view at byte_offset(0)?\n",
+            "  let alias_qualified = encode wire::Packet from packet\n",
+            "  let bare_decode = decode Packet from view at byte_offset(0)?\n",
+            "  let bare_encode = encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "app/wire.veln", 1, 12);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("app/wire.veln", 7, 24, 7, 30),
+            ("app/wire.veln", 8, 24, 8, 30),
+            ("other.veln", 4, 37, 4, 43),
+            ("other.veln", 5, 38, 5, 44),
+        ],
+        "workspace schema operation references",
+    );
+}
+
+#[test]
+fn references_keep_workspace_schema_identity_visibility_and_companion_boundaries() {
+    let cases = [
+        WorkspaceSymbolCase {
+            name: "schema import visibility and shadowing",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    "pub schema Packet\n  value: Int\nend\n\nschema Hidden\n  value: Int\nend\n",
+                ),
+                (
+                    "other.veln",
+                    concat!(
+                        "use main\n\n",
+                        "schema Packet\n",
+                        "  local: Int\n",
+                        "end\n\n",
+                        "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+                        "  let local = decode Packet from view at byte_offset(0)?\n",
+                        "  let selected = encode main::Packet from packet\n",
+                        "  let hidden = decode main::Hidden from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 1,
+            column: 12,
+            ranges: vec![("other.veln", 9, 31, 9, 37)],
+        },
+        WorkspaceSymbolCase {
+            name: "schema exact companion private access",
+            files: vec![
+                ("veln.toml", ""),
+                ("main.veln", "schema PrivatePacket\n  value: Int\nend\n"),
+                (
+                    "main.test.veln",
+                    concat!(
+                        "use main\n\n",
+                        "test companion(view: ByteView, packet: {value: Int}) -> ()\n",
+                        "  let decoded = decode main::PrivatePacket from view at byte_offset(0)?\n",
+                        "  let encoded = encode main::PrivatePacket from packet\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "other.test.veln",
+                    concat!(
+                        "use main\n\n",
+                        "test unrelated(view: ByteView) -> ()\n",
+                        "  decode main::PrivatePacket from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 1,
+            column: 8,
+            ranges: vec![
+                ("main.test.veln", 4, 30, 4, 43),
+                ("main.test.veln", 5, 30, 5, 43),
+            ],
+        },
+        WorkspaceSymbolCase {
+            name: "schema collisions",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "schema packet\n",
+                        "  value: Int\n",
+                        "end\n\n",
+                        "fn packet() -> Int\n",
+                        "  1\n",
+                        "end\n\n",
+                        "type Holder\n",
+                        "  packet\n",
+                        "end\n\n",
+                        "effect packet\n",
+                        "  packet() -> Int\n",
+                        "end\n\n",
+                        "fn read(packet: {value: Int}) -> () effects [packet]\n",
+                        "  let packet = packet()\n",
+                        "  let encoded = encode packet from packet\n",
+                        "  let field = packet.value\n",
+                        "  # packet in a comment\n",
+                        "  \"packet\"\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 1,
+            column: 8,
+            ranges: vec![("main.veln", 19, 24, 19, 30)],
+        },
+    ];
+
+    assert_workspace_symbol_cases(cases);
+}
+
+#[test]
 fn references_resolve_callable_and_local_bindings() {
     let cases = [
         WorkspaceSymbolCase {
@@ -1421,6 +1578,118 @@ fn references_keep_descendant_package_sources_isolated_for_new_symbol_classes() 
 }
 
 #[test]
+fn references_keep_anonymous_sources_isolated_for_workspace_schema_selections() {
+    let workspace = TempWorkspace::new("references-anonymous-schema-isolation");
+    workspace.write("app/veln.toml", "");
+    workspace.write(
+        "app/main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn selected(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "loose.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "loose.veln", 1, 8);
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "loose.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[("loose.veln", 6, 10, 6, 16), ("loose.veln", 7, 10, 7, 16)],
+        "anonymous schema isolation",
+    );
+}
+
+#[test]
+fn references_keep_descendant_package_sources_isolated_for_workspace_schema_selections() {
+    let workspace = TempWorkspace::new("references-descendant-package-schema-isolation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn selected(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write("nested/veln.toml", "");
+    workspace.write(
+        "nested/main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "nested/main.veln", 1, 8);
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "nested/main.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("nested/main.veln", 6, 10, 6, 16),
+            ("nested/main.veln", 7, 10, 7, 16),
+        ],
+        "descendant package schema isolation",
+    );
+}
+
+#[test]
 fn references_exclude_declarations_for_new_workspace_symbol_classes() {
     struct Case {
         name: &'static str,
@@ -1610,6 +1879,101 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 25,
         },
         Case {
+            name: "workspace public schema alias",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n\n",
+                        "pub schema AliasPacket = Packet\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 6,
+            column: 12,
+        },
+        Case {
+            name: "workspace schema composition target",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n\n",
+                        "schema Frame\n",
+                        "  format binary\n",
+                        "  nested: Packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "main.veln",
+            line: 8,
+            column: 11,
+        },
+        Case {
+            name: "workspace schema decode qualifier",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "other.veln",
+                    concat!(
+                        "use main\n\n",
+                        "fn imported(view: ByteView) -> ()\n",
+                        "  decode main::Packet from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "other.veln",
+            line: 4,
+            column: 12,
+        },
+        Case {
+            name: "workspace schema encode qualifier",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    concat!(
+                        "pub schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n",
+                    ),
+                ),
+                (
+                    "other.veln",
+                    concat!(
+                        "use main\n\n",
+                        "fn imported(packet: {value: Int}) -> ()\n",
+                        "  encode main::Packet from packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            source: "other.veln",
+            line: 4,
+            column: 12,
+        },
+        Case {
             name: "private package constructor",
             files: vec![
                 (
@@ -1631,17 +1995,28 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 15,
         },
         Case {
-            name: "schema",
+            name: "package schema",
             files: vec![
-                ("veln.toml", ""),
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
                 (
                     "main.veln",
-                    "schema Packet\n  format binary\n  value: UInt8\nend\n\nfn main() -> Int\n  1\nend\n",
+                    "use dep from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n  decode dep::Packet from view at byte_offset(0)?\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
                 ),
             ],
             source: "main.veln",
-            line: 1,
-            column: 8,
+            line: 4,
+            column: 15,
         },
         Case {
             name: "effect operation",
@@ -1920,6 +2295,50 @@ fn references_project_capture_exhausts_retries_after_owned_source_changes() {
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
     assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_workspace_schema_selection() {
+    let workspace = TempWorkspace::new("references-workspace-schema-capture-retry");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let main = root.join("main.veln");
+        fs::remove_file(&main).unwrap();
+        let field = if attempt % 2 == 0 { "value" } else { "other" };
+        fs::write(
+            &main,
+            format!(
+                "schema Packet\n  {field}: Int\nend\n\nfn read(view: ByteView) -> ()\n  decode Packet from view at byte_offset(0)?\nend\n"
+            ),
+        )
+        .unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":1,"column":8}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
 }
 
 #[test]

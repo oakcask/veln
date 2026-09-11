@@ -35,10 +35,12 @@ returns reference-only locations for these non-recovery workspace symbols:
 - handler operation clause parameters.
 
 The tool returns an empty `references` array for valid positions that select
-schemas, effects, handlers, effect operations, recovery records, package-backed
-symbols, unsupported occurrences, or no symbol. It does not change the tool
-input schema, result schema, pagination model, workspace-function behavior,
-or package-resource behavior.
+effects, handlers, effect operations, recovery records, package-backed
+symbols outside their implemented package reference classes, unsupported
+occurrences, or no symbol. The schema reference extension is recorded by
+[MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md).
+It does not change the tool input schema, result schema, pagination model,
+workspace-function behavior, or package-resource behavior.
 
 ## Completion Evidence
 
@@ -46,7 +48,7 @@ or package-resource behavior.
 | --- | --- |
 | Workspace types, constructors, value bindings, handler context parameters, and handler operation clause parameters are admitted by the MCP adapter. | `references_resolve_supported_workspace_symbol_classes` in `veln-mcp` server tests |
 | Anonymous single-file reference lookup for newly admitted symbol classes remains isolated from other saved sources. | `references_keep_anonymous_sources_isolated_for_new_symbol_classes` |
-| Recovery, package-backed, schema, effect-operation, unsupported, and absent selections succeed with empty references. | `references_reject_recovery_package_and_unsupported_symbols` and existing recovery/path tests |
+| Recovery, unsupported package-backed, effect-operation, unsupported, and absent selections succeed with empty references. | `references_reject_recovery_package_and_unsupported_symbols` and existing recovery/path tests |
 | Reference coordinates keep CRLF, Unicode-scalar, token-end, and invalid-position boundaries. | `references_preserve_unicode_coordinates_and_token_end_exclusion` and existing schema coordinate tests |
 | Stable capture changes during `references` exhaust bounded retries without success-only fields, dependency resource publication, or workspace selection changes. | `references_project_capture_exhausts_retries_after_owned_source_changes` and `references_anonymous_capture_exhausts_retries_after_requested_source_changes` |
 | Dependency resource capacity and admission are operation-atomic for `references`. | `saved_project_capacity_failures_match_advertised_result_schemas`, `dependency_resource_capacity_is_atomic`, and successful saved-project admission tests |

@@ -1,0 +1,49 @@
+---
+role: implementation-record
+update-when: The MCP `references` tool workspace schema-reference boundary, saved navigation capture contract, reference location shape, or executable MCP schema-reference evidence changes.
+---
+
+# MCP Saved Workspace Schema References
+
+This record preserves the completed proposal that widened the saved MCP
+`references` tool to selected-project workspace schema uses in `decode` and
+`encode` expressions.
+
+Current behavior is specified by
+[MCP Workspace Projects, Resources, And Navigation](../../specification/mcp.md)
+and the checked `references-workspace-schema` executable MCP case.
+
+## Completed Boundary
+
+The selected symbol must be a workspace schema declaration from either the
+inferred saved project or the requested anonymous source. Selection follows
+the same module import, visibility, exact test-companion, and shadowing rules
+used by definition lookup.
+
+The result contains only schema path-leaf occurrences in `decode` and
+`encode` expressions in the selected navigation scope. For saved project
+sources, that scope is the selected project's captured owned sources. For an
+anonymous source, that scope is only the requested source. It includes
+same-module bare forms and accepted qualified forms, including
+import-alias-qualified forms, that resolve to the same workspace schema. A
+written import does not make imported schemas visible as bare schema paths. It
+excludes module qualifiers, the schema declaration, and same-spelled paths that
+resolve to another declaration. It retains sorted canonical `file:` locations
+and the matching project-wide or single-file scope metadata.
+
+This slice does not add package-schema references, schema composition or
+public schema-alias references, package or workspace public-alias traversal,
+pagination, declaration inclusion, recovery symbols, casing-neutral
+selection, transitive dependency references, or rename behavior.
+
+## Completion Evidence
+
+| Behavior | Evidence |
+| --- | --- |
+| Same-module bare and qualified imported schema operation leaves resolve to the selected workspace schema; bare imported leaves do not resolve. | `workspace_schema_references_cover_local_and_qualified_imported_operations` in `veln-language-service` tests, `references_return_workspace_schema_operation_locations_and_scope` in `veln-mcp` server tests, and the bare-import assertions in the `references-workspace-schema` executable MCP case |
+| Import visibility, exact companion access, and shadowing preserve the definition-lookup identity boundary. | `workspace_schema_references_preserve_import_visibility_and_shadowing`, `workspace_schema_references_include_exact_companion_private_qualified_uses`, and `references_keep_workspace_schema_identity_visibility_and_companion_boundaries` |
+| Same-spelled functions, types, constructors, values, fields, operations, strings, comments, and schema uses resolving elsewhere are excluded. | `workspace_schema_references_exclude_collisions_and_unsupported_selections` and `references_keep_workspace_schema_identity_visibility_and_companion_boundaries` |
+| Package schemas, public schema aliases, schema composition targets, module qualifiers, and other unsupported selections keep successful empty results. | `workspace_schema_references_keep_schema_specific_unsupported_selections_empty`, `references_reject_recovery_package_and_unsupported_symbols`, and the unsupported-selection requests in the `references-workspace-schema` executable MCP case |
+| Anonymous-source and out-of-project single-file isolation remain unchanged for schema selections. | `references_keep_anonymous_sources_isolated_for_workspace_schema_selections` and `references_keep_descendant_package_sources_isolated_for_workspace_schema_selections` |
+| Stable capture retry exhaustion for a workspace schema selection returns `snapshot_changed` without success-only references or scope metadata. | `references_project_capture_exhausts_retries_for_workspace_schema_selection` |
+| The stdio executable specification demonstrates workspace schema references and schema-specific unsupported selections through the public MCP surface. | `references-workspace-schema` executable MCP case |

@@ -1,0 +1,16 @@
+pub schema Packet
+  format binary
+  value: UInt8
+end
+
+fn local(view: ByteView, packet: {value: Int}) -> ()
+  let decoded = decode Packet from view at byte_offset(0)?
+  let encoded = encode Packet from packet
+end
+
+pub schema AliasPacket = Packet
+
+schema Frame
+  format binary
+  nested: Packet
+end
