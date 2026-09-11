@@ -207,6 +207,13 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
+For a selected workspace schema declaration, `textDocument/references` returns
+the declaration when requested plus `decode` and `encode` schema path-leaf
+references that resolve to that schema in workspace sources. It does not add
+package-schema, schema-alias, schema-composition, module-qualifier, recovery,
+or rename behavior for schemas. The executable evidence for the shared
+language-service reference set is the `navigation_schema_references` Rust test
+module.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.

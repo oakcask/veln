@@ -23,8 +23,9 @@ specified in
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
-workspace symbol, direct-dependency function, standard-library function, and
-package type and constructor `references`, `search_docs`, and `read_doc`.
+workspace symbol, workspace schema operation, direct-dependency function,
+standard-library function, and package type and constructor `references`,
+`search_docs`, and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, type, and constructor slices, paginated references,
 recovery and casing-neutral reference navigation, workspace schema references
