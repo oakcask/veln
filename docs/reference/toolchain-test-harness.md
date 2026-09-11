@@ -483,7 +483,10 @@ reviewable as distinct assertion contracts. It records each `contains`
 operand under its JSON, result-value, LSP, or MCP assertion. The baseline
 includes MCP stdio specification cases that use `stdin_file` JSON lines and
 stream fragments to pin advertised tool declarations and representative tool
-results.
+results. When a specification example is added, or when generated
+standard-library package resources change embedded URI or digest spelling, the
+baseline records the new case entry or changed assertion operands as part of
+the same contract review.
 
 The normal `toolchain_harness` target runs
 `checked_in_semantic_baseline_matches_authoritative_cases`. The test reads the
