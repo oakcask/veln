@@ -314,8 +314,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-standard-library-function/`.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
-- MCP saved workspace `references` for visible direct-dependency and
-  standard-library public function aliases:
+- MCP saved workspace `references` for visible direct-dependency public
+  function aliases:
   `../../examples/specification/mcp/references-package-function-alias/`.
 - MCP saved workspace `references` for visible direct-dependency and
   standard-library types:

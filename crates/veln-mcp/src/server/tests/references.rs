@@ -1310,50 +1310,6 @@ fn references_return_package_function_alias_locations() {
         &[("main.veln", 5, 8, 5, 14)],
         "direct dependency alias target separation",
     );
-
-    let std_workspace = TempWorkspace::new("references-standard-library-alias-boundary");
-    std_workspace.write("veln.toml", "");
-    std_workspace.write(
-        "main.veln",
-        concat!(
-            "pub fn first() -> Int\n",
-            "  renamed(1)\n",
-            "end\n\n",
-            "# renamed mention\n",
-            "pub fn callback() -> fn(Int) -> Int\n",
-            "  prelude::renamed\n",
-            "end\n\n",
-            "pub fn local(record: {renamed: Int}) -> Int\n",
-            "  let renamed = record.renamed\n",
-            "  renamed\n",
-            "end\n",
-        ),
-    );
-    std_workspace.write(
-        "other.veln",
-        "pub fn other() -> Int\n  prelude::renamed(2)\nend\n",
-    );
-    let mut std_server = initialized_server(&std_workspace);
-    std_server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
-        [PackageSnapshotSource::new(
-            "prelude.veln",
-            b"pub fn target(value: Int) -> Int\n  value\nend\n\npub fn renamed = target\n",
-        )],
-    );
-
-    let std_references =
-        std_server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
-    assert_eq!(std_references["isError"], false, "{std_references:#}");
-    assert_reference_ranges(
-        &std_references,
-        &[
-            ("main.veln", 2, 3, 2, 10),
-            ("main.veln", 7, 12, 7, 19),
-            ("other.veln", 2, 12, 2, 19),
-        ],
-        "standard library function alias",
-    );
 }
 
 #[test]
@@ -1547,78 +1503,6 @@ fn references_return_standard_library_function_locations() {
             ("main.veln", 9, 18, 9, 26),
         ],
         "standard library function",
-    );
-}
-
-#[test]
-fn references_keep_standard_library_function_alias_collision_boundaries() {
-    let workspace = TempWorkspace::new("references-standard-library-alias-collisions");
-    workspace.write(
-        "veln.toml",
-        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
-    );
-    workspace.write(
-        "main.veln",
-        concat!(
-            "use dep from \"example/dep\"\n\n",
-            "fn renamed() -> Int\n",
-            "  0\n",
-            "end\n\n",
-            "fn main(record: {renamed: Int}) -> Int\n",
-            "  prelude::renamed()\n",
-            "  dep::renamed()\n",
-            "  renamed()\n",
-            "  record.renamed\n",
-            "end\n",
-        ),
-    );
-    workspace.write(
-        "other.veln",
-        "fn other() -> Int\n  prelude::renamed()\nend\n",
-    );
-    workspace.write(
-        "vendor/dep/veln.toml",
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
-    );
-    workspace.write(
-        "vendor/dep/dep.veln",
-        "pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n",
-    );
-    let mut server = initialized_server(&workspace);
-    server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
-        [PackageSnapshotSource::new(
-            "prelude.veln",
-            concat!(
-                "pub fn target() -> Int\n",
-                "  1\n",
-                "end\n\n",
-                "pub fn renamed = target\n",
-                "fn hidden = target\n",
-            )
-            .as_bytes(),
-        )],
-    );
-
-    let result = server.references_tool(&json!({"source":"main.veln","line":8,"column":12}));
-
-    assert_eq!(result["isError"], false, "{result:#}");
-    assert_reference_ranges(
-        &result,
-        &[("main.veln", 8, 12, 8, 19), ("other.veln", 2, 12, 2, 19)],
-        "standard library function alias collisions",
-    );
-
-    let dependency_collision =
-        server.references_tool(&json!({"source":"main.veln","line":9,"column":8}));
-    assert_eq!(
-        dependency_collision["isError"], false,
-        "{dependency_collision:#}"
-    );
-    assert_reference_ranges(
-        &dependency_collision,
-        &[("main.veln", 9, 8, 9, 15)],
-        "dependency collision with standard library function alias",
     );
 }
 
@@ -2362,55 +2246,6 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "nested/main.veln",
             line: 4,
             column: 8,
-            scope: Some(json!({
-                "mode": "single_file",
-                "generation": 0,
-                "project": ".",
-                "source": "nested/main.veln",
-                "project_wide": false
-            })),
-        },
-        Case {
-            name: "anonymous source standard-library function alias",
-            files: vec![
-                ("app/veln.toml", ""),
-                (
-                    "app/main.veln",
-                    "fn selected(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
-                ),
-                (
-                    "loose.veln",
-                    "fn outside(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
-                ),
-            ],
-            source: "loose.veln",
-            line: 2,
-            column: 4,
-            scope: Some(json!({
-                "mode": "single_file",
-                "generation": 0,
-                "project": ".",
-                "source": "loose.veln",
-                "project_wide": false
-            })),
-        },
-        Case {
-            name: "descendant package source standard-library function alias",
-            files: vec![
-                ("veln.toml", ""),
-                (
-                    "main.veln",
-                    "fn selected(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
-                ),
-                ("nested/veln.toml", ""),
-                (
-                    "nested/main.veln",
-                    "fn outside(input: ByteArray) -> Int\n  byte_chunk_len(input)\nend\n",
-                ),
-            ],
-            source: "nested/main.veln",
-            line: 2,
-            column: 4,
             scope: Some(json!({
                 "mode": "single_file",
                 "generation": 0,
@@ -3192,54 +3027,6 @@ fn references_project_capture_exhausts_retries_for_standard_library_selection() 
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-}
-
-#[test]
-fn references_project_capture_exhausts_retries_for_standard_library_function_alias_selection() {
-    let workspace = TempWorkspace::new("references-standard-library-alias-capture-retry");
-    workspace.write(
-        "veln.toml",
-        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
-    );
-    workspace.write("main.veln", "fn main() -> Int\n  prelude::renamed()\nend\n");
-    workspace.write(
-        "vendor/dep/veln.toml",
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
-    );
-    workspace.write("vendor/dep/dep.veln", "pub fn other() -> Int\n  1\nend\n");
-    let mut server = initialized_server(&workspace);
-    server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
-        [PackageSnapshotSource::new(
-            "prelude.veln",
-            b"pub fn value() -> Int\n  1\nend\n\npub fn renamed = value\n",
-        )],
-    );
-    let before_resources = all_resource_state(&mut server);
-    let before_selection = server.selection_result();
-    let attempts = Rc::new(Cell::new(0));
-    let attempts_for_hook = attempts.clone();
-    let root = workspace.root.clone();
-    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
-        let attempt = attempts_for_hook.get();
-        attempts_for_hook.set(attempt + 1);
-        let source = root.join("main.veln");
-        fs::remove_file(&source).unwrap();
-        let value = if attempt % 2 == 0 { 1 } else { 2 };
-        fs::write(
-            &source,
-            format!("fn main() -> Int\n  prelude::renamed() + {value}\nend\n"),
-        )
-        .unwrap();
-    });
-
-    let result = server.references_tool(&json!({"source":"main.veln","line":2,"column":12}));
-
-    assert_snapshot_changed_without_references_or_scope(&result);
-    assert_eq!(attempts.get(), 3);
-    assert_eq!(all_resource_state(&mut server), before_resources);
-    assert_eq!(server.selection_result(), before_selection);
-    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
 }
 
 #[test]

@@ -437,26 +437,25 @@ It also exposes references to public function declarations, public function
 aliases, public type declarations, and public constructor declarations from
 exported modules of one retained direct dependency when the selected project
 source uses the exact visible external import required by name resolution. It
-exposes the same reference boundary for public functions, public function
-aliases, public types, and public constructors from exported embedded
-standard-library modules. Standard-library prelude functions and public
-function aliases include the accepted bare implicit prelude calls plus
-qualified call targets and qualified function-value occurrences.
+exposes the same reference boundary for public functions, public types, and
+public constructors from exported embedded standard-library modules.
+Standard-library prelude functions include the accepted bare implicit prelude
+calls plus qualified call targets and qualified function-value occurrences.
 Standard-library prelude types include accepted bare implicit prelude type
 references plus qualified type references.
 
-Package function and public function-alias results include qualified calls,
-qualified function-value occurrences, and occurrences qualified by an import
-alias. Public function-alias references are distinct from the referenced
-function: selecting the alias returns only occurrences that resolve to that
-alias, and selecting the target function returns only target-function
-occurrences. Package type results include type annotations, type arguments,
-return types, type occurrences in type-alias right-hand sides, and the type
-segment used as a constructor qualifier, including when a package constructor
-has the same spelling as its owning type. Package constructor results include
-qualified calls, constructor patterns, and accepted bare constructor forms. A
-package constructor selection through a public type alias succeeds but returns
-an empty `references` array.
+Package function results and direct-dependency public function-alias results
+include qualified calls, qualified function-value occurrences, and occurrences
+qualified by an import alias. Public function-alias references are distinct
+from the referenced function: selecting the alias returns only occurrences
+that resolve to that alias, and selecting the target function returns only
+target-function occurrences. Package type results include type annotations,
+type arguments, return types, type occurrences in type-alias right-hand sides,
+and the type segment used as a constructor qualifier, including when a package
+constructor has the same spelling as its owning type. Package constructor
+results include qualified calls, constructor patterns, and accepted bare
+constructor forms. A package constructor selection through a public type alias
+succeeds but returns an empty `references` array.
 Package reference results include only occurrences in the selected project's
 captured owned sources.
 They exclude the package declaration, package source bodies, other selected
@@ -466,20 +465,21 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, or constructors, non-exported package modules,
 invalid-casing records, recovery records, package public type aliases,
-package public schema aliases, function-alias chains, non-function, non-type,
-and non-constructor package symbols, and package module-segment selections
+package public schema aliases, standard-library public function aliases,
+function-alias chains, non-function, non-type, and non-constructor package
+symbols, and package module-segment selections
 succeed with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
 reference sites only, excluding the selected declaration, plus scope metadata.
-Package function, public function-alias, type, and constructor references never
-return `veln-pkg:` locations. A valid position without a supported reference
-symbol succeeds with an empty `references` array. Selected manifest sources
-report project scope metadata with `project_wide: true`. Sources outside the
-selected project-owned source set report single-file scope metadata with
-`project_wide: false`.
+Package function, direct-dependency public function-alias, type, and
+constructor references never return `veln-pkg:` locations. A valid position
+without a supported reference symbol succeeds with an empty `references`
+array. Selected manifest sources report project scope metadata with
+`project_wide: true`. Sources outside the selected project-owned source set
+report single-file scope metadata with `project_wide: false`.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -601,17 +601,15 @@ comment, declaration, package-source, and import-alias collisions.
 The `references-package-function-alias` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency public function alias selected through qualified calls and
-qualified function-value forms and for an embedded standard-library prelude
-public function alias selected through accepted bare, qualified-call, and
 qualified function-value forms. The case keeps target-function references
 separate, reports project-wide scope, and keeps a package function-alias chain
 selection successful and empty, including when the selected exported alias
 targets an alias declared in a non-exported package module. Language-service
-and MCP server tests also check direct-dependency and standard-library public
-function-alias selections outside the saved selected project, under a
-descendant manifest, and through invalid-cased aliases; those selections
-succeed with no references and retain single-file scope when the source is
-outside the selected project.
+and MCP server tests also check direct-dependency public function-alias
+selections outside the saved selected project, under a descendant manifest,
+and through invalid-cased aliases; those selections succeed with no
+references and retain single-file scope when the source is outside the
+selected project.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
@@ -676,11 +674,11 @@ ambiguous recovery selection.
 inference, single-file isolation outside selected projects, deterministic
 canonical locations, workspace type, constructor, value-binding, and handler
 parameter reference admission, unsupported-symbol success, recovery and package
-exclusion, direct-dependency and standard-library public function-alias
-boundaries, standard-library function boundaries, function-shaped recovery
-exclusion, invalid positions, path failures, bounded stable-capture retry
-exhaustion without partial reference locations or scope metadata, and accepted
-success and domain-failure result schemas.
+exclusion, direct-dependency public function-alias boundaries,
+standard-library function boundaries, function-shaped recovery exclusion,
+invalid positions, path failures, bounded stable-capture retry exhaustion
+without partial reference locations or scope metadata, and accepted success
+and domain-failure result schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 checked package-documentation bundle loading, catalog construction failure
 propagation, bidirectional completeness between the embedded bundle and MCP
