@@ -286,37 +286,14 @@ fn parse_bundle(bytes: &str) -> Result<CheckedBundle, String> {
         ],
         "bundle",
     )?;
-    let metadata = BundleMetadata {
-        schema_version: value["schema_version"].as_u64().ok_or_else(|| {
-            "checked resource bundle schema_version must be an unsigned integer".to_string()
-        })?,
-        generator_contract: string_field(&value, "generator_contract")?.to_string(),
-        package_identity: string_field(&value, "package_identity")?.to_string(),
-        snapshot_digest: digest_field(&value, "snapshot_digest")?.to_string(),
-        documentation_digest: digest_field(&value, "documentation_digest")?.to_string(),
-    };
+    let metadata = parse_bundle_metadata(&value)?;
     validate_metadata(&metadata)?;
-    let resources = value["resources"]
-        .as_array()
-        .ok_or_else(|| "checked resource bundle resources must be an array".to_string())?
-        .iter()
-        .map(parse_resource)
-        .collect::<Result<Vec<_>, _>>()?;
+    let resources = parse_bundle_collection(&value, "resources", parse_resource)?;
     validate_resources(&metadata, &resources)?;
-    let search_candidates = value["search_candidates"]
-        .as_array()
-        .ok_or_else(|| "checked resource bundle search_candidates must be an array".to_string())?
-        .iter()
-        .map(parse_search_candidate)
-        .collect::<Result<Vec<_>, _>>()?;
-    let declaration_locations = value["declaration_locations"]
-        .as_array()
-        .ok_or_else(|| {
-            "checked resource bundle declaration_locations must be an array".to_string()
-        })?
-        .iter()
-        .map(parse_declaration_location)
-        .collect::<Result<Vec<_>, _>>()?;
+    let search_candidates =
+        parse_bundle_collection(&value, "search_candidates", parse_search_candidate)?;
+    let declaration_locations =
+        parse_bundle_collection(&value, "declaration_locations", parse_declaration_location)?;
     validate_indexes(
         &metadata,
         &resources,
@@ -329,6 +306,31 @@ fn parse_bundle(bytes: &str) -> Result<CheckedBundle, String> {
         search_candidates,
         declaration_locations,
     })
+}
+
+fn parse_bundle_metadata(value: &Value) -> Result<BundleMetadata, String> {
+    Ok(BundleMetadata {
+        schema_version: value["schema_version"].as_u64().ok_or_else(|| {
+            "checked resource bundle schema_version must be an unsigned integer".to_string()
+        })?,
+        generator_contract: string_field(value, "generator_contract")?.to_string(),
+        package_identity: string_field(value, "package_identity")?.to_string(),
+        snapshot_digest: digest_field(value, "snapshot_digest")?.to_string(),
+        documentation_digest: digest_field(value, "documentation_digest")?.to_string(),
+    })
+}
+
+fn parse_bundle_collection<T>(
+    value: &Value,
+    field: &str,
+    parse_item: fn(&Value) -> Result<T, String>,
+) -> Result<Vec<T>, String> {
+    value[field]
+        .as_array()
+        .ok_or_else(|| format!("checked resource bundle {field} must be an array"))?
+        .iter()
+        .map(parse_item)
+        .collect()
 }
 
 fn validate_indexes(
