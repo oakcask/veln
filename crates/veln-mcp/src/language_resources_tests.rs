@@ -8,6 +8,29 @@ fn checked_resources_retain_the_validated_standard_library_snapshot() {
 }
 
 #[test]
+fn checked_resources_publish_each_owned_resource_family() {
+    let resources = LanguageResources::checked().unwrap();
+    let listed = resources.list_result();
+    let uris = listed
+        .get("resources")
+        .and_then(Value::as_array)
+        .unwrap()
+        .iter()
+        .filter_map(|resource| resource.get("uri").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+
+    assert!(
+        uris.iter()
+            .any(|uri| uri.starts_with("veln-doc:///language/"))
+    );
+    assert!(uris.iter().any(|uri| uri.starts_with("veln-pkg:///std/")));
+    assert!(
+        uris.iter()
+            .any(|uri| uri.starts_with("veln-doc:///package/std/"))
+    );
+}
+
+#[test]
 fn checked_standard_library_resources_load_the_prebuilt_documentation_bundle() {
     let standard_library = StandardLibraryResources::from_checked_embedded_inputs().unwrap();
     let checked = veln_repo_mcp_standard_library_docs::checked_bundle().unwrap();
