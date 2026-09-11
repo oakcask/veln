@@ -303,8 +303,10 @@ leaves, anonymous records, `Option<T>`, `List<T>`, `Vec<T>`,
 `Dict<String, T>`, `Result<Ok, Err>`, and eligible same-module or public
 imported source ADTs. Every recursively visited child or constructor payload
 must also be eligible.
-Qualified public schema paths are accepted when the imported schema or public
-schema alias is visible.
+Bare schema operation paths resolve only to same-module schemas. Qualified
+public schema paths are accepted when the imported schema or public schema
+alias is visible, including through an import alias. A written import does not
+make the imported schema visible as a bare schema operation path.
 The executable coverage is
 `examples/specification/run/schema-decode-expression/` and
 `examples/specification/run/schema-encode-expression/`. Format-neutral encode

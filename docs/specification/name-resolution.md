@@ -333,6 +333,11 @@ type identity is unique. If multiple visible imports provide the same type
 leaf, the bare reference has no selected language-service symbol. A qualified
 type-role reference selects only the visible type identity owned by the written
 qualifier.
+Schema operation selection uses the schema namespace. A bare schema path in a
+`decode` or `encode` expression selects only a same-module schema declaration.
+A written import does not expose the imported module's schemas to bare schema
+operation paths. Imported schemas are selectable through accepted qualified
+schema paths, including import-alias-qualified paths.
 
 When `veln.toml` contains manifest export data, `[modules]` is rejected and
 `[lib].exports` is checked as a list of public package-relative source files.
