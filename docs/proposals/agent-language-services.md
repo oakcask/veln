@@ -27,8 +27,9 @@ workspace symbol, direct-dependency function, standard-library function, and
 package type and constructor `references`, `search_docs`, and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, type, and constructor slices, paginated references,
-recovery and casing-neutral reference navigation, conformance completion, and
-client plugin work in this proposal remain planned.
+recovery and casing-neutral reference navigation, workspace schema references
+beyond the extracted slice, conformance completion, and client plugin work in
+this proposal remain planned.
 
 The remaining first-capability work includes:
 
@@ -36,6 +37,9 @@ The remaining first-capability work includes:
   set, plus package reference lookup beyond direct-dependency and
   standard-library functions, types, and constructors,
   and paginated reference lookup;
+- workspace schema reference lookup beyond the `decode` and `encode` slice
+  extracted as
+  [MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md);
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -104,6 +108,11 @@ recorded by
 
 The bounded package constructor-reference slice is implemented and recorded by
 [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
+
+### Extracted Ready Workspace Schema-Reference Slice
+
+The next bounded workspace navigation slice is separately selectable as
+[MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -956,7 +965,7 @@ remain planned and do not imply that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, visible direct-dependency and standard-library types, and visible direct-dependency and standard-library constructors. Schema, public-alias, transitive-dependency, recovery, casing-neutral, unsupported package, and pagination rows remain planned. |
+| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, visible direct-dependency and standard-library types, and visible direct-dependency and standard-library constructors. Workspace schema uses in `decode` and `encode` expressions are extracted as a ready slice. Other schema, public-alias, transitive-dependency, recovery, casing-neutral, unsupported package, and pagination rows remain planned. |
 | Search references to a direct-dependency or standard-library function, type, or constructor from one selected project. | Consumer uses are returned; other projects and package-internal uses are excluded, and the scope is explicit. | Implemented for visible direct-dependency and standard-library functions, types, and constructors without declaration or package-source inclusion. Schema, public-alias, transitive-dependency, recovery, casing-neutral, and paginated package reference rows remain planned. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |
@@ -1081,12 +1090,15 @@ The package type-reference slice is recorded by
 [MCP Saved Package Type References](../reference/implemented-proposals/mcp-saved-package-type-references.md).
 The package constructor-reference slice is recorded by
 [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
+The workspace schema-reference slice is ready as
+[MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md).
 Later umbrella slices are:
 
-1. Extend package navigation with schema, public-alias, and other remaining
-   dependency and standard-library symbol references, paginated references,
-   recovery and casing-neutral symbol references, and definition beyond the
-   package-backed symbol inventory.
+1. Extend schema navigation beyond the extracted workspace `decode` and
+   `encode` slice, then extend package navigation with schema, public-alias,
+   and other remaining dependency and standard-library symbol references,
+   paginated references, recovery and casing-neutral symbol references, and
+   definition beyond the package-backed symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their
