@@ -199,9 +199,14 @@
                         "pub fn first(value: Int) -> Int\n",
                         "  math::renamed(value)\n",
                         "end\n\n",
-                        "pub fn second(value: Int) -> Int\n",
+                        "pub fn second(record: {renamed: Int}, value: Int) -> Int\n",
                         "  let callback: fn(Int) -> Int = math::renamed\n",
-                        "  callback(math::renamed(value)) + math::target(value)\n",
+                        "  let renamed = record.renamed\n",
+                        "  callback(math::renamed(value)) + math::target(value) + renamed\n",
+                        "end\n\n",
+                        "# renamed mention\n",
+                        "pub fn renamed(value: Int) -> Int\n",
+                        "  value\n",
                         "end\n",
                     ),
                 ),
@@ -218,7 +223,7 @@
             vec![dependency],
         );
 
-        for (line, column) in [(4, 10), (8, 40), (9, 18)] {
+        for (line, column) in [(4, 10)] {
             let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
 
             assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
@@ -247,18 +252,18 @@
                 [
                     ("main.veln", 4, 9),
                     ("main.veln", 8, 40),
-                    ("main.veln", 9, 18),
+                    ("main.veln", 10, 18),
                     ("other.veln", 4, 9),
                 ]
             );
         }
 
-        let target = query_snapshot(&snapshot, "main.veln", 9, 42).unwrap();
+        let target = query_snapshot(&snapshot, "main.veln", 10, 42).unwrap();
         assert_eq!(
             target.selected_symbol.declaration_kind,
             SymbolDeclarationKind::Declaration
         );
-        assert_eq!(locations(&target.references), [("main.veln", 9, 42)]);
+        assert_eq!(locations(&target.references), [("main.veln", 10, 42)]);
     }
 
     #[test]
@@ -274,6 +279,16 @@
                     "pub fn chain = renamed\n",
                 ),
                 "math::chain()",
+            ),
+            (
+                "invalid-casing function alias",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn Renamed = target\n",
+                ),
+                "math::Renamed()",
             ),
             (
                 "type alias",
@@ -493,7 +508,7 @@
     fn standard_library_public_function_alias_references_keep_alias_identity() {
         let standard_library = standard_library_snapshot(
             &[(
-                "http2/hpack.veln",
+                "prelude.veln",
                 concat!(
                     "pub fn target(value: Int) -> Int\n",
                     "  value\n",
@@ -501,35 +516,47 @@
                     "pub fn renamed = target\n",
                 ),
             )],
-            ["http2/hpack.veln"],
+            ["prelude.veln"],
         );
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source(
                 "main.veln",
                 concat!(
-                    "use http2::hpack from \"std\"\n\n",
                     "pub fn first() -> Int\n",
-                    "  hpack::renamed(1)\n",
+                    "  renamed(1)\n",
                     "end\n\n",
+                    "# renamed mention\n",
                     "pub fn second() -> fn(Int) -> Int\n",
-                    "  hpack::renamed\n",
+                    "  prelude::renamed\n",
+                    "end\n\n",
+                    "pub fn local(record: {renamed: Int}) -> Int\n",
+                    "  let renamed = record.renamed\n",
+                    "  renamed\n",
                     "end\n\n",
                     "pub fn target_call() -> Int\n",
-                    "  hpack::target(2)\n",
+                    "  prelude::target(2)\n",
                     "end\n",
                 ),
             ),
             source(
                 "other.veln",
-                "use http2::hpack from \"std\"\n\npub fn other() -> Int\n  hpack::renamed(3)\nend\n",
+                concat!(
+                    "pub fn bare() -> Int\n",
+                    "  renamed(0)\n",
+                    "end\n\n",
+                    "pub fn other() -> Int\n",
+                    "  prelude::renamed(3)\n",
+                    "end\n",
+                ),
             ),
         ])
         .with_standard_library(standard_library);
 
         for (source_path, line, column) in [
-            ("main.veln", 4, 10),
-            ("main.veln", 8, 10),
-            ("other.veln", 4, 10),
+            ("main.veln", 2, 3),
+            ("main.veln", 7, 12),
+            ("other.veln", 2, 3),
+            ("other.veln", 6, 12),
         ] {
             let result = query_snapshot(&snapshot, source_path, line, column).unwrap();
 
@@ -545,17 +572,18 @@
             assert_eq!(
                 locations(&result.references),
                 [
-                    ("main.veln", 4, 10),
-                    ("main.veln", 8, 10),
-                    ("other.veln", 4, 10),
+                    ("main.veln", 2, 3),
+                    ("main.veln", 7, 12),
+                    ("other.veln", 2, 3),
+                    ("other.veln", 6, 12),
                 ]
             );
         }
 
-        let target = query_snapshot(&snapshot, "main.veln", 12, 10).unwrap();
+        let target = query_snapshot(&snapshot, "main.veln", 16, 13).unwrap();
         assert_eq!(
             target.selected_symbol.declaration_kind,
             SymbolDeclarationKind::Declaration
         );
-        assert_eq!(locations(&target.references), [("main.veln", 12, 10)]);
+        assert_eq!(locations(&target.references), [("main.veln", 16, 12)]);
     }

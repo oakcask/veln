@@ -439,9 +439,8 @@ exported modules of one retained direct dependency when the selected project
 source uses the exact visible external import required by name resolution. It
 exposes the same reference boundary for public functions, public function
 aliases, public types, and public constructors from exported embedded
-standard-library modules. Standard-library prelude functions include the
-accepted bare implicit prelude calls plus qualified call targets and qualified
-function-value occurrences. Standard-library public function aliases include
+standard-library modules. Standard-library prelude functions and public
+function aliases include the accepted bare implicit prelude calls plus
 qualified call targets and qualified function-value occurrences.
 Standard-library prelude types include accepted bare implicit prelude type
 references plus qualified type references.

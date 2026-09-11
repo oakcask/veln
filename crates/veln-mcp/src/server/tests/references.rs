@@ -1251,6 +1251,11 @@ fn references_return_package_function_alias_locations() {
             "pub fn callback() -> fn() -> Int\n",
             "  dep::renamed\n",
             "end\n",
+            "\n# renamed mention\n",
+            "pub fn renamed(record: {renamed: Int}) -> Int\n",
+            "  let renamed = record.renamed\n",
+            "  renamed\n",
+            "end\n",
         ),
     );
     alias_workspace.write(
@@ -1311,37 +1316,41 @@ fn references_return_package_function_alias_locations() {
     std_workspace.write(
         "main.veln",
         concat!(
-            "use http2::hpack from \"std\"\n\n",
             "pub fn first() -> Int\n",
-            "  hpack::renamed(1)\n",
+            "  renamed(1)\n",
             "end\n\n",
+            "# renamed mention\n",
             "pub fn callback() -> fn(Int) -> Int\n",
-            "  hpack::renamed\n",
+            "  prelude::renamed\n",
+            "end\n\n",
+            "pub fn local(record: {renamed: Int}) -> Int\n",
+            "  let renamed = record.renamed\n",
+            "  renamed\n",
             "end\n",
         ),
     );
     std_workspace.write(
         "other.veln",
-        "use http2::hpack from \"std\"\n\npub fn other() -> Int\n  hpack::renamed(2)\nend\n",
+        "pub fn other() -> Int\n  prelude::renamed(2)\nend\n",
     );
     let mut std_server = initialized_server(&std_workspace);
     std_server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"http2/hpack.veln\"]\n",
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
         [PackageSnapshotSource::new(
-            "http2/hpack.veln",
+            "prelude.veln",
             b"pub fn target(value: Int) -> Int\n  value\nend\n\npub fn renamed = target\n",
         )],
     );
 
     let std_references =
-        std_server.references_tool(&json!({"source":"main.veln","line":4,"column":10}));
+        std_server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
     assert_eq!(std_references["isError"], false, "{std_references:#}");
     assert_reference_ranges(
         &std_references,
         &[
-            ("main.veln", 4, 10, 4, 17),
-            ("main.veln", 8, 10, 8, 17),
-            ("other.veln", 4, 10, 4, 17),
+            ("main.veln", 2, 3, 2, 10),
+            ("main.veln", 7, 12, 7, 19),
+            ("other.veln", 2, 12, 2, 19),
         ],
         "standard library function alias",
     );
@@ -2041,6 +2050,30 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             source: "main.veln",
             line: 3,
             column: 25,
+        },
+        Case {
+            name: "package invalid-casing function alias",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use dep from \"example/dep\"\n\nfn read() -> Int\n  dep::Renamed()\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    "pub fn target() -> Int\n  1\nend\n\npub fn Renamed = target\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 4,
+            column: 8,
         },
         Case {
             name: "workspace public schema alias",
