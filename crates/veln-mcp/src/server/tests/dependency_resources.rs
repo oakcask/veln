@@ -104,70 +104,43 @@ fn each_successful_saved_project_tool_admits_dependency_resources() {
 
 #[test]
 fn saved_project_dependency_resources_list_with_complete_sorted_metadata() {
-    struct Case {
-        name: &'static str,
-        call: fn(&mut Server) -> Value,
-    }
+    let workspace = TempWorkspace::new("complete-metadata");
+    write_workspace_with_dependency(&workspace, "listed");
+    let mut server = initialized_server_with_embedded_resources(&workspace);
 
-    let cases = [
-        Case {
-            name: "check_project",
-            call: |server| server.check_project_tool(&json!({"project":"."})),
-        },
-        Case {
-            name: "definition",
-            call: |server| {
-                server.definition_tool(&json!({"source":"main.veln","line":4,"column":8}))
-            },
-        },
-        Case {
-            name: "references",
-            call: |server| {
-                server.references_tool(&json!({"source":"main.veln","line":4,"column":8}))
-            },
-        },
-    ];
-    let expected_base = expected_resource_metadata();
+    let result = server.check_project_tool(&json!({"project":"."}));
+    assert_eq!(result["isError"], false, "{result:#}");
+    let response = server
+        .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
+        .unwrap();
+    let resources = response["result"]["resources"].as_array().unwrap();
+    let mut expected = expected_resource_metadata();
+    expected.extend(expected_dependency_resource_metadata(
+        "example/dep",
+        [
+            ("dep.veln", dependency_source("listed")),
+            (
+                "private.veln",
+                "fn private_value() -> Int\n  1\nend\n".to_string(),
+            ),
+        ],
+    ));
+    expected.extend(expected_dependency_documentation_metadata(
+        "example/dep",
+        [
+            ("dep.veln", dependency_source("listed")),
+            (
+                "private.veln",
+                "fn private_value() -> Int\n  1\nend\n".to_string(),
+            ),
+        ],
+    ));
+    sort_resource_metadata(&mut expected);
 
-    for case in cases {
-        let workspace = TempWorkspace::new(case.name);
-        write_workspace_with_dependency(&workspace, "listed");
-        let mut server = initialized_server_with_embedded_resources(&workspace);
-
-        let result = (case.call)(&mut server);
-        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
-        let response = server
-            .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}))
-            .unwrap();
-        let resources = response["result"]["resources"].as_array().unwrap();
-        let mut expected = expected_base.clone();
-        expected.extend(expected_dependency_resource_metadata(
-            "example/dep",
-            [
-                ("dep.veln", dependency_source("listed")),
-                (
-                    "private.veln",
-                    "fn private_value() -> Int\n  1\nend\n".to_string(),
-                ),
-            ],
-        ));
-        expected.extend(expected_dependency_documentation_metadata(
-            "example/dep",
-            [
-                ("dep.veln", dependency_source("listed")),
-                (
-                    "private.veln",
-                    "fn private_value() -> Int\n  1\nend\n".to_string(),
-                ),
-            ],
-        ));
-        sort_resource_metadata(&mut expected);
-
-        assert_eq!(response["result"].get("nextCursor"), None, "{}", case.name);
-        assert_eq!(resources, &expected, "{}", case.name);
-        assert_resource_uris_are_unique(resources, case.name);
-        assert_resources_are_sorted(resources);
-    }
+    assert_eq!(response["result"].get("nextCursor"), None);
+    assert_eq!(resources, &expected);
+    assert_resource_uris_are_unique(resources, "complete-metadata");
+    assert_resources_are_sorted(resources);
 }
 
 #[test]
