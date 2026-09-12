@@ -594,9 +594,9 @@ the same session.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,
-qualified-call, and qualified function-value forms while reporting
-project-wide scope, and excludes workspace, dependency, field, string,
-comment, declaration, package-source, and import-alias collisions.
+bare function-value, qualified-call, and qualified function-value forms while
+reporting project-wide scope, and excludes workspace, dependency, field,
+string, comment, declaration, package-source, and import-alias collisions.
 The `references-standard-library-function-alias` MCP specification case checks
 the same successful result shape for the shipped `std::prelude`
 `byte_chunk_len` and `byte_view_len` aliases selected through bare calls, bare
