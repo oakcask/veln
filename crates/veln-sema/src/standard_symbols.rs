@@ -237,6 +237,8 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
     prelude_symbol_descriptor("float_less_equal"),
     prelude_symbol_descriptor("float_greater"),
     prelude_symbol_descriptor("float_greater_equal"),
+    prelude_symbol_descriptor("byte_chunk_len"),
+    prelude_symbol_descriptor("byte_view_len"),
 ];
 
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
@@ -246,7 +248,6 @@ compiler_adapter_symbol_set! {
     "byte_to_int",
     "byte_chunk",
     "byte_chunk_count",
-    "byte_chunk_len",
     "byte_append",
     "byte_chunk_from_hex",
     "byte_chunk_to_visible_ascii_string",
@@ -256,7 +257,6 @@ compiler_adapter_symbol_set! {
     "byte_view",
     "byte_view_to_chunk",
     "byte_view_count",
-    "byte_view_len",
     "byte_view_take",
     "byte_view_drop",
     "byte_view_slice",

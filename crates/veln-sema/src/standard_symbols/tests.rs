@@ -556,6 +556,8 @@ fn compiler_adapter_boundary_matches_current_prelude_split() {
             "float_less_equal",
             "float_greater",
             "float_greater_equal",
+            "byte_chunk_len",
+            "byte_view_len",
         ]
     );
 }

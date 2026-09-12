@@ -212,7 +212,11 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.aliases)
             .into_iter()
             .filter(|alias| {
-                !declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration)
+                alias_is_needed_for_reachable_module(alias, inputs, &functions)
+                    && !declaration_contains_invalid_name(
+                        &alias.span,
+                        &invalid_names_by_declaration,
+                    )
                     || reachable_invalid_name_spans
                         .iter()
                         .any(|span| span.is_declaration(&alias.span))
@@ -233,6 +237,27 @@ fn module_with_reachable_functions(
         functions,
         invalid_names,
     }
+}
+
+fn alias_is_needed_for_reachable_module(
+    alias: &veln_ast::PublicAlias,
+    inputs: &ReachabilityInputs<'_>,
+    functions: &[Function],
+) -> bool {
+    if alias.kind != PublicAliasKind::Function {
+        return true;
+    }
+    let function_targets = functions
+        .iter()
+        .filter_map(function_target)
+        .collect::<Vec<_>>();
+    target_for_alias_path(
+        &alias.target,
+        &inputs.uses(),
+        &function_targets,
+        alias.module_name.as_deref(),
+    )
+    .is_some()
 }
 
 fn declaration_contains_invalid_name(
