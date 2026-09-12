@@ -452,11 +452,13 @@ the exact canonical `veln-pkg:` URI from the retained catalog. It does not
 convert the location to a `file:` URI. It exposes neither a dependency
 materialization path nor a standard-library build path. Workspace definitions
 continue to use `file:` URIs. Private functions and functions in non-exported
-package sources have no package definition result. Package declarations are
-immutable locations:
+package sources have no package definition result. Dependency and standard
+package declarations are immutable locations:
 `textDocument/prepareRename` returns no range for them, and
 `textDocument/rename` returns no workspace edits for them. `textDocument/references`
-returns no package locations for dependency declarations in this slice.
+returns an empty array for package declarations, including public function
+aliases. The LSP surface does not expose package-backed reference search in
+this slice.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured
