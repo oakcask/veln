@@ -4,5 +4,6 @@ end
 
 pub fn second(items: Vec<Int>) -> Int
   let callback: fn(Vec<Int>) -> Int = prelude::vec_len
-  callback(prelude::vec_len(items))
+  let bare_callback: fn(Vec<Int>) -> Int = vec_len
+  callback(prelude::vec_len(items)) + bare_callback(items)
 end

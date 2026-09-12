@@ -343,7 +343,8 @@
                     "end\n\n",
                     "pub fn second(value: Int) -> Int\n",
                     "  let callback: fn(Int) -> Int = prelude::byte\n",
-                    "  callback(prelude::byte(value))\n",
+                    "  let bare_callback: fn(Int) -> Int = byte\n",
+                    "  callback(prelude::byte(value)) + bare_callback(value)\n",
                     "end\n\n",
                     "pub fn local_shadow(byte: fn(Int) -> Int) -> Int\n",
                     "  byte(value)\n",
@@ -361,7 +362,7 @@
         ])
         .with_standard_library(standard_library);
 
-        for (line, column) in [(2, 4), (6, 44), (7, 21), (2, 12)] {
+        for (line, column) in [(2, 4), (6, 44), (7, 39), (8, 21), (2, 12)] {
             let (source_path, line, column) = if line == 2 && column == 12 {
                 ("other.veln", line, column)
             } else {
@@ -380,47 +381,14 @@
                 [
                     ("main.veln", 2, 3),
                     ("main.veln", 6, 43),
-                    ("main.veln", 7, 21),
+                    ("main.veln", 7, 39),
+                    ("main.veln", 8, 21),
                     ("other.veln", 2, 12),
                 ]
             );
         }
 
-        let shadowed = query_snapshot(&snapshot, "main.veln", 11, 4).unwrap();
+        let shadowed = query_snapshot(&snapshot, "main.veln", 12, 4).unwrap();
         assert_eq!(shadowed.selected_symbol.kind, SymbolKind::ValueBinding);
-        assert_eq!(locations(&shadowed.references), [("main.veln", 11, 3)]);
+        assert_eq!(locations(&shadowed.references), [("main.veln", 12, 3)]);
     }
-
-    #[test]
-    fn standard_library_public_function_alias_definition_has_no_references() {
-        let standard_library = standard_library_snapshot(
-            &[(
-                "prelude.veln",
-                concat!(
-                    "pub fn target() -> Int\n",
-                    "  1\n",
-                    "end\n\n",
-                    "pub fn renamed = target\n",
-                ),
-            )],
-            ["prelude.veln"],
-        );
-        let snapshot = EffectiveProjectSnapshot::new(vec![source(
-            "main.veln",
-            "pub fn main() -> Int\n  prelude::renamed()\nend\n",
-        )])
-        .with_standard_library(standard_library);
-        let result = query_snapshot(&snapshot, "main.veln", 2, 12).unwrap();
-
-        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
-        assert_eq!(
-            result.selected_symbol.declaration_kind,
-            SymbolDeclarationKind::PublicAlias
-        );
-        assert_eq!(
-            result.selected_symbol.package_origin,
-            Some(PackageOrigin::StandardLibrary)
-        );
-        assert!(result.references.is_empty());
-    }
-

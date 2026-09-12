@@ -22,9 +22,9 @@ This slice is ready because its required foundations are implemented:
 - direct-dependency public function-alias selection and semantic identity; and
 - stable `references` input, result, failure, and scope schemas.
 
-The embedded standard library has no exported public function alias. Its
-success path therefore remains blocked in
-[MCP Saved Standard-Library Function-Alias References](mcp-saved-standard-library-function-alias-references.md).
+The standard-library public function-alias success path is implemented
+separately by
+[MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md).
 The broader schema, public type-alias, public schema-alias, pagination,
 recovery, conformance, and plugin work in
 [Agent Language Services](agent-language-services.md) is not required for this

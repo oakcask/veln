@@ -18,9 +18,6 @@ also states it.
 
 ## Ready
 
-- Standard-library public function-alias references can now use the shipped
-  byte-length aliases as the saved-navigation success path:
-  [mcp-saved-standard-library-function-alias-references.md](mcp-saved-standard-library-function-alias-references.md).
 - Direct-dependency public function-alias reference lookup is ready as an
   independent saved-navigation slice:
   [mcp-saved-dependency-function-alias-references.md](mcp-saved-dependency-function-alias-references.md).
@@ -48,7 +45,9 @@ also states it.
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
   Its direct-dependency public function-alias reference slice has been
   extracted under Ready. Its standard-library public function-alias reference
-  slice has also been extracted under Ready. Do not select the umbrella
+  slice is implemented and recorded by
+  [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md).
+  Do not select the umbrella
   directly:
   [agent-language-services.md](agent-language-services.md).
 

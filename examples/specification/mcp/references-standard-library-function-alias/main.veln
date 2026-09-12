@@ -1,0 +1,17 @@
+pub fn first(chunk: ByteChunk) -> Int
+  byte_count_to_int(byte_chunk_len(chunk))
+end
+
+pub fn second(chunk: ByteChunk) -> Int
+  let callback: fn(ByteChunk) -> ByteCount = byte_chunk_len
+  byte_count_to_int(callback(chunk)) + byte_count_to_int(prelude::byte_chunk_len(chunk))
+end
+
+pub fn view_first(view: ByteView) -> Int
+  byte_count_to_int(byte_view_len(view))
+end
+
+pub fn view_second(view: ByteView) -> Int
+  let callback: fn(ByteView) -> ByteCount = byte_view_len
+  byte_count_to_int(callback(view)) + byte_count_to_int(prelude::byte_view_len(view))
+end

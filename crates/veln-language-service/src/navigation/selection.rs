@@ -253,7 +253,24 @@ impl SymbolIndex {
                 self.recovery_type_reference_selection(file, tokens, token_index, name, selection)
             })
             .or_else(|| self.bare_nullary_constructor_selection(file, tokens, token_index, name))
+            .or_else(|| self.bare_prelude_function_value_selection(file, tokens, token_index, name))
             .or_else(|| self.recovery_value_binding_selection(file, tokens, token_index, name))
+    }
+
+    fn bare_prelude_function_value_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<SelectedNavigationSymbol> {
+        is_bare_function_value_token(tokens, token_index)
+            .then(|| self.symbol_for_bare_call(file, tokens, token_index, name))
+            .flatten()
+            .filter(|symbol| {
+                matches!(symbol, Symbol::Function(function) if function.standard_prelude)
+            })
+            .map(SelectedNavigationSymbol::bare)
     }
 
     fn call_target_selection(

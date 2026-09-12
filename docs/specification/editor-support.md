@@ -387,9 +387,11 @@ type, the constructor segment selects the imported constructor, and both keep
 their rename casing class. The executable
 `identifier-casing-qualified-prelude-navigation` LSP example covers
 `prelude`-qualified function and type paths. Standard-library package symbols
-return package definition locations, no workspace references, no prepare-rename
-range, and empty rename edits; their `prelude` module segment has no selected
-symbol. The executable
+return package definition locations, no prepare-rename range, and empty rename
+edits; their `prelude` module segment has no selected symbol.
+Supported standard-library public function aliases can still return workspace
+reference locations for selected-project uses through the shared navigation
+model. The executable
 `identifier-casing-qualified-function-navigation` LSP example covers a
 module-only qualified public function imported from another workspace source
 across definition, references, prepare-rename, rename, invalid replacement
@@ -439,13 +441,14 @@ byte change produces a different snapshot URI.
 
 The retained standard input has the reserved `std` identity and the same
 snapshot, export, and catalog boundaries. Bare and `prelude::` calls resolve
-public functions from the exported standard prelude. A function parameter or
-local binding with the same name shadows the bare prelude fallback at call
-sites in its scope; the same standard function remains reachable through an
+public functions and supported public function aliases from the exported
+standard prelude. A function parameter or local binding with the same name
+shadows the bare prelude fallback at call sites in its scope; the same
+standard function or supported function alias remains reachable through an
 explicit `prelude::` call. A qualified call through `use module from "std"`
-resolves a public function only from an exported standard source. Private
-declarations and declarations in non-exported standard sources do not produce
-definition results.
+resolves a public function or supported public function alias only from an
+exported standard source. Private declarations and declarations in
+non-exported standard sources do not produce definition results.
 
 `textDocument/definition` returns a dependency or standard declaration with
 the exact canonical `veln-pkg:` URI from the retained catalog. It does not
@@ -456,7 +459,10 @@ package sources have no package definition result. Package declarations are
 immutable locations:
 `textDocument/prepareRename` returns no range for them, and
 `textDocument/rename` returns no workspace edits for them. `textDocument/references`
-returns no package locations for dependency declarations in this slice.
+returns no package locations for dependency or standard-library declarations
+in this slice. Supported standard-library public function aliases return only
+selected-project workspace `file:` locations for references. Unsupported
+function-alias chains do not produce reference locations.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured

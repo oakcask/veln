@@ -129,6 +129,8 @@ impl SymbolIndex {
         let selected = FunctionSymbol {
             module: file.module.clone(),
             name: symbol.name,
+            alias_target_module: None,
+            alias_target_name: None,
             declaration: workspace_location(symbol.declaration),
             package: None,
             package_origin: None,

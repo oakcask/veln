@@ -20,6 +20,8 @@ fn same_function(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
         && left.package_origin == right.package_origin
         && left.declaration_kind == right.declaration_kind
         && left.standard_prelude == right.standard_prelude
+        && left.alias_target_module == right.alias_target_module
+        && left.alias_target_name == right.alias_target_name
         && left.declaration == right.declaration
 }
 
@@ -39,6 +41,8 @@ impl FileDeclarations {
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
         self.functions.extend(other.functions);
+        self.package_function_aliases
+            .extend(other.package_function_aliases);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
@@ -52,6 +56,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
         functions: function_declarations(file),
+        package_function_aliases: package_function_aliases(file),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
@@ -239,14 +244,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             }
             let public = previous_non_layout_token(tokens, index)
                 .is_some_and(|previous| previous.kind == TokenKind::Pub);
-            let is_public_alias = next_non_layout_token(tokens, name_index)
-                .filter(|token| token.range.start >= name.range.end)
-                .is_some_and(|token| token.kind == TokenKind::Equal);
-            let declaration_kind = if is_public_alias {
-                SymbolDeclarationKind::PublicAlias
-            } else {
-                SymbolDeclarationKind::Declaration
-            };
+            let alias = function_alias_declaration(tokens, name_index, name.range.end);
             let (declaration, package, package_origin, standard_prelude) = match &file.origin {
                 IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
                 IndexedOrigin::Package {
@@ -276,16 +274,57 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             functions.push(FunctionSymbol {
                 module: file.module.clone(),
                 name: name.text.clone(),
+                alias_target_module: alias.target_module,
+                alias_target_name: alias.target_name,
                 declaration,
                 package,
                 package_origin,
                 public,
                 standard_prelude,
-                declaration_kind,
+                declaration_kind: alias.declaration_kind,
             });
         }
     }
     functions
+}
+
+fn package_function_aliases(file: &IndexedFile) -> Vec<PackageFunctionAlias> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return Vec::new();
+    };
+    let package_origin = if *standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    file.tokens
+        .iter()
+        .enumerate()
+        .filter_map(|(index, token)| {
+            if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
+                return None;
+            }
+            let name_index = next_non_layout_index(&file.tokens, index)?;
+            let name = file.tokens.get(name_index)?;
+            if !is_identifier(&name.text) {
+                return None;
+            }
+            let alias = function_alias_declaration(&file.tokens, name_index, name.range.end);
+            (alias.declaration_kind == SymbolDeclarationKind::PublicAlias).then(|| {
+                PackageFunctionAlias {
+                    module: file.module.clone(),
+                    name: name.text.clone(),
+                    package: identity.clone(),
+                    package_origin,
+                }
+            })
+        })
+        .collect()
 }
 
 fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol> {

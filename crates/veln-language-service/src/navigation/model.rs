@@ -369,12 +369,22 @@ fn sort_locations(locations: &mut Vec<SourceSpan>) {
 struct FunctionSymbol {
     module: String,
     name: String,
+    alias_target_module: Option<String>,
+    alias_target_name: Option<String>,
     declaration: NavigationLocation,
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
     declaration_kind: SymbolDeclarationKind,
+}
+
+#[derive(Clone, Debug)]
+struct PackageFunctionAlias {
+    module: String,
+    name: String,
+    package: String,
+    package_origin: PackageOrigin,
 }
 
 #[derive(Clone, Debug)]
@@ -604,6 +614,7 @@ struct FileDeclarations {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    package_function_aliases: Vec<PackageFunctionAlias>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
@@ -635,6 +646,7 @@ pub(crate) struct SymbolIndex {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    package_function_aliases: Vec<PackageFunctionAlias>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,

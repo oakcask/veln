@@ -11,6 +11,7 @@ mod outcome;
 mod package_documentation_resources;
 mod protocol;
 mod references;
+mod references_standard_library_aliases;
 mod resources;
 
 fn parse_responses(output: Vec<u8>) -> Vec<Value> {
