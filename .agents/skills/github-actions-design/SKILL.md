@@ -1,6 +1,6 @@
 ---
 name: github-actions-design
-description: Use when adding, changing, or reviewing GitHub Actions workflows or repository-local actions, especially when deciding whether behavior belongs in workflow YAML, workflow-scripts, a local action, or a reusable workflow. Do not use solely to inspect runs, logs, or artifacts.
+description: Add, change, or review GitHub Actions workflow design or repository-local actions. Excludes run inspection.
 ---
 
 # GitHub Actions Design

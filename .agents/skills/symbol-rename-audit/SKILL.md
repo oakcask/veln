@@ -1,6 +1,6 @@
 ---
 name: symbol-rename-audit
-description: Use when renaming, removing, or replacing symbols, fields, exported types, JSON keys, CLI output keys, metric names, diagnostics names, or compatibility aliases. Ensures agents search broadly, classify residual names, and do not report completion while old names remain unreviewed.
+description: Audit a symbol, field, output key, metric, or diagnostic rename or removal across repository surfaces.
 ---
 
 # Symbol Rename Audit

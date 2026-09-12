@@ -1,6 +1,6 @@
 ---
 name: bibliography-fetch
-description: Retrieve references and citations efficiently by checking a local bibliography cache before using web search or source-specific lookup. Use when Codex needs to find papers, books, articles, standards, URLs, citations, BibTeX, DOI metadata, arXiv entries, or source lists for research, writing, documentation, literature reviews, or source verification.
+description: Retrieve citations or source lists, reusing the local bibliography cache before external lookup.
 ---
 
 # Bibliography Fetch

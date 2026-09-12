@@ -1,6 +1,6 @@
 ---
 name: github-pr-operations
-description: Use when creating, editing, or managing pull requests with GitHub CLI, including stacked pull requests, PR metadata updates, labels, and retry behavior for GitHub API connection failures.
+description: Create, edit, or manage pull requests with GitHub CLI.
 ---
 
 # GitHub PR Operations

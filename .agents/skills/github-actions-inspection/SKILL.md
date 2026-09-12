@@ -1,6 +1,6 @@
 ---
 name: github-actions-inspection
-description: Use when inspecting GitHub Actions workflow runs, jobs, logs, artifacts, or check failures with GitHub CLI, especially when searching run output or avoiding repeated approval prompts from shell pipelines.
+description: Inspect GitHub Actions runs, jobs, logs, artifacts, or check failures with GitHub CLI.
 ---
 
 # GitHub Actions Inspection

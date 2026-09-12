@@ -1,6 +1,6 @@
 ---
 name: git-editor-guardrail
-description: Keep git operations noninteractive when commands may open an editor. Use when Codex runs or proposes git commit, amend, rebase, merge, cherry-pick, revert, tag, or continuation commands that could pause for commit-message editing, rebase todo editing, or annotated tag messages, unless the user explicitly requests interactive editor behavior.
+description: Keep git commit, history-editing, and continuation operations noninteractive unless editing is requested.
 ---
 
 # Git Editor Guardrail

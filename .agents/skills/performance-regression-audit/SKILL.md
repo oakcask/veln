@@ -1,6 +1,6 @@
 ---
 name: performance-regression-audit
-description: Use when investigating slow tests, performance regressions, or changes to analysis algorithms that process large generated inputs, predicates, static truth checks, repair reasoning, parsing, lowering, typechecking, or other compiler-wide scans. Ensures agents measure the slow path, check fast-path ordering, and verify representative high-cardinality cases before reporting the work complete.
+description: Investigate suspected performance regressions in compiler analysis or large-input tests.
 ---
 
 # Performance Regression Audit
