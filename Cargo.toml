@@ -39,7 +39,7 @@ serde_json = { version = "1.0.151", features = ["arbitrary_precision"] }
 rustix = { version = "1.1.4", features = ["fs"] }
 unicase = "=2.9.0"
 unicode-normalization = "=0.1.25"
-syn = "3.0.2"
+syn = "3.0.5"
 veln-ast = { path = "crates/veln-ast" }
 veln-analysis = { path = "crates/veln-analysis" }
 veln-backend-jvm = { path = "crates/veln-backend-jvm" }
