@@ -22,6 +22,7 @@ fn same_function(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
         && left.standard_prelude == right.standard_prelude
         && left.alias_target_module == right.alias_target_module
         && left.alias_target_name == right.alias_target_name
+        && left.invalid_declaration_name == right.invalid_declaration_name
         && left.declaration == right.declaration
 }
 
@@ -239,12 +240,14 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             && is_identifier(&name.text)
         {
             let span = file.source.span(name.range);
-            if is_invalid_declaration_name(file, &span) {
-                continue;
-            }
             let public = previous_non_layout_token(tokens, index)
                 .is_some_and(|previous| previous.kind == TokenKind::Pub);
             let alias = function_alias_declaration(tokens, name_index, name.range.end);
+            let invalid_declaration_name = is_invalid_declaration_name(file, &span);
+            if invalid_declaration_name && alias.declaration_kind != SymbolDeclarationKind::PublicAlias
+            {
+                continue;
+            }
             let (declaration, package, package_origin, standard_prelude) = match &file.origin {
                 IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
                 IndexedOrigin::Package {
@@ -282,6 +285,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
                 public,
                 standard_prelude,
                 declaration_kind: alias.declaration_kind,
+                invalid_declaration_name,
             });
         }
     }

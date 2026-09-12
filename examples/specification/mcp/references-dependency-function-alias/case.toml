@@ -141,3 +141,18 @@ equals = []
 id = 12
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 14
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/scope"
+equals = {"mode":"single_file","generation":0,"project":".","source":"nested/main.veln","project_wide":false}
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/references"
+equals = []

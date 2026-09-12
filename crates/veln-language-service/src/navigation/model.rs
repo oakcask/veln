@@ -377,6 +377,7 @@ struct FunctionSymbol {
     public: bool,
     standard_prelude: bool,
     declaration_kind: SymbolDeclarationKind,
+    invalid_declaration_name: bool,
 }
 
 #[derive(Clone, Debug)]

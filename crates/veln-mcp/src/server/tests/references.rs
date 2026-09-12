@@ -1418,6 +1418,98 @@ fn references_keep_invalid_direct_dependency_function_alias_targets_empty() {
 }
 
 #[test]
+fn references_keep_direct_dependency_function_aliases_inside_selected_project() {
+    struct Case {
+        name: &'static str,
+        files: Vec<(&'static str, &'static str)>,
+        source: &'static str,
+        scope: Value,
+    }
+
+    let source = concat!(
+        "use dep from \"example/dep\"\n\n",
+        "fn main() -> Int\n",
+        "  dep::renamed()\n",
+        "end\n",
+    );
+    let dependency_manifest =
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n";
+    let dependency_source = "pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n";
+
+    for case in [
+        Case {
+            name: "anonymous source",
+            files: vec![("loose.veln", source)],
+            source: "loose.veln",
+            scope: json!({
+                "mode": "single_file",
+                "generation": 0,
+                "project": ".",
+                "source": "loose.veln",
+                "project_wide": false
+            }),
+        },
+        Case {
+            name: "descendant project source",
+            files: vec![
+                ("veln.toml", ""),
+                ("main.veln", source),
+                ("nested/veln.toml", ""),
+                ("nested/main.veln", source),
+                ("vendor/dep/veln.toml", dependency_manifest),
+                ("vendor/dep/dep.veln", dependency_source),
+            ],
+            source: "nested/main.veln",
+            scope: json!({
+                "mode": "single_file",
+                "generation": 0,
+                "project": ".",
+                "source": "nested/main.veln",
+                "project_wide": false
+            }),
+        },
+        Case {
+            name: "outside selected project",
+            files: vec![
+                ("app/veln.toml", ""),
+                ("app/main.veln", source),
+                ("loose.veln", source),
+                ("app/vendor/dep/veln.toml", dependency_manifest),
+                ("app/vendor/dep/dep.veln", dependency_source),
+            ],
+            source: "loose.veln",
+            scope: json!({
+                "mode": "single_file",
+                "generation": 0,
+                "project": ".",
+                "source": "loose.veln",
+                "project_wide": false
+            }),
+        },
+    ] {
+        let workspace = TempWorkspace::new(case.name);
+        for (path, text) in case.files {
+            workspace.write(path, text);
+        }
+
+        let result = references_result(&workspace, case.source, 4, 8);
+
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["scope"], case.scope,
+            "{}: {result:#}",
+            case.name
+        );
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{}: {result:#}",
+            case.name
+        );
+    }
+}
+
+#[test]
 fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");

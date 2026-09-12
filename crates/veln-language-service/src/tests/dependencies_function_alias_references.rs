@@ -267,4 +267,39 @@ mod dependencies_function_alias_references_tests {
             assert!(result.references.is_empty(), "{case}");
         }
     }
+
+    #[test]
+    fn invalid_cased_direct_dependency_function_alias_declarations_return_no_references() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[(
+                "api.veln",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn Bad = target\n",
+                ),
+            )],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use api from \"example/pkg\"\n\n",
+                    "pub fn main() -> Int\n",
+                    "  api::Bad()\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let result = query_snapshot(&snapshot, "api.veln", 5, 8)
+            .expect("invalid-cased direct dependency alias declaration should remain selectable");
+
+        assert_direct_dependency_alias(&result);
+        assert!(result.references.is_empty());
+    }
 }

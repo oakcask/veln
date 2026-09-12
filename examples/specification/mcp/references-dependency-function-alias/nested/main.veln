@@ -1,0 +1,5 @@
+use lib::math from "example/dep"
+
+pub fn nested() -> Int
+  math::renamed()
+end

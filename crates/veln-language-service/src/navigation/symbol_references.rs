@@ -110,6 +110,9 @@ impl SymbolIndex {
     }
 
     fn function_references_supported(&self, symbol: &FunctionSymbol) -> bool {
+        if symbol.invalid_declaration_name {
+            return false;
+        }
         if symbol.declaration_kind == SymbolDeclarationKind::Declaration {
             return true;
         }
