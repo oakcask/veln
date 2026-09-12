@@ -20,7 +20,8 @@ Completion evidence:
 - `veln-language-service` tests check explicit standard-library module alias
   references, implicit prelude alias references, qualified and bare
   function-value occurrences, alias and target identity separation,
-  lexical-shadow exclusion, and unsupported alias-chain success with empty
+  lexical-shadow exclusion, retained non-exported implementation source
+  targets, invalid targets, and unsupported alias-chain success with empty
   references.
 - `veln-mcp` server tests check the saved-project adapter boundary for
   standard-library public function-alias references, unsupported alias-chain

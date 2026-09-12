@@ -4,3 +4,11 @@ end
 
 pub fn renamed = target
 pub fn chained = renamed
+
+pub type Document
+  pub Text(String)
+end
+
+pub fn missing = missing
+pub fn wrong_kind = Document
+pub fn invalid_case = Missing

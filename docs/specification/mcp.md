@@ -601,8 +601,8 @@ same result shape for a visible direct-dependency public function alias
 selected through a qualified call, import-alias-qualified call, or qualified
 function-value occurrence. The same case checks alias and target-function
 identity separation, package and workspace collisions, field exclusion,
-unsupported alias-chain selection, project-wide scope, and dependency source
-resource admission.
+unsupported alias-chain selection, unresolved, wrong-kind, and invalid-casing
+alias targets, project-wide scope, and dependency source resource admission.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,

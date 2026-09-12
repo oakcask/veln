@@ -40,7 +40,7 @@ impl SymbolIndex {
             handlers: declarations.handlers,
             operations: declarations.operations,
             functions: declarations.functions,
-            package_function_aliases: declarations.package_function_aliases,
+            package_function_targets: declarations.package_function_targets,
             types: declarations.types,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,

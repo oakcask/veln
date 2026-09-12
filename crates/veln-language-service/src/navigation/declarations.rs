@@ -41,8 +41,8 @@ impl FileDeclarations {
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
         self.functions.extend(other.functions);
-        self.package_function_aliases
-            .extend(other.package_function_aliases);
+        self.package_function_targets
+            .extend(other.package_function_targets);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
@@ -56,7 +56,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
         functions: function_declarations(file),
-        package_function_aliases: package_function_aliases(file),
+        package_function_targets: package_function_targets(file, syntax),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
@@ -288,7 +288,7 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
     functions
 }
 
-fn package_function_aliases(file: &IndexedFile) -> Vec<PackageFunctionAlias> {
+fn package_function_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageFunctionTarget> {
     let IndexedOrigin::Package {
         identity,
         standard_library,
@@ -302,27 +302,24 @@ fn package_function_aliases(file: &IndexedFile) -> Vec<PackageFunctionAlias> {
     } else {
         PackageOrigin::DirectDependency
     };
-    file.tokens
+    syntax
+        .items
         .iter()
-        .enumerate()
-        .filter_map(|(index, token)| {
-            if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
-                return None;
-            }
-            let name_index = next_non_layout_index(&file.tokens, index)?;
-            let name = file.tokens.get(name_index)?;
-            if !is_identifier(&name.text) {
-                return None;
-            }
-            let alias = function_alias_declaration(&file.tokens, name_index, name.range.end);
-            (alias.declaration_kind == SymbolDeclarationKind::PublicAlias).then(|| {
-                PackageFunctionAlias {
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) if function.kind == veln_syntax::FunctionKind::Function => {
+                let name = function.name.as_ref()?;
+                let name_span = function.name_span.as_ref()?;
+                if is_invalid_declaration_name(file, name_span) {
+                    return None;
+                }
+                Some(PackageFunctionTarget {
                     module: file.module.clone(),
-                    name: name.text.clone(),
+                    name: name.clone(),
                     package: identity.clone(),
                     package_origin,
-                }
-            })
+                })
+            }
+            _ => None,
         })
         .collect()
 }

@@ -206,4 +206,65 @@ mod dependencies_function_alias_references_tests {
             assert!(result.references.is_empty());
         }
     }
+
+    #[test]
+    fn direct_dependency_function_alias_references_require_resolved_function_targets() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[
+                (
+                    "api.veln",
+                    concat!(
+                        "use impl\n\n",
+                        "pub type Document\n",
+                        "  pub Text(String)\n",
+                        "end\n\n",
+                        "pub fn valid = impl::target\n",
+                        "pub fn missing = missing\n",
+                        "pub fn wrong_kind = Document\n",
+                        "pub fn invalid_case = Missing\n",
+                    ),
+                ),
+                (
+                    "impl.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use api from \"example/pkg\"\n\n",
+                    "pub fn main() -> Int\n",
+                    "  api::valid()\n",
+                    "  api::missing()\n",
+                    "  api::wrong_kind()\n",
+                    "  api::invalid_case()\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let valid = query_snapshot(&snapshot, "main.veln", 4, 9).unwrap();
+        assert_direct_dependency_alias(&valid);
+        assert_eq!(locations(&valid.references), [("main.veln", 4, 8)]);
+
+        for (case, line, column) in [
+            ("unresolved target", 5, 9),
+            ("wrong-kind target", 6, 9),
+            ("invalid-casing target", 7, 9),
+        ] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column)
+                .unwrap_or_else(|| panic!("did not select {case}"));
+            assert_direct_dependency_alias(&result);
+            assert!(result.references.is_empty(), "{case}");
+        }
+    }
 }

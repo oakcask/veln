@@ -23,3 +23,9 @@ end
 pub fn chain() -> Int
   math::chained()
 end
+
+pub fn invalid_targets() -> Int
+  math::missing()
+  math::wrong_kind()
+  math::invalid_case()
+end

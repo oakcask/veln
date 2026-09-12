@@ -1364,6 +1364,60 @@ fn references_keep_direct_dependency_function_alias_chains_empty() {
 }
 
 #[test]
+fn references_keep_invalid_direct_dependency_function_alias_targets_empty() {
+    let alias_workspace = TempWorkspace::new("references-dependency-invalid-alias-targets");
+    alias_workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    alias_workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "pub fn main() -> Int\n",
+            "  dep::missing()\n",
+            "  dep::wrong_kind()\n",
+            "  dep::invalid_case()\n",
+            "end\n",
+        ),
+    );
+    alias_workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    alias_workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub type Document\n",
+            "  pub Text(String)\n",
+            "end\n\n",
+            "pub fn missing = missing\n",
+            "pub fn wrong_kind = Document\n",
+            "pub fn invalid_case = Missing\n",
+        ),
+    );
+    let mut alias_server = initialized_server(&alias_workspace);
+
+    for (case, line) in [
+        ("unresolved target", 4),
+        ("wrong-kind target", 5),
+        ("invalid-casing target", 6),
+    ] {
+        let alias_references =
+            alias_server.references_tool(&json!({"source":"main.veln","line":line,"column":8}));
+        assert_eq!(
+            alias_references["isError"], false,
+            "{case}: {alias_references:#}"
+        );
+        assert_eq!(
+            alias_references["structuredContent"]["references"],
+            json!([]),
+            "{case}: {alias_references:#}"
+        );
+    }
+}
+
+#[test]
 fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");

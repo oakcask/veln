@@ -18,14 +18,15 @@ Completion evidence:
   occurrences. It also checks project-wide scope, workspace `file:` result
   locations, alias and target-function identity separation, package and
   workspace collisions, field exclusion, unsupported alias-chain selection,
-  and dependency source resource admission.
+  unresolved, wrong-kind, and invalid-casing alias targets, and dependency
+  source resource admission.
 - `veln-language-service` tests check direct-dependency public function-alias
   selection and reference collection for qualified calls, import-alias-qualified
   calls, qualified function-value occurrences, canonical project-wide results,
   alias and target-function identity separation, package collisions, workspace
-  function collisions, field exclusion, and unsupported alias chains whose
-  targets are in the same, another, or non-exported captured dependency
-  module.
+  function collisions, field exclusion, retained non-exported implementation
+  source targets, invalid targets, and unsupported alias chains whose targets
+  are in the same, another, or non-exported captured dependency module.
 - `veln-mcp` server tests check the saved-project adapter boundary for
   direct-dependency public function-alias references, target-function
   separation, unsupported alias-chain success with empty references, and

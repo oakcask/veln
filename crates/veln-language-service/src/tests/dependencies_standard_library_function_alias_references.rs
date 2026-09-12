@@ -403,3 +403,70 @@
         assert_standard_library_alias(&result);
         assert!(result.references.is_empty());
     }
+
+    #[test]
+    fn standard_library_function_alias_references_require_resolved_function_targets() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "api.veln",
+                    concat!(
+                        "use implementation\n\n",
+                        "pub type Document\n",
+                        "  pub Text(String)\n",
+                        "end\n\n",
+                        "pub fn valid = implementation::target\n",
+                        "pub fn missing = missing\n",
+                        "pub fn wrong_kind = Document\n",
+                        "pub fn invalid_case = Missing\n",
+                    ),
+                ),
+                (
+                    "implementation.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use api from \"std\"\n\n",
+                "pub fn main() -> Int\n",
+                "  api::valid()\n",
+                "  api::missing()\n",
+                "  api::wrong_kind()\n",
+                "  api::invalid_case()\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        assert_function_reference_case(
+            &snapshot,
+            "valid alias target in non-exported source",
+            (4, 9),
+            Some(PackageOrigin::StandardLibrary),
+            SymbolDeclarationKind::PublicAlias,
+            &[("main.veln", 4, 8)],
+        );
+
+        for (case, line, column) in [
+            ("unresolved target", 5, 9),
+            ("wrong-kind target", 6, 9),
+            ("invalid-casing target", 7, 9),
+        ] {
+            assert_function_reference_case(
+                &snapshot,
+                case,
+                (line, column),
+                Some(PackageOrigin::StandardLibrary),
+                SymbolDeclarationKind::PublicAlias,
+                &[],
+            );
+        }
+    }
