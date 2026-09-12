@@ -437,10 +437,11 @@ It also exposes references to public function declarations, public function
 aliases, public type declarations, and public constructor declarations from
 exported modules of one retained direct dependency when the selected project
 source uses the exact visible external import required by name resolution. It
-exposes the same reference boundary for public functions, public types, and
-public constructors from exported embedded standard-library modules.
-Standard-library prelude functions include the accepted bare implicit prelude
-calls plus qualified call targets and qualified function-value occurrences.
+exposes the same reference boundary for public functions, public function
+aliases, public types, and public constructors from exported embedded
+standard-library modules. Standard-library prelude functions include the
+accepted bare implicit prelude calls plus qualified call targets and qualified
+function-value occurrences.
 Standard-library prelude types include accepted bare implicit prelude type
 references plus qualified type references.
 
@@ -466,11 +467,11 @@ projects, equal spellings with different package or module identity,
 import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
-package types, functions, or constructors, non-exported package modules,
-invalid-casing records, recovery records, package public type aliases,
-package public schema aliases, function-alias chains, non-function, non-type,
-and non-constructor package symbols, and package module-segment selections
-succeed with an empty `references` array.
+package types, functions, function aliases, or constructors, non-exported
+package modules, invalid-casing records, recovery records, package public
+type aliases, package public schema aliases, function-alias chains,
+non-function, non-type, and non-constructor package symbols, and package
+module-segment selections succeed with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
