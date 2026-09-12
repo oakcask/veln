@@ -239,7 +239,10 @@ impl SymbolIndex {
             return Some(Symbol::Constructor(symbol));
         }
         if let Some(symbol) = self.functions.iter().find(|symbol| {
-            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            valid_function_navigation_symbol(symbol)
+                && symbol.name == name
+                && symbol.module == file.module
+                && symbol.package.is_none()
         }) {
             return Some(Symbol::Function(symbol.clone()));
         }
@@ -251,7 +254,11 @@ impl SymbolIndex {
         }
         self.functions
             .iter()
-            .find(|symbol| symbol.name == name && symbol.standard_prelude)
+            .find(|symbol| {
+                valid_function_navigation_symbol(symbol)
+                    && symbol.name == name
+                    && symbol.standard_prelude
+            })
             .cloned()
             .map(Symbol::Function)
     }
@@ -280,7 +287,8 @@ impl SymbolIndex {
             .iter()
             .find(|symbol| match &symbol.package {
                 Some(package) => {
-                    symbol.name == name
+                    valid_function_navigation_symbol(symbol)
+                        && symbol.name == name
                         && qualified_modules.iter().any(|module| module == &symbol.module)
                         && (symbol.standard_prelude
                             || file
@@ -288,7 +296,8 @@ impl SymbolIndex {
                                 .contains(&(symbol.module.clone(), package.clone())))
                 }
                 None => {
-                    symbol.name == name
+                    valid_function_navigation_symbol(symbol)
+                        && symbol.name == name
                         && qualified_modules.iter().any(|module| module == &symbol.module)
                         && file.uses.contains(&symbol.module)
                         && (symbol.public
@@ -309,7 +318,10 @@ impl SymbolIndex {
         self.functions
             .iter()
             .find(|symbol| {
-                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+                valid_function_navigation_symbol(symbol)
+                    && symbol.name == name
+                    && symbol.module == file.module
+                    && symbol.package.is_none()
             })
             .cloned()
             .or_else(|| self.first_visible_imported_function_for_bare_call(file, name))
@@ -577,7 +589,7 @@ fn visible_imported_function_for_bare_call(
     symbol: &FunctionSymbol,
     name: &str,
 ) -> bool {
-    if symbol.name != name || symbol.standard_prelude {
+    if !valid_function_navigation_symbol(symbol) || symbol.name != name || symbol.standard_prelude {
         return false;
     }
     if symbol.package.is_none() && symbol.module == file.module {
@@ -592,4 +604,8 @@ fn visible_imported_function_for_bare_call(
             .contains(&(symbol.module.clone(), package.clone())),
         None => file.uses.contains(&symbol.module),
     }
+}
+
+fn valid_function_navigation_symbol(symbol: &FunctionSymbol) -> bool {
+    !symbol.invalid_declaration_name
 }
