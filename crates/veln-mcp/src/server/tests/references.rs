@@ -1235,6 +1235,11 @@ fn references_keep_package_constructor_alias_boundary_empty() {
 
 #[test]
 fn references_return_package_function_alias_locations() {
+    direct_dependency_function_alias_reference_case();
+    standard_library_function_alias_reference_case();
+}
+
+fn direct_dependency_function_alias_reference_case() {
     let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
     alias_workspace.write(
         "veln.toml",
@@ -1320,7 +1325,9 @@ fn references_return_package_function_alias_locations() {
         &[("main.veln", 5, 8, 5, 14)],
         "direct dependency alias target separation",
     );
+}
 
+fn standard_library_function_alias_reference_case() {
     let std_workspace = TempWorkspace::new("references-standard-library-alias-boundary");
     std_workspace.write("veln.toml", "");
     std_workspace.write(
