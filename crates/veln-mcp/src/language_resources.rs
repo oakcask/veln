@@ -350,28 +350,21 @@ impl LanguageResources {
             .with_workspace_overlays(files)
     }
 
-    pub(crate) fn with_dependency_navigation(
+    pub(crate) fn navigation_snapshot(
         &mut self,
         files: Vec<veln_source::SourceFile>,
-        dependencies: AdmittedDependencies,
+        captured_dependencies: &[CapturedDependencyProject],
         workspace_key: Value,
-    ) -> Arc<EffectiveProjectSnapshot> {
-        let reuse = self.workspace_navigation.as_ref().is_some_and(
-            |(cached_workspace_key, cached_dependency_keys, _)| {
-                cached_workspace_key == &workspace_key
-                    && cached_dependency_keys == &dependencies.keys
-            },
-        );
-        if reuse {
-            return Arc::clone(
-                &self
-                    .workspace_navigation
-                    .as_ref()
-                    .expect("workspace navigation was prepared")
-                    .2,
-            );
+    ) -> Result<Arc<EffectiveProjectSnapshot>, ResourceCapacityError> {
+        // The stable capture key includes both workspace files and dependency
+        // contents, so a match also proves that their resources were admitted.
+        if let Some((cached_workspace_key, _, snapshot)) = &self.workspace_navigation
+            && cached_workspace_key == &workspace_key
+        {
+            return Ok(Arc::clone(snapshot));
         }
 
+        let dependencies = self.admit_dependencies(captured_dependencies)?;
         let dependency_keys = dependencies.keys;
         let snapshot = if dependencies.snapshots.is_empty() {
             self.with_standard_library_navigation(files)
@@ -402,7 +395,7 @@ impl LanguageResources {
         WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
         let snapshot = Arc::new(snapshot);
         self.workspace_navigation = Some((workspace_key, dependency_keys, Arc::clone(&snapshot)));
-        snapshot
+        Ok(snapshot)
     }
 
     pub(crate) fn package_documentation_uri_for(

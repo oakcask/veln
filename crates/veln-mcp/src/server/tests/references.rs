@@ -1276,6 +1276,7 @@ fn references_return_direct_dependency_function_alias_locations_from_saved_proje
         ),
     );
     let mut alias_server = initialized_server(&alias_workspace);
+    crate::language_resources::reset_dependency_snapshot_captures();
 
     let alias_definition =
         alias_server.definition_tool(&json!({"source":"main.veln","line":4,"column":8}));
@@ -1319,6 +1320,7 @@ fn references_return_direct_dependency_function_alias_locations_from_saved_proje
         &[("main.veln", 9, 38, 9, 44)],
         "dependency function target references",
     );
+    assert_eq!(crate::language_resources::dependency_snapshot_captures(), 1);
 }
 
 #[test]

@@ -414,10 +414,11 @@ fn definition_prepares_each_dependency_snapshot_once() {
 }
 
 #[test]
-fn repeated_definitions_reuse_the_dependency_navigation_base() {
+fn repeated_definitions_reuse_dependency_resources_and_navigation() {
     let workspace = TempWorkspace::new("definition-reused-dependency-navigation");
     write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);
     let mut server = initialized_server(&workspace);
+    crate::language_resources::reset_dependency_snapshot_captures();
     crate::language_resources::reset_dependency_navigation_builds();
     crate::language_resources::reset_workspace_navigation_builds();
 
@@ -428,6 +429,7 @@ fn repeated_definitions_reuse_the_dependency_navigation_base() {
         assert!(result["structuredContent"]["definition"].is_object());
     }
 
+    assert_eq!(crate::language_resources::dependency_snapshot_captures(), 1);
     assert_eq!(crate::language_resources::dependency_navigation_builds(), 1);
     assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
 }

@@ -66,12 +66,11 @@ fn collect_references(
     let (line, column) = validate_reference_position(&captured, captured_source, request)?;
     let root = captured.project.root.clone();
     let workspace_key = captured.key;
-    let dependencies = language_resources.admit_dependencies(&captured.dependencies)?;
-    let snapshot = language_resources.with_dependency_navigation(
+    let snapshot = language_resources.navigation_snapshot(
         captured.project.files,
-        dependencies,
+        &captured.dependencies,
         workspace_key,
-    );
+    )?;
     Ok(navigate(
         snapshot.as_ref(),
         SourcePosition {
