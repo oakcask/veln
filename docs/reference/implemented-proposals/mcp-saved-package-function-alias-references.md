@@ -17,10 +17,10 @@ Completion evidence:
   and qualified function-value occurrences, standard-library public
   function-alias references for accepted bare implicit-prelude and
   `prelude::`-qualified occurrences, workspace `file:` result locations,
-  project-wide scope metadata, target-function separation, type-position
-  exclusion for qualified alias spellings, function-alias chain exclusion
-  through a non-exported package module, and dependency source resource
-  admission.
+  project-wide scope metadata, target-function separation, qualified alias
+  exclusion in type annotations and type arguments, function-alias chain
+  exclusion through a non-exported package module, and dependency source
+  resource admission.
 - `veln-language-service` tests check direct-dependency and standard-library
   public function-alias identity, qualified call and qualified function-value
   references, direct-dependency import-alias qualification, accepted bare
