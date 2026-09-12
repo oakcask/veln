@@ -149,6 +149,7 @@ byte(value: Int) -> Result<Byte, String>
 byte_to_int(value: Byte) -> Int
 byte_chunk(bytes: Vec<Byte>) -> ByteChunk
 byte_chunk_count(chunk: ByteChunk) -> ByteCount
+byte_chunk_len(chunk: ByteChunk) -> ByteCount
 byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 byte_chunk_from_hex(text: String) -> Result<ByteChunk, String>
 byte_chunk_to_visible_ascii_string(chunk: ByteChunk) -> Result<String, String>
@@ -158,6 +159,7 @@ byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
 byte_view_to_chunk(view: ByteView) -> ByteChunk
 byte_view_count(view: ByteView) -> ByteCount
+byte_view_len(view: ByteView) -> ByteCount
 byte_view_take(view: ByteView, count: ByteCount) -> Result<ByteView, String>
 byte_view_drop(view: ByteView, count: ByteCount) -> Result<ByteView, String>
 byte_view_slice(view: ByteView, offset: ByteCount, count: ByteCount) -> Result<ByteView, String>
@@ -278,6 +280,14 @@ runtime adapter signatures. Source code should apply schemas through explicit
 schema `decode` and `encode` expressions or through ordinary wrapper
 functions that call those expressions.
 
+`byte_chunk_len` and `byte_view_len` are public function aliases of
+`byte_chunk_count` and `byte_view_count`. The aliases preserve the target
+parameter type, `ByteCount` result type, and returned value. Bare calls,
+`prelude::`-qualified calls, and function-value uses resolve with the ordinary
+public function-alias rules. The executable prelude-helper case under
+`examples/specification/run/prelude-helpers/` covers empty and non-empty
+`ByteChunk` and `ByteView` inputs for both aliases and target functions.
+
 ### Value Semantics
 
 Container update helpers return new frozen values and do not mutate their input
@@ -320,9 +330,10 @@ fails. `int_to_string` renders an integer for display and string composition.
 `byte(value)` accepts integers from `0` through `255` and returns `Err(String)`
 for values outside that range.
 `byte_chunk(bytes)` returns an immutable owned
-chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the
-chunk length as `ByteCount`. `byte_append(left, right)` returns a new chunk
-with the left bytes followed by the right bytes. `byte_chunk_from_hex(text)`
+chunk containing the supplied bytes. `byte_chunk_count(chunk)` and
+`byte_chunk_len(chunk)` return the chunk length as `ByteCount`.
+`byte_append(left, right)` returns a new chunk with the left bytes followed by
+the right bytes. `byte_chunk_from_hex(text)`
 accepts only ASCII hex byte pairs with ASCII whitespace between complete bytes
 and returns `Ok(ByteChunk)` for the decoded bytes. It returns `Err(String)`
 with `fixture.hex.invalid_character` for non-hex text, prefixes, underscores,
@@ -355,7 +366,8 @@ an owned `ByteChunk`. The checked cases
 `../../examples/specification/run/binary-schema-byte-conversion-boundary/` and
 `../../examples/specification/run/binary-schema-byte-conversion-range-json/`
 cover the successful boundary and the requested-range failure.
-`byte_view_count(view)` returns the view length as `ByteCount`.
+`byte_view_count(view)` and `byte_view_len(view)` return the view length as
+`ByteCount`.
 `byte_view_take(view, count)`, `byte_view_drop(view, count)`, and
 `byte_view_slice(view, offset, count)` derive bounded immutable views within
 the supplied view and return `Err(String)` when the requested local range

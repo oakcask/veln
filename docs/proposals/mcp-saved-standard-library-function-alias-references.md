@@ -14,19 +14,11 @@ boundary.
 
 ## Readiness
 
-This proposal is blocked. The embedded standard library currently exports no
-public function alias, so a production MCP session has no standard-library
-alias that can demonstrate the success path. A test-only replacement package
-does not provide executable specification evidence for the shipped embedded
-standard library.
-
-Move this proposal to Ready only after a separately accepted standard-library
-API proposal introduces at least one meaningful exported public function alias
-and its checked bundle evidence. The ready
-[Standard-Library Byte Length Aliases](standard-library-byte-length-aliases.md)
-proposal owns that prerequisite. Complete and promote that API proposal before
-moving this navigation proposal to Ready. Do not add a placeholder
-standard-library API only to unblock this navigation proposal.
+This proposal is ready because the embedded standard library exports the
+public `std::prelude` byte-length function aliases recorded by
+[Standard-Library Byte Length Aliases](../reference/implemented-proposals/standard-library-byte-length-aliases.md).
+Those aliases provide a shipped success path for saved MCP standard-library
+alias references without using a test-only replacement package.
 
 ## Scope
 

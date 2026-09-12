@@ -1,4 +1,12 @@
 # Fallible traversal helpers stop at the first Err and keep successful values ordered.
+fn count_chunk_with(alias: fn(ByteChunk) -> ByteCount, chunk: ByteChunk) -> Int
+	byte_count_to_int(alias(chunk))
+end
+
+fn count_view_with(alias: fn(ByteView) -> ByteCount, view: ByteView) -> Int
+	byte_count_to_int(alias(view))
+end
+
 fn attach(context: String, value: Int) -> Result<{ prefix : String, value : Int }, String>
 	Ok({ prefix: context, value: value })
 end
@@ -14,15 +22,34 @@ fn add_value(total: Int, item: { prefix : String, value : Int }) -> Int
 	total + item.value
 end
 
-pub fn main() -> () effects [stdio]
+pub fn main() -> Result<(), String> effects [stdio]
+	let empty_chunk = byte_chunk_from_hex("")?
+	let chunk = byte_chunk_from_hex("010203")?
+	let empty_view = byte_view(chunk, byte_offset(1)?, byte_count(0)?)?
+	let view = byte_view(chunk, byte_offset(0)?, byte_count(2)?)?
+	let chunk_len: fn(ByteChunk) -> ByteCount = byte_chunk_len
+	let view_len: fn(ByteView) -> ByteCount = byte_view_len
 	let mapped: Result<Vec<{ prefix : String, value : Int }>, String> = vec_try_map_with("ctx", [1, 2], attach)
 	let stopped: Result<Vec<{ prefix : String, value : Int }>, String> = vec_try_map_with("ctx", [1, 2, 3], stop_at_two)
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_len(empty_chunk))))
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_len(chunk))))
+	stdio::println(int_to_string(byte_count_to_int(prelude::byte_chunk_len(empty_chunk))))
+	stdio::println(int_to_string(byte_count_to_int(prelude::byte_chunk_len(chunk))))
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	stdio::println(int_to_string(count_chunk_with(chunk_len, chunk)))
+	stdio::println(int_to_string(byte_count_to_int(byte_view_len(empty_view))))
+	stdio::println(int_to_string(byte_count_to_int(byte_view_len(view))))
+	stdio::println(int_to_string(byte_count_to_int(prelude::byte_view_len(empty_view))))
+	stdio::println(int_to_string(byte_count_to_int(prelude::byte_view_len(view))))
+	stdio::println(int_to_string(byte_count_to_int(byte_view_count(view))))
+	stdio::println(int_to_string(count_view_with(view_len, view)))
 	match mapped
-		Ok(items) => stdio::println(int_to_string(vec_fold(items, 0, add_value)))
-		Err(error) => stdio::println(error)
+		Ok(items) => Ok(stdio::println(int_to_string(vec_fold(items, 0, add_value))))
+		Err(error) => Ok(stdio::println(error))
 	end
 	match stopped
-		Ok(_) => stdio::println("unexpected")
-		Err(error) => stdio::println(error)
+		Ok(_) => Ok(stdio::println("unexpected"))
+		Err(error) => Ok(stdio::println(error))
 	end
+	Ok(())
 end

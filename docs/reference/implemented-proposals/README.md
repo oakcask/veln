@@ -154,6 +154,8 @@ under `../../specification/` and its executable example routes.
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Standard library package:
   [standard-library-package.md](standard-library-package.md).
+- Standard-library byte length aliases:
+  [standard-library-byte-length-aliases.md](standard-library-byte-length-aliases.md).
 - Path runtime representation:
   [path-runtime-representation.md](path-runtime-representation.md).
 - Iterative list helper runtime:
