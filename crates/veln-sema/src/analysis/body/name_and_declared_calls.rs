@@ -375,7 +375,10 @@ impl<'a> FunctionChecker<'a> {
                 .environment
                 .function_path(segments, self.function.module_name.as_deref()),
         };
-        function.is_some_and(|function| function.module_name.as_deref() == Some("std::prelude"))
+        function.is_some_and(|function| {
+            function.module_name.as_deref() == Some("std::prelude")
+                && crate::prelude::prelude_signature(&function.name, None).is_some()
+        })
     }
 
     pub(super) fn check_call_arguments(

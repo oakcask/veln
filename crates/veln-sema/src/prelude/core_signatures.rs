@@ -66,13 +66,8 @@ fn core_compiler_adapter_signature(
         .or_else(|| core_prelude_option_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_result_signature(descriptor.name, &expected))
         .or_else(|| compiler_adapter_core_callback_signature(descriptor))?;
-    let target_name = match descriptor.name {
-        "byte_chunk_len" => "byte_chunk_count",
-        "byte_view_len" => "byte_view_count",
-        name => name,
-    };
     Some((
-        CoreCallTarget::PreludeBuiltin(target_name.to_string()),
+        CoreCallTarget::PreludeBuiltin(descriptor.name.to_string()),
         signature.0,
         signature.1,
     ))

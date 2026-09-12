@@ -387,9 +387,10 @@ pub(super) fn collect_opaque_function_value_callees(
             callees,
             ReachableFunction {
                 kind: FunctionKind::Function,
-                name: target.name.clone(),
-                module_name: target.module_name.clone(),
-                node_id: None,
+                name: target.target_name.clone(),
+                module_name: target.target_module_name.clone(),
+                node_id: Some(target.target_node_id),
+                alias: target.alias.clone(),
             },
         );
     }

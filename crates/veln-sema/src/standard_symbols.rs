@@ -237,8 +237,6 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
     prelude_symbol_descriptor("float_less_equal"),
     prelude_symbol_descriptor("float_greater"),
     prelude_symbol_descriptor("float_greater_equal"),
-    prelude_symbol_descriptor("byte_chunk_len"),
-    prelude_symbol_descriptor("byte_view_len"),
 ];
 
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];

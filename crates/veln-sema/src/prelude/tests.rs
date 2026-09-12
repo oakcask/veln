@@ -17,35 +17,6 @@ fn prelude_signature_is_gated_by_standard_symbol_descriptor() {
 }
 
 #[test]
-fn byte_length_alias_signatures_match_count_helpers() {
-    for (count_name, alias_name, expected_param) in [
-        (
-            "byte_chunk_count",
-            "byte_chunk_len",
-            Type::named("ByteChunk", Vec::new()),
-        ),
-        (
-            "byte_view_count",
-            "byte_view_len",
-            Type::named("ByteView", Vec::new()),
-        ),
-    ] {
-        let count_signature =
-            prelude_signature(count_name, None).expect("byte count helper signature");
-        let alias_signature =
-            prelude_signature(alias_name, None).expect("byte length alias signature");
-
-        assert_eq!(alias_signature, count_signature, "{alias_name}");
-        assert_eq!(alias_signature.0, vec![expected_param], "{alias_name}");
-        assert_eq!(
-            alias_signature.1,
-            Type::named("ByteCount", Vec::new()),
-            "{alias_name}"
-        );
-    }
-}
-
-#[test]
 fn dictionary_prelude_signatures_are_first_order() {
     let expected_dict = Type::dict(Type::string(), Type::int());
     let expected_option = adt::option_type(Type::int());
