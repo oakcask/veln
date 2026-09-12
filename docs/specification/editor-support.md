@@ -389,9 +389,10 @@ their rename casing class. The executable
 `prelude`-qualified function and type paths. Standard-library package symbols
 return package definition locations, no prepare-rename range, and empty rename
 edits; their `prelude` module segment has no selected symbol.
-Supported standard-library public function aliases can still return workspace
-reference locations for selected-project uses through the shared navigation
-model. The executable
+Supported direct-dependency and standard-library public function aliases can
+still return workspace reference locations for selected-project uses through
+the shared navigation model. Public function-alias references use the alias
+identity, not the target function identity. The executable
 `identifier-casing-qualified-function-navigation` LSP example covers a
 module-only qualified public function imported from another workspace source
 across definition, references, prepare-rename, rename, invalid replacement
@@ -460,9 +461,10 @@ immutable locations:
 `textDocument/prepareRename` returns no range for them, and
 `textDocument/rename` returns no workspace edits for them. `textDocument/references`
 returns no package locations for dependency or standard-library declarations
-in this slice. Supported standard-library public function aliases return only
-selected-project workspace `file:` locations for references. Unsupported
-function-alias chains do not produce reference locations.
+in this slice. Supported direct-dependency and standard-library public
+function aliases return only selected-project workspace `file:` locations for
+references. Unsupported function-alias chains do not produce reference
+locations.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured
