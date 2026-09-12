@@ -297,6 +297,9 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
+        if selected_qualified_path_starts_in_type_position(tokens, token_index) {
+            return None;
+        }
         name.chars()
             .next()
             .is_some_and(|initial| initial.is_ascii_lowercase())
@@ -443,9 +446,13 @@ impl SymbolIndex {
             NameClass::Constructor => self
                 .qualified_call_symbol(file, tokens, token_index, name, SymbolIndex::constructor_symbol)
                 .map(Symbol::Constructor),
-            NameClass::Function | NameClass::ValueBinding => self
-                .qualified_call_symbol(file, tokens, token_index, name, SymbolIndex::function_symbol)
-                .map(Symbol::Function),
+            NameClass::Function | NameClass::ValueBinding
+                if !selected_qualified_path_starts_in_type_position(tokens, token_index) =>
+            {
+                self.qualified_call_symbol(file, tokens, token_index, name, SymbolIndex::function_symbol)
+                    .map(Symbol::Function)
+            }
+            NameClass::Function | NameClass::ValueBinding => None,
             _ => None,
         }
     }
@@ -605,4 +612,16 @@ impl SymbolIndex {
                 && offset < symbol.scope_end
         })
     }
+}
+
+fn selected_qualified_path_starts_in_type_position(tokens: &[Token], leaf_index: usize) -> bool {
+    let mut start = leaf_index;
+    while start >= 2
+        && tokens[start - 1].kind == TokenKind::DoubleColon
+        && tokens[start - 2].kind == TokenKind::Ident
+    {
+        start -= 2;
+    }
+    previous_non_layout_token(tokens, start)
+        .is_some_and(|previous| matches!(previous.kind, TokenKind::Colon | TokenKind::Arrow))
 }

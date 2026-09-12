@@ -180,7 +180,7 @@
         let dependency = dependency_snapshot(
             "example/pkg",
             &[(
-                "math.veln",
+                "lib/math.veln",
                 concat!(
                     "pub fn target(value: Int) -> Int\n",
                     "  value + 1\n",
@@ -188,14 +188,14 @@
                     "pub fn renamed = target\n",
                 ),
             )],
-            ["math.veln"],
+            ["lib/math.veln"],
         );
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![
                 source(
                     "main.veln",
                     concat!(
-                        "use math from \"example/pkg\"\n\n",
+                        "use lib::math from \"example/pkg\"\n\n",
                         "pub fn first(value: Int) -> Int\n",
                         "  math::renamed(value)\n",
                         "end\n\n",
@@ -203,6 +203,9 @@
                         "  let callback: fn(Int) -> Int = math::renamed\n",
                         "  let renamed = record.renamed\n",
                         "  callback(math::renamed(value)) + math::target(value) + renamed\n",
+                        "end\n\n",
+                        "pub fn type_collision(value: math::renamed) -> Int\n",
+                        "  math::renamed(1)\n",
                         "end\n\n",
                         "# renamed mention\n",
                         "pub fn renamed(value: Int) -> Int\n",
@@ -213,7 +216,7 @@
                 source(
                     "other.veln",
                     concat!(
-                        "use math from \"example/pkg\"\n\n",
+                        "use lib::math from \"example/pkg\"\n\n",
                         "pub fn other(value: Int) -> Int\n",
                         "  math::renamed(value)\n",
                         "end\n",
@@ -236,7 +239,7 @@
                 result.selected_symbol.package_origin,
                 Some(PackageOrigin::DirectDependency)
             );
-            assert_eq!(result.definition.span.file.as_str(), "math.veln");
+            assert_eq!(result.definition.span.file.as_str(), "lib/math.veln");
             assert_eq!(
                 (
                     result.definition.span.start.line,
@@ -254,10 +257,14 @@
                     ("main.veln", 4, 9),
                     ("main.veln", 8, 40),
                     ("main.veln", 10, 18),
+                    ("main.veln", 14, 9),
                     ("other.veln", 4, 9),
                 ]
             );
         }
+
+        let type_collision = query_snapshot(&snapshot, "main.veln", 13, 35);
+        assert!(type_collision.is_none_or(|result| result.references.is_empty()));
 
         let target = query_snapshot(&snapshot, "main.veln", 10, 42).unwrap();
         assert_eq!(
@@ -942,6 +949,9 @@
                 "end\n\n",
                 "pub fn second() -> fn(Int) -> Int\n",
                 "  prelude::renamed\n",
+                "end\n\n",
+                "pub fn type_collision(value: prelude::renamed) -> Int\n",
+                "  prelude::renamed(1)\n",
                 "end\n",
             ),
         )])
@@ -961,9 +971,16 @@
             );
             assert_eq!(
                 locations(&result.references),
-                [("main.veln", 2, 3), ("main.veln", 10, 12)]
+                [
+                    ("main.veln", 2, 3),
+                    ("main.veln", 10, 12),
+                    ("main.veln", 14, 12),
+                ]
             );
         }
+
+        let type_collision = query_snapshot(&snapshot, "main.veln", 13, 38);
+        assert!(type_collision.is_none_or(|result| result.references.is_empty()));
 
         let target = query_snapshot(&snapshot, "main.veln", 6, 4).unwrap();
         assert_eq!(
@@ -971,4 +988,29 @@
             SymbolDeclarationKind::Declaration
         );
         assert_eq!(locations(&target.references), [("main.veln", 6, 3)]);
+    }
+
+    #[test]
+    fn standard_library_function_alias_chain_selection_is_empty() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                concat!(
+                    "pub fn target(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                    "pub fn chain = renamed\n",
+                ),
+            )],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "pub fn main() -> Int\n  chain(1)\nend\n",
+        )])
+        .with_standard_library(standard_library);
+
+        let result = query_snapshot(&snapshot, "main.veln", 2, 4);
+        assert!(result.is_none_or(|result| result.references.is_empty()));
     }

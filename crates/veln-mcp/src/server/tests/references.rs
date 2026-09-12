@@ -1251,6 +1251,10 @@ fn references_return_package_function_alias_locations() {
             "pub fn callback() -> fn() -> Int\n",
             "  dep::renamed\n",
             "end\n",
+            "\n",
+            "pub fn type_collision(value: dep::renamed) -> Int\n",
+            "  dep::renamed()\n",
+            "end\n",
             "\n# renamed mention\n",
             "pub fn renamed(record: {renamed: Int}) -> Int\n",
             "  let renamed = record.renamed\n",
@@ -1297,6 +1301,7 @@ fn references_return_package_function_alias_locations() {
         &[
             ("main.veln", 4, 8, 4, 15),
             ("main.veln", 9, 8, 9, 15),
+            ("main.veln", 13, 8, 13, 15),
             ("other.veln", 4, 8, 4, 15),
         ],
         "direct dependency function alias",
@@ -1326,6 +1331,10 @@ fn references_return_package_function_alias_locations() {
             "pub fn target(chunk: ByteChunk) -> ByteCount\n",
             "  byte_chunk_count(chunk)\n",
             "end\n",
+            "\n",
+            "pub fn type_collision(chunk: prelude::byte_chunk_len) -> ByteCount\n",
+            "  prelude::byte_chunk_len(chunk)\n",
+            "end\n",
         ),
     );
     std_workspace.write(
@@ -1350,6 +1359,7 @@ fn references_return_package_function_alias_locations() {
         &[
             ("main.veln", 4, 3, 4, 17),
             ("main.veln", 8, 12, 8, 26),
+            ("main.veln", 16, 12, 16, 26),
             ("other.veln", 4, 12, 4, 26),
         ],
         "standard library function alias",
@@ -1365,6 +1375,14 @@ fn references_return_package_function_alias_locations() {
         &std_target_references,
         &[("main.veln", 12, 3, 12, 19)],
         "standard library alias target separation",
+    );
+
+    let std_type_collision =
+        std_server.references_tool(&json!({"source":"main.veln","line":15,"column":41}));
+    assert_eq!(
+        std_type_collision["structuredContent"]["references"],
+        json!([]),
+        "{std_type_collision:#}"
     );
 }
 
@@ -3049,14 +3067,14 @@ fn references_project_capture_exhausts_retries_for_standard_library_selection() 
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "use math from \"std\"\n\nfn main() -> Int\n  math::value()\nend\n",
+        "use math from \"std\"\n\nfn main() -> Int\n  math::renamed()\nend\n",
     );
     let mut server = initialized_server(&workspace);
     server.language_resources.replace_test_standard_library(
         "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
         [PackageSnapshotSource::new(
             "math.veln",
-            b"pub fn value() -> Int\n  1\nend\n",
+            b"pub fn value() -> Int\n  1\nend\n\npub fn renamed = value\n",
         )],
     );
     let before_resources = all_resource_state(&mut server);
@@ -3072,7 +3090,9 @@ fn references_project_capture_exhausts_retries_for_standard_library_selection() 
         let value = if attempt % 2 == 0 { 1 } else { 2 };
         fs::write(
             &source,
-            format!("use math from \"std\"\n\nfn main() -> Int\n  math::value() + {value}\nend\n"),
+            format!(
+                "use math from \"std\"\n\nfn main() -> Int\n  math::renamed() + {value}\nend\n"
+            ),
         )
         .unwrap();
     });
@@ -3083,6 +3103,26 @@ fn references_project_capture_exhausts_retries_for_standard_library_selection() 
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
+}
+
+#[test]
+fn references_return_empty_for_standard_library_function_alias_chain() {
+    let workspace = TempWorkspace::new("references-standard-library-alias-chain");
+    workspace.write("veln.toml", "");
+    workspace.write("main.veln", "fn main() -> Int\n  chain()\nend\n");
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub fn value() -> Int\n  1\nend\n\npub fn renamed = value\npub fn chain = renamed\n",
+        )],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
 }
 
 #[test]

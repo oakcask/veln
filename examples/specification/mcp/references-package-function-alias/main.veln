@@ -15,3 +15,7 @@ end
 pub fn chain_call() -> Int
   dep::chain()
 end
+
+pub fn type_collision(value: dep::renamed) -> Int
+  dep::renamed()
+end
