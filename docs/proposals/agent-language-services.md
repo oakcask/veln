@@ -17,32 +17,31 @@ The workspace-project inventory, saved project diagnostics, bounded
 workspace-definition, saved workspace symbol-reference, resource publication,
 language-reference search, package documentation tool, package definition
 navigation, direct-dependency function-reference, standard-library
-function-reference, standard-library function-alias-reference, and package
-type-reference slices are implemented and
+function-reference, direct-dependency function-alias-reference,
+standard-library function-alias-reference, and package type-reference slices
+are implemented and
 specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol, workspace schema operation, direct-dependency function,
-standard-library function and function alias, and package type and constructor
-`references`, `search_docs`, and `read_doc`.
+direct-dependency function alias, standard-library function and function
+alias, and package type and constructor `references`, `search_docs`, and
+`read_doc`.
 Broader definition navigation, package reference navigation beyond the
-implemented function, type, and constructor slices, paginated references,
-recovery and casing-neutral reference navigation, workspace schema references
-beyond the extracted slice, conformance completion, and client plugin work in
-this proposal remain planned.
+implemented function, function-alias, type, and constructor slices, paginated
+references, recovery and casing-neutral reference navigation, workspace schema
+references beyond the extracted slice, conformance completion, and client
+plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency and
-  standard-library functions, types, and constructors; the direct-dependency
-  public function-alias reference boundary is recorded as
-  [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md),
-  the standard-library public function-alias reference boundary is recorded as
-  [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md),
-  and paginated reference lookup;
+  standard-library functions, function aliases, types, and constructors,
+  including public type-alias and public schema-alias references, plus
+  paginated reference lookup;
 - workspace schema reference lookup beyond the implemented `decode` and
   `encode` slice recorded as
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md);
@@ -109,6 +108,18 @@ The bounded workspace symbol-reference slice is implemented and recorded by
 The bounded direct-dependency function-reference slice is implemented and
 recorded by
 [MCP Saved Dependency Function References](../reference/implemented-proposals/mcp-saved-dependency-function-references.md).
+
+### Implemented Dependency Function-Alias Reference Slice
+
+The bounded direct-dependency public function-alias reference slice is
+implemented and recorded by
+[MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
+
+### Implemented Standard-Library Function-Alias Reference Slice
+
+The bounded standard-library public function-alias reference slice is
+implemented and recorded by
+[MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md).
 
 ### Implemented Package Constructor-Reference Slice
 

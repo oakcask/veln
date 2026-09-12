@@ -682,6 +682,9 @@ Implemented:
 - Stdio definition responses for implicit prelude functions and public
   functions in explicitly imported exported `std` sources, with exact
   `veln/virtualDocument` reads from the embedded standard snapshot.
+- Stdio references responses for supported direct-dependency and
+  standard-library public function aliases. Results include only
+  selected-project workspace `file:` locations.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -695,7 +698,9 @@ Not implemented:
 
 - LSP range and delta semantic token requests.
 - Completion and hover.
-- Dependency reference search.
+- Dependency reference search outside the implemented direct-dependency and
+  standard-library public function, public function-alias, public type, and
+  public constructor reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, and embedded
