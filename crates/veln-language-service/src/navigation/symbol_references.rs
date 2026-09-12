@@ -473,6 +473,19 @@ fn is_qualified_function_value_token(tokens: &[Token], token_index: usize) -> bo
         .is_some_and(|previous| previous.kind == TokenKind::DoubleColon)
         && next_non_layout_token(tokens, token_index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon && next.kind != TokenKind::LParen)
+        && !qualified_path_starts_in_type_position(tokens, token_index)
+}
+
+fn qualified_path_starts_in_type_position(tokens: &[Token], leaf_index: usize) -> bool {
+    let mut start = leaf_index;
+    while start >= 2
+        && tokens[start - 1].kind == TokenKind::DoubleColon
+        && tokens[start - 2].kind == TokenKind::Ident
+    {
+        start -= 2;
+    }
+    previous_non_layout_token(tokens, start)
+        .is_some_and(|previous| matches!(previous.kind, TokenKind::Colon | TokenKind::Arrow))
 }
 
 fn same_recovery_symbol(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {

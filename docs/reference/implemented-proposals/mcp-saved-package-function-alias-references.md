@@ -17,22 +17,25 @@ Completion evidence:
   and qualified function-value occurrences, standard-library public
   function-alias references for accepted bare implicit-prelude and
   `prelude::`-qualified occurrences, workspace `file:` result locations,
-  project-wide scope metadata, target-function separation, function-alias chain
-  exclusion through a non-exported package module, and dependency source
-  resource admission.
+  project-wide scope metadata, target-function separation, type-position
+  exclusion for qualified alias spellings, function-alias chain exclusion
+  through a non-exported package module, and dependency source resource
+  admission.
 - `veln-language-service` tests check direct-dependency and standard-library
   public function-alias identity, qualified call and qualified function-value
-  references, accepted bare implicit-prelude forms, target-function
-  separation, collision exclusion, private and non-exported visibility,
-  invalid-cased alias exclusion, unsupported type and schema alias selections,
-  same-module and non-exported-module alias-chain exclusion, package source
-  exclusion, and selected-project source boundaries.
+  references, direct-dependency import-alias qualification, accepted bare
+  implicit-prelude forms, target-function separation, value-namespace
+  collision exclusion, private and non-exported visibility, invalid-cased alias
+  exclusion, unsupported type and schema alias selections, same-module and
+  non-exported-module alias-chain exclusion, package source exclusion, and
+  selected-project source boundaries.
 - `veln-mcp` server tests check saved direct-dependency and standard-library
-  adapter behavior, collision and visibility exclusions, source isolation,
-  anonymous and descendant-manifest single-file scope for package alias
-  selections outside the selected project, retry exhaustion without
-  success-only reference or scope fields, and state preservation without
-  partial package resource admission.
+  adapter behavior, collision and visibility exclusions, standard-library
+  function-alias chain empty results, source isolation, anonymous and
+  descendant-manifest single-file scope for package alias selections outside
+  the selected project, retry exhaustion without success-only reference or
+  scope fields for dependency and standard-library alias selections, and state
+  preservation without partial package resource admission.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
 locations, public type-alias references, public schema-alias references,

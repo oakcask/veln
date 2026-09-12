@@ -39,9 +39,9 @@ The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency and
-  standard-library functions, types, constructors, and direct-dependency
-  public function aliases; the package public function-alias
-  reference boundary is recorded as
+  standard-library functions, public function aliases, types, and
+  constructors; the package public function-alias reference boundary is
+  recorded as
   [MCP Saved Package Function-Alias References](../reference/implemented-proposals/mcp-saved-package-function-alias-references.md),
   and paginated reference lookup;
 - workspace schema reference lookup beyond the implemented `decode` and
@@ -912,7 +912,7 @@ The resolved-decision evidence groups are:
 | Q02 descendant ownership | Implemented for workspace `definition` project inference and unselected descendant single-file isolation; outer-reference coverage remains planned. |
 | Q03 rediscovery | Manifest add, remove, and rename before and after refresh; atomic refresh failure; cursor invalidation; resource survival. |
 | Q04 filesystem identity | Symbolic base, internal and external directory links, file links, missing leaves, alias URI equality, and link replacement. |
-| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt, saved workspace symbol `references` stable-capture failure without partial reference locations, and direct-dependency and standard-library function and type `references` stable-capture failure without partial reference locations or partial package resource admission. Package symbol classes beyond functions and types plus paginated reference capture remain planned. |
+| Q05 stable capture | Implemented for `check_project` manifest, source, owned path-set changes, readable dependency input changes and reuse across path, vendor, mirror, and locally materialized git sources, bounded retry, no partial publication, pre-refresh selection preservation, anonymous single-file isolation, anonymous base symlink and regular-directory replacement, selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed saved snapshot capture, workspace `definition` capture that compares project ownership and anonymous fallback in one stable attempt, saved workspace symbol `references` stable-capture failure without partial reference locations, and direct-dependency and standard-library function, public function-alias, type, and constructor `references` stable-capture failure without partial reference locations or partial package resource admission. Remaining package symbol classes plus paginated reference capture remain planned. |
 | Q06 schemas and errors | Implemented for workspace inventory, resources, `check_project`, `definition`, saved workspace symbol `references`, package-documentation `search_docs` and `read_doc`, schema freshness, nullable field rejection, unknown fields including related-note fields, exact non-integer coordinate rejection, stable domain codes, protocol mapping, and advertised success and domain-failure result acceptance. Reference pagination, broader definition and reference coverage, and conformance schemas remain planned. |
 | Q07 coordinates | Empty, LF, CRLF, terminal newline, non-BMP scalar, end positions, token-end exclusion, all LSP encodings, and normalized cross-adapter pages. |
 | Q08 reference universe | Project, other-project exclusion, dependency consumer and declaration behavior, dependency-as-project behavior, and visibly single-file anonymous results. |
@@ -963,12 +963,12 @@ remain planned and do not imply that the behavior is already implemented.
 | Start `veln mcp` in a one-package project. | The package is selected as `.`. | Implemented `veln-mcp` selection table tests. |
 | Start above two package branches and complete the inventory lifecycle. | Both first manifest roots are listed after initialization. The server rejects inventory requests before initialization and rejects a second valid initialization. `check_project` reports ambiguity when its project input is omitted. | Implemented MCP workspace lifecycle case for inventory and initialization phase boundaries; implemented `veln-mcp` multi-project ambiguity test. |
 | Start where no manifest exists. | The base is selected as one anonymous project. `check_project` requires `project: "."` and `source`, and analyzes exactly that source until refresh even if a manifest or companion target appears later. | Implemented MCP anonymous single-file executable case plus `veln-mcp` selection table, pre-refresh manifest addition, and companion-shaped source tests. |
-| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation and saved workspace symbol `references` single-file scope outside selected projects. Implemented direct-dependency and standard-library function and type reference rows keep their selected-project boundary; descendant pagination and package symbol classes beyond functions and types remain planned. |
+| Navigate below an unselected descendant manifest. | The outer project does not own the source; navigation reports single-file scope without outer-project references. | Implemented MCP definition descendant-boundary isolation and saved workspace symbol `references` single-file scope outside selected projects. Implemented direct-dependency and standard-library function, public function-alias, type, and constructor reference rows keep their selected-project boundary; descendant pagination and remaining package symbol classes remain planned. |
 | Add, remove, or rename a manifest. | Selection is unchanged until `refresh_workspace`; a successful refresh replaces it atomically. Cursor staleness remains planned. | Implemented `veln-mcp` refresh transition tests; planned Q03 cursor cases. |
 | Start through a symbolic base alias. | The alias is accepted once and returned `file:` URIs use the resolved identity spelling. | Implemented MCP definition canonical resolved-base URI case; broader Q04 symbolic-base cases remain planned. |
 | Supply a path containing a directory or file symbolic link. | The path is rejected without following the link. | Implemented `veln-mcp` no-follow source-path test; broader Q04 navigation cases remain planned. |
 | Supply an absolute path or escaping relative path. | The tool rejects the input before reading the target. | Implemented `veln-mcp` path-boundary source tests. |
-| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; implemented saved workspace symbol, direct-dependency function, standard-library function, package type, and package constructor `references` stable-capture failure without partial reference locations or partial package resource admission. Paginated reference navigation captures remain planned. |
+| Change a selected root identity, anonymous base identity, manifest, source, dependency input, or file set during capture. | The complete capture retries at most three times, then returns `snapshot_changed` without partial publication. | Implemented `veln-mcp` stable-capture retry tests for `check_project`, including anonymous base and selected-root symlink and regular-directory replacement, nested regular manifest marker boundaries, symlinked nested manifest marker exclusion, project-local source symlink exclusion, non-Linux fail-closed capture, and dependency snapshot changes; implemented workspace `definition` navigation capture coverage for descendant boundary changes during anonymous fallback; implemented saved workspace symbol, direct-dependency function, standard-library function, package public function-alias, package type, and package constructor `references` stable-capture failure without partial reference locations or partial package resource admission. Paginated reference navigation captures remain planned. |
 | List projects or send malformed inventory-tool input. | Roots use `.` or relative `/` spelling; checked schemas reject unknown fields and invalid shapes as protocol errors. | Implemented MCP workspace lifecycle, `definition`, and saved workspace symbol `references` schema tests; broader Q06 cases remain planned. |
 | Discover a manifest root whose relative spelling is not representable as UTF-8. | Discovery fails instead of returning a lossy project root. A refresh reports `generation_failed` and preserves the previous roots and generation. | Implemented `veln-mcp` unrepresentable-root discovery and refresh tests. |
 | Client roots are absent, unrelated, or nested. | Project selection is unchanged. | Implemented `veln-mcp` client-root invariance tests. |
@@ -1072,9 +1072,10 @@ unique selector and `subdir` validation, snapshot-URI independence from
 physical materialization paths, and retained exact-byte reads.
 This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
-also implements saved direct-dependency and standard-library function, type,
-and constructor reference search. It does not implement schema, public-alias,
-transitive-dependency, or paginated reference search.
+also implements saved direct-dependency and standard-library function, public
+function-alias, type, and constructor reference search. It does not implement
+schema, other public-alias classes, transitive-dependency, or paginated
+reference search.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
@@ -1090,9 +1091,10 @@ Package constructor-symbol reference search is recorded by
 Workspace schema-reference search for `decode` and `encode` expressions is
 recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-Package reference search beyond function, type, and constructor declarations,
-paginated references, recovery references, and other casing-neutral references
-remain planned here.
+Package reference search beyond function declarations, public function
+aliases, type declarations, and constructor declarations, plus paginated
+references, recovery references, and other casing-neutral references remain
+planned here.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by

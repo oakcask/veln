@@ -15,7 +15,7 @@ format = "empty"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references"
-length = 3
+length = 4
 
 [[mcp_assert]]
 id = 2
@@ -40,11 +40,21 @@ equals = {"start":{"line":8,"column":8},"end":{"line":8,"column":15}}
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/2/uri"
-workspace_file_uri = "other.veln"
+workspace_file_uri = "main.veln"
 
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":20,"column":8},"end":{"line":20,"column":15}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/3/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/3/range"
 equals = {"start":{"line":4,"column":8},"end":{"line":4,"column":15}}
 
 [[mcp_assert]]
@@ -54,7 +64,7 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 
 [[mcp_assert]]
 id = 2
-path = "/result/structuredContent/references/2/uri"
+path = "/result/structuredContent/references/3/uri"
 workspace_file_uri = "other.veln"
 
 [[mcp_assert]]
@@ -65,7 +75,7 @@ equals = false
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references"
-length = 3
+length = 4
 
 [[mcp_assert]]
 id = 4
@@ -90,7 +100,7 @@ equals = false
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/references"
-length = 3
+length = 4
 
 [[mcp_assert]]
 id = 6
@@ -115,11 +125,21 @@ equals = {"start":{"line":8,"column":12},"end":{"line":8,"column":26}}
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/references/2/uri"
-workspace_file_uri = "std_other.veln"
+workspace_file_uri = "std_alias.veln"
 
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":20,"column":12},"end":{"line":20,"column":26}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/3/uri"
+workspace_file_uri = "std_other.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/3/range"
 equals = {"start":{"line":4,"column":12},"end":{"line":4,"column":26}}
 
 [[mcp_assert]]
@@ -159,5 +179,25 @@ equals = {"start":{"line":16,"column":3},"end":{"line":16,"column":17}}
 
 [[mcp_assert]]
 id = 8
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 10
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 11
 path = "/result/isError"
 equals = false

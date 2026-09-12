@@ -15,3 +15,7 @@ end
 pub fn local_collision(byte_chunk_len: Int) -> Int
   byte_chunk_len
 end
+
+pub fn type_collision(chunk: prelude::byte_chunk_len) -> ByteCount
+  prelude::byte_chunk_len(chunk)
+end
