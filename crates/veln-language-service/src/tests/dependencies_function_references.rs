@@ -449,6 +449,254 @@
     }
 
     #[test]
+    fn standard_library_function_alias_references_keep_identity_and_project_boundaries() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "api.veln",
+                    concat!(
+                        "pub fn target(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n\n",
+                        "pub fn renamed = target\n",
+                    ),
+                ),
+                (
+                    "other_function.veln",
+                    "pub fn renamed(value: Int) -> Int\n  value + 1\nend\n",
+                ),
+                (
+                    "other_alias.veln",
+                    concat!(
+                        "pub fn target(value: Int) -> Int\n",
+                        "  value + 2\n",
+                        "end\n\n",
+                        "pub fn renamed = target\n",
+                    ),
+                ),
+                (
+                    "private_alias.veln",
+                    concat!(
+                        "pub fn target(value: Int) -> Int\n",
+                        "  value + 5\n",
+                        "end\n\n",
+                        "fn renamed = target\n",
+                    ),
+                ),
+                (
+                    "hidden_alias.veln",
+                    concat!(
+                        "pub fn target(value: Int) -> Int\n",
+                        "  value + 6\n",
+                        "end\n\n",
+                        "pub fn renamed = target\n",
+                    ),
+                ),
+            ],
+            [
+                "api.veln",
+                "other_function.veln",
+                "other_alias.veln",
+                "private_alias.veln",
+            ],
+        );
+        let dependency_function = dependency_snapshot(
+            "example/functions",
+            &[(
+                "dep_function.veln",
+                concat!(
+                    "use api from \"std\"\n\n",
+                    "pub fn outside_project(value: Int) -> Int\n",
+                    "  api::renamed(value)\n",
+                    "end\n\n",
+                    "pub fn renamed(value: Int) -> Int\n",
+                    "  value + 3\n",
+                    "end\n",
+                ),
+            )],
+            ["dep_function.veln"],
+        );
+        let dependency_alias = dependency_snapshot(
+            "example/aliases",
+            &[(
+                "dep_alias.veln",
+                concat!(
+                    "pub fn target(value: Int) -> Int\n",
+                    "  value + 4\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["dep_alias.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use api from \"std\"\n",
+                        "use other_function from \"std\"\n",
+                        "use other_alias from \"std\"\n",
+                        "use private_alias from \"std\"\n",
+                        "use hidden_alias from \"std\"\n",
+                        "use dep_function from \"example/functions\"\n",
+                        "use dep_alias from \"example/aliases\"\n\n",
+                        "pub fn renamed(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n\n",
+                        "pub fn main(value: Int) -> Int\n",
+                        "  api::renamed(value)\n",
+                        "  other_function::renamed(value)\n",
+                        "  other_alias::renamed(value)\n",
+                        "  private_alias::renamed(value)\n",
+                        "  hidden_alias::renamed(value)\n",
+                        "  dep_function::renamed(value)\n",
+                        "  dep_alias::renamed(value)\n",
+                        "  renamed(value)\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use api from \"std\"\n\n",
+                        "pub fn other(value: Int) -> Int\n",
+                        "  api::renamed(value)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_function, dependency_alias],
+        )
+        .with_standard_library(standard_library);
+
+        let result = query_snapshot(&snapshot, "main.veln", 14, 9).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+        assert_eq!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 14, 8), ("other.veln", 4, 8)]
+        );
+
+        for (case, line, column, origin, declaration_kind, references) in [
+            (
+                "standard library function",
+                15,
+                21,
+                Some(PackageOrigin::StandardLibrary),
+                SymbolDeclarationKind::Declaration,
+                vec![("main.veln", 15, 19)],
+            ),
+            (
+                "standard library alias with another target",
+                16,
+                18,
+                Some(PackageOrigin::StandardLibrary),
+                SymbolDeclarationKind::PublicAlias,
+                vec![("main.veln", 16, 16)],
+            ),
+            (
+                "direct dependency function",
+                19,
+                18,
+                Some(PackageOrigin::DirectDependency),
+                SymbolDeclarationKind::Declaration,
+                vec![("main.veln", 19, 17)],
+            ),
+            (
+                "direct dependency alias",
+                20,
+                15,
+                Some(PackageOrigin::DirectDependency),
+                SymbolDeclarationKind::PublicAlias,
+                Vec::new(),
+            ),
+            (
+                "workspace function",
+                21,
+                4,
+                None,
+                SymbolDeclarationKind::Declaration,
+                vec![("main.veln", 21, 3)],
+            ),
+        ] {
+            let collision = query_snapshot(&snapshot, "main.veln", line, column)
+                .unwrap_or_else(|| panic!("did not select {case}"));
+            assert_eq!(collision.selected_symbol.kind, SymbolKind::Function, "{case}");
+            assert_eq!(collision.selected_symbol.package_origin, origin, "{case}");
+            assert_eq!(
+                collision.selected_symbol.declaration_kind, declaration_kind,
+                "{case}"
+            );
+            assert_eq!(locations(&collision.references), references, "{case}");
+        }
+
+        for (case, line, column) in [
+            ("private standard library alias", 17, 18),
+            ("non-exported standard library alias", 18, 17),
+        ] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "selected {case}"
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_function_alias_selection_requires_public_exported_alias() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "api.veln",
+                    concat!(
+                        "pub fn target(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n\n",
+                        "fn private_alias = target\n",
+                    ),
+                ),
+                (
+                    "hidden.veln",
+                    concat!(
+                        "pub fn target(value: Int) -> Int\n",
+                        "  value\n",
+                        "end\n\n",
+                        "pub fn hidden_alias = target\n",
+                    ),
+                ),
+            ],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use api from \"std\"\n",
+                "use hidden from \"std\"\n\n",
+                "pub fn main(value: Int) -> Int\n",
+                "  api::private_alias(value)\n",
+                "  hidden::hidden_alias(value)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        for (case, line, column) in [("private alias", 5, 9), ("non-exported alias", 6, 12)] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "selected {case}"
+            );
+        }
+    }
+
+    #[test]
     fn standard_library_prelude_function_alias_references_cover_implicit_forms_and_shadowing() {
         let standard_library = standard_library_snapshot(
             &[(
