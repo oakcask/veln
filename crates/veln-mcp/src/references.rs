@@ -95,7 +95,10 @@ fn supported_reference_symbol(result: &NavigationResult) -> bool {
             matches!(
                 result.selected_symbol.kind,
                 SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor
-            ) && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
+            ) && (result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
+                || (result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
+                    && result.selected_symbol.package_origin
+                        == Some(PackageOrigin::StandardLibrary)))
                 && matches!(
                     result.selected_symbol.package_origin,
                     Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)

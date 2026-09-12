@@ -132,6 +132,8 @@ under `../../specification/` and its executable example routes.
   [mcp-saved-dependency-function-references.md](mcp-saved-dependency-function-references.md).
 - MCP saved standard-library function references:
   [mcp-saved-standard-library-function-references.md](mcp-saved-standard-library-function-references.md).
+- MCP saved standard-library function-alias references:
+  [mcp-saved-standard-library-function-alias-references.md](mcp-saved-standard-library-function-alias-references.md).
 - MCP language-reference resources:
   [mcp-language-reference-resources.md](mcp-language-reference-resources.md).
 - MCP language-reference tools:

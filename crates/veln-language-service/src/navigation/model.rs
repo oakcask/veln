@@ -369,6 +369,8 @@ fn sort_locations(locations: &mut Vec<SourceSpan>) {
 struct FunctionSymbol {
     module: String,
     name: String,
+    alias_target_module: Option<String>,
+    alias_target_name: Option<String>,
     declaration: NavigationLocation,
     package: Option<String>,
     package_origin: Option<PackageOrigin>,

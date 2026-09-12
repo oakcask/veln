@@ -20,6 +20,8 @@ fn same_function(left: &FunctionSymbol, right: &FunctionSymbol) -> bool {
         && left.package_origin == right.package_origin
         && left.declaration_kind == right.declaration_kind
         && left.standard_prelude == right.standard_prelude
+        && left.alias_target_module == right.alias_target_module
+        && left.alias_target_name == right.alias_target_name
         && left.declaration == right.declaration
 }
 
@@ -247,6 +249,13 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             } else {
                 SymbolDeclarationKind::Declaration
             };
+            let (alias_target_module, alias_target_name) = if is_public_alias {
+                function_alias_target(tokens, name_index)
+                    .map(|(module, name)| (module, Some(name)))
+                    .unwrap_or((None, None))
+            } else {
+                (None, None)
+            };
             let (declaration, package, package_origin, standard_prelude) = match &file.origin {
                 IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
                 IndexedOrigin::Package {
@@ -276,6 +285,8 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             functions.push(FunctionSymbol {
                 module: file.module.clone(),
                 name: name.text.clone(),
+                alias_target_module,
+                alias_target_name,
                 declaration,
                 package,
                 package_origin,
@@ -286,6 +297,38 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
         }
     }
     functions
+}
+
+fn function_alias_target(
+    tokens: &[Token],
+    alias_name_index: usize,
+) -> Option<(Option<String>, String)> {
+    let equal = next_non_layout_token(tokens, alias_name_index)?;
+    if equal.kind != TokenKind::Equal {
+        return None;
+    }
+    let mut index = tokens
+        .iter()
+        .position(|token| token.range.start == equal.range.start)?;
+    let mut segments = Vec::new();
+    loop {
+        index = next_non_layout_index(tokens, index)?;
+        let token = tokens.get(index)?;
+        if token.kind != TokenKind::Ident {
+            break;
+        }
+        segments.push(token.text.clone());
+        let Some(next) = next_non_layout_index(tokens, index) else {
+            break;
+        };
+        if tokens.get(next).is_none_or(|token| token.kind != TokenKind::DoubleColon) {
+            break;
+        }
+        index = next;
+    }
+    let name = segments.pop()?;
+    let module = (!segments.is_empty()).then(|| segments.join("::"));
+    Some((module, name))
 }
 
 fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol> {

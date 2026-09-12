@@ -392,7 +392,64 @@
     }
 
     #[test]
-    fn standard_library_public_function_alias_definition_has_no_references() {
+    fn explicit_standard_library_function_alias_references_cover_qualified_calls_and_values() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "api.veln",
+                concat!(
+                    "pub fn target(value: Int) -> Int\n",
+                    "  value\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                ),
+            )],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use api from \"std\"\n\n",
+                "pub fn first(value: Int) -> Int\n",
+                "  api::renamed(value)\n",
+                "end\n\n",
+                "pub fn second(value: Int) -> Int\n",
+                "  let callback: fn(Int) -> Int = api::renamed\n",
+                "  callback(api::renamed(value)) + api::target(value)\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        for (line, column) in [(4, 9), (8, 40), (9, 18)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(result.definition.span.file.as_str(), "api.veln");
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 4, 8),
+                    ("main.veln", 8, 39),
+                    ("main.veln", 9, 17),
+                ]
+            );
+        }
+
+        let target = query_snapshot(&snapshot, "main.veln", 9, 40).unwrap();
+        assert_eq!(target.selected_symbol.declaration_kind, SymbolDeclarationKind::Declaration);
+        assert_eq!(locations(&target.references), [("main.veln", 9, 40)]);
+    }
+
+    #[test]
+    fn standard_library_prelude_function_alias_references_cover_implicit_forms_and_shadowing() {
         let standard_library = standard_library_snapshot(
             &[(
                 "prelude.veln",
@@ -405,9 +462,85 @@
             )],
             ["prelude.veln"],
         );
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "pub fn first() -> Int\n",
+                    "  renamed()\n",
+                    "end\n\n",
+                    "pub fn second() -> Int\n",
+                    "  let bare_callback: fn() -> Int = renamed\n",
+                    "  let qualified_callback: fn() -> Int = prelude::renamed\n",
+                    "  bare_callback() + qualified_callback() + prelude::renamed()\n",
+                    "end\n\n",
+                    "pub fn local_shadow(renamed: fn() -> Int) -> Int\n",
+                    "  renamed()\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                "pub fn other() -> Int\n  renamed() + prelude::renamed()\nend\n",
+            ),
+        ])
+        .with_standard_library(standard_library);
+
+        for (source_path, line, column) in [
+            ("main.veln", 2, 4),
+            ("main.veln", 6, 36),
+            ("main.veln", 7, 50),
+            ("main.veln", 8, 53),
+            ("other.veln", 2, 4),
+            ("other.veln", 2, 24),
+        ] {
+            let result = query_snapshot(&snapshot, source_path, line, column).unwrap();
+
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Function);
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(
+                locations(&result.references),
+                [
+                    ("main.veln", 2, 3),
+                    ("main.veln", 6, 36),
+                    ("main.veln", 7, 50),
+                    ("main.veln", 8, 53),
+                    ("other.veln", 2, 3),
+                    ("other.veln", 2, 24),
+                ]
+            );
+        }
+
+        let shadowed = query_snapshot(&snapshot, "main.veln", 12, 4).unwrap();
+        assert_eq!(shadowed.selected_symbol.kind, SymbolKind::ValueBinding);
+        assert_eq!(locations(&shadowed.references), [("main.veln", 12, 3)]);
+    }
+
+    #[test]
+    fn standard_library_function_alias_chains_return_no_references() {
+        let standard_library = standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                    "pub fn chained = renamed\n",
+                ),
+            )],
+            ["prelude.veln"],
+        );
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
-            "pub fn main() -> Int\n  prelude::renamed()\nend\n",
+            "pub fn main() -> Int\n  prelude::chained()\nend\n",
         )])
         .with_standard_library(standard_library);
         let result = query_snapshot(&snapshot, "main.veln", 2, 12).unwrap();
@@ -423,4 +556,3 @@
         );
         assert!(result.references.is_empty());
     }
-

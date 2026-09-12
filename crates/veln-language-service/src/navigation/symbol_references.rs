@@ -99,7 +99,7 @@ impl SymbolIndex {
     }
 
     fn function_references(&self, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
-        if symbol.declaration_kind != SymbolDeclarationKind::Declaration {
+        if !self.function_references_supported(symbol) {
             return Vec::new();
         }
         self.files
@@ -107,6 +107,31 @@ impl SymbolIndex {
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| self.references_in_file(file, symbol))
             .collect()
+    }
+
+    fn function_references_supported(&self, symbol: &FunctionSymbol) -> bool {
+        if symbol.declaration_kind == SymbolDeclarationKind::Declaration {
+            return true;
+        }
+        symbol.package_origin == Some(PackageOrigin::StandardLibrary)
+            && !self.function_alias_target_is_alias(symbol)
+    }
+
+    fn function_alias_target_is_alias(&self, symbol: &FunctionSymbol) -> bool {
+        let Some(target_name) = symbol.alias_target_name.as_deref() else {
+            return true;
+        };
+        let target_module = symbol
+            .alias_target_module
+            .as_deref()
+            .unwrap_or(symbol.module.as_str());
+        self.functions.iter().any(|candidate| {
+            candidate.declaration_kind == SymbolDeclarationKind::PublicAlias
+                && candidate.name == target_name
+                && candidate.module == target_module
+                && candidate.package == symbol.package
+                && candidate.package_origin == symbol.package_origin
+        })
     }
 
     fn bare_prelude_function_references(
@@ -122,7 +147,12 @@ impl SymbolIndex {
                 token.text == symbol.name
                     && previous_non_layout_token(&tokens, *index)
                         .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
-                    && is_call_target_token(&tokens, *index)
+                    && (is_call_target_token(&tokens, *index)
+                        || ((symbol.package.is_some() || symbol.public)
+                            && (file.classified_path_segments.iter().any(|segment| {
+                                segment.role == NameClass::ValueBinding
+                                    && same_span(&segment.span, &file.source.span(token.range))
+                            }) || is_bare_function_value_token(&tokens, *index))))
                     && self
                         .symbol_for_bare_call(file, &tokens, *index, &token.text)
                         .is_some_and(|candidate| {
@@ -401,6 +431,18 @@ fn is_qualified_function_value_token(tokens: &[Token], token_index: usize) -> bo
         .is_some_and(|previous| previous.kind == TokenKind::DoubleColon)
         && next_non_layout_token(tokens, token_index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon && next.kind != TokenKind::LParen)
+}
+
+fn is_bare_function_value_token(tokens: &[Token], token_index: usize) -> bool {
+    previous_non_layout_token(tokens, token_index)
+        .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
+        && next_non_layout_token(tokens, token_index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon && next.kind != TokenKind::LParen)
+        && !is_field_name(tokens, token_index)
+        && !is_function_declaration_name(tokens, token_index)
+        && !is_parameter_name(tokens, token_index)
+        && !is_local_binding_name(tokens, token_index)
+        && !is_handler_operation_clause_operation_name(tokens, token_index)
 }
 
 fn same_recovery_symbol(left: &RecoverySymbol, right: &RecoverySymbol) -> bool {

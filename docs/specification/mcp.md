@@ -438,9 +438,13 @@ declarations from
 exported modules of one retained direct dependency when the selected project
 source uses the exact visible external import required by name resolution. It
 exposes the same reference boundary for public function, type, and constructor
-declarations from exported embedded standard-library modules. Standard-library
-prelude functions include the accepted bare implicit prelude calls plus
-qualified call targets and qualified function-value occurrences.
+declarations from exported embedded standard-library modules.
+Standard-library public function aliases whose target is a standard-library
+function declaration use their alias identity and expose references through
+the same boundary. Standard-library prelude functions and supported prelude
+function aliases include the accepted bare implicit prelude calls plus bare
+function-value occurrences, qualified call targets, and qualified
+function-value occurrences.
 Standard-library prelude types include accepted bare implicit prelude type
 references plus qualified type references.
 
@@ -461,6 +465,7 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, or constructors, non-exported package modules,
 invalid-casing records, recovery records, package public alias symbols,
+unsupported function-alias chains, direct-dependency public function aliases,
 non-function, non-type, and non-constructor package symbols, and package
 module-segment selections succeed with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
@@ -591,6 +596,10 @@ embedded standard-library prelude function selected through accepted bare,
 qualified-call, and qualified function-value forms while reporting
 project-wide scope, and excludes workspace, dependency, field, string,
 comment, declaration, package-source, and import-alias collisions.
+The `references-standard-library-function-alias` MCP specification case checks
+the same successful result shape for the shipped `std::prelude`
+`byte_chunk_len` alias selected through a bare call, bare function-value
+occurrence, and `prelude::`-qualified call.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
@@ -655,8 +664,10 @@ ambiguous recovery selection.
 inference, single-file isolation outside selected projects, deterministic
 canonical locations, workspace type, constructor, value-binding, and handler
 parameter reference admission, unsupported-symbol success, recovery and package
-exclusion, direct-dependency public function-alias and standard-library
-function boundaries, function-shaped recovery exclusion, invalid positions,
+exclusion, direct-dependency public function-alias selection exclusion,
+standard-library public function-alias selection, unsupported standard-library
+function-alias chains, standard-library function boundaries,
+function-shaped recovery exclusion, invalid positions,
 path failures, bounded stable-capture retry exhaustion without partial
 reference locations or scope metadata, and accepted success and domain-failure
 result schemas.
