@@ -14,8 +14,9 @@ use crate::source_less_names::{
 use crate::standard_names::PRELUDE_MODULE;
 use crate::standard_symbols::{
     COMPILER_ADAPTER_SYMBOLS, FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS, QUALIFIED_SYMBOLS,
-    SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, StandardSymbolDescriptor, StandardSymbolRegistry,
-    build_standard_symbol_registry_with_modules, private_compiler_adapter_name,
+    SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS, SOURCE_DEFINED_PRELUDE_SYMBOLS,
+    StandardSymbolDescriptor, StandardSymbolRegistry, build_standard_symbol_registry_with_modules,
+    private_compiler_adapter_name,
 };
 
 pub(crate) const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
@@ -34,6 +35,7 @@ pub(crate) struct SourceLessLookupProviderSet {
     pub(crate) qualified: &'static [StandardSymbolDescriptor],
     pub(crate) compatibility_prelude: &'static [StandardSymbolDescriptor],
     pub(crate) self_hosting_prelude: &'static [StandardSymbolDescriptor],
+    pub(crate) source_defined_prelude: &'static [StandardSymbolDescriptor],
     pub(crate) compiler_adapters: &'static [StandardSymbolDescriptor],
     pub(crate) standard_module: &'static str,
     pub(crate) prelude_builtin_module: &'static str,
@@ -138,6 +140,7 @@ fn source_less_lookup_registries()
                 qualified: QUALIFIED_SYMBOLS,
                 compatibility_prelude: FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
                 self_hosting_prelude: SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+                source_defined_prelude: SOURCE_DEFINED_PRELUDE_SYMBOLS,
                 compiler_adapters: COMPILER_ADAPTER_SYMBOLS,
                 standard_module: PRELUDE_MODULE,
                 prelude_builtin_module: PRELUDE_BUILTIN_MODULE,
@@ -162,6 +165,7 @@ pub(crate) fn build_source_less_lookup_registries(
         provider_set.qualified,
         provider_set.compatibility_prelude,
         provider_set.self_hosting_prelude,
+        provider_set.source_defined_prelude,
         provider_set.compiler_adapters,
     )?;
     validate_source_less_lookup_segment(
@@ -198,6 +202,7 @@ pub(crate) fn production_source_less_lookup_routes_for_test()
         qualified: QUALIFIED_SYMBOLS,
         compatibility_prelude: FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
         self_hosting_prelude: SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+        source_defined_prelude: SOURCE_DEFINED_PRELUDE_SYMBOLS,
         compiler_adapters: COMPILER_ADAPTER_SYMBOLS,
         standard_module: PRELUDE_MODULE,
         prelude_builtin_module: PRELUDE_BUILTIN_MODULE,

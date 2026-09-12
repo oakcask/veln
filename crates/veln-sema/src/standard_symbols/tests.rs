@@ -542,6 +542,9 @@ fn compiler_adapter_boundary_matches_current_prelude_split() {
     let compatibility_intrinsics = compatibility_prelude_symbols()
         .map(|symbol| symbol.name)
         .collect::<Vec<_>>();
+    let source_defined = source_defined_prelude_symbols()
+        .map(|symbol| symbol.name)
+        .collect::<Vec<_>>();
 
     assert_eq!(compiler_adapters, COMPILER_ADAPTER_NAMES);
     assert_eq!(
@@ -558,6 +561,11 @@ fn compiler_adapter_boundary_matches_current_prelude_split() {
             "float_greater_equal",
         ]
     );
+    assert_eq!(source_defined, ["byte_chunk_len", "byte_view_len"]);
+    for name in source_defined {
+        assert!(prelude_symbol(name).is_some(), "{name}");
+        assert_eq!(compiler_adapter_symbol(name), None, "{name}");
+    }
 }
 
 #[test]
