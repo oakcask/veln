@@ -751,3 +751,23 @@ fn standard_library_definition_round_trips_through_embedded_virtual_document() {
         assert_invalid_params(&rejected[0]);
     }
 }
+
+#[test]
+fn retained_standard_library_snapshot_is_built_once() {
+    let cache = OnceLock::new();
+    let builds = std::cell::Cell::new(0);
+    let build = || {
+        builds.set(builds.get() + 1);
+        build_retained_standard_library()
+    };
+
+    retained_standard_library_with(&cache, build).expect("embedded standard library snapshot");
+    retained_standard_library_with(&cache, build)
+        .expect("cached embedded standard library snapshot");
+
+    assert_eq!(
+        builds.get(),
+        1,
+        "repeated server initialization should not rebuild immutable standard library resources"
+    );
+}

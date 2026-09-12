@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use veln_analysis::{
     DoctestMode, checked_project_diagnostics, is_source_path_invalid_case_diagnostic,
@@ -23,6 +23,8 @@ use veln_project::{
 };
 use veln_source::{SourceFile, SourcePath};
 use veln_syntax::parse;
+
+static RETAINED_STANDARD_LIBRARY: OnceLock<Option<DirectDependencySnapshot>> = OnceLock::new();
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticTokensLegend {
@@ -479,6 +481,17 @@ fn retained_project_snapshot(root: &Path) -> Option<EffectiveProjectSnapshot> {
 }
 
 fn retained_standard_library() -> Option<DirectDependencySnapshot> {
+    retained_standard_library_with(&RETAINED_STANDARD_LIBRARY, build_retained_standard_library)
+}
+
+fn retained_standard_library_with(
+    cache: &OnceLock<Option<DirectDependencySnapshot>>,
+    build: impl FnOnce() -> Option<DirectDependencySnapshot>,
+) -> Option<DirectDependencySnapshot> {
+    cache.get_or_init(build).clone()
+}
+
+fn build_retained_standard_library() -> Option<DirectDependencySnapshot> {
     let bundle = veln_stdlib::package_bundle();
     let snapshot = capture_embedded_package_snapshot(
         bundle.manifest.as_bytes(),
