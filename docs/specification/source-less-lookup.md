@@ -48,15 +48,16 @@ is duplicated.
 Source-less providers expose these lookup keys. Runtime descriptor modules are
 single source lookup segments; a runtime descriptor whose module string would
 produce a three-or-more-segment key fails publication as an invalid lookup key.
-Prelude, compiler-adapter, built-in type-syntax, built-in ADT type, and
-built-in ADT constructor leaves must each be one source lookup identifier
-segment. The prelude-builtin module key is validated even when there are no
-compiler adapter descriptors to publish.
+Prelude, source-defined prelude-alias, compiler-adapter, built-in type-syntax,
+built-in ADT type, and built-in ADT constructor leaves must each be one source
+lookup identifier segment. The prelude-builtin module key is validated even
+when there are no compiler adapter descriptors to publish.
 
 | Provider detail | Lookup key |
 | --- | --- |
 | Runtime descriptors | `module::name` |
 | Prelude descriptors | the exact source prelude helper name |
+| Source-defined public prelude function aliases | the exact source alias name |
 | Compiler-adapter descriptors reporting `compiler_adapter` | `prelude_builtin::name` |
 | The implicit standard module name reporting `standard_names` | `prelude` |
 | Built-in type-syntax descriptors reporting `type_syntax` | the built-in type constructor spelling |
@@ -76,10 +77,11 @@ Focused `veln-syntax` and `veln-sema` tests are the executable evidence for
 parser interpretation of bare and qualified name paths, generated-table
 validation, injected invalid descriptors, invalid lookup keys, atomic failure,
 cross-provider publication failure, checked lookup, provider inventory, and
-lookup isolation. The injected-descriptor cases cover qualified separators,
-other non-identifier characters, and
-parser-level contextual literal spellings in runtime, prelude or
-compiler-adapter, built-in type-syntax, built-in ADT type, and built-in ADT
-constructor leaves. Public source fixtures cannot inject compiler descriptors,
-so this contract is verified by focused Rust tests rather than examples under
-`examples/specification/`.
+lookup isolation. The provider inventory separates compiler adapters from
+source-defined prelude aliases that are available through normal prelude
+lookup. The injected-descriptor cases cover qualified separators, other
+non-identifier characters, and parser-level contextual literal spellings in
+runtime, prelude or compiler-adapter, built-in type-syntax, built-in ADT type,
+and built-in ADT constructor leaves. Public source fixtures cannot inject
+compiler descriptors, so this contract is verified by focused Rust tests
+rather than examples under `examples/specification/`.
