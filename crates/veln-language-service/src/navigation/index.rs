@@ -1,15 +1,27 @@
 impl IndexedDependencies {
-    pub(crate) fn new(
-        dependencies: Vec<DirectDependencySnapshot>,
+    pub(crate) fn new_direct(dependencies: Vec<DirectDependencySnapshot>) -> Self {
+        let mut indexed = Self::index(dependencies);
+        let module = indexed.module.clone();
+        attach_classified_path_segments(&mut indexed.files, &module, &module);
+        indexed
+    }
+
+    pub(crate) fn new_standard_library(
         standard_library: Option<DirectDependencySnapshot>,
     ) -> Self {
+        let mut indexed = Self::index(standard_library);
+        let module = indexed.module.clone();
+        attach_classified_path_segments(&mut indexed.files, &module, &module);
+        indexed
+    }
+
+    fn index(dependencies: impl IntoIterator<Item = DirectDependencySnapshot>) -> Self {
         let mut files = Vec::new();
         let mut declarations = FileDeclarations::default();
         let mut module = empty_surface_module();
-        for dependency in dependencies.into_iter().chain(standard_library) {
+        for dependency in dependencies {
             index_dependency_sources(&mut files, &mut declarations, &mut module, dependency);
         }
-        attach_classified_path_segments(&mut files, &module, &module);
         Self {
             files,
             declarations,
@@ -19,7 +31,11 @@ impl IndexedDependencies {
 }
 
 impl SymbolIndex {
-    pub(crate) fn new(sources: Vec<SourceFile>, dependencies: &IndexedDependencies) -> Self {
+    pub(crate) fn new(
+        sources: Vec<SourceFile>,
+        direct_dependencies: &IndexedDependencies,
+        standard_library: &IndexedDependencies,
+    ) -> Self {
         let mut files = Vec::new();
         let mut declarations = FileDeclarations::default();
         let mut workspace_module = empty_surface_module();
@@ -29,11 +45,14 @@ impl SymbolIndex {
             append_parsed_surface_module(&mut workspace_module, &file, &parsed);
             files.push(file);
         }
+        declarations.extend(direct_dependencies.declarations.clone());
+        declarations.extend(standard_library.declarations.clone());
         let mut module = workspace_module.clone();
-        declarations.extend(dependencies.declarations.clone());
-        append_surface_module(&mut module, dependencies.module.clone());
+        append_surface_module(&mut module, direct_dependencies.module.clone());
+        append_surface_module(&mut module, standard_library.module.clone());
         attach_classified_path_segments(&mut files, &workspace_module, &module);
-        files.extend(dependencies.files.clone());
+        files.extend(direct_dependencies.files.clone());
+        files.extend(standard_library.files.clone());
         Self {
             schemas: declarations.schemas,
             effects: declarations.effects,

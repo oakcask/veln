@@ -261,3 +261,62 @@
             "workspace overlays should reuse classified dependency paths",
         );
     }
+
+    #[test]
+    fn direct_dependency_layers_reuse_prepared_standard_library_sources() {
+        let standard_library = standard_library_snapshot(
+            &[("prelude.veln", "pub fn standard() -> Int\n  1\nend\n")],
+            ["prelude.veln"],
+        );
+        let standard_source = concat!(
+            "use prelude from \"std\"\n\n",
+            "pub fn main() -> Int\n",
+            "  prelude::standard()\n",
+            "end\n",
+        );
+        let standard_snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            standard_source,
+        )])
+        .with_standard_library(standard_library);
+
+        reset_dependency_source_indexes();
+        reset_dependency_source_parses();
+        reset_dependency_path_classifications();
+        assert!(query_snapshot(&standard_snapshot, "main.veln", 4, 13).is_some());
+        assert_eq!(dependency_source_indexes(), 1);
+        assert_eq!(dependency_source_parses(), 1);
+        assert_eq!(dependency_path_classifications(), 1);
+
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[("math.veln", "pub fn answer() -> Int\n  42\nend\n")],
+            ["math.veln"],
+        );
+        let dependency_source = concat!(
+            "use math from \"example/pkg\"\n\n",
+            "pub fn main() -> Int\n",
+            "  math::answer()\n",
+            "end\n",
+        );
+        let dependency_snapshot = standard_snapshot
+            .with_direct_dependency_layer(vec![dependency])
+            .with_workspace_overlays([source("main.veln", dependency_source)]);
+
+        assert!(query_snapshot(&dependency_snapshot, "main.veln", 4, 10).is_some());
+        assert_eq!(
+            dependency_source_indexes(),
+            2,
+            "adding direct dependencies should not re-index the standard library",
+        );
+        assert_eq!(
+            dependency_source_parses(),
+            2,
+            "adding direct dependencies should not reparse the standard library",
+        );
+        assert_eq!(
+            dependency_path_classifications(),
+            2,
+            "adding direct dependencies should reuse classified standard-library paths",
+        );
+    }
