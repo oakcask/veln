@@ -35,7 +35,6 @@ pub use pipeline::{
     LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,
     check_project_surface_module_with_standard_environment,
     check_project_surface_module_with_standard_modules_environment,
-    check_project_surface_modules_with_standard_environment,
     classified_project_qualified_path_segments,
     classified_project_qualified_path_segments_with_context, lower_analyzed_surface_module,
     lower_checked_surface_module, lower_project_reachable_surface_module,
@@ -44,7 +43,6 @@ pub use pipeline::{
     prepare_current_reusable_standard_surface_module_environment,
     prepare_reusable_standard_surface_module_environment,
     try_prepare_current_reusable_standard_surface_module_environment,
-    try_prepare_reusable_standard_surface_module_environment,
     validate_standard_symbol_registry_diagnostic,
 };
 pub use type_syntax::{type_annotation_reference_names, type_annotation_reference_paths};
