@@ -1337,87 +1337,6 @@ fn references_return_standard_library_function_locations() {
 }
 
 #[test]
-fn references_return_standard_library_function_alias_locations() {
-    let workspace = TempWorkspace::new("references-standard-library-alias");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "main.veln",
-        concat!(
-            "use math from \"std\"\n\n",
-            "fn first(value: Int) -> Int\n",
-            "  math::renamed(value)\n",
-            "end\n\n",
-            "fn second(value: Int) -> Int\n",
-            "  let callback: fn(Int) -> Int = math::renamed\n",
-            "  callback(math::renamed(value)) + math::target(value)\n",
-            "end\n",
-        ),
-    );
-    let mut server = initialized_server(&workspace);
-    server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
-        [PackageSnapshotSource::new(
-            "math.veln",
-            concat!(
-                "pub fn target(value: Int) -> Int\n",
-                "  value\n",
-                "end\n\n",
-                "pub fn renamed = target\n",
-            )
-            .as_bytes(),
-        )],
-    );
-
-    let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
-
-    assert_eq!(result["isError"], false, "{result:#}");
-    assert_eq!(
-        result["structuredContent"]["scope"]["project_wide"], true,
-        "{result:#}"
-    );
-    assert_reference_ranges(
-        &result,
-        &[
-            ("main.veln", 4, 9, 4, 16),
-            ("main.veln", 8, 40, 8, 47),
-            ("main.veln", 9, 18, 9, 25),
-        ],
-        "standard library function alias",
-    );
-}
-
-#[test]
-fn references_keep_standard_library_function_alias_chain_boundary_empty() {
-    let workspace = TempWorkspace::new("references-standard-library-alias-chain");
-    workspace.write("veln.toml", "");
-    workspace.write("main.veln", "fn main() -> Int\n  prelude::chained()\nend\n");
-    let mut server = initialized_server(&workspace);
-    server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
-        [PackageSnapshotSource::new(
-            "prelude.veln",
-            concat!(
-                "pub fn target() -> Int\n",
-                "  1\n",
-                "end\n\n",
-                "pub fn renamed = target\n",
-                "pub fn chained = renamed\n",
-            )
-            .as_bytes(),
-        )],
-    );
-
-    let result = server.references_tool(&json!({"source":"main.veln","line":2,"column":12}));
-
-    assert_eq!(result["isError"], false, "{result:#}");
-    assert_eq!(
-        result["structuredContent"]["references"],
-        json!([]),
-        "{result:#}"
-    );
-}
-
-#[test]
 fn references_keep_standard_library_function_collision_boundaries() {
     let workspace = TempWorkspace::new("references-standard-library-collisions");
     workspace.write(
@@ -2537,14 +2456,14 @@ fn references_project_capture_exhausts_retries_for_standard_library_selection() 
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "use math from \"std\"\n\nfn main() -> Int\n  math::renamed()\nend\n",
+        "use math from \"std\"\n\nfn main() -> Int\n  math::value()\nend\n",
     );
     let mut server = initialized_server(&workspace);
     server.language_resources.replace_test_standard_library(
         "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
         [PackageSnapshotSource::new(
             "math.veln",
-            b"pub fn value() -> Int\n  1\nend\n\npub fn renamed = value\n",
+            b"pub fn value() -> Int\n  1\nend\n",
         )],
     );
     let before_resources = all_resource_state(&mut server);
@@ -2560,9 +2479,7 @@ fn references_project_capture_exhausts_retries_for_standard_library_selection() 
         let value = if attempt % 2 == 0 { 1 } else { 2 };
         fs::write(
             &source,
-            format!(
-                "use math from \"std\"\n\nfn main() -> Int\n  math::renamed() + {value}\nend\n"
-            ),
+            format!("use math from \"std\"\n\nfn main() -> Int\n  math::value() + {value}\nend\n"),
         )
         .unwrap();
     });

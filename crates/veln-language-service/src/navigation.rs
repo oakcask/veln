@@ -25,6 +25,7 @@ include!("navigation/rename_visibility.rs");
 include!("navigation/symbol_lookup.rs");
 include!("navigation/symbol_references.rs");
 include!("navigation/declarations.rs");
+include!("navigation/function_alias_declarations.rs");
 include!("navigation/recovery_declarations.rs");
 include!("navigation/handler_bindings.rs");
 include!("navigation/references.rs");

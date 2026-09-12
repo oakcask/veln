@@ -10,5 +10,6 @@ include!("tests/navigation_rename_ambiguities.rs");
 include!("tests/navigation_qualified.rs");
 include!("tests/dependencies_prelude.rs");
 include!("tests/dependencies_function_references.rs");
+include!("tests/dependencies_standard_library_function_alias_references.rs");
 include!("tests/dependencies_type_references.rs");
 include!("tests/dependencies_snapshots.rs");
