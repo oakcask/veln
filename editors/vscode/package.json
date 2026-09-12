@@ -19,7 +19,7 @@
     "workspace"
   ],
   "engines": {
-    "vscode": "^1.128.0"
+    "vscode": "^1.137.0"
   },
   "activationEvents": [
     "onLanguage:veln"
@@ -28,7 +28,7 @@
     "Programming Languages"
   ],
   "devDependencies": {
-    "@types/vscode": "1.125.0",
+    "@types/vscode": "1.136.0",
     "@vscode/vsce": "^3.9.2"
   },
   "contributes": {
