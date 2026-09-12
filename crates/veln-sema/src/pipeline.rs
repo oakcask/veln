@@ -76,23 +76,6 @@ pub fn check_project_surface_module_with_standard_environment(
     check_project_surface_module_with_environment(module, environment)
 }
 
-pub fn check_project_surface_modules_with_standard_environment(
-    application_module: &SurfaceModule,
-    selected_standard_module: &SurfaceModule,
-    standard: &ReusableStandardEnvironment,
-) -> (Vec<Diagnostic>, LoweredSurfaceModule) {
-    if let Err(failure) = validate_source_less_lookup_registries() {
-        let diagnostics = vec![failure.diagnostic()];
-        return (diagnostics.clone(), lowered_internal_failure(diagnostics));
-    }
-    let environment = TypeEnvironment::from_application_module_with_standard(
-        application_module,
-        selected_standard_module,
-        standard,
-    );
-    check_project_surface_module_with_environment(application_module, environment)
-}
-
 pub fn check_project_surface_module_with_standard_modules_environment(
     application_module: &SurfaceModule,
     selected_standard_module_names: &BTreeSet<String>,
@@ -119,13 +102,6 @@ pub fn prepare_reusable_standard_surface_module_environment(
 
 pub fn validate_standard_symbol_registry_diagnostic() -> Result<(), Box<Diagnostic>> {
     validate_source_less_lookup_registries().map_err(|failure| Box::new(failure.diagnostic()))
-}
-
-pub fn try_prepare_reusable_standard_surface_module_environment(
-    module: &SurfaceModule,
-) -> Result<ReusableStandardEnvironment, Box<Diagnostic>> {
-    validate_standard_symbol_registry_diagnostic()?;
-    Ok(prepare_reusable_standard_environment(module))
 }
 
 pub fn prepare_current_reusable_standard_surface_module_environment(
