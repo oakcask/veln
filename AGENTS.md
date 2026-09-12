@@ -1,23 +1,19 @@
-* Think in English.
-* Do not write full path in files.
+* Do not write machine-specific absolute filesystem paths in repository files.
 * Name repository-maintenance Cargo packages `veln-repo-*` and place them
   under `tools/`. Reserve other `veln-*` package names for toolchain components.
-* Do not write calendar dates in documentation, source, comments, filenames,
-  or metadata unless testing date-pattern behavior or preserving an externally
-  defined identifier such as a URL.
+* Do not write calendar dates in durable documentation, source, comments, or
+  filenames unless testing date-pattern behavior or preserving an externally
+  defined identifier such as a URL. Machine-maintained cache metadata may use
+  dates when its schema or freshness logic requires them.
 * Treat `docs/specification/` as the source of current implemented
   behavior. Keep only `role: proposal` proposal pages in `docs/proposals/`;
   remove or relocate rejected, superseded, implemented, or otherwise closed
   proposals. Do not cite or edit proposal text as current behavior unless the
   matching specification page also states it.
-* Select proposal targets only from the Ready section of
-  `docs/proposals/README.md`. If no ready implementation target exists, report
-  that there is no target.
-* When implementing or completing proposal work, use
-  `$proposal-implementation-audit` to promote implemented behavior into
-  `docs/specification/` and `examples/specification/`, and to remove completed
-  work from `docs/proposals/`.
-* When adding or changing documentation, use `$docs-progressive-disclosure`.
+* When selecting, implementing, completing, reviewing, or cleaning up proposal
+  work, use `$proposal-implementation-audit`.
+* When adding, moving, classifying, or reorganizing documentation, or changing
+  documentation routes or metadata, use `$docs-progressive-disclosure`.
 * When creating or substantially revising any document that specifies
   behavior, including proposals, design notes, and reference material, use
   `$verifiable-specification-writing`.

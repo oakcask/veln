@@ -1,6 +1,6 @@
 ---
 name: ci-message-policy
-description: Use when Codex adds, changes, reviews, or explains CI-visible messages, including GitHub Actions step names, failure summaries, annotations, report comments, log lines intended to guide maintainers or agents, CI policy text, and workflow output that asks someone to act.
+description: Write or review CI-visible messages that must tell maintainers what happened and what to do next.
 ---
 
 # CI Message Policy

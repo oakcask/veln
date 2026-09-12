@@ -1,61 +1,50 @@
 ---
 name: docs-progressive-disclosure
-description: Use when creating, reorganizing, splitting, merging, or maintaining documentation so agents and humans can start from short indexes and read only the task-relevant files.
+description: Change documentation structure, routes, classification, or metadata while preserving clear authority.
 ---
 
 # Docs Progressive Disclosure
 
 ## Goal
 
-Apply the repository documentation policy while keeping task routes short and
-details progressively disclosed.
+Keep documentation discoverable through short routes with one clear authority
+per subject.
 
 ## Authority
 
-Read
-[documentation-authoring.md](../../../docs/reference/documentation-authoring.md)
-before changing documentation. That document is the normative source for
-classification, metadata, placement, presentation, routing boundaries, and
-specification-writing rules. Do not copy those rules into routing pages or this
-skill.
+The normative policy is
+[documentation-authoring.md](../../../docs/reference/documentation-authoring.md).
+Read the relevant section when a change affects document classification,
+metadata, placement, presentation, routing boundaries, or specification-writing
+rules. A local prose correction that does not affect those concerns does not
+require reading the policy or loading this skill.
 
 ## Workflow
 
-1. Start from `docs/README.md` and select the route that matches the task.
-2. Read the authoring policy and the README for each affected documentation
-   area.
-3. Inspect the relevant routes, subject boundaries, maintenance ownership, and
-   same-stem `foo.md` / `foo-full.md` pairs before moving, merging, or splitting
-   content.
-4. Classify every added, moved, or substantially changed document under the
-   authoring policy.
-5. Keep routing documents focused on discovery. Move policy, behavior, and
-   detail into the authoritative document selected by the route.
-6. Split a broad document into focused, subject-named pages. Add or update the
-   nearest directory README to route to each page, and introduce a meaningful
-   subdirectory when several related pages need their own scope.
-7. Do not create a summary/`*-full.md` pair for the same authority. If the
-   change updates either member of an existing same-scope pair, retire the pair
-   in the same change. Merge a single subject into one document. For multiple
-   subjects, create focused pages under a meaningful hierarchy. Delete the
-   superseded paired files and update their links; do not leave routing-only
-   compatibility files.
-8. Add or update required frontmatter for every Markdown document changed under
-   `docs/`.
-9. Update relative links after moves and align affected prose with executable
-   evidence, implementation, proposals, and historical records.
-10. Use `verifiable-specification-writing` when the change creates,
-   substantially revises, or reviews normative behavior.
-11. Run the verification steps and resolve failures before reporting completion.
+- For a new or reclassified document, use the authoring policy to choose its
+  authority, metadata, and location.
+- For a move, split, merge, or route change, start from `docs/README.md` and the
+  nearest affected README. Inspect subject boundaries, ownership, links, and
+  same-stem `foo.md` / `foo-full.md` pairs.
+- Keep routing documents focused on discovery. Put policy, behavior, and detail
+  in the authoritative document selected by the route.
+- Prefer focused, subject-named pages. When several pages form a distinct area,
+  give that area a meaningful directory and a short README route.
+- Do not create or preserve a summary/`*-full.md` pair for the same authority.
+  Retire a touched same-scope pair, update its links, and do not leave
+  routing-only compatibility files.
+- Add or update required frontmatter for added, moved, reclassified, or
+  substantially revised Markdown under `docs/`.
+- Align affected prose with executable evidence, implementation, proposals, and
+  historical records.
+- Use `verifiable-specification-writing` for normative behavior.
 
 ## Verification
 
-- Search for stale links after moving or renaming documents.
-- Inspect extracted update selectors with
-  `rg -n '^update-when:' docs -g '*.md'`.
-- Run `node workflow-scripts/check-doc-frontmatter.mjs` with the changed
-  Markdown paths.
-- Run `node workflow-scripts/check-doc-links.mjs` when routes or links change.
+- Run the frontmatter checker for added, moved, reclassified, or substantially
+  revised Markdown.
+- Run the link checker and search for stale links when routes or links change.
+- Inspect `update-when` selectors when ownership or update routing changes.
 - Confirm that routing pages contain discovery information and point to the
   smallest current authority.
 - Confirm that the change leaves no updated same-scope short/full pair, that

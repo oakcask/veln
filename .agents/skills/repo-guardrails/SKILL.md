@@ -1,133 +1,53 @@
 ---
 name: repo-guardrails
-description: Use when the user wants to add, revise, or evaluate guardrails for agent behavior, repository policies, AGENTS.md instructions, skills, CI checks, generated outputs, workflow safety, or enforcement mechanisms. Helps choose whether the guardrail belongs in AGENTS.md, a skill, CI, tests, linters, templates, documentation, or a combination.
+description: Add, revise, or evaluate repository and agent guardrails, including their placement and enforcement.
 ---
 
 # Repo Guardrails
 
 ## Goal
 
-Add the smallest guardrail that meaningfully reduces the risk the user cares about. Prefer repository-local conventions and existing tooling over introducing a new policy surface.
+Use the smallest durable guardrail that meaningfully reduces the demonstrated
+risk without constraining unrelated work.
 
-## Workflow
+## Assessment
 
-1. Identify the risk, failure mode, or behavior the user wants to prevent.
-2. Establish why the risk requires a repository guardrail. Distinguish a
-   durable invariant from a review-specific concern, hypothetical bypass,
-   one-time migration condition, or failure caused by an unnecessarily complex
-   existing rule. Prefer deleting or simplifying the existing rule when that
-   removes the risk.
-3. Identify the authority that establishes the intended outcome. Do not count
-   prose, a validator, and tests that repeat the same constants as independent
-   evidence that those constants are correct.
-4. Classify the guardrail as advisory, procedural, enforceable, or a combination.
-5. Inspect the relevant repository surfaces before changing them, such as
-   `AGENTS.md`, existing skills, CI workflows, test configuration, lint
-   configuration, templates, and the README or index for any documentation area
-   under consideration.
-6. Identify each candidate location's existing purpose, audience, and scope
-   boundary.
-7. Compare the expected harm reduction with maintenance cost, false positives,
-   duplicated authority, and constraints on legitimate future changes.
-8. Choose the narrowest effective location that fits those local boundaries.
-9. Give a one-time or transitional guard an explicit removal condition. Keep it
-   out of permanent CI when review evidence, a temporary check, or a scoped test
-   can establish the transition.
-10. Implement the guardrail in the chosen location with concise wording or focused automation.
-11. Verify that the guardrail is discoverable and, when enforceable, that the check can actually fail on violations.
+Establish:
 
-If the user is only brainstorming, discuss the placement and tradeoffs without editing files.
+- the concrete failure mode and why it is durable rather than transitional
+- the authority for the expected outcome
+- whether the guard is advisory, procedural, enforceable, or combined
+- the purpose, audience, and scope of existing repository surfaces
+- the expected harm reduction, false positives, duplication, and maintenance
+  cost
 
-## Placement Guide
+Do not count prose, a validator, and tests that copy the same expectation as
+independent evidence. Prefer deleting or simplifying a confusing rule when that
+removes the risk.
 
-Default to progressive disclosure: keep `AGENTS.md` as a short entry point for always-on principles and skill discovery. Do not add task-specific procedures, command recipes, checklists, or troubleshooting flows to `AGENTS.md`; create or update a skill instead, then link to it from `AGENTS.md` only when agents must discover it by default.
+## Placement
 
-Use `AGENTS.md` when:
+When choosing between `AGENTS.md`, a skill, CI, tests, linters, templates, or
+documentation, read [placement.md](references/placement.md). Inspect the
+candidate surfaces before changing them and choose the narrowest effective
+owner that matches existing repository boundaries.
 
-- The rule should shape default agent behavior across many tasks.
-- The rule is judgment-based or difficult to check mechanically.
-- The rule affects communication style, privacy, file editing behavior, review posture, escalation, or deliverables.
+Give a transitional guard a concrete removal condition. Do not make a one-time
+migration condition permanent CI policy.
 
-Use a skill when:
+## Implementation
 
-- The rule applies only to a specific class of work.
-- The agent needs a repeatable task workflow, decision tree, checklist, or domain-specific context.
-- Adding the rule to `AGENTS.md` would create noise for unrelated tasks.
+- Keep policy concise and semantic; do not encode exact prose layout, internal
+  ordering, or one change's file list unless it is a consumed interface.
+- Do not duplicate the same long rule across surfaces.
+- Reuse existing checks and naming conventions before adding dependencies or
+  automation.
+- When enforcement is appropriate, verify that a representative violation
+  actually fails and document the supported local check.
+- Keep environment-specific and personal information out of repository
+  artifacts.
 
-Use CI when:
+## Report
 
-- The rule can be checked deterministically.
-- Violations should block merges or releases.
-- The same constraint should apply to humans, agents, and automation.
-- The checked invariant remains meaningful across future changes and does not
-  encode one PR's expected file list, prose layout, review transcript, or
-  implementation organization.
-- The expected result comes from an authoritative artifact or observable
-  behavior, rather than constants owned only by the check and its tests.
-
-Use tests or linters when:
-
-- The invariant belongs to runtime behavior, generated output, source formatting, imports, dependency policy, or API contracts.
-- Existing test or lint infrastructure can express the rule with lower maintenance cost than a custom CI step.
-
-Use templates or documentation when:
-
-- The guardrail guides human workflow but does not need to control agent behavior directly.
-- The risk is mostly missing context, inconsistent review input, or unclear ownership.
-- The target documentation area already owns that kind of policy. Do not put a
-  guardrail in a docs area just because it is stable; first confirm the local
-  README or index says that area covers the subject and audience.
-
-Prefer a skill over documentation when:
-
-- The guardrail primarily teaches agents how to do or review a repeatable task.
-- The policy is operational workflow guidance rather than product, language,
-  API, architecture, or other durable project reference material.
-- The only reason to use documentation is that the rule feels stable or
-  important.
-
-## Combination Patterns
-
-- Use `AGENTS.md` plus CI when the agent needs to remember the rule and the repository can enforce it.
-- Use a skill plus CI when the agent needs a task-specific procedure and the result needs deterministic validation.
-- Use `AGENTS.md` plus a skill when a broad principle has a specialized implementation workflow.
-- Prefer `AGENTS.md` plus a skill for judgment-heavy rules that must shape default behavior but also need a repeatable deep-review workflow, such as third-party dependency selection and security review.
-- Use documentation plus templates when the guardrail is primarily about human coordination.
-
-## Implementation Rules
-
-- Keep policy text short and concrete.
-- Do not promote every adversarial mutation or theoretical bypass into a
-  permanent rule. Cover representative semantic failure classes unless the
-  full enumeration is itself an externally required closed contract.
-- Do not use exact paragraph positions, headings, step names, file lists, or
-  internal ordering as proxies for semantic completeness unless the repository
-  consumes those exact structures as an interface.
-- Do not call duplicated expectations independent evidence. State which source
-  establishes correctness and which copies only detect drift.
-- Remove a transition-only check when its transition completes, or record a
-  concrete retirement trigger and owner when immediate removal is impractical.
-- Before expanding `AGENTS.md`, check whether the content is a task-specific procedure that belongs in a skill.
-- When editing `AGENTS.md`, also audit the touched section for existing task-specific procedures, command recipes, checklists, troubleshooting flows, or long rationale. Move those details into the relevant skill, or create a focused skill when no suitable one exists, and replace the AGENTS entry with a short always-on rule or skill discovery link.
-- Before adding a guardrail to documentation, read that docs area's README or
-  routing page and confirm the new rule belongs to that area's stated scope. If
-  the docs area is scoped to a product or language domain, do not add unrelated
-  repository-operation policy there.
-- Do not duplicate the same long rule across multiple files; put the principle in one place and enforcement in another when needed.
-- Avoid environment-specific or personal information in examples, generated files, comments, tests, logs, and commit messages.
-- Reuse existing CI jobs, scripts, lint tools, and repository naming conventions when practical.
-- Do not add new dependencies or broad automation unless the risk justifies the maintenance cost.
-- When adding an enforcement check, include at least one way to run or validate it locally if the repository supports that pattern.
-
-## Response Shape
-
-When proposing or implementing a guardrail, explain briefly:
-
-- The risk being addressed.
-- The evidence that the risk is durable and the authority for the expected
-  outcome.
-- The chosen location and why.
-- Any important alternatives rejected.
-- The maintenance cost and retirement condition when the guardrail is
-  transitional.
-- How the guardrail was or should be verified.
+State the risk, authority, chosen location, important rejected alternatives,
+maintenance cost, retirement condition when transitional, and verification.

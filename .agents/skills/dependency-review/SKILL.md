@@ -1,6 +1,6 @@
 ---
 name: dependency-review
-description: Review proposed third-party dependencies before adoption. Use when Codex is asked to add, choose, compare, upgrade, or approve a dependency, especially runtime dependencies, packages with install scripts or native code, broad permissions, unclear maintenance status, or security-sensitive behavior.
+description: Evaluate a proposed third-party dependency or upgrade before adoption.
 ---
 
 # Dependency Review

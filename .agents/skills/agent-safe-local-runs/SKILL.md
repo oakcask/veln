@@ -1,6 +1,6 @@
 ---
 name: agent-safe-local-runs
-description: Use when running broad tests, stress cases, generated-input tests, compiler analysis commands, code-metrics checks, fuzz-like reproducers, or other local commands that may hang or consume large memory. Ensures Codex treats timeouts, kills, and allocation failures as signals of possible leaks, unbounded growth, or nontermination that need investigation.
+description: Run broad, generated-input, stress, or compiler-analysis commands with bounded time and memory.
 ---
 
 # Agent Safe Local Runs

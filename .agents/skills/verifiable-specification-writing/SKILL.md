@@ -1,6 +1,6 @@
 ---
 name: verifiable-specification-writing
-description: Use when creating, substantially revising, or reviewing documentation that specifies behavior, requirements, acceptance criteria, protocols, stateful processes, performance properties, grammar, schemas, APIs, commands, or observable outputs. Applies to proposals, specifications, design notes, reference material, and other normative documentation regardless of directory.
+description: Create, substantially revise, or review normative documentation so its behavioral claims are verifiable.
 ---
 
 # Verifiable Specification Writing

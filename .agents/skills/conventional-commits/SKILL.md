@@ -1,6 +1,6 @@
 ---
 name: conventional-commits
-description: Require Conventional Commits for git commit messages and PR titles authored by Codex. Use whenever Codex is asked to create, amend, squash, rewrite, or otherwise author a commit message or PR title, including direct requests like "commit this", "make a commit", "git commit", "amend the commit", "open a PR", or "create a PR".
+description: Author or revise git commit messages and pull request titles using Conventional Commits.
 ---
 
 # Conventional Commits
