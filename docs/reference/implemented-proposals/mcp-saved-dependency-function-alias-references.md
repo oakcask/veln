@@ -31,9 +31,10 @@ Completion evidence:
 - `veln-mcp` server tests check the saved-project adapter boundary for
   direct-dependency public function-alias references, target-function
   separation, anonymous source, descendant project, and outside-selected-project
-  isolation, unsupported alias-chain success with empty references, and
-  `snapshot_changed` retry exhaustion without success-only fields or
-  package-resource state mutation for a direct-dependency alias selection.
+  isolation, unsupported alias-chain success with empty references, invalid
+  target success with empty references, and `snapshot_changed` retry exhaustion
+  without success-only fields or package-resource state mutation for a
+  direct-dependency alias selection.
 
 Out-of-scope public type-alias or public schema-alias references, alias-chain
 traversal, pagination, package-source reference locations, recovery-symbol

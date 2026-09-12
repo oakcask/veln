@@ -439,15 +439,15 @@ exported modules of one retained direct dependency when the selected project
 source uses the exact visible external import required by name resolution. It
 exposes the same reference boundary for public function, type, and constructor
 declarations from exported embedded standard-library modules.
-Standard-library public function aliases whose target is a standard-library
-function declaration use their alias identity and expose references through
-the same boundary. Standard-library prelude functions and supported prelude
-function aliases include the accepted bare implicit prelude calls plus bare
-function-value occurrences, qualified call targets, and qualified
-function-value occurrences.
+Standard-library public function aliases whose target resolves to a
+standard-library function declaration use their alias identity and expose
+references through the same boundary. Standard-library prelude functions and
+supported prelude function aliases include the accepted bare implicit prelude
+calls plus bare function-value occurrences, qualified call targets, and
+qualified function-value occurrences.
 Standard-library prelude types include accepted bare implicit prelude type
 references plus qualified type references.
-Direct-dependency public function aliases whose target is a function
+Direct-dependency public function aliases whose target resolves to a function
 declaration in the same retained direct dependency also use their alias
 identity and expose references through the package function boundary.
 
@@ -470,7 +470,8 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, function aliases, or constructors, non-exported
 package modules, invalid-casing records, recovery records, unsupported
-function-alias chains, package public alias symbols other than supported
+function-alias chains, public function aliases with unresolved, non-function,
+or invalid-cased targets, package public alias symbols other than supported
 function aliases, non-function, non-type, and non-constructor package symbols,
 and package module-segment selections succeed with an empty `references`
 array.
@@ -612,7 +613,9 @@ string, comment, declaration, package-source, and import-alias collisions.
 The `references-standard-library-function-alias` MCP specification case checks
 the same successful result shape for the shipped `std::prelude`
 `byte_chunk_len` and `byte_view_len` aliases selected through bare calls, bare
-function-value occurrences, and `prelude::`-qualified calls.
+function-value occurrences, and `prelude::`-qualified calls. It also checks
+unsupported alias-chain selection plus unresolved, wrong-kind, and
+invalid-casing alias targets.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes

@@ -25,9 +25,9 @@ Completion evidence:
   references.
 - `veln-mcp` server tests check the saved-project adapter boundary for
   standard-library public function-alias references, unsupported alias-chain
-  success with empty references, and `snapshot_changed` retry exhaustion
-  without success-only fields or package-resource state mutation for a
-  standard-library alias selection.
+  success with empty references, invalid target success with empty references,
+  and `snapshot_changed` retry exhaustion without success-only fields or
+  package-resource state mutation for a standard-library alias selection.
 
 Direct-dependency public function-alias references are recorded separately by
 [MCP Saved Direct-Dependency Function-Alias References](mcp-saved-dependency-function-alias-references.md).
