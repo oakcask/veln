@@ -121,7 +121,7 @@ The bounded package constructor-reference slice is implemented and recorded by
 The bounded workspace schema-reference slice is implemented and recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
 
-### Implemented Dependency Public Function-Alias Reference Slice
+### Implemented Package Public Function-Alias Reference Slice
 
 The bounded package public function-alias reference slice is implemented and
 recorded by
