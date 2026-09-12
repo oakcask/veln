@@ -464,10 +464,11 @@ import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, or constructors, non-exported package modules,
-invalid-casing records, recovery records, package public alias symbols,
-unsupported function-alias chains, direct-dependency public function aliases,
-non-function, non-type, and non-constructor package symbols, and package
-module-segment selections succeed with an empty `references` array.
+invalid-casing records, recovery records, unsupported function-alias chains,
+direct-dependency public function aliases, package public alias symbols other
+than supported standard-library public function aliases, non-function,
+non-type, and non-constructor package symbols, and package module-segment
+selections succeed with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
