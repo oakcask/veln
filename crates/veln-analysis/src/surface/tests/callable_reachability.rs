@@ -655,40 +655,36 @@ fn companion_call_does_not_change_production_private_inference_reachability() {
         reachable_entry_module(&without_companion, "production", FunctionKind::Function);
     let production_with =
         reachable_entry_module(&with_companion, "production", FunctionKind::Function);
-    let without_functions = production_without
-        .functions
-        .iter()
-        .map(|function| {
-            (
-                function.module_name.as_deref(),
-                function.kind,
-                function.name.as_deref(),
-                function
-                    .params
-                    .iter()
-                    .map(|param| param.ty.as_deref())
-                    .collect::<Vec<_>>(),
-                function.return_type.as_deref(),
-            )
-        })
-        .collect::<Vec<_>>();
-    let with_functions = production_with
-        .functions
-        .iter()
-        .map(|function| {
-            (
-                function.module_name.as_deref(),
-                function.kind,
-                function.name.as_deref(),
-                function
-                    .params
-                    .iter()
-                    .map(|param| param.ty.as_deref())
-                    .collect::<Vec<_>>(),
-                function.return_type.as_deref(),
-            )
-        })
-        .collect::<Vec<_>>();
+    let without_functions = reachable_function_shapes(&production_without);
+    let with_functions = reachable_function_shapes(&production_with);
 
     assert_eq!(with_functions, without_functions);
+}
+
+type ReachableFunctionShape<'a> = (
+    Option<&'a str>,
+    FunctionKind,
+    Option<&'a str>,
+    Vec<Option<&'a str>>,
+    Option<&'a str>,
+);
+
+fn reachable_function_shapes(module: &SurfaceModule) -> Vec<ReachableFunctionShape<'_>> {
+    module
+        .functions
+        .iter()
+        .map(|function| {
+            (
+                function.module_name.as_deref(),
+                function.kind,
+                function.name.as_deref(),
+                function
+                    .params
+                    .iter()
+                    .map(|param| param.ty.as_deref())
+                    .collect::<Vec<_>>(),
+                function.return_type.as_deref(),
+            )
+        })
+        .collect()
 }

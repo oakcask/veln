@@ -3,6 +3,11 @@ use veln_core::CoreType;
 use crate::adt::type_operations as adt;
 use crate::semantic_model::Type;
 
+mod http2_frame_signatures;
+use http2_frame_signatures::{
+    http2_protocol_frame_identity_signature, http2_protocol_frame_payload_signature,
+};
+
 pub(super) fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     byte_prelude_signature::<Type>(name)
 }
@@ -342,71 +347,13 @@ fn http2_protocol_frame_signature<T: BytePreludeType>(
     name: &str,
     types: &BytePreludeTypes<T>,
 ) -> Option<ByteSignature<T>> {
+    if let Some(signature) = http2_protocol_frame_identity_signature(name, types) {
+        return Some(signature);
+    }
+    if let Some(signature) = http2_protocol_frame_payload_signature(name, types) {
+        return Some(signature);
+    }
     match name {
-        "http2_protocol_invalid_frame_kind" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_stream_id" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_payload_length" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_payload_length_chunk" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_chunk.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
-        "http2_protocol_invalid_window_update_increment" => Some((
-            vec![
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::int(),
-                T::string(),
-                T::string(),
-                types.byte_view.clone(),
-            ],
-            unit_runtime_diagnostic_result(),
-        )),
         "http2_protocol_invalid_data_padding" => Some((
             vec![
                 T::int(),

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 use veln_ast::{
     BodyLine, BodyLineKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
-    PublicAliasKind, SurfaceModule, UseDecl, Visibility,
+    PublicAlias, PublicAliasKind, SurfaceModule, UseDecl, Visibility,
 };
 use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourceFile, SourceSpan};
@@ -208,20 +208,12 @@ fn module_with_reachable_functions(
     SurfaceModule {
         module: inputs.module_header(),
         uses: inputs.cloned_declarations(|module| &module.uses),
-        aliases: inputs
-            .cloned_declarations(|module| &module.aliases)
-            .into_iter()
-            .filter(|alias| {
-                let invalid_alias_is_reachable = reachable_invalid_name_spans
-                    .iter()
-                    .any(|span| span.is_declaration(&alias.span));
-                if declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration) {
-                    return invalid_alias_is_reachable;
-                }
-                alias.kind != PublicAliasKind::Function
-                    || function_alias_target_is_materialized(inputs, alias, &functions)
-            })
-            .collect(),
+        aliases: reachable_aliases(
+            inputs,
+            &functions,
+            &reachable_invalid_name_spans,
+            &invalid_names_by_declaration,
+        ),
         effects: inputs.cloned_declarations(|module| &module.effects),
         handlers: inputs
             .cloned_declarations(|module| &module.handlers)
@@ -237,6 +229,28 @@ fn module_with_reachable_functions(
         functions,
         invalid_names,
     }
+}
+
+fn reachable_aliases(
+    inputs: &ReachabilityInputs<'_>,
+    functions: &[Function],
+    reachable_invalid_name_spans: &[ReachableInvalidNameSpan],
+    invalid_names_by_declaration: &[veln_ast::InvalidName],
+) -> Vec<PublicAlias> {
+    inputs
+        .cloned_declarations(|module| &module.aliases)
+        .into_iter()
+        .filter(|alias| {
+            let invalid_alias_is_reachable = reachable_invalid_name_spans
+                .iter()
+                .any(|span| span.is_declaration(&alias.span));
+            if declaration_contains_invalid_name(&alias.span, invalid_names_by_declaration) {
+                return invalid_alias_is_reachable;
+            }
+            alias.kind != PublicAliasKind::Function
+                || function_alias_target_is_materialized(inputs, alias, functions)
+        })
+        .collect()
 }
 
 fn declaration_contains_invalid_name(
