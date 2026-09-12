@@ -1234,8 +1234,8 @@ fn references_keep_package_constructor_alias_boundary_empty() {
 }
 
 #[test]
-fn references_keep_package_function_alias_boundary_empty() {
-    let alias_workspace = TempWorkspace::new("references-dependency-alias-boundary");
+fn references_return_direct_dependency_function_alias_locations_from_saved_project() {
+    let alias_workspace = TempWorkspace::new("references-dependency-alias");
     alias_workspace.write(
         "veln.toml",
         "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
@@ -1244,7 +1244,20 @@ fn references_keep_package_function_alias_boundary_empty() {
         "main.veln",
         concat!(
             "use dep from \"example/dep\"\n\n",
-            "pub fn main() -> Int\n",
+            "pub fn first() -> Int\n",
+            "  dep::renamed()\n",
+            "end\n\n",
+            "pub fn second() -> Int\n",
+            "  let callback: fn() -> Int = dep::renamed\n",
+            "  callback() + dep::renamed() + dep::target()\n",
+            "end\n",
+        ),
+    );
+    alias_workspace.write(
+        "other.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "pub fn other() -> Int\n",
             "  dep::renamed()\n",
             "end\n",
         ),
@@ -1276,6 +1289,70 @@ fn references_keep_package_function_alias_boundary_empty() {
         alias_definition["structuredContent"]["definition"]["range"],
         json!({"start":{"line":5,"column":8},"end":{"line":5,"column":15}})
     );
+    let alias_references =
+        alias_server.references_tool(&json!({"source":"main.veln","line":4,"column":8}));
+    assert_eq!(alias_references["isError"], false, "{alias_references:#}");
+    assert_reference_ranges(
+        &alias_references,
+        &[
+            ("main.veln", 4, 8, 4, 15),
+            ("main.veln", 8, 36, 8, 43),
+            ("main.veln", 9, 21, 9, 28),
+            ("other.veln", 4, 8, 4, 15),
+        ],
+        "dependency function alias references",
+    );
+    let references = alias_references["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert!(references.iter().all(|reference| {
+        reference["uri"].as_str().unwrap().starts_with("file://")
+            && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
+            && !reference["uri"].as_str().unwrap().contains("vendor/dep")
+    }));
+
+    let target_references =
+        alias_server.references_tool(&json!({"source":"main.veln","line":9,"column":38}));
+    assert_eq!(target_references["isError"], false, "{target_references:#}");
+    assert_reference_ranges(
+        &target_references,
+        &[("main.veln", 9, 38, 9, 44)],
+        "dependency function target references",
+    );
+}
+
+#[test]
+fn references_keep_direct_dependency_function_alias_chains_empty() {
+    let alias_workspace = TempWorkspace::new("references-dependency-alias-chain");
+    alias_workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    alias_workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "pub fn main() -> Int\n",
+            "  dep::chained()\n",
+            "end\n",
+        ),
+    );
+    alias_workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    alias_workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub fn target() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "pub fn renamed = target\n",
+            "pub fn chained = renamed\n",
+        ),
+    );
+    let mut alias_server = initialized_server(&alias_workspace);
+
     let alias_references =
         alias_server.references_tool(&json!({"source":"main.veln","line":4,"column":8}));
     assert_eq!(alias_references["isError"], false, "{alias_references:#}");
@@ -2362,6 +2439,46 @@ fn references_project_capture_exhausts_retries_after_dependency_source_changes()
         fs::remove_file(&source).unwrap();
         let value = if attempt % 2 == 0 { 2 } else { 1 };
         fs::write(&source, format!("pub fn value() -> Int\n  {value}\nend\n")).unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_dependency_function_alias_selection() {
+    let workspace = TempWorkspace::new("references-dependency-alias-capture-retry");
+    write_workspace_with_dependency_and_sources(
+        &workspace,
+        "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::renamed()\nend\n",
+        None,
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub fn value() -> Int\n  1\nend\n\npub fn renamed = value\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("main.veln");
+        fs::remove_file(&source).unwrap();
+        let value = if attempt % 2 == 0 { 1 } else { 2 };
+        fs::write(
+            &source,
+            format!("use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::renamed() + {value}\nend\n"),
+        )
+        .unwrap();
     });
 
     let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));

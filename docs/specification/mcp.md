@@ -447,9 +447,14 @@ function-value occurrences, qualified call targets, and qualified
 function-value occurrences.
 Standard-library prelude types include accepted bare implicit prelude type
 references plus qualified type references.
+Direct-dependency public function aliases whose target is a function
+declaration in the same retained direct dependency also use their alias
+identity and expose references through the package function boundary.
 
 Package function results include qualified calls, qualified function-value
-occurrences, and occurrences qualified by an import alias. Package type results
+occurrences, and occurrences qualified by an import alias. Supported package
+function-alias results include the same occurrence forms and remain separate
+from the aliased target function's results. Package type results
 include type annotations, type arguments, return types, type occurrences in
 type-alias right-hand sides, and the type segment used as a constructor
 qualifier, including when a package constructor has the same spelling as its
@@ -463,12 +468,12 @@ projects, equal spellings with different package or module identity,
 import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
-package types, functions, or constructors, non-exported package modules,
-invalid-casing records, recovery records, unsupported function-alias chains,
-direct-dependency public function aliases, package public alias symbols other
-than supported standard-library public function aliases, non-function,
-non-type, and non-constructor package symbols, and package module-segment
-selections succeed with an empty `references` array.
+package types, functions, function aliases, or constructors, non-exported
+package modules, invalid-casing records, recovery records, unsupported
+function-alias chains, package public alias symbols other than supported
+function aliases, non-function, non-type, and non-constructor package symbols,
+and package module-segment selections succeed with an empty `references`
+array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
@@ -591,6 +596,13 @@ function-value occurrence, excludes the dependency declaration and dependency
 source body, keeps unsupported import-alias segment selection successful and
 empty, reports project-wide scope, and admits the dependency source resource in
 the same session.
+The `references-dependency-function-alias` MCP specification case checks the
+same result shape for a visible direct-dependency public function alias
+selected through a qualified call, import-alias-qualified call, or qualified
+function-value occurrence. The same case checks alias and target-function
+identity separation, package and workspace collisions, field exclusion,
+unsupported alias-chain selection, project-wide scope, and dependency source
+resource admission.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,
@@ -665,10 +677,10 @@ ambiguous recovery selection.
 inference, single-file isolation outside selected projects, deterministic
 canonical locations, workspace type, constructor, value-binding, and handler
 parameter reference admission, unsupported-symbol success, recovery and package
-exclusion, direct-dependency public function-alias selection exclusion,
-standard-library public function-alias selection, unsupported standard-library
-function-alias chains, standard-library function boundaries,
-function-shaped recovery exclusion, invalid positions,
+exclusion, direct-dependency and standard-library public function-alias
+selection, unsupported direct-dependency and standard-library function-alias
+chains, standard-library function boundaries, function-shaped recovery
+exclusion, invalid positions,
 path failures, bounded stable-capture retry exhaustion without partial
 reference locations or scope metadata, and accepted success and domain-failure
 result schemas.

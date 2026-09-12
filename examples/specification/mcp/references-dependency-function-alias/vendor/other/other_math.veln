@@ -1,0 +1,5 @@
+pub fn target() -> Int
+  2
+end
+
+pub fn renamed = target

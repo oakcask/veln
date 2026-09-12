@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Direct-dependency public function-alias reference lookup is ready as an
-  independent saved-navigation slice:
-  [mcp-saved-dependency-function-alias-references.md](mcp-saved-dependency-function-alias-references.md).
+No proposal is currently ready for implementation.
 
 ## Blocked
 
@@ -43,9 +41,11 @@ also states it.
   [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
   Its workspace schema-reference slice is implemented and recorded by
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-  Its direct-dependency public function-alias reference slice has been
-  extracted under Ready. Its standard-library public function-alias reference
-  slice is implemented and recorded by
+  Its direct-dependency public function-alias reference slice is implemented
+  and recorded by
+  [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
+  Its standard-library public function-alias reference slice is implemented and
+  recorded by
   [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md).
   Do not select the umbrella
   directly:

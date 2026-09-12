@@ -227,7 +227,7 @@
             (20, 15),
             Some(PackageOrigin::DirectDependency),
             SymbolDeclarationKind::PublicAlias,
-            &[],
+            &[("main.veln", 20, 14)],
         );
         assert_function_reference_case(
             &snapshot,

@@ -113,8 +113,10 @@ impl SymbolIndex {
         if symbol.declaration_kind == SymbolDeclarationKind::Declaration {
             return true;
         }
-        symbol.package_origin == Some(PackageOrigin::StandardLibrary)
-            && !self.function_alias_target_is_alias(symbol)
+        matches!(
+            symbol.package_origin,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        ) && !self.function_alias_target_is_alias(symbol)
     }
 
     fn function_alias_target_is_alias(&self, symbol: &FunctionSymbol) -> bool {
