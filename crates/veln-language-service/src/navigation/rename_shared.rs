@@ -14,11 +14,10 @@ fn declaration_matches(
     expected_name: &str,
     selection: &SourceSpan,
     actual_name: &str,
-    package: Option<&str>,
+    _package: Option<&str>,
     declaration: &SourceSpan,
 ) -> bool {
     actual_name == expected_name
-        && package.is_none()
         && declaration.file == selection.file
         && declaration.start.offset == selection.start.offset
         && declaration.end.offset == selection.end.offset

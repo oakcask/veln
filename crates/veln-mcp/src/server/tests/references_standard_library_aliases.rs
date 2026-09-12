@@ -184,6 +184,53 @@ fn references_keep_standard_library_alias_chain_empty_for_non_exported_target_so
 }
 
 #[test]
+fn references_keep_invalid_standard_library_function_alias_targets_empty() {
+    let workspace = TempWorkspace::new("references-standard-library-invalid-alias-targets");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use api from \"std\"\n\n",
+            "fn main() -> Int\n",
+            "  api::missing()\n",
+            "  api::wrong_kind()\n",
+            "  api::invalid_case()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"api.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "api.veln",
+            concat!(
+                "pub type Document\n",
+                "  pub Text(String)\n",
+                "end\n\n",
+                "pub fn missing = missing\n",
+                "pub fn wrong_kind = Document\n",
+                "pub fn invalid_case = Missing\n",
+            )
+            .as_bytes(),
+        )],
+    );
+
+    for (case, line) in [
+        ("unresolved target", 4),
+        ("wrong-kind target", 5),
+        ("invalid-casing target", 6),
+    ] {
+        let result = server.references_tool(&json!({"source":"main.veln","line":line,"column":9}));
+        assert_eq!(result["isError"], false, "{case}: {result:#}");
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{case}: {result:#}"
+        );
+    }
+}
+
+#[test]
 fn references_project_capture_exhausts_retries_for_standard_library_alias_selection() {
     let workspace = TempWorkspace::new("references-standard-library-alias-capture-retry");
     workspace.write("veln.toml", "");

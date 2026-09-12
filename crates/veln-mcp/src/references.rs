@@ -167,12 +167,15 @@ fn supports_package_reference_origin(result: &NavigationResult) -> bool {
 
 fn supports_package_reference_declaration(result: &NavigationResult) -> bool {
     result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration
-        || supports_standard_library_public_alias(result)
+        || supports_supported_package_public_alias(result)
 }
 
-fn supports_standard_library_public_alias(result: &NavigationResult) -> bool {
+fn supports_supported_package_public_alias(result: &NavigationResult) -> bool {
     result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
-        && result.selected_symbol.package_origin == Some(PackageOrigin::StandardLibrary)
+        && matches!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        )
 }
 
 fn location_json(root: &std::path::Path, span: &SourceSpan) -> Value {

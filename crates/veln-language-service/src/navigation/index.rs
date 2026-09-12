@@ -40,7 +40,7 @@ impl SymbolIndex {
             handlers: declarations.handlers,
             operations: declarations.operations,
             functions: declarations.functions,
-            package_function_aliases: declarations.package_function_aliases,
+            package_function_targets: declarations.package_function_targets,
             types: declarations.types,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
@@ -195,7 +195,16 @@ impl SymbolIndex {
     fn function_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<FunctionSymbol> {
         self.functions
             .iter()
-            .find(|symbol| declaration_matches(name, selection, &symbol.name, symbol.package.as_deref(), &symbol.declaration.span))
+            .find(|symbol| {
+                (!symbol.invalid_declaration_name || symbol.package.is_some())
+                    && declaration_matches(
+                        name,
+                        selection,
+                        &symbol.name,
+                        symbol.package.as_deref(),
+                        &symbol.declaration.span,
+                    )
+            })
             .cloned()
     }
 

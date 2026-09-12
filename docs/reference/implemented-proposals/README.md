@@ -130,6 +130,8 @@ under `../../specification/` and its executable example routes.
   [mcp-saved-workspace-schema-references.md](mcp-saved-workspace-schema-references.md).
 - MCP saved dependency function references:
   [mcp-saved-dependency-function-references.md](mcp-saved-dependency-function-references.md).
+- MCP saved direct-dependency function-alias references:
+  [mcp-saved-dependency-function-alias-references.md](mcp-saved-dependency-function-alias-references.md).
 - MCP saved standard-library function references:
   [mcp-saved-standard-library-function-references.md](mcp-saved-standard-library-function-references.md).
 - MCP saved standard-library function-alias references:

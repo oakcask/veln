@@ -389,9 +389,11 @@ their rename casing class. The executable
 `prelude`-qualified function and type paths. Standard-library package symbols
 return package definition locations, no prepare-rename range, and empty rename
 edits; their `prelude` module segment has no selected symbol.
-Supported standard-library public function aliases can still return workspace
+Supported direct-dependency and standard-library public function aliases whose
+targets resolve to package function declarations can still return workspace
 reference locations for selected-project uses through the shared navigation
-model. The executable
+model. Public function-alias references use the alias identity, not the target
+function identity. The executable
 `identifier-casing-qualified-function-navigation` LSP example covers a
 module-only qualified public function imported from another workspace source
 across definition, references, prepare-rename, rename, invalid replacement
@@ -460,9 +462,11 @@ immutable locations:
 `textDocument/prepareRename` returns no range for them, and
 `textDocument/rename` returns no workspace edits for them. `textDocument/references`
 returns no package locations for dependency or standard-library declarations
-in this slice. Supported standard-library public function aliases return only
-selected-project workspace `file:` locations for references. Unsupported
-function-alias chains do not produce reference locations.
+in this slice. Supported direct-dependency and standard-library public
+function aliases return only selected-project workspace `file:` locations for
+references. Unsupported function-alias chains and public function aliases with
+unresolved, non-function, or invalid-cased targets do not produce reference
+locations.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured
@@ -680,6 +684,9 @@ Implemented:
 - Stdio definition responses for implicit prelude functions and public
   functions in explicitly imported exported `std` sources, with exact
   `veln/virtualDocument` reads from the embedded standard snapshot.
+- Stdio references responses for supported direct-dependency and
+  standard-library public function aliases. Results include only
+  selected-project workspace `file:` locations.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -693,7 +700,9 @@ Not implemented:
 
 - LSP range and delta semantic token requests.
 - Completion and hover.
-- Dependency reference search.
+- Dependency reference search outside the implemented direct-dependency and
+  standard-library public function, public function-alias, public type, and
+  public constructor reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, and embedded

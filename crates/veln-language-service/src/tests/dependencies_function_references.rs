@@ -176,7 +176,7 @@
     }
 
     #[test]
-    fn direct_dependency_public_function_alias_definition_has_no_references() {
+    fn direct_dependency_public_function_alias_definition_returns_workspace_reference() {
         let dependency = dependency_snapshot(
             "example/pkg",
             &[(
@@ -207,7 +207,7 @@
             result.definition.source,
             NavigationSource::Package { .. }
         ));
-        assert!(result.references.is_empty());
+        assert_eq!(locations(&result.references), [("main.veln", 4, 9)]);
     }
 
     #[test]

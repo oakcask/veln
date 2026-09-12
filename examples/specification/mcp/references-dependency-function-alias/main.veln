@@ -1,0 +1,31 @@
+use lib::math from "example/dep"
+use other_math from "other/dep"
+
+pub fn renamed() -> Int
+  0
+end
+
+pub fn first() -> Int
+  math::renamed()
+end
+
+pub fn second() -> Int
+  let callback: fn() -> Int = math::renamed
+  callback() + lib::math::renamed() + math::target()
+end
+
+pub fn collisions(record: {renamed: Int}) -> Int
+  other_math::renamed()
+  renamed()
+  record.renamed
+end
+
+pub fn chain() -> Int
+  math::chained()
+end
+
+pub fn invalid_targets() -> Int
+  math::missing()
+  math::wrong_kind()
+  math::invalid_case()
+end

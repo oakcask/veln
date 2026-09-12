@@ -110,27 +110,67 @@ impl SymbolIndex {
     }
 
     fn function_references_supported(&self, symbol: &FunctionSymbol) -> bool {
+        if symbol.invalid_declaration_name {
+            return false;
+        }
         if symbol.declaration_kind == SymbolDeclarationKind::Declaration {
             return true;
         }
-        symbol.package_origin == Some(PackageOrigin::StandardLibrary)
-            && !self.function_alias_target_is_alias(symbol)
+        matches!(
+            symbol.package_origin,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        ) && self.function_alias_target_resolves_to_function(symbol)
     }
 
-    fn function_alias_target_is_alias(&self, symbol: &FunctionSymbol) -> bool {
+    fn function_alias_target_resolves_to_function(&self, symbol: &FunctionSymbol) -> bool {
         let Some(target_name) = symbol.alias_target_name.as_deref() else {
-            return true;
+            return false;
         };
-        let target_module = symbol
-            .alias_target_module
-            .as_deref()
-            .unwrap_or(symbol.module.as_str());
-        self.package_function_aliases.iter().any(|candidate| {
+        let Some(target_module) = self.function_alias_target_module(symbol) else {
+            return false;
+        };
+        self.package_function_targets.iter().any(|candidate| {
             candidate.name == target_name
                 && candidate.module == target_module
                 && Some(candidate.package.as_str()) == symbol.package.as_deref()
                 && Some(candidate.package_origin) == symbol.package_origin
         })
+    }
+
+    fn function_alias_target_module(&self, symbol: &FunctionSymbol) -> Option<String> {
+        let Some(target_module) = symbol.alias_target_module.as_deref() else {
+            return Some(symbol.module.clone());
+        };
+        let declaring_file = self.files.iter().find(|file| {
+            file.source.path() == &symbol.declaration.span.file
+                && matches!(
+                    (&file.origin, symbol.package.as_deref(), symbol.package_origin),
+                    (
+                        IndexedOrigin::Package {
+                            identity,
+                            standard_library,
+                            ..
+                        },
+                        Some(package),
+                        Some(origin),
+                    ) if identity == package
+                        && if *standard_library {
+                            origin == PackageOrigin::StandardLibrary
+                        } else {
+                            origin == PackageOrigin::DirectDependency
+                        }
+                )
+        });
+        match declaring_file {
+            None => None,
+            Some(file) => {
+                if file.uses.contains(target_module) {
+                    Some(target_module.to_string())
+                } else {
+                    resolve_qualified_alias(&file.import_aliases, target_module)
+                }
+            }
+        }
     }
 
     fn bare_prelude_function_references(

@@ -137,6 +137,7 @@ impl SymbolIndex {
             public: symbol.public,
             standard_prelude: false,
             declaration_kind: SymbolDeclarationKind::Declaration,
+            invalid_declaration_name: false,
         };
         self.function_module_conflict(&selected, requested_name)
             .or_else(|| self.function_post_rename_visibility_conflict(&selected, requested_name))
