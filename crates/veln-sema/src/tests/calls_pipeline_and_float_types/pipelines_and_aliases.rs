@@ -67,6 +67,120 @@ fn public_function_alias_reexports_imported_target() {
 }
 
 #[test]
+fn standard_prelude_byte_length_aliases_lower_through_source_targets() {
+    let standard_source = SourceFile::new(
+        "prelude.veln",
+        concat!(
+            "mod std::prelude\n",
+            "pub fn byte_chunk_count(chunk: ByteChunk) -> ByteCount\n",
+            "  prelude_builtin::byte_chunk_count(chunk)\n",
+            "end\n",
+            "pub fn byte_chunk_len = byte_chunk_count\n",
+            "pub fn byte_view_count(view: ByteView) -> ByteCount\n",
+            "  prelude_builtin::byte_view_count(view)\n",
+            "end\n",
+            "pub fn byte_view_len = byte_view_count\n",
+        ),
+    );
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "pub fn bare_chunk(chunk: ByteChunk) -> ByteCount\n",
+            "  byte_chunk_len(chunk)\n",
+            "end\n",
+            "pub fn qualified_view(view: ByteView) -> ByteCount\n",
+            "  prelude::byte_view_len(view)\n",
+            "end\n",
+            "pub fn chunk_value(chunk: ByteChunk) -> ByteCount\n",
+            "  let alias: fn(ByteChunk) -> ByteCount = byte_chunk_len\n",
+            "  alias(chunk)\n",
+            "end\n",
+            "pub fn view_value(view: ByteView) -> ByteCount\n",
+            "  let alias: fn(ByteView) -> ByteCount = prelude::byte_view_len\n",
+            "  alias(view)\n",
+            "end\n",
+        ),
+    );
+    let standard = lower_surface_ast(&parse(&standard_source).tree);
+    let mut app = lower_surface_ast(&parse(&app_source).tree);
+    app.uses.push(veln_ast::UseDecl::implicit_standard_prelude(
+        "app".to_string(),
+        app_source.span(veln_source::TextRange::new(0, 0)),
+    ));
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: standard.aliases,
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        functions: standard
+            .functions
+            .into_iter()
+            .chain(app.functions)
+            .collect(),
+        invalid_names: Vec::new(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_return_call_target(
+        &core,
+        "bare_chunk",
+        CoreCallTarget::Function("__veln_std$prelude$byte_chunk_count".to_string()),
+    );
+    assert_return_call_target(
+        &core,
+        "qualified_view",
+        CoreCallTarget::Function("__veln_std$prelude$byte_view_count".to_string()),
+    );
+    assert_let_function_value(&core, "chunk_value", "__veln_std$prelude$byte_chunk_count");
+    assert_let_function_value(&core, "view_value", "__veln_std$prelude$byte_view_count");
+}
+
+fn assert_return_call_target(
+    core: &veln_core::CheckedProgram,
+    function_name: &str,
+    expected: CoreCallTarget,
+) {
+    let function = core
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+    let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+        panic!("{function_name} tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, .. } = &expr.kind else {
+        panic!("{function_name} should return a call");
+    };
+    assert_eq!(target, &expected, "{function_name}");
+}
+
+fn assert_let_function_value(
+    core: &veln_core::CheckedProgram,
+    function_name: &str,
+    expected: &str,
+) {
+    let function = core
+        .functions
+        .iter()
+        .find(|function| function.name == function_name)
+        .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+    let CoreStmtKind::Let { expr, .. } = &function.body[0].kind else {
+        panic!("{function_name} should start with let");
+    };
+    let CoreExprKind::FunctionValue(target) = &expr.kind else {
+        panic!("{function_name} let value should lower as function value");
+    };
+    assert_eq!(target, expected, "{function_name}");
+}
+
+#[test]
 fn companion_function_alias_cannot_reexport_private_target_function() {
     let companion_source = SourceFile::new(
         "math.test.veln",

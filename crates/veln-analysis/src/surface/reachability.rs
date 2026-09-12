@@ -110,6 +110,7 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
         bare_importable: true,
         requires_public_import: false,
         recovery,
+        alias: None,
     })
 }
 
@@ -144,6 +145,7 @@ fn reachable_functions(
         name: entry.to_string(),
         module_name: None,
         node_id: None,
+        alias: None,
     }];
 
     while let Some(key) = stack.pop() {
@@ -193,6 +195,7 @@ fn module_with_reachable_functions(
     reachable: &HashSet<ReachableFunction>,
 ) -> SurfaceModule {
     let mut functions = materialize_reachable_functions(inputs, reachable);
+    let reachable_aliases = reachable_function_aliases(reachable);
     let reachable_invalid_name_spans = reachable_invalid_name_spans(inputs, &functions);
     functions.extend(materialize_quarantined_import_proof_functions(
         inputs,
@@ -212,7 +215,11 @@ fn module_with_reachable_functions(
             .cloned_declarations(|module| &module.aliases)
             .into_iter()
             .filter(|alias| {
-                !declaration_contains_invalid_name(&alias.span, &invalid_names_by_declaration)
+                alias_is_needed_for_reachable_module(alias, &reachable_aliases)
+                    && !declaration_contains_invalid_name(
+                        &alias.span,
+                        &invalid_names_by_declaration,
+                    )
                     || reachable_invalid_name_spans
                         .iter()
                         .any(|span| span.is_declaration(&alias.span))
@@ -233,6 +240,29 @@ fn module_with_reachable_functions(
         functions,
         invalid_names,
     }
+}
+
+fn alias_is_needed_for_reachable_module(
+    alias: &veln_ast::PublicAlias,
+    reachable_aliases: &HashSet<ReachableFunctionAlias>,
+) -> bool {
+    alias.kind != PublicAliasKind::Function
+        || alias.name.as_ref().is_some_and(|name| {
+            reachable_aliases.contains(&ReachableFunctionAlias {
+                name: name.clone(),
+                module_name: alias.module_name.clone(),
+                node_id: alias.node_id,
+            })
+        })
+}
+
+fn reachable_function_aliases(
+    reachable: &HashSet<ReachableFunction>,
+) -> HashSet<ReachableFunctionAlias> {
+    reachable
+        .iter()
+        .filter_map(|function| function.alias.clone())
+        .collect()
 }
 
 fn declaration_contains_invalid_name(
@@ -324,16 +354,24 @@ fn materialize_reachable_functions(
                     name: name.clone(),
                     module_name: None,
                     node_id: None,
+                    alias: None,
                 }) || reachable.contains(&ReachableFunction {
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
                     node_id: None,
+                    alias: None,
                 }) || reachable.contains(&ReachableFunction {
                     kind: function.kind,
                     name: name.clone(),
                     module_name: function.module_name.clone(),
                     node_id: Some(function.node_id),
+                    alias: None,
+                }) || reachable.iter().any(|reachable| {
+                    reachable.kind == function.kind
+                        && reachable.name == *name
+                        && reachable.module_name == function.module_name
+                        && reachable.node_id == Some(function.node_id)
                 })
             })
         })

@@ -359,6 +359,91 @@ fn separated_reachable_materialization_skips_unrelated_annotated_function_bodies
 }
 
 #[test]
+fn separated_reachable_inputs_keep_used_public_function_aliases_with_targets() {
+    let standard = lower(concat!(
+        "mod std::prelude\n",
+        "pub fn byte_chunk_count(chunk: ByteChunk) -> ByteCount\n",
+        "  prelude_builtin::byte_chunk_count(chunk)\n",
+        "end\n",
+        "pub fn byte_chunk_len = byte_chunk_count\n",
+        "pub fn byte_view_count(view: ByteView) -> ByteCount\n",
+        "  prelude_builtin::byte_view_count(view)\n",
+        "end\n",
+        "pub fn byte_view_len = byte_view_count\n",
+    ));
+    let application = lower(concat!(
+        "mod app\n",
+        "use std::prelude\n",
+        "pub fn main(chunk: ByteChunk, view: ByteView) -> ByteCount\n",
+        "  let chunk_len: fn(ByteChunk) -> ByteCount = byte_chunk_len\n",
+        "  let view_len: fn(ByteView) -> ByteCount = prelude::byte_view_len\n",
+        "  byte_count(byte_count_to_int(chunk_len(chunk)) + byte_count_to_int(view_len(view)))?\n",
+        "end\n",
+    ));
+
+    let reachable = reachable_entry_module_with_standard_cache(
+        &standard,
+        &application,
+        "main",
+        FunctionKind::Function,
+        &ReachabilityCache::default(),
+    );
+    let aliases = reachable
+        .aliases
+        .iter()
+        .map(|alias| (alias.module_name.as_deref(), alias.name.as_deref()))
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![
+            ("app", "main"),
+            ("std::prelude", "byte_chunk_count"),
+            ("std::prelude", "byte_view_count"),
+        ]
+    );
+    assert_eq!(
+        aliases,
+        vec![
+            (Some("std::prelude"), Some("byte_chunk_len")),
+            (Some("std::prelude"), Some("byte_view_len")),
+        ]
+    );
+}
+
+#[test]
+fn separated_reachable_inputs_skip_unused_public_function_alias_with_missing_target() {
+    let standard = lower(concat!(
+        "mod std::prelude\n",
+        "pub fn used() -> Int\n",
+        "  1\n",
+        "end\n",
+        "pub fn unused_alias = missing_target\n",
+    ));
+    let application = lower(concat!(
+        "mod app\n",
+        "use std::prelude\n",
+        "pub fn main() -> Int\n",
+        "  used()\n",
+        "end\n",
+    ));
+
+    let reachable = reachable_entry_module_with_standard_cache(
+        &standard,
+        &application,
+        "main",
+        FunctionKind::Function,
+        &ReachabilityCache::default(),
+    );
+
+    assert_eq!(
+        reachable_function_names(&reachable),
+        vec![("app", "main"), ("std::prelude", "used")]
+    );
+    assert!(reachable.aliases.is_empty(), "{:#?}", reachable.aliases);
+}
+
+#[test]
 fn separated_reachable_inputs_match_combined_resolution_results() {
     let standard = lower(concat!(
         "mod std::prelude\n",

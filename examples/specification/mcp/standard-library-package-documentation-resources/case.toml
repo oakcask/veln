@@ -10,6 +10,8 @@ contains = [
   "# Package Documentation: std",
   "# Module prelude",
   "# Alias Byte",
+  "byte_chunk_len",
+  "byte_view_len",
   "\"code\":\"resource_not_found\"",
 ]
 
@@ -79,7 +81,7 @@ contains = "- Package identity: std"
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
+contains = "veln-doc:///package/std/snapshot/70a5a31e76947f0caa9de2801cd1b9c65848b2f5d209c93abae5a075f2bcf199/documentation/aa305f48468f69e0559aeaa3ce4d465dc48701fab697ab01e71e2f44ce74bba5/module/39d757186c8a58e62e94a9a9d1efb5ba72d69100b698a0ffc3406b6077e30e58"
 
 [[mcp_assert]]
 id = 5
@@ -89,7 +91,17 @@ contains = "- Source path: prelude.veln"
 [[mcp_assert]]
 id = 5
 path = "/result/contents/0/text"
-contains = "veln-doc:///package/std/snapshot/6c26b26883cd5b40a54b99b11a408100935905aee4400ee47d7781e257fe6197/documentation/c1f022939991b9e05cf74a561914c9afa9105ca690830b465088d22df997c715/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+contains = "veln-doc:///package/std/snapshot/70a5a31e76947f0caa9de2801cd1b9c65848b2f5d209c93abae5a075f2bcf199/documentation/aa305f48468f69e0559aeaa3ce4d465dc48701fab697ab01e71e2f44ce74bba5/declaration/3990c42caf53fbf52b18191e1b213029eeb7196655333a685f66161cda7c5edf"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+contains = "veln-doc:///package/std/snapshot/70a5a31e76947f0caa9de2801cd1b9c65848b2f5d209c93abae5a075f2bcf199/documentation/aa305f48468f69e0559aeaa3ce4d465dc48701fab697ab01e71e2f44ce74bba5/declaration/3a53d4a3bc2cdb5b95cc7bb9ff04bedf454e0145aaf47021d89868c54396500b"
+
+[[mcp_assert]]
+id = 5
+path = "/result/contents/0/text"
+contains = "veln-doc:///package/std/snapshot/70a5a31e76947f0caa9de2801cd1b9c65848b2f5d209c93abae5a075f2bcf199/documentation/aa305f48468f69e0559aeaa3ce4d465dc48701fab697ab01e71e2f44ce74bba5/declaration/3ed5d96347a2c132b6e27a9374d519402cc389cd5efc495ffc29fcfce4afe204"
 
 [[mcp_assert]]
 id = 6

@@ -273,6 +273,7 @@ fn reachable_function_from_target(target: &FunctionTarget) -> ReachableFunction 
         name: target.target_name.clone(),
         module_name: target.target_module_name.clone(),
         node_id: Some(target.target_node_id),
+        alias: target.alias.clone(),
     }
 }
 

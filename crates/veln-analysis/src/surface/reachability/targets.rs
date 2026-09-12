@@ -6,6 +6,14 @@ pub(super) struct ReachableFunction {
     pub(super) name: String,
     pub(super) module_name: Option<String>,
     pub(super) node_id: Option<veln_ast::NodeId>,
+    pub(super) alias: Option<ReachableFunctionAlias>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(super) struct ReachableFunctionAlias {
+    pub(super) name: String,
+    pub(super) module_name: Option<String>,
+    pub(super) node_id: veln_ast::NodeId,
 }
 
 pub(super) struct FunctionTarget {
@@ -19,6 +27,7 @@ pub(super) struct FunctionTarget {
     pub(super) bare_importable: bool,
     pub(super) requires_public_import: bool,
     pub(super) recovery: bool,
+    pub(super) alias: Option<ReachableFunctionAlias>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -61,6 +70,11 @@ pub(super) fn function_alias_targets(
                 bare_importable: true,
                 requires_public_import: false,
                 recovery,
+                alias: Some(ReachableFunctionAlias {
+                    name: alias.name.clone()?,
+                    module_name: alias.module_name.clone(),
+                    node_id: alias.node_id,
+                }),
             })
         })
         .collect()
@@ -82,7 +96,13 @@ pub(super) fn target_for_alias_path<'a>(
     current_module: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
     match segments {
-        [name] => function_targets.iter().find(|target| target.name == *name),
+        [name] => function_targets.iter().find(|target| {
+            target.name == *name
+                && target
+                    .module_name
+                    .as_deref()
+                    .is_none_or(|module| Some(module) == current_module)
+        }),
         [_, .., name] => {
             let use_decl =
                 imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;

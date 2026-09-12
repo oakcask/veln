@@ -18,9 +18,9 @@ also states it.
 
 ## Ready
 
-- Standard-library byte collections can gain consistent `len` spellings while
-  retaining their typed `count` APIs:
-  [standard-library-byte-length-aliases.md](standard-library-byte-length-aliases.md).
+- Standard-library public function-alias references can now use the shipped
+  byte-length aliases as the saved-navigation success path:
+  [mcp-saved-standard-library-function-alias-references.md](mcp-saved-standard-library-function-alias-references.md).
 - Direct-dependency public function-alias reference lookup is ready as an
   independent saved-navigation slice:
   [mcp-saved-dependency-function-alias-references.md](mcp-saved-dependency-function-alias-references.md).
@@ -33,10 +33,6 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- [Standard-library public function-alias references](mcp-saved-standard-library-function-alias-references.md)
-  are blocked until the shipped standard library exposes the meaningful public
-  aliases proposed by
-  [Standard-Library Byte Length Aliases](standard-library-byte-length-aliases.md).
 - The agent-language-services umbrella remains a planning inventory. Its
   saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
@@ -52,7 +48,8 @@ also states it.
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
   Its direct-dependency public function-alias reference slice has been
   extracted under Ready. Its standard-library public function-alias reference
-  slice remains blocked. Do not select the umbrella directly:
+  slice has also been extracted under Ready. Do not select the umbrella
+  directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
