@@ -207,6 +207,9 @@
                         "pub fn type_collision(value: math::renamed) -> Int\n",
                         "  math::renamed(1)\n",
                         "end\n\n",
+                        "pub fn nested_type_collision(value: List<math::renamed>) -> Int\n",
+                        "  math::renamed(2)\n",
+                        "end\n\n",
                         "# renamed mention\n",
                         "pub fn renamed(value: Int) -> Int\n",
                         "  value\n",
@@ -258,6 +261,7 @@
                     ("main.veln", 8, 40),
                     ("main.veln", 10, 18),
                     ("main.veln", 14, 9),
+                    ("main.veln", 18, 9),
                     ("other.veln", 4, 9),
                 ]
             );
@@ -265,6 +269,8 @@
 
         let type_collision = query_snapshot(&snapshot, "main.veln", 13, 35);
         assert!(type_collision.is_none_or(|result| result.references.is_empty()));
+        let nested_type_collision = query_snapshot(&snapshot, "main.veln", 17, 47);
+        assert!(nested_type_collision.is_none_or(|result| result.references.is_empty()));
 
         let target = query_snapshot(&snapshot, "main.veln", 10, 42).unwrap();
         assert_eq!(
@@ -952,6 +958,9 @@
                 "end\n\n",
                 "pub fn type_collision(value: prelude::renamed) -> Int\n",
                 "  prelude::renamed(1)\n",
+                "end\n\n",
+                "pub fn nested_type_collision(value: List<prelude::renamed>) -> Int\n",
+                "  prelude::renamed(2)\n",
                 "end\n",
             ),
         )])
@@ -975,12 +984,15 @@
                     ("main.veln", 2, 3),
                     ("main.veln", 10, 12),
                     ("main.veln", 14, 12),
+                    ("main.veln", 18, 12),
                 ]
             );
         }
 
         let type_collision = query_snapshot(&snapshot, "main.veln", 13, 38);
         assert!(type_collision.is_none_or(|result| result.references.is_empty()));
+        let nested_type_collision = query_snapshot(&snapshot, "main.veln", 17, 50);
+        assert!(nested_type_collision.is_none_or(|result| result.references.is_empty()));
 
         let target = query_snapshot(&snapshot, "main.veln", 6, 4).unwrap();
         assert_eq!(

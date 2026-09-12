@@ -8,4 +8,6 @@
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"std_alias.veln","line":16,"column":3}}}
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":19,"column":35}}}
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"std_alias.veln","line":19,"column":36}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":23,"column":46}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"std_alias.veln","line":23,"column":50}}}
 {"jsonrpc":"2.0","id":9,"method":"resources/list","params":{}}
