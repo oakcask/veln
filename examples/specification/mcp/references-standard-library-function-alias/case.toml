@@ -75,3 +75,68 @@ length = 3
 id = 4
 path = "/result/structuredContent/references/2/range"
 equals = {"start":{"line":7,"column":67},"end":{"line":7,"column":81}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":11,"column":21},"end":{"line":11,"column":34}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":15,"column":45},"end":{"line":15,"column":58}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":16,"column":66},"end":{"line":16,"column":79}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 5
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":15,"column":45},"end":{"line":15,"column":58}}
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":16,"column":66},"end":{"line":16,"column":79}}

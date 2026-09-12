@@ -14,9 +14,9 @@ Completion evidence:
 
 - The `references-standard-library-function-alias` executable MCP
   specification case checks that the shipped `std::prelude`
-  `byte_chunk_len` alias returns workspace `file:` result locations and
-  project-wide scope for a bare call, bare function-value occurrence, and
-  `prelude::`-qualified call over stdio.
+  `byte_chunk_len` and `byte_view_len` aliases return workspace `file:`
+  result locations and project-wide scope for bare calls, bare function-value
+  occurrences, and `prelude::`-qualified calls over stdio.
 - `veln-language-service` tests check explicit standard-library module alias
   references, implicit prelude alias references, qualified and bare
   function-value occurrences, alias and target identity separation,

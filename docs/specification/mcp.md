@@ -598,8 +598,8 @@ project-wide scope, and excludes workspace, dependency, field, string,
 comment, declaration, package-source, and import-alias collisions.
 The `references-standard-library-function-alias` MCP specification case checks
 the same successful result shape for the shipped `std::prelude`
-`byte_chunk_len` alias selected through a bare call, bare function-value
-occurrence, and `prelude::`-qualified call.
+`byte_chunk_len` and `byte_view_len` aliases selected through bare calls, bare
+function-value occurrences, and `prelude::`-qualified calls.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
