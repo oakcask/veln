@@ -241,6 +241,11 @@ pub(crate) const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor
 
 pub(crate) const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
+pub(crate) const SOURCE_DEFINED_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+    source_prelude_symbol_descriptor("byte_chunk_len"),
+    source_prelude_symbol_descriptor("byte_view_len"),
+];
+
 compiler_adapter_symbol_set! {
     "byte",
     "byte_to_int",
@@ -457,10 +462,12 @@ pub(crate) fn private_compiler_adapter_name(name: &str) -> bool {
 
 #[cfg(test)]
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    build_standard_symbol_registry(
+    build_standard_symbol_registry_with_modules(
+        DEFAULT_PRELUDE_BUILTIN_MODULE,
         QUALIFIED_SYMBOLS,
         FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS,
         SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS,
+        SOURCE_DEFINED_PRELUDE_SYMBOLS,
         COMPILER_ADAPTER_SYMBOLS,
     )
     .expect("standard symbol registry")
@@ -476,6 +483,11 @@ fn compatibility_prelude_symbols() -> impl Iterator<Item = &'static StandardSymb
 }
 
 #[cfg(test)]
+fn source_defined_prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
+    SOURCE_DEFINED_PRELUDE_SYMBOLS.iter()
+}
+
+#[cfg(test)]
 pub(crate) fn build_standard_symbol_registry(
     qualified: &'static [StandardSymbolDescriptor],
     compatibility_prelude: &'static [StandardSymbolDescriptor],
@@ -487,6 +499,7 @@ pub(crate) fn build_standard_symbol_registry(
         qualified,
         compatibility_prelude,
         self_hosting_prelude,
+        &[],
         compiler_adapters,
     )
 }
@@ -496,6 +509,7 @@ pub(crate) fn build_standard_symbol_registry_with_modules(
     qualified: &'static [StandardSymbolDescriptor],
     compatibility_prelude: &'static [StandardSymbolDescriptor],
     self_hosting_prelude: &'static [StandardSymbolDescriptor],
+    source_defined_prelude: &'static [StandardSymbolDescriptor],
     compiler_adapters: &'static [StandardSymbolDescriptor],
 ) -> Result<StandardSymbolRegistry, InvalidStandardSymbolCase> {
     let mut registry = StandardSymbolRegistry {
@@ -515,6 +529,7 @@ pub(crate) fn build_standard_symbol_registry_with_modules(
     for descriptor in compatibility_prelude
         .iter()
         .chain(self_hosting_prelude.iter())
+        .chain(source_defined_prelude.iter())
     {
         validate_source_lookup_descriptor("prelude", descriptor)?;
         validate_prelude_lookup_key("prelude", descriptor, &mut prelude_keys)?;

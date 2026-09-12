@@ -207,6 +207,7 @@ pub(super) fn provider_set(
         qualified,
         compatibility_prelude: &[],
         self_hosting_prelude: &[],
+        source_defined_prelude: &[],
         compiler_adapters,
         standard_module,
         prelude_builtin_module,

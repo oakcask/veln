@@ -161,7 +161,9 @@ fn byte_chunk_signature<T: BytePreludeType>(
 ) -> Option<ByteSignature<T>> {
     match name {
         "byte_chunk" => Some((vec![T::vec(types.byte.clone())], types.byte_chunk.clone())),
-        "byte_chunk_count" => Some((vec![types.byte_chunk.clone()], types.byte_count.clone())),
+        "byte_chunk_count" | "byte_chunk_len" => {
+            Some((vec![types.byte_chunk.clone()], types.byte_count.clone()))
+        }
         "byte_append" => Some((
             vec![types.byte_chunk.clone(), types.byte_chunk.clone()],
             types.byte_chunk.clone(),
@@ -195,7 +197,9 @@ fn byte_view_signature<T: BytePreludeType>(
             result_string(types.byte_view.clone()),
         )),
         "byte_view_to_chunk" => Some((vec![types.byte_view.clone()], types.byte_chunk.clone())),
-        "byte_view_count" => Some((vec![types.byte_view.clone()], types.byte_count.clone())),
+        "byte_view_count" | "byte_view_len" => {
+            Some((vec![types.byte_view.clone()], types.byte_count.clone()))
+        }
         "byte_view_take" | "byte_view_drop" => Some((
             vec![types.byte_view.clone(), types.byte_count.clone()],
             result_string(types.byte_view.clone()),
