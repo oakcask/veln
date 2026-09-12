@@ -232,6 +232,11 @@ impl SymbolIndex {
                     && qualified_reference_matches(&tokens, *index, &module_segments)
                     && (is_call_target_token(&tokens, *index)
                         || ((symbol.package.is_some() || symbol.public)
+                            && !is_type_reference_token_named(
+                                file,
+                                &token.text,
+                                &file.source.span(token.range),
+                            )
                             && (file.classified_path_segments.iter().any(|segment| {
                                 segment.role == NameClass::ValueBinding
                                     && same_span(&segment.span, &file.source.span(token.range))

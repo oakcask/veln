@@ -19,3 +19,7 @@ end
 pub fn type_collision(value: dep::renamed) -> Int
   dep::renamed()
 end
+
+pub fn nested_type_collision(value: List<dep::renamed>) -> Int
+  dep::renamed()
+end

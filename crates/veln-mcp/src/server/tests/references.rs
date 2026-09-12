@@ -1255,6 +1255,10 @@ fn references_return_package_function_alias_locations() {
             "pub fn type_collision(value: dep::renamed) -> Int\n",
             "  dep::renamed()\n",
             "end\n",
+            "\n",
+            "pub fn nested_type_collision(value: List<dep::renamed>) -> Int\n",
+            "  dep::renamed()\n",
+            "end\n",
             "\n# renamed mention\n",
             "pub fn renamed(record: {renamed: Int}) -> Int\n",
             "  let renamed = record.renamed\n",
@@ -1302,6 +1306,7 @@ fn references_return_package_function_alias_locations() {
             ("main.veln", 4, 8, 4, 15),
             ("main.veln", 9, 8, 9, 15),
             ("main.veln", 13, 8, 13, 15),
+            ("main.veln", 17, 8, 17, 15),
             ("other.veln", 4, 8, 4, 15),
         ],
         "direct dependency function alias",
@@ -1335,6 +1340,10 @@ fn references_return_package_function_alias_locations() {
             "pub fn type_collision(chunk: prelude::byte_chunk_len) -> ByteCount\n",
             "  prelude::byte_chunk_len(chunk)\n",
             "end\n",
+            "\n",
+            "pub fn nested_type_collision(chunk: List<prelude::byte_chunk_len>) -> ByteCount\n",
+            "  prelude::byte_chunk_len(chunk)\n",
+            "end\n",
         ),
     );
     std_workspace.write(
@@ -1360,6 +1369,7 @@ fn references_return_package_function_alias_locations() {
             ("main.veln", 4, 3, 4, 17),
             ("main.veln", 8, 12, 8, 26),
             ("main.veln", 16, 12, 16, 26),
+            ("main.veln", 20, 12, 20, 26),
             ("other.veln", 4, 12, 4, 26),
         ],
         "standard library function alias",
@@ -1383,6 +1393,14 @@ fn references_return_package_function_alias_locations() {
         std_type_collision["structuredContent"]["references"],
         json!([]),
         "{std_type_collision:#}"
+    );
+
+    let std_nested_type_collision =
+        std_server.references_tool(&json!({"source":"main.veln","line":19,"column":50}));
+    assert_eq!(
+        std_nested_type_collision["structuredContent"]["references"],
+        json!([]),
+        "{std_nested_type_collision:#}"
     );
 }
 

@@ -297,6 +297,9 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
+        if is_type_reference_token_named(file, name, &file.source.span(tokens[token_index].range)) {
+            return None;
+        }
         if selected_qualified_path_starts_in_type_position(tokens, token_index) {
             return None;
         }

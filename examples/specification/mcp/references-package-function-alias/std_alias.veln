@@ -19,3 +19,7 @@ end
 pub fn type_collision(chunk: prelude::byte_chunk_len) -> ByteCount
   prelude::byte_chunk_len(chunk)
 end
+
+pub fn nested_type_collision(chunk: List<prelude::byte_chunk_len>) -> ByteCount
+  prelude::byte_chunk_len(chunk)
+end
