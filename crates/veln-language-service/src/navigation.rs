@@ -39,6 +39,7 @@ thread_local! {
     static CONSTRUCTOR_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_INDEXES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_PATH_CLASSIFICATIONS: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -118,6 +119,21 @@ pub(crate) fn dependency_source_parses() -> usize {
 }
 
 #[cfg(test)]
+fn record_workspace_source_parse() {
+    WORKSPACE_SOURCE_PARSES.set(WORKSPACE_SOURCE_PARSES.get() + 1);
+}
+
+#[cfg(test)]
+fn reset_workspace_source_parses() {
+    WORKSPACE_SOURCE_PARSES.set(0);
+}
+
+#[cfg(test)]
+fn workspace_source_parses() -> usize {
+    WORKSPACE_SOURCE_PARSES.get()
+}
+
+#[cfg(test)]
 fn record_dependency_path_classifications(count: usize) {
     DEPENDENCY_PATH_CLASSIFICATIONS.set(DEPENDENCY_PATH_CLASSIFICATIONS.get() + count);
 }
@@ -138,7 +154,7 @@ mod tests {
 
     #[test]
     fn prepared_file_supplies_every_declaration_kind() {
-        let (file, declarations) = index_workspace_source(SourceFile::new(
+        let (file, declarations, _) = index_workspace_source(SourceFile::new(
             "main.veln",
             concat!(
                 "pub type Item\n",
@@ -156,5 +172,18 @@ mod tests {
         assert_eq!(declarations.types[0].name, "Item");
         assert_eq!(declarations.constructors[0].name, "Value");
         assert_eq!(declarations.type_aliases[0].name, "Exported");
+    }
+
+    #[test]
+    fn workspace_index_parses_each_source_once() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            SourceFile::new("main.veln", "fn main() -> Int\n  helper()\nend\n"),
+            SourceFile::new("helper.veln", "fn helper() -> Int\n  1\nend\n"),
+        ]);
+        reset_workspace_source_parses();
+
+        snapshot.navigation_index();
+
+        assert_eq!(workspace_source_parses(), 2);
     }
 }

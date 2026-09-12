@@ -22,12 +22,13 @@ impl SymbolIndex {
     pub(crate) fn new(sources: Vec<SourceFile>, dependencies: &IndexedDependencies) -> Self {
         let mut files = Vec::new();
         let mut declarations = FileDeclarations::default();
+        let mut workspace_module = empty_surface_module();
         for source in sources {
-            let (file, file_declarations) = index_workspace_source(source);
+            let (file, file_declarations, parsed) = index_workspace_source(source);
             declarations.extend(file_declarations);
+            append_parsed_surface_module(&mut workspace_module, &file, &parsed);
             files.push(file);
         }
-        let workspace_module = merged_surface_module(&files);
         let mut module = workspace_module.clone();
         declarations.extend(dependencies.declarations.clone());
         append_surface_module(&mut module, dependencies.module.clone());

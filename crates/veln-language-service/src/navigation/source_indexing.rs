@@ -1,4 +1,4 @@
-fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations) {
+fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations, ParseOutput) {
     let path = source.path().as_str().to_string();
     let companion_target_module = classify_companion_source(&path)
         .and_then(|companion| module_name_from_path(&companion.target_path));
@@ -8,6 +8,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
         .or(path_module)
         .unwrap_or_default();
     let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
+    #[cfg(test)]
+    record_workspace_source_parse();
     let parsed = parse(&source);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
@@ -35,7 +37,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations)
         origin: IndexedOrigin::Workspace,
     };
     let declarations = workspace_file_declarations(&file, &parsed.tree);
-    (file, declarations)
+    (file, declarations, parsed)
 }
 
 fn workspace_recovery_symbols(
@@ -162,22 +164,17 @@ fn attach_classified_path_segments(
     }
 }
 
-fn merged_surface_module(files: &[IndexedFile]) -> veln_ast::SurfaceModule {
-    let mut merged = empty_surface_module();
-    for file in files.iter().filter(|file| !file.navigation_isolated) {
-        #[cfg(test)]
-        if matches!(file.origin, IndexedOrigin::Package { .. }) {
-            record_dependency_source_parse();
-        }
-        let parsed = parse(&file.source);
-        if !parsed.diagnostics.is_empty() {
-            continue;
-        }
-        let mut module = veln_ast::lower_surface_ast(&parsed.tree);
-        assign_module_name(&mut module, &file.module);
-        append_surface_module(&mut merged, module);
+fn append_parsed_surface_module(
+    merged: &mut veln_ast::SurfaceModule,
+    file: &IndexedFile,
+    parsed: &ParseOutput,
+) {
+    if file.navigation_isolated || !parsed.diagnostics.is_empty() {
+        return;
     }
-    merged
+    let mut module = veln_ast::lower_surface_ast(&parsed.tree);
+    assign_module_name(&mut module, &file.module);
+    append_surface_module(merged, module);
 }
 
 fn empty_surface_module() -> veln_ast::SurfaceModule {
