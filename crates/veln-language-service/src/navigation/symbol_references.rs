@@ -125,12 +125,11 @@ impl SymbolIndex {
             .alias_target_module
             .as_deref()
             .unwrap_or(symbol.module.as_str());
-        self.functions.iter().any(|candidate| {
-            candidate.declaration_kind == SymbolDeclarationKind::PublicAlias
-                && candidate.name == target_name
+        self.package_function_aliases.iter().any(|candidate| {
+            candidate.name == target_name
                 && candidate.module == target_module
-                && candidate.package == symbol.package
-                && candidate.package_origin == symbol.package_origin
+                && Some(candidate.package.as_str()) == symbol.package.as_deref()
+                && Some(candidate.package_origin) == symbol.package_origin
         })
     }
 

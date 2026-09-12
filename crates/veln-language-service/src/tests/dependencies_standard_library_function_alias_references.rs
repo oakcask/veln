@@ -367,3 +367,39 @@
         assert_standard_library_alias(&result);
         assert!(result.references.is_empty());
     }
+
+    #[test]
+    fn standard_library_function_alias_chains_through_non_exported_sources_return_no_references() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "api.veln",
+                    "pub fn chained = implementation::renamed\n",
+                ),
+                (
+                    "implementation.veln",
+                    concat!(
+                        "pub fn target() -> Int\n",
+                        "  1\n",
+                        "end\n\n",
+                        "pub fn renamed = target\n",
+                    ),
+                ),
+            ],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use api from \"std\"\n\n",
+                "pub fn main() -> Int\n",
+                "  api::chained()\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+        let result = query_snapshot(&snapshot, "main.veln", 4, 9).unwrap();
+
+        assert_standard_library_alias(&result);
+        assert!(result.references.is_empty());
+    }

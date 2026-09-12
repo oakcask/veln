@@ -140,6 +140,50 @@ fn references_keep_standard_library_function_alias_chain_boundary_empty() {
 }
 
 #[test]
+fn references_keep_standard_library_alias_chain_empty_for_non_exported_target_source() {
+    let workspace = TempWorkspace::new("references-standard-library-alias-private-source-chain");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use api from \"std\"\n\n",
+            "fn main() -> Int\n",
+            "  api::chained()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"api.veln\"]\n",
+        [
+            PackageSnapshotSource::new(
+                "api.veln",
+                "pub fn chained = implementation::renamed\n".as_bytes(),
+            ),
+            PackageSnapshotSource::new(
+                "implementation.veln",
+                concat!(
+                    "pub fn target() -> Int\n",
+                    "  1\n",
+                    "end\n\n",
+                    "pub fn renamed = target\n",
+                )
+                .as_bytes(),
+            ),
+        ],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["references"],
+        json!([]),
+        "{result:#}"
+    );
+}
+
+#[test]
 fn references_project_capture_exhausts_retries_for_standard_library_alias_selection() {
     let workspace = TempWorkspace::new("references-standard-library-alias-capture-retry");
     workspace.write("veln.toml", "");

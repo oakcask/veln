@@ -41,6 +41,8 @@ impl FileDeclarations {
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
         self.functions.extend(other.functions);
+        self.package_function_aliases
+            .extend(other.package_function_aliases);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
@@ -54,6 +56,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
         functions: function_declarations(file),
+        package_function_aliases: package_function_aliases(file),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
@@ -283,6 +286,45 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
         }
     }
     functions
+}
+
+fn package_function_aliases(file: &IndexedFile) -> Vec<PackageFunctionAlias> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return Vec::new();
+    };
+    let package_origin = if *standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    file.tokens
+        .iter()
+        .enumerate()
+        .filter_map(|(index, token)| {
+            if !matches!(token.kind, TokenKind::Fn | TokenKind::Test) {
+                return None;
+            }
+            let name_index = next_non_layout_index(&file.tokens, index)?;
+            let name = file.tokens.get(name_index)?;
+            if !is_identifier(&name.text) {
+                return None;
+            }
+            let alias = function_alias_declaration(&file.tokens, name_index, name.range.end);
+            (alias.declaration_kind == SymbolDeclarationKind::PublicAlias).then(|| {
+                PackageFunctionAlias {
+                    module: file.module.clone(),
+                    name: name.text.clone(),
+                    package: identity.clone(),
+                    package_origin,
+                }
+            })
+        })
+        .collect()
 }
 
 fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol> {

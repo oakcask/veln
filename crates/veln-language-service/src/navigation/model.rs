@@ -380,6 +380,14 @@ struct FunctionSymbol {
 }
 
 #[derive(Clone, Debug)]
+struct PackageFunctionAlias {
+    module: String,
+    name: String,
+    package: String,
+    package_origin: PackageOrigin,
+}
+
+#[derive(Clone, Debug)]
 struct TypeSymbol {
     module: String,
     name: String,
@@ -606,6 +614,7 @@ struct FileDeclarations {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    package_function_aliases: Vec<PackageFunctionAlias>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
@@ -637,6 +646,7 @@ pub(crate) struct SymbolIndex {
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
     functions: Vec<FunctionSymbol>,
+    package_function_aliases: Vec<PackageFunctionAlias>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
