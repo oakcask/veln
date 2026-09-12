@@ -28,9 +28,9 @@ checked by the executable prelude-helper case.
   `ByteChunk` and `ByteView` inputs through bare alias calls,
   `prelude::`-qualified alias calls, the existing target functions, and alias
   use as function values.
-- `crates/veln-sema/src/prelude/tests.rs` checks that the low-level prelude
-  signature fallback treats the public aliases as type-compatible with the
-  existing `count` helpers.
+- `crates/veln-sema/src/tests/calls_pipeline_and_float_types/pipelines_and_aliases.rs`
+  checks that public alias calls and function-value uses lower through the
+  source-backed alias targets.
 - The standard-library virtual-source and package-documentation specification
   cases are refreshed with the standard-library snapshot that includes both
   public aliases.
