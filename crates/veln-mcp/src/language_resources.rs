@@ -67,6 +67,7 @@ pub(crate) struct LanguageResources {
     combined_by_uri: BTreeMap<String, PublishedResource>,
     retained_package_keys: BTreeSet<RetainedPackageKey>,
     package_docs: BTreeMap<RetainedPackageKey, PackageDocumentation>,
+    #[cfg(test)]
     standard_library_snapshot: Option<DirectDependencySnapshot>,
     standard_library_navigation: EffectiveProjectSnapshot,
     dependency_navigation: Option<(Vec<RetainedPackageKey>, EffectiveProjectSnapshot)>,
@@ -208,6 +209,8 @@ impl LanguageResources {
                 return Err(format!("duplicate MCP resource URI `{}`", resource.uri));
             }
         }
+        #[cfg(not(test))]
+        let _ = standard_library_snapshot;
         Ok(Self {
             by_uri,
             topics,
@@ -215,6 +218,7 @@ impl LanguageResources {
             combined_by_uri,
             retained_package_keys: retained_package_keys.into_iter().collect(),
             package_docs: package_docs.into_iter().collect(),
+            #[cfg(test)]
             standard_library_snapshot,
             standard_library_navigation,
             dependency_navigation: None,
@@ -338,6 +342,7 @@ impl LanguageResources {
             .collect()
     }
 
+    #[cfg(test)]
     pub(crate) fn standard_library_snapshot(&self) -> Option<DirectDependencySnapshot> {
         self.standard_library_snapshot.clone()
     }
@@ -376,13 +381,9 @@ impl LanguageResources {
             if !reuse {
                 #[cfg(test)]
                 DEPENDENCY_NAVIGATION_BUILDS.set(DEPENDENCY_NAVIGATION_BUILDS.get() + 1);
-                let mut snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-                    Vec::new(),
-                    dependencies.snapshots,
-                );
-                if let Some(standard_library) = self.standard_library_snapshot() {
-                    snapshot = snapshot.with_standard_library(standard_library);
-                }
+                let snapshot = self
+                    .standard_library_navigation
+                    .with_direct_dependency_layer(dependencies.snapshots);
                 self.dependency_navigation = Some((dependency_keys.clone(), snapshot));
             }
             self.dependency_navigation

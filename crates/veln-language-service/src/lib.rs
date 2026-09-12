@@ -41,7 +41,8 @@ pub struct EffectiveProjectSnapshot {
     sources: Vec<SourceFile>,
     direct_dependencies: Vec<DirectDependencySnapshot>,
     standard_library: Option<DirectDependencySnapshot>,
-    indexed_dependencies: Arc<OnceLock<Arc<IndexedDependencies>>>,
+    indexed_direct_dependencies: Arc<OnceLock<Arc<IndexedDependencies>>>,
+    indexed_standard_library: Arc<OnceLock<Arc<IndexedDependencies>>>,
     navigation_index: OnceLock<Arc<SymbolIndex>>,
 }
 
@@ -51,7 +52,8 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies: Vec::new(),
             standard_library: None,
-            indexed_dependencies: Arc::new(OnceLock::new()),
+            indexed_direct_dependencies: Arc::new(OnceLock::new()),
+            indexed_standard_library: Arc::new(OnceLock::new()),
             navigation_index: OnceLock::new(),
         }
     }
@@ -64,16 +66,31 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies,
             standard_library: None,
-            indexed_dependencies: Arc::new(OnceLock::new()),
+            indexed_direct_dependencies: Arc::new(OnceLock::new()),
+            indexed_standard_library: Arc::new(OnceLock::new()),
             navigation_index: OnceLock::new(),
         }
     }
 
     pub fn with_standard_library(mut self, standard_library: DirectDependencySnapshot) -> Self {
         self.standard_library = Some(standard_library);
-        self.indexed_dependencies = Arc::new(OnceLock::new());
+        self.indexed_standard_library = Arc::new(OnceLock::new());
         self.navigation_index = OnceLock::new();
         self
+    }
+
+    pub fn with_direct_dependency_layer(
+        &self,
+        direct_dependencies: Vec<DirectDependencySnapshot>,
+    ) -> Self {
+        Self {
+            sources: self.sources.clone(),
+            direct_dependencies,
+            standard_library: self.standard_library.clone(),
+            indexed_direct_dependencies: Arc::new(OnceLock::new()),
+            indexed_standard_library: Arc::clone(&self.indexed_standard_library),
+            navigation_index: OnceLock::new(),
+        }
     }
 
     pub fn with_workspace_overlays(&self, overlays: impl IntoIterator<Item = SourceFile>) -> Self {
@@ -94,7 +111,8 @@ impl EffectiveProjectSnapshot {
             sources,
             direct_dependencies: self.direct_dependencies.clone(),
             standard_library: self.standard_library.clone(),
-            indexed_dependencies: Arc::clone(&self.indexed_dependencies),
+            indexed_direct_dependencies: Arc::clone(&self.indexed_direct_dependencies),
+            indexed_standard_library: Arc::clone(&self.indexed_standard_library),
             navigation_index: OnceLock::new(),
         }
     }
@@ -102,13 +120,21 @@ impl EffectiveProjectSnapshot {
     fn navigation_index(&self) -> Arc<SymbolIndex> {
         self.navigation_index
             .get_or_init(|| {
-                let dependencies = self.indexed_dependencies.get_or_init(|| {
-                    Arc::new(IndexedDependencies::new(
+                let direct_dependencies = self.indexed_direct_dependencies.get_or_init(|| {
+                    Arc::new(IndexedDependencies::new_direct(
                         self.direct_dependencies.clone(),
+                    ))
+                });
+                let standard_library = self.indexed_standard_library.get_or_init(|| {
+                    Arc::new(IndexedDependencies::new_standard_library(
                         self.standard_library.clone(),
                     ))
                 });
-                Arc::new(SymbolIndex::new(self.sources.clone(), dependencies))
+                Arc::new(SymbolIndex::new(
+                    self.sources.clone(),
+                    direct_dependencies,
+                    standard_library,
+                ))
             })
             .clone()
     }
