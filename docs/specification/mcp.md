@@ -450,11 +450,11 @@ import alias. Standard-library public function-alias results also include
 accepted bare implicit-prelude forms. Public function-alias references are
 distinct from the referenced function: selecting the alias returns only
 occurrences that resolve to that alias, and selecting the target function
-returns only target-function occurrences. Type positions and other
-non-value-namespace spellings of the alias do not count as function-alias
-references. Package type results include type annotations,
-type arguments, return types, type occurrences in type-alias right-hand sides,
-and the type segment used as a constructor qualifier, including when a package
+returns only target-function occurrences. Type annotations, type arguments,
+and other non-value-namespace spellings of the alias do not count as
+function-alias references. Package type results include type annotations, type
+arguments, return types, type occurrences in type-alias right-hand sides, and
+the type segment used as a constructor qualifier, including when a package
 constructor has the same spelling as its owning type. Package constructor
 results include qualified calls, constructor patterns, and accepted bare
 constructor forms. A package constructor selection through a public type alias
@@ -478,9 +478,10 @@ A selected supported symbol returns sorted canonical `file:` locations for
 reference sites only, excluding the selected declaration, plus scope metadata.
 Package function, public function-alias, type, and constructor references never
 return `veln-pkg:` locations. A valid position without a supported reference
-symbol succeeds with an empty `references` array. Selected manifest sources report project scope metadata with
-`project_wide: true`. Sources outside the selected project-owned source set
-report single-file scope metadata with `project_wide: false`.
+symbol succeeds with an empty `references` array. Selected manifest sources
+report project scope metadata with `project_wide: true`. Sources outside the
+selected project-owned source set report single-file scope metadata with
+`project_wide: false`.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -604,14 +605,15 @@ saved selected project returns only workspace `file:` locations for visible
 direct-dependency and standard-library public function aliases. It covers
 direct-dependency qualified calls and qualified function-value forms plus
 standard-library accepted bare implicit-prelude and `prelude::`-qualified
-forms. It excludes qualified alias spellings in type positions. The case keeps
-target-function references separate, reports project-wide scope, and keeps a
-package function-alias chain selection successful and empty, including when
-the selected exported alias targets an alias declared in a non-exported package
-module. Language-service and MCP server tests also check public function-alias
-selections outside the saved selected project, under a descendant manifest,
-and through invalid-cased aliases; those selections succeed with no references
-and retain single-file scope when the source is outside the selected project.
+forms. It excludes qualified alias spellings in type annotations and type
+arguments. The case keeps target-function references separate, reports
+project-wide scope, and keeps a package function-alias chain selection
+successful and empty, including when the selected exported alias targets an
+alias declared in a non-exported package module. Language-service and MCP
+server tests also check public function-alias selections outside the saved
+selected project, under a descendant manifest, and through invalid-cased
+aliases; those selections succeed with no references and retain single-file
+scope when the source is outside the selected project.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
