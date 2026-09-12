@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use veln_language_service::{
-    NavigationResult, NavigationSource, PackageOrigin, SourcePosition, SymbolDeclarationKind,
-    SymbolKind, navigate,
+    EffectiveProjectSnapshot, NavigationResult, NavigationSource, PackageOrigin, SourcePosition,
+    SymbolDeclarationKind, SymbolKind, navigate,
 };
 use veln_source::{SourcePath, SourceSpan};
 
@@ -33,16 +33,11 @@ pub(crate) fn references(
         .iter()
         .find(|file| file.path().as_str() == captured_source)
         .expect("navigation capture contains the requested source");
-    if !valid_position(source_file.text(), line, column) {
-        return domain_failure(
-            "invalid_position",
-            "position is outside the selected source",
-            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
-        );
-    }
-    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
-        unreachable!("valid positions are addressable")
-    };
+    let (line, column) =
+        match addressable_position(source_file.text(), source, arguments, line, column) {
+            Ok(position) => position,
+            Err(failure) => return failure,
+        };
 
     let root = captured.project.root.clone();
     let workspace_key = captured.key;
@@ -55,10 +50,45 @@ pub(crate) fn references(
         dependencies,
         workspace_key,
     );
-    let references = navigate(
-        snapshot.as_ref(),
+    let references = reference_locations(snapshot.as_ref(), &captured_source, line, column, &root);
+
+    ToolOutcome::Success(json!({
+        "references": references,
+        "scope": scope.metadata(selection.generation())
+    }))
+}
+
+fn addressable_position(
+    source_text: &str,
+    source: &str,
+    arguments: &Value,
+    line: Coordinate,
+    column: Coordinate,
+) -> Result<(usize, usize), ToolOutcome> {
+    if !valid_position(source_text, line, column) {
+        return Err(domain_failure(
+            "invalid_position",
+            "position is outside the selected source",
+            json!({"source": source, "line": arguments["line"].clone(), "column": arguments["column"].clone()}),
+        ));
+    }
+    let (Coordinate::Addressable(line), Coordinate::Addressable(column)) = (line, column) else {
+        unreachable!("valid positions are addressable")
+    };
+    Ok((line, column))
+}
+
+fn reference_locations(
+    snapshot: &EffectiveProjectSnapshot,
+    source: &str,
+    line: usize,
+    column: usize,
+    root: &std::path::Path,
+) -> Vec<Value> {
+    navigate(
+        snapshot,
         SourcePosition {
-            source: SourcePath::new(captured_source),
+            source: SourcePath::new(source),
             line,
             column,
         },
@@ -68,15 +98,10 @@ pub(crate) fn references(
         result
             .references
             .iter()
-            .map(|span| location_json(&root, span))
+            .map(|span| location_json(root, span))
             .collect::<Vec<_>>()
     })
-    .unwrap_or_default();
-
-    ToolOutcome::Success(json!({
-        "references": references,
-        "scope": scope.metadata(selection.generation())
-    }))
+    .unwrap_or_default()
 }
 
 fn supported_reference_symbol(result: &NavigationResult) -> bool {

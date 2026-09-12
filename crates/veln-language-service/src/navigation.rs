@@ -13,6 +13,7 @@ use veln_syntax::{
 };
 
 include!("navigation/model.rs");
+include!("navigation/function_model.rs");
 include!("navigation/source_indexing.rs");
 include!("navigation/index.rs");
 include!("navigation/selection.rs");
@@ -25,6 +26,7 @@ include!("navigation/rename_visibility.rs");
 include!("navigation/symbol_lookup.rs");
 include!("navigation/symbol_references.rs");
 include!("navigation/declarations.rs");
+include!("navigation/function_declarations.rs");
 include!("navigation/recovery_declarations.rs");
 include!("navigation/handler_bindings.rs");
 include!("navigation/references.rs");

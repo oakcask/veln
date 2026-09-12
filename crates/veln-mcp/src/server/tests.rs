@@ -11,6 +11,13 @@ mod outcome;
 mod package_documentation_resources;
 mod protocol;
 mod references;
+mod references_package_function_alias;
+mod references_package_symbols;
+mod references_retry_and_boundaries;
+mod references_source_isolation;
+mod references_unsupported_symbols;
+mod references_workspace_bindings;
+mod references_workspace_symbols;
 mod resources;
 
 fn parse_responses(output: Vec<u8>) -> Vec<Value> {
