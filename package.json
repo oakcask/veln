@@ -4,5 +4,8 @@
   "scripts": {
     "test:vscode": "pnpm --filter veln-language test",
     "vsix": "pnpm --filter veln-language vsix"
+  },
+  "devDependencies": {
+    "jscpd": "5.2.0"
   }
 }
