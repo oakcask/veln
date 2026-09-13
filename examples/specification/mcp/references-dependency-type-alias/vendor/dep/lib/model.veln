@@ -1,0 +1,14 @@
+pub type Item
+  pub Ready(Int)
+end
+
+pub schema Packet
+  format binary
+  value: UInt8
+end
+
+pub type Alias = Item
+pub type Missing = MissingTarget
+pub type WrongKind = Packet
+pub type Chained = Alias
+pub type InvalidCase = missing_type

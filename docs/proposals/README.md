@@ -18,9 +18,7 @@ also states it.
 
 ## Ready
 
-- Add saved direct-dependency public type-alias references through the existing
-  MCP `references` tool:
-  [mcp-saved-dependency-type-alias-references.md](mcp-saved-dependency-type-alias-references.md).
+No proposal is ready for implementation.
 
 ## Blocked
 
@@ -46,12 +44,12 @@ also states it.
   Its direct-dependency public function-alias reference slice is implemented
   and recorded by
   [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
+  Its direct-dependency public type-alias reference slice is implemented and
+  recorded by
+  [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md).
   Its standard-library public function-alias reference slice is implemented and
   recorded by
   [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md).
-  Its direct-dependency public type-alias reference slice is ready and tracked
-  separately by
-  [MCP Saved Direct-Dependency Type-Alias References](mcp-saved-dependency-type-alias-references.md).
   Do not select the umbrella
   directly:
   [agent-language-services.md](agent-language-services.md).

@@ -1,0 +1,5 @@
+use lib::model from "example/dep"
+
+fn second(input: model::Alias) -> lib::model::Alias
+  input
+end

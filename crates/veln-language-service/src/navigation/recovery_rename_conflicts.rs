@@ -46,10 +46,14 @@ impl SymbolIndex {
             module: file.module.clone(),
             name: symbol.name,
             declaration: workspace_location(symbol.declaration),
+            target_module: None,
+            target_name: None,
             package: None,
             package_origin: None,
             public: symbol.public,
             standard_prelude: false,
+            declaration_kind: SymbolDeclarationKind::Declaration,
+            invalid_declaration_name: false,
         };
         self.local_type_namespace_conflict(&selected.module, requested_name)
             .filter(|candidate| !candidate.is_selected_type(&selected))

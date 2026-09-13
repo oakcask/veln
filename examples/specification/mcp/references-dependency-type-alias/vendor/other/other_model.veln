@@ -1,0 +1,4 @@
+pub type Item
+end
+
+pub type Alias = Item

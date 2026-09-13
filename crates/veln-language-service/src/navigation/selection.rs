@@ -248,13 +248,26 @@ impl SymbolIndex {
         name: &str,
         selection: &SourceSpan,
     ) -> Option<SelectedNavigationSymbol> {
-        self.type_reference_selection(file, tokens, token_index, name, selection)
+        self.constructor_type_qualifier_selection(file, tokens, token_index, name)
+            .or_else(|| self.type_reference_selection(file, tokens, token_index, name, selection))
             .or_else(|| {
                 self.recovery_type_reference_selection(file, tokens, token_index, name, selection)
             })
             .or_else(|| self.bare_nullary_constructor_selection(file, tokens, token_index, name))
             .or_else(|| self.bare_prelude_function_value_selection(file, tokens, token_index, name))
             .or_else(|| self.recovery_value_binding_selection(file, tokens, token_index, name))
+    }
+
+    fn constructor_type_qualifier_selection(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<SelectedNavigationSymbol> {
+        self.type_for_constructor_qualifier_token(file, tokens, token_index, name)
+            .map(Symbol::Type)
+            .map(SelectedNavigationSymbol::bare)
     }
 
     fn bare_prelude_function_value_selection(

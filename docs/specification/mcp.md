@@ -450,6 +450,9 @@ references plus qualified type references.
 Direct-dependency public function aliases whose target resolves to a function
 declaration in the same retained direct dependency also use their alias
 identity and expose references through the package function boundary.
+Direct-dependency public type aliases whose target resolves to a type
+declaration in the same retained direct dependency use their alias identity and
+expose references through the package type boundary.
 
 Package function results include qualified calls, qualified function-value
 occurrences, and occurrences qualified by an import alias. Supported package
@@ -458,9 +461,11 @@ from the aliased target function's results. Package type results
 include type annotations, type arguments, return types, type occurrences in
 type-alias right-hand sides, and the type segment used as a constructor
 qualifier, including when a package constructor has the same spelling as its
-owning type. Package constructor results include qualified calls, constructor
-patterns, and accepted bare constructor forms. A package constructor selection
-through a public type alias succeeds but returns an empty `references` array.
+owning type. Supported package type-alias results include the same occurrence
+forms and remain separate from the aliased target type's results. Package
+constructor results include qualified calls, constructor patterns, and
+accepted bare constructor forms. A package constructor selection through a
+public type alias succeeds but returns an empty `references` array.
 Package reference results include only occurrences in the selected project's
 captured owned sources.
 They exclude the package declaration, package source bodies, other selected
@@ -468,13 +473,14 @@ projects, equal spellings with different package or module identity,
 import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
-package types, functions, function aliases, or constructors, non-exported
-package modules, invalid-casing records, recovery records, unsupported
-function-alias chains, public function aliases with unresolved, non-function,
-or invalid-cased targets, package public alias symbols other than supported
-function aliases, non-function, non-type, and non-constructor package symbols,
-and package module-segment selections succeed with an empty `references`
-array.
+package types, functions, function aliases, type aliases, or constructors,
+non-exported package modules, invalid-casing records, recovery records,
+unsupported function-alias and type-alias chains, public function aliases with
+unresolved, non-function, or invalid-cased targets, public type aliases with
+unresolved, non-type, or invalid-cased targets, package public alias symbols
+other than supported function and type aliases, non-function, non-type, and
+non-constructor package symbols, and package module-segment selections succeed
+with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
@@ -604,6 +610,15 @@ function-value occurrence. The same case checks alias and target-function
 identity separation, package and workspace collisions, field exclusion,
 unsupported alias-chain selection, unresolved, wrong-kind, and invalid-casing
 alias targets, project-wide scope, and dependency source resource admission.
+The `references-dependency-type-alias` MCP specification case checks the same
+result shape for a visible direct-dependency public type alias selected
+through type annotations, type arguments, return types, type-alias right-hand
+sides, constructor qualifiers, written module paths, and
+import-alias-qualified paths. The same case checks alias and target-type
+identity separation, package collisions, lexical noise exclusion, unsupported
+alias-chain selection, unresolved, wrong-kind, and invalid-casing alias
+targets, descendant project isolation, project-wide scope, and dependency
+source resource admission.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,
