@@ -226,6 +226,47 @@
     }
 
     #[test]
+    fn direct_dependency_type_alias_references_accept_retained_non_exported_target_type() {
+        let dependency = dependency_snapshot(
+            "example/pkg",
+            &[
+                (
+                    "api.veln",
+                    "use implementation\n\npub type Alias = implementation::Item\n",
+                ),
+                (
+                    "implementation.veln",
+                    "type Item\n  Ready(Int)\nend\n",
+                ),
+            ],
+            ["api.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use api from \"example/pkg\"\n\n",
+                    "fn first(input: api::Alias) -> api::Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let result = query_snapshot(&snapshot, "main.veln", 3, 24).unwrap();
+        assert_direct_dependency_type_alias(&result);
+        assert_eq!(
+            result.definition.span.file.as_str(),
+            "api.veln"
+        );
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 3, 22), ("main.veln", 3, 37)]
+        );
+    }
+
+    #[test]
     fn unsupported_direct_dependency_type_aliases_select_empty() {
         let dependency = dependency_snapshot(
             "example/pkg",
@@ -251,7 +292,7 @@
                     "pub type Target\nend\n\npub type renamed = Target\n",
                 ),
             ],
-            ["api.veln", "impl.veln"],
+            ["api.veln"],
         );
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(

@@ -1,3 +1,5 @@
+use lib::implementation
+
 pub type Item
   pub Ready(Int)
 end
@@ -12,3 +14,4 @@ pub type Missing = MissingTarget
 pub type WrongKind = Packet
 pub type Chained = Alias
 pub type InvalidCase = missing_type
+pub type RetainedAlias = implementation::Hidden

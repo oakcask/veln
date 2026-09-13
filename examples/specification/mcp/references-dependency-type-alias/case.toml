@@ -126,3 +126,28 @@ equals = {"mode":"single_file","generation":0,"project":".","source":"nested/mai
 id = 8
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":22,"column":27},"end":{"line":22,"column":40}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":22,"column":52},"end":{"line":22,"column":65}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 10
+path = "/result/isError"
+equals = false

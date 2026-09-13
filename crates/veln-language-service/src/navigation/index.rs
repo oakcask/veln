@@ -61,6 +61,7 @@ impl SymbolIndex {
             functions: declarations.functions,
             package_function_targets: declarations.package_function_targets,
             types: declarations.types,
+            package_type_targets: declarations.package_type_targets,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
             files,

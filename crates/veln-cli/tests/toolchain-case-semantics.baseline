@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"1cd2ad2e3d39da68fe2902d08a5d8ecf13a8a5bf"
+source_git_tree	"13c4e88d8e586cfc2e183b0990d18b0b030dc371"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1671
@@ -15858,6 +15858,26 @@ field	expectations.mcp_assertions[22].equals	[]
 field	expectations.mcp_assertions[22].id	8
 field	expectations.mcp_assertions[22].operation	"equals"
 field	expectations.mcp_assertions[22].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[23].id	10
+field	expectations.mcp_assertions[23].length	2
+field	expectations.mcp_assertions[23].operation	"length"
+field	expectations.mcp_assertions[23].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[24].equals	{"end":{"column":40,"line":22},"start":{"column":27,"line":22}}
+field	expectations.mcp_assertions[24].id	10
+field	expectations.mcp_assertions[24].operation	"equals"
+field	expectations.mcp_assertions[24].path	"/result/structuredContent/references/0/range"
+field	expectations.mcp_assertions[25].equals	{"end":{"column":65,"line":22},"start":{"column":52,"line":22}}
+field	expectations.mcp_assertions[25].id	10
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/structuredContent/references/1/range"
+field	expectations.mcp_assertions[26].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
+field	expectations.mcp_assertions[26].id	10
+field	expectations.mcp_assertions[26].operation	"equals"
+field	expectations.mcp_assertions[26].path	"/result/structuredContent/scope"
+field	expectations.mcp_assertions[27].equals	false
+field	expectations.mcp_assertions[27].id	10
+field	expectations.mcp_assertions[27].operation	"equals"
+field	expectations.mcp_assertions[27].path	"/result/isError"
 field	expectations.mcp_assertions[2].equals	{"end":{"column":35,"line":8},"start":{"column":30,"line":8}}
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -15896,9 +15916,9 @@ field	expectations.stdout.contains[1]	"\"scope\":{\"generation\":0,\"mode\":\"pr
 field	expectations.stdout.contains[2]	"\"name\":\"lib/model.veln\",\"title\":\"Veln package source: example/dep: lib/model.veln\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1164,"sha256":"fce229e15f5e7fb661a7e9c348ba90431a77d513d54b1410f9e52b85ad136daf"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1300,"sha256":"c89ef4f24db28a2b58f5e179ba42056eebfae0a9e4c42982292a92a9550d52ea"}
 field	source_errors	"forbidden"
-case_digest	"b1abfb4e582b43b9f65ad7067778957639a39bb5718e6e66506244069b81e4c3"
+case_digest	"e1bdaff489093bb2a9be27bab505cf4a322d9c98b3e2ff9d1b9ca1adb518abaa"
 case	"examples/specification/mcp/references-package-constructor"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -55633,4 +55653,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"06c41b529b60ad89a8071edec20ab646c31842f020c40337761ece74bbe3472d"
+aggregate_digest	"aeea788cad3b3847f6b017f34a00be65a2805fd1cf06bae7939f014ffbe8d5ae"

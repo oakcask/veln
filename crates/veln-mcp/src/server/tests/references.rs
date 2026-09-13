@@ -1106,6 +1106,51 @@ fn references_return_direct_dependency_type_alias_locations_from_saved_project()
         &[("main.veln", 14, 52, 14, 56), ("main.veln", 14, 73, 14, 77)],
         "dependency type target references",
     );
+
+    let retained = TempWorkspace::new("references-dependency-type-alias-retained-target");
+    retained.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    retained.write(
+        "main.veln",
+        concat!(
+            "use api from \"example/dep\"\n\n",
+            "fn first(input: api::Alias) -> api::Alias\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    retained.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"api.veln\"]\n",
+    );
+    retained.write(
+        "vendor/dep/api.veln",
+        "use implementation\n\npub type Alias = implementation::Item\n",
+    );
+    retained.write(
+        "vendor/dep/implementation.veln",
+        "type Item\n  Ready(Int)\nend\n",
+    );
+
+    let retained_result = references_result(&retained, "main.veln", 3, 24);
+    assert_eq!(retained_result["isError"], false, "{retained_result:#}");
+    assert_reference_ranges(
+        &retained_result,
+        &[("main.veln", 3, 22, 3, 27), ("main.veln", 3, 37, 3, 42)],
+        "dependency type alias references through retained target",
+    );
+    assert!(
+        retained_result["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|reference| {
+                reference["uri"].as_str().unwrap().starts_with("file://")
+                    && !reference["uri"].as_str().unwrap().contains("vendor/dep")
+            })
+    );
 }
 
 #[test]

@@ -7,3 +7,4 @@
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":18,"column":85}}}
 {"jsonrpc":"2.0","id":9,"method":"resources/list","params":{}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"nested/main.veln","line":3,"column":21}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":22,"column":28}}}

@@ -296,12 +296,11 @@ impl SymbolIndex {
         let Some(target_module) = self.type_alias_target_module(symbol) else {
             return false;
         };
-        self.types.iter().any(|candidate| {
-            candidate.declaration_kind == SymbolDeclarationKind::Declaration
-                && candidate.name == target_name
+        self.package_type_targets.iter().any(|candidate| {
+            candidate.name == target_name
                 && candidate.module == target_module
-                && candidate.package == symbol.package
-                && candidate.package_origin == symbol.package_origin
+                && Some(candidate.package.as_str()) == symbol.package.as_deref()
+                && Some(candidate.package_origin) == symbol.package_origin
         })
     }
 

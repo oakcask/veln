@@ -18,3 +18,7 @@ end
 fn unsupported(missing: model::Missing, wrong: model::WrongKind, chain: model::Chained) -> model::InvalidCase
   missing
 end
+
+fn retained(input: model::RetainedAlias) -> model::RetainedAlias
+  input
+end

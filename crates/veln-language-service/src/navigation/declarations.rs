@@ -49,6 +49,7 @@ impl FileDeclarations {
         self.package_function_targets
             .extend(other.package_function_targets);
         self.types.extend(other.types);
+        self.package_type_targets.extend(other.package_type_targets);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
     }
@@ -63,6 +64,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         functions: function_declarations(file),
         package_function_targets: package_function_targets(file, syntax),
         types: type_declarations(file, syntax),
+        package_type_targets: package_type_targets(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
     }
@@ -383,6 +385,42 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     standard_prelude,
                     declaration_kind: SymbolDeclarationKind::Declaration,
                     invalid_declaration_name: false,
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn package_type_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageTypeTarget> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return Vec::new();
+    };
+    let package_origin = if *standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) => {
+                let name = type_decl.name.as_ref()?;
+                let span = type_decl.name_span.as_ref()?;
+                if is_invalid_declaration_name(file, span) {
+                    return None;
+                }
+                Some(PackageTypeTarget {
+                    module: file.module.clone(),
+                    name: name.clone(),
+                    package: identity.clone(),
+                    package_origin,
                 })
             }
             _ => None,
