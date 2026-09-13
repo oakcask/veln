@@ -324,6 +324,7 @@ impl Symbol {
     fn declaration_kind(&self) -> SymbolDeclarationKind {
         match self {
             Self::Function(symbol) => symbol.declaration_kind,
+            Self::Type(symbol) => symbol.declaration_kind,
             Self::Constructor(symbol) => symbol.declaration_kind,
             Self::Recovery(_) => SymbolDeclarationKind::Recovery,
             _ => SymbolDeclarationKind::Declaration,
@@ -393,10 +394,14 @@ struct TypeSymbol {
     module: String,
     name: String,
     declaration: NavigationLocation,
+    target_module: Option<String>,
+    target_name: Option<String>,
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
     public: bool,
     standard_prelude: bool,
+    declaration_kind: SymbolDeclarationKind,
+    invalid_declaration_name: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -475,7 +480,25 @@ struct TypeAliasSymbol {
     target_module: Option<String>,
     target_name: String,
     package: Option<String>,
+    package_origin: Option<PackageOrigin>,
     standard_prelude: bool,
+    invalid_declaration_name: bool,
+}
+
+fn type_alias_as_type_symbol(alias: &TypeAliasSymbol) -> TypeSymbol {
+    TypeSymbol {
+        module: alias.module.clone(),
+        name: alias.name.clone(),
+        declaration: alias.declaration.clone(),
+        target_module: alias.target_module.clone(),
+        target_name: Some(alias.target_name.clone()),
+        package: alias.package.clone(),
+        package_origin: alias.package_origin,
+        public: true,
+        standard_prelude: alias.standard_prelude,
+        declaration_kind: SymbolDeclarationKind::PublicAlias,
+        invalid_declaration_name: alias.invalid_declaration_name,
+    }
 }
 
 #[derive(Clone, Debug)]

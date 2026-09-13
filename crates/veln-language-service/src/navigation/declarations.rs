@@ -32,6 +32,10 @@ fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
         && left.name == right.name
         && left.package_origin == right.package_origin
         && left.standard_prelude == right.standard_prelude
+        && left.declaration_kind == right.declaration_kind
+        && left.target_module == right.target_module
+        && left.target_name == right.target_name
+        && left.invalid_declaration_name == right.invalid_declaration_name
         && left.declaration == right.declaration
 }
 
@@ -371,10 +375,14 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     module: file.module.clone(),
                     name: name.clone(),
                     declaration,
+                    target_module: None,
+                    target_name: None,
                     package,
                     package_origin,
                     public,
                     standard_prelude,
+                    declaration_kind: SymbolDeclarationKind::Declaration,
+                    invalid_declaration_name: false,
                 })
             }
             _ => None,
@@ -482,7 +490,8 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
             SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Type => {
                 let name = alias.name.clone()?;
                 let name_span = alias.name_span.as_ref()?;
-                if is_invalid_declaration_name(file, name_span) {
+                let invalid_declaration_name = is_invalid_declaration_name(file, name_span);
+                if invalid_declaration_name && matches!(file.origin, IndexedOrigin::Workspace) {
                     return None;
                 }
                 let target_name = alias.target.last()?.clone();
@@ -491,8 +500,10 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     [segments @ .., _] => Some(segments.join("::")),
                     [] => None,
                 };
-                let (declaration, package, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => (workspace_location(name_span.clone()), None, false),
+                let (declaration, package, package_origin, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => {
+                        (workspace_location(name_span.clone()), None, None, false)
+                    }
                     IndexedOrigin::Package {
                         identity,
                         uri,
@@ -509,6 +520,11 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                                 span: name_span.clone(),
                             },
                             Some(identity.clone()),
+                            Some(if *standard_library {
+                                PackageOrigin::StandardLibrary
+                            } else {
+                                PackageOrigin::DirectDependency
+                            }),
                             *standard_library && file.module == "prelude",
                         )
                     }
@@ -520,7 +536,9 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     target_module,
                     target_name,
                     package,
+                    package_origin,
                     standard_prelude,
+                    invalid_declaration_name,
                 })
             }
             _ => None,

@@ -169,8 +169,17 @@ impl SymbolIndex {
         let mut candidates = self.types.iter().filter(|symbol| {
             visible_imported_type_for_bare_reference(file, symbol, name)
         });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        if let Some(candidate) = candidates.next()
+            && candidates.next().is_none()
+        {
+            return Some(candidate.clone());
+        }
+        let mut aliases = self
+            .type_aliases
+            .iter()
+            .filter(|symbol| visible_imported_type_alias_for_bare_reference(file, symbol, name));
+        let alias = aliases.next()?;
+        aliases.next().is_none().then(|| type_alias_as_type_symbol(alias))
     }
 
     fn first_local_type_for_bare_reference(
@@ -201,8 +210,16 @@ impl SymbolIndex {
                     None => symbol.module == file.module || file.uses.contains(&symbol.module),
                 }
         });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        if let Some(candidate) = candidates.next()
+            && candidates.next().is_none()
+        {
+            return Some(candidate.clone());
+        }
+        let mut aliases = self.type_aliases.iter().filter(|symbol| {
+            visible_type_alias_for_qualified_reference(file, symbol, &qualified_modules, name)
+        });
+        let alias = aliases.next()?;
+        aliases.next().is_none().then(|| type_alias_as_type_symbol(alias))
     }
 
     fn type_for_constructor_qualifier_token(
@@ -218,6 +235,11 @@ impl SymbolIndex {
             .unwrap_or_else(|| name.to_string());
         let constructor =
             self.constructor_for_qualified_call(file, &qualifier, &tokens[constructor_index].text)?;
+        if constructor.declaration_kind == SymbolDeclarationKind::PublicAlias {
+            return self
+                .visible_type_for_reference(file, tokens, token_index, name)
+                .filter(|symbol| symbol.declaration_kind == SymbolDeclarationKind::PublicAlias);
+        }
         self.types
             .iter()
             .find(|symbol| {
@@ -516,8 +538,7 @@ impl SymbolIndex {
         self.type_aliases.iter().any(|alias| {
             alias.package.is_none()
                 && type_alias_targets_constructor(alias, symbol)
-                && (qualifier == alias.module
-                    || qualifier == format!("{}::{}", alias.module, alias.name))
+                && self.type_alias_qualifier_matches(file, alias, qualifier)
                 && (file.uses.contains(&alias.module) || file.module == alias.module)
         })
     }
@@ -560,8 +581,7 @@ impl SymbolIndex {
             if alias.package.as_ref() != Some(symbol_package) {
                 return false;
             }
-            if qualifier != alias.module && qualifier != format!("{}::{}", alias.module, alias.name)
-            {
+            if !self.type_alias_qualifier_matches(file, alias, qualifier) {
                 return false;
             }
             if alias.standard_prelude {
@@ -576,6 +596,20 @@ impl SymbolIndex {
         self.functions
             .iter()
             .any(|symbol| visible_imported_function_for_bare_call(file, symbol, name))
+    }
+
+    fn type_alias_qualifier_matches(
+        &self,
+        file: &IndexedFile,
+        alias: &TypeAliasSymbol,
+        qualifier: &str,
+    ) -> bool {
+        self.qualified_module_candidates(file, qualifier)
+            .into_iter()
+            .any(|candidate| {
+                candidate == alias.module
+                    || candidate == format!("{}::{}", alias.module, alias.name)
+            })
     }
 }
 

@@ -232,6 +232,20 @@ impl SymbolIndex {
             .iter()
             .find(|symbol| declaration_matches(name, selection, &symbol.name, symbol.package.as_deref(), &symbol.declaration.span))
             .cloned()
+            .or_else(|| {
+                self.type_aliases
+                    .iter()
+                    .find(|symbol| {
+                        declaration_matches(
+                            name,
+                            selection,
+                            &symbol.name,
+                            symbol.package.as_deref(),
+                            &symbol.declaration.span,
+                        )
+                    })
+                    .map(type_alias_as_type_symbol)
+            })
     }
 
     fn constructor_declared_at(

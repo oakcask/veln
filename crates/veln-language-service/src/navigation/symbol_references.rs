@@ -255,6 +255,9 @@ impl SymbolIndex {
     }
 
     fn type_references(&self, symbol: &TypeSymbol) -> Vec<SourceSpan> {
+        if !self.type_references_supported(symbol) {
+            return Vec::new();
+        }
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
@@ -273,6 +276,69 @@ impl SymbolIndex {
                 spans
             })
             .collect()
+    }
+
+    fn type_references_supported(&self, symbol: &TypeSymbol) -> bool {
+        if symbol.invalid_declaration_name {
+            return false;
+        }
+        if symbol.declaration_kind == SymbolDeclarationKind::Declaration {
+            return true;
+        }
+        symbol.package_origin == Some(PackageOrigin::DirectDependency)
+            && self.type_alias_target_resolves_to_type(symbol)
+    }
+
+    fn type_alias_target_resolves_to_type(&self, symbol: &TypeSymbol) -> bool {
+        let Some(target_name) = symbol.target_name.as_deref() else {
+            return false;
+        };
+        let Some(target_module) = self.type_alias_target_module(symbol) else {
+            return false;
+        };
+        self.types.iter().any(|candidate| {
+            candidate.declaration_kind == SymbolDeclarationKind::Declaration
+                && candidate.name == target_name
+                && candidate.module == target_module
+                && candidate.package == symbol.package
+                && candidate.package_origin == symbol.package_origin
+        })
+    }
+
+    fn type_alias_target_module(&self, symbol: &TypeSymbol) -> Option<String> {
+        let Some(target_module) = symbol.target_module.as_deref() else {
+            return Some(symbol.module.clone());
+        };
+        let declaring_file = self.files.iter().find(|file| {
+            file.source.path() == &symbol.declaration.span.file
+                && matches!(
+                    (&file.origin, symbol.package.as_deref(), symbol.package_origin),
+                    (
+                        IndexedOrigin::Package {
+                            identity,
+                            standard_library,
+                            ..
+                        },
+                        Some(package),
+                        Some(origin),
+                    ) if identity == package
+                        && if *standard_library {
+                            origin == PackageOrigin::StandardLibrary
+                        } else {
+                            origin == PackageOrigin::DirectDependency
+                        }
+                )
+        });
+        match declaring_file {
+            None => None,
+            Some(file) => {
+                if file.uses.contains(target_module) {
+                    Some(target_module.to_string())
+                } else {
+                    resolve_qualified_alias(&file.import_aliases, target_module)
+                }
+            }
+        }
     }
 
     fn constructor_type_qualifier_references(

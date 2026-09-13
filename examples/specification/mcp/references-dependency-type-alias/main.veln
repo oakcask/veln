@@ -1,0 +1,20 @@
+use lib::model from "example/dep"
+use other_model from "other/dep"
+
+type Box
+  Wrap(model::Alias)
+end
+
+pub type LocalAlias = model::Alias
+
+fn make(input: model::Alias, boxed: Vec<lib::model::Alias>) -> model::Alias
+  model::Alias::Ready(1)
+end
+
+fn other(input: other_model::Alias, target: model::Item) -> lib::model::Item
+  "Alias"
+end
+
+fn unsupported(missing: model::Missing, wrong: model::WrongKind, chain: model::Chained) -> model::InvalidCase
+  missing
+end

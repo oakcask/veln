@@ -1,0 +1,9 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"spec","version":"1"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":10,"column":24}}}
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":14,"column":54}}}
+{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":18,"column":23}}}
+{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":18,"column":43}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":18,"column":65}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":18,"column":85}}}
+{"jsonrpc":"2.0","id":9,"method":"resources/list","params":{}}
+{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"nested/main.veln","line":3,"column":21}}}
