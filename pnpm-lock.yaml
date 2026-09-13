@@ -6,6 +6,9 @@ importers:
   .:
     configDependencies: {}
     packageManagerDependencies:
+      '@pnpm/exe':
+        specifier: 12.3.4
+        version: 12.3.4
       pnpm:
         specifier: 12.3.4
         version: 12.3.4
@@ -56,6 +59,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@pnpm/exe@12.3.4':
+    resolution: {integrity: sha512-Rq7JokWAyYF9IFfn8zofB/q2AgnZlmoMuH5fMHB2+Ta61I9aD7sNm+woZpx6iH+5vb38chdSoYRvOtSqlH72YQ==}
+    engines: {node: '>=18.*'}
+    hasBin: true
+
   pnpm@12.3.4:
     resolution: {integrity: sha512-lhqkH7B32joEpEHZ+OFevAyW2o73ELLrZ7+e58sGEOq9SPH9hfUc/+c4RnhfoPh8VqOocqHYk/hEZ0G1zORUVw==}
     engines: {node: '>=18.*'}
@@ -87,6 +95,17 @@ snapshots:
   '@pnpm/exe.win32-x64@12.3.4':
     optional: true
 
+  '@pnpm/exe@12.3.4':
+    optionalDependencies:
+      '@pnpm/exe.darwin-arm64': 12.3.4
+      '@pnpm/exe.darwin-x64': 12.3.4
+      '@pnpm/exe.linux-arm64': 12.3.4
+      '@pnpm/exe.linux-arm64-musl': 12.3.4
+      '@pnpm/exe.linux-x64': 12.3.4
+      '@pnpm/exe.linux-x64-musl': 12.3.4
+      '@pnpm/exe.win32-arm64': 12.3.4
+      '@pnpm/exe.win32-x64': 12.3.4
+
   pnpm@12.3.4:
     optionalDependencies:
       '@pnpm/exe.darwin-arm64': 12.3.4
@@ -107,7 +126,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      jscpd:
+        specifier: 5.2.0
+        version: 5.2.0
 
   editors/vscode:
     devDependencies:
@@ -711,6 +734,55 @@ packages:
 
   js-yaml@4.1.1:
     resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
+    hasBin: true
+
+  jscpd-darwin-arm64@5.2.0:
+    resolution: {integrity: sha512-QnEDfTH2MymizVHiEQpqfYEj63k1DW7QC0QBZoevh+o/iHQrHxKlgrakMysUIwIJlnmvqPB6iP/G3dBpFmnmeQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  jscpd-darwin-x64@5.2.0:
+    resolution: {integrity: sha512-P2lYEK0Yyn+0z7618+9A0NErywjaPrwSYcId3gRSt5l0cyKBwhMmyFLX/2t3G2HRi+GX+OT2A/YpWvvTzLJJ1A==}
+    cpu: [x64]
+    os: [darwin]
+
+  jscpd-linux-arm64-gnu@5.2.0:
+    resolution: {integrity: sha512-UhdX9vvCFwoG1cViNqFyvxfqNtJ+xWbGsgZ5PbcgUx2OLWnvjhkjihPw/fOUM9IoxHaT66AE5pipaV/oQE/76A==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  jscpd-linux-arm64-musl@5.2.0:
+    resolution: {integrity: sha512-13DsZCQ58fOMUX6mU8DZtiTdIk+9Gp2xLu6mtc6fmqqZRJoRHQSSDvMqRVedCqArquxc0I+tqQtZO4n7/8QJxA==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  jscpd-linux-x64-gnu@5.2.0:
+    resolution: {integrity: sha512-p88BpA5QzyZzyF8uYeVCz9ZBoZYg8s6AwcDc3NkIDNTbrrF0sKqgGjclGWAoJvYAiGExiFNqV768pVHsE//l0Q==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  jscpd-linux-x64-musl@5.2.0:
+    resolution: {integrity: sha512-6DgIxJpS7L4bb1DkYrqC0SflMY2/2/3Dl0kZJ1In6SeSENcTaZ12W1zX3kNf7wVUDFgPi94TuSxrw3N2TqRhRg==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  jscpd-windows-arm64-msvc@5.2.0:
+    resolution: {integrity: sha512-DI84oCG+L5sYhmYanXjjydXlFzC194/NJA6F7W8cmOI1rKSnWrgIjUtvTmXumygwTK/eAXkK7rFBqFnyiLEzdw==}
+    cpu: [arm64]
+    os: [win32]
+
+  jscpd-windows-x64-msvc@5.2.0:
+    resolution: {integrity: sha512-EH4chck2EIehosfy7q6hxaKgzlaZv/dZhUHtjBmBf81d5/ZDfa6BsKw2gM8PSoNC0QXznWXv9uQcFWsV+P9v8A==}
+    cpu: [x64]
+    os: [win32]
+
+  jscpd@5.2.0:
+    resolution: {integrity: sha512-6f4qhJGIeR/ZvAkZByfpPw5H28SNEE4fgJ4GXxVuLMiEg7xWrAlUdm0crIJPY6dmykvgdM83ZRrWJXg11fQlYg==}
+    engines: {node: '>=18'}
     hasBin: true
 
   json-schema-traverse@1.0.0:
@@ -1899,6 +1971,41 @@ snapshots:
   js-yaml@4.1.1:
     dependencies:
       argparse: 2.0.1
+
+  jscpd-darwin-arm64@5.2.0:
+    optional: true
+
+  jscpd-darwin-x64@5.2.0:
+    optional: true
+
+  jscpd-linux-arm64-gnu@5.2.0:
+    optional: true
+
+  jscpd-linux-arm64-musl@5.2.0:
+    optional: true
+
+  jscpd-linux-x64-gnu@5.2.0:
+    optional: true
+
+  jscpd-linux-x64-musl@5.2.0:
+    optional: true
+
+  jscpd-windows-arm64-msvc@5.2.0:
+    optional: true
+
+  jscpd-windows-x64-msvc@5.2.0:
+    optional: true
+
+  jscpd@5.2.0:
+    optionalDependencies:
+      jscpd-darwin-arm64: 5.2.0
+      jscpd-darwin-x64: 5.2.0
+      jscpd-linux-arm64-gnu: 5.2.0
+      jscpd-linux-arm64-musl: 5.2.0
+      jscpd-linux-x64-gnu: 5.2.0
+      jscpd-linux-x64-musl: 5.2.0
+      jscpd-windows-arm64-msvc: 5.2.0
+      jscpd-windows-x64-msvc: 5.2.0
 
   json-schema-traverse@1.0.0: {}
 
