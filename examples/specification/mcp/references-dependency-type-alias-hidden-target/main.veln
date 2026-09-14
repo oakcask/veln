@@ -3,5 +3,9 @@ use facade from "example/dep"
 pub type Local = facade::PublicHidden
 
 fn read(input: facade::PublicHidden) -> Vec<facade::PublicHidden>
+  facade::PublicHidden::Ready(1)
+end
+
+fn bare(input: PublicHidden) -> PublicHidden
   input
 end

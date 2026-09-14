@@ -145,7 +145,7 @@ equals = []
 [[mcp_assert]]
 id = 13
 path = "/result/structuredContent/references"
-length = 3
+length = 4
 
 [[mcp_assert]]
 id = 13
@@ -161,6 +161,11 @@ equals = {"start":{"line":39,"column":47},"end":{"line":39,"column":51}}
 id = 13
 path = "/result/structuredContent/references/2/range"
 equals = {"start":{"line":43,"column":27},"end":{"line":43,"column":31}}
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":44,"column":3},"end":{"line":44,"column":7}}
 
 [[mcp_assert]]
 id = 14

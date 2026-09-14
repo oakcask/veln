@@ -56,6 +56,8 @@ impl FileDeclarations {
         self.package_function_targets
             .extend(other.package_function_targets);
         self.package_type_targets.extend(other.package_type_targets);
+        self.package_constructor_targets
+            .extend(other.package_constructor_targets);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
@@ -71,6 +73,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         functions: function_declarations(file),
         package_function_targets: package_function_targets(file, syntax),
         package_type_targets: package_type_targets(file, syntax),
+        package_constructor_targets: package_constructor_targets(file, syntax),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
@@ -373,6 +376,55 @@ fn package_type_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageT
                 })
             }
             _ => None,
+        })
+        .collect()
+}
+
+fn package_constructor_targets(
+    file: &IndexedFile,
+    syntax: &SyntaxTree,
+) -> Vec<PackageConstructorTarget> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return Vec::new();
+    };
+    let package_origin = if *standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
+                let type_name = type_decl.name.as_ref()?;
+                Some((type_name.clone(), type_decl))
+            }
+            _ => None,
+        })
+        .flat_map(|(type_name, type_decl)| {
+            type_decl.variants.iter().filter_map(move |variant| {
+                if variant.visibility != Visibility::Public {
+                    return None;
+                }
+                let name = variant.name.as_ref()?;
+                let span = constructor_variant_name_span(file, file.tokens.as_slice(), variant, name);
+                if is_invalid_declaration_name(file, &span) {
+                    return None;
+                }
+                Some(PackageConstructorTarget {
+                    module: file.module.clone(),
+                    type_name: type_name.clone(),
+                    name: name.clone(),
+                    package: identity.clone(),
+                    package_origin,
+                })
+            })
         })
         .collect()
 }

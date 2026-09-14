@@ -735,6 +735,51 @@
     }
 
     #[test]
+    fn bare_type_name_does_not_select_direct_dependency_type_alias() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n\n",
+                    "fn qualified(input: model::Alias) -> model::Alias\n",
+                    "  input\n",
+                    "end\n\n",
+                    "fn bare(input: Alias) -> Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[(
+                    "model.veln",
+                    "pub type Target\nend\n\npub type Alias = Target\n",
+                )],
+                ["model.veln"],
+            )],
+        );
+
+        let qualified = query_snapshot(&snapshot, "main.veln", 3, 29).unwrap();
+
+        assert_eq!(
+            qualified.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&qualified.references),
+            [("main.veln", 3, 28), ("main.veln", 3, 45)]
+        );
+        assert!(
+            query_snapshot(&snapshot, "main.veln", 7, 17).is_none(),
+            "bare Alias must not bind to the imported dependency alias"
+        );
+        assert!(
+            query_snapshot(&snapshot, "main.veln", 7, 27).is_none(),
+            "bare Alias return type must not bind to the imported dependency alias"
+        );
+    }
+
+    #[test]
     fn unsupported_direct_dependency_type_alias_selection_does_not_fall_back_to_type() {
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(
@@ -836,6 +881,7 @@
                 ("main.veln", 3, 26),
                 ("main.veln", 5, 24),
                 ("main.veln", 5, 53),
+                ("main.veln", 6, 11),
                 ("other.veln", 3, 25),
                 ("other.veln", 3, 50),
             ]

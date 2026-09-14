@@ -428,13 +428,16 @@ impl SymbolIndex {
             return None;
         }
         let target_module = self.type_alias_target_module(&alias)?;
-        self.constructors.iter().any(|constructor| {
-            constructor.module == target_module
-                && constructor.type_name == alias.target_name
-                && constructor.name == tokens[constructor_index].text
-                && constructor.package == alias.package
-                && constructor.package_origin == alias.package_origin
-        }).then_some(alias)
+        self.package_constructor_targets
+            .iter()
+            .any(|constructor| {
+                constructor.module == target_module
+                    && constructor.type_name == alias.target_name
+                    && constructor.name == tokens[constructor_index].text
+                    && Some(constructor.package.as_str()) == alias.package.as_deref()
+                    && Some(constructor.package_origin) == alias.package_origin
+            })
+            .then_some(alias)
     }
 
     fn constructor_references(&self, symbol: &ConstructorSymbol) -> Vec<SourceSpan> {

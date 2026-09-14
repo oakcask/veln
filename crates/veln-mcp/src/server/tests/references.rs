@@ -1252,6 +1252,10 @@ fn references_support_type_alias_target_in_non_exported_dependency_module() {
             "use facade from \"example/dep\"\n\n",
             "pub type Local = facade::PublicHidden\n\n",
             "fn read(input: facade::PublicHidden) -> Vec<facade::PublicHidden>\n",
+            "  facade::PublicHidden::Ready(1)\n",
+            "end\n",
+            "\n",
+            "fn bare(input: PublicHidden) -> PublicHidden\n",
             "  input\n",
             "end\n",
         ),
@@ -1287,11 +1291,16 @@ fn references_support_type_alias_target_in_non_exported_dependency_module() {
             ("main.veln", 3, 26, 3, 38),
             ("main.veln", 5, 24, 5, 36),
             ("main.veln", 5, 53, 5, 65),
+            ("main.veln", 6, 11, 6, 23),
             ("other.veln", 3, 25, 3, 37),
             ("other.veln", 3, 50, 3, 62),
         ],
         "hidden type target alias references",
     );
+
+    let bare = references_result(&workspace, "main.veln", 9, 17);
+    assert_eq!(bare["isError"], false, "{bare:#}");
+    assert_eq!(bare["structuredContent"]["references"], json!([]));
 }
 
 #[test]

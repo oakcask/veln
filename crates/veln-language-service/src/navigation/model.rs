@@ -413,6 +413,15 @@ struct PackageTypeTarget {
 }
 
 #[derive(Clone, Debug)]
+struct PackageConstructorTarget {
+    module: String,
+    type_name: String,
+    name: String,
+    package: String,
+    package_origin: PackageOrigin,
+}
+
+#[derive(Clone, Debug)]
 struct TypeSymbol {
     module: String,
     name: String,
@@ -643,6 +652,7 @@ struct FileDeclarations {
     functions: Vec<FunctionSymbol>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
+    package_constructor_targets: Vec<PackageConstructorTarget>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
@@ -676,6 +686,7 @@ pub(crate) struct SymbolIndex {
     functions: Vec<FunctionSymbol>,
     package_function_targets: Vec<PackageFunctionTarget>,
     package_type_targets: Vec<PackageTypeTarget>,
+    package_constructor_targets: Vec<PackageConstructorTarget>,
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
