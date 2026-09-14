@@ -41,7 +41,7 @@ env:
   CARGO_TERM_COLOR: always
   NODE_VERSION: "26"
   # renovate: datasource=npm depName=pnpm
-  PNPM_VERSION: "12.3.4"
+  PNPM_VERSION: "12.4.0"
 
 jobs:
   rust-refactor-signals:
