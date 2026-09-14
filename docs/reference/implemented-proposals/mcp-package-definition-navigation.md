@@ -56,10 +56,11 @@ import can select a supported declaration. A workspace declaration continues
 to return its current canonical `file:` URI. A valid position with no eligible
 symbol returns `definition: null`.
 
-This slice exposes the package-backed function, type, constructor, schema, and
-public function-alias classes already represented by shared definition
-selection. It does not reinterpret an import module segment, recovery record,
-private declaration, or unsupported occurrence as another symbol class.
+This slice exposes the package-backed function, type, public type-alias,
+constructor, schema, and public function-alias classes already represented by
+shared definition selection. It does not reinterpret an import module segment,
+recovery record, private declaration, ineligible alias target, or unsupported
+occurrence as another symbol class.
 
 ## Result And Resource Contract
 
@@ -93,10 +94,10 @@ resource that was already returned.
 
 | Case | Evidence |
 | --- | --- |
-| Public declaration classes in exported direct-dependency modules return canonical dependency `veln-pkg:` locations and exact declaration ranges. | `definition_resolves_public_package_symbol_classes` covers functions, types, constructors, schemas, and public function aliases. |
+| Public declaration classes in exported direct-dependency modules return canonical dependency `veln-pkg:` locations and exact declaration ranges. | `definition_resolves_public_package_symbol_classes` covers functions, types, public type aliases, constructors, schemas, and public function aliases. |
 | Implicit-prelude and explicitly imported public standard-library declarations return canonical embedded `std` source locations. | `definition_resolves_implicit_and_explicit_standard_library_symbols` |
 | Direct path, vendor, mirror, and locally available git inputs use the identity-and-digest URI form without source-kind or materialization-path leakage. | `definition_dependency_package_uris_are_independent_of_source_kind` |
-| Private declarations, non-exported sources, invalid declaration casing, mismatched package imports, and module-segment selections return `definition: null`. | `definition_rejects_ineligible_package_selections_without_reinterpreting_them` |
+| Private declarations, non-exported sources, invalid declaration casing, mismatched package imports, unresolved or wrong-kind public type-alias targets, and module-segment selections return `definition: null`. | `definition_rejects_ineligible_package_selections_without_reinterpreting_them` and `definition_rejects_ineligible_package_type_aliases_without_reinterpreting_them` |
 | A returned package definition URI resolves through retained source resources to exact captured source bytes and the declaration range addresses the selected token, including CRLF and non-ASCII UTF-8 package source text. | `definition_resolves_public_package_symbol_classes`, `definition_resolves_implicit_and_explicit_standard_library_symbols`, `definition_round_trips_crlf_non_ascii_package_source`, and `definition-package-navigation` |
 | Editing or removing a physical dependency after returning a package location does not mutate the retained resource. | `definition_retains_package_snapshot_bytes_across_dependency_changes` |
 | A later stable capture with changed dependency source bytes receives a new snapshot URI while the earlier URI remains readable. | `definition_retains_package_snapshot_bytes_across_dependency_changes` |
