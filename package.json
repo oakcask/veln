@@ -1,8 +1,11 @@
 {
   "private": true,
-  "packageManager": "pnpm@11.26.0",
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
     "test:vscode": "pnpm --filter veln-language test",
     "vsix": "pnpm --filter veln-language vsix"
+  },
+  "devDependencies": {
+    "jscpd": "5.2.0"
   }
 }

@@ -8,23 +8,31 @@ on:
       - .github/workflows/signal--code-metrics.yaml
       - Cargo.lock
       - Cargo.toml
+      - package.json
+      - pnpm-lock.yaml
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/check-repo-metrics.mjs
       - workflow-scripts/check-repo-metrics.test.mjs
+      - workflow-scripts/summarize-code-duplication.mjs
+      - workflow-scripts/summarize-code-duplication.test.mjs
   pull_request:
     paths:
       - .github/workflows/signal--code-metrics.yaml
       - Cargo.lock
       - Cargo.toml
+      - package.json
+      - pnpm-lock.yaml
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - tools/**/Cargo.toml
       - tools/**/*.rs
       - workflow-scripts/check-repo-metrics.mjs
       - workflow-scripts/check-repo-metrics.test.mjs
+      - workflow-scripts/summarize-code-duplication.mjs
+      - workflow-scripts/summarize-code-duplication.test.mjs
 
 permissions:
   contents: read
@@ -32,6 +40,8 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   NODE_VERSION: "26"
+  # renovate: datasource=npm depName=pnpm
+  PNPM_VERSION: "12.3.4"
 
 jobs:
   rust-refactor-signals:
@@ -40,9 +50,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+      - name: Install code metric dependencies
+        run: pnpm install --frozen-lockfile
       - name: Check Rust repository metrics policy
         run: |
           cargo run --locked -p veln-repo-metrics -- \
@@ -52,3 +67,14 @@ jobs:
             --file-line-threshold 700 \
             crates tools \
             | node workflow-scripts/check-repo-metrics.mjs
+      - name: Record code duplication refactor signals
+        run: |
+          pnpm exec jscpd . \
+            --format rust \
+            --min-tokens 50 \
+            --min-lines 5 \
+            --reporters json \
+            --output "${RUNNER_TEMP}/jscpd" \
+            --silent
+          node workflow-scripts/summarize-code-duplication.mjs \
+            "${RUNNER_TEMP}/jscpd/jscpd-report.json"
