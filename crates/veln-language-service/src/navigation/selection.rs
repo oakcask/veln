@@ -339,10 +339,16 @@ impl SymbolIndex {
         name: &str,
         selection: &SourceSpan,
     ) -> Option<SelectedNavigationSymbol> {
-        is_type_reference_token(file, name, selection)
-            .then(|| self.visible_type_for_reference(file, tokens, token_index, name))
+        (is_type_reference_token(file, name, selection) && !is_field_name(tokens, token_index))
+            .then(|| {
+                self.visible_type_alias_for_reference(file, tokens, token_index, name)
+                    .map(Symbol::TypeAlias)
+                    .or_else(|| {
+                        self.visible_type_for_reference(file, tokens, token_index, name)
+                            .map(Symbol::Type)
+                    })
+            })
             .flatten()
-            .map(Symbol::Type)
             .map(SelectedNavigationSymbol::bare)
     }
 
@@ -455,8 +461,12 @@ impl SymbolIndex {
     ) -> Option<Symbol> {
         match segment.role {
             NameClass::Type => self
-                .visible_type_for_reference(file, tokens, token_index, name)
-                .map(Symbol::Type),
+                .visible_type_alias_for_reference(file, tokens, token_index, name)
+                .map(Symbol::TypeAlias)
+                .or_else(|| {
+                    self.visible_type_for_reference(file, tokens, token_index, name)
+                        .map(Symbol::Type)
+                }),
             NameClass::Constructor => self
                 .qualified_call_symbol(file, tokens, token_index, name, SymbolIndex::constructor_symbol)
                 .map(Symbol::Constructor),

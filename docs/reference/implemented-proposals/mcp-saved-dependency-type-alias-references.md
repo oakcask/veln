@@ -1,6 +1,7 @@
 ---
-role: proposal
-update-when: The MCP references tool schema, saved direct-dependency type-alias navigation boundary, or planned dependency type-alias reference evidence changes.
+role: implementation-record
+authority: supporting
+update-when: The MCP references tool schema, saved direct-dependency type-alias navigation boundary, or executable dependency type-alias reference evidence changes.
 ---
 
 # MCP Saved Direct-Dependency Type-Alias References
@@ -10,19 +11,19 @@ update-when: The MCP references tool schema, saved direct-dependency type-alias 
 Expose selected-project references to public type aliases from exported
 direct-dependency modules through the existing MCP `references` tool.
 
-## Readiness
+## Completion
 
-This slice is ready. The current language service already resolves package
-types, public type aliases, and the selected project's saved source set. The
-MCP adapter already returns project-scoped references for direct-dependency
-type declarations and public function aliases. This proposal extends that
-boundary to one additional declaration class. It does not depend on reference
-pagination, schema navigation, standard-library alias support, or plugin
-packaging.
+This slice is implemented. The language service resolves package types, public
+type aliases, and the selected project's saved source set. The MCP adapter
+returns project-scoped references for direct-dependency type declarations,
+public function aliases, and public type aliases. This record preserves the
+completed boundary; current behavior is specified by
+[MCP Workspace Projects, Resources, And Navigation](../../specification/mcp.md)
+and checked by executable MCP cases.
 
 ## Contract
 
-| Case | Expected result | Planned evidence |
+| Case | Expected result | Evidence |
 | --- | --- | --- |
 | Select a visible public type alias whose target resolves to a type declaration in the same retained direct dependency. | Return the consumer's references to that alias in canonical order with project scope and `project_wide: true`. | Language-service identity cases, MCP adapter cases, and an executable MCP stdio case. |
 | Use the alias in a type annotation, type argument, return type, type-alias right-hand side, or constructor qualifier. | Include the alias leaf for every occurrence that ordinary name resolution binds to the selected public alias. | A table-driven language-service case and exact executable reference ranges. |
@@ -45,7 +46,7 @@ expansion.
 
 ## Verification And Completion
 
-Implementation must add:
+Implementation added:
 
 - a `references-dependency-type-alias` case under
   `examples/specification/mcp/` that checks the observable result and boundary
@@ -55,8 +56,6 @@ Implementation must add:
 - MCP server tests for saved-project scope, unsupported selections, descendant
   project isolation, and stable-capture failure.
 
-The proposal is complete when those checks pass and
-[MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md)
-states the implemented public type-alias boundary. Move the completed record to
-`../reference/implemented-proposals/` and remove this page from the proposal
-catalog at that time.
+The proposal is complete because those checks pass and
+[MCP Workspace Projects, Resources, And Navigation](../../specification/mcp.md)
+states the implemented public type-alias boundary.

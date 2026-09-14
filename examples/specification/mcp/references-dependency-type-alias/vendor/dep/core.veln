@@ -1,0 +1,5 @@
+pub type Same
+  pub Ready(Int)
+end
+
+pub type PrivateAlias = Same

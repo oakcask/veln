@@ -264,7 +264,16 @@ impl SymbolIndex {
                     .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
-                        self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
+                        (!is_field_name(tokens, token_index))
+                            .then(|| {
+                                self.visible_type_for_reference(
+                                    file,
+                                    tokens,
+                                    token_index,
+                                    &symbol.name,
+                                )
+                            })
+                            .flatten()
                             .is_some_and(|candidate| same_type(&candidate, symbol))
                             .then_some(span)
                     })
@@ -273,6 +282,87 @@ impl SymbolIndex {
                 spans
             })
             .collect()
+    }
+
+    fn type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {
+        if !self.type_alias_references_supported(symbol) {
+            return Vec::new();
+        }
+        self.files
+            .iter()
+            .filter(|file| workspace_navigation_file(file))
+            .flat_map(|file| {
+                let tokens = &file.tokens;
+                let mut spans = file
+                    .type_reference_spans(&symbol.name)
+                    .into_iter()
+                    .filter_map(|(token_index, span)| {
+                        (!is_field_name(tokens, token_index))
+                            .then(|| {
+                                self.visible_type_alias_for_reference(
+                                    file,
+                                    tokens,
+                                    token_index,
+                                    &symbol.name,
+                                )
+                            })
+                            .flatten()
+                            .is_some_and(|candidate| same_type_alias(&candidate, symbol))
+                            .then_some(span)
+                    })
+                    .collect::<Vec<_>>();
+                spans.extend(self.constructor_type_alias_qualifier_references(file, tokens, symbol));
+                spans
+            })
+            .collect()
+    }
+
+    fn type_alias_references_supported(&self, symbol: &TypeAliasSymbol) -> bool {
+        matches!(symbol.package_origin, Some(PackageOrigin::DirectDependency))
+            && self.type_alias_target_resolves_to_type(symbol)
+    }
+
+    fn type_alias_target_resolves_to_type(&self, symbol: &TypeAliasSymbol) -> bool {
+        let Some(target_module) = self.type_alias_target_module(symbol) else {
+            return false;
+        };
+        self.types.iter().any(|candidate| {
+            candidate.name == symbol.target_name
+                && candidate.module == target_module
+                && candidate.package == symbol.package
+                && candidate.package_origin == symbol.package_origin
+        })
+    }
+
+    fn type_alias_target_module(&self, symbol: &TypeAliasSymbol) -> Option<String> {
+        let Some(target_module) = symbol.target_module.as_deref() else {
+            return Some(symbol.module.clone());
+        };
+        let declaring_file = self.files.iter().find(|file| {
+            file.source.path() == &symbol.declaration.span.file
+                && matches!(
+                    (&file.origin, symbol.package.as_deref(), symbol.package_origin),
+                    (
+                        IndexedOrigin::Package {
+                            identity,
+                            standard_library,
+                            ..
+                        },
+                        Some(package),
+                        Some(origin),
+                    ) if identity == package
+                        && if *standard_library {
+                            origin == PackageOrigin::StandardLibrary
+                        } else {
+                            origin == PackageOrigin::DirectDependency
+                        }
+                )
+        })?;
+        if declaring_file.uses.contains(target_module) {
+            Some(target_module.to_string())
+        } else {
+            resolve_qualified_alias(&declaring_file.import_aliases, target_module)
+        }
     }
 
     fn constructor_type_qualifier_references(
@@ -286,11 +376,57 @@ impl SymbolIndex {
             .enumerate()
             .filter(|(_, token)| token.kind == TokenKind::Ident && token.text == symbol.name)
             .filter(|(index, token)| {
+                if self
+                    .visible_type_alias_for_reference(file, tokens, *index, &token.text)
+                    .is_some()
+                {
+                    return false;
+                }
                 self.type_for_constructor_qualifier_token(file, tokens, *index, &token.text)
                     .is_some_and(|candidate| same_type(&candidate, symbol))
             })
             .map(|(_, token)| file.source.span(token.range))
             .collect()
+    }
+
+    fn constructor_type_alias_qualifier_references(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        symbol: &TypeAliasSymbol,
+    ) -> Vec<SourceSpan> {
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(_, token)| token.kind == TokenKind::Ident && token.text == symbol.name)
+            .filter(|(index, token)| {
+                self.type_alias_for_constructor_qualifier_token(file, tokens, *index, &token.text)
+                    .is_some_and(|candidate| same_type_alias(&candidate, symbol))
+            })
+            .map(|(_, token)| file.source.span(token.range))
+            .collect()
+    }
+
+    fn type_alias_for_constructor_qualifier_token(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let constructor_index = next_path_segment_index(tokens, token_index)?;
+        let alias = self.visible_type_alias_for_reference(file, tokens, token_index, name)?;
+        if !self.type_alias_references_supported(&alias) {
+            return None;
+        }
+        let target_module = self.type_alias_target_module(&alias)?;
+        self.constructors.iter().any(|constructor| {
+            constructor.module == target_module
+                && constructor.type_name == alias.target_name
+                && constructor.name == tokens[constructor_index].text
+                && constructor.package == alias.package
+                && constructor.package_origin == alias.package_origin
+        }).then_some(alias)
     }
 
     fn constructor_references(&self, symbol: &ConstructorSymbol) -> Vec<SourceSpan> {

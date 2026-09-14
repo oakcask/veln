@@ -1,0 +1,5 @@
+use model from "example/dep"
+
+fn nested(input: model::Same) -> model::Same
+  input
+end

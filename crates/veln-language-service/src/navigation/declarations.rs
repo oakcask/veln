@@ -35,6 +35,17 @@ fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
         && left.declaration == right.declaration
 }
 
+fn same_type_alias(left: &TypeAliasSymbol, right: &TypeAliasSymbol) -> bool {
+    left.package == right.package
+        && left.module == right.module
+        && left.name == right.name
+        && left.target_module == right.target_module
+        && left.target_name == right.target_name
+        && left.package_origin == right.package_origin
+        && left.standard_prelude == right.standard_prelude
+        && left.declaration == right.declaration
+}
+
 impl FileDeclarations {
     fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
@@ -491,8 +502,10 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     [segments @ .., _] => Some(segments.join("::")),
                     [] => None,
                 };
-                let (declaration, package, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => (workspace_location(name_span.clone()), None, false),
+                let (declaration, package, package_origin, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => {
+                        (workspace_location(name_span.clone()), None, None, false)
+                    }
                     IndexedOrigin::Package {
                         identity,
                         uri,
@@ -509,6 +522,11 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                                 span: name_span.clone(),
                             },
                             Some(identity.clone()),
+                            Some(if *standard_library {
+                                PackageOrigin::StandardLibrary
+                            } else {
+                                PackageOrigin::DirectDependency
+                            }),
                             *standard_library && file.module == "prelude",
                         )
                     }
@@ -520,6 +538,7 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     target_module,
                     target_name,
                     package,
+                    package_origin,
                     standard_prelude,
                 })
             }
