@@ -524,6 +524,177 @@
     }
 
     #[test]
+    fn dependency_type_alias_constructor_qualifiers_use_type_namespace_selection() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n\n",
+                    "type Same\n",
+                    "  Ready(Int)\n",
+                    "end\n\n",
+                    "fn alias() -> model::Same\n",
+                    "  model::Same::Ready(1)\n",
+                    "end\n\n",
+                    "fn local() -> Same\n",
+                    "  Same::Ready(2)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[(
+                    "model.veln",
+                    "pub type Target\n  pub Ready(Int)\nend\n\npub type Same = Target\n",
+                )],
+                ["model.veln"],
+            )],
+        );
+
+        let alias = query_snapshot(&snapshot, "main.veln", 8, 10).unwrap();
+
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&alias.references),
+            [("main.veln", 7, 22), ("main.veln", 8, 10)]
+        );
+    }
+
+    #[test]
+    fn dependency_type_alias_written_module_path_and_leaf_alias_share_identity() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use lib::model from \"example/pkg\"\n\n",
+                    "fn written(input: lib::model::Alias) -> model::Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[
+                    (
+                        "lib/model.veln",
+                        "use lib::core\n\npub type Alias = core::Target\n",
+                    ),
+                    (
+                        "lib/core.veln",
+                        "pub type Target\n  pub Ready(Int)\nend\n",
+                    ),
+                ],
+                ["lib/model.veln", "lib/core.veln"],
+            )],
+        );
+
+        for (name, column) in [("written path", 31), ("leaf alias", 48)] {
+            let result = query_snapshot(&snapshot, "main.veln", 3, column)
+                .unwrap_or_else(|| panic!("{name} did not select the dependency alias"));
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias,
+                "{name}"
+            );
+            assert_eq!(result.definition.span.file.as_str(), "lib/model.veln", "{name}");
+            assert_eq!(
+                locations(&result.references),
+                [("main.veln", 3, 31), ("main.veln", 3, 48)],
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn dependency_type_alias_definition_support_matches_reference_boundary() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n",
+                    "use other_model from \"other/pkg\"\n\n",
+                    "fn read(good: model::Good, missing: model::MissingAlias, wrong: model::WrongKind, chain: model::Chain, transitive: model::Transitive) -> other_model::Good\n",
+                    "  good\n",
+                    "end\n",
+                ),
+            )],
+            vec![
+                dependency_snapshot(
+                    "example/pkg",
+                    &[(
+                        "model.veln",
+                        concat!(
+                            "use upstream from \"up/pkg\"\n\n",
+                            "pub type Target\n",
+                            "end\n\n",
+                            "pub fn value() -> Int\n",
+                            "  1\n",
+                            "end\n\n",
+                            "pub type Good = Target\n",
+                            "pub type MissingAlias = Missing\n",
+                            "pub type WrongKind = value\n",
+                            "pub type Chain = Good\n",
+                            "pub type Transitive = upstream::Alias\n",
+                        ),
+                    )],
+                    ["model.veln"],
+                ),
+                dependency_snapshot(
+                    "other/pkg",
+                    &[("model.veln", "pub type Good\nend\n")],
+                    ["model.veln"],
+                ),
+            ],
+        );
+
+        let supported = definition_at(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 22,
+            },
+        )
+        .expect("supported direct dependency type alias has a definition");
+        assert_eq!(supported.span.file.as_str(), "model.veln");
+
+        for (name, column) in [
+            ("unresolved target", 44),
+            ("wrong-kind target", 72),
+            ("alias-chain target", 97),
+            ("transitive target", 123),
+        ] {
+            assert_eq!(
+                definition_at(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line: 4,
+                        column,
+                    },
+                ),
+                None,
+                "{name}"
+            );
+            let result = query_snapshot(&snapshot, "main.veln", 4, column)
+                .unwrap_or_else(|| panic!("{name} should still select its alias identity"));
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias,
+                "{name}"
+            );
+            assert!(
+                result.references.is_empty(),
+                "{name} unexpectedly returned references: {:?}",
+                locations(&result.references)
+            );
+        }
+    }
+
+    #[test]
     fn type_role_selection_prefers_local_type_and_rejects_field_alias_collision() {
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(

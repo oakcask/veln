@@ -246,13 +246,24 @@ pub fn definition_at(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,
 ) -> Option<NavigationLocation> {
-    snapshot
-        .navigation_index()
-        .symbol_at_position(position.source.as_str(), &position)
-        .map(|request| request.symbol.definition())
+    let index = snapshot.navigation_index();
+    let request = index.symbol_at_position(position.source.as_str(), &position)?;
+    request
+        .symbol
+        .definition_supported(&request.index)
+        .then(|| request.symbol.definition())
 }
 
 impl Symbol {
+    fn definition_supported(&self, index: &SymbolIndex) -> bool {
+        match self {
+            Self::TypeAlias(symbol) if symbol.package.is_some() => {
+                index.type_alias_definition_supported(symbol)
+            }
+            _ => true,
+        }
+    }
+
     fn definition(&self) -> NavigationLocation {
         match self {
             Self::Schema(symbol) => symbol.declaration.clone(),

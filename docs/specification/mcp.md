@@ -590,6 +590,10 @@ the advertised `definition` result schema includes the optional
 listed as an MCP resource in the same session, and that `resources/read`
 follows the returned package source and documentation URIs. It also preserves
 CRLF and non-ASCII UTF-8 text for the exact returned package URI.
+The `definition-dependency-type-alias` MCP specification case checks that a
+supported direct-dependency public type alias returns its package alias
+declaration location, while unresolved, wrong-kind, alias-chain, and
+transitive type-alias targets succeed with `definition: null`.
 The `references-workspace` MCP specification case checks the advertised
 `references` declaration plus declaration-position lookup, recursive calls,
 ordinary calls, workspace type references, workspace constructor references,
@@ -624,9 +628,15 @@ result shape for a visible direct-dependency public type alias selected
 through a qualified type occurrence. The same case checks type annotation,
 return type, type-alias right-hand-side, type argument, and constructor
 qualifier occurrences, alias and same-spelled target-type identity separation,
-package and lexical collisions, unsupported private, alias-chain, wrong-kind,
-and invalid-casing alias selections, project isolation, project-wide scope,
-and dependency source resource admission.
+package and lexical collisions, a workspace same-spelling constructor
+qualifier boundary, unsupported private, alias-chain, wrong-kind, and
+invalid-casing alias selections, project isolation, project-wide scope, and
+dependency source resource admission.
+The `references-dependency-type-alias-identity-boundaries` MCP specification
+case checks that a multi-segment written module path and its implicit leaf
+import alias select the same public type-alias identity, and that a
+transitive-dependency type-alias target succeeds with an empty `references`
+array instead of reinterpreting the selection as another package type.
 The `references-dependency-type-alias-hidden-target` MCP specification case
 checks that an exported dependency type alias remains supported when its target
 type lives in a retained non-exported dependency module.

@@ -1037,6 +1037,12 @@ fn references_return_direct_dependency_type_alias_locations_from_saved_project()
             "end\n\n",
             "fn collisions(input: other_model::Same, Same: Int, record: {Same: Int}) -> Int\n",
             "  Same + record.Same\n",
+            "end\n\n",
+            "type Same\n",
+            "  Ready(Int)\n",
+            "end\n\n",
+            "fn local_constructor() -> Same\n",
+            "  Same::Ready(1)\n",
             "end\n",
         ),
     );
@@ -1115,6 +1121,46 @@ fn references_return_direct_dependency_type_alias_locations_from_saved_project()
 }
 
 #[test]
+fn references_resolve_type_alias_written_module_path_and_leaf_alias_to_same_identity() {
+    let workspace = TempWorkspace::new("references-dependency-type-alias-qualified-identity");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use lib::model from \"example/dep\"\n\n",
+            "fn written(input: lib::model::Alias) -> model::Alias\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"lib/model.veln\", \"lib/core.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/lib/model.veln",
+        "use lib::core\n\npub type Alias = core::Target\n",
+    );
+    workspace.write(
+        "vendor/dep/lib/core.veln",
+        "pub type Target\n  pub Ready(Int)\nend\n",
+    );
+
+    for (name, column) in [("written module path", 31), ("leaf import alias", 48)] {
+        let result = references_result(&workspace, "main.veln", 3, column);
+        assert_eq!(result["isError"], false, "{name}: {result:#}");
+        assert_reference_ranges(
+            &result,
+            &[("main.veln", 3, 31, 3, 36), ("main.veln", 3, 48, 3, 53)],
+            name,
+        );
+    }
+}
+
+#[test]
 fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
     let workspace = TempWorkspace::new("references-dependency-type-alias-selection-order");
     workspace.write(
@@ -1137,7 +1183,7 @@ fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
             "fn local(record: {Same: Int}, input: Same) -> Same\n",
             "  input\n",
             "end\n\n",
-            "fn unsupported(input: model::MissingAlias) -> other_model::MissingAlias\n",
+            "fn unsupported(input: model::MissingAlias, transitive: model::Transitive) -> other_model::MissingAlias\n",
             "  input\n",
             "end\n",
         ),
@@ -1149,10 +1195,12 @@ fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
     workspace.write(
         "vendor/dep/model.veln",
         concat!(
+            "use upstream from \"up/pkg\"\n\n",
             "pub type Target\n",
             "end\n\n",
             "pub type Same = Target\n",
             "pub type MissingAlias = Missing\n",
+            "pub type Transitive = upstream::Alias\n",
         ),
     );
     workspace.write(
@@ -1185,6 +1233,10 @@ fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
             "project_wide": true
         })
     );
+
+    let transitive = references_result(&workspace, "main.veln", 11, 63);
+    assert_eq!(transitive["isError"], false, "{transitive:#}");
+    assert_eq!(transitive["structuredContent"]["references"], json!([]));
 }
 
 #[test]
