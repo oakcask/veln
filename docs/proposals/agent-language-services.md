@@ -1084,9 +1084,9 @@ This bounded implementation retains validated workspace, direct-dependency,
 and embedded standard-package captures for the definition-to-read path. It
 also implements saved direct-dependency and standard-library function, type,
 and constructor reference search, plus standard-library public function-alias
-reference search. It does not implement schema, direct-dependency
-public-alias, other public-alias, transitive-dependency, or paginated
-reference search.
+reference search and direct-dependency public type-alias reference search. It
+does not implement schema-alias, standard-library public type-alias,
+transitive-dependency, recovery, casing-neutral, or paginated reference search.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
@@ -1102,10 +1102,11 @@ Package constructor-symbol reference search is recorded by
 Workspace schema-reference search for `decode` and `encode` expressions is
 recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-Package reference search beyond function, type, and constructor declarations,
-except for the extracted direct-dependency public type-alias slice, plus
-paginated references, recovery references, and other casing-neutral references
-remain planned here.
+Package reference search beyond the implemented function, function-alias, type,
+direct-dependency type-alias, and constructor slices remains planned for
+standard-library public type aliases, public schema aliases,
+transitive-dependency references, paginated references, recovery references,
+and casing-neutral references.
 The completed preceding slice is recorded by
 [Language Reference Catalog Foundation](../reference/implemented-proposals/language-reference-catalog-foundation.md).
 The dependency source-resource slice is recorded by
@@ -1128,8 +1129,6 @@ The standard-library public function-alias reference slice is recorded by
 [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md).
 Later umbrella slices are:
 
-1. Implement the extracted direct-dependency public type-alias reference
-   proposal.
 1. Extend schema navigation beyond the extracted workspace `decode` and
    `encode` slice, then extend package navigation with schema,
    standard-library public type aliases, public schema aliases, and other
