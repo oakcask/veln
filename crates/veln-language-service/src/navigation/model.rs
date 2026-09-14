@@ -489,6 +489,7 @@ struct TypeAliasSymbol {
     target_name: String,
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
+    exported: bool,
     standard_prelude: bool,
     invalid_declaration_name: bool,
 }
@@ -502,7 +503,7 @@ fn type_alias_as_type_symbol(alias: &TypeAliasSymbol) -> TypeSymbol {
         target_name: Some(alias.target_name.clone()),
         package: alias.package.clone(),
         package_origin: alias.package_origin,
-        public: true,
+        public: alias.exported,
         standard_prelude: alias.standard_prelude,
         declaration_kind: SymbolDeclarationKind::PublicAlias,
         invalid_declaration_name: alias.invalid_declaration_name,

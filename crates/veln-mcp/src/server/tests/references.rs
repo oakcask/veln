@@ -1575,14 +1575,26 @@ fn references_keep_invalid_direct_dependency_type_alias_targets_empty() {
         "main.veln",
         concat!(
             "use dep from \"example/dep\"\n\n",
+            "use hidden from \"example/dep\"\n",
+            "use trans from \"transitive/dep\"\n\n",
             "pub fn main(input: dep::Missing, wrong: dep::WrongKind, chain: dep::Chained) -> dep::InvalidCase\n",
             "  input\n",
+            "end\n\n",
+            "pub fn unsupported(hidden_alias: hidden::HiddenAlias, transitive_alias: trans::TransitiveAlias) -> Int\n",
+            "  1\n",
             "end\n",
         ),
     );
     alias_workspace.write(
         "vendor/dep/veln.toml",
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+        concat!(
+            "[package]\n",
+            "name = \"example/dep\"\n\n",
+            "[lib]\n",
+            "exports = [\"dep.veln\"]\n\n",
+            "[dependencies.\"transitive/dep\"]\n",
+            "path = \"../transitive\"\n",
+        ),
     );
     alias_workspace.write(
         "vendor/dep/dep.veln",
@@ -1600,6 +1612,18 @@ fn references_keep_invalid_direct_dependency_type_alias_targets_empty() {
             "pub type InvalidCase = missing_type\n",
         ),
     );
+    alias_workspace.write(
+        "vendor/dep/hidden.veln",
+        "pub type Hidden\nend\n\npub type HiddenAlias = Hidden\n",
+    );
+    alias_workspace.write(
+        "vendor/transitive/veln.toml",
+        "[package]\nname = \"transitive/dep\"\n\n[lib]\nexports = [\"trans.veln\"]\n",
+    );
+    alias_workspace.write(
+        "vendor/transitive/trans.veln",
+        "pub type Item\nend\n\npub type TransitiveAlias = Item\n",
+    );
     let mut alias_server = initialized_server(&alias_workspace);
 
     for (case, column) in [
@@ -1607,9 +1631,16 @@ fn references_keep_invalid_direct_dependency_type_alias_targets_empty() {
         ("wrong-kind target", 45),
         ("alias chain", 67),
         ("invalid-casing target", 87),
+        ("non-exported module alias", 48),
+        ("transitive dependency alias", 87),
     ] {
-        let alias_references =
-            alias_server.references_tool(&json!({"source":"main.veln","line":3,"column":column}));
+        let line = if case == "non-exported module alias" || case == "transitive dependency alias" {
+            10
+        } else {
+            6
+        };
+        let alias_references = alias_server
+            .references_tool(&json!({"source":"main.veln","line":line,"column":column}));
         assert_eq!(
             alias_references["isError"], false,
             "{case}: {alias_references:#}"

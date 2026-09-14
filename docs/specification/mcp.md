@@ -619,9 +619,10 @@ sides, constructor qualifiers, written module paths, and
 import-alias-qualified paths. The same case checks alias and target-type
 identity separation, package collisions, lexical noise exclusion, unsupported
 alias-chain selection, unresolved, wrong-kind, and invalid-casing alias
-targets, retained non-exported implementation-source targets, descendant
-project isolation, project-wide scope, and dependency source resource
-admission.
+targets, aliases in non-exported direct-dependency modules, transitive
+dependency aliases, retained non-exported implementation-source targets,
+descendant project isolation, project-wide scope, and dependency source
+resource admission.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,

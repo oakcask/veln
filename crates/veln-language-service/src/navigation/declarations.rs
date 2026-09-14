@@ -538,9 +538,10 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     [segments @ .., _] => Some(segments.join("::")),
                     [] => None,
                 };
-                let (declaration, package, package_origin, standard_prelude) = match &file.origin {
+                let (declaration, package, package_origin, exported, standard_prelude) =
+                    match &file.origin {
                     IndexedOrigin::Workspace => {
-                        (workspace_location(name_span.clone()), None, None, false)
+                        (workspace_location(name_span.clone()), None, None, true, false)
                     }
                     IndexedOrigin::Package {
                         identity,
@@ -549,9 +550,6 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                         standard_library,
                         ..
                     } => {
-                        if !exported {
-                            return None;
-                        }
                         (
                             NavigationLocation {
                                 source: NavigationSource::Package { uri: uri.clone() },
@@ -563,10 +561,11 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                             } else {
                                 PackageOrigin::DirectDependency
                             }),
+                            *exported,
                             *standard_library && file.module == "prelude",
                         )
                     }
-                };
+                    };
                 Some(TypeAliasSymbol {
                     module: file.module.clone(),
                     name,
@@ -575,6 +574,7 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     target_name,
                     package,
                     package_origin,
+                    exported,
                     standard_prelude,
                     invalid_declaration_name,
                 })

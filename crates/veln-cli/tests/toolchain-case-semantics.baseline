@@ -15878,10 +15878,26 @@ field	expectations.mcp_assertions[27].equals	false
 field	expectations.mcp_assertions[27].id	10
 field	expectations.mcp_assertions[27].operation	"equals"
 field	expectations.mcp_assertions[27].path	"/result/isError"
+field	expectations.mcp_assertions[28].equals	false
+field	expectations.mcp_assertions[28].id	11
+field	expectations.mcp_assertions[28].operation	"equals"
+field	expectations.mcp_assertions[28].path	"/result/isError"
+field	expectations.mcp_assertions[29].equals	[]
+field	expectations.mcp_assertions[29].id	11
+field	expectations.mcp_assertions[29].operation	"equals"
+field	expectations.mcp_assertions[29].path	"/result/structuredContent/references"
 field	expectations.mcp_assertions[2].equals	{"end":{"column":35,"line":8},"start":{"column":30,"line":8}}
 field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"equals"
 field	expectations.mcp_assertions[2].path	"/result/structuredContent/references/1/range"
+field	expectations.mcp_assertions[30].equals	false
+field	expectations.mcp_assertions[30].id	12
+field	expectations.mcp_assertions[30].operation	"equals"
+field	expectations.mcp_assertions[30].path	"/result/isError"
+field	expectations.mcp_assertions[31].equals	[]
+field	expectations.mcp_assertions[31].id	12
+field	expectations.mcp_assertions[31].operation	"equals"
+field	expectations.mcp_assertions[31].path	"/result/structuredContent/references"
 field	expectations.mcp_assertions[3].equals	{"end":{"column":28,"line":10},"start":{"column":23,"line":10}}
 field	expectations.mcp_assertions[3].id	2
 field	expectations.mcp_assertions[3].operation	"equals"
@@ -15916,9 +15932,9 @@ field	expectations.stdout.contains[1]	"\"scope\":{\"generation\":0,\"mode\":\"pr
 field	expectations.stdout.contains[2]	"\"name\":\"lib/model.veln\",\"title\":\"Veln package source: example/dep: lib/model.veln\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1300,"sha256":"c89ef4f24db28a2b58f5e179ba42056eebfae0a9e4c42982292a92a9550d52ea"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1572,"sha256":"f1340bf92ff699502d72397cb30a224290c9cdfb51dc23980ee97bd51b040686"}
 field	source_errors	"forbidden"
-case_digest	"e1bdaff489093bb2a9be27bab505cf4a322d9c98b3e2ff9d1b9ca1adb518abaa"
+case_digest	"981e2d42653a719d81e4f5efe9134488154fb0aa1fba956de887acfa41385e71"
 case	"examples/specification/mcp/references-package-constructor"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -55653,4 +55669,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"aeea788cad3b3847f6b017f34a00be65a2805fd1cf06bae7939f014ffbe8d5ae"
+aggregate_digest	"b5e30f6a78b89c5b4a7a5471d87267213b81e048c2f299ede2a2f78f86c80324"

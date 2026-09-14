@@ -22,3 +22,10 @@ end
 fn retained(input: model::RetainedAlias) -> model::RetainedAlias
   input
 end
+
+use lib::hidden from "example/dep"
+use trans from "transitive/dep"
+
+fn unsupported_alias_modules(hidden_alias: hidden::HiddenAlias, transitive_alias: trans::TransitiveAlias) -> Int
+  1
+end

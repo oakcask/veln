@@ -151,3 +151,23 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 id = 10
 path = "/result/isError"
 equals = false
+
+[[mcp_assert]]
+id = 11
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 12
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references"
+equals = []

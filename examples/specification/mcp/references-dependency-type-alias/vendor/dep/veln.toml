@@ -3,3 +3,6 @@ name = "example/dep"
 
 [lib]
 exports = ["lib/model.veln"]
+
+[dependencies."transitive/dep"]
+path = "../transitive"

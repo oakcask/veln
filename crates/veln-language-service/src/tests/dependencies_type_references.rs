@@ -289,7 +289,7 @@
                 ),
                 (
                     "impl.veln",
-                    "pub type Target\nend\n\npub type renamed = Target\n",
+                    "pub type Target\nend\n\npub type renamed = Target\n\npub type HiddenAlias = Target\n",
                 ),
             ],
             ["api.veln"],
@@ -313,8 +313,14 @@
             ("wrong-kind target", 12, 10),
             ("same-module alias chain", 13, 10),
             ("other-module alias chain", 14, 10),
+            ("non-exported module alias", 6, 10),
         ] {
-            let result = query_snapshot(&snapshot, "api.veln", line, column)
+            let source_path = if case == "non-exported module alias" {
+                "impl.veln"
+            } else {
+                "api.veln"
+            };
+            let result = query_snapshot(&snapshot, source_path, line, column)
                 .unwrap_or_else(|| panic!("did not select {case}"));
             assert_direct_dependency_type_alias(&result);
             assert!(

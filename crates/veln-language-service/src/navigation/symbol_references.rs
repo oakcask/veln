@@ -285,6 +285,9 @@ impl SymbolIndex {
         if symbol.declaration_kind == SymbolDeclarationKind::Declaration {
             return true;
         }
+        if !symbol.public {
+            return false;
+        }
         symbol.package_origin == Some(PackageOrigin::DirectDependency)
             && self.type_alias_target_resolves_to_type(symbol)
     }

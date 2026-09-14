@@ -1,0 +1,4 @@
+pub type Hidden
+end
+
+pub type HiddenAlias = Hidden
