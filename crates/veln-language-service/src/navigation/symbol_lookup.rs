@@ -235,10 +235,9 @@ impl SymbolIndex {
         }
         match symbol.package_origin {
             None => true,
-            Some(PackageOrigin::DirectDependency) => {
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary) => {
                 self.type_alias_symbol_target_resolves_to_type(symbol)
             }
-            Some(PackageOrigin::StandardLibrary) => false,
         }
     }
 
