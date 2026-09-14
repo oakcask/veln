@@ -394,10 +394,13 @@ targets resolve to package function declarations can still return workspace
 reference locations for selected-project uses through the shared navigation
 model. Public function-alias references use the alias identity, not the target
 function identity. Supported direct-dependency public type aliases whose
-targets resolve to package type declarations can also return workspace
-reference locations for selected-project uses through the shared navigation
-model. Public type-alias references use the alias identity, not the target type
-identity, and standard-library public type aliases remain unsupported. The
+targets resolve to package type declarations in the same retained direct
+dependency can return package definition locations and workspace reference
+locations for selected-project uses through the shared navigation model.
+Public type-alias references use the alias identity, not the target type
+identity. Standard-library public type aliases, alias chains, transitive
+package targets, and unresolved or wrong-kind targets remain unsupported and
+produce no definition or reference locations. The
 executable
 `identifier-casing-qualified-function-navigation` LSP example covers a
 module-only qualified public function imported from another workspace source
@@ -472,8 +475,8 @@ function aliases return only selected-project workspace `file:` locations for
 references. Supported direct-dependency public type aliases return only
 selected-project workspace `file:` locations for references. Unsupported alias
 chains, public function aliases with unresolved, non-function, or invalid-cased
-targets, and public type aliases with unresolved, non-type, or invalid-cased
-targets do not produce reference locations.
+targets, and public type aliases with transitive, unresolved, non-type, or
+invalid-cased targets do not produce definition or reference locations.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured

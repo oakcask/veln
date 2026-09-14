@@ -33,10 +33,15 @@ fn hidden(input: model::PublicHidden) -> Vec<model::PublicHidden>
 end
 
 type Same
+  Ready(Int)
 end
 
 fn local(record: {Same: Int}, input: Same) -> Same
   input
+end
+
+fn local_constructor() -> Same
+  Same::Ready(1)
 end
 
 # Same in a comment is lexical noise.

@@ -304,6 +304,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   source declarations, ambiguous recovery refusal, and valid-symbol
   precedence:
   `../../examples/specification/mcp/definition-recovery-navigation/`.
+- MCP saved workspace `definition` for supported direct-dependency public type
+  aliases and unsupported direct-dependency type-alias targets:
+  `../../examples/specification/mcp/definition-dependency-type-alias/`.
 - MCP saved workspace `references` tool schema advertising, function, type,
   constructor, value-binding, and handler parameter references,
   unsupported-symbol success, recovery exclusion, invalid-position results,
@@ -317,6 +320,10 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases:
   `../../examples/specification/mcp/references-dependency-type-alias/`.
+- MCP saved workspace `references` for direct-dependency public type aliases
+  through multi-segment written module paths, implicit leaf import aliases,
+  and transitive-target rejection:
+  `../../examples/specification/mcp/references-dependency-type-alias-identity-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases whose targets live in retained non-exported dependency modules:
   `../../examples/specification/mcp/references-dependency-type-alias-hidden-target/`.

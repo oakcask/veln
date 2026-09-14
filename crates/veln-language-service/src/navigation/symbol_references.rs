@@ -318,6 +318,14 @@ impl SymbolIndex {
             && self.type_alias_target_resolves_to_type(symbol)
     }
 
+    fn type_alias_definition_supported(&self, symbol: &TypeAliasSymbol) -> bool {
+        match symbol.package_origin {
+            Some(PackageOrigin::DirectDependency) => self.type_alias_target_resolves_to_type(symbol),
+            Some(PackageOrigin::StandardLibrary) => false,
+            None => true,
+        }
+    }
+
     fn type_alias_target_resolves_to_type(&self, symbol: &TypeAliasSymbol) -> bool {
         let Some(target_module) = self.type_alias_target_module(symbol) else {
             return false;
@@ -411,7 +419,11 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<TypeAliasSymbol> {
         let constructor_index = next_path_segment_index(tokens, token_index)?;
-        let alias = self.visible_type_alias_for_reference(file, tokens, token_index, name)?;
+        let Symbol::TypeAlias(alias) =
+            self.type_namespace_symbol_for_reference(file, tokens, token_index, name)?
+        else {
+            return None;
+        };
         if !self.type_alias_references_supported(&alias) {
             return None;
         }

@@ -1,0 +1,52 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"scope\":{\"generation\":0,\"mode\":\"project\",\"project\":\".\",\"project_wide\":true}",
+  "\"references\":[]",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":4,"column":31},"end":{"line":4,"column":36}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":4,"column":48},"end":{"line":4,"column":53}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":4,"column":31},"end":{"line":4,"column":36}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":4,"column":48},"end":{"line":4,"column":53}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
