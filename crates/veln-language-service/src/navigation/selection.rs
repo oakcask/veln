@@ -339,7 +339,7 @@ impl SymbolIndex {
         name: &str,
         selection: &SourceSpan,
     ) -> Option<SelectedNavigationSymbol> {
-        (is_type_reference_token(file, name, selection) && !is_field_name(tokens, token_index))
+        is_type_reference_token(file, name, selection)
             .then(|| {
                 self.visible_type_alias_for_reference(file, tokens, token_index, name)
                     .map(Symbol::TypeAlias)
