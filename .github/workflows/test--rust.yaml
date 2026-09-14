@@ -12,6 +12,8 @@ on:
       - Cargo.lock
       - Cargo.toml
       - rust-toolchain.toml
+      - scripts/agent-run
+      - scripts/ci-run
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - tools/**/Cargo.toml
@@ -27,6 +29,8 @@ on:
       - Cargo.lock
       - Cargo.toml
       - rust-toolchain.toml
+      - scripts/agent-run
+      - scripts/ci-run
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - tools/**/Cargo.toml
@@ -168,4 +172,4 @@ jobs:
       - name: Prepare Cargo dependencies
         uses: ./.github/actions/cargo-dependencies
       - name: Run Rust doctests
-        run: cargo test --locked --workspace --doc
+        run: bash scripts/ci-run cargo test --locked --workspace --doc -- --test-threads=1

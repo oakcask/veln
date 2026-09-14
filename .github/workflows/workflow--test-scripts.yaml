@@ -6,20 +6,22 @@ on:
       - main
     paths:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
-      - .github/workflows/workflow--test-scripts.yaml
+      - .github/actions/**/action.yaml
+      - .github/workflows/*.yaml
       - AGENTS.md
       - docs/**/*.md
       - scripts/agent-test
-      - .github/workflows/test--rust.yaml
+      - scripts/ci-run
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
-      - .github/workflows/workflow--test-scripts.yaml
+      - .github/actions/**/action.yaml
+      - .github/workflows/*.yaml
       - AGENTS.md
       - docs/**/*.md
       - scripts/agent-test
-      - .github/workflows/test--rust.yaml
+      - scripts/ci-run
       - workflow-scripts/**/*.mjs
 
 permissions:
@@ -41,6 +43,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
+      - name: Reject unbounded Rust test commands
+        run: node workflow-scripts/check-rust-test-memory-guards.mjs .github/workflows .github/actions
       - name: Validate frontmatter in changed documentation
         env:
           DOC_FRONTMATTER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
