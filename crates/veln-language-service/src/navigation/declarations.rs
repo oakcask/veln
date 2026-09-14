@@ -55,6 +55,7 @@ impl FileDeclarations {
         self.functions.extend(other.functions);
         self.package_function_targets
             .extend(other.package_function_targets);
+        self.package_type_targets.extend(other.package_type_targets);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
@@ -69,6 +70,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         operations: effect_operation_declarations(file, syntax),
         functions: function_declarations(file),
         package_function_targets: package_function_targets(file, syntax),
+        package_type_targets: package_type_targets(file, syntax),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
@@ -328,6 +330,42 @@ fn package_function_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Pack
                     return None;
                 }
                 Some(PackageFunctionTarget {
+                    module: file.module.clone(),
+                    name: name.clone(),
+                    package: identity.clone(),
+                    package_origin,
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn package_type_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageTypeTarget> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return Vec::new();
+    };
+    let package_origin = if *standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) => {
+                let name = type_decl.name.as_ref()?;
+                let name_span = type_decl.name_span.as_ref()?;
+                if is_invalid_declaration_name(file, name_span) {
+                    return None;
+                }
+                Some(PackageTypeTarget {
                     module: file.module.clone(),
                     name: name.clone(),
                     package: identity.clone(),

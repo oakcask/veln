@@ -453,9 +453,11 @@ Direct-dependency public function aliases whose target resolves to a function
 declaration in the same retained direct dependency also use their alias
 identity and expose references through the package function boundary.
 Direct-dependency public type aliases whose target resolves to a type
-declaration in the same retained direct dependency use their alias identity
-and expose references through the package type boundary. Standard-library
-public type aliases remain outside the supported reference boundary.
+declaration anywhere in the same retained direct dependency use their alias
+identity and expose references through the package type boundary. The target
+type may live in a retained non-exported source when the exported alias is
+visible to the selected project. Standard-library public type aliases remain
+outside the supported reference boundary.
 
 Package function results include qualified calls, qualified function-value
 occurrences, and occurrences qualified by an import alias. Supported package
@@ -625,6 +627,9 @@ qualifier occurrences, alias and same-spelled target-type identity separation,
 package and lexical collisions, unsupported private, alias-chain, wrong-kind,
 and invalid-casing alias selections, project isolation, project-wide scope,
 and dependency source resource admission.
+The `references-dependency-type-alias-hidden-target` MCP specification case
+checks that an exported dependency type alias remains supported when its target
+type lives in a retained non-exported dependency module.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,

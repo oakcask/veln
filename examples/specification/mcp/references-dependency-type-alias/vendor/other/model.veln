@@ -1,2 +1,5 @@
 pub type Same
 end
+
+pub type MissingAlias
+end

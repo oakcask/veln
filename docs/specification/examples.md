@@ -314,6 +314,12 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-standard-library-function/`.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
+- MCP saved workspace `references` for visible direct-dependency public type
+  aliases:
+  `../../examples/specification/mcp/references-dependency-type-alias/`.
+- MCP saved workspace `references` for visible direct-dependency public type
+  aliases whose targets live in retained non-exported dependency modules:
+  `../../examples/specification/mcp/references-dependency-type-alias-hidden-target/`.
 - MCP saved workspace `references` for visible direct-dependency and
   standard-library types:
   `../../examples/specification/mcp/references-package-type/`.

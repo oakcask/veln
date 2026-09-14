@@ -1,0 +1,3 @@
+use internal::core
+
+pub type PublicHidden = core::Hidden

@@ -13,8 +13,9 @@ direct-dependency modules through the existing MCP `references` tool.
 
 ## Completion
 
-This slice is implemented. The language service resolves package types, public
-type aliases, and the selected project's saved source set. The MCP adapter
+This slice is implemented. The language service resolves package type
+declarations from the retained dependency target catalog, public type aliases,
+and the selected project's saved source set. The MCP adapter
 returns project-scoped references for direct-dependency type declarations,
 public function aliases, and public type aliases. This record preserves the
 completed boundary; current behavior is specified by
@@ -25,11 +26,11 @@ and checked by executable MCP cases.
 
 | Case | Expected result | Evidence |
 | --- | --- | --- |
-| Select a visible public type alias whose target resolves to a type declaration in the same retained direct dependency. | Return the consumer's references to that alias in canonical order with project scope and `project_wide: true`. | Language-service identity cases, MCP adapter cases, and an executable MCP stdio case. |
+| Select a visible public type alias whose target resolves to a type declaration anywhere in the same retained direct dependency, including a retained non-exported source. | Return the consumer's references to that alias in canonical order with project scope and `project_wide: true`. | Language-service identity cases, MCP adapter cases, and executable MCP stdio cases. |
 | Use the alias in a type annotation, type argument, return type, type-alias right-hand side, or constructor qualifier. | Include the alias leaf for every occurrence that ordinary name resolution binds to the selected public alias. | A table-driven language-service case and exact executable reference ranges. |
 | Reach the exported module through its written module path or its import alias. | Resolve both spellings to the same public type-alias identity. | Qualified-path and import-alias-qualified cases. |
 | Give the alias and its target type the same or different spellings and select each identity. | Alias selection returns only alias-bound occurrences. Target selection does not absorb occurrences bound to the alias. | Paired alias and target selection cases. |
-| Encounter the same spelling in another package, another selected project, a package implementation body, or an unrelated workspace declaration, value, field, string, or comment. | Exclude that occurrence from the result. Return only canonical workspace `file:` locations from the inferred selected project. | Collision, project-isolation, package-body-exclusion, and lexical-noise cases. |
+| Encounter the same spelling in another package, another selected project, a package implementation body, or an unrelated workspace declaration, value, record field, string, or comment. | Exclude that occurrence from the result. Return only canonical workspace `file:` locations from the inferred selected project. Ordinary local type declarations keep precedence over imported alias selection. | Collision, project-isolation, package-body-exclusion, and lexical-noise cases. |
 | Select a private alias, an alias from a non-exported module, a transitive-dependency alias, an unresolved or wrong-kind alias target, an invalid-casing alias record, or an unsupported alias chain. | Succeed with an empty `references` array and do not reinterpret the selection as the target type. | Table-driven unsupported-selection cases through the language service and MCP adapter. |
 | Exhaust stable-capture retries while resolving a supported alias selection. | Return `snapshot_changed` without reference locations, success-only fields, or partial package-resource admission. | MCP capture-mutation test. |
 
@@ -48,8 +49,9 @@ expansion.
 
 Implementation added:
 
-- a `references-dependency-type-alias` case under
-  `examples/specification/mcp/` that checks the observable result and boundary
+- `references-dependency-type-alias` and
+  `references-dependency-type-alias-hidden-target` cases under
+  `examples/specification/mcp/` that check the observable result and boundary
   rows above;
 - focused language-service tests for package type-alias identity and reference
   collection; and
