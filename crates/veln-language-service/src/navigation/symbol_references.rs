@@ -264,16 +264,10 @@ impl SymbolIndex {
                     .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
-                        (!is_field_name(tokens, token_index))
-                            .then(|| {
-                                self.visible_type_for_reference(
-                                    file,
-                                    tokens,
-                                    token_index,
-                                    &symbol.name,
-                                )
-                            })
-                            .flatten()
+                        if symbol.package_origin.is_some() && is_field_name(tokens, token_index) {
+                            return None;
+                        }
+                        self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
                             .is_some_and(|candidate| same_type(&candidate, symbol))
                             .then_some(span)
                     })
