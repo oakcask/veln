@@ -46,6 +46,22 @@ impl SymbolIndex {
         self.visible_type_for_bare_reference(file, name)
     }
 
+    fn visible_type_alias_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let candidate = if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            self.visible_type_alias_for_qualified_reference(file, &qualifier, name)
+        } else {
+            self.visible_type_alias_for_bare_reference(file, name)
+        }?;
+        self.type_alias_references_supported(&candidate)
+            .then_some(candidate)
+    }
+
     fn visible_type_conflict_for_reference(
         &self,
         file: &IndexedFile,
@@ -173,6 +189,18 @@ impl SymbolIndex {
         candidates.next().is_none().then(|| candidate.clone())
     }
 
+    fn visible_type_alias_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let mut candidates = self.type_aliases.iter().filter(|symbol| {
+            visible_imported_type_alias_for_bare_reference(file, symbol, name)
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
     fn first_local_type_for_bare_reference(
         &self,
         file: &IndexedFile,
@@ -200,6 +228,20 @@ impl SymbolIndex {
                         || symbol.standard_prelude,
                     None => symbol.module == file.module || file.uses.contains(&symbol.module),
                 }
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn visible_type_alias_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        let mut candidates = self.type_aliases.iter().filter(|symbol| {
+            visible_type_alias_for_qualified_reference(file, symbol, &qualified_modules, name)
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())

@@ -1,0 +1,14 @@
+use core
+
+pub type Same = core::Same
+pub type Chain = Same
+pub type WrongKind = value
+pub type badAlias = core::Same
+
+pub fn value() -> Int
+  1
+end
+
+fn package_body(input: Same) -> Same
+  input
+end

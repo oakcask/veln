@@ -1,0 +1,30 @@
+use model from "example/dep"
+use core from "example/dep"
+use other_model from "other/dep"
+use hidden from "example/dep"
+
+pub type LocalAlias = model::Same
+
+fn alias(input: model::Same) -> model::Same
+  let current: model::Same = input
+  model::Same::Ready(1)
+end
+
+fn target(input: core::Same) -> core::Same
+  core::Same::Ready(1)
+end
+
+fn collisions(input: other_model::Same, Same: Int, record: {Same: Int}) -> Int
+  Same + record.Same
+end
+
+fn unsupported(
+  private: hidden::PrivateAlias,
+  chain: model::Chain,
+  wrong: model::WrongKind,
+  invalid: model::badAlias,
+) -> Int
+  0
+end
+
+# Same in a comment is lexical noise.

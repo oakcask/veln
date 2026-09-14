@@ -260,6 +260,7 @@ impl Symbol {
             Self::Handler(symbol) => symbol.declaration.clone(),
             Self::EffectOperation(symbol) => symbol.declaration.clone(),
             Self::Type(symbol) => symbol.declaration.clone(),
+            Self::TypeAlias(symbol) => symbol.declaration.clone(),
             Self::Function(symbol) => symbol.declaration.clone(),
             Self::Constructor(symbol) => symbol.declaration.clone(),
             Self::Local(symbol) => workspace_location(symbol.declaration.clone()),
@@ -283,7 +284,7 @@ impl Symbol {
             Self::Effect(_) => SymbolKind::Effect,
             Self::Handler(_) => SymbolKind::Handler,
             Self::EffectOperation(_) => SymbolKind::EffectOperation,
-            Self::Type(_) => SymbolKind::Type,
+            Self::Type(_) | Self::TypeAlias(_) => SymbolKind::Type,
             Self::Function(_) => SymbolKind::Function,
             Self::Constructor(_) => SymbolKind::Constructor,
             Self::Local(symbol) => symbol.kind.symbol_kind(),
@@ -298,6 +299,7 @@ impl Symbol {
             Self::Handler(symbol) => &symbol.name,
             Self::EffectOperation(symbol) => &symbol.name,
             Self::Type(symbol) => &symbol.name,
+            Self::TypeAlias(symbol) => &symbol.name,
             Self::Function(symbol) => &symbol.name,
             Self::Constructor(symbol) => &symbol.name,
             Self::Local(symbol) => &symbol.name,
@@ -310,6 +312,7 @@ impl Symbol {
             Self::Schema(symbol) => index.schema_references(symbol),
             Self::Effect(_) | Self::Handler(_) | Self::EffectOperation(_) => Vec::new(),
             Self::Type(symbol) => index.type_references(symbol),
+            Self::TypeAlias(symbol) => index.type_alias_references(symbol),
             Self::Function(symbol) => index.function_references(symbol),
             Self::Constructor(symbol) => index.constructor_references(symbol),
             Self::Local(symbol) => index.local_references(symbol, false),
@@ -324,6 +327,7 @@ impl Symbol {
     fn declaration_kind(&self) -> SymbolDeclarationKind {
         match self {
             Self::Function(symbol) => symbol.declaration_kind,
+            Self::TypeAlias(_) => SymbolDeclarationKind::PublicAlias,
             Self::Constructor(symbol) => symbol.declaration_kind,
             Self::Recovery(_) => SymbolDeclarationKind::Recovery,
             _ => SymbolDeclarationKind::Declaration,
@@ -334,6 +338,7 @@ impl Symbol {
         match self {
             Self::Function(symbol) => symbol.package_origin,
             Self::Type(symbol) => symbol.package_origin,
+            Self::TypeAlias(symbol) => symbol.package_origin,
             Self::Constructor(symbol) => symbol.package_origin,
             _ => None,
         }
@@ -449,7 +454,7 @@ fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
         Symbol::Schema(_) | Symbol::Effect(_) | Symbol::Handler(_) | Symbol::EffectOperation(_) => {
             None
         }
-        Symbol::Type(_) => Some(NameClass::Type),
+        Symbol::Type(_) | Symbol::TypeAlias(_) => Some(NameClass::Type),
         Symbol::Function(_) => Some(NameClass::Function),
         Symbol::Constructor(_) => Some(NameClass::Constructor),
         Symbol::Recovery(symbol) => symbol.name_class(),
@@ -475,6 +480,7 @@ struct TypeAliasSymbol {
     target_module: Option<String>,
     target_name: String,
     package: Option<String>,
+    package_origin: Option<PackageOrigin>,
     standard_prelude: bool,
 }
 
@@ -515,6 +521,7 @@ enum Symbol {
     Handler(NeutralSymbol),
     EffectOperation(EffectOperationSymbol),
     Type(TypeSymbol),
+    TypeAlias(TypeAliasSymbol),
     Function(FunctionSymbol),
     Constructor(ConstructorSymbol),
     Local(LocalSymbol),

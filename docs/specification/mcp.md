@@ -381,8 +381,10 @@ clause parameters, exact test-companion access to target-private functions, and
 unique class-compatible invalid source declaration or binding recovery records.
 Eligible package selections include public functions, types, constructors,
 schemas, and public function aliases in exported direct-dependency modules and
-the embedded standard library. The source must select the exact visible import
-or implicit standard-library prelude path required by name resolution. Invalid
+the embedded standard library. They also include public type aliases from
+exported direct-dependency modules when the alias target resolves to a type
+declaration in the same retained dependency. The source must select the exact
+visible import or implicit standard-library prelude path required by name resolution. Invalid
 casing records, private declarations, non-exported sources, mismatched package
 imports, unsupported symbol classes, and package module-segment selections
 succeed with `definition: null`.
@@ -450,6 +452,10 @@ references plus qualified type references.
 Direct-dependency public function aliases whose target resolves to a function
 declaration in the same retained direct dependency also use their alias
 identity and expose references through the package function boundary.
+Direct-dependency public type aliases whose target resolves to a type
+declaration in the same retained direct dependency use their alias identity
+and expose references through the package type boundary. Standard-library
+public type aliases remain outside the supported reference boundary.
 
 Package function results include qualified calls, qualified function-value
 occurrences, and occurrences qualified by an import alias. Supported package
@@ -461,6 +467,12 @@ qualifier, including when a package constructor has the same spelling as its
 owning type. Package constructor results include qualified calls, constructor
 patterns, and accepted bare constructor forms. A package constructor selection
 through a public type alias succeeds but returns an empty `references` array.
+Supported package type-alias results include type annotations, type arguments,
+return types, type occurrences in type-alias right-hand sides, and the alias
+type segment used as a constructor qualifier. They include occurrences
+qualified by the written package module path or an import alias. Alias
+reference results remain separate from the aliased target type's results,
+including when the alias and target type have the same spelling.
 Package reference results include only occurrences in the selected project's
 captured owned sources.
 They exclude the package declaration, package source bodies, other selected
@@ -468,13 +480,14 @@ projects, equal spellings with different package or module identity,
 import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
-package types, functions, function aliases, or constructors, non-exported
-package modules, invalid-casing records, recovery records, unsupported
-function-alias chains, public function aliases with unresolved, non-function,
-or invalid-cased targets, package public alias symbols other than supported
-function aliases, non-function, non-type, and non-constructor package symbols,
-and package module-segment selections succeed with an empty `references`
-array.
+package types, functions, function aliases, type aliases, or constructors,
+non-exported package modules, invalid-casing records, recovery records,
+unsupported alias chains, public function aliases with unresolved,
+non-function, or invalid-cased targets, public type aliases with unresolved,
+non-type, or invalid-cased targets, package public alias symbols other than
+supported function or type aliases, non-function, non-type, and
+non-constructor package symbols, and package module-segment selections succeed
+with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
 handler, or effect-operation reference locations.
 
@@ -604,6 +617,14 @@ function-value occurrence. The same case checks alias and target-function
 identity separation, package and workspace collisions, field exclusion,
 unsupported alias-chain selection, unresolved, wrong-kind, and invalid-casing
 alias targets, project-wide scope, and dependency source resource admission.
+The `references-dependency-type-alias` MCP specification case checks the same
+result shape for a visible direct-dependency public type alias selected
+through a qualified type occurrence. The same case checks type annotation,
+return type, type-alias right-hand-side, type argument, and constructor
+qualifier occurrences, alias and same-spelled target-type identity separation,
+package and lexical collisions, unsupported private, alias-chain, wrong-kind,
+and invalid-casing alias selections, project isolation, project-wide scope,
+and dependency source resource admission.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,

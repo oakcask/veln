@@ -420,6 +420,110 @@
     }
 
     #[test]
+    fn direct_dependency_type_alias_references_keep_alias_identity() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n",
+                        "use core from \"example/pkg\"\n",
+                        "use other_model from \"other/pkg\"\n\n",
+                        "type Local\n",
+                        "  Same(Int)\n",
+                        "end\n\n",
+                        "pub type LocalAlias = model::Same\n\n",
+                        "fn direct(input: model::Same) -> model::Same\n",
+                        "  let current: model::Same = input\n",
+                        "  model::Same::Ready(1)\n",
+                        "end\n\n",
+                        "fn target(input: core::Same) -> core::Same\n",
+                        "  core::Same::Ready(1)\n",
+                        "end\n\n",
+                        "fn collisions(input: other_model::Same, Same: Int, record: {Same: Int}) -> Int\n",
+                        "  Same + record.Same\n",
+                        "end\n\n",
+                        "# Same in a comment is lexical noise.\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n\n",
+                        "fn other(input: model::Same) -> model::Same\n",
+                        "  model::Same::Ready(1)\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![
+                dependency_snapshot(
+                    "example/pkg",
+                    &[
+                        (
+                            "model.veln",
+                            "use core\n\npub type Same = core::Same\n",
+                        ),
+                        (
+                            "core.veln",
+                            "pub type Same\n  pub Ready(Int)\nend\n",
+                        ),
+                    ],
+                    ["model.veln", "core.veln"],
+                ),
+                dependency_snapshot(
+                    "other/pkg",
+                    &[("model.veln", "pub type Same\nend\n")],
+                    ["model.veln"],
+                ),
+            ],
+        );
+
+        let alias = query_snapshot(&snapshot, "main.veln", 11, 25).unwrap();
+
+        assert_eq!(alias.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            alias.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(alias.definition.span.file.as_str(), "model.veln");
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("main.veln", 9, 30),
+                ("main.veln", 11, 25),
+                ("main.veln", 11, 41),
+                ("main.veln", 12, 23),
+                ("main.veln", 13, 10),
+                ("other.veln", 3, 24),
+                ("other.veln", 3, 40),
+                ("other.veln", 4, 10),
+            ]
+        );
+
+        let target = query_snapshot(&snapshot, "main.veln", 16, 24).unwrap();
+
+        assert_eq!(target.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            target.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
+        );
+        assert_eq!(target.definition.span.file.as_str(), "core.veln");
+        assert_eq!(
+            locations(&target.references),
+            [
+                ("main.veln", 16, 24),
+                ("main.veln", 16, 39),
+                ("main.veln", 17, 9),
+            ]
+        );
+    }
+
+    #[test]
     fn unsupported_package_type_selections_do_not_expand_references() {
         struct Case {
             name: &'static str,
@@ -481,7 +585,7 @@
                 expect_symbol: None,
             },
             Case {
-                name: "public direct dependency type alias",
+                name: "private direct dependency type alias",
                 snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
                     vec![source(
                         "main.veln",
@@ -496,8 +600,57 @@
                         "example/pkg",
                         &[(
                             "model.veln",
-                            "pub type Item\nend\n\npub type Alias = Item\n",
+                            "pub type Item\nend\n\ntype Alias = Item\n",
                         )],
+                        ["model.veln"],
+                    )],
+                ),
+                source_path: "main.veln",
+                line: 3,
+                column: 25,
+                expect_symbol: None,
+            },
+            Case {
+                name: "non-exported direct dependency type alias",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source(
+                        "main.veln",
+                        concat!(
+                            "use hidden from \"example/pkg\"\n\n",
+                            "fn read(input: hidden::Alias) -> hidden::Alias\n",
+                            "  input\n",
+                            "end\n",
+                        ),
+                    )],
+                    vec![dependency_snapshot(
+                        "example/pkg",
+                        &[
+                            ("model.veln", "pub type Item\nend\n"),
+                            ("hidden.veln", "pub type Item\nend\n\npub type Alias = Item\n"),
+                        ],
+                        ["model.veln"],
+                    )],
+                ),
+                source_path: "main.veln",
+                line: 3,
+                column: 29,
+                expect_symbol: None,
+            },
+            Case {
+                name: "invalid-casing direct dependency type alias declaration",
+                snapshot: EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![source(
+                        "main.veln",
+                        concat!(
+                            "use model from \"example/pkg\"\n\n",
+                            "fn read(input: model::alias) -> model::alias\n",
+                            "  input\n",
+                            "end\n",
+                        ),
+                    )],
+                    vec![dependency_snapshot(
+                        "example/pkg",
+                        &[("model.veln", "pub type Item\nend\n\npub type alias = Item\n")],
                         ["model.veln"],
                     )],
                 ),
