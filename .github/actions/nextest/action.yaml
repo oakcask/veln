@@ -97,22 +97,16 @@ runs:
     - name: Build main Rust test cache
       if: inputs.save-cache == 'true'
       shell: bash
-      env:
-        CARGO_INCREMENTAL: "0"
       run: |
         source <(cargo llvm-cov show-env --sh)
-        cargo nextest run --locked --workspace --profile ci --no-run
+        bash scripts/ci-run cargo nextest run --locked --workspace --profile ci --no-run
     - name: Run Rust tests
       if: inputs.shard != ''
       shell: bash
-      env:
-        CARGO_INCREMENTAL: "0"
-      run: cargo llvm-cov --no-report nextest --locked --workspace --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
+      run: bash scripts/ci-run cargo llvm-cov --no-report nextest --locked --workspace --profile ci --partition count:${{ inputs.shard }}/${{ inputs.shard-count }}
     - name: Generate Rust shard coverage report
       if: inputs.shard != ''
       shell: bash
-      env:
-        CARGO_INCREMENTAL: "0"
       run: |
         mkdir -p target/coverage
         cargo llvm-cov report --lcov --output-path target/coverage/lcov.info

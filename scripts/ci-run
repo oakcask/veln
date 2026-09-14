@@ -1,0 +1,12 @@
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+  printf 'usage: bash scripts/ci-run <command> [args...]\n' >&2
+  exit 64
+fi
+
+export VELN_AGENT_TIMEOUT=540s
+export VELN_AGENT_MEMORY_MB=6144
+export VELN_AGENT_JAVA_OPTIONS='-XX:+PerfDisableSharedMem -Xmx256m -XX:ActiveProcessorCount=2'
+
+exec bash scripts/agent-run "$@"

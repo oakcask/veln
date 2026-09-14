@@ -11,6 +11,8 @@ on:
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - crates/veln-backend-jvm/runtime/*.class
+      - scripts/agent-run
+      - scripts/ci-run
   pull_request:
     paths:
       - .github/workflows/test--jvm-backend.yaml
@@ -19,6 +21,8 @@ on:
       - crates/**/Cargo.toml
       - crates/**/*.rs
       - crates/veln-backend-jvm/runtime/*.class
+      - scripts/agent-run
+      - scripts/ci-run
 
 permissions:
   contents: read
@@ -38,6 +42,6 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Run JVM backend tests
-        run: cargo test --locked -p veln-backend-jvm bytecode_backend
+        run: bash scripts/ci-run cargo test --locked -p veln-backend-jvm bytecode_backend -- --test-threads=1
       - name: Run JVM CLI fixtures
-        run: cargo test --locked -p veln-cli --test check_json
+        run: bash scripts/ci-run cargo test --locked -p veln-cli --test check_json -- --test-threads=1
