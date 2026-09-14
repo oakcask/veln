@@ -524,6 +524,154 @@
     }
 
     #[test]
+    fn type_role_selection_prefers_local_type_and_rejects_field_alias_collision() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n\n",
+                    "type Same\n",
+                    "end\n\n",
+                    "fn read(record: {Same: Int}, input: Same) -> Same\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[("model.veln", "pub type Target\nend\n\npub type Same = Target\n")],
+                ["model.veln"],
+            )],
+        );
+
+        let local = query_snapshot(&snapshot, "main.veln", 6, 39).unwrap();
+
+        assert_eq!(local.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            local.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
+        );
+        assert_eq!(local.selected_symbol.package_origin, None);
+        assert_eq!(local.definition.span.file.as_str(), "main.veln");
+        assert_eq!(
+            locations(&local.references),
+            [("main.veln", 6, 37), ("main.veln", 6, 46)]
+        );
+        assert!(
+            query_snapshot(&snapshot, "main.veln", 6, 18).is_none(),
+            "record field selection must not bind to the imported type alias"
+        );
+    }
+
+    #[test]
+    fn unsupported_direct_dependency_type_alias_selection_does_not_fall_back_to_type() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n",
+                    "use other_model from \"other/pkg\"\n\n",
+                    "fn read(input: model::Alias) -> other_model::Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            )],
+            vec![
+                dependency_snapshot(
+                    "example/pkg",
+                    &[("model.veln", "pub type Alias = Missing\n")],
+                    ["model.veln"],
+                ),
+                dependency_snapshot(
+                    "other/pkg",
+                    &[("model.veln", "pub type Alias\nend\n")],
+                    ["model.veln"],
+                ),
+            ],
+        );
+
+        let alias = query_snapshot(&snapshot, "main.veln", 4, 23).unwrap();
+
+        assert_eq!(alias.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            alias.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(alias.definition.span.file.as_str(), "model.veln");
+        assert!(
+            alias.references.is_empty(),
+            "unsupported alias selection unexpectedly returned references: {:?}",
+            locations(&alias.references)
+        );
+    }
+
+    #[test]
+    fn direct_dependency_type_alias_target_may_live_in_non_exported_module() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use facade from \"example/pkg\"\n\n",
+                        "pub type Local = facade::PublicHidden\n\n",
+                        "fn read(input: facade::PublicHidden) -> Vec<facade::PublicHidden>\n",
+                        "  facade::PublicHidden::Ready(1)\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use facade from \"example/pkg\"\n\n",
+                        "fn other(input: facade::PublicHidden) -> facade::PublicHidden\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[
+                    (
+                        "facade.veln",
+                        "use internal::core\n\npub type PublicHidden = core::Hidden\n",
+                    ),
+                    (
+                        "internal/core.veln",
+                        "pub type Hidden\n  pub Ready(Int)\nend\n",
+                    ),
+                ],
+                ["facade.veln"],
+            )],
+        );
+
+        let alias = query_snapshot(&snapshot, "main.veln", 5, 26).unwrap();
+
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            alias.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("main.veln", 3, 26),
+                ("main.veln", 5, 24),
+                ("main.veln", 5, 53),
+                ("other.veln", 3, 25),
+                ("other.veln", 3, 50),
+            ]
+        );
+    }
+
+    #[test]
     fn unsupported_package_type_selections_do_not_expand_references() {
         struct Case {
             name: &'static str,

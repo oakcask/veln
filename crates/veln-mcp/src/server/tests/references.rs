@@ -1115,6 +1115,134 @@ fn references_return_direct_dependency_type_alias_locations_from_saved_project()
 }
 
 #[test]
+fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
+    let workspace = TempWorkspace::new("references-dependency-type-alias-selection-order");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/dep\"]\n",
+            "path = \"vendor/dep\"\n",
+            "\n",
+            "[dependencies.\"other/dep\"]\n",
+            "path = \"vendor/other\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n",
+            "use other_model from \"other/dep\"\n\n",
+            "type Same\n",
+            "end\n\n",
+            "fn local(record: {Same: Int}, input: Same) -> Same\n",
+            "  input\n",
+            "end\n\n",
+            "fn unsupported(input: model::MissingAlias) -> other_model::MissingAlias\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/model.veln",
+        concat!(
+            "pub type Target\n",
+            "end\n\n",
+            "pub type Same = Target\n",
+            "pub type MissingAlias = Missing\n",
+        ),
+    );
+    workspace.write(
+        "vendor/other/veln.toml",
+        "[package]\nname = \"other/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write("vendor/other/model.veln", "pub type MissingAlias\nend\n");
+
+    let local = references_result(&workspace, "main.veln", 7, 39);
+    assert_eq!(local["isError"], false, "{local:#}");
+    assert_reference_ranges(
+        &local,
+        &[("main.veln", 7, 38, 7, 42), ("main.veln", 7, 47, 7, 51)],
+        "local type precedence",
+    );
+
+    let field = references_result(&workspace, "main.veln", 7, 19);
+    assert_eq!(field["isError"], false, "{field:#}");
+    assert_eq!(field["structuredContent"]["references"], json!([]));
+
+    let unsupported = references_result(&workspace, "main.veln", 11, 30);
+    assert_eq!(unsupported["isError"], false, "{unsupported:#}");
+    assert_eq!(unsupported["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        unsupported["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+}
+
+#[test]
+fn references_support_type_alias_target_in_non_exported_dependency_module() {
+    let workspace = TempWorkspace::new("references-dependency-type-alias-hidden-target");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use facade from \"example/dep\"\n\n",
+            "pub type Local = facade::PublicHidden\n\n",
+            "fn read(input: facade::PublicHidden) -> Vec<facade::PublicHidden>\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "use facade from \"example/dep\"\n\n",
+            "fn other(input: facade::PublicHidden) -> facade::PublicHidden\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"facade.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/facade.veln",
+        "use internal::core\n\npub type PublicHidden = core::Hidden\n",
+    );
+    workspace.write(
+        "vendor/dep/internal/core.veln",
+        "pub type Hidden\n  pub Ready(Int)\nend\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 5, 26);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 3, 26, 3, 38),
+            ("main.veln", 5, 24, 5, 36),
+            ("main.veln", 5, 53, 5, 65),
+            ("other.veln", 3, 25, 3, 37),
+            ("other.veln", 3, 50, 3, 62),
+        ],
+        "hidden type target alias references",
+    );
+}
+
+#[test]
 fn references_return_direct_dependency_constructor_locations_from_saved_project() {
     let workspace = TempWorkspace::new("references-dependency-constructor");
     workspace.write(

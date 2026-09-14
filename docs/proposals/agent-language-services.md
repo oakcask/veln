@@ -18,8 +18,8 @@ workspace-definition, saved workspace symbol-reference, resource publication,
 language-reference search, package documentation tool, package definition
 navigation, direct-dependency function-reference, standard-library
 function-reference, direct-dependency function-alias-reference,
-standard-library function-alias-reference, and package type-reference slices
-are implemented and
+standard-library function-alias-reference, direct-dependency
+type-alias-reference, and package type-reference slices are implemented and
 specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
@@ -27,22 +27,23 @@ currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 including bounded direct-dependency and standard-library package locations,
 workspace symbol, workspace schema operation, direct-dependency function,
 direct-dependency function alias, standard-library function and function
-alias, and package type and constructor `references`, `search_docs`, and
-`read_doc`.
+alias, direct-dependency type alias, and package type and constructor
+`references`, `search_docs`, and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
-implemented function, function-alias, type, and constructor slices, paginated
-references, recovery and casing-neutral reference navigation, workspace schema
-references beyond the extracted slice, conformance completion, and client
-plugin work in this proposal remain planned.
+implemented function, function-alias, direct-dependency type-alias, type, and
+constructor slices, paginated references, recovery and casing-neutral
+reference navigation, workspace schema references beyond the extracted slice,
+conformance completion, and client plugin work in this proposal remain
+planned.
 
 The remaining first-capability work includes:
 
 - definition lookup beyond the implemented workspace and package-backed symbol
   set, plus package reference lookup beyond direct-dependency and
-  standard-library functions, function aliases, types, and constructors,
-  including standard-library public type-alias and direct-dependency and
-  standard-library public schema-alias references, plus paginated reference
-  lookup;
+  standard-library functions, function aliases, direct-dependency public
+  type aliases, types, and constructors, including standard-library public
+  type-alias and direct-dependency and standard-library public schema-alias
+  references, plus paginated reference lookup;
 - workspace schema reference lookup beyond the implemented `decode` and
   `encode` slice recorded as
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md);

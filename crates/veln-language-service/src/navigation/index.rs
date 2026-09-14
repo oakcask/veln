@@ -60,6 +60,7 @@ impl SymbolIndex {
             operations: declarations.operations,
             functions: declarations.functions,
             package_function_targets: declarations.package_function_targets,
+            package_type_targets: declarations.package_type_targets,
             types: declarations.types,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,

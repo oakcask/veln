@@ -264,7 +264,7 @@ impl SymbolIndex {
                     .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
-                        if symbol.package_origin.is_some() && is_field_name(tokens, token_index) {
+                        if is_field_name(tokens, token_index) {
                             return None;
                         }
                         self.visible_type_for_reference(file, tokens, token_index, &symbol.name)
@@ -291,18 +291,20 @@ impl SymbolIndex {
                     .type_reference_spans(&symbol.name)
                     .into_iter()
                     .filter_map(|(token_index, span)| {
-                        (!is_field_name(tokens, token_index))
-                            .then(|| {
-                                self.visible_type_alias_for_reference(
-                                    file,
-                                    tokens,
-                                    token_index,
-                                    &symbol.name,
-                                )
-                            })
-                            .flatten()
-                            .is_some_and(|candidate| same_type_alias(&candidate, symbol))
-                            .then_some(span)
+                        self.type_namespace_symbol_for_reference(
+                            file,
+                            tokens,
+                            token_index,
+                            &symbol.name,
+                        )
+                        .is_some_and(|candidate| {
+                            matches!(
+                                candidate,
+                                Symbol::TypeAlias(ref candidate)
+                                    if same_type_alias(candidate, symbol)
+                            )
+                        })
+                        .then_some(span)
                     })
                     .collect::<Vec<_>>();
                 spans.extend(self.constructor_type_alias_qualifier_references(file, tokens, symbol));
@@ -320,11 +322,11 @@ impl SymbolIndex {
         let Some(target_module) = self.type_alias_target_module(symbol) else {
             return false;
         };
-        self.types.iter().any(|candidate| {
+        self.package_type_targets.iter().any(|candidate| {
             candidate.name == symbol.target_name
                 && candidate.module == target_module
-                && candidate.package == symbol.package
-                && candidate.package_origin == symbol.package_origin
+                && Some(candidate.package.as_str()) == symbol.package.as_deref()
+                && Some(candidate.package_origin) == symbol.package_origin
         })
     }
 

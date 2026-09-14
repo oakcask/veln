@@ -5,7 +5,7 @@ use hidden from "example/dep"
 
 pub type LocalAlias = model::Same
 
-fn alias(input: model::Same) -> model::Same
+fn alias(input: model::Same) -> Vec<model::Same>
   let current: model::Same = input
   model::Same::Ready(1)
 end
@@ -21,10 +21,22 @@ end
 fn unsupported(
   private: hidden::PrivateAlias,
   chain: model::Chain,
+  missing: model::MissingAlias,
   wrong: model::WrongKind,
   invalid: model::badAlias,
 ) -> Int
   0
+end
+
+fn hidden(input: model::PublicHidden) -> Vec<model::PublicHidden>
+  input
+end
+
+type Same
+end
+
+fn local(record: {Same: Int}, input: Same) -> Same
+  input
 end
 
 # Same in a comment is lexical noise.

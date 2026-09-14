@@ -1,0 +1,5 @@
+use facade from "example/dep"
+
+fn other(input: facade::PublicHidden) -> facade::PublicHidden
+  input
+end
