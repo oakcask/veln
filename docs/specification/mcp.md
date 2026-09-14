@@ -381,11 +381,12 @@ clause parameters, exact test-companion access to target-private functions, and
 unique class-compatible invalid source declaration or binding recovery records.
 Eligible package selections include public functions, types, constructors,
 schemas, and public function aliases in exported direct-dependency modules and
-the embedded standard library. The source must select the exact visible import
-or implicit standard-library prelude path required by name resolution. Invalid
-casing records, private declarations, non-exported sources, mismatched package
-imports, unsupported symbol classes, and package module-segment selections
-succeed with `definition: null`.
+the embedded standard library. They also include public type aliases in
+exported direct-dependency modules. The source must select the exact visible
+import or implicit standard-library prelude path required by name resolution.
+Invalid casing records, private declarations, non-exported sources,
+mismatched package imports, unsupported symbol classes, and package
+module-segment selections succeed with `definition: null`.
 MCP only exposes the recovery record source range through `definition`.
 Prepare-rename, rename edits, and package reference locations are outside the
 MCP definition result.
@@ -574,9 +575,10 @@ contract.
 The `definition-package-navigation` MCP specification case checks that
 `definition` returns a canonical direct-dependency `veln-pkg:` URI and
 declaration range, that `definition` returns package-documentation declaration
-URIs for an ordinary package function and a constructor-to-type mapping, that
-`definition` omits `packageDocumentationUri` while retaining the package
-source location for a status-only package-documentation result, that
+URIs for an ordinary package function, a public direct-dependency type alias,
+and a constructor-to-type mapping, that `definition` omits
+`packageDocumentationUri` while retaining the package source location for a
+status-only package-documentation result, that
 unsupported package selections return no definition or documentation URI, that
 the advertised `definition` result schema includes the optional
 `packageDocumentationUri` location field, that the returned snapshot source is

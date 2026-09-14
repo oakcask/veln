@@ -13,6 +13,7 @@ contains = [
   "\"packageDocumentationUri\":{\"type\":\"string\"}",
   "# Function increment",
   "# Type Token",
+  "# Alias TokenAlias",
 ]
 
 [stderr]
@@ -31,7 +32,7 @@ equals = {"start":{"line":9,"column":8},"end":{"line":9,"column":17}}
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/definition/packageDocumentationUri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/d582d59bd9682d7a38724ba5b74b0d0f0cbf12bdc6196102f9c02e118742f011/declaration/29c5a3c2a4ea4e67209d67522630fad84d08420b32932d13b61f3383d269e18c"
+equals = "veln-doc:///package/example%2Fdep/snapshot/ca499e668ad6a74d926492a84992f2b5c59da1e900969c21c0e121b70cd75994/documentation/0336de5e096b54b5cf949fc724cef6c4e1d763406369f6e4f134dce3317b4d88/declaration/29c5a3c2a4ea4e67209d67522630fad84d08420b32932d13b61f3383d269e18c"
 
 [[mcp_assert]]
 id = 2
@@ -46,7 +47,7 @@ missing = true
 [[mcp_assert]]
 id = 4
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/dep.veln"
+equals = "veln-pkg:///example%2Fdep/snapshot/ca499e668ad6a74d926492a84992f2b5c59da1e900969c21c0e121b70cd75994/dep.veln"
 
 [[mcp_assert]]
 id = 4
@@ -71,7 +72,7 @@ equals = {"start":{"line":2,"column":7},"end":{"line":2,"column":12}}
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/definition/packageDocumentationUri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/d582d59bd9682d7a38724ba5b74b0d0f0cbf12bdc6196102f9c02e118742f011/declaration/021696fb2fe91752dc966111ce2e5c9420068b7af750f77f9f0a964429c690e2"
+equals = "veln-doc:///package/example%2Fdep/snapshot/ca499e668ad6a74d926492a84992f2b5c59da1e900969c21c0e121b70cd75994/documentation/0336de5e096b54b5cf949fc724cef6c4e1d763406369f6e4f134dce3317b4d88/declaration/021696fb2fe91752dc966111ce2e5c9420068b7af750f77f9f0a964429c690e2"
 
 [[mcp_assert]]
 id = 5
@@ -86,12 +87,12 @@ missing = true
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/definition/packageDocumentationUri"
-equals = "veln-doc:///package/example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/documentation/d582d59bd9682d7a38724ba5b74b0d0f0cbf12bdc6196102f9c02e118742f011/declaration/055a46d0d05b6a3c3cdb0f0b7c022d3acd428c28576692a41f5d2f96679516a0"
+equals = "veln-doc:///package/example%2Fdep/snapshot/ca499e668ad6a74d926492a84992f2b5c59da1e900969c21c0e121b70cd75994/documentation/0336de5e096b54b5cf949fc724cef6c4e1d763406369f6e4f134dce3317b4d88/declaration/055a46d0d05b6a3c3cdb0f0b7c022d3acd428c28576692a41f5d2f96679516a0"
 
 [[mcp_assert]]
 id = 7
 path = "/result/contents/0/uri"
-equals = "veln-pkg:///example%2Fdep/snapshot/0466c89b3505f95c64c566d92bbe3ecc157c28285d6d90f9928e87ef53a4df82/unicode.veln"
+equals = "veln-pkg:///example%2Fdep/snapshot/ca499e668ad6a74d926492a84992f2b5c59da1e900969c21c0e121b70cd75994/unicode.veln"
 
 [[mcp_assert]]
 id = 7
@@ -165,5 +166,40 @@ equals = false
 
 [[mcp_assert]]
 id = 12
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/definition/uri"
+equals = "veln-pkg:///example%2Fdep/snapshot/ca499e668ad6a74d926492a84992f2b5c59da1e900969c21c0e121b70cd75994/dep.veln"
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/definition/range"
+equals = {"start":{"line":13,"column":10},"end":{"line":13,"column":20}}
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/definition/packageDocumentationUri"
+equals = "veln-doc:///package/example%2Fdep/snapshot/ca499e668ad6a74d926492a84992f2b5c59da1e900969c21c0e121b70cd75994/documentation/0336de5e096b54b5cf949fc724cef6c4e1d763406369f6e4f134dce3317b4d88/declaration/e19b2780dffcb08dc6cad6dfa679c09f660623331179556ed1ba3a4d134c7373"
+
+[[mcp_assert]]
+id = 14
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 14
+path = "/error"
+missing = true
+
+[[mcp_assert]]
+id = 15
+path = "/result/contents/0/text"
+contains = "- Signature: type TokenAlias = Token"
+
+[[mcp_assert]]
+id = 15
 path = "/error"
 missing = true

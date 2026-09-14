@@ -96,7 +96,10 @@ impl SymbolIndex {
             .or_else(|| {
                 self.type_aliases
                     .iter()
-                    .find(|symbol| visible_imported_type_alias_for_bare_reference(file, symbol, name))
+                    .find(|symbol| {
+                        visible_imported_type_alias_for_bare_reference(file, symbol, name)
+                            && self.supported_type_alias_symbol(symbol)
+                    })
                     .cloned()
                     .map(TypeConflictCandidate::Alias)
             })
@@ -150,7 +153,7 @@ impl SymbolIndex {
                             symbol,
                             &qualified_modules,
                             name,
-                        )
+                        ) && self.supported_type_alias_symbol(symbol)
                     })
                     .cloned()
                     .map(TypeConflictCandidate::Alias)
@@ -177,7 +180,10 @@ impl SymbolIndex {
         let mut aliases = self
             .type_aliases
             .iter()
-            .filter(|symbol| visible_imported_type_alias_for_bare_reference(file, symbol, name));
+            .filter(|symbol| {
+                visible_imported_type_alias_for_bare_reference(file, symbol, name)
+                    && self.supported_type_alias_symbol(symbol)
+            });
         let alias = aliases.next()?;
         aliases.next().is_none().then(|| type_alias_as_type_symbol(alias))
     }
@@ -217,9 +223,71 @@ impl SymbolIndex {
         }
         let mut aliases = self.type_aliases.iter().filter(|symbol| {
             visible_type_alias_for_qualified_reference(file, symbol, &qualified_modules, name)
+                && self.supported_type_alias_symbol(symbol)
         });
         let alias = aliases.next()?;
         aliases.next().is_none().then(|| type_alias_as_type_symbol(alias))
+    }
+
+    fn supported_type_alias_symbol(&self, symbol: &TypeAliasSymbol) -> bool {
+        if symbol.invalid_declaration_name || !symbol.exported {
+            return false;
+        }
+        match symbol.package_origin {
+            None => true,
+            Some(PackageOrigin::DirectDependency) => {
+                self.type_alias_symbol_target_resolves_to_type(symbol)
+            }
+            Some(PackageOrigin::StandardLibrary) => false,
+        }
+    }
+
+    fn type_alias_symbol_target_resolves_to_type(&self, symbol: &TypeAliasSymbol) -> bool {
+        let Some(target_module) = self.type_alias_symbol_target_module(symbol) else {
+            return false;
+        };
+        self.package_type_targets.iter().any(|candidate| {
+            candidate.name == symbol.target_name
+                && candidate.module == target_module
+                && Some(candidate.package.as_str()) == symbol.package.as_deref()
+                && Some(candidate.package_origin) == symbol.package_origin
+        })
+    }
+
+    fn type_alias_symbol_target_module(&self, symbol: &TypeAliasSymbol) -> Option<String> {
+        let Some(target_module) = symbol.target_module.as_deref() else {
+            return Some(symbol.module.clone());
+        };
+        let declaring_file = self.files.iter().find(|file| {
+            file.source.path() == &symbol.declaration.span.file
+                && matches!(
+                    (&file.origin, symbol.package.as_deref(), symbol.package_origin),
+                    (
+                        IndexedOrigin::Package {
+                            identity,
+                            standard_library,
+                            ..
+                        },
+                        Some(package),
+                        Some(origin),
+                    ) if identity == package
+                        && if *standard_library {
+                            origin == PackageOrigin::StandardLibrary
+                        } else {
+                            origin == PackageOrigin::DirectDependency
+                        }
+                )
+        });
+        match declaring_file {
+            None => None,
+            Some(file) => {
+                if file.uses.contains(target_module) {
+                    Some(target_module.to_string())
+                } else {
+                    resolve_qualified_alias(&file.import_aliases, target_module)
+                }
+            }
+        }
     }
 
     fn type_for_constructor_qualifier_token(

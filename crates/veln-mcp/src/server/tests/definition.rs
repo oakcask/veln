@@ -225,6 +225,15 @@ fn definition_resolves_public_package_symbol_classes() {
             declaration_column: 8,
             declaration_end_column: 15,
         },
+        Case {
+            name: "type alias",
+            line: 16,
+            column: 20,
+            path: "dep.veln",
+            declaration_line: 17,
+            declaration_column: 10,
+            declaration_end_column: 20,
+        },
     ];
 
     let workspace = TempWorkspace::new("definition-package-symbol-classes");
@@ -293,6 +302,14 @@ fn definition_returns_readable_dependency_documentation_links() {
         .unwrap();
     assert!(constructor_doc_text.starts_with("# Type Token\n"));
     assert!(constructor_doc_text.contains("### Value"));
+
+    let alias = server.definition_tool(&json!({"source":"main.veln","line":16,"column":20}));
+    assert_eq!(alias["isError"], false, "{alias:#}");
+    let alias_doc_uri = definition_documentation_uri(&alias);
+    let alias_doc = read_resource(&mut server, &alias_doc_uri);
+    let alias_doc_text = alias_doc["result"]["contents"][0]["text"].as_str().unwrap();
+    assert!(alias_doc_text.starts_with("# Alias TokenAlias\n"));
+    assert!(alias_doc_text.contains("- Kind: type"));
 }
 
 #[test]
@@ -631,6 +648,95 @@ fn definition_rejects_ineligible_package_selections_without_reinterpreting_them(
         workspace.write("vendor/dep/dep.veln", case.dependency_source);
 
         let result = definition_result(&workspace, "main.veln", 4, case.column);
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["definition"],
+            Value::Null,
+            "{}",
+            case.name
+        );
+    }
+}
+
+#[test]
+fn definition_rejects_ineligible_package_type_aliases_without_reinterpreting_them() {
+    struct Case {
+        name: &'static str,
+        dependency_source: &'static str,
+        exports: &'static str,
+        source: &'static str,
+        line: usize,
+        column: usize,
+    }
+
+    let cases = [
+        Case {
+            name: "private alias",
+            dependency_source: "pub type Token\nend\n\ntype TokenAlias = Token\n",
+            exports: "\"dep.veln\"",
+            source: "use dep from \"example/dep\"\n\nfn main() -> dep::TokenAlias\n  1\nend\n",
+            line: 3,
+            column: 19,
+        },
+        Case {
+            name: "non-exported source",
+            dependency_source: "pub type Token\nend\n\npub type TokenAlias = Token\n",
+            exports: "",
+            source: "use dep from \"example/dep\"\n\nfn main() -> dep::TokenAlias\n  1\nend\n",
+            line: 3,
+            column: 19,
+        },
+        Case {
+            name: "unresolved target",
+            dependency_source: "pub type TokenAlias = Missing\n",
+            exports: "\"dep.veln\"",
+            source: "use dep from \"example/dep\"\n\nfn main() -> dep::TokenAlias\n  1\nend\n",
+            line: 3,
+            column: 19,
+        },
+        Case {
+            name: "wrong-kind target",
+            dependency_source: "pub schema Packet\n  value: Int\nend\n\npub type TokenAlias = Packet\n",
+            exports: "\"dep.veln\"",
+            source: "use dep from \"example/dep\"\n\nfn main() -> dep::TokenAlias\n  1\nend\n",
+            line: 3,
+            column: 19,
+        },
+        Case {
+            name: "invalid alias casing",
+            dependency_source: "pub type Token\nend\n\npub type tokenAlias = Token\n",
+            exports: "\"dep.veln\"",
+            source: "use dep from \"example/dep\"\n\nfn main() -> dep::tokenAlias\n  1\nend\n",
+            line: 3,
+            column: 19,
+        },
+        Case {
+            name: "module segment",
+            dependency_source: "pub type Token\nend\n\npub type TokenAlias = Token\n",
+            exports: "\"dep.veln\"",
+            source: "use dep from \"example/dep\"\n\nfn main() -> dep::TokenAlias\n  1\nend\n",
+            line: 3,
+            column: 14,
+        },
+    ];
+
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        workspace.write(
+            "veln.toml",
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+        );
+        workspace.write("main.veln", case.source);
+        workspace.write(
+            "vendor/dep/veln.toml",
+            &format!(
+                "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [{}]\n",
+                case.exports
+            ),
+        );
+        workspace.write("vendor/dep/dep.veln", case.dependency_source);
+
+        let result = definition_result(&workspace, "main.veln", case.line, case.column);
         assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
         assert_eq!(
             result["structuredContent"]["definition"],
@@ -1010,6 +1116,10 @@ fn write_workspace_with_navigation_dependency(
             "  let encoded = encode dep::packet from {value: 1}\n",
             "  dep::Value(dep::increment(1) + dep::add_one(1))\n",
             "end\n",
+            "\n",
+            "fn alias() -> dep::TokenAlias\n",
+            "  dep::Value(1)\n",
+            "end\n",
         ),
     );
     let dependency_root = navigation_dependency_root(workspace, source_kind);
@@ -1086,6 +1196,8 @@ fn navigation_dependency_source() -> String {
         "  value + 1\n",
         "end\n\n",
         "pub fn add_one = increment\n",
+        "\n",
+        "pub type TokenAlias = Token\n",
     )
     .to_string()
 }
