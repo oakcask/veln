@@ -322,7 +322,7 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-dependency-type-alias/`.
 - MCP saved workspace `references` for direct-dependency public type aliases
   through multi-segment written module paths, implicit leaf import aliases,
-  and transitive-target rejection:
+  differing alias and target spellings, and transitive-target rejection:
   `../../examples/specification/mcp/references-dependency-type-alias-identity-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases whose targets live in retained non-exported dependency modules:

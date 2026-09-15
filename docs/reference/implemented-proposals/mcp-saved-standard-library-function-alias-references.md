@@ -31,7 +31,7 @@ Completion evidence:
 
 Direct-dependency public function-alias references are recorded separately by
 [MCP Saved Direct-Dependency Function-Alias References](mcp-saved-dependency-function-alias-references.md).
-Out-of-scope type-alias or schema-alias references, alias-chain traversal,
-pagination, package-source reference locations, recovery-symbol selection,
-rename behavior, and MCP schema expansion remain outside the implemented
-`references` result.
+Standard-library type-alias references, schema-alias references, alias-chain
+traversal, pagination, package-source reference locations, recovery-symbol
+selection, rename behavior, and MCP schema expansion remain outside this
+standard-library function-alias `references` result.

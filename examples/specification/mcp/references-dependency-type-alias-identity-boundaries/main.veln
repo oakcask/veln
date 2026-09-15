@@ -1,7 +1,12 @@
 use lib::model from "example/dep"
+use lib::core from "example/dep"
 use other_model from "other/dep"
 
 fn written(input: lib::model::Alias) -> model::Alias
+  input
+end
+
+fn target(input: core::Target) -> core::Target
   input
 end
 

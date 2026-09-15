@@ -346,6 +346,82 @@ fn definition_supports_direct_dependency_type_aliases_with_supported_targets() {
 }
 
 #[test]
+fn definition_rejects_type_alias_targets_that_do_not_resolve_semantically() {
+    struct Case {
+        name: &'static str,
+        dependency_sources: Vec<(&'static str, &'static str)>,
+    }
+
+    let cases = [
+        Case {
+            name: "invalid-module-target",
+            dependency_sources: vec![
+                ("model.veln", "use Bad\n\npub type Alias = Bad::Target\n"),
+                ("Bad.veln", "pub type Target\nend\n"),
+            ],
+        },
+        Case {
+            name: "parse-diagnostic-target",
+            dependency_sources: vec![
+                (
+                    "model.veln",
+                    "use broken\n\npub type Alias = broken::Target\n",
+                ),
+                ("broken.veln", "pub type Target\n  pub Ready(Int)\n"),
+            ],
+        },
+        Case {
+            name: "ambiguous-target",
+            dependency_sources: vec![(
+                "model.veln",
+                concat!(
+                    "pub type Target\n",
+                    "end\n\n",
+                    "pub type Target\n",
+                    "end\n\n",
+                    "pub type Alias = Target\n",
+                ),
+            )],
+        },
+    ];
+
+    for case in cases {
+        let workspace =
+            TempWorkspace::new(&format!("definition-dependency-type-alias-{}", case.name));
+        workspace.write(
+            "veln.toml",
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+        );
+        workspace.write(
+            "main.veln",
+            concat!(
+                "use model from \"example/dep\"\n\n",
+                "fn read(input: model::Alias) -> model::Alias\n",
+                "  input\n",
+                "end\n",
+            ),
+        );
+        workspace.write(
+            "vendor/dep/veln.toml",
+            "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+        );
+        for (path, text) in case.dependency_sources {
+            workspace.write(&format!("vendor/dep/{path}"), text);
+        }
+
+        let result = definition_result(&workspace, "main.veln", 3, 23);
+
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["definition"],
+            Value::Null,
+            "{}",
+            case.name
+        );
+    }
+}
+
+#[test]
 fn definition_returns_readable_dependency_documentation_links() {
     let workspace = TempWorkspace::new("definition-dependency-documentation-links");
     write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);

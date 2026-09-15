@@ -330,12 +330,13 @@ impl SymbolIndex {
         let Some(target_module) = self.type_alias_target_module(symbol) else {
             return false;
         };
-        self.package_type_targets.iter().any(|candidate| {
+        let mut candidates = self.package_type_targets.iter().filter(|candidate| {
             candidate.name == symbol.target_name
                 && candidate.module == target_module
                 && Some(candidate.package.as_str()) == symbol.package.as_deref()
                 && Some(candidate.package_origin) == symbol.package_origin
-        })
+        });
+        candidates.next().is_some() && candidates.next().is_none()
     }
 
     fn type_alias_target_module(&self, symbol: &TypeAliasSymbol) -> Option<String> {
