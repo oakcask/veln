@@ -45,7 +45,7 @@ test("preserves Cargo settings while fixing CI resource limits", () => {
   assert.equal(result.status, 0);
   assert.equal(
     result.stdout,
-    "99\n1\n540s\n6144\n-XX:+PerfDisableSharedMem -Xmx256m -XX:ActiveProcessorCount=2\n<cargo><test><--workspace>\n",
+    "99\n1\n540s\n4096\n-XX:+PerfDisableSharedMem -Xmx256m -XX:ActiveProcessorCount=2\n<cargo><test><--workspace>\n",
   );
 });
 
