@@ -1229,6 +1229,9 @@ fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
             "end\n\n",
             "fn unsupported(input: model::MissingAlias, transitive: model::Transitive) -> other_model::MissingAlias\n",
             "  input\n",
+            "end\n\n",
+            "fn private_alias(input: model::PrivateAlias) -> Int\n",
+            "  0\n",
             "end\n",
         ),
     );
@@ -1245,6 +1248,7 @@ fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
             "pub type Same = Target\n",
             "pub type MissingAlias = Missing\n",
             "pub type Transitive = upstream::Alias\n",
+            "type PrivateAlias = Target\n",
         ),
     );
     workspace.write(
@@ -1281,6 +1285,10 @@ fn references_keep_type_alias_selection_order_and_unsupported_boundaries() {
     let transitive = references_result(&workspace, "main.veln", 11, 63);
     assert_eq!(transitive["isError"], false, "{transitive:#}");
     assert_eq!(transitive["structuredContent"]["references"], json!([]));
+
+    let private_alias = references_result(&workspace, "main.veln", 15, 32);
+    assert_eq!(private_alias["isError"], false, "{private_alias:#}");
+    assert_eq!(private_alias["structuredContent"]["references"], json!([]));
 }
 
 #[test]
@@ -1399,7 +1407,7 @@ fn references_support_type_alias_target_in_non_exported_dependency_module() {
     );
     workspace.write(
         "vendor/dep/internal/core.veln",
-        "pub type Hidden\n  pub Ready(Int)\nend\n",
+        "type Hidden\n  pub Ready(Int)\nend\n",
     );
 
     let result = references_result(&workspace, "main.veln", 5, 26);

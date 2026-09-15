@@ -564,6 +564,40 @@
     }
 
     #[test]
+    fn dependency_type_alias_constructor_qualifiers_support_private_target_type() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use model from \"example/pkg\"\n\n",
+                    "fn alias() -> model::Same\n",
+                    "  model::Same::Ready(1)\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[(
+                    "model.veln",
+                    "type Target\n  pub Ready(Int)\nend\n\npub type Same = Target\n",
+                )],
+                ["model.veln"],
+            )],
+        );
+
+        let alias = query_snapshot(&snapshot, "main.veln", 4, 10).unwrap();
+
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&alias.references),
+            [("main.veln", 3, 22), ("main.veln", 4, 10)]
+        );
+    }
+
+    #[test]
     fn dependency_type_alias_written_module_path_and_leaf_alias_share_identity() {
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(

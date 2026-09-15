@@ -401,7 +401,7 @@ fn package_constructor_targets(
         .items
         .iter()
         .filter_map(|item| match item {
-            SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
+            SyntaxItem::Type(type_decl) if type_decl.end_present => {
                 let type_name = type_decl.name.as_ref()?;
                 Some((type_name.clone(), type_decl))
             }

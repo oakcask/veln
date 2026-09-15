@@ -455,9 +455,9 @@ identity and expose references through the package function boundary.
 Direct-dependency public type aliases whose target resolves to a type
 declaration anywhere in the same retained direct dependency use their alias
 identity and expose references through the package type boundary. The target
-type may live in a retained non-exported source when the exported alias is
-visible to the selected project. Standard-library public type aliases remain
-outside the supported reference boundary.
+type may be private or may live in a retained non-exported source when the
+exported alias is visible to the selected project. Standard-library public
+type aliases remain outside the supported reference boundary.
 
 Package function results include qualified calls, qualified function-value
 occurrences, and occurrences qualified by an import alias. Supported package
@@ -644,8 +644,9 @@ reference assertions bind every returned range to the source workspace file
 URI.
 The `references-dependency-type-alias-hidden-target` MCP specification case
 checks that an exported dependency type alias remains supported when its target
-type lives in a retained non-exported dependency module. Its reference
-assertions bind every returned range to the source workspace file URI.
+type is private and lives in a retained non-exported dependency module. Its
+reference assertions bind every returned range to the source workspace file
+URI.
 The `references-dependency-type-alias-project-isolation` MCP specification
 case checks that a direct-dependency public type alias selected from one
 sibling selected project does not collect same-spelled occurrences from

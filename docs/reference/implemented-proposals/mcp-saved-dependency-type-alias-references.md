@@ -52,7 +52,8 @@ Implementation added:
 - `references-dependency-type-alias` and
   `references-dependency-type-alias-hidden-target` cases under
   `examples/specification/mcp/` that check the observable result and boundary
-  rows above;
+  rows above, including private retained target types with public constructor
+  qualifiers;
 - `definition-dependency-type-alias` and
   `references-dependency-type-alias-identity-boundaries` cases under
   `examples/specification/mcp/` that check supported package definitions,
