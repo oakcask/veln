@@ -6,7 +6,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 export VELN_AGENT_TIMEOUT=540s
-export VELN_AGENT_MEMORY_MB=6144
+export VELN_AGENT_MEMORY_MB=4096
 export VELN_AGENT_JAVA_OPTIONS='-XX:+PerfDisableSharedMem -Xmx256m -XX:ActiveProcessorCount=2'
 
 exec bash scripts/agent-run "$@"
