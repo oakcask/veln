@@ -318,15 +318,21 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
 - MCP saved workspace `references` for visible direct-dependency public type
-  aliases:
+  aliases, including unsupported selections and workspace-file URI assertions
+  for each returned reference:
   `../../examples/specification/mcp/references-dependency-type-alias/`.
 - MCP saved workspace `references` for direct-dependency public type aliases
   through multi-segment written module paths, implicit leaf import aliases,
-  differing alias and target spellings, and transitive-target rejection:
+  differing alias and target spellings, transitive-target rejection, and
+  workspace-file URI assertions for each returned reference:
   `../../examples/specification/mcp/references-dependency-type-alias-identity-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases whose targets live in retained non-exported dependency modules:
   `../../examples/specification/mcp/references-dependency-type-alias-hidden-target/`.
+- MCP saved workspace `references` for direct-dependency public type aliases
+  selected from one sibling workspace project without collecting same-spelled
+  occurrences from another selected sibling project:
+  `../../examples/specification/mcp/references-dependency-type-alias-project-isolation/`.
 - MCP saved workspace `references` for visible direct-dependency and
   standard-library types:
   `../../examples/specification/mcp/references-package-type/`.

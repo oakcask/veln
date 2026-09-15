@@ -177,6 +177,83 @@ fn invalid_cased_dependency_export_does_not_discard_valid_sibling_navigation() {
     assert_null_result(&invalid[0]);
 }
 
+#[test]
+fn dependency_type_alias_definition_support_matches_lsp_boundary() {
+    let mut server = Server::default();
+    let project = TempProject::new("dependency-type-alias-lsp-definition-boundary");
+    project.write(
+        "veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"app\"\n",
+            "\n",
+            "[dependencies.\"example/pkg\"]\n",
+            "path = \"vendor/pkg\"\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/pkg\"\n",
+            "\n",
+            "fn read(good: model::Good, missing: model::MissingAlias, wrong: model::WrongKind, chain: model::Chain, transitive: model::Transitive) -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    project.write(
+        "vendor/pkg/veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"example/pkg\"\n",
+            "\n",
+            "[lib]\n",
+            "exports = [\"model.veln\"]\n",
+        ),
+    );
+    project.write(
+        "vendor/pkg/model.veln",
+        concat!(
+            "use upstream from \"up/pkg\"\n",
+            "\n",
+            "pub type Target\n",
+            "end\n",
+            "\n",
+            "pub fn value() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "pub type Good = Target\n",
+            "pub type MissingAlias = Missing\n",
+            "pub type WrongKind = value\n",
+            "pub type Chain = Good\n",
+            "pub type Transitive = upstream::Alias\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let supported = server.handle_message(&definition_request(&main_uri, 2, 21));
+    assert_eq!(supported.len(), 1);
+    package_virtual_definition_uri(&supported[0], "example%2Fpkg", "model.veln");
+    assert_contains_json(
+        &supported[0],
+        r#""range":{"start":{"line":9,"character":9},"end":{"line":9,"character":13}}"#,
+    );
+
+    for (name, character) in [
+        ("unresolved target", 43),
+        ("wrong-kind target", 71),
+        ("alias-chain target", 96),
+        ("transitive target", 122),
+    ] {
+        let response = server.handle_message(&definition_request(&main_uri, 2, character));
+        assert_eq!(response.len(), 1, "{name}");
+        assert_null_result(&response[0]);
+    }
+}
+
 fn assert_invalid_callback_navigation(server: &mut Server, main_uri: &str) {
     let callback_definition = server.handle_message(&definition_request(main_uri, 6, 19));
     assert_single_response(

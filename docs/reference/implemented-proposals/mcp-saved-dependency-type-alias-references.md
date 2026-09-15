@@ -58,6 +58,9 @@ Implementation added:
   `examples/specification/mcp/` that check supported package definitions,
   unsupported `definition: null`, multi-segment identity, and transitive-target
   rejection;
+- `references-dependency-type-alias-project-isolation` under
+  `examples/specification/mcp/` that checks same-spelled occurrences in
+  another selected sibling project are excluded;
 - focused language-service tests for package type-alias identity, definition
   support boundaries, constructor-qualifier collision exclusion, and reference
   collection; and

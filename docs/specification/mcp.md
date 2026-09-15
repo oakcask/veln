@@ -632,16 +632,24 @@ package and lexical collisions, comment and string lexical-noise exclusion, a
 workspace same-spelling constructor
 qualifier boundary, unsupported private, alias-chain, wrong-kind, and
 invalid-casing alias selections, project isolation, project-wide scope, and
-dependency source resource admission.
+dependency source resource admission. Its reference assertions bind every
+returned range to the source workspace file URI.
 The `references-dependency-type-alias-identity-boundaries` MCP specification
 case checks that a multi-segment written module path and its implicit leaf
 import alias select the same public type-alias identity, that alias and target
 selections remain separate when their spellings differ, and that a
 transitive-dependency type-alias target succeeds with an empty `references`
-array instead of reinterpreting the selection as another package type.
+array instead of reinterpreting the selection as another package type. Its
+reference assertions bind every returned range to the source workspace file
+URI.
 The `references-dependency-type-alias-hidden-target` MCP specification case
 checks that an exported dependency type alias remains supported when its target
-type lives in a retained non-exported dependency module.
+type lives in a retained non-exported dependency module. Its reference
+assertions bind every returned range to the source workspace file URI.
+The `references-dependency-type-alias-project-isolation` MCP specification
+case checks that a direct-dependency public type alias selected from one
+sibling selected project does not collect same-spelled occurrences from
+another selected sibling project.
 The `references-standard-library-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for an
 embedded standard-library prelude function selected through accepted bare,
@@ -720,8 +728,10 @@ canonical locations, workspace type, constructor, value-binding, and handler
 parameter reference admission, unsupported-symbol success, recovery and package
 exclusion, direct-dependency and standard-library public function-alias
 selection, unsupported direct-dependency and standard-library function-alias
-chains, standard-library function boundaries, function-shaped recovery
-exclusion, invalid positions,
+chains, direct-dependency public type-alias selection, unsupported
+direct-dependency type-alias selections, selected-project isolation for
+package type aliases, standard-library function boundaries, function-shaped
+recovery exclusion, invalid positions,
 path failures, bounded stable-capture retry exhaustion without partial
 reference locations or scope metadata, and accepted success and domain-failure
 result schemas.
