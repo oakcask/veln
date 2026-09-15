@@ -1121,6 +1121,50 @@ fn references_return_direct_dependency_type_alias_locations_from_saved_project()
 }
 
 #[test]
+fn references_keep_descendant_project_sources_isolated_for_dependency_type_aliases() {
+    let workspace = TempWorkspace::new("references-dependency-type-alias-descendant-isolation");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use model from \"example/dep\"\n\nfn root(input: model::Same) -> model::Same\n  input\nend\n",
+    );
+    workspace.write(
+        "nested/veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"../vendor/dep\"\n",
+    );
+    workspace.write(
+        "nested/main.veln",
+        "use model from \"example/dep\"\n\nfn nested(input: model::Same) -> model::Same\n  input\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/model.veln",
+        "pub type Target\nend\n\npub type Same = Target\n",
+    );
+
+    let result = references_result(&workspace, "nested/main.veln", 3, 24);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "nested/main.veln",
+            "project_wide": false
+        })
+    );
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+}
+
+#[test]
 fn references_resolve_type_alias_written_module_path_and_leaf_alias_to_same_identity() {
     let workspace = TempWorkspace::new("references-dependency-type-alias-qualified-identity");
     workspace.write(
