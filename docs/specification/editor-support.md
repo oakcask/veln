@@ -718,5 +718,5 @@ Not implemented:
   public type-alias, public type, and public constructor reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
-  mirror, locally available direct git dependency, and embedded
-  standard-function definition cases.
+  mirror, locally available direct git dependency, embedded standard-library,
+  and supported direct-dependency public type-alias definition cases.

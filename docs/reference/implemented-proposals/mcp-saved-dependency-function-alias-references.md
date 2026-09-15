@@ -36,8 +36,8 @@ Completion evidence:
   without success-only fields or package-resource state mutation for a
   direct-dependency alias selection.
 
-Out-of-scope public type-alias or public schema-alias references, alias-chain
-traversal, pagination, package-source reference locations, recovery-symbol
-selection, transitive-dependency references, casing-neutral selection, rename
-behavior, and MCP schema expansion remain outside the implemented
-`references` result.
+Out-of-scope standard-library public type-alias references, public
+schema-alias references, alias-chain traversal, pagination, package-source
+reference locations, recovery-symbol selection, transitive-dependency
+references, casing-neutral selection, rename behavior, and MCP schema
+expansion remain outside this implemented function-alias `references` result.
