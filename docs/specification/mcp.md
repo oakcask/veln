@@ -485,9 +485,9 @@ strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, function aliases, type aliases, or constructors,
 non-exported package modules, invalid-casing records, recovery records,
 unsupported alias chains, public function aliases with unresolved,
-non-function, or invalid-cased targets, public type aliases with unresolved,
-non-type, or invalid-cased targets, package public alias symbols other than
-supported function or type aliases, non-function, non-type, and
+non-function, or invalid-cased targets, public type aliases with transitive,
+unresolved, non-type, or invalid-cased targets, package public alias symbols
+other than supported function or type aliases, non-function, non-type, and
 non-constructor package symbols, and package module-segment selections succeed
 with an empty `references` array.
 `references` does not expose recovery, virtual, package schema, effect,
