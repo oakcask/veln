@@ -1,0 +1,52 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = [
+  "\"scope\":{\"generation\":0,\"mode\":\"project\",\"project\":\"app_a\",\"project_wide\":true}",
+  "\"references\":[",
+]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references"
+length = 3
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":3,"column":23},"end":{"line":3,"column":29}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "app_a/main.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":3,"column":41},"end":{"line":3,"column":47}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "app_a/main.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":4,"column":20},"end":{"line":4,"column":26}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "app_a/main.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":"app_a","project_wide":true}

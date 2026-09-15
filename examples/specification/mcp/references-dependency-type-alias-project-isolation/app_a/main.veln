@@ -1,0 +1,6 @@
+use model from "example/dep"
+
+fn read(input: model::Shared) -> model::Shared
+  let copy: model::Shared = input
+  copy
+end

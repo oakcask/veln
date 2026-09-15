@@ -1,0 +1,4 @@
+pub type Target
+end
+
+pub type Shared = Target

@@ -14,8 +14,8 @@ use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::Diagnostic;
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, SourcePosition, navigate,
-    validate_rename_in_snapshot,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, SourcePosition,
+    definition_at, navigate, validate_rename_in_snapshot,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -211,8 +211,8 @@ impl Server {
     fn handle_definition(&self, message: &str, id: Option<String>) -> Vec<String> {
         id.map(|id| {
             let result = self
-                .symbol_at_request(message)
-                .map(|request| location_json(&request.root, &request.result.definition))
+                .definition_at_request(message)
+                .map(|(root, definition)| location_json(&root, &definition))
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
         })
@@ -463,6 +463,26 @@ impl Server {
             snapshot: Arc::clone(snapshot),
             result,
         })
+    }
+
+    fn definition_at_request(&self, message: &str) -> Option<(PathBuf, NavigationLocation)> {
+        let uri = extract_string_field(message, "uri")?;
+        let position = extract_position(message)?;
+        let document_root =
+            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)?;
+        let root = document_root.root;
+        let source_path = workspace_relative_source_path(&document_root.relative)?;
+        let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
+        let snapshot = self.overlaid_project_snapshots.get(root)?;
+        let definition = definition_at(
+            snapshot,
+            SourcePosition {
+                source: SourcePath::new(source_path),
+                line: position.line.checked_add(1)?,
+                column: position.character.checked_add(1)?,
+            },
+        )?;
+        Some((visible_root.to_path_buf(), definition))
     }
 }
 

@@ -1,0 +1,5 @@
+[package]
+name = "app-b"
+
+[dependencies."example/dep"]
+path = "../vendor/dep"
