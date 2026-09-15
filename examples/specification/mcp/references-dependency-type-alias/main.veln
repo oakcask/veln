@@ -45,3 +45,8 @@ fn local_constructor() -> Same
 end
 
 # Same in a comment is lexical noise.
+
+fn string_noise() -> Int
+  "Same"
+  0
+end

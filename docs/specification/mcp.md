@@ -628,13 +628,15 @@ result shape for a visible direct-dependency public type alias selected
 through a qualified type occurrence. The same case checks type annotation,
 return type, type-alias right-hand-side, type argument, and constructor
 qualifier occurrences, alias and same-spelled target-type identity separation,
-package and lexical collisions, a workspace same-spelling constructor
+package and lexical collisions, comment and string lexical-noise exclusion, a
+workspace same-spelling constructor
 qualifier boundary, unsupported private, alias-chain, wrong-kind, and
 invalid-casing alias selections, project isolation, project-wide scope, and
 dependency source resource admission.
 The `references-dependency-type-alias-identity-boundaries` MCP specification
 case checks that a multi-segment written module path and its implicit leaf
-import alias select the same public type-alias identity, and that a
+import alias select the same public type-alias identity, that alias and target
+selections remain separate when their spellings differ, and that a
 transitive-dependency type-alias target succeeds with an empty `references`
 array instead of reinterpreting the selection as another package type.
 The `references-dependency-type-alias-hidden-target` MCP specification case

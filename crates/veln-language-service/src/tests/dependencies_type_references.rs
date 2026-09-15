@@ -695,6 +695,107 @@
     }
 
     #[test]
+    fn dependency_type_alias_target_support_uses_semantic_resolution_boundaries() {
+        struct Case {
+            name: &'static str,
+            dependencies: Vec<DirectDependencySnapshot>,
+            column: usize,
+        }
+
+        let cases = [
+            Case {
+                name: "invalid module identity target",
+                dependencies: vec![dependency_snapshot(
+                    "example/pkg",
+                    &[
+                        ("model.veln", "use Bad\n\npub type Alias = Bad::Target\n"),
+                        ("Bad.veln", "pub type Target\nend\n"),
+                    ],
+                    ["model.veln"],
+                )],
+                column: 23,
+            },
+            Case {
+                name: "parse diagnostic target",
+                dependencies: vec![dependency_snapshot(
+                    "example/pkg",
+                    &[
+                        (
+                            "model.veln",
+                            "use broken\n\npub type Alias = broken::Target\n",
+                        ),
+                        ("broken.veln", "pub type Target\n  pub Ready(Int)\n"),
+                    ],
+                    ["model.veln"],
+                )],
+                column: 23,
+            },
+            Case {
+                name: "ambiguous same-module target",
+                dependencies: vec![dependency_snapshot(
+                    "example/pkg",
+                    &[(
+                        "model.veln",
+                        concat!(
+                            "pub type Target\n",
+                            "end\n\n",
+                            "pub type Target\n",
+                            "end\n\n",
+                            "pub type Alias = Target\n",
+                        ),
+                    )],
+                    ["model.veln"],
+                )],
+                column: 23,
+            },
+        ];
+
+        for case in cases {
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n\n",
+                        "fn read(input: model::Alias) -> model::Alias\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                )],
+                case.dependencies,
+            );
+
+            assert_eq!(
+                definition_at(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new("main.veln"),
+                        line: 3,
+                        column: case.column,
+                    },
+                ),
+                None,
+                "{}",
+                case.name
+            );
+
+            let result = query_snapshot(&snapshot, "main.veln", 3, case.column)
+                .unwrap_or_else(|| panic!("{} should select the alias", case.name));
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias,
+                "{}",
+                case.name
+            );
+            assert!(
+                result.references.is_empty(),
+                "{} unexpectedly returned references: {:?}",
+                case.name,
+                locations(&result.references)
+            );
+        }
+    }
+
+    #[test]
     fn type_role_selection_prefers_local_type_and_rejects_field_alias_collision() {
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(
