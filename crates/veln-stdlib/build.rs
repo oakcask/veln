@@ -19,6 +19,8 @@ fn main() {
     collect_veln_sources(source_root, source_root, &mut paths);
     paths.sort();
 
+    let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"));
+    let lowered_output = output.join("lowered");
     let mut generated = String::new();
     generated.push_str(&format!("const MANIFEST: &str = {manifest:?};\n"));
     generated.push_str("static EXPORTS: &[&str] = &[\n");
@@ -27,10 +29,8 @@ fn main() {
     }
     generated.push_str("];\nstatic FILES: &[StdlibFile] = &[\n");
     for relative in &paths {
-        let text = fs::read_to_string(source_root.join(relative))
-            .expect("standard library source should be readable");
         generated.push_str(&format!(
-            "    StdlibFile {{ path: {relative:?}, text: {text:?} }},\n"
+            "    StdlibFile {{ path: {relative:?}, text: include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/veln/{relative}\")) }},\n"
         ));
     }
     generated.push_str("];\nstatic LOWERED_FILES: &[StdlibLoweredFile] = &[\n");
@@ -46,13 +46,21 @@ fn main() {
             format!("{decoded:?}"),
             "generated standard library lowered module should round-trip for {relative}"
         );
+        let lowered_path = lowered_output.join(format!("{relative}.bin"));
+        fs::create_dir_all(
+            lowered_path
+                .parent()
+                .expect("lowered standard library path should have a parent"),
+        )
+        .expect("lowered standard library output directory should be writable");
+        fs::write(&lowered_path, encoded)
+            .expect("lowered standard library module should be writable");
         generated.push_str(&format!(
-            "    StdlibLoweredFile {{ path: {relative:?}, module: &{encoded:?} }},\n"
+            "    StdlibLoweredFile {{ path: {relative:?}, module: include_bytes!(concat!(env!(\"OUT_DIR\"), \"/lowered/{relative}.bin\")) }},\n"
         ));
     }
     generated.push_str("];\n");
 
-    let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"));
     fs::write(output.join("stdlib_bundle.rs"), generated)
         .expect("standard library bundle should be writable");
 }
