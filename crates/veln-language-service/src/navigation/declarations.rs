@@ -35,6 +35,17 @@ fn same_type(left: &TypeSymbol, right: &TypeSymbol) -> bool {
         && left.declaration == right.declaration
 }
 
+fn same_type_alias(left: &TypeAliasSymbol, right: &TypeAliasSymbol) -> bool {
+    left.package == right.package
+        && left.module == right.module
+        && left.name == right.name
+        && left.target_module == right.target_module
+        && left.target_name == right.target_name
+        && left.package_origin == right.package_origin
+        && left.standard_prelude == right.standard_prelude
+        && left.declaration == right.declaration
+}
+
 impl FileDeclarations {
     fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
@@ -44,6 +55,9 @@ impl FileDeclarations {
         self.functions.extend(other.functions);
         self.package_function_targets
             .extend(other.package_function_targets);
+        self.package_type_targets.extend(other.package_type_targets);
+        self.package_constructor_targets
+            .extend(other.package_constructor_targets);
         self.types.extend(other.types);
         self.constructors.extend(other.constructors);
         self.type_aliases.extend(other.type_aliases);
@@ -58,6 +72,8 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         operations: effect_operation_declarations(file, syntax),
         functions: function_declarations(file),
         package_function_targets: package_function_targets(file, syntax),
+        package_type_targets: package_type_targets(file, syntax),
+        package_constructor_targets: package_constructor_targets(file, syntax),
         types: type_declarations(file, syntax),
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
@@ -328,6 +344,91 @@ fn package_function_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Pack
         .collect()
 }
 
+fn package_type_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageTypeTarget> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return Vec::new();
+    };
+    let package_origin = if *standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) => {
+                let name = type_decl.name.as_ref()?;
+                let name_span = type_decl.name_span.as_ref()?;
+                if is_invalid_declaration_name(file, name_span) {
+                    return None;
+                }
+                Some(PackageTypeTarget {
+                    module: file.module.clone(),
+                    name: name.clone(),
+                    package: identity.clone(),
+                    package_origin,
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn package_constructor_targets(
+    file: &IndexedFile,
+    syntax: &SyntaxTree,
+) -> Vec<PackageConstructorTarget> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return Vec::new();
+    };
+    let package_origin = if *standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Type(type_decl) if type_decl.visibility == Visibility::Public => {
+                let type_name = type_decl.name.as_ref()?;
+                Some((type_name.clone(), type_decl))
+            }
+            _ => None,
+        })
+        .flat_map(|(type_name, type_decl)| {
+            type_decl.variants.iter().filter_map(move |variant| {
+                if variant.visibility != Visibility::Public {
+                    return None;
+                }
+                let name = variant.name.as_ref()?;
+                let span = constructor_variant_name_span(file, file.tokens.as_slice(), variant, name);
+                if is_invalid_declaration_name(file, &span) {
+                    return None;
+                }
+                Some(PackageConstructorTarget {
+                    module: file.module.clone(),
+                    type_name: type_name.clone(),
+                    name: name.clone(),
+                    package: identity.clone(),
+                    package_origin,
+                })
+            })
+        })
+        .collect()
+}
+
 fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol> {
     syntax
         .items
@@ -491,8 +592,10 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     [segments @ .., _] => Some(segments.join("::")),
                     [] => None,
                 };
-                let (declaration, package, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => (workspace_location(name_span.clone()), None, false),
+                let (declaration, package, package_origin, standard_prelude) = match &file.origin {
+                    IndexedOrigin::Workspace => {
+                        (workspace_location(name_span.clone()), None, None, false)
+                    }
                     IndexedOrigin::Package {
                         identity,
                         uri,
@@ -509,6 +612,11 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                                 span: name_span.clone(),
                             },
                             Some(identity.clone()),
+                            Some(if *standard_library {
+                                PackageOrigin::StandardLibrary
+                            } else {
+                                PackageOrigin::DirectDependency
+                            }),
                             *standard_library && file.module == "prelude",
                         )
                     }
@@ -520,6 +628,7 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     target_module,
                     target_name,
                     package,
+                    package_origin,
                     standard_prelude,
                 })
             }

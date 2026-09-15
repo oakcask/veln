@@ -1,0 +1,6 @@
+use lib::core
+use upstream from "up/pkg"
+
+pub type Alias = core::Target
+pub type Same = core::Target
+pub type Transitive = upstream::Alias

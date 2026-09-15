@@ -1,0 +1,52 @@
+use model from "example/dep"
+use core from "example/dep"
+use other_model from "other/dep"
+use hidden from "example/dep"
+
+pub type LocalAlias = model::Same
+
+fn alias(input: model::Same) -> Vec<model::Same>
+  let current: model::Same = input
+  model::Same::Ready(1)
+end
+
+fn target(input: core::Same) -> core::Same
+  core::Same::Ready(1)
+end
+
+fn collisions(input: other_model::Same, Same: Int, record: {Same: Int}) -> Int
+  Same + record.Same
+end
+
+fn unsupported(
+  private: hidden::PrivateAlias,
+  chain: model::Chain,
+  missing: model::MissingAlias,
+  wrong: model::WrongKind,
+  invalid: model::badAlias,
+) -> Int
+  0
+end
+
+fn hidden(input: model::PublicHidden) -> Vec<model::PublicHidden>
+  input
+end
+
+type Same
+  Ready(Int)
+end
+
+fn local(record: {Same: Int}, input: Same) -> Same
+  input
+end
+
+fn local_constructor() -> Same
+  Same::Ready(1)
+end
+
+# Same in a comment is lexical noise.
+
+fn string_noise() -> Int
+  "Same"
+  0
+end

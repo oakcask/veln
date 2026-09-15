@@ -331,8 +331,9 @@ A bare type-role reference selects the same-module source type first. Without
 a same-module type, it selects one visible public imported type only when the
 type identity is unique. If multiple visible imports provide the same type
 leaf, the bare reference has no selected language-service symbol. A qualified
-type-role reference selects only the visible type identity owned by the written
-qualifier.
+type-role reference selects only the visible type declaration or supported
+direct-dependency public type-alias identity owned by the written qualifier.
+The alias identity remains separate from the target type identity.
 Schema operation selection uses the schema namespace. A bare schema path in a
 `decode` or `encode` expression selects only a same-module schema declaration.
 A written import does not expose the imported module's schemas to bare schema

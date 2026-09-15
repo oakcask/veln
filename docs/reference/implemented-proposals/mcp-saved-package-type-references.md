@@ -26,19 +26,22 @@ Completion evidence:
   spelling collision exclusion, constructor qualifier type segments,
   explicit standard-library type references,
   implicit standard-library prelude type references, package-origin identity,
-  private and non-exported visibility, public type-alias selection exclusion,
-  and invalid-casing rejection.
+  private and non-exported visibility, unsupported public type-alias selection
+  exclusion, and invalid-casing rejection.
 - `veln-mcp` server tests check saved-project adapter support for
   direct-dependency and standard-library public type references, constructor
   qualifier selection, workspace `file:` location results, project-wide scope,
   package source exclusion, collision filtering, private type, non-exported
-  module, invalid-casing type, public type-alias, package constructor-symbol
-  selection, package module-segment, anonymous source, recovery, schema,
-  effect, handler, and effect-operation empty-result boundaries, and
+  module, invalid-casing type, unsupported public type-alias, package
+  constructor-symbol selection, package module-segment, anonymous source,
+  recovery, schema, effect, handler, and effect-operation empty-result
+  boundaries, and
   `snapshot_changed` retry exhaustion without success-only fields or partial
   package resource admission.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
 locations, constructor-symbol references, schema references, public-alias
-references, recovery symbols, transitive-dependency references, and package
-source-location fields remain outside the implemented `references` result.
+references other than the separately recorded direct-dependency public
+type-alias and public function-alias slices, recovery symbols,
+transitive-dependency references, and package source-location fields remain
+outside the implemented `references` result.

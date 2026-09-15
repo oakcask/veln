@@ -15,16 +15,17 @@ focused `veln-mcp` adapter tests.
 
 Return canonical `veln-pkg:` source locations from the existing MCP
 `definition` tool when a saved workspace source selects a visible declaration
-in a direct dependency or the embedded standard library. This slice connects
-the shared package navigation result to package source resources already
-retained by the MCP server. It does not add package references, documentation
-links, rename, or new source mutation.
+in a direct dependency or the embedded standard library, including supported
+direct-dependency public type aliases. This slice connects the shared package
+navigation result to package source resources already retained by the MCP
+server. It does not add package references, documentation links, rename, or
+new source mutation.
 
 ## Scope
 
 | Included | Excluded |
 | --- | --- |
-| Public declarations in exported direct-dependency and standard-library modules that the shared language service already selects. | Private declarations, non-exported modules, transitive dependencies, and unsupported symbol classes. |
+| Public declarations in exported direct-dependency and standard-library modules that the shared language service already selects, plus direct-dependency public type aliases whose target resolves to a type declaration in the same retained dependency. | Private declarations, non-exported modules, transitive dependencies, unsupported alias targets, alias chains, and unsupported symbol classes. |
 | Canonical package source URI and one-based Unicode-scalar declaration range in the existing definition result. | Package documentation URI fields and documentation resource publication. |
 | Direct path, vendor, mirror, locally available git, and embedded standard-library snapshots already captured by saved analysis. | Dependency discovery, remote materialization, registry resolution, and changes to package snapshot capture. |
 | Exact source-resource round trips and operation-atomic dependency admission. | Package reference search, pagination, cursors, prepare-rename, rename edits, and client plugins. |
@@ -56,10 +57,12 @@ import can select a supported declaration. A workspace declaration continues
 to return its current canonical `file:` URI. A valid position with no eligible
 symbol returns `definition: null`.
 
-This slice exposes the package-backed function, type, constructor, schema, and
-public function-alias classes already represented by shared definition
-selection. It does not reinterpret an import module segment, recovery record,
-private declaration, or unsupported occurrence as another symbol class.
+This slice exposes the package-backed function, type, constructor, schema,
+public function-alias, and supported direct-dependency public type-alias
+classes already represented by shared definition selection. It does not
+reinterpret an import module segment, recovery record, private declaration,
+unsupported alias target, alias chain, or unsupported occurrence as another
+symbol class.
 
 ## Result And Resource Contract
 
@@ -94,6 +97,7 @@ resource that was already returned.
 | Case | Evidence |
 | --- | --- |
 | Public declaration classes in exported direct-dependency modules return canonical dependency `veln-pkg:` locations and exact declaration ranges. | `definition_resolves_public_package_symbol_classes` covers functions, types, constructors, schemas, and public function aliases. |
+| Supported direct-dependency public type aliases return the alias declaration location, while unresolved, wrong-kind, alias-chain, and transitive targets return `definition: null`. | `definition_supports_direct_dependency_type_aliases_with_supported_targets` and `definition-dependency-type-alias` |
 | Implicit-prelude and explicitly imported public standard-library declarations return canonical embedded `std` source locations. | `definition_resolves_implicit_and_explicit_standard_library_symbols` |
 | Direct path, vendor, mirror, and locally available git inputs use the identity-and-digest URI form without source-kind or materialization-path leakage. | `definition_dependency_package_uris_are_independent_of_source_kind` |
 | Private declarations, non-exported sources, invalid declaration casing, mismatched package imports, and module-segment selections return `definition: null`. | `definition_rejects_ineligible_package_selections_without_reinterpreting_them` |

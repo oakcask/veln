@@ -87,8 +87,8 @@ fn index_dependency_sources(
 ) {
     for (source, entry) in dependency.indexed_sources() {
         let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
-        declarations.extend(file_declarations(&file, &parsed.tree));
-        if parsed.diagnostics.is_empty() {
+        if !file.navigation_isolated && parsed.diagnostics.is_empty() {
+            declarations.extend(file_declarations(&file, &parsed.tree));
             let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
             assign_module_name(&mut source_module, &file.module);
             append_surface_module(module, source_module);
@@ -110,9 +110,9 @@ fn indexed_dependency_source(
     let text =
         std::str::from_utf8(source.bytes()).expect("captured package source text is valid UTF-8");
     let source_file = SourceFile::new(source.path(), text);
-    let module = explicit_module_name(text)
-        .or_else(|| module_name_from_path(source.path()))
-        .unwrap_or_default();
+    let path_module = module_name_from_path(source.path());
+    let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
+    let module = explicit_module_name(text).or(path_module).unwrap_or_default();
     let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(text);
     let parsed = parse(&source_file);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
@@ -130,7 +130,7 @@ fn indexed_dependency_source(
         recovery_symbols: Vec::new(),
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
-        navigation_isolated: false,
+        navigation_isolated,
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),
             uri: uri.to_string(),

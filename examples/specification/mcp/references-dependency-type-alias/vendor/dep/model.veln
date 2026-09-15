@@ -1,0 +1,17 @@
+use core
+use internal::types
+
+pub type Same = core::Same
+pub type PublicHidden = internal::types::Hidden
+pub type Chain = Same
+pub type MissingAlias = Missing
+pub type WrongKind = value
+pub type badAlias = core::Same
+
+pub fn value() -> Int
+  1
+end
+
+fn package_body(input: Same) -> Same
+  input
+end

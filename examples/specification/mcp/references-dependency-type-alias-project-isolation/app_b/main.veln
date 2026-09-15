@@ -1,0 +1,5 @@
+use model from "example/dep"
+
+fn read(input: model::Shared) -> model::Shared
+  input
+end

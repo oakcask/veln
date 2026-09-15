@@ -1,0 +1,6 @@
+use model from "example/dep"
+use other_model from "other/dep"
+
+fn read(good: model::Good, missing: model::MissingAlias, wrong: model::WrongKind, chain: model::Chain, transitive: model::Transitive) -> other_model::Good
+  good
+end

@@ -46,6 +46,59 @@ impl SymbolIndex {
         self.visible_type_for_bare_reference(file, name)
     }
 
+    fn visible_type_alias_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        if is_field_name(tokens, token_index) {
+            return None;
+        }
+        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            self.visible_type_alias_for_qualified_reference(file, &qualifier, name)
+        } else {
+            self.visible_type_alias_for_bare_reference(file, name)
+        }
+    }
+
+    fn type_namespace_symbol_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<Symbol> {
+        if is_field_name(tokens, token_index) {
+            return None;
+        }
+        let mut types = self.visible_types_for_reference(file, tokens, token_index, name);
+        match types.len() {
+            1 => types.pop().map(Symbol::Type),
+            0 => self
+                .visible_type_alias_for_reference(file, tokens, token_index, name)
+                .filter(|symbol| {
+                    matches!(symbol.package_origin, Some(PackageOrigin::DirectDependency))
+                })
+                .map(Symbol::TypeAlias),
+            _ => None,
+        }
+    }
+
+    fn visible_types_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Vec<TypeSymbol> {
+        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            return self.visible_types_for_qualified_reference(file, &qualifier, name);
+        }
+        self.visible_types_for_bare_reference(file, name)
+    }
+
     fn visible_type_conflict_for_reference(
         &self,
         file: &IndexedFile,
@@ -162,12 +215,34 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<TypeSymbol> {
+        let mut candidates = self.visible_types_for_bare_reference(file, name);
+        let candidate = candidates.pop()?;
+        candidates.is_empty().then_some(candidate)
+    }
+
+    fn visible_types_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Vec<TypeSymbol> {
         if let Some(symbol) = self.first_local_type_for_bare_reference(file, name) {
-            return Some(symbol.clone());
+            return vec![symbol.clone()];
         }
 
-        let mut candidates = self.types.iter().filter(|symbol| {
-            visible_imported_type_for_bare_reference(file, symbol, name)
+        self.types
+            .iter()
+            .filter(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
+            .cloned()
+            .collect()
+    }
+
+    fn visible_type_alias_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let mut candidates = self.type_aliases.iter().filter(|symbol| {
+            visible_imported_type_alias_for_bare_reference(file, symbol, name)
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
@@ -189,17 +264,36 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<TypeSymbol> {
+        let mut candidates = self.visible_types_for_qualified_reference(file, qualifier, name);
+        let candidate = candidates.pop()?;
+        candidates.is_empty().then_some(candidate)
+    }
+
+    fn visible_types_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Vec<TypeSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        let mut candidates = self.types.iter().filter(|symbol| {
-            symbol.name == name
-                && qualified_modules.iter().any(|module| module == &symbol.module)
-                && match &symbol.package {
-                    Some(package) => file
-                        .external_uses
-                        .contains(&(symbol.module.clone(), package.clone()))
-                        || symbol.standard_prelude,
-                    None => symbol.module == file.module || file.uses.contains(&symbol.module),
-                }
+        self.types
+            .iter()
+            .filter(|symbol| {
+                visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn visible_type_alias_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        let mut candidates = self.type_aliases.iter().filter(|symbol| {
+            visible_type_alias_for_qualified_reference(file, symbol, &qualified_modules, name)
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())

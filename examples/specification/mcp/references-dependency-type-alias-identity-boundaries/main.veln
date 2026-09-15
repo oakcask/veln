@@ -1,0 +1,27 @@
+use lib::model from "example/dep"
+use lib::core from "example/dep"
+use other_model from "other/dep"
+
+fn written(input: lib::model::Alias) -> model::Alias
+  input
+end
+
+fn target(input: core::Target) -> core::Target
+  input
+end
+
+fn alias_constructor() -> model::Same
+  model::Same::Ready(1)
+end
+
+type Same
+  Ready(Int)
+end
+
+fn local_constructor() -> Same
+  Same::Ready(1)
+end
+
+fn transitive(input: model::Transitive, collision: other_model::Transitive) -> Int
+  0
+end
