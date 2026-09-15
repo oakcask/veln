@@ -384,10 +384,10 @@ schemas, and public function aliases in exported direct-dependency modules and
 the embedded standard library. They also include public type aliases from
 exported direct-dependency modules when the alias target resolves to a type
 declaration in the same retained dependency. The source must select the exact
-visible import or implicit standard-library prelude path required by name resolution. Invalid
-casing records, private declarations, non-exported sources, mismatched package
-imports, unsupported symbol classes, and package module-segment selections
-succeed with `definition: null`.
+visible import or implicit standard-library prelude path required by name
+resolution. Invalid casing records, private declarations, non-exported
+sources, mismatched package imports, unsupported symbol classes, and package
+module-segment selections succeed with `definition: null`.
 MCP only exposes the recovery record source range through `definition`.
 Prepare-rename, rename edits, and package reference locations are outside the
 MCP definition result.
