@@ -27,11 +27,11 @@ implemented and specified in
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
 including bounded direct-dependency and standard-library package locations,
-workspace symbol, workspace schema operation, direct-dependency function,
-direct-dependency function alias, standard-library function and function
-alias, direct-dependency and standard-library type aliases, and package type
-and constructor, and workspace schema-alias `references`, `search_docs`, and
-`read_doc`.
+`references` for workspace symbols, workspace schema operations,
+direct-dependency functions and function aliases, standard-library functions
+and function aliases, direct-dependency and standard-library type aliases,
+package types and constructors, and workspace schema aliases, plus
+`search_docs` and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, function-alias, direct-dependency type-alias, type, and
 constructor slices, paginated references, recovery and casing-neutral
