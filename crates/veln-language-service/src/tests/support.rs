@@ -151,7 +151,7 @@ static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
         )
     }
 
-    fn dependency_snapshot(
+    pub(crate) fn dependency_snapshot(
         identity: &str,
         sources: &[(&str, &str)],
         exports: impl IntoIterator<Item = &'static str>,
