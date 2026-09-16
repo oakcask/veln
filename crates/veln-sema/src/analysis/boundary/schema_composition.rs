@@ -125,7 +125,7 @@ pub(super) fn quarantined_schema_composition_reference_reason(
     None
 }
 
-pub(super) fn schema_composition_reference_blocker(
+pub(crate) fn schema_composition_reference_blocker(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     field: &SchemaField,
@@ -186,7 +186,7 @@ pub(super) fn schema_field_uses_existing_grammar_at_boundary(
                 || reserved_bits_primitive(text).is_some()))
 }
 
-pub(super) fn schema_field_has_ordinary_type_target(
+pub(crate) fn schema_field_has_ordinary_type_target(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     text: &str,
@@ -197,7 +197,7 @@ pub(super) fn schema_field_has_ordinary_type_target(
     let (module_name, name, imported) = match path.as_slice() {
         [name] => (schema.module_name.as_deref(), name.as_str(), false),
         [_, .., name] => {
-            let Some(use_decl) = normal_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path(
                 module,
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),
@@ -220,25 +220,41 @@ pub(super) fn schema_field_has_ordinary_type_target(
     })
 }
 
-pub(super) fn schema_composition_reaches(
+pub(crate) fn schema_composition_reaches(
     module: &SurfaceModule,
     current: &SchemaDecl,
     target: &SchemaDecl,
-    visited: &mut Vec<NodeId>,
+    visited: &mut Vec<SchemaIdentity>,
 ) -> bool {
-    if current.node_id == target.node_id {
+    let current_identity = SchemaIdentity::of(current);
+    if current_identity == SchemaIdentity::of(target) {
         return true;
     }
-    if visited.contains(&current.node_id) {
+    if visited.contains(&current_identity) {
         return false;
     }
-    visited.push(current.node_id);
+    visited.push(current_identity);
     let reaches = current.fields.iter().any(|field| {
         schema_field_target(module, current, &field.ty)
             .is_some_and(|next| schema_composition_reaches(module, next, target, visited))
     });
     visited.pop();
     reaches
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaIdentity {
+    file: veln_source::SourcePath,
+    node_id: NodeId,
+}
+
+impl SchemaIdentity {
+    pub(crate) fn of(schema: &SchemaDecl) -> Self {
+        Self {
+            file: schema.span.file.clone(),
+            node_id: schema.node_id,
+        }
+    }
 }
 
 pub(super) fn schema_composition_reference_diagnostic(

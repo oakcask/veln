@@ -51,7 +51,7 @@ use crate::types::{
 };
 
 mod body;
-mod boundary;
+pub(crate) mod boundary;
 mod handlers;
 mod repair_reasoning;
 

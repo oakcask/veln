@@ -38,6 +38,10 @@ of manifest escape sequences and into structured or file-backed forms:
 Representative LSP cases now use structured request fixtures and decoded
 assertions for publish diagnostics, semantic tokens, and semantic tokens after
 an unsaved document change.
+Later navigation cases reuse that model. The
+`references-workspace-schema-composition` LSP case checks schema reference
+locations and empty collision results with decoded assertions, and its
+selectors and operands are part of the checked semantic baseline.
 
 ## Completion Evidence
 

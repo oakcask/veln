@@ -1,0 +1,19 @@
+use app::wire
+
+schema ImportedFrame
+  format binary
+  count: UInt8
+  full_path: app::wire::Packet
+  leaf_alias: wire::Packet
+  repeated_full: Repeat(count, app::wire::Packet)
+  repeated_alias: [wire::Packet; count]
+  bare: Packet
+  aliased: wire::AliasPacket
+  unresolved: missing::Packet
+  collision: wire::Collision
+end
+
+fn lexical_noise() -> String
+  # app::wire::Packet wire::Packet Packet
+  "app::wire::Packet wire::Packet Packet"
+end

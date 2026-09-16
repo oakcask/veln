@@ -1,5 +1,6 @@
 use super::*;
 
+use super::schema_composition::SchemaIdentity;
 use super::schema_dispatch_resolution::schema_dispatch_payload_diagnostic;
 use super::schema_repeat_resolution::{
     companion_private_schema_access_allowed, schema_repeat_payload_diagnostic,
@@ -75,7 +76,7 @@ pub(super) fn resolve_schema_payload<'a>(
     match segments.as_slice() {
         [name] => resolve_local_schema_payload(module, schema, field, kind, name, diagnostics),
         [_, .., name] => {
-            let Some(use_decl) = normal_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path(
                 module,
                 &segments[..segments.len() - 1],
                 schema.module_name.as_deref(),
@@ -119,7 +120,7 @@ fn resolve_local_schema_payload<'a>(
     let current_index = module
         .schemas
         .iter()
-        .position(|candidate| candidate.node_id == schema.node_id)?;
+        .position(|candidate| SchemaIdentity::of(candidate) == SchemaIdentity::of(schema))?;
     if let Some((candidate_index, candidate)) =
         module.schemas.iter().enumerate().find(|(_, candidate)| {
             candidate.name.as_deref() == Some(name)

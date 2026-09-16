@@ -1,5 +1,7 @@
 use super::*;
-use crate::name_recovery::normal_imported_use_for_path;
+use crate::name_recovery::{
+    normal_imported_use_for_path, schema_composition_imported_use_for_path,
+};
 
 mod binary;
 mod format_neutral;
@@ -32,7 +34,7 @@ fn schema_reference<'a>(
             visited_aliases,
         ),
         [_, .., name] => {
-            let use_decl = normal_imported_use_for_path(
+            let use_decl = schema_composition_imported_use_for_path(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,

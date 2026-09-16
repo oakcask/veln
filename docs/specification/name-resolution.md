@@ -35,6 +35,18 @@ namespace-by-use-role boundaries, lower-case exact spelling collisions between
 casing-neutral declarations and value names, and the same-namespace duplicate
 boundary.
 
+A multi-segment schema composition target resolves through either the full
+written import module path or its implicit leaf alias. An exact full import
+path takes precedence over a same-spelled implicit leaf alias. When every
+implicit-leaf candidate is a workspace import, the leaf alias resolves only
+when exactly one written workspace import provides it. Colliding workspace
+leaf aliases remain unresolved in either import order. Package-only and mixed
+workspace/package alias collisions retain their existing behavior but are not
+part of this uniqueness contract. The focused evidence is
+`schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`,
+`colliding_implicit_schema_import_aliases_are_order_independent`, and
+`exact_schema_import_path_precedes_colliding_implicit_leaf_alias`.
+
 Bare names resolve to local bindings. Function calls resolve to:
 
 - compiler-known stdio calls

@@ -643,6 +643,12 @@ struct IndexedFile {
     origin: IndexedOrigin,
 }
 
+#[derive(Clone, Debug)]
+struct SchemaCompositionReference {
+    span: SourceSpan,
+    target: NeutralSymbol,
+}
+
 #[derive(Clone, Debug, Default)]
 struct FileDeclarations {
     schemas: Vec<NeutralSymbol>,
@@ -690,6 +696,7 @@ pub(crate) struct SymbolIndex {
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
+    schema_composition_references: Vec<SchemaCompositionReference>,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
 

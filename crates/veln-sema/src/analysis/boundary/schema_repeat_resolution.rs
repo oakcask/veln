@@ -17,7 +17,7 @@ pub(super) fn resolve_schema_repeat_payload_schema<'a>(
     )
 }
 
-pub(super) fn companion_private_schema_access_allowed(
+pub(crate) fn companion_private_schema_access_allowed(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     use_decl: &UseDecl,

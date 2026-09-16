@@ -8,9 +8,20 @@ fn local(view: ByteView, packet: {value: Int}) -> ()
   let encoded = encode Packet from packet
 end
 
+schema LocalFrame
+  format binary
+  count: UInt8
+  direct: Packet
+  repeated: Repeat(count, Packet)
+  canonical: [Packet; count]
+end
+
 pub schema AliasPacket = Packet
 
-schema Frame
+pub schema Collision
   format binary
-  nested: AliasPacket
+  value: UInt8
+end
+
+pub type Collision
 end

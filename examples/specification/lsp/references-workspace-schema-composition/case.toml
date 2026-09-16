@@ -1,0 +1,57 @@
+command = ["lsp"]
+source_errors = "expected"
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result"
+length = 5
+
+[[lsp_assert]]
+id = 2
+path = "/result/0/uri"
+workspace_file_uri = "app/wire.veln"
+
+[[lsp_assert]]
+id = 2
+path = "/result/0/range"
+equals = {"start":{"line":0,"character":11},"end":{"line":0,"character":17}}
+
+[[lsp_assert]]
+id = 2
+path = "/result/1/uri"
+workspace_file_uri = "other.veln"
+
+[[lsp_assert]]
+id = 2
+path = "/result/1/range"
+equals = {"start":{"line":5,"character":24},"end":{"line":5,"character":30}}
+
+[[lsp_assert]]
+id = 2
+path = "/result/2/range"
+equals = {"start":{"line":6,"character":20},"end":{"line":6,"character":26}}
+
+[[lsp_assert]]
+id = 2
+path = "/result/3/range"
+equals = {"start":{"line":7,"character":42},"end":{"line":7,"character":48}}
+
+[[lsp_assert]]
+id = 2
+path = "/result/4/range"
+equals = {"start":{"line":8,"character":25},"end":{"line":8,"character":31}}
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+length = 4
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+length = 0

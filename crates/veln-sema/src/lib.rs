@@ -11,6 +11,7 @@ mod effect_rows;
 mod effects;
 mod lowering;
 mod name_recovery;
+mod navigation;
 mod pipeline;
 mod predicate_text;
 mod prelude;
@@ -29,6 +30,7 @@ mod type_relations;
 mod type_syntax;
 mod types;
 
+pub use navigation::{ResolvedSchemaCompositionReference, resolved_schema_composition_references};
 #[cfg(test)]
 pub(crate) use pipeline::analyze_surface_module_with_base_for_test;
 pub use pipeline::{

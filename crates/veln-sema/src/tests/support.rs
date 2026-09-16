@@ -88,6 +88,37 @@ pub(super) fn merged_modules(sources: Vec<SourceFile>) -> SurfaceModule {
     merged
 }
 
+pub(super) fn merged_modules_with_identities(sources: Vec<(&str, SourceFile)>) -> SurfaceModule {
+    let mut merged = SurfaceModule {
+        module: None,
+        uses: Vec::new(),
+        aliases: Vec::new(),
+        effects: Vec::new(),
+        handlers: Vec::new(),
+        schemas: Vec::new(),
+        types: Vec::new(),
+        functions: Vec::new(),
+        invalid_names: Vec::new(),
+    };
+    for (module_name, source) in sources {
+        let module = veln_ast::lower_surface_ast_with_module_identity(
+            &parse(&source).tree,
+            module_name.to_string(),
+            source.span(veln_source::TextRange::new(0, 0)),
+        );
+        merged.module = module.module;
+        merged.uses.extend(module.uses);
+        merged.aliases.extend(module.aliases);
+        merged.effects.extend(module.effects);
+        merged.handlers.extend(module.handlers);
+        merged.schemas.extend(module.schemas);
+        merged.types.extend(module.types);
+        merged.functions.extend(module.functions);
+        merged.invalid_names.extend(module.invalid_names);
+    }
+    merged
+}
+
 pub(super) fn partial_case_split_chain_predicate(subject: &str, fields: &[&str]) -> String {
     let mut disjuncts = Vec::new();
     for (index, field) in fields.iter().enumerate() {

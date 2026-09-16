@@ -1,0 +1,9 @@
+schema Packet
+  format binary
+  value: UInt8
+end
+
+schema Frame
+  format binary
+  nested: Packet
+end

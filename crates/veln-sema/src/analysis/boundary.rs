@@ -1,6 +1,8 @@
 use super::*;
 use crate::adt::registry::AdtRegistry;
-use crate::name_recovery::public_alias_has_invalid_target_leaf;
+use crate::name_recovery::{
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+};
 use crate::schema::dispatch::{
     SchemaDispatchCase, SchemaDispatchCasePayload, SchemaDispatchSpec,
     closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
@@ -45,14 +47,14 @@ use veln_literals::parse_integer_literal;
 mod effects;
 mod module_boundaries;
 mod names_and_aliases;
-mod schema_composition;
+pub(crate) mod schema_composition;
 mod schema_dispatch;
 mod schema_dispatch_helpers;
 mod schema_dispatch_resolution;
 mod schema_entrypoints;
 mod schema_payload_resolution;
 mod schema_repeat;
-mod schema_repeat_resolution;
+pub(crate) mod schema_repeat_resolution;
 mod schema_type_references;
 mod schema_validation;
 

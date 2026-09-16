@@ -1,0 +1,6 @@
+use a::wire
+use b::wire
+
+schema Host
+  nested: wire::Packet
+end

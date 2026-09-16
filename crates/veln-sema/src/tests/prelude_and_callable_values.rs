@@ -27,5 +27,6 @@ mod reserved_prefix_groups;
 mod reserved_shapes_and_visible_primitives;
 mod reserved_split_groups;
 mod schema_composition;
+mod schema_composition_imports;
 mod schema_validation_and_repeats;
 mod standard_prelude_and_shadowing;

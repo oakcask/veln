@@ -296,8 +296,9 @@ The `publish-diagnostics`, `semantic-tokens`,
 `identifier-casing-overlay-boundary`, and
 `identifier-casing-recovery-navigation`,
 `identifier-casing-handler-binding-navigation`, and
-`identifier-casing-rename-boundary` LSP cases use structured request fixtures
-with decoded LSP assertions. Those cases use
+`identifier-casing-rename-boundary`, and
+`references-workspace-schema-composition` LSP cases use structured request
+fixtures with decoded LSP assertions. Those cases use
 `$workspace_file_uri` directives for document URIs and, when open-document
 content must replace saved source text, `$case_text` sidecars for exact UTF-8
 document text. Their decoded assertions cover initialization capability
@@ -318,6 +319,9 @@ escaping, equality, ordered arrays, length, missing paths, dynamic workspace
 URIs, and rejection boundaries. The `definition-workspace` MCP specification
 case uses decoded MCP assertions for response IDs 3 through 11 and keeps raw
 stdout fragments only for incidental initialization and tool discovery text.
+The `references-workspace-schema-composition` MCP specification case uses the
+same decoded assertion model for canonical reference locations, empty boundary
+results, project scope, and isolated single-file scope.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
@@ -496,7 +500,7 @@ Run the focused non-mutating check with:
 
 ```sh
 cargo test -p veln-cli --test toolchain_harness \
-  toolchain_semantic_baseline::checked_in_semantic_baseline_matches_authoritative_cases \
+  toolchain_semantic_baseline::tests::checked_in_semantic_baseline_matches_authoritative_cases \
   -- --exact
 ```
 
@@ -508,7 +512,7 @@ to accept an unexplained difference.
 VELN_TOOLCHAIN_SOURCE_GIT_TREE="$(git rev-parse HEAD^{tree})" \
 VELN_TOOLCHAIN_BASELINE_CANDIDATE=target/toolchain-case-semantics.candidate \
 cargo test -p veln-cli --test toolchain_harness \
-  toolchain_semantic_baseline::generate_toolchain_semantic_baseline_candidate \
+  toolchain_semantic_baseline::tests::generate_toolchain_semantic_baseline_candidate \
   -- --ignored --exact
 ```
 
