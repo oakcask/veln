@@ -50,6 +50,16 @@ The remaining first-capability work includes:
   workspace boundary;
 - plugin packaging for Codex and Claude Code.
 
+### Ready Extracted Slice
+
+The independently actionable direct-dependency schema operation-reference
+slice is defined by
+[MCP Saved Direct-Dependency Schema Operation References](mcp-saved-dependency-schema-operation-references.md).
+That page owns the bounded acceptance contract for saved workspace `decode`
+and `encode` uses of direct-dependency public schemas. Package composition
+references, standard-library schema references, and package schema-alias
+references remain later work in this umbrella.
+
 ### Completed Extracted Slices
 
 The implemented identifier-casing and slice-closure prerequisites are recorded
