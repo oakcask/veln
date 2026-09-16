@@ -46,10 +46,85 @@ fn generated_bundle_keeps_source_and_lowered_tables_in_sync() {
     ));
     let (source_root, output) = write_bundle_fixture(&root);
 
-    build_script::build_standard_library_bundle(&source_root, &output);
+    let build = build_script::build_standard_library_bundle(&source_root, &output);
 
+    assert_eq!(build.generated_modules, 1);
+    assert_eq!(build.reused_modules, 0);
     assert_generated_tables(&output);
     assert_generated_lowered_module(&output);
+    fs::remove_dir_all(&root).expect("test fixture should be removed");
+}
+
+#[test]
+fn generated_bundle_reuses_unchanged_lowered_modules() {
+    let root = std::env::temp_dir().join(format!(
+        "veln-stdlib-incremental-bundle-{}",
+        std::process::id()
+    ));
+    let (source_root, output) = write_bundle_fixture(&root);
+
+    let initial = build_script::build_standard_library_bundle_with_generator_fingerprint(
+        &source_root,
+        &output,
+        "generator-a",
+    );
+    let reused = build_script::build_standard_library_bundle_with_generator_fingerprint(
+        &source_root,
+        &output,
+        "generator-a",
+    );
+
+    assert_eq!(initial.generated_modules, 1);
+    assert_eq!(initial.reused_modules, 0);
+    assert_eq!(reused.generated_modules, 0);
+    assert_eq!(reused.reused_modules, 1);
+    assert_generated_lowered_module(&output);
+    fs::remove_dir_all(&root).expect("test fixture should be removed");
+}
+
+#[test]
+fn generated_bundle_invalidates_changed_sources_and_generators() {
+    let root = std::env::temp_dir().join(format!(
+        "veln-stdlib-incremental-invalidation-{}",
+        std::process::id()
+    ));
+    let (source_root, output) = write_bundle_fixture(&root);
+    fs::write(
+        source_root.join("secondary.veln"),
+        "pub fn secondary() -> ()\n  ()\nend\n",
+    )
+    .expect("secondary production source should be written");
+    build_script::build_standard_library_bundle_with_generator_fingerprint(
+        &source_root,
+        &output,
+        "generator-a",
+    );
+
+    fs::write(
+        source_root.join("main.veln"),
+        "pub fn main() -> ()\n  ()\nend\n\npub fn added() -> ()\n  ()\nend\n",
+    )
+    .expect("changed production source should be written");
+    let changed_source = build_script::build_standard_library_bundle_with_generator_fingerprint(
+        &source_root,
+        &output,
+        "generator-a",
+    );
+    let changed_generator = build_script::build_standard_library_bundle_with_generator_fingerprint(
+        &source_root,
+        &output,
+        "generator-b",
+    );
+
+    assert_eq!(changed_source.generated_modules, 1);
+    assert_eq!(changed_source.reused_modules, 1);
+    assert_eq!(changed_generator.generated_modules, 2);
+    assert_eq!(changed_generator.reused_modules, 0);
+    let encoded = fs::read(output.join("lowered/main.veln.bin"))
+        .expect("changed lowered module should be readable");
+    let decoded =
+        veln_ast::decode_surface_module(&encoded).expect("changed lowered module should decode");
+    assert_eq!(decoded.functions.len(), 2);
     fs::remove_dir_all(&root).expect("test fixture should be removed");
 }
 

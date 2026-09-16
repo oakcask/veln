@@ -1,5 +1,7 @@
 use std::env;
-use std::fs;
+use std::fs::{self, File};
+use std::hash::{DefaultHasher, Hasher};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use veln_ast::{
@@ -16,25 +18,49 @@ fn main() {
     build_standard_library_bundle(source_root, &output);
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct BundleBuild {
+    pub(crate) generated_modules: usize,
+    pub(crate) reused_modules: usize,
+}
+
 struct BundleInputs {
     manifest: String,
     exports: Vec<String>,
     paths: Vec<String>,
 }
 
-pub(crate) fn build_standard_library_bundle(source_root: &Path, output: &Path) {
+pub(crate) fn build_standard_library_bundle(source_root: &Path, output: &Path) -> BundleBuild {
+    let generator_fingerprint = generator_fingerprint();
+    build_standard_library_bundle_with_generator_fingerprint(
+        source_root,
+        output,
+        &generator_fingerprint,
+    )
+}
+
+pub(crate) fn build_standard_library_bundle_with_generator_fingerprint(
+    source_root: &Path,
+    output: &Path,
+    generator_fingerprint: &str,
+) -> BundleBuild {
     let inputs = load_bundle_inputs(source_root);
     let mut generated = render_source_tables(&inputs);
-    write_lowered_modules(
+    let fingerprint_path = output.join("stdlib_bundle.generator");
+    let generator_matches =
+        fs::read_to_string(&fingerprint_path).is_ok_and(|cached| cached == generator_fingerprint);
+    let build = write_lowered_modules(
         source_root,
         &output.join("lowered"),
         &inputs.paths,
         &mut generated,
+        generator_matches,
     );
     generated.push_str("];\n");
 
-    fs::write(output.join("stdlib_bundle.rs"), generated)
-        .expect("standard library bundle should be writable");
+    write_if_changed(&output.join("stdlib_bundle.rs"), generated.as_bytes());
+    write_if_changed(&fingerprint_path, generator_fingerprint.as_bytes());
+    build
 }
 
 fn load_bundle_inputs(source_root: &Path) -> BundleInputs {
@@ -73,18 +99,42 @@ fn write_lowered_modules(
     lowered_output: &Path,
     paths: &[String],
     generated: &mut String,
-) {
+    generator_matches: bool,
+) -> BundleBuild {
+    let mut build = BundleBuild {
+        generated_modules: 0,
+        reused_modules: 0,
+    };
     for relative in paths {
-        write_lowered_module(source_root, lowered_output, relative);
+        if write_lowered_module(source_root, lowered_output, relative, generator_matches) {
+            build.reused_modules += 1;
+        } else {
+            build.generated_modules += 1;
+        }
         generated.push_str(&format!(
             "    StdlibLoweredFile {{ path: {relative:?}, module: include_bytes!(concat!(env!(\"OUT_DIR\"), \"/lowered/{relative}.bin\")) }},\n"
         ));
     }
+    build
 }
 
-fn write_lowered_module(source_root: &Path, lowered_output: &Path, relative: &str) {
+fn write_lowered_module(
+    source_root: &Path,
+    lowered_output: &Path,
+    relative: &str,
+    generator_matches: bool,
+) -> bool {
     let text = fs::read_to_string(source_root.join(relative))
         .expect("standard library source should be readable");
+    let lowered_path = lowered_output.join(format!("{relative}.bin"));
+    let source_snapshot_path = lowered_output.join(format!("{relative}.source"));
+    if generator_matches
+        && lowered_path.is_file()
+        && fs::read(&source_snapshot_path).is_ok_and(|cached| cached == text.as_bytes())
+    {
+        return true;
+    }
+
     let lowered = lowered_standard_module(relative, &text);
     let encoded = encode_surface_module(&lowered);
     let decoded = decode_surface_module(&encoded)
@@ -95,14 +145,40 @@ fn write_lowered_module(source_root: &Path, lowered_output: &Path, relative: &st
         "generated standard library lowered module should round-trip for {relative}"
     );
 
-    let lowered_path = lowered_output.join(format!("{relative}.bin"));
     fs::create_dir_all(
         lowered_path
             .parent()
             .expect("lowered standard library path should have a parent"),
     )
     .expect("lowered standard library output directory should be writable");
-    fs::write(&lowered_path, encoded).expect("lowered standard library module should be writable");
+    write_if_changed(&lowered_path, &encoded);
+    write_if_changed(&source_snapshot_path, text.as_bytes());
+    false
+}
+
+fn generator_fingerprint() -> String {
+    let executable = env::current_exe().expect("standard library generator path should be known");
+    let mut executable =
+        File::open(executable).expect("standard library generator should be readable");
+    let mut hasher = DefaultHasher::new();
+    let mut buffer = [0; 64 * 1024];
+    loop {
+        let count = executable
+            .read(&mut buffer)
+            .expect("standard library generator should remain readable");
+        if count == 0 {
+            break;
+        }
+        hasher.write(&buffer[..count]);
+    }
+    format!("{:016x}", hasher.finish())
+}
+
+fn write_if_changed(path: &Path, contents: &[u8]) {
+    if fs::read(path).is_ok_and(|existing| existing == contents) {
+        return;
+    }
+    fs::write(path, contents).expect("standard library generated output should be writable");
 }
 
 fn lowered_standard_module(path: &str, text: &str) -> veln_ast::SurfaceModule {
