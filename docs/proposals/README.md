@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is currently ready.
+- Add saved workspace schema composition-target references through the existing
+  MCP `references` tool:
+  [mcp-saved-workspace-schema-composition-references.md](mcp-saved-workspace-schema-composition-references.md).
 
 ## Blocked
 
@@ -41,6 +43,9 @@ No proposal is currently ready.
   [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
   Its workspace schema-reference slice is implemented and recorded by
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
+  Its workspace schema composition-reference slice is ready and tracked
+  separately by
+  [MCP Saved Workspace Schema Composition References](mcp-saved-workspace-schema-composition-references.md).
   Its direct-dependency public function-alias reference slice is implemented
   and recorded by
   [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
