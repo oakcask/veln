@@ -246,7 +246,9 @@ schemas, package schema aliases, transitive dependencies, recovery records,
 and invalid-casing records remain unsupported. The
 `references-dependency-schema-operation` LSP case covers full and implicit
 module paths, workspace-only exact ranges, non-BMP saved input, and parity with
-the MCP case when declaration inclusion is false.
+the MCP case when declaration inclusion is false. Focused MCP server coverage
+injects a public standard-library schema and verifies that this unsupported
+selection returns an empty set with project-wide scope.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.

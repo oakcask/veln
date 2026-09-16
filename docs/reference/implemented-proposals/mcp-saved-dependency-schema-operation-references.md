@@ -64,8 +64,8 @@ assertions identify source leaves rather than only count them.
 | Use the full written imported module path and its valid implicit leaf alias. | Both spellings resolve under existing import rules and contribute to one schema identity. | Shared import tests and exact MCP ranges. |
 | Two dependencies export the same module and schema names; a workspace schema also has that name. | Each selection returns only uses resolving to its own declaration. | Dependency identity and workspace shadowing fixtures. |
 | Private, non-exported, mismatched-import, transitive, invalid-casing, recovery, or unresolved schema leaves are selected. | Successful empty references; no lexical fallback to an eligible same-spelled schema. | Shared negative table and MCP graph-aware boundary cases. |
-| Select a package schema alias, composition leaf, or module qualifier. | Keep successful empty references for those unsupported selections. | MCP boundary assertions. |
-| Select a standard-library schema. | Keep a successful empty reference result. | Shared negative table with a synthetic standard-package schema snapshot; the embedded standard library currently exports no schema for a protocol fixture. |
+| Select a package schema alias, package schema alias chain, composition leaf, or module qualifier. | Keep successful empty references for those unsupported selections. | MCP JSONL and focused server boundary assertions. |
+| Select a standard-library schema. | Keep a successful empty reference result with the selected project scope. | Focused MCP server test with an injected public standard-library schema. |
 | An eligible schema also occurs in package sources, composition fields, aliases, comments, strings, or unrelated symbol classes. | None of those occurrences enter the operation reference set. | Exact-set shared and adapter tests. |
 | A sibling selected project and an unselected descendant package contain similar operations. | Include only the requested project's owned sources and retain project-wide scope metadata. | MCP project-isolation cases. |
 | An anonymous single-file source is selected. | Preserve current single-file scope and package eligibility; do not borrow a neighboring project's dependency context. | MCP anonymous-scope regression case. |
@@ -79,9 +79,9 @@ Focused executable cases under `examples/specification/mcp/` and
 `examples/specification/lsp/`, shared navigation tests in
 `crates/veln-language-service`, and scope and capture-failure tests in
 `crates/veln-mcp` verify the acceptance rows. Successful-empty checks preserve
-the excluded package schema classes. The standard-library schema exclusion is
-owned by the shared navigation test until the embedded standard package has a
-real schema that protocol evidence can select.
+the excluded package schema classes. A focused MCP server test injects a public
+standard-library schema and verifies a successful empty result with the
+selected project scope.
 
 ## Deferred Boundary
 

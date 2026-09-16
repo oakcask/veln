@@ -2,6 +2,43 @@ use super::*;
 use veln_project::PackageSnapshotSource;
 
 #[test]
+fn references_keep_standard_library_schema_operations_empty_with_project_scope() {
+    let workspace = TempWorkspace::new("references-standard-library-schema-operation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use schemas from \"std\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode schemas::Packet from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"schemas.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "schemas.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":19}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+}
+
+#[test]
 fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");
