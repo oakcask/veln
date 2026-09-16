@@ -25,7 +25,7 @@ if (isMainModule()) {
 export function validateDocsLinks(docsRoot) {
   const markdownFiles = listMarkdownFiles(docsRoot);
   const repoRoot = findRepoRoot(docsRoot);
-  const errors = [];
+  const errors = validateRetiredDocumentationPaths(docsRoot);
 
   for (const file of markdownFiles) {
     const text = fs.readFileSync(file, "utf8");
@@ -40,18 +40,30 @@ export function validateDocsLinks(docsRoot) {
     errors.push(
       ...validateVersionedPathReferences({ docsRoot, file, repoRoot, text }),
     );
-    errors.push(
-      ...validateProposalCatalogReferences({ docsRoot, file, text }),
-    );
-    errors.push(
-      ...validateImplementedProposalRoutes({ docsRoot, file, text }),
-    );
   }
 
   return {
     errors,
     valid: errors.length === 0,
   };
+}
+
+function validateRetiredDocumentationPaths(docsRoot) {
+  const retiredRoots = [
+    "reviews",
+    path.join("reference", "implemented-proposals"),
+  ];
+  const files = [];
+  for (const relativeRoot of retiredRoots) {
+    const root = path.join(docsRoot, relativeRoot);
+    if (fs.existsSync(root)) {
+      files.push(...listFiles(root));
+    }
+  }
+
+  return files.sort().map((file) =>
+    `${path.relative(docsRoot, file)}: remove this retained review or completed-proposal record; current specifications and executable evidence own implemented behavior`
+  );
 }
 
 function validateProposalPageRole({ docsRoot, file, text }) {
@@ -152,87 +164,6 @@ function validateVersionedPathReferences({ docsRoot, file, repoRoot, text }) {
   return errors;
 }
 
-function validateProposalCatalogReferences({ docsRoot, file, text }) {
-  const relativeFrom = path.relative(docsRoot, file);
-  if (relativeFrom !== path.join("proposals", "README.md")) {
-    return [];
-  }
-
-  const errors = [];
-  for (const reference of localPathReferences(stripFencedCodeBlocks(text))) {
-    if (isBareImplementedProposalPath(reference.text)) {
-      errors.push(
-        `${relativeFrom}:${reference.line}: use a Markdown link for implemented proposal route: ${reference.text}`,
-      );
-    }
-  }
-  return errors;
-}
-
-function validateImplementedProposalRoutes({ docsRoot, file, text }) {
-  const relativeFrom = path.relative(docsRoot, file);
-  const implementedRoot = path.join("reference", "implemented-proposals");
-  if (!relativeFrom.startsWith(`${implementedRoot}${path.sep}`)) {
-    return [];
-  }
-
-  const lines = stripMarkdownCode(text).split("\n");
-  const errors = [];
-  for (const link of localMarkdownLinks(stripMarkdownCode(text))) {
-    if (!isListItem(lines[link.line - 1])) {
-      continue;
-    }
-
-    const introduction = precedingParagraph(lines, link.line - 1);
-    if (
-      !/\bremaining (?:planned )?work\b/i.test(introduction) ||
-      !/\b(?:proposal )?routes?\b/i.test(introduction)
-    ) {
-      continue;
-    }
-
-    const [targetPath] = link.target.split("#", 1);
-    const targetFile = path.resolve(path.dirname(file), decodeUriPath(targetPath));
-    const relativeTarget = path.relative(docsRoot, targetFile);
-    if (relativeTarget.startsWith(`${implementedRoot}${path.sep}`)) {
-      errors.push(
-        `${relativeFrom}:${link.line}: remove implemented proposal from remaining-work routes: ${link.target}; completed routes must point readers to current specification and executable evidence`,
-      );
-    }
-  }
-  return errors;
-}
-
-function precedingParagraph(lines, listLineIndex) {
-  let index = listLineIndex - 1;
-  while (index >= 0 && (lines[index].trim() === "" || isListItem(lines[index]))) {
-    index -= 1;
-  }
-
-  const paragraph = [];
-  while (
-    index >= 0 &&
-    lines[index].trim() !== "" &&
-    !lines[index].startsWith("#") &&
-    !isListItem(lines[index])
-  ) {
-    paragraph.unshift(lines[index].trim());
-    index -= 1;
-  }
-  return paragraph.join(" ");
-}
-
-function isListItem(line) {
-  return /^\s*[-*+]\s+/.test(line);
-}
-
-function isBareImplementedProposalPath(value) {
-  return (
-    value.startsWith("../reference/implemented-proposals/") &&
-    value.endsWith(".md")
-  );
-}
-
 function listMarkdownFiles(root) {
   const files = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -244,6 +175,19 @@ function listMarkdownFiles(root) {
     }
   }
   return files.sort();
+}
+
+function listFiles(root) {
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const entryPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFiles(entryPath));
+    } else if (entry.isFile()) {
+      files.push(entryPath);
+    }
+  }
+  return files;
 }
 
 function localMarkdownLinks(text) {

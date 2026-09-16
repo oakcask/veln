@@ -22,9 +22,7 @@ reference for test organization, not a source for command behavior.
   public CLI.
 - Change this harness when a manifest needs a reusable assertion shape, command
   environment, repeated invocation, or fixture setup rule.
-- JVM backend fixtures exercise the implemented bytecode path by default. Use
-  [implemented-proposals/jvm-bytecode-backend.md](implemented-proposals/jvm-bytecode-backend.md)
-  for the source-backend cleanup result.
+- JVM backend fixtures exercise the implemented bytecode path by default.
 
 ## Case Layout
 

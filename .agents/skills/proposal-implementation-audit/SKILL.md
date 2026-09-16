@@ -44,12 +44,13 @@ grammar.
    explanation of the executable specification.
 8. Audit `docs/proposals/README.md` and the implemented proposal page:
    completed behavior must not remain cataloged as planned or future work.
-9. For fully completed proposals, move the historical record to
-   `docs/reference/implemented-proposals/` and update that directory's
-   `README.md`. Remove it from the proposals catalog.
+9. For fully completed proposals, remove the proposal page and its catalog
+   entry after the current specification and executable evidence cover the
+   implemented behavior.
 10. For rejected, superseded, or otherwise closed proposals, remove the page
-    from `docs/proposals/` and its catalog. Preserve useful rationale in the
-    matching `docs/reference/` area instead of keeping a closed proposal route.
+    from `docs/proposals/` and its catalog. Preserve only durable rationale that
+    remains useful independently of the proposal lifecycle, and place it in
+    the matching `docs/reference/source-decisions/` area.
 11. For partially completed proposals, keep only the unimplemented remainder in
     `docs/proposals/`; rewrite the page and catalog entry so they clearly name
     the remaining planned work.
@@ -74,8 +75,9 @@ executable evidence.
   explain the executable evidence instead of being the only source of truth
   when mechanical coverage is practical.
 - `docs/proposals/README.md` no longer lists completed work as planned.
-- Completed proposal records live under
-  `docs/reference/implemented-proposals/`, not under `docs/proposals/`.
+- Completed proposal pages and bounded review-result snapshots are absent from
+  `docs/`; current specification and executable evidence own implemented
+  behavior.
 - Rejected, superseded, and otherwise closed proposal pages do not remain under
   `docs/proposals/`.
 - Any proposal text left behind describes only unimplemented follow-up work.
@@ -87,9 +89,9 @@ executable evidence.
 - Do not cite `docs/proposals/` as current behavior after implementation.
 - Do not move text from a proposal into `docs/specification/` until current
   code and tests support it.
-- Do not move rationale-only material into `docs/specification/`; keep
-  rationale in `docs/reference/` and link only when the specification needs a
-  route to context.
+- Do not move rationale-only material into `docs/specification/`; keep durable
+  rationale in `docs/reference/source-decisions/` and link only when the
+  specification needs a route to context.
 - Do not preserve obsolete future-tense proposal wording for behavior that is
   now implemented.
 - Do not add broad prose when a focused executable fixture or checked example

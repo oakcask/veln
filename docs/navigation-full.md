@@ -40,8 +40,6 @@ question.
   [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md).
 - Checking incomplete gap evidence:
   [proposals/README.md](proposals/README.md).
-- Checking completed proposal claims:
-  [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md).
 - Implemented language behavior:
   [specification/README.md](specification/README.md).
 - Source support for claims:
@@ -74,9 +72,6 @@ question.
 - Implementation target work: start from `proposals/README.md`, open the
   proposal page that matches the task, then compare it with the matching
   specification page for promotion checks.
-- Completed proposal history: start from
-  [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md)
-  after checking the current specification page.
 - Documentation routing work: use the README for only the directory whose
   classification is changing.
 - Rationale work: current specification page first, then
@@ -94,10 +89,8 @@ question.
 - A proposal page can describe an implementation target, but it is not current
   behavior until the language specification also says so.
 - Promotion work updates the smallest matching language specification page,
-  moves completed records to `reference/implemented-proposals/`, and leaves
-  unfinished proposal text in `proposals/`.
-- A completed proposal record can explain why work happened, but it is not a
-  route for changing the language specification.
+  removes completed proposal text, and leaves only unfinished proposal work in
+  `proposals/`.
 - Open a detail record only through the route that names its relevant subject.
 - A `result-*.md` source-decision file is a record. Open it through
   [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md)

@@ -30,8 +30,6 @@ material.
   [toolchain-test-harness.md](toolchain-test-harness.md).
 - HTTP/2 public symbol migration and residual-name classification:
   [http2-standard-module-migration.md](http2-standard-module-migration.md).
-- Implemented proposal records:
-  [implemented-proposals/README.md](implemented-proposals/README.md).
 - Implemented rationale: [source-decisions/README.md](source-decisions/README.md),
   then [source-decisions/topic-map.md](source-decisions/topic-map.md) when the
   category is unclear.
@@ -43,8 +41,6 @@ material.
   diagnostics, commands, JSON output, runtime behavior, or examples.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) before changing
   CLI integration case layout or assertion policy.
-- Use `implemented-proposals/` only for completed proposal history or
-  completion evidence after checking current behavior.
 - Use `source-decisions/` after a language page needs rationale; start with
   its README before opening category pages or records.
 - Use `bibliography/` after a rationale or claim needs source support.

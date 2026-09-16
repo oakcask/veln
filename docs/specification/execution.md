@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The checked-core readiness, typed-IR readiness, runtime execution, codec, JVM backend, or execution evidence contract changes.
+---
+
 # Execution Boundary
 
 This page routes implemented execution facts. Open
@@ -437,8 +443,7 @@ enough.
   not reject trailing bytes automatically. Direct `DecodeErrorWithReason(...)`
   results and `DecodeStep::Invalid(DecodeErrorWithReason(...))` values may
   carry consistent consumed, available, and remaining byte counts for
-  command-facing projection. The completed slice is archived under the
-  [implemented proposal record](../reference/implemented-proposals/codec-trailing-input-diagnostics.md).
+  command-facing projection.
 - The source-visible HPACK static decoder accepts static indexed fields,
   bounded static-name literal-without-indexing fields, bounded static-name
   literal-with-indexing fields, and bounded static-name literal-never-indexed

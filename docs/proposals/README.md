@@ -13,8 +13,6 @@ also states it.
 ## Read First
 
 - Current behavior: [Language Specification](../specification/README.md).
-- Completed proposal history:
-  [Implemented Proposal Records](../reference/implemented-proposals/README.md).
 
 ## Ready
 
@@ -29,43 +27,8 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- The agent-language-services umbrella remains a planning inventory. Its
-  direct-dependency schema-alias operation-reference slice is extracted into
-  the Ready proposal above. Its
-  workspace schema-alias reference slice is implemented and recorded by
-  [MCP Saved Workspace Schema-Alias References](../reference/implemented-proposals/mcp-saved-workspace-schema-alias-references.md).
-  Its direct-dependency schema operation-reference slice is implemented and
-  recorded by
-  [MCP Saved Direct-Dependency Schema Operation References](../reference/implemented-proposals/mcp-saved-dependency-schema-operation-references.md).
-  Its saved workspace symbol-reference, standard-library package-documentation
-  resource, dependency package-documentation resource, package-backed
-  definition-link, direct-dependency function-reference, and
-  package-documentation tool slices are implemented. Its standard-library
-  function-reference slice is also implemented and recorded by
-  [MCP Saved Standard-Library Function References](../reference/implemented-proposals/mcp-saved-standard-library-function-references.md).
-  Its package type-reference slice is implemented and recorded by
-  [MCP Saved Package Type References](../reference/implemented-proposals/mcp-saved-package-type-references.md).
-  Its package constructor-reference slice is implemented and recorded by
-  [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
-  Its workspace schema-reference slice is implemented and recorded by
-  [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
-  Its workspace schema composition-reference slice is implemented and recorded
-  by
-  [MCP Saved Workspace Schema Composition References](../reference/implemented-proposals/mcp-saved-workspace-schema-composition-references.md).
-  Its direct-dependency public function-alias reference slice is implemented
-  and recorded by
-  [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
-  Its standard-library public function-alias reference slice is implemented and
-  recorded by
-  [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md).
-  Its direct-dependency public type-alias reference slice is implemented and
-  recorded by
-  [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md).
-  Its standard-library public type-alias reference slice is implemented and
-  recorded by
-  [MCP Saved Standard-Library Type-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-type-alias-references.md).
-  Do not select the umbrella
-  directly:
+- The agent-language-services umbrella remains a planning inventory. Do not
+  select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
@@ -98,8 +61,7 @@ style when those details need prose explanation.
 
 Promote observable behavior to executable evidence under
 `../../examples/specification/` first when practical, then update the smallest
-matching specification page. Move completed proposal history to
-`../reference/implemented-proposals/` and remove it from this catalog.
-Remove rejected, superseded, and otherwise closed proposals from this
-directory. Preserve durable rationale under `../reference/` when it remains
-useful.
+matching specification page. Delete completed, rejected, superseded, and
+otherwise closed proposals and remove them from this catalog. Preserve only
+durable rationale that remains useful independently of proposal completion
+under `../reference/source-decisions/`.

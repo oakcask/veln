@@ -31,7 +31,8 @@ test("accepts role-specific authority and an exceptional lifecycle status", () =
     {
       file: "docs/reference/record.md",
       text: document([
-        "role: implementation-record",
+        "role: reference",
+        "authority: supporting",
         "status: superseded",
         "update-when: Its replacement or supporting evidence changes.",
       ]),
@@ -81,7 +82,7 @@ test("rejects missing, duplicate, and unsupported roles", () => {
   assert.deepEqual(result.errors, [
     "docs/missing.md: add exactly one role: field so readers know why the document should be opened",
     "docs/duplicate.md:3: keep exactly one role: field so the document has one purpose",
-    "docs/unsupported.md:2: replace unsupported role \"guide\" with one of: implementation-record, proposal, reference, review, routing, specification",
+    "docs/unsupported.md:2: replace unsupported role \"guide\" with one of: proposal, reference, routing, specification",
   ]);
 });
 
@@ -133,7 +134,8 @@ test("limits status to exceptional lifecycle states", () => {
     {
       file: "docs/implemented.md",
       text: document([
-        "role: implementation-record",
+        "role: reference",
+        "authority: supporting",
         "status: implemented",
         "update-when: Its evidence changes.",
       ]),
@@ -141,7 +143,8 @@ test("limits status to exceptional lifecycle states", () => {
     {
       file: "docs/duplicate.md",
       text: document([
-        "role: implementation-record",
+        "role: reference",
+        "authority: supporting",
         "status: closed",
         "status: superseded",
         "update-when: Its replacement changes.",
@@ -159,8 +162,8 @@ test("limits status to exceptional lifecycle states", () => {
   ]);
 
   assert.deepEqual(result.errors, [
-    "docs/implemented.md:3: remove status \"implemented\" or replace it with one of: closed, rejected, superseded; status records only exceptional lifecycle states",
-    "docs/duplicate.md:4: keep at most one status: field so the exceptional lifecycle state is unambiguous",
+    "docs/implemented.md:4: remove status \"implemented\" or replace it with one of: closed, rejected, superseded; status records only exceptional lifecycle states",
+    "docs/duplicate.md:5: keep at most one status: field so the exceptional lifecycle state is unambiguous",
     "docs/specification/rejected.md:4: remove status \"rejected\" from role \"specification\" or reclassify the document; this lifecycle state is not valid for the role",
   ]);
 });

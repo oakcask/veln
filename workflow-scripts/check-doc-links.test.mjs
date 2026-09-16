@@ -165,9 +165,23 @@ test("allows only active proposal roles", () => {
   assert.equal(result.valid, true);
 });
 
+test("rejects retained review and completed-proposal records", () => {
+  using fixture = tempDocs("doc-links-retired-records");
+  fixture.write("reviews/benchmark.md", "# Benchmark\n");
+  fixture.write("reference/implemented-proposals/completed.md", "# Completed\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "reference/implemented-proposals/completed.md: remove this retained review or completed-proposal record; current specifications and executable evidence own implemented behavior",
+    "reviews/benchmark.md: remove this retained review or completed-proposal record; current specifications and executable evidence own implemented behavior",
+  ]);
+});
+
 test("rejects non-proposal roles and closed proposal pages", () => {
   using fixture = tempDocs("doc-links-closed-proposal-role");
-  fixture.write("proposals/implemented.md", "---\nrole: implementation-record\n---\n\n# Implemented\n");
+  fixture.write("proposals/reference.md", "---\nrole: reference\n---\n\n# Reference\n");
   fixture.write("proposals/rejected.md", "---\nrole: proposal\nstatus: rejected\n---\n\n# Rejected\n");
   fixture.write("proposals/superseded.md", "---\nrole: proposal\nstatus: superseded\n---\n\n# Superseded\n");
 
@@ -175,7 +189,7 @@ test("rejects non-proposal roles and closed proposal pages", () => {
 
   assert.equal(result.valid, false);
   assert.deepEqual(result.errors, [
-    "proposals/implemented.md:2: move this role: implementation-record page out of docs/proposals or change it to role: proposal while the work remains active",
+    "proposals/reference.md:2: move this role: reference page out of docs/proposals or change it to role: proposal while the work remains active",
     "proposals/rejected.md:3: move or remove this status: rejected page; active proposals do not declare an exceptional lifecycle status",
     "proposals/superseded.md:3: move or remove this status: superseded page; active proposals do not declare an exceptional lifecycle status",
   ]);
@@ -192,107 +206,6 @@ test("rejects missing or duplicate proposal roles", () => {
   assert.deepEqual(result.errors, [
     "proposals/duplicate.md:3: keep exactly one role: proposal field so the proposal purpose is unambiguous",
     "proposals/missing.md: add YAML frontmatter with role: proposal; docs/proposals contains only active proposal pages",
-  ]);
-});
-
-test("allows archival routes from proposals through implemented records", () => {
-  using fixture = tempDocs("doc-links-implemented-proposal-route");
-  fixture.write(
-    "proposals/README.md",
-    [
-      "# Proposals",
-      "",
-      "[archived boundary](../reference/implemented-proposals/schema-boundary.md)",
-    ].join("\n"),
-  );
-  fixture.write(
-    "reference/implemented-proposals/schema-boundary.md",
-    [
-      "# Schema Boundary",
-      "",
-      "[current syntax](../../specification/source-surface.md)",
-    ].join("\n"),
-  );
-  fixture.write("specification/source-surface.md", "# Source Surface\n");
-
-  const result = validateDocsLinks(fixture.root);
-
-  assert.deepEqual(result.errors, []);
-  assert.equal(result.valid, true);
-});
-
-test("rejects bare implemented proposal paths in the proposal catalog", () => {
-  using fixture = tempDocs("doc-links-proposal-catalog-bare-path");
-  fixture.git("init");
-  fixture.write(
-    "proposals/README.md",
-    [
-      "# Proposals",
-      "",
-      "Archived under `../reference/implemented-proposals/schema-boundary.md`.",
-    ].join("\n"),
-  );
-  fixture.write(
-    "reference/implemented-proposals/schema-boundary.md",
-    "# Schema Boundary\n",
-  );
-  fixture.git("add", ".");
-
-  const result = validateDocsLinks(fixture.root);
-
-  assert.equal(result.valid, false);
-  assert.deepEqual(result.errors, [
-    "proposals/README.md:3: use a Markdown link for implemented proposal route: ../reference/implemented-proposals/schema-boundary.md",
-  ]);
-});
-
-test("allows linked implemented proposal paths in the proposal catalog", () => {
-  using fixture = tempDocs("doc-links-proposal-catalog-linked-path");
-  fixture.git("init");
-  fixture.write(
-    "proposals/README.md",
-    [
-      "# Proposals",
-      "",
-      "Archived under [schema-boundary.md](../reference/implemented-proposals/schema-boundary.md).",
-    ].join("\n"),
-  );
-  fixture.write(
-    "reference/implemented-proposals/schema-boundary.md",
-    "# Schema Boundary\n",
-  );
-  fixture.git("add", ".");
-
-  const result = validateDocsLinks(fixture.root);
-
-  assert.deepEqual(result.errors, []);
-  assert.equal(result.valid, true);
-});
-
-test("rejects implemented records listed as remaining proposal routes", () => {
-  using fixture = tempDocs("doc-links-implemented-remaining-route");
-  fixture.write(
-    "reference/implemented-proposals/driver.md",
-    [
-      "# Driver",
-      "",
-      "Remaining work is split into these proposal routes:",
-      "",
-      "- [active](../../proposals/active.md)",
-      "- [completed](completed.md)",
-    ].join("\n"),
-  );
-  fixture.write("proposals/active.md", "---\nrole: proposal\n---\n\n# Active\n");
-  fixture.write(
-    "reference/implemented-proposals/completed.md",
-    "# Completed\n",
-  );
-
-  const result = validateDocsLinks(fixture.root);
-
-  assert.equal(result.valid, false);
-  assert.deepEqual(result.errors, [
-    "reference/implemented-proposals/driver.md:6: remove implemented proposal from remaining-work routes: completed.md; completed routes must point readers to current specification and executable evidence",
   ]);
 });
 
