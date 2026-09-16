@@ -614,3 +614,13 @@ workspace_file_uri = "main.veln"
 id = 10
 path = "/result/structuredContent/references/6/range"
 equals = {"start":{"line":5,"column":33},"end":{"line":5,"column":43}}
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}

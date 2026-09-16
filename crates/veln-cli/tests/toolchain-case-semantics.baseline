@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"2dacf6eb6fdedd7c990ba58bfd9707218c32de6c"
+source_git_tree	"adfaeafeeb4e2410b5d0d2a7f465cf005fee04c6"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1680
@@ -17633,6 +17633,14 @@ field	expectations.mcp_assertions[121].equals	{"end":{"column":43,"line":5},"sta
 field	expectations.mcp_assertions[121].id	10
 field	expectations.mcp_assertions[121].operation	"equals"
 field	expectations.mcp_assertions[121].path	"/result/structuredContent/references/6/range"
+field	expectations.mcp_assertions[122].id	11
+field	expectations.mcp_assertions[122].length	0
+field	expectations.mcp_assertions[122].operation	"length"
+field	expectations.mcp_assertions[122].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[123].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
+field	expectations.mcp_assertions[123].id	11
+field	expectations.mcp_assertions[123].operation	"equals"
+field	expectations.mcp_assertions[123].path	"/result/structuredContent/scope"
 field	expectations.mcp_assertions[12].id	2
 field	expectations.mcp_assertions[12].operation	"workspace_file_uri"
 field	expectations.mcp_assertions[12].path	"/result/structuredContent/references/5/uri"
@@ -18024,9 +18032,9 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/references/
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1380,"sha256":"bed618cb8a18b5f5f6d5792e3a839ec952edf7cbb2fac228951ca74707457ee0"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1515,"sha256":"54ebdc47cda84a8e072fb7b046efe1d913889b96a515b764a0a5f8dcb4893a0a"}
 field	source_errors	"forbidden"
-case_digest	"e9d464edf0f9b7327ddf2bf03267b49cdfad1354fae5c6ceaf975026b31cc6a6"
+case_digest	"2ee329eec69fa4efede7f1d38405155abd3a7be4920457d7d5e566e76b985200"
 case	"examples/specification/mcp/references-workspace-schema-composition"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	false
@@ -57393,4 +57401,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e6d919f3977313c91869b4c796eb99d3ec701497cba7d5518dc41effb6c786a5"
+aggregate_digest	"eab725b94592de097a4eefadfe57b65beb9b4d5147a98a4fd9dea09779b784f9"
