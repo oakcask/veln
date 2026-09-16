@@ -1,0 +1,14 @@
+use upstream from "up/pkg"
+
+pub type Target
+end
+
+pub fn value() -> Int
+  1
+end
+
+pub type Good = Target
+pub type MissingAlias = Missing
+pub type WrongKind = value
+pub type Chain = Good
+pub type Transitive = upstream::Alias

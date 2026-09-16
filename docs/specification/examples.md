@@ -304,6 +304,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   source declarations, ambiguous recovery refusal, and valid-symbol
   precedence:
   `../../examples/specification/mcp/definition-recovery-navigation/`.
+- MCP saved workspace `definition` for supported direct-dependency public type
+  aliases and unsupported direct-dependency type-alias targets:
+  `../../examples/specification/mcp/definition-dependency-type-alias/`.
 - MCP saved workspace `references` tool schema advertising, function, type,
   constructor, value-binding, and handler parameter references,
   unsupported-symbol success, recovery exclusion, invalid-position results,
@@ -314,6 +317,22 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-standard-library-function/`.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
+- MCP saved workspace `references` for visible direct-dependency public type
+  aliases, including unsupported selections and workspace-file URI assertions
+  for each returned reference:
+  `../../examples/specification/mcp/references-dependency-type-alias/`.
+- MCP saved workspace `references` for direct-dependency public type aliases
+  through multi-segment written module paths, implicit leaf import aliases,
+  differing alias and target spellings, transitive-target rejection, and
+  workspace-file URI assertions for each returned reference:
+  `../../examples/specification/mcp/references-dependency-type-alias-identity-boundaries/`.
+- MCP saved workspace `references` for visible direct-dependency public type
+  aliases whose targets live in retained non-exported dependency modules:
+  `../../examples/specification/mcp/references-dependency-type-alias-hidden-target/`.
+- MCP saved workspace `references` for direct-dependency public type aliases
+  selected from one sibling workspace project without collecting same-spelled
+  occurrences from another selected sibling project:
+  `../../examples/specification/mcp/references-dependency-type-alias-project-isolation/`.
 - MCP saved workspace `references` for visible direct-dependency and
   standard-library types:
   `../../examples/specification/mcp/references-package-type/`.

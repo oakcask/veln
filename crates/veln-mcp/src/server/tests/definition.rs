@@ -266,6 +266,162 @@ fn definition_resolves_public_package_symbol_classes() {
 }
 
 #[test]
+fn definition_supports_direct_dependency_type_aliases_with_supported_targets() {
+    let workspace = TempWorkspace::new("definition-dependency-type-alias");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/dep\"]\n",
+            "path = \"vendor/dep\"\n",
+            "\n",
+            "[dependencies.\"other/dep\"]\n",
+            "path = \"vendor/other\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model from \"example/dep\"\n",
+            "use other_model from \"other/dep\"\n\n",
+            "fn read(good: model::Good, missing: model::MissingAlias, wrong: model::WrongKind, chain: model::Chain, transitive: model::Transitive) -> other_model::Good\n",
+            "  good\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/model.veln",
+        concat!(
+            "use upstream from \"up/pkg\"\n\n",
+            "pub type Target\n",
+            "end\n\n",
+            "pub fn value() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "pub type Good = Target\n",
+            "pub type MissingAlias = Missing\n",
+            "pub type WrongKind = value\n",
+            "pub type Chain = Good\n",
+            "pub type Transitive = upstream::Alias\n",
+        ),
+    );
+    workspace.write(
+        "vendor/other/veln.toml",
+        "[package]\nname = \"other/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write("vendor/other/model.veln", "pub type Good\nend\n");
+
+    let supported = definition_result(&workspace, "main.veln", 4, 22);
+    assert_eq!(supported["isError"], false, "{supported:#}");
+    let location = &supported["structuredContent"]["definition"];
+    let uri = location["uri"].as_str().unwrap();
+    assert!(
+        uri.starts_with("veln-pkg:///example%2Fdep/snapshot/"),
+        "{uri}"
+    );
+    assert!(uri.ends_with("/model.veln"), "{uri}");
+    assert_eq!(
+        location["range"],
+        json!({"start":{"line":10,"column":10},"end":{"line":10,"column":14}})
+    );
+
+    for (name, column) in [
+        ("unresolved target", 44),
+        ("wrong-kind target", 72),
+        ("alias-chain target", 97),
+        ("transitive target", 123),
+    ] {
+        let unsupported = definition_result(&workspace, "main.veln", 4, column);
+        assert_eq!(unsupported["isError"], false, "{name}: {unsupported:#}");
+        assert_eq!(
+            unsupported["structuredContent"]["definition"],
+            Value::Null,
+            "{name}"
+        );
+        assert_eq!(unsupported.get("error"), None, "{name}: {unsupported:#}");
+    }
+}
+
+#[test]
+fn definition_rejects_type_alias_targets_that_do_not_resolve_semantically() {
+    struct Case {
+        name: &'static str,
+        dependency_sources: Vec<(&'static str, &'static str)>,
+    }
+
+    let cases = [
+        Case {
+            name: "invalid-module-target",
+            dependency_sources: vec![
+                ("model.veln", "use Bad\n\npub type Alias = Bad::Target\n"),
+                ("Bad.veln", "pub type Target\nend\n"),
+            ],
+        },
+        Case {
+            name: "parse-diagnostic-target",
+            dependency_sources: vec![
+                (
+                    "model.veln",
+                    "use broken\n\npub type Alias = broken::Target\n",
+                ),
+                ("broken.veln", "pub type Target\n  pub Ready(Int)\n"),
+            ],
+        },
+        Case {
+            name: "ambiguous-target",
+            dependency_sources: vec![(
+                "model.veln",
+                concat!(
+                    "pub type Target\n",
+                    "end\n\n",
+                    "pub type Target\n",
+                    "end\n\n",
+                    "pub type Alias = Target\n",
+                ),
+            )],
+        },
+    ];
+
+    for case in cases {
+        let workspace =
+            TempWorkspace::new(&format!("definition-dependency-type-alias-{}", case.name));
+        workspace.write(
+            "veln.toml",
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+        );
+        workspace.write(
+            "main.veln",
+            concat!(
+                "use model from \"example/dep\"\n\n",
+                "fn read(input: model::Alias) -> model::Alias\n",
+                "  input\n",
+                "end\n",
+            ),
+        );
+        workspace.write(
+            "vendor/dep/veln.toml",
+            "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+        );
+        for (path, text) in case.dependency_sources {
+            workspace.write(&format!("vendor/dep/{path}"), text);
+        }
+
+        let result = definition_result(&workspace, "main.veln", 3, 23);
+
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["definition"],
+            Value::Null,
+            "{}",
+            case.name
+        );
+    }
+}
+
+#[test]
 fn definition_returns_readable_dependency_documentation_links() {
     let workspace = TempWorkspace::new("definition-dependency-documentation-links");
     write_workspace_with_navigation_dependency(&workspace, DependencySourceKind::Path);

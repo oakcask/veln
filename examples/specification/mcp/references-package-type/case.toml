@@ -126,12 +126,7 @@ equals = {"start":{"line":28,"column":55},"end":{"line":28,"column":59}}
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/references"
-length = 1
-
-[[mcp_assert]]
-id = 5
-path = "/result/structuredContent/references/0/range"
-equals = {"start":{"line":21,"column":28},"end":{"line":21,"column":32}}
+equals = []
 
 [[mcp_assert]]
 id = 6

@@ -60,6 +60,8 @@ impl SymbolIndex {
             operations: declarations.operations,
             functions: declarations.functions,
             package_function_targets: declarations.package_function_targets,
+            package_type_targets: declarations.package_type_targets,
+            package_constructor_targets: declarations.package_constructor_targets,
             types: declarations.types,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
@@ -404,11 +406,7 @@ fn visible_imported_type_alias_for_bare_reference(
 ) -> bool {
     symbol.name == name
         && match &symbol.package {
-            Some(package) => {
-                file.external_uses
-                    .contains(&(symbol.module.clone(), package.clone()))
-                    || symbol.standard_prelude
-            }
+            Some(_) => symbol.standard_prelude,
             None => symbol.module != file.module && file.uses.contains(&symbol.module),
         }
 }
