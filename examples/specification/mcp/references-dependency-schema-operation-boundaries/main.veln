@@ -14,6 +14,12 @@ fn read(view: ByteView) -> ()
   decode public::Missing from view at byte_offset(0)?
   decode public::Alias from view at byte_offset(0)?
   decode public::AliasChain from view at byte_offset(0)?
+  decode public::CollidingAlias from view at byte_offset(0)?
+  decode private::PrivateAlias from view at byte_offset(0)?
+  decode hidden::HiddenAlias from view at byte_offset(0)?
+  decode mismatch::OtherAlias from view at byte_offset(0)?
+  decode transitive::TransitiveAlias from view at byte_offset(0)?
+  decode public::badAlias from view at byte_offset(0)?
 
   decode public::Public from view at byte_offset(0)?
 end

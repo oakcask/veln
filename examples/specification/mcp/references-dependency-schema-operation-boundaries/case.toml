@@ -92,6 +92,37 @@ path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
+id = 16
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 20
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 21
+path = "/result/structuredContent/references"
+equals = []
+
+
+[[mcp_assert]]
 id = 2
 path = "/result/structuredContent/scope"
 equals = {"mode":"project","generation":0,"project":".","project_wide":true}

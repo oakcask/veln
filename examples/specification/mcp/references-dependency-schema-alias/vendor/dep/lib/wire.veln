@@ -3,6 +3,10 @@ pub schema Packet
   value: UInt8
 end
 
+pub type Packet
+  pub Ready(Int)
+end
+
 pub schema WirePacket = Packet
 
 schema PackageFrame

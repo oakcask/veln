@@ -11,7 +11,7 @@ This page specifies source name resolution and identifier casing behavior.
 Implemented checker namespaces are:
 
 - module imports
-- schema declarations
+- schema declarations and public schema aliases
 - effect declarations
 - handler declarations
 - effect operation declarations
@@ -34,6 +34,12 @@ that position admits both namespaces. The
 namespace-by-use-role boundaries, lower-case exact spelling collisions between
 casing-neutral declarations and value names, and the same-namespace duplicate
 boundary.
+
+A direct-dependency public schema alias target resolves only in the schema
+namespace of its own module and dependency. The bare target name must identify
+exactly one public schema declaration, and no schema alias may share that name.
+Same-spelled declarations in unrelated namespaces do not affect this target
+lookup.
 
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import

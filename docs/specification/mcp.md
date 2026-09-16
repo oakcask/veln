@@ -482,7 +482,10 @@ boundaries.
 An eligible public schema alias declared in an exported module of a retained
 direct dependency has a separate operation-reference identity. Its written
 target must be a bare name that resolves uniquely to a public schema
-declaration in the same module and retained dependency. Selecting a saved
+declaration in the same module and retained dependency. No schema alias in
+that schema namespace may have the target name. A declaration in an unrelated
+namespace, such as a type with the target name, does not affect eligibility.
+Selecting a saved
 `decode` or `encode` alias leaf through the full imported module path or its
 valid implicit leaf alias returns every operation leaf with the same dependency
 and alias-declaration identity in the selected project's owned sources. The
@@ -493,7 +496,12 @@ aliases and targets, standard-library and transitive aliases, non-exported
 modules, mismatched imports, and recovered operations remain successful empty
 results. Definition and rename behavior does not expand to package schema
 aliases. The `references-dependency-schema-alias` MCP case is the exact-range
-protocol contract and has a paired LSP case over identical saved sources.
+protocol contract and has a paired LSP case over identical saved sources. The
+paired cases keep the alias eligible when a type shares its target name. The
+`references-dependency-schema-operation-boundaries` case requires successful
+empty results when a schema alias shares the target name and for invalid,
+non-exported, mismatched-import, and transitive alias selections. Focused MCP
+tests cover recovered alias declarations.
 
 It also exposes references to public function, type, and constructor
 declarations from

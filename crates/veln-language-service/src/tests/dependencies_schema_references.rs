@@ -123,6 +123,7 @@ mod dependencies_schema_references_tests {
                 "lib/wire.veln",
                 concat!(
                     "pub schema Packet\n  format binary\n  value: UInt8\nend\n\n",
+                    "pub type Packet\n  pub Ready(Int)\nend\n\n",
                     "pub schema WirePacket = Packet\n",
                     "pub schema OtherPacket = Packet\n",
                 ),
@@ -371,6 +372,22 @@ mod dependencies_schema_references_tests {
                     "pub schema Alias = Packet\n",
                 ),
             ),
+            (
+                "target alias collision",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Other\n  value: Int\nend\n\n",
+                    "pub schema Packet = Other\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            ),
+            (
+                "recovered alias declaration",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias =\n",
+                ),
+            ),
         ];
 
         for (name, dependency_source) in cases {
@@ -397,6 +414,31 @@ mod dependencies_schema_references_tests {
                 "{name} must not select an alias or fall back to another schema"
             );
         }
+
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "dep.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema badAlias = Packet\n",
+                ),
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::badAlias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
     }
 
     #[test]

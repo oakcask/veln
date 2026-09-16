@@ -83,6 +83,7 @@ fn references_keep_sibling_selected_projects_isolated_for_dependency_schemas() {
         "use dep from \"example/dep\"\n\n",
         "fn read(view: ByteView) -> ()\n",
         "  decode dep::Packet from view at byte_offset(0)?\n",
+        "  decode dep::Alias from view at byte_offset(0)?\n",
         "end\n",
     );
     for project in ["left", "right"] {
@@ -94,7 +95,7 @@ fn references_keep_sibling_selected_projects_isolated_for_dependency_schemas() {
         );
         workspace.write(
             &format!("{project}/vendor/dep/dep.veln"),
-            "pub schema Packet\n  value: Int\nend\n",
+            "pub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
         );
     }
 
@@ -115,6 +116,18 @@ fn references_keep_sibling_selected_projects_isolated_for_dependency_schemas() {
         &[("left/main.veln", 4, 15, 4, 21)],
         "sibling project dependency schema isolation",
     );
+
+    let alias = references_result(&workspace, "left/main.veln", 5, 16);
+    assert_eq!(alias["isError"], false, "{alias:#}");
+    assert_eq!(
+        alias["structuredContent"]["scope"],
+        result["structuredContent"]["scope"]
+    );
+    assert_reference_ranges(
+        &alias,
+        &[("left/main.veln", 5, 15, 5, 20)],
+        "sibling project dependency schema alias isolation",
+    );
 }
 
 #[test]
@@ -129,11 +142,12 @@ fn references_do_not_borrow_dependency_context_for_descendant_or_anonymous_sourc
         "use dep from \"example/dep\"\n\n",
         "fn read(view: ByteView) -> ()\n",
         "  decode dep::Packet from view at byte_offset(0)?\n",
+        "  decode dep::Alias from view at byte_offset(0)?\n",
         "end\n",
     );
     let dependency_manifest =
         "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n";
-    let dependency_source = "pub schema Packet\n  value: Int\nend\n";
+    let dependency_source = "pub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n";
     let cases = [
         Case {
             name: "descendant project",
@@ -193,6 +207,20 @@ fn references_do_not_borrow_dependency_context_for_descendant_or_anonymous_sourc
             "{}: {result:#}",
             case.name
         );
+
+        let alias = references_result(&workspace, case.source, 5, 16);
+        assert_eq!(alias["isError"], false, "{}: {alias:#}", case.name);
+        assert_eq!(
+            alias["structuredContent"]["scope"], result["structuredContent"]["scope"],
+            "{}: {alias:#}",
+            case.name
+        );
+        assert_eq!(
+            alias["structuredContent"]["references"],
+            json!([]),
+            "{}: {alias:#}",
+            case.name
+        );
     }
 }
 
@@ -203,6 +231,7 @@ fn references_exclude_unselected_descendant_sources_from_parent_project_scope() 
         "use dep from \"example/dep\"\n\n",
         "fn read(view: ByteView) -> ()\n",
         "  decode dep::Packet from view at byte_offset(0)?\n",
+        "  decode dep::Alias from view at byte_offset(0)?\n",
         "end\n",
     );
     workspace.write(
@@ -218,7 +247,7 @@ fn references_exclude_unselected_descendant_sources_from_parent_project_scope() 
     );
     workspace.write(
         "vendor/dep/dep.veln",
-        "pub schema Packet\n  value: Int\nend\n",
+        "pub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
     );
 
     let result = references_result(&workspace, "main.veln", 4, 16);
@@ -237,6 +266,18 @@ fn references_exclude_unselected_descendant_sources_from_parent_project_scope() 
         &result,
         &[("main.veln", 4, 15, 4, 21)],
         "parent project excludes descendant package sources",
+    );
+
+    let alias = references_result(&workspace, "main.veln", 5, 16);
+    assert_eq!(alias["isError"], false, "{alias:#}");
+    assert_eq!(
+        alias["structuredContent"]["scope"],
+        result["structuredContent"]["scope"]
+    );
+    assert_reference_ranges(
+        &alias,
+        &[("main.veln", 5, 15, 5, 20)],
+        "parent project excludes descendant schema-alias operations",
     );
 }
 
@@ -269,6 +310,12 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "  decode public::Missing from view at byte_offset(0)?\n",
             "  decode public::Alias from view at byte_offset(0)?\n",
             "  decode public::AliasChain from view at byte_offset(0)?\n",
+            "  decode public::CollidingAlias from view at byte_offset(0)?\n",
+            "  decode private::PrivateAlias from view at byte_offset(0)?\n",
+            "  decode hidden::HiddenAlias from view at byte_offset(0)?\n",
+            "  decode mismatch::OtherAlias from view at byte_offset(0)?\n",
+            "  decode transitive::TransitiveAlias from view at byte_offset(0)?\n",
+            "  decode public::badAlias from view at byte_offset(0)?\n",
             "end\n\n",
             "schema Frame\n",
             "  nested: public::Public\n",
@@ -286,6 +333,11 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "pub schema badSchema\n  value: Int\nend\n\n",
             "pub schema Alias = Public\n\n",
             "pub schema AliasChain = Alias\n\n",
+            "pub schema Other\n  value: Int\nend\n\n",
+            "pub schema CollisionTarget\n  value: Int\nend\n\n",
+            "pub schema CollisionTarget = Other\n\n",
+            "pub schema CollidingAlias = CollisionTarget\n\n",
+            "pub schema badAlias = Public\n\n",
             "fn package_operations(view: ByteView, value: {value: Int}) -> ()\n",
             "  decode Public from view at byte_offset(0)?\n",
             "  encode Public from value\n",
@@ -294,11 +346,11 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
     );
     workspace.write(
         "vendor/dep/private.veln",
-        "schema Private\n  value: Int\nend\n",
+        "schema Private\n  value: Int\nend\n\npub schema PrivateAlias = Private\n",
     );
     workspace.write(
         "vendor/dep/hidden.veln",
-        "pub schema Hidden\n  value: Int\nend\n",
+        "pub schema Hidden\n  value: Int\nend\n\npub schema HiddenAlias = Hidden\n",
     );
     workspace.write(
         "vendor/other/veln.toml",
@@ -306,7 +358,10 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
     );
     workspace.write(
         "vendor/other/other.veln",
-        "pub schema Public\n  value: Int\nend\n",
+        concat!(
+            "pub schema Public\n  value: Int\nend\n\n",
+            "pub schema OtherAlias = Public\n",
+        ),
     );
     workspace.write(
         "vendor/bridge/veln.toml",
@@ -331,7 +386,10 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
     );
     workspace.write(
         "vendor/transitive/public.veln",
-        "pub schema Public\n  value: Int\nend\n",
+        concat!(
+            "pub schema Public\n  value: Int\nend\n\n",
+            "pub schema TransitiveAlias = Public\n",
+        ),
     );
     workspace.write(
         "recovery.veln",
@@ -351,12 +409,28 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("invalid casing", "main.veln", 12, 18),
         ("unresolved", "main.veln", 13, 18),
         ("package alias chain", "main.veln", 15, 18),
-        ("package composition", "main.veln", 19, 19),
+        ("alias target collision", "main.veln", 16, 18),
+        ("private alias target", "main.veln", 17, 19),
+        ("non-exported alias", "main.veln", 18, 18),
+        ("mismatched alias import", "main.veln", 19, 20),
+        ("transitive alias", "main.veln", 20, 22),
+        ("invalid-casing alias", "main.veln", 21, 18),
+        ("package composition", "main.veln", 25, 19),
         ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),
     ] {
         let result = references_result(&workspace, source, line, column);
         assert_eq!(result["isError"], false, "{name}: {result:#}");
+        assert_eq!(
+            result["structuredContent"]["scope"],
+            json!({
+                "mode": "project",
+                "generation": 0,
+                "project": ".",
+                "project_wide": true
+            }),
+            "{name}: {result:#}"
+        );
         assert_eq!(
             result["structuredContent"]["references"],
             json!([]),
@@ -370,6 +444,46 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         &alias,
         &[("main.veln", 14, 18, 14, 23)],
         "direct dependency schema alias operation",
+    );
+}
+
+#[test]
+fn references_keep_recovered_dependency_schema_alias_declarations_empty() {
+    let workspace = TempWorkspace::new("references-recovered-dependency-schema-alias");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode dep::Alias from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub schema Packet\n  value: Int\nend\n\npub schema Alias =\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 16);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
     );
 }
 

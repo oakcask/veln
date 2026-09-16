@@ -7,9 +7,15 @@
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":14,"column":18}}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":15,"column":18}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":16,"column":18}}}
-{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":22,"column":19}}}
-{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":18,"column":10}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":28,"column":19}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":24,"column":10}}}
 {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"recovery.veln","line":4,"column":10}}}
 {"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"syntax-recovery.veln","line":4,"column":18}}}
 {"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"references","arguments":{"source":"syntax-recovery.veln","line":8,"column":18}}}
 {"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"references","arguments":{"source":"syntax-recovery.veln","line":12,"column":18}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":17,"column":18}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":18,"column":19}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":19,"column":18}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":20,"column":20}}}
+{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":21,"column":22}}}
+{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":22,"column":18}}}

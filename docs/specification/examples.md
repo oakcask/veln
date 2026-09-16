@@ -328,10 +328,13 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP and LSP saved workspace `references` for eligible direct-dependency
   public schema-alias `decode` and `encode` leaves:
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
-  `../../examples/specification/lsp/references-dependency-schema-alias/`.
+  `../../examples/specification/lsp/references-dependency-schema-alias/`. The
+  paired cases also keep schema-target lookup isolated from a same-spelled type
+  declaration.
 - MCP successful-empty `references` boundaries for unsupported
   direct-dependency schema operation selections, including package schema
-  alias chains and syntax-recovered operation leaves:
+  alias chains, alias-target schema namespace collisions, invalid aliases,
+  graph-ineligible aliases, and syntax-recovered operation leaves:
   `../../examples/specification/mcp/references-dependency-schema-operation-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases, including unsupported selections and workspace-file URI assertions

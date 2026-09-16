@@ -8,6 +8,15 @@ end
 
 pub schema Alias = Public
 pub schema AliasChain = Alias
+pub schema Other
+  value: Int
+end
+pub schema CollisionTarget
+  value: Int
+end
+pub schema CollisionTarget = Other
+pub schema CollidingAlias = CollisionTarget
+pub schema badAlias = Public
 
 fn package_operations(view: ByteView, value: {value: Int}) -> ()
   decode Public from view at byte_offset(0)?

@@ -381,6 +381,11 @@ fn eligible_schema_aliases(
                     })
                     .count()
                     == 1
+                    && !aliases.iter().any(|candidate| {
+                        candidate.package.as_deref() == Some(package)
+                            && candidate.module == alias.module
+                            && candidate.name == target_name
+                    })
                     && !package_targets.iter().any(|target| {
                         target.package == package
                             && target.module == alias.module

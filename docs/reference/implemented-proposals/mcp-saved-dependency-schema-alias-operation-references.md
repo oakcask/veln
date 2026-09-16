@@ -34,9 +34,11 @@ this record.
 An eligible alias is a valid `pub schema` alias in an exported module of a
 retained direct dependency. Its target is a bare name resolving uniquely to a
 public schema declaration in the alias's own module. Alias and target names
-must satisfy current casing and declaration rules. Qualified targets, targets
-in another module or package, and targets that are aliases are outside this
-slice, even if another language capability can resolve them.
+must satisfy current casing and declaration rules. A schema alias with the
+target name makes the target ambiguous, while a same-spelled declaration in an
+unrelated namespace does not affect schema-target lookup. Qualified targets,
+targets in another module or package, and targets that are aliases are outside
+this slice, even if another language capability can resolve them.
 
 An eligible selection is the written schema-alias path leaf of a parsed saved
 workspace `decode` or `encode` expression. The path must resolve to the alias
@@ -70,6 +72,7 @@ Exact sets must identify source leaves per response, not merely count them.
 | Select either a `decode` or an `encode` leaf for one eligible alias in a project with several owned sources. | Both return the same exact ordered operation-leaf set across those sources. | Shared navigation tests and an MCP JSONL case. |
 | Use a full imported module path and its valid implicit leaf alias. | Both select the same alias; bare imported names remain empty. | Import-resolution tests and exact MCP ranges. |
 | Two aliases target one schema; two dependencies export the same alias spelling; a workspace alias has that spelling. | Each identity has its own reference set. Selecting the target schema excludes alias uses. | Exact-set identity tests and paired alias/target MCP selections. |
+| A schema alias or an unrelated-namespace declaration shares the target name. | The schema-alias collision is successful empty; the unrelated-namespace declaration does not change the eligible alias reference set. | Shared namespace tests, the MCP boundary case, and paired MCP/LSP cases. |
 | The alias or target is duplicated, invalid-casing, unresolved, private, wrong-kind, cyclic, or syntax-recovered. | Successful empty references without lexical fallback to a same-spelled valid declaration. | Shared negative table and MCP boundary cases. |
 | The alias's target is qualified, belongs to another module or package, or is another alias. | Successful empty references for this bounded slice. | Target-boundary fixtures, including a valid cross-module target and an alias chain. |
 | Select an alias from a non-exported module, a mismatched import, a transitive dependency, or the standard library. | Successful empty references with existing scope metadata. | Graph-aware MCP boundary cases; inject a standard-library alias in a focused server test if needed. |
@@ -91,9 +94,12 @@ through the bounded runners described by
 [Toolchain Test Harness](../toolchain-test-harness.md).
 
 The dependency-schema operation boundary fixtures contain a direct same-module
-alias and an alias chain. The former has positive evidence. The latter retains
-its empty result and coverage for excluded package schema classes. Current MCP
-and editor specifications own the implemented behavior.
+alias, an alias chain, a target-name schema-alias collision, invalid and
+graph-ineligible alias selections. They preserve the required positive or
+successful-empty result for each boundary. Focused shared and MCP tests cover
+recovered alias declarations. The paired dependency-schema-alias cases
+preserve positive resolution when an unrelated type shares the target name.
+Current MCP and editor specifications own the implemented behavior.
 
 ## Deferred Boundary
 

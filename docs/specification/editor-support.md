@@ -255,7 +255,9 @@ For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace operation
 leaves as MCP when declaration inclusion is false. The alias target must be a
 unique public schema named by a bare target in the alias's module and retained
-dependency. Alias identity includes the dependency and alias declaration, so
+dependency. No schema alias in that schema namespace may share the target
+name. Same-spelled declarations in unrelated namespaces do not affect target
+resolution. Alias identity includes the dependency and alias declaration, so
 target-schema uses, sibling aliases, and same-spelled aliases from other
 dependencies remain separate. Full written module paths and valid implicit
 leaf aliases select that identity. Bare imported names, qualified and chained
@@ -264,7 +266,10 @@ transitive aliases, invalid or ambiguous declarations, and recovered
 operations remain empty. Package declarations are never added when declaration
 inclusion is true, and definition and rename support do not expand. The
 `references-dependency-schema-alias` LSP case is paired with the MCP case and
-fixes their normalized URI and range parity over identical non-BMP saved input.
+fixes their normalized URI and range parity over identical non-BMP saved input,
+including a same-spelled type in the alias target's module. Shared navigation
+tests and the MCP dependency-schema boundary case cover target-name schema
+alias collisions and invalid or graph-ineligible alias selections.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.

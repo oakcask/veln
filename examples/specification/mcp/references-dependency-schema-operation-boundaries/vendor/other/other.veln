@@ -1,3 +1,5 @@
 pub schema Public
   value: Int
 end
+
+pub schema OtherAlias = Public
