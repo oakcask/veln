@@ -18,7 +18,9 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Add saved standard-library public type-alias references through the existing
+  MCP `references` tool:
+  [mcp-saved-standard-library-type-alias-references.md](mcp-saved-standard-library-type-alias-references.md).
 
 ## Blocked
 
@@ -50,6 +52,9 @@ No proposal is ready for implementation.
   Its direct-dependency public type-alias reference slice is implemented and
   recorded by
   [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md).
+  Its standard-library public type-alias reference slice is ready and tracked
+  separately by
+  [MCP Saved Standard-Library Type-Alias References](mcp-saved-standard-library-type-alias-references.md).
   Do not select the umbrella
   directly:
   [agent-language-services.md](agent-language-services.md).
