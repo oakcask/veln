@@ -1,0 +1,9 @@
+pub type LocalCount = ByteCount
+
+fn first(count: ByteCount) -> prelude::ByteCount
+  count
+end
+
+fn second(counts: Vec<ByteCount>) -> Vec<prelude::ByteCount>
+  counts
+end

@@ -397,10 +397,14 @@ function identity. Supported direct-dependency public type aliases whose
 targets resolve to package type declarations in the same retained direct
 dependency can return package definition locations and workspace reference
 locations for selected-project uses through the shared navigation model.
+Supported standard-library public type aliases whose targets resolve to
+standard-library type declarations can return workspace reference locations for
+selected-project uses through the shared navigation model, while their
+definition lookup remains unsupported.
 Public type-alias references use the alias identity, not the target type
-identity. Standard-library public type aliases, alias chains, transitive
-package targets, and unresolved or wrong-kind targets remain unsupported and
-produce no definition or reference locations. The
+identity. Alias chains, transitive package targets, and unresolved or
+wrong-kind targets remain unsupported and produce no definition or reference
+locations. The
 executable
 `identifier-casing-qualified-function-navigation` LSP example covers a
 module-only qualified public function imported from another workspace source
@@ -714,8 +718,8 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency and
-  standard-library public function, public function-alias, direct-dependency
-  public type-alias, public type, and public constructor reference boundaries.
+  standard-library public function, public function-alias, public type-alias,
+  public type, and public constructor reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, embedded standard-library,

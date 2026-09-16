@@ -457,7 +457,9 @@ declaration anywhere in the same retained direct dependency use their alias
 identity and expose references through the package type boundary. The target
 type may be private or may live in a retained non-exported source when the
 exported alias is visible to the selected project. Standard-library public
-type aliases remain outside the supported reference boundary.
+type aliases whose target resolves uniquely to a standard-library type
+declaration also use their alias identity and expose references through the
+package type boundary.
 
 Package function results include qualified calls, qualified function-value
 occurrences, and occurrences qualified by an import alias. Supported package
@@ -472,9 +474,10 @@ through a public type alias succeeds but returns an empty `references` array.
 Supported package type-alias results include type annotations, type arguments,
 return types, type occurrences in type-alias right-hand sides, and the alias
 type segment used as a constructor qualifier. They include occurrences
-qualified by the written package module path or an import alias. Alias
-reference results remain separate from the aliased target type's results,
-including when the alias and target type have the same spelling.
+qualified by the written package module path, an import alias, or an accepted
+implicit standard-library prelude form. Alias reference results remain
+separate from the aliased target type's results, including when the alias and
+target type have the same spelling.
 Package reference results include only occurrences in the selected project's
 captured owned sources.
 They exclude the package declaration, package source bodies, other selected
@@ -663,6 +666,11 @@ the same successful result shape for the shipped `std::prelude`
 function-value occurrences, and `prelude::`-qualified calls. It also checks
 unsupported alias-chain selection plus unresolved, wrong-kind, and
 invalid-casing alias targets.
+The `references-standard-library-type-alias` MCP specification case checks
+the same successful result shape for the shipped `std::prelude` `ByteCount`
+alias selected through bare and `prelude::`-qualified type occurrences. Its
+reference assertions bind every returned range to the source workspace file
+URI.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes

@@ -314,7 +314,10 @@ impl SymbolIndex {
     }
 
     fn type_alias_references_supported(&self, symbol: &TypeAliasSymbol) -> bool {
-        matches!(symbol.package_origin, Some(PackageOrigin::DirectDependency))
+        matches!(
+            symbol.package_origin,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        )
             && self.type_alias_target_resolves_to_type(symbol)
     }
 

@@ -36,6 +36,21 @@ fn install_alias_standard_library(server: &mut Server, source: &str) {
     );
 }
 
+fn install_type_alias_standard_library(server: &mut Server, sources: &[(&str, &str)]) {
+    let exports = sources
+        .iter()
+        .map(|(path, _)| format!("\"{path}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let manifest = format!("[package]\nname = \"std\"\n\n[lib]\nexports = [{exports}]\n");
+    server.language_resources.replace_test_standard_library(
+        &manifest,
+        sources
+            .iter()
+            .map(|(path, source)| PackageSnapshotSource::new(*path, source.as_bytes())),
+    );
+}
+
 fn assert_snapshot_changed_without_references_or_scope(result: &Value) {
     assert_eq!(result["isError"], true);
     assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
@@ -262,6 +277,158 @@ fn references_project_capture_exhausts_retries_for_standard_library_alias_select
     });
 
     let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":9}));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn references_return_standard_library_type_alias_locations() {
+    let workspace = TempWorkspace::new("references-standard-library-type-alias");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use facade from \"std\"\n\n",
+            "pub type Local = facade::Count\n\n",
+            "fn read(input: facade::Count) -> Vec<facade::Count>\n",
+            "  facade::Count::Count(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "use facade from \"std\"\n\n",
+            "fn other(input: facade::Count) -> facade::Count\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    install_type_alias_standard_library(
+        &mut server,
+        &[
+            ("facade.veln", "use core\n\npub type Count = core::Count\n"),
+            ("core.veln", "pub type Count\n  pub Count(Int)\nend\n"),
+        ],
+    );
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":5,"column":25}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"]["project_wide"], true,
+        "{result:#}"
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 3, 26, 3, 31),
+            ("main.veln", 5, 24, 5, 29),
+            ("main.veln", 5, 46, 5, 51),
+            ("main.veln", 6, 11, 6, 16),
+            ("other.veln", 3, 25, 3, 30),
+            ("other.veln", 3, 43, 3, 48),
+        ],
+        "standard library type alias",
+    );
+    let references = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert!(references.iter().all(|reference| {
+        reference["uri"].as_str().unwrap().starts_with("file://")
+            && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
+    }));
+}
+
+#[test]
+fn references_keep_invalid_standard_library_type_alias_targets_empty() {
+    let workspace = TempWorkspace::new("references-standard-library-invalid-type-alias-targets");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn read(missing: MissingAlias, wrong: WrongKind, chain: Chain) -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    install_type_alias_standard_library(
+        &mut server,
+        &[(
+            "prelude.veln",
+            concat!(
+                "pub type Target\n",
+                "end\n\n",
+                "pub fn value() -> Int\n",
+                "  1\n",
+                "end\n\n",
+                "pub type Good = Target\n",
+                "pub type MissingAlias = Missing\n",
+                "pub type WrongKind = value\n",
+                "pub type Chain = Good\n",
+            ),
+        )],
+    );
+
+    for (case, column) in [
+        ("unresolved target", 18),
+        ("wrong-kind target", 39),
+        ("alias-chain target", 57),
+    ] {
+        let result =
+            server.references_tool(&json!({"source":"main.veln","line":1,"column":column}));
+        assert_eq!(result["isError"], false, "{case}: {result:#}");
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{case}: {result:#}"
+        );
+    }
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_standard_library_type_alias_selection() {
+    let workspace = TempWorkspace::new("references-standard-library-type-alias-capture-retry");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn main(input: Count) -> Count\n  input\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    install_type_alias_standard_library(
+        &mut server,
+        &[(
+            "prelude.veln",
+            "pub type Target\nend\n\npub type Count = Target\n",
+        )],
+    );
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let suffix = if attempt % 2 == 0 {
+            ""
+        } else {
+            "\n# changed\n"
+        };
+        fs::write(
+            root.join("main.veln"),
+            format!("fn main(input: Count) -> Count\n  input\nend\n{suffix}"),
+        )
+        .unwrap();
+    });
+
+    let result = server.references_tool(&json!({"source":"main.veln","line":1,"column":17}));
 
     assert_snapshot_changed_without_references_or_scope(&result);
     assert_eq!(attempts.get(), 3);

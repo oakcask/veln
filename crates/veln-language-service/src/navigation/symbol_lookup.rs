@@ -79,7 +79,10 @@ impl SymbolIndex {
             0 => self
                 .visible_type_alias_for_reference(file, tokens, token_index, name)
                 .filter(|symbol| {
-                    matches!(symbol.package_origin, Some(PackageOrigin::DirectDependency))
+                    matches!(
+                        symbol.package_origin,
+                        Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                    )
                 })
                 .map(Symbol::TypeAlias),
             _ => None,
