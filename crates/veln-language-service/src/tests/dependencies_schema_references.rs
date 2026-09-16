@@ -38,12 +38,22 @@ mod dependencies_schema_references_tests {
                         "  nested: wire::Packet\n",
                         "end\n\n",
                         "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                        "  # Packet and wire::Packet are not operation leaves here.\n",
+                        "  \"Packet wire::Packet\"\n",
                         "  let full = decode lib::wire::Packet from view at byte_offset(0)?\n",
                         "  let alias = encode wire::Packet from packet\n",
                         "  let local = encode Packet from packet\n",
                         "end\n",
                     ),
                 ),
+                source(
+                    "aliases.veln",
+                    concat!(
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "pub schema Packet = wire::Packet\n",
+                    ),
+                ),
+                source("symbols.veln", "type Packet\n  Ready(Int)\nend\n"),
                 source(
                     "other.veln",
                     concat!(
@@ -67,8 +77,8 @@ mod dependencies_schema_references_tests {
         );
 
         for (path, line, column) in [
-            ("main.veln", 12, 32),
-            ("main.veln", 13, 28),
+            ("main.veln", 14, 32),
+            ("main.veln", 15, 28),
             ("other.veln", 4, 16),
         ] {
             let result = query_snapshot(&snapshot, path, line, column).unwrap();
@@ -77,8 +87,8 @@ mod dependencies_schema_references_tests {
             assert_eq!(
                 locations(&result.references),
                 [
-                    ("main.veln", 12, 32),
-                    ("main.veln", 13, 28),
+                    ("main.veln", 14, 32),
+                    ("main.veln", 15, 28),
                     ("other.veln", 4, 16),
                 ]
             );
@@ -86,8 +96,8 @@ mod dependencies_schema_references_tests {
 
         let collision = query_snapshot(&snapshot, "collision.veln", 4, 16).unwrap();
         assert_eq!(locations(&collision.references), [("collision.veln", 4, 16)]);
-        let local = query_snapshot(&snapshot, "main.veln", 14, 22).unwrap();
-        assert_eq!(locations(&local.references), [("main.veln", 14, 22)]);
+        let local = query_snapshot(&snapshot, "main.veln", 16, 22).unwrap();
+        assert_eq!(locations(&local.references), [("main.veln", 16, 22)]);
     }
 
     #[test]

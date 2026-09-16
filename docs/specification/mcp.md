@@ -466,9 +466,12 @@ composition fields, aliases and alias targets, import tokens, and module
 qualifiers. Standard-library schemas, private or non-exported schemas,
 transitive dependencies, recovery and invalid-casing records, and unresolved
 or mismatched imports succeed with an empty reference set. The
-`references-dependency-schema-operation` MCP case is the executable protocol
-contract, and focused language-service and MCP tests cover identity, scope,
-source-kind, and stable-capture boundaries.
+`references-dependency-schema-operation` MCP case is the positive executable
+protocol contract. The
+`references-dependency-schema-operation-boundaries` MCP case selects each
+unsupported boundary and requires successful empty results. Focused
+language-service and MCP tests cover identity, scope, source-kind, and
+stable-capture boundaries.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -664,7 +667,11 @@ canonical ranges, Unicode-scalar coordinates, and project-wide saved scope.
 The `references-dependency-schema-operation` MCP specification case checks
 direct-dependency public schema operation references through full written and
 implicit leaf module paths, exact workspace-only ranges, selection parity,
-project-wide scope, composition exclusion, and non-BMP saved input.
+project-wide scope, and non-BMP saved input. The
+`references-dependency-schema-operation-boundaries` case checks private,
+non-exported, mismatched-import, transitive, invalid-casing, unresolved,
+package-alias, standard-library, composition, module-qualifier, and recovery
+selections as successful empty results.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

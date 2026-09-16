@@ -325,6 +325,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-dependency-schema-operation/`
   and
   `../../examples/specification/lsp/references-dependency-schema-operation/`.
+- MCP successful-empty `references` boundaries for unsupported
+  direct-dependency schema operation selections:
+  `../../examples/specification/mcp/references-dependency-schema-operation-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases, including unsupported selections and workspace-file URI assertions
   for each returned reference:

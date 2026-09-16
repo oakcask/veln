@@ -28,6 +28,8 @@ Current behavior is specified by
 and [Editor Support](../../specification/editor-support.md). Executable protocol
 evidence lives in `examples/specification/mcp/references-dependency-schema-operation/`
 and `examples/specification/lsp/references-dependency-schema-operation/`.
+Successful-empty boundary evidence lives in
+`examples/specification/mcp/references-dependency-schema-operation-boundaries/`.
 
 ## Bounded Contract
 

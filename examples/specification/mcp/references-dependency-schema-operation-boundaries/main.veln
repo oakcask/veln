@@ -1,0 +1,22 @@
+use public from "example/dep"
+use private from "example/dep"
+use hidden from "example/dep"
+use mismatch from "other/dep"
+use transitive from "transitive/dep"
+use standard from "std"
+
+fn read(view: ByteView) -> ()
+  decode private::Private from view at byte_offset(0)?
+  decode hidden::Hidden from view at byte_offset(0)?
+  decode mismatch::Public from view at byte_offset(0)?
+  decode transitive::Public from view at byte_offset(0)?
+  decode public::badSchema from view at byte_offset(0)?
+  decode public::Missing from view at byte_offset(0)?
+  decode public::Alias from view at byte_offset(0)?
+  decode standard::Standard from view at byte_offset(0)?
+  decode public::Public from view at byte_offset(0)?
+end
+
+schema Frame
+  nested: public::Public
+end

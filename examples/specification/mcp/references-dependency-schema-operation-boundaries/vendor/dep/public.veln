@@ -1,0 +1,9 @@
+pub schema Public
+  value: Int
+end
+
+pub schema badSchema
+  value: Int
+end
+
+pub schema Alias = Public

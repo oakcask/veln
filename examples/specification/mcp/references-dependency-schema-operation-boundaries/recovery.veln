@@ -1,0 +1,5 @@
+use public from "example/dep"
+
+fn read(Public: Int, view: ByteView) -> ()
+  decode Public from view at byte_offset(0)?
+end

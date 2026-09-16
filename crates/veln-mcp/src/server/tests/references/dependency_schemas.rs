@@ -161,6 +161,134 @@ fn references_do_not_borrow_dependency_context_for_descendant_or_anonymous_sourc
 }
 
 #[test]
+fn references_exclude_unselected_descendant_sources_from_parent_project_scope() {
+    let workspace = TempWorkspace::new("references-dependency-schema-descendant-exclusion");
+    let operation = concat!(
+        "use dep from \"example/dep\"\n\n",
+        "fn read(view: ByteView) -> ()\n",
+        "  decode dep::Packet from view at byte_offset(0)?\n",
+        "end\n",
+    );
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write("main.veln", operation);
+    workspace.write("nested/veln.toml", "");
+    workspace.write("nested/main.veln", operation);
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub schema Packet\n  value: Int\nend\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 16);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[("main.veln", 4, 15, 4, 21)],
+        "parent project excludes descendant package sources",
+    );
+}
+
+#[test]
+fn references_return_empty_for_dependency_schema_operation_boundaries() {
+    let workspace = TempWorkspace::new("references-dependency-schema-boundaries");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use public from \"example/dep\"\n",
+            "use private from \"example/dep\"\n",
+            "use hidden from \"example/dep\"\n",
+            "use mismatch from \"other/dep\"\n",
+            "use transitive from \"transitive/dep\"\n",
+            "use standard from \"std\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode private::Private from view at byte_offset(0)?\n",
+            "  decode hidden::Hidden from view at byte_offset(0)?\n",
+            "  decode mismatch::Public from view at byte_offset(0)?\n",
+            "  decode transitive::Public from view at byte_offset(0)?\n",
+            "  decode public::badSchema from view at byte_offset(0)?\n",
+            "  decode public::Missing from view at byte_offset(0)?\n",
+            "  decode public::Alias from view at byte_offset(0)?\n",
+            "  decode standard::Standard from view at byte_offset(0)?\n",
+            "end\n\n",
+            "schema Frame\n",
+            "  nested: public::Public\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"public.veln\", \"private.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/public.veln",
+        concat!(
+            "pub schema Public\n  value: Int\nend\n\n",
+            "pub schema badSchema\n  value: Int\nend\n\n",
+            "pub schema Alias = Public\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/private.veln",
+        "schema Private\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/hidden.veln",
+        "pub schema Hidden\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "recovery.veln",
+        concat!(
+            "use public from \"example/dep\"\n\n",
+            "fn read(Public: Int, view: ByteView) -> ()\n",
+            "  decode Public from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+
+    for (name, source, line, column) in [
+        ("private", "main.veln", 9, 19),
+        ("non-exported", "main.veln", 10, 18),
+        ("mismatched import", "main.veln", 11, 20),
+        ("transitive", "main.veln", 12, 22),
+        ("invalid casing", "main.veln", 13, 18),
+        ("unresolved", "main.veln", 14, 18),
+        ("package alias", "main.veln", 15, 18),
+        ("standard library", "main.veln", 16, 20),
+        ("package composition", "main.veln", 20, 19),
+        ("module qualifier", "main.veln", 13, 10),
+        ("recovery", "recovery.veln", 4, 10),
+    ] {
+        let result = references_result(&workspace, source, line, column);
+        assert_eq!(result["isError"], false, "{name}: {result:#}");
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{name}: {result:#}"
+        );
+    }
+}
+
+#[test]
 fn references_accept_all_direct_dependency_schema_source_kinds() {
     for source_kind in [
         DependencySchemaSource::Path,

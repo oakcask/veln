@@ -79,8 +79,3 @@ equals = {"start":{"line":4,"column":16},"end":{"line":4,"column":22}}
 id = 3
 path = "/result/structuredContent/references/2/uri"
 workspace_file_uri = "other.veln"
-
-[[mcp_assert]]
-id = 4
-path = "/result/structuredContent/references"
-equals = []
