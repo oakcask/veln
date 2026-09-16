@@ -49,6 +49,15 @@ The remaining first-capability work includes:
   operation and composition boundaries;
 - plugin packaging for Codex and Claude Code.
 
+### Ready Extracted Slice
+
+The independently actionable workspace public schema-alias reference slice is
+specified by
+[MCP Saved Workspace Schema-Alias References](mcp-saved-workspace-schema-alias-references.md).
+That page owns its bounded acceptance contract. Package schema aliases,
+alias-chain traversal, and broader navigation remain in this inventory and do
+not block the extracted slice.
+
 ### Completed Extracted Slices
 
 The implemented identifier-casing and slice-closure prerequisites are recorded
