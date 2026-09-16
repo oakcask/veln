@@ -59,8 +59,9 @@ impl SymbolIndex {
             .collect();
         let schema_aliases = eligible_schema_aliases(
             declarations.schema_aliases,
-            &declarations.schema_alias_blockers,
+            &declarations.package_schema_alias_declarations,
             &declarations.package_schema_targets,
+            &declarations.recovered_package_schema_targets,
             veln_sema::resolved_schema_aliases(&workspace_module),
         );
         let schema_composition_references = workspace_schema_composition_references(

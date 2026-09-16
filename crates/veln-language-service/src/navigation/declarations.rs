@@ -52,8 +52,12 @@ impl FileDeclarations {
         self.schema_aliases.extend(other.schema_aliases);
         self.schema_alias_blockers
             .extend(other.schema_alias_blockers);
+        self.package_schema_alias_declarations
+            .extend(other.package_schema_alias_declarations);
         self.package_schema_targets
             .extend(other.package_schema_targets);
+        self.recovered_package_schema_targets
+            .extend(other.recovered_package_schema_targets);
         self.effects.extend(other.effects);
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
@@ -74,7 +78,9 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         schemas: schema_declarations(file, syntax),
         schema_aliases: schema_alias_declarations(file, syntax),
         schema_alias_blockers: Vec::new(),
+        package_schema_alias_declarations: Vec::new(),
         package_schema_targets: package_schema_targets(file, syntax),
+        recovered_package_schema_targets: Vec::new(),
         effects: effect_declarations(file, syntax),
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
@@ -110,6 +116,40 @@ fn schema_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Neu
                     _ => None,
                 };
                 Some(symbol)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn package_schema_alias_declarations(
+    file: &IndexedFile,
+    syntax: &SyntaxTree,
+) -> Vec<PackageSchemaAliasDeclaration> {
+    let Some(package) = package_context(file) else {
+        return Vec::new();
+    };
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Schema => {
+                let name = alias.name.as_ref()?;
+                let span = alias.name_span.clone()?;
+                if !name
+                    .chars()
+                    .next()
+                    .is_some_and(|initial| initial.is_ascii_uppercase())
+                    || is_invalid_declaration_name(file, &span)
+                {
+                    return None;
+                }
+                Some(PackageSchemaAliasDeclaration {
+                    module: file.module.clone(),
+                    name: name.clone(),
+                    package: package.identity.to_string(),
+                    package_origin: package.origin,
+                })
             }
             _ => None,
         })

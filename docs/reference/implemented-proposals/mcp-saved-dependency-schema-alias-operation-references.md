@@ -102,9 +102,12 @@ successful-empty result for each boundary. The checked
 `codec-schema-references` case independently verifies that qualified
 cross-module schema-alias targets are valid source language. Focused shared and
 MCP tests cover recovered alias declarations that collide with valid
-same-module schemas or aliases. The paired dependency-schema-alias cases
-preserve positive resolution when an unrelated type shares the target name.
-Current MCP and editor specifications own the implemented behavior.
+same-module schemas or aliases. They also cover recovered schema declarations
+and hidden same-module aliases that block alias eligibility without becoming
+navigation targets. The paired dependency-schema-alias cases preserve positive
+resolution when an unrelated type shares the target name and separate alias
+operation sets from direct target-schema operation sets. Current MCP and editor
+specifications own the implemented behavior.
 
 ## Deferred Boundary
 

@@ -8,4 +8,6 @@ fn operations(view: ByteView, packet: {value: Int}) -> ()
   let decoded = keep("😀", decode lib::wire::WirePacket from view at byte_offset(0)?)
   let encoded = encode wire::WirePacket from packet
   let bare = encode WirePacket from packet
+  let target_decoded = decode lib::wire::Packet from view at byte_offset(0)?
+  let target_encoded = encode wire::Packet from packet
 end

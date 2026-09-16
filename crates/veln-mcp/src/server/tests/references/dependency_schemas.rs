@@ -551,6 +551,85 @@ fn references_keep_recovered_duplicate_dependency_schema_aliases_empty() {
 }
 
 #[test]
+fn references_keep_dependency_schema_alias_collision_blockers_empty() {
+    for (name, exports, blocker_source) in [
+        (
+            "recovered-target",
+            "[\"valid.veln\", \"blocker.veln\"]",
+            "mod dep\n\npub schema Packet\n  recovered: Int\n",
+        ),
+        (
+            "recovered-alias-name-schema",
+            "[\"valid.veln\", \"blocker.veln\"]",
+            "mod dep\n\npub schema Alias\n  recovered: Int\n",
+        ),
+        (
+            "hidden-duplicate-alias",
+            "[\"valid.veln\"]",
+            "mod dep\n\npub schema Alias = Packet\n",
+        ),
+        (
+            "hidden-target-name-alias",
+            "[\"valid.veln\"]",
+            concat!(
+                "mod dep\n\n",
+                "pub schema Other\n  value: Int\nend\n\n",
+                "pub schema Packet = Other\n",
+            ),
+        ),
+    ] {
+        let workspace = TempWorkspace::new(&format!(
+            "references-dependency-schema-alias-{name}-blocker"
+        ));
+        workspace.write(
+            "veln.toml",
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+        );
+        workspace.write(
+            "main.veln",
+            concat!(
+                "use dep from \"example/dep\"\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode dep::Alias from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        );
+        workspace.write(
+            "vendor/dep/veln.toml",
+            &format!("[package]\nname = \"example/dep\"\n\n[lib]\nexports = {exports}\n"),
+        );
+        workspace.write(
+            "vendor/dep/valid.veln",
+            concat!(
+                "mod dep\n\n",
+                "pub schema Packet\n  value: Int\nend\n\n",
+                "pub schema Alias = Packet\n",
+            ),
+        );
+        workspace.write("vendor/dep/blocker.veln", blocker_source);
+
+        let result = references_result(&workspace, "main.veln", 4, 16);
+
+        assert_eq!(result["isError"], false, "{name}: {result:#}");
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{name}: {result:#}"
+        );
+        assert_eq!(
+            result["structuredContent"]["scope"],
+            json!({
+                "mode": "project",
+                "generation": 0,
+                "project": ".",
+                "project_wide": true
+            }),
+            "{name}: {result:#}"
+        );
+    }
+}
+
+#[test]
 fn references_keep_dependency_schema_aliases_behind_invalid_imports_empty() {
     for (name, imports, line) in [
         (

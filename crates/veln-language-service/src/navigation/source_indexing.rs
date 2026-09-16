@@ -92,6 +92,9 @@ fn index_dependency_sources(
     for (source, entry) in dependency.indexed_sources() {
         let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
         if !file.navigation_isolated {
+            declarations
+                .package_schema_alias_declarations
+                .extend(package_schema_alias_declarations(&file, &parsed.tree));
             if parsed.diagnostics.is_empty() {
                 declarations.extend(file_declarations(&file, &parsed.tree));
                 let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
@@ -101,6 +104,9 @@ fn index_dependency_sources(
                 declarations
                     .schema_alias_blockers
                     .extend(schema_alias_declarations(&file, &parsed.tree));
+                declarations
+                    .recovered_package_schema_targets
+                    .extend(package_schema_targets(&file, &parsed.tree));
             }
         }
         files.push(file);
@@ -361,8 +367,9 @@ fn workspace_schema_composition_references(
 
 fn eligible_schema_aliases(
     aliases: Vec<NeutralSymbol>,
-    blockers: &[NeutralSymbol],
+    package_aliases: &[PackageSchemaAliasDeclaration],
     package_targets: &[PackageSchemaTarget],
+    recovered_package_targets: &[PackageSchemaTarget],
     resolved: Vec<veln_sema::ResolvedSchemaAlias>,
 ) -> Vec<NeutralSymbol> {
     aliases
@@ -382,20 +389,27 @@ fn eligible_schema_aliases(
                 let Some(target_name) = alias.alias_target_name.as_deref() else {
                     return false;
                 };
-                aliases
+                package_aliases
                     .iter()
-                    .chain(blockers)
                     .filter(|candidate| {
-                        candidate.package.as_deref() == Some(package)
+                        candidate.package == package
                             && candidate.module == alias.module
                             && candidate.name == alias.name
+                            && candidate.package_origin == PackageOrigin::DirectDependency
                     })
                     .count()
                     == 1
-                    && !aliases.iter().chain(blockers).any(|candidate| {
-                        candidate.package.as_deref() == Some(package)
+                    && !package_aliases.iter().any(|candidate| {
+                        candidate.package == package
                             && candidate.module == alias.module
                             && candidate.name == target_name
+                            && candidate.package_origin == PackageOrigin::DirectDependency
+                    })
+                    && !recovered_package_targets.iter().any(|target| {
+                        target.package == package
+                            && target.module == alias.module
+                            && (target.name == alias.name || target.name == target_name)
+                            && target.package_origin == PackageOrigin::DirectDependency
                     })
                     && !package_targets.iter().any(|target| {
                         target.package == package

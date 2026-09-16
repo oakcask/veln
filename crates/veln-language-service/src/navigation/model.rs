@@ -694,7 +694,9 @@ struct FileDeclarations {
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
     schema_alias_blockers: Vec<NeutralSymbol>,
+    package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
     package_schema_targets: Vec<PackageSchemaTarget>,
+    recovered_package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
@@ -705,6 +707,14 @@ struct FileDeclarations {
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
+}
+
+#[derive(Clone, Debug)]
+struct PackageSchemaAliasDeclaration {
+    module: String,
+    name: String,
+    package: String,
+    package_origin: PackageOrigin,
 }
 
 #[derive(Clone, Debug)]

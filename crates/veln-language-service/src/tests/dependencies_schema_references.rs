@@ -155,6 +155,49 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn exact_workspace_qualifier_precedes_dependency_schema_alias_implicit_alias() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "other/wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            )],
+            ["other/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("wire.veln", "pub schema Alias\n  value: Int\nend\n"),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use wire\n",
+                        "use other::wire from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode wire::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        let selected = query_snapshot(&snapshot, "main.veln", 5, 16).unwrap();
+        assert_eq!(
+            selected.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
+        );
+        assert!(matches!(
+            selected.definition.source,
+            NavigationSource::Workspace
+        ));
+        assert_eq!(selected.definition.span.file.as_str(), "wire.veln");
+        assert_eq!(locations(&selected.references), [("main.veln", 5, 16)]);
+    }
+
+    #[test]
     fn direct_dependency_schema_alias_references_keep_alias_identity() {
         let selected = dependency_snapshot(
             "example/dep",
@@ -556,6 +599,106 @@ mod dependencies_schema_references_tests {
         );
 
         assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
+    }
+
+    #[test]
+    fn recovered_dependency_schema_declarations_block_alias_eligibility() {
+        for (name, valid_source, recovered_source) in [
+            (
+                "duplicate target",
+                concat!(
+                    "mod dep\n\n",
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+                "mod dep\n\npub schema Packet\n  recovered: Int\n",
+            ),
+            (
+                "alias-name collision",
+                concat!(
+                    "mod dep\n\n",
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+                "mod dep\n\npub schema Alias\n  recovered: Int\n",
+            ),
+            (
+                "sole recovered target",
+                "mod dep\n\npub schema Alias = Packet\n",
+                "mod dep\n\npub schema Packet\n  recovered: Int\n",
+            ),
+        ] {
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &[("valid.veln", valid_source), ("recovered.veln", recovered_source)],
+                ["valid.veln", "recovered.veln"],
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode dep::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                )],
+                vec![dependency],
+            );
+
+            assert!(
+                query_snapshot(&snapshot, "main.veln", 4, 16).is_none(),
+                "{name} must block dependency alias eligibility"
+            );
+        }
+    }
+
+    #[test]
+    fn hidden_same_module_dependency_schema_aliases_block_alias_eligibility() {
+        for (name, hidden_source) in [
+            ("duplicate alias", "mod dep\n\npub schema Alias = Packet\n"),
+            (
+                "target-name alias",
+                concat!(
+                    "mod dep\n\n",
+                    "pub schema Other\n  value: Int\nend\n\n",
+                    "pub schema Packet = Other\n",
+                ),
+            ),
+        ] {
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &[
+                    (
+                        "valid.veln",
+                        concat!(
+                            "mod dep\n\n",
+                            "pub schema Packet\n  value: Int\nend\n\n",
+                            "pub schema Alias = Packet\n",
+                        ),
+                    ),
+                    ("hidden.veln", hidden_source),
+                ],
+                ["valid.veln"],
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode dep::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                )],
+                vec![dependency],
+            );
+
+            assert!(
+                query_snapshot(&snapshot, "main.veln", 4, 16).is_none(),
+                "{name} must block dependency alias eligibility"
+            );
+        }
     }
 
     #[test]

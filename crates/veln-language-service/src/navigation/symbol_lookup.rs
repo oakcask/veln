@@ -54,13 +54,10 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         let qualification = qualified_workspace_module(file, qualifier);
-        if matches!(&qualification, QualifiedWorkspaceModule::Ambiguous) {
-            return None;
-        }
         let mut candidates = self.schema_aliases.iter().filter(|symbol| {
             symbol.name == name
-                && match &symbol.package {
-                    Some(package) => {
+                && match (&qualification, &symbol.package) {
+                    (QualifiedWorkspaceModule::External, Some(package)) => {
                         symbol.package_origin == Some(PackageOrigin::DirectDependency)
                             && self.valid_schema_alias_external_import(
                                 file,
@@ -69,11 +66,13 @@ impl SymbolIndex {
                                 package,
                             )
                     }
-                    None => {
-                        !matches!(&qualification, QualifiedWorkspaceModule::External)
-                            && (symbol.module == file.module
-                                || file.uses.contains(&symbol.module))
+                    (QualifiedWorkspaceModule::Workspace(module), None) => {
+                        symbol.module == *module
                     }
+                    (QualifiedWorkspaceModule::Ambiguous, _)
+                    | (QualifiedWorkspaceModule::Unresolved, _)
+                    | (QualifiedWorkspaceModule::Workspace(_), Some(_))
+                    | (QualifiedWorkspaceModule::External, None) => false,
                 }
         });
         let candidate = candidates.next()?;
