@@ -149,6 +149,10 @@ impl EffectiveProjectSnapshot {
                     .and_then(|standard_library| standard_library.resolve_virtual_source(uri))
             })
     }
+
+    pub fn workspace_source(&self, path: &SourcePath) -> Option<&SourceFile> {
+        self.sources.iter().find(|source| source.path() == path)
+    }
 }
 
 #[derive(Clone, Debug)]

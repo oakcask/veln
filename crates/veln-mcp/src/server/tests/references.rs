@@ -2385,6 +2385,15 @@ fn references_keep_workspace_schema_aliases_inside_selected_project() {
             ),
         );
     }
+    workspace.write(
+        "app_a/worker.veln",
+        concat!(
+            "use main\n\n",
+            "fn read_owned(view: ByteView) -> ()\n",
+            "  decode main::AliasPacket from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
 
     let result = references_result(&workspace, "app_a/main.veln", 5, 12);
     assert_eq!(result["isError"], false, "{result:#}");
@@ -2399,7 +2408,10 @@ fn references_keep_workspace_schema_aliases_inside_selected_project() {
     );
     assert_reference_ranges(
         &result,
-        &[("app_a/main.veln", 8, 10, 8, 21)],
+        &[
+            ("app_a/main.veln", 8, 10, 8, 21),
+            ("app_a/worker.veln", 4, 16, 4, 27),
+        ],
         "workspace schema alias project isolation",
     );
 }

@@ -53,7 +53,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 2
@@ -128,7 +128,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 3
@@ -203,7 +203,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 4
@@ -283,7 +283,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 6
@@ -358,7 +358,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 7
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 7
@@ -433,7 +433,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 8
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 8
@@ -508,7 +508,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 9
@@ -583,7 +583,7 @@ workspace_file_uri = "aliases.veln"
 [[mcp_assert]]
 id = 10
 path = "/result/structuredContent/references/3/range"
-equals = {"start":{"line":16,"column":24},"end":{"line":16,"column":34}}
+equals = {"start":{"line":16,"column":31},"end":{"line":16,"column":41}}
 
 [[mcp_assert]]
 id = 10

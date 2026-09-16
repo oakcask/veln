@@ -414,6 +414,7 @@ retained package-documentation location for that snapshot.
 non-recovery workspace symbols:
 
 - schemas;
+- eligible workspace public schema aliases;
 - functions;
 - types;
 - constructors;

@@ -207,6 +207,9 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
+Navigation requests convert zero-based UTF-16 LSP characters to the shared
+one-based Unicode-scalar positions. Navigation responses convert shared ranges
+back to zero-based UTF-16 LSP ranges using the retained source snapshot.
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, and directly resolved
 schema-composition path leaves that resolve to that schema in workspace

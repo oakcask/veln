@@ -571,6 +571,10 @@ mod navigation_schema_references_tests {
                     "pub schema Packet\n",
                     "  format binary\n",
                     "  value: UInt8\n",
+                    "end\n\n",
+                    "fn direct(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  let decoded = decode Packet from view at byte_offset(0)?\n",
+                    "  let encoded = encode Packet from packet\n",
                     "end\n",
                 ),
             ),
@@ -658,7 +662,10 @@ mod navigation_schema_references_tests {
         );
 
         let target = query(sources, "core.veln", 1, 12).unwrap();
-        assert!(target.references.is_empty());
+        assert_eq!(
+            locations(&target.references),
+            [("core.veln", 7, 24), ("core.veln", 8, 24)]
+        );
     }
 
     #[test]
