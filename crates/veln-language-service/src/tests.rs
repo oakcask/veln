@@ -13,4 +13,5 @@ include!("tests/dependencies_function_references.rs");
 include!("tests/dependencies_function_alias_references.rs");
 include!("tests/dependencies_standard_library_function_alias_references.rs");
 include!("tests/dependencies_type_references.rs");
+include!("tests/dependencies_standard_library_type_alias_references.rs");
 include!("tests/dependencies_snapshots.rs");

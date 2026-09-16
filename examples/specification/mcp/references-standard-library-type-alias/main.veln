@@ -1,0 +1,18 @@
+pub type LocalCount = ByteCount
+
+fn first(count: ByteCount) -> prelude::ByteCount
+  ByteCount::ByteCount(1)
+  count
+end
+
+fn second(counts: Vec<ByteCount>) -> Vec<prelude::ByteCount>
+  prelude::ByteCount::ByteCount(2)
+  counts
+end
+
+fn noise(record: {ByteCount: Int}) -> Int
+  "ByteCount"
+  record.ByteCount
+end
+
+# ByteCount in a comment is lexical noise.

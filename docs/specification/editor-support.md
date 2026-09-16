@@ -397,10 +397,14 @@ function identity. Supported direct-dependency public type aliases whose
 targets resolve to package type declarations in the same retained direct
 dependency can return package definition locations and workspace reference
 locations for selected-project uses through the shared navigation model.
+Supported standard-library public type aliases whose targets resolve to
+standard-library type declarations can return workspace reference locations for
+selected-project uses through the shared navigation model, while their
+definition lookup remains unsupported.
 Public type-alias references use the alias identity, not the target type
-identity. Standard-library public type aliases, alias chains, transitive
-package targets, and unresolved or wrong-kind targets remain unsupported and
-produce no definition or reference locations. The
+identity. Alias chains, transitive package targets, and unresolved or
+wrong-kind targets remain unsupported and produce no definition or reference
+locations. The
 executable
 `identifier-casing-qualified-function-navigation` LSP example covers a
 module-only qualified public function imported from another workspace source
@@ -472,11 +476,12 @@ immutable locations:
 returns no package locations for dependency or standard-library declarations
 in this slice. Supported direct-dependency and standard-library public
 function aliases return only selected-project workspace `file:` locations for
-references. Supported direct-dependency public type aliases return only
-selected-project workspace `file:` locations for references. Unsupported alias
-chains, public function aliases with unresolved, non-function, or invalid-cased
-targets, and public type aliases with transitive, unresolved, non-type, or
-invalid-cased targets do not produce definition or reference locations.
+references. Supported direct-dependency and standard-library public type
+aliases return only selected-project workspace `file:` locations for
+references. Unsupported alias chains, public function aliases with unresolved,
+non-function, or invalid-cased targets, and public type aliases with
+transitive, unresolved, non-type, or invalid-cased targets do not produce
+definition or reference locations.
 
 `veln/virtualDocument` accepts an exact `veln-pkg:` URI retained by the server
 and returns its UTF-8 source text. The returned text preserves the captured
@@ -697,9 +702,9 @@ Implemented:
 - Stdio references responses for supported direct-dependency and
   standard-library public function aliases. Results include only
   selected-project workspace `file:` locations.
-- Shared navigation and MCP evidence for supported direct-dependency public
-  type aliases. Results include only selected-project workspace `file:`
-  locations and stay separate from the target type identity.
+- Shared navigation and MCP evidence for supported direct-dependency and
+  standard-library public type aliases. Results include only selected-project
+  workspace `file:` locations and stay separate from the target type identity.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -714,8 +719,8 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency and
-  standard-library public function, public function-alias, direct-dependency
-  public type-alias, public type, and public constructor reference boundaries.
+  standard-library public function, public function-alias, public type-alias,
+  public type, and public constructor reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, embedded standard-library,

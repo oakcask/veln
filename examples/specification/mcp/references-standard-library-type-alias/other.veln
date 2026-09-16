@@ -1,0 +1,3 @@
+fn other(count: ByteCount) -> prelude::ByteCount
+  count
+end

@@ -1183,25 +1183,6 @@
                 expect_symbol: None,
             },
             Case {
-                name: "standard library public type alias",
-                snapshot: EffectiveProjectSnapshot::new(vec![source(
-                    "main.veln",
-                    concat!(
-                        "fn read(input: prelude::Alias) -> prelude::Alias\n",
-                        "  input\n",
-                        "end\n",
-                    ),
-                )])
-                .with_standard_library(standard_library_snapshot(
-                    &[("prelude.veln", "pub type Vec\nend\n\npub type Alias = Vec\n")],
-                    ["prelude.veln"],
-                )),
-                source_path: "main.veln",
-                line: 1,
-                column: 27,
-                expect_symbol: None,
-            },
-            Case {
                 name: "standard library invalid-casing type",
                 snapshot: EffectiveProjectSnapshot::new(vec![source(
                     "main.veln",
