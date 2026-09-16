@@ -230,7 +230,11 @@ pub fn navigate(
         .symbol_at_position(position.source.as_str(), &position)?;
     let definition = request.symbol.definition();
     let selected_symbol = request.symbol.selected_symbol(definition.clone());
-    let mut references = request.symbol.references(&request.index);
+    let mut references = if request.references_supported {
+        request.symbol.references(&request.index)
+    } else {
+        Vec::new()
+    };
     sort_locations(&mut references);
     Some(NavigationResult {
         selected_symbol,
@@ -547,6 +551,7 @@ struct SymbolRequest {
     symbol: Symbol,
     selection: SourceSpan,
     classified_path_segment: Option<QualifiedPathSegment>,
+    references_supported: bool,
 }
 
 #[derive(Clone, Debug)]

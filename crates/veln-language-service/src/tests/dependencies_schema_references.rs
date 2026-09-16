@@ -259,11 +259,27 @@ mod dependencies_schema_references_tests {
             locations(&valid.references),
             [("main.veln", 4, 15), ("main.veln", 5, 15)]
         );
-        assert!(query_snapshot(&snapshot, "broken_decode.veln", 4, 16).is_none());
-        assert!(query_snapshot(&snapshot, "broken_encode.veln", 4, 16).is_none());
-        for (line, column) in [(5, 16), (6, 16), (7, 16)] {
-            let result = query_snapshot(&snapshot, "recovery.veln", line, column);
-            assert!(result.is_none(), "line {line}: {result:#?}");
+        for (path, line, column) in [
+            ("broken_decode.veln", 4, 16),
+            ("broken_encode.veln", 4, 16),
+            ("recovery.veln", 5, 16),
+            ("recovery.veln", 6, 16),
+            ("recovery.veln", 7, 16),
+        ] {
+            let result = query_snapshot(&snapshot, path, line, column).unwrap();
+            assert!(result.references.is_empty(), "{path}:{line}: {result:#?}");
+            assert_eq!(
+                definition_at(
+                    &snapshot,
+                    SourcePosition {
+                        source: SourcePath::new(path),
+                        line,
+                        column,
+                    },
+                ),
+                Some(valid.definition.clone()),
+                "{path}:{line}",
+            );
         }
     }
 }
