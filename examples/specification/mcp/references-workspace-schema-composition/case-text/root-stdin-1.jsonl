@@ -9,3 +9,5 @@
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"app/wire.veln","line":21,"column":12}}}
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"other.veln","line":12,"column":24}}}
 {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"source":"isolated/main.veln","line":1,"column":8}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"ambiguous-ab.veln","line":5,"column":17}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"ambiguous-ba.veln","line":5,"column":17}}}

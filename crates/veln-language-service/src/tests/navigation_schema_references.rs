@@ -278,6 +278,71 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn dependency_composition_with_matching_source_identity_stays_isolated() {
+        let workspace_source = concat!(
+            "# pad\n",
+            "pub schema Packet\n",
+            "  parent: Nois\n",
+            "end\n\n",
+            "schema Nois\n",
+            "  nested: Packet\n",
+            "end\n",
+        );
+        let dependency_source = concat!(
+            "use x\n",
+            "pub schema Packet\n",
+            "  parent: Int \n",
+            "end\n\n",
+            "schema Host\n",
+            "  nested: Packet\n",
+            "end\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("model.veln", workspace_source)],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[("model.veln", dependency_source)],
+                ["model.veln"],
+            )],
+        );
+
+        let result = query_snapshot(&snapshot, "model.veln", 2, 12).unwrap();
+        assert!(result.references.is_empty());
+        assert!(query_snapshot(&snapshot, "model.veln", 7, 11).is_none());
+    }
+
+    #[test]
+    fn colliding_implicit_schema_import_aliases_are_order_independent() {
+        for imports in [
+            "use a::wire\nuse b::wire\n",
+            "use b::wire\nuse a::wire\n",
+        ] {
+            let sources = vec![
+                source(
+                    "a/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "b/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "main.veln",
+                    &format!(
+                        "{imports}\nschema Host\n  ambiguous: wire::Packet\n  first: a::wire::Packet\n  second: b::wire::Packet\nend\n"
+                    ),
+                ),
+            ];
+
+            let first = query(sources.clone(), "a/wire.veln", 1, 12).unwrap();
+            let second = query(sources.clone(), "b/wire.veln", 1, 12).unwrap();
+            assert_eq!(locations(&first.references), [("main.veln", 6, 19)]);
+            assert_eq!(locations(&second.references), [("main.veln", 7, 20)]);
+            assert!(query(sources, "main.veln", 5, 20).is_none());
+        }
+    }
+
+    #[test]
     fn workspace_schema_references_preserve_import_visibility_and_shadowing() {
         let result = query(
             vec![

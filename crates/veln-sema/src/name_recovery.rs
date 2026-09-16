@@ -61,12 +61,14 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
 ) -> Option<&'a UseDecl> {
     normal_imported_use_for_path(module, segments, current_module).or_else(|| {
         let module_alias = segments.join("::");
-        module.uses.iter().find(|use_decl| {
+        let mut candidates = module.uses.iter().filter(|use_decl| {
             use_decl.package.is_none()
                 && use_decl.module_name.as_deref() == current_module
                 && !use_decl_has_invalid_module_segment(module, use_decl)
                 && use_decl.alias == module_alias
-        })
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then_some(candidate)
     })
 }
 

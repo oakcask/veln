@@ -54,7 +54,7 @@ impl SymbolIndex {
         let schema_composition_references = workspace_schema_composition_references(
             &files,
             &declarations.schemas,
-            veln_sema::resolved_schema_composition_references(&module),
+            veln_sema::resolved_schema_composition_references(&workspace_module),
         );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());

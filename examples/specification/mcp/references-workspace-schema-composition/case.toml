@@ -335,3 +335,33 @@ equals = {"start":{"line":8,"column":11},"end":{"line":8,"column":17}}
 id = 11
 path = "/result/structuredContent/references/0/uri"
 workspace_file_uri = "isolated/main.veln"
+
+[[mcp_assert]]
+id = 12
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 13
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references"
+length = 0
