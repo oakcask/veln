@@ -474,6 +474,48 @@ fn references_return_workspace_schema_composition_locations_and_scope() {
 }
 
 #[test]
+fn references_keep_same_named_workspace_schema_composition_identity() {
+    let workspace = TempWorkspace::new("references-workspace-schema-composition-identity");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "first.veln",
+        "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+    );
+    workspace.write(
+        "second.veln",
+        "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+    );
+    workspace.write(
+        "host.veln",
+        concat!(
+            "use first\n",
+            "use second\n\n",
+            "schema Host\n",
+            "  format binary\n",
+            "  first_packet: first::Packet\n",
+            "  second_packet: second::Packet\n",
+            "end\n",
+        ),
+    );
+
+    let first = references_result(&workspace, "first.veln", 1, 12);
+    assert_eq!(first["isError"], false, "{first:#}");
+    assert_reference_ranges(
+        &first,
+        &[("host.veln", 6, 24, 6, 30)],
+        "first same-named workspace schema composition references",
+    );
+
+    let second = references_result(&workspace, "second.veln", 1, 12);
+    assert_eq!(second["isError"], false, "{second:#}");
+    assert_reference_ranges(
+        &second,
+        &[("host.veln", 7, 26, 7, 32)],
+        "second same-named workspace schema composition references",
+    );
+}
+
+#[test]
 fn references_keep_workspace_schema_identity_visibility_and_companion_boundaries() {
     let cases = [
         WorkspaceSymbolCase {
