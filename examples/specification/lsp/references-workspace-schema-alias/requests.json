@@ -2,6 +2,7 @@
   {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
   {"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":3,"character":12},"context":{"includeDeclaration":false}}},
   {"jsonrpc":"2.0","id":3,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":3,"character":34},"context":{"includeDeclaration":false}}},
-  {"jsonrpc":"2.0","id":4,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":11,"character":15},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":5,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

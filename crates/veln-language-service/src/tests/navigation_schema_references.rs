@@ -638,6 +638,10 @@ mod navigation_schema_references_tests {
         assert_eq!(selected_use.definition, alias.definition);
         assert_eq!(selected_use.references, alias.references);
 
+        let selected_composition = query(sources.clone(), "aliases.veln", 11, 15).unwrap();
+        assert_eq!(selected_composition.definition, alias.definition);
+        assert_eq!(selected_composition.references, alias.references);
+
         let other_alias = query(sources.clone(), "aliases.veln", 4, 12).unwrap();
         assert!(other_alias.references.is_empty());
 
@@ -700,6 +704,11 @@ mod navigation_schema_references_tests {
                 "pub schema First = Second\npub schema Second = First\n",
                 1,
             ),
+            (
+                "invalid casing",
+                "pub schema Packet\n  value: Int\nend\n\npub schema alias = Packet\n",
+                5,
+            ),
         ];
 
         for (name, text, line) in cases {
@@ -708,5 +717,79 @@ mod navigation_schema_references_tests {
                 "{name} alias must remain unsupported"
             );
         }
+    }
+
+    #[test]
+    fn workspace_schema_alias_references_reject_ambiguous_targets() {
+        for imports in [
+            "use a::wire\nuse b::wire\n",
+            "use b::wire\nuse a::wire\n",
+        ] {
+            let sources = vec![
+                source(
+                    "a/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "b/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "main.veln",
+                    &format!("{imports}\npub schema Alias = wire::Packet\n"),
+                ),
+            ];
+
+            assert!(query(sources, "main.veln", 4, 12).is_none());
+        }
+    }
+
+    #[test]
+    fn workspace_schema_alias_references_exclude_same_spelled_non_alias_symbols() {
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "pub schema Packet\n",
+                    "  value: Int\n",
+                    "end\n\n",
+                    "pub schema WirePacket = Packet\n\n",
+                    "schema Frame\n",
+                    "  field: WirePacket\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "noise.veln",
+                concat!(
+                    "type WirePacket\n",
+                    "end\n\n",
+                    "fn noise(WirePacket: Int) -> String\n",
+                    "  let WirePacket = WirePacket\n",
+                    "  # WirePacket in a comment\n",
+                    "  \"WirePacket\"\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "shadow.veln",
+                concat!(
+                    "use main\n\n",
+                    "schema WirePacket\n",
+                    "  value: Int\n",
+                    "end\n\n",
+                    "schema Frame\n",
+                    "  shadowed: WirePacket\n",
+                    "  selected: main::WirePacket\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let result = query(sources, "main.veln", 5, 12).unwrap();
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 8, 10), ("shadow.veln", 9, 19)]
+        );
     }
 }

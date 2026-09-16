@@ -13,8 +13,18 @@ length = 7
 
 [[lsp_assert]]
 id = 2
+path = "/result/0/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 2
 path = "/result/0/range"
 equals = {"start":{"line":9,"character":10},"end":{"line":9,"character":20}}
+
+[[lsp_assert]]
+id = 2
+path = "/result/1/uri"
+workspace_file_uri = "aliases.veln"
 
 [[lsp_assert]]
 id = 2
@@ -23,13 +33,28 @@ equals = {"start":{"line":10,"character":26},"end":{"line":10,"character":36}}
 
 [[lsp_assert]]
 id = 2
+path = "/result/2/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 2
 path = "/result/2/range"
 equals = {"start":{"line":11,"character":14},"end":{"line":11,"character":24}}
 
 [[lsp_assert]]
 id = 2
+path = "/result/3/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 2
 path = "/result/3/range"
 equals = {"start":{"line":15,"character":23},"end":{"line":15,"character":33}}
+
+[[lsp_assert]]
+id = 2
+path = "/result/4/uri"
+workspace_file_uri = "aliases.veln"
 
 [[lsp_assert]]
 id = 2
@@ -48,6 +73,11 @@ equals = {"start":{"line":3,"character":32},"end":{"line":3,"character":42}}
 
 [[lsp_assert]]
 id = 2
+path = "/result/6/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 2
 path = "/result/6/range"
 equals = {"start":{"line":4,"character":32},"end":{"line":4,"character":42}}
 
@@ -55,3 +85,149 @@ equals = {"start":{"line":4,"character":32},"end":{"line":4,"character":42}}
 id = 3
 path = "/result"
 length = 7
+
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/0/range"
+equals = {"start":{"line":9,"character":10},"end":{"line":9,"character":20}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/1/range"
+equals = {"start":{"line":10,"character":26},"end":{"line":10,"character":36}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/2/range"
+equals = {"start":{"line":11,"character":14},"end":{"line":11,"character":24}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/3/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/3/range"
+equals = {"start":{"line":15,"character":23},"end":{"line":15,"character":33}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/4/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/4/range"
+equals = {"start":{"line":16,"character":23},"end":{"line":16,"character":33}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/5/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/5/range"
+equals = {"start":{"line":3,"character":32},"end":{"line":3,"character":42}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/6/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/6/range"
+equals = {"start":{"line":4,"character":32},"end":{"line":4,"character":42}}
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+length = 7
+
+[[lsp_assert]]
+id = 4
+path = "/result/0/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/0/range"
+equals = {"start":{"line":9,"character":10},"end":{"line":9,"character":20}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/1/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/1/range"
+equals = {"start":{"line":10,"character":26},"end":{"line":10,"character":36}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/2/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/2/range"
+equals = {"start":{"line":11,"character":14},"end":{"line":11,"character":24}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/3/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/3/range"
+equals = {"start":{"line":15,"character":23},"end":{"line":15,"character":33}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/4/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/4/range"
+equals = {"start":{"line":16,"character":23},"end":{"line":16,"character":33}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/5/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/5/range"
+equals = {"start":{"line":3,"character":32},"end":{"line":3,"character":42}}
+
+[[lsp_assert]]
+id = 4
+path = "/result/6/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 4
+path = "/result/6/range"
+equals = {"start":{"line":4,"character":32},"end":{"line":4,"character":42}}

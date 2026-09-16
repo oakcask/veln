@@ -90,7 +90,12 @@ fn schema_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Neu
             SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Schema => {
                 let name = alias.name.as_ref()?;
                 let span = alias.name_span.clone()?;
-                if is_invalid_declaration_name(file, &span) {
+                if !name
+                    .chars()
+                    .next()
+                    .is_some_and(|initial| initial.is_ascii_uppercase())
+                    || is_invalid_declaration_name(file, &span)
+                {
                     return None;
                 }
                 neutral_declaration(file, name, span, Visibility::Public)
