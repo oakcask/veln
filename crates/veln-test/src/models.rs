@@ -319,6 +319,8 @@ impl TestFailure {
 
 pub struct DoctestSources {
     pub sources: Vec<SourceFile>,
+    /// Original spans of visible body lines, keyed by generated source path.
+    pub visible_source_locations: BTreeMap<String, Vec<SourceSpan>>,
     pub expectations: BTreeMap<String, DoctestExpectation>,
     pub expected_failures: BTreeMap<String, SourceSpan>,
     pub diagnostics: Vec<Diagnostic>,
@@ -382,6 +384,7 @@ impl OutputDifference {
 pub(super) struct ExtractedDoctest {
     pub(super) code: Vec<String>,
     pub(super) visible_code: Vec<String>,
+    pub(super) visible_source_locations: Vec<SourceSpan>,
     pub(super) error_type: Option<String>,
     pub(super) expected_output: Option<ExpectedOutput>,
     pub(super) expected_runtime_failure: Option<ExpectedRuntimeFailure>,
@@ -393,6 +396,7 @@ pub(super) enum Fence {
     Veln {
         lines: Vec<String>,
         visible_lines: Vec<String>,
+        visible_source_locations: Vec<SourceSpan>,
         error_type: Option<String>,
         expected_runtime_failure: Option<Box<ExpectedRuntimeFailure>>,
         ignored: bool,

@@ -41,6 +41,7 @@ fn exit_status(code: u32) -> ExitStatus {
 
 mod discovery_and_runtime_metadata;
 mod doctest_fences_and_failures;
+mod doctest_source_locations;
 mod doctest_types_and_inference;
 mod output_and_trace;
 mod protocol_diagnostics;
