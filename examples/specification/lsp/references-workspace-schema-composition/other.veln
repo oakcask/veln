@@ -8,5 +8,4 @@ schema ImportedFrame
   repeated_full: Repeat(count, app::wire::Packet)
   repeated_alias: [wire::Packet; count]
   bare: Packet
-  aliased: wire::AliasPacket
 end

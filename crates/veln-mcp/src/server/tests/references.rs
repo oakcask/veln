@@ -486,11 +486,20 @@ fn references_keep_workspace_schema_identity_visibility_and_companion_boundaries
             name: "schema exact companion private access",
             files: vec![
                 ("veln.toml", ""),
-                ("main.veln", "schema PrivatePacket\n  value: Int\nend\n"),
+                (
+                    "main.veln",
+                    "schema PrivatePacket\n  format binary\n  value: UInt8\nend\n",
+                ),
                 (
                     "main.test.veln",
                     concat!(
                         "use main\n\n",
+                        "schema CompanionFrame\n",
+                        "  format binary\n",
+                        "  count: UInt8\n",
+                        "  direct: main::PrivatePacket\n",
+                        "  repeated: [main::PrivatePacket; count]\n",
+                        "end\n\n",
                         "test companion(view: ByteView, packet: {value: Int}) -> ()\n",
                         "  let decoded = decode main::PrivatePacket from view at byte_offset(0)?\n",
                         "  let encoded = encode main::PrivatePacket from packet\n",
@@ -501,6 +510,10 @@ fn references_keep_workspace_schema_identity_visibility_and_companion_boundaries
                     "other.test.veln",
                     concat!(
                         "use main\n\n",
+                        "schema UnrelatedFrame\n",
+                        "  format binary\n",
+                        "  direct: main::PrivatePacket\n",
+                        "end\n\n",
                         "test unrelated(view: ByteView) -> ()\n",
                         "  decode main::PrivatePacket from view at byte_offset(0)?\n",
                         "end\n",
@@ -511,8 +524,10 @@ fn references_keep_workspace_schema_identity_visibility_and_companion_boundaries
             line: 1,
             column: 8,
             ranges: vec![
-                ("main.test.veln", 4, 30, 4, 43),
-                ("main.test.veln", 5, 30, 5, 43),
+                ("main.test.veln", 6, 17, 6, 30),
+                ("main.test.veln", 7, 20, 7, 33),
+                ("main.test.veln", 11, 30, 11, 43),
+                ("main.test.veln", 12, 30, 12, 43),
             ],
         },
         WorkspaceSymbolCase {

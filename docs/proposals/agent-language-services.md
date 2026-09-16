@@ -20,7 +20,8 @@ navigation, direct-dependency function-reference, standard-library
 function-reference, direct-dependency function-alias-reference,
 standard-library function-alias-reference, direct-dependency
 type-alias-reference, standard-library type-alias-reference, and package
-type-reference slices are implemented and specified in
+type-reference, workspace schema-operation-reference, and workspace
+schema-composition-reference slices are implemented and specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
@@ -33,8 +34,8 @@ Broader definition navigation, package reference navigation beyond the
 implemented function, function-alias, direct-dependency type-alias, type, and
 constructor slices, paginated references, recovery and casing-neutral
 reference navigation, workspace schema references beyond the implemented and
-newly extracted composition slices, conformance completion, and client plugin
-work in this proposal remain planned.
+recorded operation and composition boundaries, conformance completion, and
+client plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
@@ -44,10 +45,8 @@ The remaining first-capability work includes:
   type aliases, standard-library public type aliases, types, and
   constructors, including direct-dependency and standard-library public
   schema-alias references, plus paginated reference lookup;
-- the extracted workspace schema composition-target reference slice, followed
-  by public schema-alias reference lookup beyond the implemented `decode` and
-  `encode` slice recorded as
-  [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md);
+- public schema-alias reference lookup beyond the implemented workspace schema
+  operation and composition boundaries;
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices
@@ -1148,8 +1147,6 @@ The standard-library public type-alias reference slice is recorded by
 [MCP Saved Standard-Library Type-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-type-alias-references.md).
 Later umbrella slices are:
 
-1. Implement the extracted workspace schema composition-target reference
-   proposal.
 1. Extend workspace schema navigation with public schema-alias references, then
    extend package navigation with schema, public schema aliases, and other
    remaining dependency and standard-library symbol references, paginated

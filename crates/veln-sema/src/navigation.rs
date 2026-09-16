@@ -2,7 +2,7 @@ use veln_ast::{SchemaDecl, SurfaceModule, Visibility};
 use veln_source::SourceSpan;
 
 use crate::analysis::boundary::schema_composition::{
-    schema_composition_reaches, schema_composition_reference_blocker,
+    SchemaIdentity, schema_composition_reaches, schema_composition_reference_blocker,
     schema_field_has_ordinary_type_target,
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
@@ -84,6 +84,9 @@ fn direct_schema_composition_target<'a>(
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),
             )?;
+            if use_decl.package.is_some() {
+                return None;
+            }
             module.schemas.iter().find(|candidate| {
                 candidate.name.as_deref() == Some(name)
                     && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
@@ -114,10 +117,9 @@ fn navigation_repeat_payload_target<'a>(
     let path = schema_payload_name_path(schema_name)?;
     let target = match path.as_slice() {
         [name] => {
-            let current_index = module
-                .schemas
-                .iter()
-                .position(|candidate| candidate.node_id == schema.node_id)?;
+            let current_index = module.schemas.iter().position(|candidate| {
+                SchemaIdentity::of(candidate) == SchemaIdentity::of(schema)
+            })?;
             let (target_index, target) =
                 module.schemas.iter().enumerate().find(|(_, candidate)| {
                     candidate.name.as_deref() == Some(name)
@@ -131,6 +133,9 @@ fn navigation_repeat_payload_target<'a>(
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),
             )?;
+            if use_decl.package.is_some() {
+                return None;
+            }
             module.schemas.iter().find(|candidate| {
                 candidate.name.as_deref() == Some(name)
                     && candidate.module_name.as_deref() == Some(use_decl.name.as_str())

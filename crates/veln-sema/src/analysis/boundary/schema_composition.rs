@@ -224,21 +224,37 @@ pub(crate) fn schema_composition_reaches(
     module: &SurfaceModule,
     current: &SchemaDecl,
     target: &SchemaDecl,
-    visited: &mut Vec<NodeId>,
+    visited: &mut Vec<SchemaIdentity>,
 ) -> bool {
-    if current.node_id == target.node_id {
+    let current_identity = SchemaIdentity::of(current);
+    if current_identity == SchemaIdentity::of(target) {
         return true;
     }
-    if visited.contains(&current.node_id) {
+    if visited.contains(&current_identity) {
         return false;
     }
-    visited.push(current.node_id);
+    visited.push(current_identity);
     let reaches = current.fields.iter().any(|field| {
         schema_field_target(module, current, &field.ty)
             .is_some_and(|next| schema_composition_reaches(module, next, target, visited))
     });
     visited.pop();
     reaches
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaIdentity {
+    file: veln_source::SourcePath,
+    node_id: NodeId,
+}
+
+impl SchemaIdentity {
+    pub(crate) fn of(schema: &SchemaDecl) -> Self {
+        Self {
+            file: schema.span.file.clone(),
+            node_id: schema.node_id,
+        }
+    }
 }
 
 pub(super) fn schema_composition_reference_diagnostic(

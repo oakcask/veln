@@ -35,8 +35,8 @@ references, rename behavior, or MCP schema expansion.
 
 | Behavior | Evidence |
 | --- | --- |
-| Direct fields and supported repeated payloads resolve to the selected workspace schema in canonical order. | `workspace_schema_references_cover_direct_and_repeated_composition_targets`, `references_return_workspace_schema_composition_locations_and_scope`, and `references-workspace-schema-composition` |
-| Import paths, implicit leaf aliases, rejected bare imports, visibility, shadowing, and exact companion access preserve identity boundaries. | Focused language-service schema-reference tests and MCP project-scope tests |
+| Direct fields and supported repeated payloads resolve to the selected workspace schema in canonical order. | `workspace_schema_references_cover_direct_and_repeated_composition_targets`, `references_return_workspace_schema_composition_locations_and_scope`, the MCP `references-workspace-schema-composition` case, and the LSP case of the same name |
+| Import paths, implicit leaf aliases, rejected bare imports, visibility, shadowing, and exact companion access preserve identity boundaries. | `workspace_schema_references_include_exact_companion_private_qualified_uses`, `references_keep_workspace_schema_identity_visibility_and_companion_boundaries`, and the executable adapter cases |
 | Alias traversal, package schemas, recovery and invalid-casing selections, unrelated lexical matches, and module qualifiers remain unsupported or excluded. | Language-service unsupported-selection tests, MCP unsupported-symbol tests, and executable boundary requests |
 | Anonymous and descendant sources do not widen navigation scope. | `references_keep_anonymous_sources_isolated_for_workspace_schema_selections` and `references_keep_descendant_package_sources_isolated_for_workspace_schema_selections` |
 | Stable-capture exhaustion returns `snapshot_changed` without success-only locations or scope. | `references_project_capture_exhausts_retries_for_workspace_schema_selection` |

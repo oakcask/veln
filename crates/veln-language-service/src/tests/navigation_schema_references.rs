@@ -143,6 +143,99 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_composition_uses_file_scoped_schema_identity() {
+        let direct = query(
+            vec![
+                source(
+                    "target.veln",
+                    "use helper\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "host.veln",
+                    "use target\n\nschema Host\n  direct: target::Packet\nend\n",
+                ),
+            ],
+            "target.veln",
+            3,
+            12,
+        )
+        .unwrap();
+        assert_eq!(locations(&direct.references), [("host.veln", 4, 19)]);
+
+        let repeated = query(
+            vec![
+                source(
+                    "noise.veln",
+                    concat!(
+                        "use first\n",
+                        "use second\n",
+                        "use third\n\n",
+                        "schema Noise\n",
+                        "  value: Int\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "wire.veln",
+                    concat!(
+                        "schema Packet\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n\n",
+                        "schema Host\n",
+                        "  format binary\n",
+                        "  count: UInt8\n",
+                        "  repeated: [Packet; count]\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            "wire.veln",
+            1,
+            8,
+        )
+        .unwrap();
+        assert_eq!(locations(&repeated.references), [("wire.veln", 9, 14)]);
+    }
+
+    #[test]
+    fn package_composition_does_not_bind_same_named_workspace_schema() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "model.veln",
+                    "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+                ),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use model from \"example/pkg\"\n\n",
+                        "schema Host\n",
+                        "  format binary\n",
+                        "  count: UInt8\n",
+                        "  nested: model::Packet\n",
+                        "  repeated: [model::Packet; count]\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[(
+                    "model.veln",
+                    "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+                )],
+                ["model.veln"],
+            )],
+        );
+
+        let result = query_snapshot(&snapshot, "model.veln", 1, 12).unwrap();
+        assert!(result.references.is_empty());
+        assert!(query_snapshot(&snapshot, "main.veln", 5, 18).is_none());
+        assert!(query_snapshot(&snapshot, "main.veln", 6, 22).is_none());
+    }
+
+    #[test]
     fn workspace_schema_references_preserve_import_visibility_and_shadowing() {
         let result = query(
             vec![

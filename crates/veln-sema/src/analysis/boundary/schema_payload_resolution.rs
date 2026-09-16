@@ -1,5 +1,6 @@
 use super::*;
 
+use super::schema_composition::SchemaIdentity;
 use super::schema_dispatch_resolution::schema_dispatch_payload_diagnostic;
 use super::schema_repeat_resolution::{
     companion_private_schema_access_allowed, schema_repeat_payload_diagnostic,
@@ -119,7 +120,7 @@ fn resolve_local_schema_payload<'a>(
     let current_index = module
         .schemas
         .iter()
-        .position(|candidate| candidate.node_id == schema.node_id)?;
+        .position(|candidate| SchemaIdentity::of(candidate) == SchemaIdentity::of(schema))?;
     if let Some((candidate_index, candidate)) =
         module.schemas.iter().enumerate().find(|(_, candidate)| {
             candidate.name.as_deref() == Some(name)

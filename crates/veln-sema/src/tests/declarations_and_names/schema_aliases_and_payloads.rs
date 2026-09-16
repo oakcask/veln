@@ -595,3 +595,45 @@ fn repeat_payload_schema_references_report_resolution_diagnostics() {
         "{diagnostics:#?}"
     );
 }
+
+#[test]
+fn repeat_payload_order_uses_file_scoped_schema_identity() {
+    let module = merged_modules(vec![
+        SourceFile::new(
+            "noise.veln",
+            concat!(
+                "mod noise\n",
+                "use first\n",
+                "use second\n",
+                "use third\n\n",
+                "schema Noise\n",
+                "  value: Int\n",
+                "end\n",
+            ),
+        ),
+        SourceFile::new(
+            "wire.veln",
+            concat!(
+                "mod wire\n",
+                "schema Packet\n",
+                "  format binary\n",
+                "  value: UInt8\n",
+                "end\n\n",
+                "schema Host\n",
+                "  format binary\n",
+                "  count: UInt8\n",
+                "  items: [Packet; count]\n",
+                "end\n",
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.repeat_payload"),
+        "{diagnostics:#?}"
+    );
+}
