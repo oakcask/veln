@@ -10,6 +10,25 @@ fn references_return_direct_dependency_schema_operations_from_selected_project()
             "use dep from \"example/dep\"\n\n",
             "fn other(view: ByteView) -> ()\n",
             "  decode dep::Packet from view at byte_offset(0)?\n",
+            "  decode dep::Packet junk from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "broken_decode.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode dep::Packet from view byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "broken_encode.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn write(packet: {value: Int}) -> ()\n",
+            "  encode dep::Packet junk from packet\n",
             "end\n",
         ),
     );
@@ -35,6 +54,23 @@ fn references_return_direct_dependency_schema_operations_from_selected_project()
         ],
         "direct dependency schema operations",
     );
+
+    let recovered = references_result(&workspace, "other.veln", 5, 16);
+    assert_eq!(recovered["isError"], false, "{recovered:#}");
+    assert_eq!(
+        recovered["structuredContent"]["references"],
+        json!([]),
+        "{recovered:#}"
+    );
+    for source in ["broken_decode.veln", "broken_encode.veln"] {
+        let recovered = references_result(&workspace, source, 4, 16);
+        assert_eq!(recovered["isError"], false, "{source}: {recovered:#}");
+        assert_eq!(
+            recovered["structuredContent"]["references"],
+            json!([]),
+            "{source}: {recovered:#}"
+        );
+    }
 }
 
 #[test]

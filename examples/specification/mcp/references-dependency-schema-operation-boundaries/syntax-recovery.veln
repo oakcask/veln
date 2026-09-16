@@ -1,0 +1,13 @@
+use public from "example/dep"
+
+fn read_before_from(view: ByteView) -> ()
+  decode public::Public junk from view at byte_offset(0)?
+end
+
+fn read_missing_at(view: ByteView) -> ()
+  decode public::Public from view byte_offset(0)?
+end
+
+fn write_before_from() -> ()
+  encode public::Public junk from {value: 1}
+end

@@ -20,6 +20,8 @@ fn parses_and_formats_schema_decode_expression() {
     };
     let ExprKind::SchemaDecode {
         schema,
+        schema_spans,
+        recovered,
         input,
         base,
     } = &expr.kind
@@ -27,6 +29,8 @@ fn parses_and_formats_schema_decode_expression() {
         panic!("expected schema decode expression");
     };
     assert_eq!(schema, &vec!["wire".to_string(), "PacketWire".to_string()]);
+    assert_eq!(schema_spans.len(), 2);
+    assert!(!recovered);
     assert!(
         matches!(input.kind, ExprKind::NamePath { ref segments, .. } if segments == &vec!["view".to_string()])
     );
@@ -66,6 +70,17 @@ fn rejects_schema_decode_expression_missing_at() {
         "schema decode expression is missing `at`"
     );
     assert_eq!(diagnostic.expected, vec!["at"]);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    assert!(matches!(
+        expr.kind,
+        ExprKind::SchemaDecode {
+            recovered: true,
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -86,10 +101,18 @@ fn parses_and_formats_schema_encode_expression() {
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression body line");
     };
-    let ExprKind::SchemaEncode { schema, value } = &expr.kind else {
+    let ExprKind::SchemaEncode {
+        schema,
+        schema_spans,
+        recovered,
+        value,
+    } = &expr.kind
+    else {
         panic!("expected schema encode expression");
     };
     assert_eq!(schema, &vec!["wire".to_string(), "PacketWire".to_string()]);
+    assert_eq!(schema_spans.len(), 2);
+    assert!(!recovered);
     assert!(
         matches!(value.kind, ExprKind::NamePath { ref segments, .. } if segments == &vec!["value".to_string()])
     );
@@ -126,6 +149,17 @@ fn rejects_schema_encode_expression_missing_from() {
         "schema encode expression is missing `from`"
     );
     assert_eq!(diagnostic.expected, vec!["from"]);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body line");
+    };
+    assert!(matches!(
+        expr.kind,
+        ExprKind::SchemaEncode {
+            recovered: true,
+            ..
+        }
+    ));
 }
 
 #[test]

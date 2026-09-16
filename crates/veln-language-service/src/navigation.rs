@@ -8,8 +8,8 @@ use veln_ast::{InvalidName, NameClass, QualifiedPathSegment};
 use veln_project::classify_companion_source;
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
-    BodyLine, FunctionDecl, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree, Token, TokenKind,
-    TypeVariantDecl, Visibility, lex, parse,
+    BodyLine, Expr, ExprKind, FunctionDecl, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree,
+    Token, TokenKind, TypeVariantDecl, Visibility, lex, parse,
 };
 
 include!("navigation/model.rs");

@@ -200,4 +200,70 @@ mod dependencies_schema_references_tests {
         assert!(query_snapshot(&snapshot, "mismatch.veln", 4, 18).is_none());
         assert!(query_snapshot(&snapshot, "transitive.veln", 4, 18).is_none());
     }
+
+    #[test]
+    fn dependency_schema_references_exclude_recovered_operation_leaves() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[("dep.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                        "  decode dep::Packet from view at byte_offset(0)?\n",
+                        "  encode dep::Packet from packet\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "broken_decode.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode dep::Packet from view byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "broken_encode.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "fn write(packet: {value: Int}) -> ()\n",
+                        "  encode dep::Packet junk from packet\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "recovery.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "fn read(Packet: Int, view: ByteView) -> ()\n",
+                        "  decode Packet from view at byte_offset(0)?\n",
+                        "  decode dep::Packet junk from view at byte_offset(0)?\n",
+                        "  decode dep::Packet from view byte_offset(0)?\n",
+                        "  encode dep::Packet junk from {value: 1}\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        let valid = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
+        assert_eq!(
+            locations(&valid.references),
+            [("main.veln", 4, 15), ("main.veln", 5, 15)]
+        );
+        assert!(query_snapshot(&snapshot, "broken_decode.veln", 4, 16).is_none());
+        assert!(query_snapshot(&snapshot, "broken_encode.veln", 4, 16).is_none());
+        for (line, column) in [(5, 16), (6, 16), (7, 16)] {
+            let result = query_snapshot(&snapshot, "recovery.veln", line, column);
+            assert!(result.is_none(), "line {line}: {result:#?}");
+        }
+    }
 }

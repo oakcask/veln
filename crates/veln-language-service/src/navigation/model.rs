@@ -646,6 +646,7 @@ struct IndexedFile {
     external_import_aliases: BTreeMap<String, (String, String)>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
+    schema_operation_leaf_spans: Vec<SourceSpan>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,

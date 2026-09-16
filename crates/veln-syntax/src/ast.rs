@@ -316,11 +316,15 @@ pub enum ExprKind {
     },
     SchemaDecode {
         schema: Vec<String>,
+        schema_spans: Vec<SourceSpan>,
+        recovered: bool,
         input: Box<Expr>,
         base: Box<Expr>,
     },
     SchemaEncode {
         schema: Vec<String>,
+        schema_spans: Vec<SourceSpan>,
+        recovered: bool,
         value: Box<Expr>,
     },
     FieldAccess {

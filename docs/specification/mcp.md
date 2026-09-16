@@ -470,7 +470,8 @@ or mismatched imports succeed with an empty reference set. The
 protocol contract. The
 `references-dependency-schema-operation-boundaries` MCP case selects the
 unsupported direct-dependency boundaries, including a package schema alias
-chain, and requires successful empty results. A focused MCP server test injects
+chain and a syntax-recovered operation leaf, and requires successful empty
+results. A focused MCP server test injects
 a public standard-library schema and verifies the successful empty result with
 the selected project scope. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture

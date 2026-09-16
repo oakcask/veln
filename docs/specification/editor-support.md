@@ -243,7 +243,8 @@ For a public schema in an exported retained direct-dependency module,
 It excludes the package declaration even when declaration inclusion is true,
 as well as package-source and composition occurrences. Standard-library
 schemas, package schema aliases, transitive dependencies, recovery records,
-and invalid-casing records remain unsupported. The
+syntax-recovered operation leaves, and invalid-casing records remain
+unsupported. The
 `references-dependency-schema-operation` LSP case covers full and implicit
 module paths, workspace-only exact ranges, non-BMP saved input, and parity with
 the MCP case when declaration inclusion is false. Focused MCP server coverage

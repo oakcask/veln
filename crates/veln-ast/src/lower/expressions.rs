@@ -83,12 +83,13 @@ impl AstBuilder {
                 schema,
                 input,
                 base,
+                ..
             } => Some(ExprKind::SchemaDecode {
                 schema: schema.clone(),
                 input: Box::new(self.lower_expr(input)),
                 base: Box::new(self.lower_expr(base)),
             }),
-            SyntaxExprKind::SchemaEncode { schema, value } => Some(ExprKind::SchemaEncode {
+            SyntaxExprKind::SchemaEncode { schema, value, .. } => Some(ExprKind::SchemaEncode {
                 schema: schema.clone(),
                 value: Box::new(self.lower_expr(value)),
             }),

@@ -67,6 +67,21 @@ path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 14
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 15
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
 id = 2
 path = "/result/structuredContent/scope"
 equals = {"mode":"project","generation":0,"project":".","project_wide":true}

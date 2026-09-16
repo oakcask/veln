@@ -72,13 +72,14 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
             schema,
             input,
             base,
+            ..
         } => format!(
             "decode {} from {} at {}",
             schema.join("::"),
             format_expr_at_indent(input, indent),
             format_expr_at_indent(base, indent)
         ),
-        ExprKind::SchemaEncode { schema, value } => format!(
+        ExprKind::SchemaEncode { schema, value, .. } => format!(
             "encode {} from {}",
             schema.join("::"),
             format_expr_at_indent(value, indent)
