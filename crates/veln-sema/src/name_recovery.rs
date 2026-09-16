@@ -59,17 +59,25 @@ pub(crate) fn schema_composition_imported_use_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a UseDecl> {
-    normal_imported_use_for_path(module, segments, current_module).or_else(|| {
-        let module_alias = segments.join("::");
-        let mut candidates = module.uses.iter().filter(|use_decl| {
-            use_decl.package.is_none()
-                && use_decl.module_name.as_deref() == current_module
-                && !use_decl_has_invalid_module_segment(module, use_decl)
-                && use_decl.alias == module_alias
-        });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then_some(candidate)
-    })
+    let module_path = segments.join("::");
+    module
+        .uses
+        .iter()
+        .find(|use_decl| {
+            !use_decl_has_invalid_module_segment(module, use_decl)
+                && use_decl_matches_exact_import_path(use_decl, &module_path, current_module)
+        })
+        .or_else(|| normal_imported_use_for_path(module, segments, current_module))
+        .or_else(|| {
+            let mut candidates = module.uses.iter().filter(|use_decl| {
+                use_decl.package.is_none()
+                    && use_decl.module_name.as_deref() == current_module
+                    && !use_decl_has_invalid_module_segment(module, use_decl)
+                    && use_decl.alias == module_path
+            });
+            let candidate = candidates.next()?;
+            candidates.next().is_none().then_some(candidate)
+        })
 }
 
 pub(crate) fn resolved_import_module_name(
@@ -92,10 +100,19 @@ pub(crate) fn use_decl_matches_import_path(
     module_path: &str,
     current_module: Option<&str>,
 ) -> bool {
+    use_decl_matches_exact_import_path(use_decl, module_path, current_module)
+        || simple_import_alias_matches(use_decl, module_path)
+}
+
+fn use_decl_matches_exact_import_path(
+    use_decl: &UseDecl,
+    module_path: &str,
+    current_module: Option<&str>,
+) -> bool {
     if use_decl.module_name.as_deref() != current_module {
         return false;
     }
-    if use_decl.name == module_path || simple_import_alias_matches(use_decl, module_path) {
+    if use_decl.name == module_path {
         return true;
     }
     if use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)

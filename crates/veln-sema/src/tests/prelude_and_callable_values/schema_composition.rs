@@ -158,6 +158,37 @@ fn schema_composition_resolves_workspace_import_leaf_aliases_before_collision_ch
 }
 
 #[test]
+fn schema_composition_prefers_exact_workspace_import_over_package_leaf_alias() {
+    for imports in [
+        "use wire\nuse a::wire from \"example/pkg\"\n",
+        "use a::wire from \"example/pkg\"\nuse wire\n",
+    ] {
+        let module = merged_modules_with_identities(vec![
+            (
+                "wire",
+                SourceFile::new("wire.veln", "pub schema Packet\n  value: Int\nend\n"),
+            ),
+            (
+                "a::wire",
+                SourceFile::new("a/wire.veln", "pub schema Packet\n  value: String\nend\n"),
+            ),
+            (
+                "main",
+                SourceFile::new(
+                    "main.veln",
+                    format!("{imports}\nschema Host\n  nested: wire::Packet\nend\n"),
+                ),
+            ),
+        ]);
+
+        let references = resolved_schema_composition_references(&module);
+
+        assert_eq!(references.len(), 1, "{references:#?}");
+        assert_eq!(references[0].target_span.file.as_str(), "wire.veln");
+    }
+}
+
+#[test]
 fn schema_field_grammar_precedes_colliding_schema_names_and_aliases() {
     let source = SourceFile::new(
         "main.veln",

@@ -376,6 +376,36 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn exact_workspace_import_precedes_package_implicit_leaf_alias() {
+        for imports in [
+            "use wire\nuse a::wire from \"example/pkg\"\n",
+            "use a::wire from \"example/pkg\"\nuse wire\n",
+        ] {
+            let workspace_source = "pub schema Packet\n  value: Int\nend\n";
+            let dependency_source = "pub schema Packet\n  value: String\nend\n";
+            let consumer_source =
+                format!("{imports}\nschema Host\n  nested: wire::Packet\nend\n");
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![
+                    source("wire.veln", workspace_source),
+                    source("main.veln", &consumer_source),
+                ],
+                vec![dependency_snapshot(
+                    "example/pkg",
+                    &[("a/wire.veln", dependency_source)],
+                    ["a/wire.veln"],
+                )],
+            );
+
+            let result = query_snapshot(&snapshot, "wire.veln", 1, 12).unwrap();
+            assert_eq!(locations(&result.references), [("main.veln", 5, 17)]);
+
+            let selected = query_snapshot(&snapshot, "main.veln", 5, 17).unwrap();
+            assert_eq!(selected.definition.span.file.as_str(), "wire.veln");
+        }
+    }
+
+    #[test]
     fn workspace_schema_references_preserve_import_visibility_and_shadowing() {
         let result = query(
             vec![
