@@ -101,7 +101,8 @@ pub(crate) fn use_decl_matches_import_path(
     current_module: Option<&str>,
 ) -> bool {
     use_decl_matches_exact_import_path(use_decl, module_path, current_module)
-        || simple_import_alias_matches(use_decl, module_path)
+        || (use_decl.module_name.as_deref() == current_module
+            && simple_import_alias_matches(use_decl, module_path))
 }
 
 fn use_decl_matches_exact_import_path(
