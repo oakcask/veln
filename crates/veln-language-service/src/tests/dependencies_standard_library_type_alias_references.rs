@@ -116,6 +116,144 @@
     }
 
     #[test]
+    fn standard_library_type_alias_references_keep_same_spelled_alias_and_target_separate() {
+        let standard_library = standard_library_snapshot(
+            &[
+                ("prelude.veln", "use core\n\npub type Same = core::Same\n"),
+                (
+                    "core.veln",
+                    "pub type Same\n  pub Ready(Int)\nend\n",
+                ),
+            ],
+            ["prelude.veln", "core.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use core from \"std\"\n",
+                    "use model from \"example/pkg\"\n\n",
+                    "type Same\n",
+                    "  Ready(Int)\n",
+                    "end\n\n",
+                    "pub type LocalAlias = prelude::Same\n\n",
+                    "fn alias(input: prelude::Same) -> prelude::Same\n",
+                    "  prelude::Same::Ready(1)\n",
+                    "end\n\n",
+                    "fn target(input: core::Same) -> core::Same\n",
+                    "  core::Same::Ready(1)\n",
+                    "end\n\n",
+                    "fn collisions(input: model::Same, same_value: Int, record: {Same: Int}) -> Same\n",
+                    "  \"Same\"\n",
+                    "end\n\n",
+                    "# Same in a comment is lexical noise.\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[("model.veln", "pub type Same\nend\n")],
+                ["model.veln"],
+            )],
+        )
+        .with_standard_library(standard_library);
+
+        let alias = query_snapshot(&snapshot, "main.veln", 10, 26).unwrap();
+        assert_standard_library_type_alias(&alias);
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("main.veln", 8, 32),
+                ("main.veln", 10, 26),
+                ("main.veln", 10, 44),
+                ("main.veln", 11, 12),
+            ]
+        );
+
+        let target = query_snapshot(&snapshot, "main.veln", 14, 24).unwrap();
+        assert_eq!(target.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            target.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
+        );
+        assert_eq!(
+            target.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(target.definition.span.file.as_str(), "core.veln");
+        assert_eq!(
+            locations(&target.references),
+            [
+                ("main.veln", 14, 24),
+                ("main.veln", 14, 39),
+                ("main.veln", 15, 9),
+            ]
+        );
+    }
+
+    #[test]
+    fn standard_library_type_alias_references_keep_different_spelled_alias_and_target_separate() {
+        let standard_library = standard_library_snapshot(
+            &[
+                ("prelude.veln", "use core\n\npub type Count = core::Target\n"),
+                (
+                    "core.veln",
+                    "pub type Target\n  pub Ready(Int)\nend\n",
+                ),
+            ],
+            ["prelude.veln", "core.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use core from \"std\"\n\n",
+                "pub type LocalAlias = Count\n\n",
+                "fn alias(input: Count) -> prelude::Count\n",
+                "  Count::Ready(1)\n",
+                "end\n\n",
+                "fn target(input: core::Target) -> core::Target\n",
+                "  core::Target::Ready(1)\n",
+                "end\n\n",
+                "fn noise(record: {Count: Int}, count_value: Int, target_value: Int) -> Int\n",
+                "  count_value + target_value\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library);
+
+        let alias = query_snapshot(&snapshot, "main.veln", 5, 17).unwrap();
+        assert_standard_library_type_alias(&alias);
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("main.veln", 3, 23),
+                ("main.veln", 5, 17),
+                ("main.veln", 5, 36),
+                ("main.veln", 6, 3),
+            ]
+        );
+
+        let target = query_snapshot(&snapshot, "main.veln", 9, 24).unwrap();
+        assert_eq!(target.selected_symbol.kind, SymbolKind::Type);
+        assert_eq!(
+            target.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration
+        );
+        assert_eq!(
+            target.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(target.definition.span.file.as_str(), "core.veln");
+        assert_eq!(
+            locations(&target.references),
+            [
+                ("main.veln", 9, 24),
+                ("main.veln", 9, 41),
+                ("main.veln", 10, 9),
+            ]
+        );
+    }
+
+    #[test]
     fn standard_library_type_alias_references_keep_unsupported_targets_empty() {
         let standard_library = standard_library_snapshot(
             &[(

@@ -668,9 +668,10 @@ unsupported alias-chain selection plus unresolved, wrong-kind, and
 invalid-casing alias targets.
 The `references-standard-library-type-alias` MCP specification case checks
 the same successful result shape for the shipped `std::prelude` `ByteCount`
-alias selected through bare and `prelude::`-qualified type occurrences. Its
-reference assertions bind every returned range to the source workspace file
-URI.
+alias selected through bare and `prelude::`-qualified type occurrences,
+including alias-bound constructor qualifier type segments. Its reference
+assertions bind every returned range to the source workspace file URI and
+exclude same-spelled record fields, strings, comments, and field selections.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
@@ -738,12 +739,15 @@ parameter reference admission, unsupported-symbol success, recovery and package
 exclusion, direct-dependency and standard-library public function-alias
 selection, unsupported direct-dependency and standard-library function-alias
 chains, direct-dependency public type-alias selection, unsupported
-direct-dependency type-alias selections, selected-project isolation for
-package type aliases, standard-library function boundaries, function-shaped
-recovery exclusion, invalid positions,
+direct-dependency type-alias selections, standard-library public type-alias
+selection, unsupported standard-library type-alias selections,
+selected-project isolation for package type aliases including
+standard-library type aliases, standard-library function boundaries,
+function-shaped recovery exclusion, invalid positions,
 path failures, bounded stable-capture retry exhaustion without partial
-reference locations or scope metadata, and accepted success and domain-failure
-result schemas.
+reference locations, scope metadata, or package resource mutation for package
+function, function-alias, type-alias, type, and constructor selections, and
+accepted success and domain-failure result schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 checked package-documentation bundle loading, catalog construction failure
 propagation, bidirectional completeness between the embedded bundle and MCP
