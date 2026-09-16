@@ -227,6 +227,15 @@ fn is_schema_composition_path_leaf_token(tokens: &[Token], index: usize) -> bool
     if tokens[index].kind != TokenKind::Ident || !inside_schema_declaration(tokens, index) {
         return false;
     }
+    let Some(field_type) = schema_composition_field_type(tokens, index) else {
+        return false;
+    };
+    schema_path_leaf_in(&field_type, tokens) == Some(index)
+        || is_repeat_schema_path_leaf(&field_type, tokens, index)
+        || is_array_schema_path_leaf(&field_type, tokens, index)
+}
+
+fn schema_composition_field_type(tokens: &[Token], index: usize) -> Option<Vec<usize>> {
     let line_start = line_start_index(tokens, index);
     let line_end = tokens[index..]
         .iter()
@@ -250,12 +259,12 @@ fn is_schema_composition_path_leaf_token(tokens: &[Token], index: usize) -> bool
         .iter()
         .position(|candidate| tokens[*candidate].kind == TokenKind::Colon)
     else {
-        return false;
+        return None;
     };
-    let field_type = &significant[colon_position + 1..];
-    if schema_path_leaf_in(field_type, tokens) == Some(index) {
-        return true;
-    }
+    Some(significant[colon_position + 1..].to_vec())
+}
+
+fn is_repeat_schema_path_leaf(field_type: &[usize], tokens: &[Token], index: usize) -> bool {
     if field_type.len() >= 5
         && tokens[field_type[0]].kind == TokenKind::Ident
         && tokens[field_type[0]].text == "Repeat"
@@ -267,6 +276,10 @@ fn is_schema_composition_path_leaf_token(tokens: &[Token], index: usize) -> bool
             return schema_path_leaf_in(&inner[comma + 1..], tokens) == Some(index);
         }
     }
+    false
+}
+
+fn is_array_schema_path_leaf(field_type: &[usize], tokens: &[Token], index: usize) -> bool {
     if field_type.len() >= 4
         && tokens[field_type[0]].kind == TokenKind::LBracket
         && tokens[*field_type.last().unwrap()].kind == TokenKind::RBracket

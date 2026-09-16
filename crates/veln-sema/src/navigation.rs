@@ -73,37 +73,67 @@ fn direct_schema_composition_target<'a>(
         return None;
     }
     let path = schema_payload_name_path(&field.ty)?;
-    let target = match path.as_slice() {
-        [name] => module.schemas.iter().find(|candidate| {
-            candidate.name.as_deref() == Some(name)
-                && candidate.module_name.as_deref() == schema.module_name.as_deref()
-        }),
-        [_, .., name] => {
-            let use_decl = schema_composition_imported_use_for_path(
-                module,
-                &path[..path.len() - 1],
-                schema.module_name.as_deref(),
-            )?;
-            if use_decl.package.is_some() {
-                return None;
-            }
-            module.schemas.iter().find(|candidate| {
-                candidate.name.as_deref() == Some(name)
-                    && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
-                    && (candidate.visibility == Visibility::Public
-                        || companion_private_schema_access_allowed(module, schema, use_decl))
-            })
-        }
-        _ => None,
-    }?;
-    if schema_field_has_ordinary_type_target(module, schema, &field.ty)
-        || schema.format.as_ref().map(|format| format.name.as_str())
-            != target.format.as_ref().map(|format| format.name.as_str())
-        || schema_composition_reaches(module, target, schema, &mut Vec::new())
-    {
+    let target = schema_composition_target_for_path(module, schema, &path)?;
+    if !direct_schema_composition_target_is_supported(module, schema, field, target) {
         return None;
     }
     Some((path, target))
+}
+
+fn schema_composition_target_for_path<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    path: &[String],
+) -> Option<&'a SchemaDecl> {
+    match path {
+        [name] => local_schema_target(module, schema, name),
+        [_, .., name] => imported_schema_target(module, schema, path, name),
+        _ => None,
+    }
+}
+
+fn local_schema_target<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    name: &str,
+) -> Option<&'a SchemaDecl> {
+    module.schemas.iter().find(|candidate| {
+        candidate.name.as_deref() == Some(name)
+            && candidate.module_name.as_deref() == schema.module_name.as_deref()
+    })
+}
+
+fn imported_schema_target<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    path: &[String],
+    name: &str,
+) -> Option<&'a SchemaDecl> {
+    let use_decl = schema_composition_imported_use_for_path(
+        module,
+        &path[..path.len() - 1],
+        schema.module_name.as_deref(),
+    )?;
+    if use_decl.package.is_some() {
+        return None;
+    }
+    module.schemas.iter().find(|candidate| {
+        candidate.name.as_deref() == Some(name)
+            && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
+            && (candidate.visibility == Visibility::Public
+                || companion_private_schema_access_allowed(module, schema, use_decl))
+    })
+}
+
+fn direct_schema_composition_target_is_supported(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &veln_ast::SchemaField,
+    target: &SchemaDecl,
+) -> bool {
+    !schema_field_has_ordinary_type_target(module, schema, &field.ty)
+        && schema_format_name(schema) == schema_format_name(target)
+        && !schema_composition_reaches(module, target, schema, &mut Vec::new())
 }
 
 fn navigation_repeat_payload_target<'a>(
@@ -111,39 +141,42 @@ fn navigation_repeat_payload_target<'a>(
     schema: &SchemaDecl,
     schema_name: &str,
 ) -> Option<&'a SchemaDecl> {
-    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+    if schema_format_name(schema) != Some("binary") {
         return None;
     }
     let path = schema_payload_name_path(schema_name)?;
-    let target = match path.as_slice() {
-        [name] => {
-            let current_index = module.schemas.iter().position(|candidate| {
-                SchemaIdentity::of(candidate) == SchemaIdentity::of(schema)
-            })?;
-            let (target_index, target) =
-                module.schemas.iter().enumerate().find(|(_, candidate)| {
-                    candidate.name.as_deref() == Some(name)
-                        && candidate.module_name.as_deref() == schema.module_name.as_deref()
-                })?;
-            (target_index < current_index).then_some(target)
-        }
-        [_, .., name] => {
-            let use_decl = schema_composition_imported_use_for_path(
-                module,
-                &path[..path.len() - 1],
-                schema.module_name.as_deref(),
-            )?;
-            if use_decl.package.is_some() {
-                return None;
-            }
-            module.schemas.iter().find(|candidate| {
-                candidate.name.as_deref() == Some(name)
-                    && candidate.module_name.as_deref() == Some(use_decl.name.as_str())
-                    && (candidate.visibility == Visibility::Public
-                        || companion_private_schema_access_allowed(module, schema, use_decl))
-            })
-        }
+    let target = repeat_payload_target_for_path(module, schema, &path)?;
+    (schema_format_name(target) == Some("binary")).then_some(target)
+}
+
+fn repeat_payload_target_for_path<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    path: &[String],
+) -> Option<&'a SchemaDecl> {
+    match path {
+        [name] => prior_local_schema_target(module, schema, name),
+        [_, .., name] => imported_schema_target(module, schema, path, name),
         _ => None,
-    }?;
-    (target.format.as_ref().map(|format| format.name.as_str()) == Some("binary")).then_some(target)
+    }
+}
+
+fn prior_local_schema_target<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    name: &str,
+) -> Option<&'a SchemaDecl> {
+    let current_index = module
+        .schemas
+        .iter()
+        .position(|candidate| SchemaIdentity::of(candidate) == SchemaIdentity::of(schema))?;
+    let (target_index, target) = module.schemas.iter().enumerate().find(|(_, candidate)| {
+        candidate.name.as_deref() == Some(name)
+            && candidate.module_name.as_deref() == schema.module_name.as_deref()
+    })?;
+    (target_index < current_index).then_some(target)
+}
+
+fn schema_format_name(schema: &SchemaDecl) -> Option<&str> {
+    schema.format.as_ref().map(|format| format.name.as_str())
 }
