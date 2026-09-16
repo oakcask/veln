@@ -150,6 +150,12 @@ The bounded package constructor-reference slice is implemented and recorded by
 
 The bounded workspace schema-reference slice is implemented and recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
+
+### Completed Workspace Schema Composition-Reference Slice
+
+The bounded workspace schema composition-reference slice is implemented and
+recorded by
+[MCP Saved Workspace Schema Composition References](../reference/implemented-proposals/mcp-saved-workspace-schema-composition-references.md).
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -1137,6 +1143,8 @@ The package constructor-reference slice is recorded by
 [MCP Saved Package Constructor References](../reference/implemented-proposals/mcp-saved-package-constructor-references.md).
 The workspace schema-reference slice is recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
+The workspace schema composition-reference slice is recorded by
+[MCP Saved Workspace Schema Composition References](../reference/implemented-proposals/mcp-saved-workspace-schema-composition-references.md).
 The direct-dependency public function-alias reference slice is recorded by
 [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md).
 The standard-library public function-alias reference slice is recorded by

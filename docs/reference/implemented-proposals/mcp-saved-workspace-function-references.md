@@ -11,6 +11,10 @@ is specified by [MCP Workspace Projects And Navigation](../../specification/mcp.
 Later workspace symbol-reference support widened the same tool beyond this
 historical function slice and is recorded by
 [MCP Saved Workspace Symbol References](mcp-saved-workspace-symbol-references.md).
+Later workspace schema support added
+[operation references](mcp-saved-workspace-schema-references.md) and
+[composition references](mcp-saved-workspace-schema-composition-references.md)
+without changing this historical function boundary.
 
 Completion evidence:
 

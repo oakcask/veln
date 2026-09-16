@@ -43,7 +43,12 @@ examples.
 
 ## Later Boundary
 
-Saved workspace references were completed by
-[mcp-saved-workspace-function-references.md](mcp-saved-workspace-function-references.md).
+Saved workspace references began with
+[workspace function references](mcp-saved-workspace-function-references.md),
+then widened through
+[workspace symbol references](mcp-saved-workspace-symbol-references.md),
+[workspace schema operation references](mcp-saved-workspace-schema-references.md),
+and
+[workspace schema composition references](mcp-saved-workspace-schema-composition-references.md).
 This record now remains only as the preceding harness and capture evidence for
-that later slice.
+those later slices.

@@ -38,7 +38,9 @@ The tool returns an empty `references` array for valid positions that select
 effects, handlers, effect operations, recovery records, package-backed
 symbols outside their implemented package reference classes, unsupported
 occurrences, or no symbol. The schema reference extension is recorded by
-[MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md).
+[MCP Saved Workspace Schema References](mcp-saved-workspace-schema-references.md),
+with its later composition-reference expansion recorded by
+[MCP Saved Workspace Schema Composition References](mcp-saved-workspace-schema-composition-references.md).
 It does not change the tool input schema, result schema, pagination model,
 workspace-function behavior, or package-resource behavior.
 
