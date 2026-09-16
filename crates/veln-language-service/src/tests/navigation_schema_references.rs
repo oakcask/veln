@@ -85,6 +85,73 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_and_alias_references_preserve_recovered_operation_leaves() {
+        let sources = vec![
+            source(
+                "core.veln",
+                concat!(
+                    "pub schema Packet\n",
+                    "  value: Int\n",
+                    "end\n\n",
+                    "fn valid(view: ByteView) -> ()\n",
+                    "  decode Packet from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "recovered_schema.veln",
+                concat!(
+                    "use core\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode core::Packet from view byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "aliases.veln",
+                concat!(
+                    "use core\n\n",
+                    "pub schema WirePacket = core::Packet\n\n",
+                    "fn valid(packet: {value: Int}) -> ()\n",
+                    "  encode WirePacket from packet\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "recovered_alias.veln",
+                concat!(
+                    "use aliases\n\n",
+                    "fn write(packet: {value: Int}) -> ()\n",
+                    "  encode aliases::WirePacket junk from packet\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let schema = query(sources.clone(), "core.veln", 1, 12).unwrap();
+        assert_eq!(
+            locations(&schema.references),
+            [("core.veln", 6, 10), ("recovered_schema.veln", 4, 16)]
+        );
+        let recovered_schema =
+            query(sources.clone(), "recovered_schema.veln", 4, 16).unwrap();
+        assert_eq!(recovered_schema.definition, schema.definition);
+        assert_eq!(recovered_schema.references, schema.references);
+
+        let alias = query(sources.clone(), "aliases.veln", 3, 12).unwrap();
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("aliases.veln", 6, 10),
+                ("recovered_alias.veln", 4, 19),
+            ]
+        );
+        let recovered_alias = query(sources, "recovered_alias.veln", 4, 19).unwrap();
+        assert_eq!(recovered_alias.definition, alias.definition);
+        assert_eq!(recovered_alias.references, alias.references);
+    }
+
+    #[test]
     fn workspace_schema_references_cover_direct_and_repeated_composition_targets() {
         let sources = vec![
             source(

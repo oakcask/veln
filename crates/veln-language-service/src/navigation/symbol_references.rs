@@ -11,7 +11,7 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && is_schema_operation_path_leaf_token(file, *index)
+                            && is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
                             && self
                                 .schema_alias_for_reference(
                                     file,
@@ -54,7 +54,11 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && is_schema_operation_path_leaf_token(file, *index)
+                            && if symbol.package_origin == Some(PackageOrigin::DirectDependency) {
+                                is_schema_operation_path_leaf_token(file, *index)
+                            } else {
+                                is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
+                            }
                             && self
                                 .schema_for_reference(file, &file.tokens, *index, &token.text)
                                 .is_some_and(|candidate| same_schema(&candidate, symbol))

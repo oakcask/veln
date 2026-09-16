@@ -123,8 +123,13 @@ impl SymbolIndex {
             .to_string();
         let selected =
             self.symbol_for_selection(file, tokens, token_index, &name, &selection, None)?;
-        let references_supported = !is_schema_operation_path_leaf_candidate_token(tokens, token_index)
-            || is_schema_operation_path_leaf_token(file, token_index);
+        let references_supported = !matches!(
+            &selected.symbol,
+            Symbol::Schema(symbol)
+                if symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                    && is_schema_operation_path_leaf_candidate_token(tokens, token_index)
+                    && !is_schema_operation_path_leaf_token(file, token_index)
+        );
         Some(SymbolRequest {
             index: self,
             symbol: selected.symbol,
