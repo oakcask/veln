@@ -217,7 +217,8 @@ sources. Composition references include direct fields and both supported
 repeated-payload spellings. An eligible public schema alias has its own
 declaration identity and returns the operation and composition leaves that
 resolve to that alias, without merging them into its direct public workspace
-schema target. Alias chains and package aliases are not eligible. Alias
+schema target. Alias chains are not eligible, and package aliases do not enter
+the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 
@@ -242,7 +243,7 @@ For a public schema in an exported retained direct-dependency module,
 `decode` and `encode` leaves that resolve to the same package declaration.
 It excludes the package declaration even when declaration inclusion is true,
 as well as package-source and composition occurrences. Standard-library
-schemas, package schema aliases, transitive dependencies, recovery records,
+schemas, ineligible package schema aliases, transitive dependencies, recovery records,
 syntax-recovered operation leaves, and invalid-casing records remain
 unsupported. The
 `references-dependency-schema-operation` LSP case covers full and implicit
@@ -250,6 +251,20 @@ module paths, workspace-only exact ranges, non-BMP saved input, and parity with
 the MCP case when declaration inclusion is false. Focused MCP server coverage
 injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
+For an eligible public schema alias in an exported retained direct-dependency
+module, `textDocument/references` returns the same saved workspace operation
+leaves as MCP when declaration inclusion is false. The alias target must be a
+unique public schema named by a bare target in the alias's module and retained
+dependency. Alias identity includes the dependency and alias declaration, so
+target-schema uses, sibling aliases, and same-spelled aliases from other
+dependencies remain separate. Full written module paths and valid implicit
+leaf aliases select that identity. Bare imported names, qualified and chained
+targets, package-source and composition leaves, standard-library and
+transitive aliases, invalid or ambiguous declarations, and recovered
+operations remain empty. Package declarations are never added when declaration
+inclusion is true, and definition and rename support do not expand. The
+`references-dependency-schema-alias` LSP case is paired with the MCP case and
+fixes their normalized URI and range parity over identical non-BMP saved input.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.
@@ -741,6 +756,9 @@ Implemented:
 - Paired LSP and MCP evidence for direct-dependency public schema `decode` and
   `encode` references. Results include only selected-project workspace `file:`
   locations and never include the package declaration.
+- Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
+  `decode` and `encode` references. Results preserve alias identity and include
+  only selected-project workspace `file:` locations.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.

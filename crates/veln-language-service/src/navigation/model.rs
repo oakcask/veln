@@ -412,6 +412,14 @@ struct PackageFunctionTarget {
 }
 
 #[derive(Clone, Debug)]
+struct PackageSchemaTarget {
+    module: String,
+    name: String,
+    package: String,
+    package_origin: PackageOrigin,
+}
+
+#[derive(Clone, Debug)]
 struct PackageTypeTarget {
     module: String,
     name: String,
@@ -577,6 +585,7 @@ struct NeutralSymbol {
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
     public: bool,
+    alias_target_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -674,6 +683,7 @@ enum SchemaReferenceTarget {
 struct FileDeclarations {
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
+    package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
@@ -709,6 +719,8 @@ pub(crate) struct SymbolIndex {
     files: Vec<IndexedFile>,
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
+    schema_alias_declarations: Vec<NeutralSymbol>,
+    package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,

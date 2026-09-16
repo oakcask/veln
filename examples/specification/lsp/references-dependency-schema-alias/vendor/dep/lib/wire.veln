@@ -1,0 +1,6 @@
+pub schema Packet
+  format binary
+  value: UInt8
+end
+
+pub schema WirePacket = Packet

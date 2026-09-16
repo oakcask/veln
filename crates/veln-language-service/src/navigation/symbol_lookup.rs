@@ -1,4 +1,29 @@
 impl SymbolIndex {
+    fn has_visible_schema_alias_declaration(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> bool {
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            return self.schema_alias_declarations.iter().any(|symbol| {
+                symbol.package.is_none() && symbol.module == file.module && symbol.name == name
+            });
+        };
+        let qualified_modules = self.qualified_module_candidates(file, &qualifier);
+        self.schema_alias_declarations.iter().any(|symbol| {
+            symbol.name == name
+                && qualified_modules.iter().any(|module| module == &symbol.module)
+                && match &symbol.package {
+                    Some(package) => file
+                        .external_uses
+                        .contains(&(symbol.module.clone(), package.clone())),
+                    None => symbol.module == file.module || file.uses.contains(&symbol.module),
+                }
+        })
+    }
+
     fn visible_schema_alias_for_bare_reference(
         &self,
         file: &IndexedFile,
@@ -20,16 +45,28 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        let QualifiedWorkspaceModule::Workspace(module) =
-            qualified_workspace_module(file, qualifier)
-        else {
+        let qualification = qualified_workspace_module(file, qualifier);
+        if matches!(&qualification, QualifiedWorkspaceModule::Ambiguous) {
             return None;
-        };
+        }
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         let mut candidates = self.schema_aliases.iter().filter(|symbol| {
             symbol.name == name
-                && symbol.package.is_none()
-                && symbol.module == module
-                && (symbol.module == file.module || file.uses.contains(&symbol.module))
+                && qualified_modules.iter().any(|module| module == &symbol.module)
+                && match &symbol.package {
+                    Some(package) => {
+                        !matches!(&qualification, QualifiedWorkspaceModule::Workspace(_))
+                            && symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                            && file
+                                .external_uses
+                                .contains(&(symbol.module.clone(), package.clone()))
+                    }
+                    None => {
+                        !matches!(&qualification, QualifiedWorkspaceModule::External)
+                            && (symbol.module == file.module
+                                || file.uses.contains(&symbol.module))
+                    }
+                }
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())

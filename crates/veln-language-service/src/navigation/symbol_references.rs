@@ -1,5 +1,10 @@
 impl SymbolIndex {
     fn schema_alias_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
+        if symbol.package_origin == Some(PackageOrigin::DirectDependency)
+            && !self.package_schema_alias_references_supported(symbol)
+        {
+            return Vec::new();
+        }
         let mut references = self
             .files
             .iter()
@@ -11,7 +16,11 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
+                            && if symbol.package_origin == Some(PackageOrigin::DirectDependency) {
+                                is_schema_operation_path_leaf_token(file, *index)
+                            } else {
+                                is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
+                            }
                             && self
                                 .schema_alias_for_reference(
                                     file,
@@ -25,19 +34,40 @@ impl SymbolIndex {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        references.extend(
-            self.schema_composition_references
-                .iter()
-                .filter_map(|reference| match &reference.target {
-                    SchemaReferenceTarget::Alias(candidate)
-                        if same_schema(candidate, symbol) =>
-                    {
-                        Some(reference.span.clone())
-                    }
-                    _ => None,
-                }),
-        );
+        if symbol.package.is_none() {
+            references.extend(
+                self.schema_composition_references
+                    .iter()
+                    .filter_map(|reference| match &reference.target {
+                        SchemaReferenceTarget::Alias(candidate)
+                            if same_schema(candidate, symbol) =>
+                        {
+                            Some(reference.span.clone())
+                        }
+                        _ => None,
+                    }),
+            );
+        }
         references
+    }
+
+    fn package_schema_alias_references_supported(&self, symbol: &NeutralSymbol) -> bool {
+        let Some(package) = symbol.package.as_deref() else {
+            return false;
+        };
+        let Some(target_name) = symbol.alias_target_name.as_deref() else {
+            return false;
+        };
+        self.package_schema_targets
+            .iter()
+            .filter(|target| {
+                target.package == package
+                    && target.module == symbol.module
+                    && target.name == target_name
+                    && target.package_origin == PackageOrigin::DirectDependency
+            })
+            .count()
+            == 1
     }
 
     fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {

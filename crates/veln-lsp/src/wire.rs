@@ -428,7 +428,10 @@ pub(crate) fn references_json(
 ) -> String {
     let package_schema_operations = result.selected_symbol.kind == SymbolKind::Schema
         && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
-        && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration;
+        && matches!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias
+        );
     if !is_workspace_location(&result.definition) && !package_schema_operations {
         return "[]".to_string();
     }

@@ -50,6 +50,8 @@ impl FileDeclarations {
     fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
         self.schema_aliases.extend(other.schema_aliases);
+        self.package_schema_targets
+            .extend(other.package_schema_targets);
         self.effects.extend(other.effects);
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
@@ -69,6 +71,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
     FileDeclarations {
         schemas: schema_declarations(file, syntax),
         schema_aliases: schema_alias_declarations(file, syntax),
+        package_schema_targets: package_schema_targets(file, syntax),
         effects: effect_declarations(file, syntax),
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
@@ -98,7 +101,47 @@ fn schema_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Neu
                 {
                     return None;
                 }
-                neutral_declaration(file, name, span, Visibility::Public)
+                let mut symbol = neutral_declaration(file, name, span, Visibility::Public)?;
+                symbol.alias_target_name = match alias.target.as_slice() {
+                    [target] => Some(target.clone()),
+                    _ => None,
+                };
+                Some(symbol)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn package_schema_targets(
+    file: &IndexedFile,
+    syntax: &SyntaxTree,
+) -> Vec<PackageSchemaTarget> {
+    let Some(package) = package_context(file) else {
+        return Vec::new();
+    };
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
+                let name = schema.name.as_ref()?;
+                let name_span =
+                    declaration_name_after_keyword(file, TokenKind::Schema, &schema.span)?;
+                if is_invalid_declaration_name(file, &name_span)
+                    || !name
+                        .chars()
+                        .next()
+                        .is_some_and(|initial| initial.is_ascii_uppercase())
+                {
+                    return None;
+                }
+                Some(PackageSchemaTarget {
+                    module: file.module.clone(),
+                    name: name.clone(),
+                    package: package.identity.to_string(),
+                    package_origin: package.origin,
+                })
             }
             _ => None,
         })
@@ -197,6 +240,7 @@ fn neutral_declaration(
         package,
         package_origin,
         public,
+        alias_target_name: None,
     })
 }
 
@@ -206,6 +250,7 @@ fn same_schema(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
         && left.name == right.name
         && left.package_origin == right.package_origin
         && left.public == right.public
+        && left.alias_target_name == right.alias_target_name
         && left.declaration == right.declaration
 }
 

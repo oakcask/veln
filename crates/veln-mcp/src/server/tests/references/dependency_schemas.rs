@@ -350,7 +350,6 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("transitive", "main.veln", 11, 22),
         ("invalid casing", "main.veln", 12, 18),
         ("unresolved", "main.veln", 13, 18),
-        ("package alias", "main.veln", 14, 18),
         ("package alias chain", "main.veln", 15, 18),
         ("package composition", "main.veln", 19, 19),
         ("module qualifier", "main.veln", 12, 10),
@@ -364,6 +363,14 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "{name}: {result:#}"
         );
     }
+
+    let alias = references_result(&workspace, "main.veln", 14, 18);
+    assert_eq!(alias["isError"], false, "{alias:#}");
+    assert_reference_ranges(
+        &alias,
+        &[("main.veln", 14, 18, 14, 23)],
+        "direct dependency schema alias operation",
+    );
 }
 
 #[test]
@@ -377,7 +384,7 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
         let workspace = TempWorkspace::new(source_kind.name());
         write_schema_dependency_workspace(&workspace, source_kind);
 
-        let result = references_result(&workspace, "main.veln", 4, 16);
+        let result = references_result(&workspace, "main.veln", 6, 16);
 
         assert_eq!(
             result["isError"],
@@ -387,7 +394,7 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
         );
         assert_reference_ranges(
             &result,
-            &[("main.veln", 4, 15, 4, 21), ("main.veln", 5, 15, 5, 21)],
+            &[("main.veln", 6, 15, 6, 20), ("main.veln", 7, 15, 7, 20)],
             source_kind.name(),
         );
     }
@@ -437,6 +444,8 @@ fn write_schema_dependency_workspace(
             "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode dep::Packet from view at byte_offset(0)?\n",
             "  encode dep::Packet from packet\n",
+            "  decode dep::Alias from view at byte_offset(0)?\n",
+            "  encode dep::Alias from packet\n",
             "end\n",
         ),
     );
@@ -461,6 +470,7 @@ fn write_schema_dependency_workspace(
         &format!("{dependency_root}/dep.veln"),
         concat!(
             "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n\n",
             "fn package_operations(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode Packet from view at byte_offset(0)?\n",
             "  encode Packet from packet\n",

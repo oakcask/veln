@@ -415,6 +415,7 @@ non-recovery workspace symbols:
 
 - schemas;
 - eligible workspace public schema aliases;
+- eligible direct-dependency public schema aliases;
 - functions;
 - types;
 - constructors;
@@ -452,7 +453,8 @@ or a resolved alias leaf returns its `decode`, `encode`, direct-composition,
 and supported repeated-payload leaves without the declaration or alias-target
 expression. A bare alias resolves only in its declaring module. A valid
 qualified workspace import can expose the alias in another owned source.
-Ineligible aliases, package aliases, module qualifiers, and recovery or
+Ineligible workspace aliases, package alias selections outside the eligible
+direct-dependency operation boundary, module qualifiers, and recovery or
 invalid-casing selections remain successful empty results. Definition and
 rename behavior do not change.
 
@@ -476,6 +478,22 @@ a public standard-library schema and verifies the successful empty result with
 the selected project scope. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries.
+
+An eligible public schema alias declared in an exported module of a retained
+direct dependency has a separate operation-reference identity. Its written
+target must be a bare name that resolves uniquely to a public schema
+declaration in the same module and retained dependency. Selecting a saved
+`decode` or `encode` alias leaf through the full imported module path or its
+valid implicit leaf alias returns every operation leaf with the same dependency
+and alias-declaration identity in the selected project's owned sources. The
+set excludes the alias and target declarations, alias-target expressions,
+composition leaves, package sources, sibling aliases, and direct target-schema
+uses. Bare imported names, qualified or chained targets, ambiguous or invalid
+aliases and targets, standard-library and transitive aliases, non-exported
+modules, mismatched imports, and recovered operations remain successful empty
+results. Definition and rename behavior does not expand to package schema
+aliases. The `references-dependency-schema-alias` MCP case is the exact-range
+protocol contract and has a paired LSP case over identical saved sources.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -531,9 +549,9 @@ package types, functions, function aliases, type aliases, or constructors,
 non-exported package modules, invalid-casing records, recovery records,
 unsupported alias chains, public function aliases with unresolved,
 non-function, or invalid-cased targets, public type aliases with transitive,
-unresolved, non-type, or invalid-cased targets, package public alias symbols
-other than supported function or type aliases, package schema classes other
-than direct-dependency operation leaves, non-function, non-type, and
+unresolved, non-type, or invalid-cased targets, unsupported package public
+alias symbols, package schema classes outside direct-dependency declarations
+and eligible operation aliases, non-function, non-type, and
 non-constructor package symbols, and package module-segment selections succeed
 with an empty `references` array.
 `references` does not expose recovery, virtual, package-source, effect,
@@ -674,12 +692,17 @@ implicit leaf module paths, exact workspace-only ranges, selection parity,
 project-wide scope, and non-BMP saved input. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
-package-alias, package-alias-chain, composition, module-qualifier, and recovery
+package-alias-chain, composition, module-qualifier, and recovery
 selections as successful empty results. Its mismatched import names a retained
 direct dependency whose exported module does not match, and its transitive
 package exists only through another retained dependency's manifest. A focused
 MCP server test injects a public standard-library schema and requires a
 successful empty result with project-wide scope.
+The `references-dependency-schema-alias` MCP specification case checks
+direct-dependency public schema-alias operation references through full written
+and implicit leaf module paths. It fixes exact workspace-only ranges,
+decode/encode selection parity, dependency-and-declaration identity,
+project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

@@ -1,0 +1,11 @@
+use lib::wire from "example/dep"
+
+fn keep(note: String, packet: {value: Int}) -> {value: Int}
+  packet
+end
+
+fn operations(view: ByteView, packet: {value: Int}) -> ()
+  let decoded = keep("😀", decode lib::wire::WirePacket from view at byte_offset(0)?)
+  let encoded = encode wire::WirePacket from packet
+  let bare = encode WirePacket from packet
+end

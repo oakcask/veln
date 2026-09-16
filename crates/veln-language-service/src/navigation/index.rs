@@ -51,8 +51,10 @@ impl SymbolIndex {
         append_surface_module(&mut module, direct_dependencies.module.clone());
         append_surface_module(&mut module, standard_library.module.clone());
         attach_classified_path_segments(&mut files, &workspace_module, &module);
-        let schema_aliases = eligible_workspace_schema_aliases(
+        let schema_alias_declarations = declarations.schema_aliases.clone();
+        let schema_aliases = eligible_schema_aliases(
             declarations.schema_aliases,
+            &declarations.package_schema_targets,
             veln_sema::resolved_schema_aliases(&workspace_module),
         );
         let schema_composition_references = workspace_schema_composition_references(
@@ -66,6 +68,8 @@ impl SymbolIndex {
         Self {
             schemas: declarations.schemas,
             schema_aliases,
+            schema_alias_declarations,
+            package_schema_targets: declarations.package_schema_targets,
             effects: declarations.effects,
             handlers: declarations.handlers,
             operations: declarations.operations,
@@ -126,6 +130,12 @@ impl SymbolIndex {
         let references_supported = !matches!(
             &selected.symbol,
             Symbol::Schema(symbol)
+                if symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                    && is_schema_operation_path_leaf_candidate_token(tokens, token_index)
+                    && !is_schema_operation_path_leaf_token(file, token_index)
+        ) && !matches!(
+            &selected.symbol,
+            Symbol::SchemaAlias(symbol)
                 if symbol.package_origin == Some(PackageOrigin::DirectDependency)
                     && is_schema_operation_path_leaf_candidate_token(tokens, token_index)
                     && !is_schema_operation_path_leaf_token(file, token_index)

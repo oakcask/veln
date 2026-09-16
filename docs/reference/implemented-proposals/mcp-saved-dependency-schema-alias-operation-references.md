@@ -1,34 +1,33 @@
 ---
-role: proposal
-update-when: Direct-dependency schema-alias operation selection, alias identity, saved navigation scope, or planned MCP and LSP reference evidence changes.
+role: implementation-record
+update-when: Direct-dependency schema-alias operation selection, alias identity, saved navigation scope, or its MCP and LSP reference evidence changes.
 ---
 
 # MCP Saved Direct-Dependency Schema-Alias Operation References
 
-## Outcome And Readiness
+## Completed Outcome
 
-Let an agent find saved workspace `decode` and `encode` uses of a public schema
-alias exported by a direct dependency. Keep that alias distinct from its
-target schema and other aliases. This independently actionable slice is
-extracted from [Agent Language Services](agent-language-services.md).
+Agents can find saved workspace `decode` and `encode` uses of a public schema
+alias exported by a direct dependency. The alias remains distinct from its
+target schema and other aliases. This completed slice was extracted from
+[Agent Language Services](../../proposals/agent-language-services.md).
 
 The required foundations are implemented:
 
 - Direct-dependency schema operation references, package visibility, saved
   capture, project scope, and reference result schemas are specified by
-  [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+  [MCP Workspace Projects, Resources, And Navigation](../../specification/mcp.md).
 - Workspace schema-alias identity and shared saved-source navigation are
-  specified by [Editor Support](../specification/editor-support.md).
+  specified by [Editor Support](../../specification/editor-support.md).
 - Public schema aliases are existing syntax in
-  [Source Surface](../specification/source-surface.md).
+  [Source Surface](../../specification/source-surface.md).
 - Exact response-local location assertions are available through
-  [Toolchain Test Harness](../reference/toolchain-test-harness.md).
+  [Toolchain Test Harness](../toolchain-test-harness.md).
 
-Current MCP behavior returns successful empty results for package schema
-aliases. The new capability is alias-specific consumer reference search, not
-a new source syntax or a relaxation of identifier casing. Package composition
-resolution, alias chains, pagination, plugins, and MCP rename are not
-prerequisites.
+The implemented capability is alias-specific consumer reference search, not a
+new source syntax or a relaxation of identifier casing. Package composition
+resolution, alias chains, pagination, plugins, and MCP rename remain outside
+this record.
 
 ## Bounded Contract
 
@@ -62,11 +61,11 @@ definition and rename behavior remains unchanged.
 
 ## Acceptance Model
 
-This table is the planned acceptance authority. The evidence below must be
-added during implementation; these rows do not claim passing coverage.
+This table records the acceptance observations covered by the executable
+evidence below.
 Exact sets must identify source leaves per response, not merely count them.
 
-| Input or state | Required observation | Planned evidence |
+| Input or state | Required observation | Evidence |
 | --- | --- | --- |
 | Select either a `decode` or an `encode` leaf for one eligible alias in a project with several owned sources. | Both return the same exact ordered operation-leaf set across those sources. | Shared navigation tests and an MCP JSONL case. |
 | Use a full imported module path and its valid implicit leaf alias. | Both select the same alias; bare imported names remain empty. | Import-resolution tests and exact MCP ranges. |
@@ -84,19 +83,17 @@ Exact sets must identify source leaves per response, not merely count them.
 
 ## Evidence And Completion
 
-Add focused protocol cases under `examples/specification/mcp/` and
-`examples/specification/lsp/`. Extend shared navigation tests in
-`crates/veln-language-service` and saved-scope and capture-failure tests in
-`crates/veln-mcp`. Run the affected cases with the repository toolchain harness
-and focused Rust tests through the bounded runners described by
-[Toolchain Test Harness](../reference/toolchain-test-harness.md).
+Focused protocol cases live under `examples/specification/mcp/` and
+`examples/specification/lsp/`. Shared navigation tests live in
+`crates/veln-language-service`, with saved-scope and capture-failure tests in
+`crates/veln-mcp`. The repository toolchain harness and focused Rust tests run
+through the bounded runners described by
+[Toolchain Test Harness](../toolchain-test-harness.md).
 
-The existing dependency-schema operation boundary fixtures contain a direct
-same-module alias and an alias chain. Change the former's empty expectation
-only after adding exact positive evidence. Retain the latter's empty result
-and coverage for excluded package schema classes. Completion requires every
-acceptance row, updated current MCP and editor specifications, and retirement
-of this proposal to the implemented records.
+The dependency-schema operation boundary fixtures contain a direct same-module
+alias and an alias chain. The former has positive evidence. The latter retains
+its empty result and coverage for excluded package schema classes. Current MCP
+and editor specifications own the implemented behavior.
 
 ## Deferred Boundary
 
