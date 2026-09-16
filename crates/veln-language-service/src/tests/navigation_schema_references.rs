@@ -343,6 +343,39 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn exact_schema_import_path_precedes_colliding_implicit_leaf_alias() {
+        for imports in [
+            "use wire\nuse a::wire\n",
+            "use a::wire\nuse wire\n",
+        ] {
+            let sources = vec![
+                source(
+                    "wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "a/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "main.veln",
+                    &format!(
+                        "{imports}\nschema Host\n  exact: wire::Packet\n  qualified: a::wire::Packet\nend\n"
+                    ),
+                ),
+            ];
+
+            let exact = query(sources.clone(), "wire.veln", 1, 12).unwrap();
+            let qualified = query(sources.clone(), "a/wire.veln", 1, 12).unwrap();
+            assert_eq!(locations(&exact.references), [("main.veln", 5, 16)]);
+            assert_eq!(locations(&qualified.references), [("main.veln", 6, 23)]);
+
+            let selected_exact = query(sources, "main.veln", 5, 16).unwrap();
+            assert_eq!(selected_exact.definition.span.file.as_str(), "wire.veln");
+        }
+    }
+
+    #[test]
     fn workspace_schema_references_preserve_import_visibility_and_shadowing() {
         let result = query(
             vec![

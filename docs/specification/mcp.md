@@ -431,9 +431,10 @@ requested source. They include same-module bare occurrences and qualified
 occurrences, including import-alias-qualified paths, that resolve to the
 selected workspace schema under ordinary import, visibility, exact
 test-companion, and shadowing rules. A written import does not put that
-imported module's schemas in the bare schema namespace. An implicit leaf
-import alias resolves only when exactly one written import provides that
-alias. They exclude the
+imported module's schemas in the bare schema namespace. An exact full written
+import path takes precedence over a same-spelled implicit leaf alias. Otherwise,
+an implicit leaf import alias resolves only when exactly one written import
+provides that alias. They exclude the
 declaration, module qualifiers, package schemas, public schema aliases, schema
 alias traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,

@@ -213,9 +213,11 @@ schema-composition path leaves that resolve to that schema in workspace
 sources. Composition references include direct fields and both supported
 repeated-payload spellings. Same-module bare schema paths can resolve to the
 selected schema. Imported-module schemas must be named by an accepted full
-path or unique implicit leaf import alias. Colliding implicit leaf aliases
-select no schema identity in either import order. A written import does not
-make the imported schema available as a bare schema path. It does not add
+path or unique implicit leaf import alias. An exact full written import path
+takes precedence over a same-spelled implicit leaf alias. Otherwise, colliding
+implicit leaf aliases select no schema identity in either import order. A
+written import does not make the imported schema available as a bare schema
+path. It does not add
 package-schema, schema-alias, module-qualifier, recovery, or rename behavior
 for schemas. The
 executable evidence is the `references-workspace-schema-composition` LSP case

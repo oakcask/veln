@@ -225,11 +225,15 @@ visible record beneath the written field binding; target fields are never
 injected as unqualified fields. Same-module private or public targets and
 public targets or aliases reached through a written `use` path are supported.
 A multi-segment composition target may use the full imported module path or
-its implicit leaf import alias. The implicit leaf alias resolves only when one
-written import provides it; colliding leaf aliases remain unresolved in either
-import order. Focused semantic and language-service evidence is
+its implicit leaf import alias. An exact full written import path takes
+precedence over a same-spelled implicit leaf alias. Otherwise, the implicit
+leaf alias resolves only when one written import provides it; colliding leaf
+aliases remain unresolved in either import order. Focused semantic and
+language-service evidence is
 `schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`
-and `colliding_implicit_schema_import_aliases_are_order_independent`.
+and the `colliding_implicit_schema_import_aliases_are_order_independent` and
+`exact_schema_import_path_precedes_colliding_implicit_leaf_alias` navigation
+cases.
 Format-neutral structural types and binary field primitives keep their existing
 grammar precedence when a local schema or schema alias has the same name. The
 checked collisions are under
