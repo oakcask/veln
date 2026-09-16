@@ -116,6 +116,45 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn exact_dependency_schema_qualifier_precedes_workspace_implicit_alias() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[("wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "a/wire.veln",
+                    concat!(
+                        "pub schema Local\n  value: Int\nend\n\n",
+                        "pub schema Packet = Local\n",
+                    ),
+                ),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use a::wire\n",
+                        "use wire from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode wire::Packet from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        let selected = query_snapshot(&snapshot, "main.veln", 5, 16).unwrap();
+        assert_eq!(selected.selected_symbol.kind, SymbolKind::Schema);
+        assert!(matches!(
+            selected.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert_eq!(locations(&selected.references), [("main.veln", 5, 16)]);
+    }
+
+    #[test]
     fn direct_dependency_schema_alias_references_keep_alias_identity() {
         let selected = dependency_snapshot(
             "example/dep",
@@ -357,6 +396,22 @@ mod dependencies_schema_references_tests {
                 concat!(
                     "pub schema Packet\n  value: Int\nend\n\n",
                     "pub schema Alias = Packet\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            ),
+            (
+                "private schema collides with public alias",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "schema Alias\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            ),
+            (
+                "private schema collides with public target",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "schema Packet\n  hidden: Int\nend\n\n",
                     "pub schema Alias = Packet\n",
                 ),
             ),

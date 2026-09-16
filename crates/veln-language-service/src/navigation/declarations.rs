@@ -124,7 +124,7 @@ fn package_schema_targets(
         .items
         .iter()
         .filter_map(|item| match item {
-            SyntaxItem::Schema(schema) if schema.visibility == Visibility::Public => {
+            SyntaxItem::Schema(schema) => {
                 let name = schema.name.as_ref()?;
                 let name_span =
                     declaration_name_after_keyword(file, TokenKind::Schema, &schema.span)?;
@@ -141,6 +141,7 @@ fn package_schema_targets(
                     name: name.clone(),
                     package: package.identity.to_string(),
                     package_origin: package.origin,
+                    public: schema.visibility == Visibility::Public,
                 })
             }
             _ => None,

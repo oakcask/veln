@@ -417,6 +417,7 @@ struct PackageSchemaTarget {
     name: String,
     package: String,
     package_origin: PackageOrigin,
+    public: bool,
 }
 
 #[derive(Clone, Debug)]

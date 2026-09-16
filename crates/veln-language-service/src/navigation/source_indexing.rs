@@ -392,21 +392,32 @@ fn eligible_schema_aliases(
                             && target.name == alias.name
                             && target.package_origin == PackageOrigin::DirectDependency
                     })
-                    && package_targets
-                        .iter()
-                        .filter(|target| {
-                            target.package == package
-                                && target.module == alias.module
-                                && target.name == target_name
-                                && target.package_origin == PackageOrigin::DirectDependency
-                        })
-                        .count()
-                        == 1
+                    && has_unique_public_direct_package_schema_target(
+                        package_targets,
+                        package,
+                        &alias.module,
+                        target_name,
+                    )
             }
             Some(PackageOrigin::StandardLibrary) => false,
         })
         .cloned()
         .collect()
+}
+
+fn has_unique_public_direct_package_schema_target(
+    package_targets: &[PackageSchemaTarget],
+    package: &str,
+    module: &str,
+    name: &str,
+) -> bool {
+    let mut targets = package_targets.iter().filter(|target| {
+        target.package == package
+            && target.module == module
+            && target.name == name
+            && target.package_origin == PackageOrigin::DirectDependency
+    });
+    matches!((targets.next(), targets.next()), (Some(target), None) if target.public)
 }
 
 fn empty_surface_module() -> veln_ast::SurfaceModule {

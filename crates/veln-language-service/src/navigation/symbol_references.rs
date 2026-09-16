@@ -58,16 +58,12 @@ impl SymbolIndex {
         let Some(target_name) = symbol.alias_target_name.as_deref() else {
             return false;
         };
-        self.package_schema_targets
-            .iter()
-            .filter(|target| {
-                target.package == package
-                    && target.module == symbol.module
-                    && target.name == target_name
-                    && target.package_origin == PackageOrigin::DirectDependency
-            })
-            .count()
-            == 1
+        has_unique_public_direct_package_schema_target(
+            &self.package_schema_targets,
+            package,
+            &symbol.module,
+            target_name,
+        )
     }
 
     fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
