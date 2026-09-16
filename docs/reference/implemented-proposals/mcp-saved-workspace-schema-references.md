@@ -34,11 +34,15 @@ and the matching project-wide or single-file scope metadata.
 This completed slice itself did not add directly resolved schema-composition
 leaves. That boundary was expanded later by
 [MCP Saved Workspace Schema Composition References](mcp-saved-workspace-schema-composition-references.md).
-This earlier slice did not add package-schema references or public
-schema-alias references,
+This earlier workspace-only slice did not add package-schema references or
+public schema-alias references. A later slice added `decode` and `encode`
+operation references for eligible public schemas from retained direct
+dependencies; see
+[MCP Saved Direct-Dependency Schema Operation References](mcp-saved-dependency-schema-operation-references.md).
+Package schema composition leaves, package schema aliases and alias chains,
 package or workspace public-alias traversal, pagination, declaration
 inclusion, recovery symbols, casing-neutral selection, transitive dependency
-references, or rename behavior.
+references, and rename behavior remain outside this completed slice.
 
 ## Completion Evidence
 
@@ -47,7 +51,7 @@ references, or rename behavior.
 | Same-module bare and qualified imported schema operation leaves resolve to the selected workspace schema; bare imported leaves do not resolve. | `workspace_schema_references_cover_local_and_qualified_imported_operations` in `veln-language-service` tests, `references_return_workspace_schema_operation_locations_and_scope` in `veln-mcp` server tests, and the bare-import assertions in the `references-workspace-schema` executable MCP case |
 | Import visibility, exact companion access, and shadowing preserve the definition-lookup identity boundary. | `workspace_schema_references_preserve_import_visibility_and_shadowing`, `workspace_schema_references_include_exact_companion_private_qualified_uses`, and `references_keep_workspace_schema_identity_visibility_and_companion_boundaries` |
 | Same-spelled functions, types, constructors, values, fields, operations, strings, comments, and schema uses resolving elsewhere are excluded. | `workspace_schema_references_exclude_collisions_and_unsupported_selections` and `references_keep_workspace_schema_identity_visibility_and_companion_boundaries` |
-| Package schemas, ineligible or package schema aliases, module qualifiers, and other unsupported selections keep successful empty results. | `workspace_schema_references_keep_schema_specific_unsupported_selections_empty`, `references_reject_recovery_package_and_unsupported_symbols`, and the unsupported-selection requests in the `references-workspace-schema` executable MCP case |
+| At completion of this workspace-only slice, package schemas, schema aliases, module qualifiers, and other unsupported selections kept successful empty results. Later direct-dependency schema operation support has its own record and evidence. | `workspace_schema_references_keep_schema_specific_unsupported_selections_empty`, `references_reject_recovery_package_and_unsupported_symbols`, the unsupported-selection requests in the `references-workspace-schema` executable MCP case, and [MCP Saved Direct-Dependency Schema Operation References](mcp-saved-dependency-schema-operation-references.md) |
 | Anonymous-source and out-of-project single-file isolation remain unchanged for schema identities. | `references_keep_anonymous_sources_isolated_for_workspace_schema_selections` and `references_keep_descendant_package_sources_isolated_for_workspace_schema_selections` |
 | Stable capture retry exhaustion for a workspace schema identity returns `snapshot_changed` without success-only references or scope metadata. | `references_project_capture_exhausts_retries_for_workspace_schema_selection` |
 | The stdio executable specification demonstrates workspace schema references and schema-specific unsupported selections through the public MCP surface. | `references-workspace-schema` executable MCP case |

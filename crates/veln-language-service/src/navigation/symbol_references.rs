@@ -11,7 +11,7 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && is_schema_operation_path_leaf_token(&file.tokens, *index)
+                            && is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
                             && self
                                 .schema_alias_for_reference(
                                     file,
@@ -41,7 +41,7 @@ impl SymbolIndex {
     }
 
     fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
-        if symbol.package.is_some() {
+        if !self.schema_references_supported(symbol) {
             return Vec::new();
         }
         let mut references = self.files
@@ -54,7 +54,11 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && is_schema_operation_path_leaf_token(&file.tokens, *index)
+                            && if symbol.package_origin == Some(PackageOrigin::DirectDependency) {
+                                is_schema_operation_path_leaf_token(file, *index)
+                            } else {
+                                is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
+                            }
                             && self
                                 .schema_for_reference(file, &file.tokens, *index, &token.text)
                                 .is_some_and(|candidate| same_schema(&candidate, symbol))
@@ -63,19 +67,31 @@ impl SymbolIndex {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        references.extend(
-            self.schema_composition_references
-                .iter()
-                .filter(|reference| {
-                    matches!(
-                        &reference.target,
-                        SchemaReferenceTarget::Schema(candidate)
-                            if same_schema(candidate, symbol)
-                    )
-                })
-                .map(|reference| reference.span.clone()),
-        );
+        if symbol.package.is_none() {
+            references.extend(
+                self.schema_composition_references
+                    .iter()
+                    .filter(|reference| {
+                        matches!(
+                            &reference.target,
+                            SchemaReferenceTarget::Schema(candidate)
+                                if same_schema(candidate, symbol)
+                        )
+                    })
+                    .map(|reference| reference.span.clone()),
+            );
+        }
         references
+    }
+
+    fn schema_references_supported(&self, symbol: &NeutralSymbol) -> bool {
+        symbol.package.is_none()
+            || (symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                && symbol
+                    .name
+                    .chars()
+                    .next()
+                    .is_some_and(|initial| initial.is_ascii_uppercase()))
     }
 
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {

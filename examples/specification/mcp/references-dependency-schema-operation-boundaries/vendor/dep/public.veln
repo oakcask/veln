@@ -1,0 +1,15 @@
+pub schema Public
+  value: Int
+end
+
+pub schema badSchema
+  value: Int
+end
+
+pub schema Alias = Public
+pub schema AliasChain = Alias
+
+fn package_operations(view: ByteView, value: {value: Int}) -> ()
+  decode Public from view at byte_offset(0)?
+  encode Public from value
+end

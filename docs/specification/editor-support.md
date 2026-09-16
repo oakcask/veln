@@ -231,11 +231,25 @@ either import order when all candidates are workspace imports. This
 composition-alias uniqueness rule does not specify package-only or mixed
 workspace/package alias collisions. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
-package-schema, module-qualifier, recovery, or rename behavior for schemas.
+package-schema composition, module-qualifier, recovery, or rename behavior for
+schemas.
 The executable evidence is the `references-workspace-schema-composition` and
 `references-workspace-schema-alias` LSP cases under
 `examples/specification/lsp/` and the shared
 `navigation_schema_references` Rust test module.
+For a public schema in an exported retained direct-dependency module,
+`textDocument/references` returns the selected project's saved workspace
+`decode` and `encode` leaves that resolve to the same package declaration.
+It excludes the package declaration even when declaration inclusion is true,
+as well as package-source and composition occurrences. Standard-library
+schemas, package schema aliases, transitive dependencies, recovery records,
+syntax-recovered operation leaves, and invalid-casing records remain
+unsupported. The
+`references-dependency-schema-operation` LSP case covers full and implicit
+module paths, workspace-only exact ranges, non-BMP saved input, and parity with
+the MCP case when declaration inclusion is false. Focused MCP server coverage
+injects a public standard-library schema and verifies that this unsupported
+selection returns an empty set with project-wide scope.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.
@@ -724,6 +738,9 @@ Implemented:
 - Shared navigation and MCP evidence for supported direct-dependency and
   standard-library public type aliases. Results include only selected-project
   workspace `file:` locations and stay separate from the target type identity.
+- Paired LSP and MCP evidence for direct-dependency public schema `decode` and
+  `encode` references. Results include only selected-project workspace `file:`
+  locations and never include the package declaration.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -737,9 +754,10 @@ Not implemented:
 
 - LSP range and delta semantic token requests.
 - Completion and hover.
-- Dependency reference search outside the implemented direct-dependency and
-  standard-library public function, public function-alias, public type-alias,
-  public type, and public constructor reference boundaries.
+- Dependency reference search outside the implemented direct-dependency schema
+  operation and direct-dependency and standard-library public function, public
+  function-alias, public type-alias, public type, and public constructor
+  reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, embedded standard-library,

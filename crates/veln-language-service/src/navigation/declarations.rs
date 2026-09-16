@@ -167,7 +167,8 @@ fn effect_operation_declarations(
             effect.operations.iter().filter_map(move |operation| {
                 let name = operation.name.as_ref()?;
                 let span = operation.name_span.clone();
-                let (declaration, package) = neutral_navigation_origin(file, span, public)?;
+                let (declaration, package, _) =
+                    neutral_navigation_origin(file, span, public)?;
                 Some(EffectOperationSymbol {
                     module: file.module.clone(),
                     effect_name: effect_name.clone(),
@@ -187,12 +188,14 @@ fn neutral_declaration(
     visibility: Visibility,
 ) -> Option<NeutralSymbol> {
     let public = visibility == Visibility::Public;
-    let (declaration, package) = neutral_navigation_origin(file, span, public)?;
+    let (declaration, package, package_origin) =
+        neutral_navigation_origin(file, span, public)?;
     Some(NeutralSymbol {
         module: file.module.clone(),
         name: name.to_string(),
         declaration,
         package,
+        package_origin,
         public,
     })
 }
@@ -201,6 +204,7 @@ fn same_schema(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
     left.package == right.package
         && left.module == right.module
         && left.name == right.name
+        && left.package_origin == right.package_origin
         && left.public == right.public
         && left.declaration == right.declaration
 }
@@ -209,9 +213,9 @@ fn neutral_navigation_origin(
     file: &IndexedFile,
     span: SourceSpan,
     public: bool,
-) -> Option<(NavigationLocation, Option<String>)> {
+) -> Option<(NavigationLocation, Option<String>, Option<PackageOrigin>)> {
     let origin = declaration_origin(file, span, public)?;
-    Some((origin.declaration, origin.package))
+    Some((origin.declaration, origin.package, origin.package_origin))
 }
 
 struct DeclarationOrigin {

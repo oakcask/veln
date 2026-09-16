@@ -1,0 +1,5 @@
+[package]
+name = "other/dep"
+
+[lib]
+exports = ["other.veln"]

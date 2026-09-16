@@ -139,6 +139,51 @@ fn references_project_capture_exhausts_retries_after_dependency_source_changes()
 }
 
 #[test]
+fn references_project_capture_exhausts_retries_for_dependency_schema_selection() {
+    let workspace = TempWorkspace::new("references-dependency-schema-capture-retry");
+    write_workspace_with_dependency_and_sources(
+        &workspace,
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode dep::Packet from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+        None,
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub schema Packet\n  value: Int\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let source = root.join("vendor/dep/dep.veln");
+        fs::remove_file(&source).unwrap();
+        let field = if attempt % 2 == 0 { "other" } else { "value" };
+        fs::write(&source, format!("pub schema Packet\n  {field}: Int\nend\n")).unwrap();
+    });
+
+    let result = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 16
+    }));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
 fn references_project_capture_exhausts_retries_for_dependency_function_alias_selection() {
     let workspace = TempWorkspace::new("references-dependency-alias-capture-retry");
     write_workspace_with_dependency_and_sources(

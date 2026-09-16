@@ -18,10 +18,7 @@ also states it.
 
 ## Ready
 
-- Saved direct-dependency schema operation references:
-  [mcp-saved-dependency-schema-operation-references.md](mcp-saved-dependency-schema-operation-references.md).
-  This slice uses existing package definition resolution and saved captures;
-  package composition references, schema aliases, and pagination remain separate.
+There is no ready implementation target.
 
 ## Blocked
 
@@ -34,6 +31,9 @@ also states it.
 - The agent-language-services umbrella remains a planning inventory. Its
   workspace schema-alias reference slice is implemented and recorded by
   [MCP Saved Workspace Schema-Alias References](../reference/implemented-proposals/mcp-saved-workspace-schema-alias-references.md).
+  Its direct-dependency schema operation-reference slice is implemented and
+  recorded by
+  [MCP Saved Direct-Dependency Schema Operation References](../reference/implemented-proposals/mcp-saved-dependency-schema-operation-references.md).
   Its saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
   definition-link, direct-dependency function-reference, and

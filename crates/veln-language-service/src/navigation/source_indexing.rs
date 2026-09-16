@@ -13,6 +13,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let parsed = parse(&source);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
+    let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
     let recovery_symbols = workspace_recovery_symbols(
         navigation_isolated,
         &source,
@@ -31,6 +32,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         external_import_aliases,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
+        schema_operation_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
@@ -117,6 +119,7 @@ fn indexed_dependency_source(
     let parsed = parse(&source_file);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source_file).tokens;
+    let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
     let file = IndexedFile {
         source: source_file,
         tokens,
@@ -128,6 +131,7 @@ fn indexed_dependency_source(
         external_import_aliases,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
+        schema_operation_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
@@ -139,6 +143,129 @@ fn indexed_dependency_source(
         },
     };
     (file, parsed)
+}
+
+fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
+    let mut spans = Vec::new();
+    for item in &syntax.items {
+        match item {
+            SyntaxItem::Function(function) => {
+                for line in &function.body {
+                    let expr = match line {
+                        BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => expr,
+                    };
+                    collect_valid_schema_operation_leaf_spans(expr, &mut spans);
+                }
+            }
+            SyntaxItem::Handler(handler) => {
+                for clause in &handler.operation_clauses {
+                    collect_valid_schema_operation_leaf_spans(&clause.body, &mut spans);
+                }
+            }
+            _ => {}
+        }
+    }
+    spans
+}
+
+fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<SourceSpan>) {
+    match &expr.kind {
+        ExprKind::SchemaDecode {
+            schema_spans,
+            recovered,
+            input,
+            base,
+            ..
+        } => {
+            if !recovered && let Some(leaf) = schema_spans.last() {
+                spans.push(leaf.clone());
+            }
+            collect_valid_schema_operation_leaf_spans(input, spans);
+            collect_valid_schema_operation_leaf_spans(base, spans);
+        }
+        ExprKind::SchemaEncode {
+            schema_spans,
+            recovered,
+            value,
+            ..
+        } => {
+            if !recovered && let Some(leaf) = schema_spans.last() {
+                spans.push(leaf.clone());
+            }
+            collect_valid_schema_operation_leaf_spans(value, spans);
+        }
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try(callee)
+        | ExprKind::Prefix { expr: callee, .. } => {
+            collect_valid_schema_operation_leaf_spans(callee, spans);
+        }
+        ExprKind::Call { callee, args } => {
+            collect_valid_schema_operation_leaf_spans(callee, spans);
+            for arg in args {
+                collect_valid_schema_operation_leaf_spans(arg, spans);
+            }
+        }
+        ExprKind::Perform { args, .. } => {
+            for arg in args {
+                collect_valid_schema_operation_leaf_spans(arg, spans);
+            }
+        }
+        ExprKind::Handle { body, args, .. } => {
+            collect_valid_schema_operation_leaf_spans(body, spans);
+            for arg in args {
+                collect_valid_schema_operation_leaf_spans(arg, spans);
+            }
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_valid_schema_operation_leaf_spans(&field.expr, spans);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_valid_schema_operation_leaf_spans(&entry.key, spans);
+                collect_valid_schema_operation_leaf_spans(&entry.value, spans);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_valid_schema_operation_leaf_spans(item, spans);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_valid_schema_operation_leaf_spans(scrutinee, spans);
+            for arm in arms {
+                collect_valid_schema_operation_leaf_spans(&arm.expr, spans);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_valid_schema_operation_leaf_spans(condition, spans);
+            collect_valid_schema_operation_leaf_spans(then_branch, spans);
+            for branch in else_if_branches {
+                collect_valid_schema_operation_leaf_spans(&branch.condition, spans);
+                collect_valid_schema_operation_leaf_spans(&branch.expr, spans);
+            }
+            collect_valid_schema_operation_leaf_spans(else_branch, spans);
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_valid_schema_operation_leaf_spans(left, spans);
+            collect_valid_schema_operation_leaf_spans(right, spans);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
 }
 
 fn attach_classified_path_segments(

@@ -1,0 +1,3 @@
+schema Private
+  value: Int
+end

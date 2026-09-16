@@ -438,7 +438,7 @@ same-spelled implicit leaf alias. Otherwise, when all implicit-leaf candidates
 are workspace imports, a composition alias resolves to the selected workspace
 schema only when exactly one written workspace import provides that alias.
 This composition-alias uniqueness rule does not specify package-only or mixed
-workspace/package alias collisions. A selected schema's set excludes the
+workspace/package alias collisions. A selected workspace schema's set excludes the
 declaration, module qualifiers, package schemas, schema-alias leaves, alias
 traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
@@ -455,6 +455,27 @@ qualified workspace import can expose the alias in another owned source.
 Ineligible aliases, package aliases, module qualifiers, and recovery or
 invalid-casing selections remain successful empty results. Definition and
 rename behavior do not change.
+
+A public schema declared in an exported module of a retained direct dependency
+has an operation-reference identity. Selecting a resolved `decode` or `encode`
+leaf returns every operation leaf for that declaration in the selected
+project's captured owned sources. Full written module paths and their valid
+implicit leaf aliases resolve to the same identity. Results contain only
+workspace `file:` locations and exclude the declaration, package sources,
+composition fields, aliases and alias targets, import tokens, and module
+qualifiers. Standard-library schemas, private or non-exported schemas,
+transitive dependencies, recovery and invalid-casing records, and unresolved
+or mismatched imports succeed with an empty reference set. The
+`references-dependency-schema-operation` MCP case is the positive executable
+protocol contract. The
+`references-dependency-schema-operation-boundaries` MCP case selects the
+unsupported direct-dependency boundaries, including a package schema alias
+chain and a syntax-recovered operation leaf, and requires successful empty
+results. A focused MCP server test injects
+a public standard-library schema and verifies the successful empty result with
+the selected project scope. Focused language-service and MCP tests also cover
+identity, package-source exclusion, scope, source-kind, and stable-capture
+boundaries.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -511,10 +532,11 @@ non-exported package modules, invalid-casing records, recovery records,
 unsupported alias chains, public function aliases with unresolved,
 non-function, or invalid-cased targets, public type aliases with transitive,
 unresolved, non-type, or invalid-cased targets, package public alias symbols
-other than supported function or type aliases, non-function, non-type, and
+other than supported function or type aliases, package schema classes other
+than direct-dependency operation leaves, non-function, non-type, and
 non-constructor package symbols, and package module-segment selections succeed
 with an empty `references` array.
-`references` does not expose recovery, virtual, package schema, effect,
+`references` does not expose recovery, virtual, package-source, effect,
 handler, or effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
@@ -646,6 +668,18 @@ The `references-workspace-schema-alias` MCP specification case is the focused
 executable contract for alias declaration and use selection, alias/target
 identity separation, direct and repeated composition, operation references,
 canonical ranges, Unicode-scalar coordinates, and project-wide saved scope.
+The `references-dependency-schema-operation` MCP specification case checks
+direct-dependency public schema operation references through full written and
+implicit leaf module paths, exact workspace-only ranges, selection parity,
+project-wide scope, and non-BMP saved input. The
+`references-dependency-schema-operation-boundaries` case checks private,
+non-exported, mismatched-import, transitive, invalid-casing, unresolved,
+package-alias, package-alias-chain, composition, module-qualifier, and recovery
+selections as successful empty results. Its mismatched import names a retained
+direct dependency whose exported module does not match, and its transitive
+package exists only through another retained dependency's manifest. A focused
+MCP server test injects a public standard-library schema and requires a
+successful empty result with project-wide scope.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified
@@ -781,7 +815,8 @@ standard-library type aliases, standard-library function boundaries,
 function-shaped recovery exclusion, invalid positions,
 path failures, bounded stable-capture retry exhaustion without partial
 reference locations, scope metadata, or package resource mutation for package
-function, function-alias, type-alias, type, and constructor selections, and
+function, function-alias, type-alias, type, constructor, and direct-dependency
+schema selections, direct-dependency schema source-kind and scope boundaries, and
 accepted success and domain-failure result schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 checked package-documentation bundle loading, catalog construction failure

@@ -8,6 +8,7 @@ use super::*;
 mod capture_failures;
 mod dependency_constructors_and_aliases;
 mod dependency_functions_and_types;
+mod dependency_schemas;
 mod local_bindings;
 mod standard_library_and_scope;
 mod unsupported_and_coordinates;

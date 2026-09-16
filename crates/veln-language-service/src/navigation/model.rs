@@ -230,7 +230,11 @@ pub fn navigate(
         .symbol_at_position(position.source.as_str(), &position)?;
     let definition = request.symbol.definition();
     let selected_symbol = request.symbol.selected_symbol(definition.clone());
-    let mut references = request.symbol.references(&request.index);
+    let mut references = if request.references_supported {
+        request.symbol.references(&request.index)
+    } else {
+        Vec::new()
+    };
     sort_locations(&mut references);
     Some(NavigationResult {
         selected_symbol,
@@ -349,6 +353,7 @@ impl Symbol {
 
     fn package_origin(&self) -> Option<PackageOrigin> {
         match self {
+            Self::Schema(symbol) | Self::SchemaAlias(symbol) => symbol.package_origin,
             Self::Function(symbol) => symbol.package_origin,
             Self::Type(symbol) => symbol.package_origin,
             Self::TypeAlias(symbol) => symbol.package_origin,
@@ -546,6 +551,7 @@ struct SymbolRequest {
     symbol: Symbol,
     selection: SourceSpan,
     classified_path_segment: Option<QualifiedPathSegment>,
+    references_supported: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -569,6 +575,7 @@ struct NeutralSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    package_origin: Option<PackageOrigin>,
     public: bool,
 }
 
@@ -644,6 +651,7 @@ struct IndexedFile {
     external_import_aliases: BTreeMap<String, (String, String)>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
+    schema_operation_leaf_spans: Vec<SourceSpan>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,

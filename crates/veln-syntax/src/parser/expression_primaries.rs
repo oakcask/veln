@@ -142,8 +142,9 @@ impl<'a> ExprParser<'a> {
 
     pub(super) fn parse_schema_decode_primary(&mut self, token: Token) -> Expr {
         let start = token.range;
+        let diagnostic_count = self.diagnostics.len();
         self.bump();
-        let schema = self.parse_schema_operation_path("decode");
+        let (schema, schema_spans) = self.parse_schema_operation_path("decode");
         self.expect_expr_token(
             TokenKind::From,
             "parse.schema_decode_expression",
@@ -162,6 +163,8 @@ impl<'a> ExprParser<'a> {
             span: self.source.span(start.cover(lhs_range(&base))),
             kind: ExprKind::SchemaDecode {
                 schema,
+                schema_spans,
+                recovered: self.diagnostics.len() != diagnostic_count,
                 input: Box::new(input),
                 base: Box::new(base),
             },
@@ -170,8 +173,9 @@ impl<'a> ExprParser<'a> {
 
     pub(super) fn parse_schema_encode_primary(&mut self, token: Token) -> Expr {
         let start = token.range;
+        let diagnostic_count = self.diagnostics.len();
         self.bump();
-        let schema = self.parse_schema_operation_path("encode");
+        let (schema, schema_spans) = self.parse_schema_operation_path("encode");
         self.expect_expr_token(
             TokenKind::From,
             "parse.schema_encode_expression",
@@ -183,13 +187,19 @@ impl<'a> ExprParser<'a> {
             span: self.source.span(start.cover(lhs_range(&value))),
             kind: ExprKind::SchemaEncode {
                 schema,
+                schema_spans,
+                recovered: self.diagnostics.len() != diagnostic_count,
                 value: Box::new(value),
             },
         }
     }
 
-    pub(super) fn parse_schema_operation_path(&mut self, operation: &str) -> Vec<String> {
+    pub(super) fn parse_schema_operation_path(
+        &mut self,
+        operation: &str,
+    ) -> (Vec<String>, Vec<SourceSpan>) {
         let mut segments = Vec::new();
+        let mut segment_spans = Vec::new();
         let (diagnostic_id, missing_message, incomplete_message) = match operation {
             "encode" => (
                 "parse.schema_encode_expression",
@@ -203,7 +213,9 @@ impl<'a> ExprParser<'a> {
             ),
         };
         if self.at(TokenKind::Ident) {
-            segments.push(self.bump().text);
+            let segment = self.bump();
+            segment_spans.push(self.source.span(segment.range));
+            segments.push(segment.text);
         } else {
             self.error_current(
                 diagnostic_id,
@@ -215,7 +227,9 @@ impl<'a> ExprParser<'a> {
         }
         while self.eat(TokenKind::DoubleColon).is_some() {
             if self.at(TokenKind::Ident) {
-                segments.push(self.bump().text);
+                let segment = self.bump();
+                segment_spans.push(self.source.span(segment.range));
+                segments.push(segment.text);
             } else {
                 self.error_current(
                     diagnostic_id,
@@ -227,7 +241,7 @@ impl<'a> ExprParser<'a> {
                 break;
             }
         }
-        segments
+        (segments, segment_spans)
     }
 
     pub(super) fn parse_hole_primary(&mut self, token: Token) -> Expr {

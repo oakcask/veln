@@ -1,0 +1,5 @@
+use public from "transitive/dep"
+
+pub fn consume(view: ByteView) -> ()
+  decode public::Public from view at byte_offset(0)?
+end

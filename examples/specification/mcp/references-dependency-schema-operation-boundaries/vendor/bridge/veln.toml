@@ -1,0 +1,8 @@
+[package]
+name = "bridge/dep"
+
+[lib]
+exports = ["bridge.veln"]
+
+[dependencies."transitive/dep"]
+path = "../transitive"
