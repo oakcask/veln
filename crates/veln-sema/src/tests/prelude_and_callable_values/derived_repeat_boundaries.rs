@@ -365,36 +365,7 @@ fn derived_codec_resolves_combined_binary_schema_helper_boundaries() {
     ));
 }
 
-#[test]
-fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema CountedValues\n",
-            "  format binary\n",
-            "\n",
-            "  left_count: UInt8\n",
-            "  right_count: UInt8\n",
-            "  items: Repeat(left_count + right_count, UInt16be)\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{left_count: Int, right_count: Int, items: List<Int>}>\n",
-            "  decode CountedValues from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn encode_main(packet: {left_count: Int, right_count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode CountedValues from packet\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
+fn assert_core_repeat_count_helper_boundaries(core: &veln_core::CheckedProgram) {
     let decode_main = core
         .functions
         .iter()
@@ -426,8 +397,9 @@ fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
             ..
         } if name == "CountedValues"
     ));
+}
 
-    let ir = lowered.ir.expect("typed IR should be built");
+fn assert_ir_repeat_count_helper_boundaries(ir: &veln_ir::TypedProgram) {
     let decode_main = ir
         .functions
         .iter()
@@ -459,196 +431,44 @@ fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
             ..
         } if name == "CountedValues"
     ));
+}
+
+fn assert_repeat_count_helper_boundaries(first_field: &str, operator: &str, second_field: &str) {
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "schema CountedValues\n  format binary\n\n  {first_field}: UInt8\n  {second_field}: UInt8\n  items: Repeat({first_field} {operator} {second_field}, UInt16be)\nend\n\n\npub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{{{first_field}: Int, {second_field}: Int, items: List<Int>}}>\n  decode CountedValues from view at base\nend\n\npub fn encode_main(packet: {{{first_field}: Int, {second_field}: Int, items: List<Int>}}) -> Result<ByteChunk, EncodeError>\n  encode CountedValues from packet\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    assert_core_repeat_count_helper_boundaries(core);
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_ir_repeat_count_helper_boundaries(&ir);
+}
+
+#[test]
+fn derived_codec_resolves_added_repeat_count_helper_boundaries() {
+    assert_repeat_count_helper_boundaries("left_count", "+", "right_count");
 }
 
 #[test]
 fn derived_codec_resolves_product_repeat_count_helper_boundaries() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema CountedValues\n",
-            "  format binary\n",
-            "\n",
-            "  row_count: UInt8\n",
-            "  column_count: UInt8\n",
-            "  items: Repeat(row_count * column_count, UInt16be)\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{row_count: Int, column_count: Int, items: List<Int>}>\n",
-            "  decode CountedValues from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn encode_main(packet: {row_count: Int, column_count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode CountedValues from packet\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let decode_main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "decode_main")
-        .expect("decode_main should be lowered");
-    let CoreStmtKind::Return { expr } = &decode_main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "CountedValues"
-    ));
-
-    let encode_main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "encode_main")
-        .expect("encode_main should be lowered");
-    let CoreStmtKind::Return { expr } = &encode_main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "CountedValues"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let decode_main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "decode_main")
-        .expect("decode_main should be in IR");
-    let IrStmtKind::Return { value } = &decode_main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "CountedValues"
-    ));
-
-    let encode_main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "encode_main")
-        .expect("encode_main should be in IR");
-    let IrStmtKind::Return { value } = &encode_main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "CountedValues"
-    ));
+    assert_repeat_count_helper_boundaries("row_count", "*", "column_count");
 }
 
 #[test]
 fn derived_codec_resolves_quotient_repeat_count_helper_boundaries() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema CountedValues\n",
-            "  format binary\n",
-            "\n",
-            "  total_count: UInt8\n",
-            "  group_count: UInt8\n",
-            "  items: Repeat(total_count / group_count, UInt16be)\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn decode_main(view: ByteView, base: ByteOffset) -> DecodeStep<{total_count: Int, group_count: Int, items: List<Int>}>\n",
-            "  decode CountedValues from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn encode_main(packet: {total_count: Int, group_count: Int, items: List<Int>}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode CountedValues from packet\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
+    assert_repeat_count_helper_boundaries("total_count", "/", "group_count");
+}
 
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let decode_main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "decode_main")
-        .expect("decode_main should be lowered");
-    let CoreStmtKind::Return { expr } = &decode_main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "CountedValues"
-    ));
-
-    let encode_main = core
-        .functions
-        .iter()
-        .find(|function| function.name == "encode_main")
-        .expect("encode_main should be lowered");
-    let CoreStmtKind::Return { expr } = &encode_main.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "CountedValues"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let decode_main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "decode_main")
-        .expect("decode_main should be in IR");
-    let IrStmtKind::Return { value } = &decode_main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "CountedValues"
-    ));
-
-    let encode_main = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "encode_main")
-        .expect("encode_main should be in IR");
-    let IrStmtKind::Return { value } = &encode_main.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "CountedValues"
-    ));
+#[test]
+fn derived_codec_resolves_difference_repeat_count_helper_boundaries() {
+    assert_repeat_count_helper_boundaries("total_count", "-", "skipped_count");
 }
