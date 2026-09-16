@@ -6,7 +6,7 @@ use crate::analysis::boundary::schema_composition::{
     schema_field_has_ordinary_type_target,
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
-use crate::name_recovery::{normal_imported_use_for_path, use_decl_has_invalid_module_segment};
+use crate::name_recovery::schema_composition_imported_use_for_path;
 use crate::schema::primitives::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_payload_name_path,
 };
@@ -79,7 +79,7 @@ fn direct_schema_composition_target<'a>(
                 && candidate.module_name.as_deref() == schema.module_name.as_deref()
         }),
         [_, .., name] => {
-            let use_decl = navigation_imported_use_for_path(
+            let use_decl = schema_composition_imported_use_for_path(
                 module,
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),
@@ -128,7 +128,7 @@ fn navigation_repeat_payload_target<'a>(
             (target_index < current_index).then_some(target)
         }
         [_, .., name] => {
-            let use_decl = navigation_imported_use_for_path(
+            let use_decl = schema_composition_imported_use_for_path(
                 module,
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),
@@ -146,19 +146,4 @@ fn navigation_repeat_payload_target<'a>(
         _ => None,
     }?;
     (target.format.as_ref().map(|format| format.name.as_str()) == Some("binary")).then_some(target)
-}
-
-fn navigation_imported_use_for_path<'a>(
-    module: &'a SurfaceModule,
-    segments: &[String],
-    current_module: Option<&str>,
-) -> Option<&'a veln_ast::UseDecl> {
-    normal_imported_use_for_path(module, segments, current_module).or_else(|| {
-        let qualifier = segments.join("::");
-        module.uses.iter().find(|use_decl| {
-            use_decl.module_name.as_deref() == current_module
-                && !use_decl_has_invalid_module_segment(module, use_decl)
-                && use_decl.alias == qualifier
-        })
-    })
 }

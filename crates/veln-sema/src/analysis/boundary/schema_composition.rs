@@ -197,7 +197,7 @@ pub(crate) fn schema_field_has_ordinary_type_target(
     let (module_name, name, imported) = match path.as_slice() {
         [name] => (schema.module_name.as_deref(), name.as_str(), false),
         [_, .., name] => {
-            let Some(use_decl) = normal_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path(
                 module,
                 &path[..path.len() - 1],
                 schema.module_name.as_deref(),

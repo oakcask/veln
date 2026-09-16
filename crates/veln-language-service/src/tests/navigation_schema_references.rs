@@ -100,6 +100,12 @@ mod navigation_schema_references_tests {
                     "  direct: Packet\n",
                     "  repeated: Repeat(count, Packet)\n",
                     "  canonical: [Packet; count]\n",
+                    "end\n\n",
+                    "pub schema Collision\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n\n",
+                    "pub type Collision\n",
                     "end\n",
                 ),
             ),
@@ -116,6 +122,11 @@ mod navigation_schema_references_tests {
                     "  canonical: [wire::Packet; count]\n",
                     "  bare: Packet\n",
                     "  unresolved: missing::Packet\n",
+                    "  collision: wire::Collision\n",
+                    "end\n\n",
+                    "fn lexical_noise() -> String\n",
+                    "  # app::wire::Packet wire::Packet Packet\n",
+                    "  \"app::wire::Packet wire::Packet Packet\"\n",
                     "end\n",
                 ),
             ),
@@ -140,6 +151,37 @@ mod navigation_schema_references_tests {
         let selected_target = query(sources, "other.veln", 8, 38).unwrap();
         assert_eq!(selected_target.definition.span, result.definition.span);
         assert_eq!(selected_target.references, result.references);
+
+        let collision = query(
+            vec![
+                source(
+                    "app/wire.veln",
+                    concat!(
+                        "pub schema Collision\n",
+                        "  format binary\n",
+                        "  value: UInt8\n",
+                        "end\n\n",
+                        "pub type Collision\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use app::wire\n\n",
+                        "schema Host\n",
+                        "  format binary\n",
+                        "  collision: wire::Collision\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            "app/wire.veln",
+            1,
+            12,
+        )
+        .unwrap();
+        assert!(collision.references.is_empty());
     }
 
     #[test]

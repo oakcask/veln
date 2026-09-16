@@ -17,3 +17,11 @@ schema LocalFrame
 end
 
 pub schema AliasPacket = Packet
+
+pub schema Collision
+  format binary
+  value: UInt8
+end
+
+pub type Collision
+end

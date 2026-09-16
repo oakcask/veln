@@ -98,6 +98,66 @@ fn schema_composition_preserves_alias_resolution_failures_and_type_alias_ambigui
 }
 
 #[test]
+fn schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks() {
+    let module = merged_modules_with_identities(vec![
+        (
+            "app::wire",
+            SourceFile::new(
+                "app/wire.veln",
+                concat!(
+                    "pub schema Packet\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n",
+                    "pub schema Collision\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n",
+                    "pub type Collision\n",
+                    "end\n",
+                ),
+            ),
+        ),
+        (
+            "main",
+            SourceFile::new(
+                "main.veln",
+                concat!(
+                    "use app::wire\n",
+                    "schema Host\n",
+                    "  format binary\n",
+                    "  count: UInt8\n",
+                    "  direct: wire::Packet\n",
+                    "  repeated: [wire::Packet; count]\n",
+                    "  collision: wire::Collision\n",
+                    "end\n",
+                ),
+            ),
+        ),
+    ]);
+
+    let diagnostics = analyze_surface_module(&module);
+    let composition_diagnostics = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.id == "schema.composition_reference")
+        .collect::<Vec<_>>();
+
+    assert_eq!(composition_diagnostics.len(), 1, "{diagnostics:#?}");
+    assert!(matches!(
+        &composition_diagnostics[0].details,
+        veln_diagnostics::JsonValue::Object(entries)
+            if entries.iter().any(|(key, value)| {
+                key == "binding"
+                    && value == &veln_diagnostics::JsonValue::string("collision")
+            }) && entries.iter().any(|(key, value)| {
+                key == "reason"
+                    && value
+                        == &veln_diagnostics::JsonValue::string("ambiguous_type_and_schema")
+            })
+    ));
+}
+
+#[test]
 fn schema_field_grammar_precedes_colliding_schema_names_and_aliases() {
     let source = SourceFile::new(
         "main.veln",

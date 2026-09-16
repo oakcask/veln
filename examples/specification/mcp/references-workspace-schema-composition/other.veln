@@ -9,4 +9,11 @@ schema ImportedFrame
   repeated_alias: [wire::Packet; count]
   bare: Packet
   aliased: wire::AliasPacket
+  unresolved: missing::Packet
+  collision: wire::Collision
+end
+
+fn lexical_noise() -> String
+  # app::wire::Packet wire::Packet Packet
+  "app::wire::Packet wire::Packet Packet"
 end

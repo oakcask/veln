@@ -76,7 +76,7 @@ pub(super) fn resolve_schema_payload<'a>(
     match segments.as_slice() {
         [name] => resolve_local_schema_payload(module, schema, field, kind, name, diagnostics),
         [_, .., name] => {
-            let Some(use_decl) = normal_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path(
                 module,
                 &segments[..segments.len() - 1],
                 schema.module_name.as_deref(),

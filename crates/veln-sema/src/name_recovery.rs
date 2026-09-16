@@ -54,6 +54,22 @@ pub(crate) fn normal_imported_use_for_path<'a>(
     })
 }
 
+pub(crate) fn schema_composition_imported_use_for_path<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
+    normal_imported_use_for_path(module, segments, current_module).or_else(|| {
+        let module_alias = segments.join("::");
+        module.uses.iter().find(|use_decl| {
+            use_decl.package.is_none()
+                && use_decl.module_name.as_deref() == current_module
+                && !use_decl_has_invalid_module_segment(module, use_decl)
+                && use_decl.alias == module_alias
+        })
+    })
+}
+
 pub(crate) fn resolved_import_module_name(
     use_decl: &UseDecl,
     current_module: Option<&str>,

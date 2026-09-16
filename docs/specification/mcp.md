@@ -617,8 +617,12 @@ selections successful and empty.
 The `references-workspace-schema-composition` MCP specification case checks
 direct fields, both supported repeated-payload spellings, full import paths,
 implicit leaf import aliases, exact reference ranges, canonical ordering, and
-project-wide scope. It also keeps bare imported paths, schema-alias traversal,
-alias declarations, and module-qualifier selections successful and empty.
+project-wide scope. It excludes ordinary-type collisions, unresolved paths,
+comments, strings, and same-spelled descendant-project composition targets.
+It also keeps bare imported paths, schema-alias traversal, alias declarations,
+module-qualifier selections, collision selections, and unresolved selections
+successful and empty, while a descendant-project selection retains
+single-file scope.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

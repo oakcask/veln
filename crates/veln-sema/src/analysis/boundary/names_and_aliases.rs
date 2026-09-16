@@ -1,4 +1,6 @@
-use crate::name_recovery::public_alias_has_invalid_target_leaf;
+use crate::name_recovery::{
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+};
 use std::collections::BTreeMap;
 use veln_ast::{FunctionKind, PublicAliasKind, SurfaceModule, Visibility};
 use veln_diagnostics::Diagnostic;
@@ -6,8 +8,7 @@ use veln_source::SourceSpan;
 
 use super::module_boundaries::{
     alias_kind_mismatch_diagnostic, duplicate_name_diagnostic, function_target,
-    normal_imported_use_for_path, private_alias_diagnostic, type_target,
-    unresolved_alias_diagnostic,
+    private_alias_diagnostic, type_target, unresolved_alias_diagnostic,
 };
 
 type SeenNames = BTreeMap<(Option<String>, String), (String, SourceSpan)>;
@@ -333,7 +334,7 @@ pub(super) fn resolve_schema_alias_check_reference(
             cache,
         ),
         [_, .., name] => {
-            let Some(use_decl) = normal_imported_use_for_path(
+            let Some(use_decl) = schema_composition_imported_use_for_path(
                 module,
                 &segments[..segments.len() - 1],
                 current_module,

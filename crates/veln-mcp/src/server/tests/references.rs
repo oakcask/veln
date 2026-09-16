@@ -405,6 +405,12 @@ fn references_return_workspace_schema_composition_locations_and_scope() {
             "  direct: Packet\n",
             "  repeated: Repeat(count, Packet)\n",
             "  canonical: [Packet; count]\n",
+            "end\n\n",
+            "pub schema Collision\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "end\n\n",
+            "pub type Collision\n",
             "end\n",
         ),
     );
@@ -420,6 +426,12 @@ fn references_return_workspace_schema_composition_locations_and_scope() {
             "  repeated: Repeat(count, app::wire::Packet)\n",
             "  canonical: [wire::Packet; count]\n",
             "  bare: Packet\n",
+            "  unresolved: missing::Packet\n",
+            "  collision: wire::Collision\n",
+            "end\n\n",
+            "fn lexical_noise() -> String\n",
+            "  # app::wire::Packet wire::Packet Packet\n",
+            "  \"app::wire::Packet wire::Packet Packet\"\n",
             "end\n",
         ),
     );
@@ -449,6 +461,16 @@ fn references_return_workspace_schema_composition_locations_and_scope() {
         ],
         "workspace schema composition references",
     );
+
+    for (name, source, line, column) in [
+        ("ordinary type collision", "app/wire.veln", 14, 12),
+        ("unresolved composition path", "other.veln", 11, 24),
+        ("composition lexical noise", "other.veln", 16, 16),
+    ] {
+        let unsupported = references_result(&workspace, source, line, column);
+        assert_eq!(unsupported["isError"], false, "{name}: {unsupported:#}");
+        assert_reference_ranges(&unsupported, &[], name);
+    }
 }
 
 #[test]
