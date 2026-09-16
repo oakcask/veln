@@ -1,33 +1,11 @@
+use super::references_support::{
+    all_resource_state, assert_reference_ranges,
+    assert_snapshot_changed_without_references_or_scope, dependency_resource_is_listed,
+};
 use super::*;
 use std::cell::Cell;
 use std::rc::Rc;
 use veln_project::PackageSnapshotSource;
-
-fn assert_reference_ranges(
-    result: &Value,
-    expected: &[(&str, usize, usize, usize, usize)],
-    case: &str,
-) {
-    let references = result["structuredContent"]["references"]
-        .as_array()
-        .unwrap();
-    assert_eq!(references.len(), expected.len(), "{case}: {result:#}");
-    for (reference, (path, start_line, start_column, end_line, end_column)) in
-        references.iter().zip(expected)
-    {
-        assert!(
-            reference["uri"].as_str().unwrap().ends_with(path),
-            "{case}: {reference:#}"
-        );
-        assert_eq!(reference["range"]["start"]["line"], *start_line, "{case}");
-        assert_eq!(
-            reference["range"]["start"]["column"], *start_column,
-            "{case}"
-        );
-        assert_eq!(reference["range"]["end"]["line"], *end_line, "{case}");
-        assert_eq!(reference["range"]["end"]["column"], *end_column, "{case}");
-    }
-}
 
 fn install_alias_standard_library(server: &mut Server, source: &str) {
     server.language_resources.replace_test_standard_library(
@@ -63,33 +41,6 @@ fn install_type_alias_standard_library_with_exports(
             .iter()
             .map(|(path, source)| PackageSnapshotSource::new(path, source.as_bytes())),
     );
-}
-
-fn assert_snapshot_changed_without_references_or_scope(result: &Value) {
-    assert_eq!(result["isError"], true, "{result:#}");
-    assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
-    let structured = result["structuredContent"].as_object().unwrap();
-    assert!(!structured.contains_key("references"), "{result:#}");
-    assert!(!structured.contains_key("scope"), "{result:#}");
-}
-
-fn all_resource_state(server: &mut Server) -> Value {
-    let resources = server
-        .handle_request(json!({"jsonrpc":"2.0","id":"references-state","method":"resources/list"}))
-        .unwrap()["result"]["resources"]
-        .as_array()
-        .unwrap()
-        .clone();
-    json!(resources)
-}
-
-fn dependency_resource_is_listed(server: &mut Server, identity: &str) -> bool {
-    let prefix = format!("veln-pkg:///{}/snapshot/", identity.replace('/', "%2F"));
-    all_resource_state(server)
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|resource| resource["uri"].as_str().unwrap().starts_with(&prefix))
 }
 
 #[test]
