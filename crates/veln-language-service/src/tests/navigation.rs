@@ -32,6 +32,30 @@
     }
 
     #[test]
+    fn reference_tokens_follow_overlay_snapshots_without_changing_saved_references() {
+        let saved = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "fn identity(value: Int) -> Int\n  identity(value)\nend\n",
+        )]);
+        let original = query_snapshot(&saved, "main.veln", 1, 4).unwrap();
+        let overlay = saved.with_workspace_overlays([source(
+            "main.veln",
+            concat!(
+                "# identity(value) is only a comment\n",
+                "fn identity(value: Int) -> Int\n",
+                "  let copy = value\n",
+                "  identity(copy)\n",
+                "end\n",
+            ),
+        )]);
+
+        let function = query_snapshot(&overlay, "main.veln", 2, 4).unwrap();
+        assert_eq!(locations(&function.references), [("main.veln", 4, 3)]);
+        assert_eq!(query_snapshot(&saved, "main.veln", 1, 4).unwrap(), original);
+        assert_eq!(locations(&original.references), [("main.veln", 2, 3)]);
+    }
+
+    #[test]
     fn function_definition_and_references_are_deterministic() {
         let result = query(
             vec![

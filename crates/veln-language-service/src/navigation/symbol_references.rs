@@ -102,7 +102,7 @@ impl SymbolIndex {
         else {
             return Vec::new();
         };
-        let tokens = lex(&file.source).tokens;
+        let tokens = &file.tokens;
         let mut spans = Vec::new();
         if include_declaration {
             spans.push(symbol.declaration.clone());
@@ -116,12 +116,12 @@ impl SymbolIndex {
                         && token.kind == TokenKind::Ident
                         && token.range.start >= symbol.scope_start
                         && token.range.start < symbol.scope_end
-                        && !is_field_name(&tokens, *index)
-                        && !is_local_binding_name(&tokens, *index)
+                        && !is_field_name(tokens, *index)
+                        && !is_local_binding_name(tokens, *index)
                         && (symbol.kind != LocalSymbolKind::HandlerContextParameter
-                            || inside_handler_operation_clause_body(&tokens, token.range.start))
+                            || inside_handler_operation_clause_body(tokens, token.range.start))
                         && !local_binding_shadows_other_name(
-                            &tokens,
+                            tokens,
                             &symbol.name,
                             token.range.start,
                             symbol.scope_start,
@@ -130,7 +130,7 @@ impl SymbolIndex {
                         )
                         && (symbol.kind != LocalSymbolKind::HandlerContextParameter
                             || !handler_operation_clause_parameter_shadows_name(
-                                &tokens,
+                                tokens,
                                 &symbol.name,
                                 token.range.start,
                                 symbol.scope_start,
@@ -248,22 +248,22 @@ impl SymbolIndex {
         file: &IndexedFile,
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
-        let tokens = lex(&file.source).tokens;
+        let tokens = &file.tokens;
         tokens
             .iter()
             .enumerate()
             .filter(|(index, token)| {
                 token.text == symbol.name
-                    && previous_non_layout_token(&tokens, *index)
+                    && previous_non_layout_token(tokens, *index)
                         .is_none_or(|previous| previous.kind != TokenKind::DoubleColon)
-                    && (is_call_target_token(&tokens, *index)
+                    && (is_call_target_token(tokens, *index)
                         || ((symbol.package.is_some() || symbol.public)
                             && (file.classified_path_segments.iter().any(|segment| {
                                 segment.role == NameClass::ValueBinding
                                     && same_span(&segment.span, &file.source.span(token.range))
-                            }) || is_bare_function_value_token(&tokens, *index))))
+                            }) || is_bare_function_value_token(tokens, *index))))
                     && self
-                        .symbol_for_bare_call(file, &tokens, *index, &token.text)
+                        .symbol_for_bare_call(file, tokens, *index, &token.text)
                         .is_some_and(|candidate| {
                             matches!(candidate, Symbol::Function(candidate) if same_function(&candidate, symbol))
                         })
@@ -302,20 +302,20 @@ impl SymbolIndex {
         qualifier: &str,
         symbol: &FunctionSymbol,
     ) -> Vec<SourceSpan> {
-        let tokens = lex(&file.source).tokens;
+        let tokens = &file.tokens;
         let module_segments = qualifier.split("::").collect::<Vec<_>>();
         tokens
             .iter()
             .enumerate()
             .filter(|(index, token)| {
                 token.text == symbol.name
-                    && qualified_reference_matches(&tokens, *index, &module_segments)
-                    && (is_call_target_token(&tokens, *index)
+                    && qualified_reference_matches(tokens, *index, &module_segments)
+                    && (is_call_target_token(tokens, *index)
                         || ((symbol.package.is_some() || symbol.public)
                             && (file.classified_path_segments.iter().any(|segment| {
                                 segment.role == NameClass::ValueBinding
                                     && same_span(&segment.span, &file.source.span(token.range))
-                            }) || is_qualified_function_value_token(&tokens, *index))))
+                            }) || is_qualified_function_value_token(tokens, *index))))
                     && self
                         .function_for_qualified_call(file, qualifier, &token.text)
                         .is_some_and(|candidate| same_function(&candidate, symbol))
@@ -524,7 +524,7 @@ impl SymbolIndex {
             .iter()
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
-                let tokens = lex(&file.source).tokens;
+                let tokens = &file.tokens;
                 tokens
                     .iter()
                     .enumerate()
@@ -532,9 +532,9 @@ impl SymbolIndex {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
                             && !same_span(&file.source.span(token.range), &symbol.declaration.span)
-                            && is_constructor_reference_token(&tokens, *index)
+                            && is_constructor_reference_token(tokens, *index)
                             && self
-                                .constructor_symbol_for_call(file, &tokens, *index, &token.text)
+                                .constructor_symbol_for_call(file, tokens, *index, &token.text)
                                 .is_some_and(|candidate| {
                                     candidate.declaration_kind == SymbolDeclarationKind::Declaration
                                         && same_constructor(&candidate, symbol)
