@@ -75,7 +75,23 @@ pub(super) fn from_module_with_base(
     base: Option<&TypeEnvironment>,
 ) -> TypeEnvironment {
     let declarations = declaration_facts(module, base);
-    let mut callables = callable_facts(module, base, &declarations);
+    let callables = callable_facts(module, base, &declarations);
+    finish_environment(module, base, declarations, callables)
+}
+
+pub(super) fn from_module_for_path_classification(module: &SurfaceModule) -> TypeEnvironment {
+    let declarations = declaration_facts(module, None);
+    let mut callables = declared_callable_facts(module, None, &declarations);
+    append_schema_helpers(module, &mut callables.functions);
+    finish_environment(module, None, declarations, callables)
+}
+
+fn finish_environment(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+    declarations: DeclarationFacts,
+    mut callables: CallableFacts,
+) -> TypeEnvironment {
     let symbols = symbol_facts(module, base);
     let aliases = function_alias_signatures(module, &callables.functions);
     callables.functions.extend(aliases);
@@ -308,7 +324,7 @@ fn declaration_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> 
     }
 }
 
-fn callable_facts(
+fn declared_callable_facts(
     module: &SurfaceModule,
     base: Option<&TypeEnvironment>,
     declarations: &DeclarationFacts,
@@ -326,13 +342,26 @@ fn callable_facts(
         &declarations.companion_effect_access_targets,
     );
     extend_with_base_facts(&mut functions, base.map(|base| &base.functions));
+    CallableFacts {
+        functions,
+        handlers,
+    }
+}
+
+fn callable_facts(
+    module: &SurfaceModule,
+    base: Option<&TypeEnvironment>,
+    declarations: &DeclarationFacts,
+) -> CallableFacts {
+    let CallableFacts {
+        mut functions,
+        mut handlers,
+    } = declared_callable_facts(module, base, declarations);
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);
     infer_private_function_call_site_signature_types(module, &mut functions, &declarations.adts);
     infer_private_function_body_return_types(module, &mut functions, &declarations.adts);
     infer_private_prelude_callback_return_types(module, &mut functions, &declarations.adts);
-    functions.extend(schema_decode_function_signatures(module));
-    functions.extend(schema_encode_function_signatures(module));
-    functions.extend(schema_validate_function_signatures(module));
+    append_schema_helpers(module, &mut functions);
     infer_function_and_private_handler_effects(
         module,
         &mut functions,
@@ -343,6 +372,12 @@ fn callable_facts(
         functions,
         handlers,
     }
+}
+
+fn append_schema_helpers(module: &SurfaceModule, functions: &mut Vec<FunctionSignature>) {
+    functions.extend(schema_decode_function_signatures(module));
+    functions.extend(schema_encode_function_signatures(module));
+    functions.extend(schema_validate_function_signatures(module));
 }
 
 fn symbol_facts(module: &SurfaceModule, base: Option<&TypeEnvironment>) -> SymbolFacts {

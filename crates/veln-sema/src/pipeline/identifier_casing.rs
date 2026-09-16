@@ -18,6 +18,8 @@ type RecoveredQualifiedSegmentPush = fn(
     &mut Vec<InvalidName>,
 );
 
+#[cfg(test)]
+mod classification_tests;
 mod occurrence_index;
 mod recovered_segments;
 mod recovered_traversal;

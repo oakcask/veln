@@ -71,6 +71,12 @@ impl TypeEnvironment {
         Self::from_module_with_base(module, None)
     }
 
+    // Path roles depend on declaration identity, visibility, and arity, not inferred
+    // parameter/return types or effects. Do not use this environment for typechecking.
+    pub(crate) fn for_path_classification(module: &SurfaceModule) -> Self {
+        facts::from_module_for_path_classification(module)
+    }
+
     #[cfg(test)]
     pub(crate) fn from_module_with_base_for_test(
         module: &SurfaceModule,

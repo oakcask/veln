@@ -477,6 +477,6 @@ pub fn classified_project_qualified_path_segments_with_context(
     module: &SurfaceModule,
     project: &SurfaceModule,
 ) -> Vec<QualifiedPathSegment> {
-    let environment = TypeEnvironment::from_module(project);
+    let environment = TypeEnvironment::for_path_classification(project);
     classified_qualified_path_segments(module, &environment)
 }
