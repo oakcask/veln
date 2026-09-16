@@ -769,9 +769,9 @@ ambiguous recovery selection.
 `veln-mcp` tests check references schema rejection, selected-project
 inference, single-file isolation outside selected projects, deterministic
 canonical locations, workspace schema operation and composition references,
-workspace type, constructor, value-binding, and handler
-parameter reference admission, unsupported-symbol success, recovery and package
-exclusion, direct-dependency and standard-library public function-alias
+workspace schema-alias references, workspace type, constructor, value-binding,
+and handler parameter reference admission, unsupported-symbol success, recovery
+and package exclusion, direct-dependency and standard-library public function-alias
 selection, unsupported direct-dependency and standard-library function-alias
 chains, direct-dependency public type-alias selection, unsupported
 direct-dependency type-alias selections, standard-library public type-alias

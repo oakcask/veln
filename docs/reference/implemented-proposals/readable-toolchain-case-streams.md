@@ -42,6 +42,9 @@ Later navigation cases reuse that model. The
 `references-workspace-schema-composition` LSP case checks schema reference
 locations and empty collision results with decoded assertions, and its
 selectors and operands are part of the checked semantic baseline.
+The later `references-workspace-schema-alias` LSP case uses the same structured
+request and decoded assertion model for schema-alias identity, exact locations,
+and UTF-16 coordinate evidence, and is also recorded by that baseline.
 
 ## Completion Evidence
 
