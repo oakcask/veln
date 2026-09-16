@@ -255,12 +255,10 @@ fn schema_composition_field_type(tokens: &[Token], index: usize) -> Option<Vec<u
     {
         significant.truncate(where_position);
     }
-    let Some(colon_position) = significant
+    let colon_position = significant
         .iter()
         .position(|candidate| tokens[*candidate].kind == TokenKind::Colon)
-    else {
-        return None;
-    };
+        ?;
     Some(significant[colon_position + 1..].to_vec())
 }
 
