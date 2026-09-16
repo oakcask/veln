@@ -12,57 +12,97 @@ fn main() {
     let source_root = Path::new("veln");
     println!("cargo:rerun-if-changed={}", source_root.display());
 
+    let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"));
+    build_standard_library_bundle(source_root, &output);
+}
+
+struct BundleInputs {
+    manifest: String,
+    exports: Vec<String>,
+    paths: Vec<String>,
+}
+
+pub(crate) fn build_standard_library_bundle(source_root: &Path, output: &Path) {
+    let inputs = load_bundle_inputs(source_root);
+    let mut generated = render_source_tables(&inputs);
+    write_lowered_modules(
+        source_root,
+        &output.join("lowered"),
+        &inputs.paths,
+        &mut generated,
+    );
+    generated.push_str("];\n");
+
+    fs::write(output.join("stdlib_bundle.rs"), generated)
+        .expect("standard library bundle should be writable");
+}
+
+fn load_bundle_inputs(source_root: &Path) -> BundleInputs {
     let manifest = fs::read_to_string(source_root.join("veln.toml"))
         .expect("standard library manifest should be readable");
     let exports = manifest_exports(&manifest);
     let mut paths = Vec::new();
     collect_veln_sources(source_root, source_root, &mut paths);
     paths.sort();
+    BundleInputs {
+        manifest,
+        exports,
+        paths,
+    }
+}
 
-    let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"));
-    let lowered_output = output.join("lowered");
+fn render_source_tables(inputs: &BundleInputs) -> String {
     let mut generated = String::new();
-    generated.push_str(&format!("const MANIFEST: &str = {manifest:?};\n"));
+    generated.push_str(&format!("const MANIFEST: &str = {:?};\n", inputs.manifest));
     generated.push_str("static EXPORTS: &[&str] = &[\n");
-    for export in exports {
+    for export in &inputs.exports {
         generated.push_str(&format!("    {export:?},\n"));
     }
     generated.push_str("];\nstatic FILES: &[StdlibFile] = &[\n");
-    for relative in &paths {
+    for relative in &inputs.paths {
         generated.push_str(&format!(
             "    StdlibFile {{ path: {relative:?}, text: include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/veln/{relative}\")) }},\n"
         ));
     }
     generated.push_str("];\nstatic LOWERED_FILES: &[StdlibLoweredFile] = &[\n");
-    for relative in &paths {
-        let text = fs::read_to_string(source_root.join(relative))
-            .expect("standard library source should be readable");
-        let lowered = lowered_standard_module(relative, &text);
-        let encoded = encode_surface_module(&lowered);
-        let decoded = decode_surface_module(&encoded)
-            .expect("generated standard library lowered module should decode");
-        assert_eq!(
-            format!("{lowered:?}"),
-            format!("{decoded:?}"),
-            "generated standard library lowered module should round-trip for {relative}"
-        );
-        let lowered_path = lowered_output.join(format!("{relative}.bin"));
-        fs::create_dir_all(
-            lowered_path
-                .parent()
-                .expect("lowered standard library path should have a parent"),
-        )
-        .expect("lowered standard library output directory should be writable");
-        fs::write(&lowered_path, encoded)
-            .expect("lowered standard library module should be writable");
+    generated
+}
+
+fn write_lowered_modules(
+    source_root: &Path,
+    lowered_output: &Path,
+    paths: &[String],
+    generated: &mut String,
+) {
+    for relative in paths {
+        write_lowered_module(source_root, lowered_output, relative);
         generated.push_str(&format!(
             "    StdlibLoweredFile {{ path: {relative:?}, module: include_bytes!(concat!(env!(\"OUT_DIR\"), \"/lowered/{relative}.bin\")) }},\n"
         ));
     }
-    generated.push_str("];\n");
+}
 
-    fs::write(output.join("stdlib_bundle.rs"), generated)
-        .expect("standard library bundle should be writable");
+fn write_lowered_module(source_root: &Path, lowered_output: &Path, relative: &str) {
+    let text = fs::read_to_string(source_root.join(relative))
+        .expect("standard library source should be readable");
+    let lowered = lowered_standard_module(relative, &text);
+    let encoded = encode_surface_module(&lowered);
+    let decoded = decode_surface_module(&encoded)
+        .expect("generated standard library lowered module should decode");
+    assert_eq!(
+        format!("{lowered:?}"),
+        format!("{decoded:?}"),
+        "generated standard library lowered module should round-trip for {relative}"
+    );
+
+    let lowered_path = lowered_output.join(format!("{relative}.bin"));
+    fs::create_dir_all(
+        lowered_path
+            .parent()
+            .expect("lowered standard library path should have a parent"),
+    )
+    .expect("lowered standard library output directory should be writable");
+    fs::write(&lowered_path, encoded).expect("lowered standard library module should be writable");
 }
 
 fn lowered_standard_module(path: &str, text: &str) -> veln_ast::SurfaceModule {
