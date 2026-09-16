@@ -53,6 +53,16 @@ The remaining first-capability work includes:
   standard-library schema references;
 - plugin packaging for Codex and Claude Code.
 
+### Ready Extracted Slice
+
+The bounded direct-dependency public schema-alias operation-reference slice is
+ready in
+[MCP Saved Direct-Dependency Schema-Alias Operation References](mcp-saved-dependency-schema-alias-operation-references.md).
+That page owns its acceptance contract: saved consumer `decode` and `encode`
+leaves for aliases whose bare targets are public schemas in the same module.
+The broader schema-alias rows below remain an inventory; cross-module targets,
+composition, alias chains, and standard-library aliases remain later work.
+
 ### Completed Extracted Slices
 
 The implemented identifier-casing and slice-closure prerequisites are recorded
