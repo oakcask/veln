@@ -202,63 +202,17 @@ impl<'a> ManifestParser<'a> {
                     &assertion.path,
                 );
             }
-            "equals" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(RpcAssertionOperation::Equals(
-                    parse_manifest_json_value(self.path, value),
-                ));
-            }
-            "equals_file" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(RpcAssertionOperation::EqualsFileRef(
-                    parse_case_text_reference(self.path, value, "lsp_assert", "equals_file"),
-                ));
-            }
-            "equals_json_file" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(RpcAssertionOperation::EqualsJsonFileRef(
-                    parse_case_text_reference(self.path, value, "lsp_assert", "equals_json_file"),
-                ));
-            }
-            "contains" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(RpcAssertionOperation::Contains(parse_string(
-                    self.path, value,
-                )));
-            }
-            "length" => {
-                assertion.operation_count += 1;
-                let context = unresolved_assertion_operation_context("lsp_assert", index, "length");
-                assertion.operation = Some(RpcAssertionOperation::Length(
-                    parse_nonnegative_usize_with_context(self.path, value, &context),
-                ));
-            }
-            "workspace_file_uri" => {
-                assertion.operation_count += 1;
-                let context = unresolved_assertion_operation_context(
-                    "lsp_assert",
-                    index,
-                    "workspace_file_uri",
-                );
-                let relative = parse_string_with_context(self.path, value, &context);
-                validate_workspace_file_uri_operand_with_context(
+            _ => {
+                assertion.operation = Some(parse_rpc_assertion_operation(
                     self.path,
                     line_number,
-                    &relative,
-                    Some(&context),
-                );
-                assertion.operation = Some(RpcAssertionOperation::WorkspaceFileUri(relative));
-            }
-            "missing" => {
+                    "lsp_assert",
+                    index,
+                    key,
+                    value,
+                ));
                 assertion.operation_count += 1;
-                assertion.operation =
-                    Some(RpcAssertionOperation::Missing(parse_bool(self.path, value)));
             }
-            _ => manifest_error(
-                self.path,
-                line_number,
-                format!("unknown lsp_assert key `{key}`"),
-            ),
         }
     }
 
@@ -298,60 +252,56 @@ impl<'a> ManifestParser<'a> {
                     &assertion.path,
                 );
             }
-            "equals" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(RpcAssertionOperation::Equals(
-                    parse_manifest_mcp_json_value(self.path, value),
-                ));
-            }
-            "equals_file" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(RpcAssertionOperation::EqualsFileRef(
-                    parse_case_text_reference(self.path, value, "mcp_assert", "equals_file"),
-                ));
-            }
-            "equals_json_file" => {
-                assertion.operation_count += 1;
-                assertion.operation = Some(RpcAssertionOperation::EqualsJsonFileRef(
-                    parse_case_text_reference(self.path, value, "mcp_assert", "equals_json_file"),
-                ));
-            }
-            "contains" => {
-                record_mcp_contains_assertion(assertion, self.path, value);
-            }
-            "length" => {
-                assertion.operation_count += 1;
-                let context = unresolved_assertion_operation_context("mcp_assert", index, "length");
-                assertion.operation = Some(RpcAssertionOperation::Length(
-                    parse_nonnegative_usize_with_context(self.path, value, &context),
-                ));
-            }
-            "workspace_file_uri" => {
-                assertion.operation_count += 1;
-                let context = unresolved_assertion_operation_context(
-                    "mcp_assert",
-                    index,
-                    "workspace_file_uri",
-                );
-                let relative = parse_string_with_context(self.path, value, &context);
-                validate_workspace_file_uri_operand_with_context(
+            _ => {
+                assertion.operation = Some(parse_rpc_assertion_operation(
                     self.path,
                     line_number,
-                    &relative,
-                    Some(&context),
-                );
-                assertion.operation = Some(RpcAssertionOperation::WorkspaceFileUri(relative));
-            }
-            "missing" => {
+                    "mcp_assert",
+                    index,
+                    key,
+                    value,
+                ));
                 assertion.operation_count += 1;
-                assertion.operation =
-                    Some(RpcAssertionOperation::Missing(parse_bool(self.path, value)));
             }
-            _ => manifest_error(
-                self.path,
-                line_number,
-                format!("unknown mcp_assert key `{key}`"),
-            ),
         }
+    }
+}
+
+fn parse_rpc_assertion_operation(
+    path: &Path,
+    line_number: usize,
+    section: &str,
+    index: usize,
+    key: &str,
+    value: &ManifestValue<'_>,
+) -> RpcAssertionOperation {
+    match key {
+        "equals" => RpcAssertionOperation::Equals(parse_manifest_json_value(path, value)),
+        "equals_file" => RpcAssertionOperation::EqualsFileRef(parse_case_text_reference(
+            path, value, section, key,
+        )),
+        "equals_json_file" => RpcAssertionOperation::EqualsJsonFileRef(parse_case_text_reference(
+            path, value, section, key,
+        )),
+        "contains" => RpcAssertionOperation::Contains(parse_string(path, value)),
+        "length" => {
+            let context = unresolved_assertion_operation_context(section, index, key);
+            RpcAssertionOperation::Length(parse_nonnegative_usize_with_context(
+                path, value, &context,
+            ))
+        }
+        "workspace_file_uri" => {
+            let context = unresolved_assertion_operation_context(section, index, key);
+            let relative = parse_string_with_context(path, value, &context);
+            validate_workspace_file_uri_operand_with_context(
+                path,
+                line_number,
+                &relative,
+                Some(&context),
+            );
+            RpcAssertionOperation::WorkspaceFileUri(relative)
+        }
+        "missing" => RpcAssertionOperation::Missing(parse_bool(path, value)),
+        _ => manifest_error(path, line_number, format!("unknown {section} key `{key}`")),
     }
 }

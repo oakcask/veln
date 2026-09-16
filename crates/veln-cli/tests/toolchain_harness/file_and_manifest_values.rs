@@ -196,10 +196,6 @@ pub(super) fn parse_manifest_json_value(path: &Path, value: &ManifestValue<'_>) 
     parse_manifest_json_value_allow_decimal(path, value)
 }
 
-pub(super) fn parse_manifest_mcp_json_value(path: &Path, value: &ManifestValue<'_>) -> JsonValue {
-    parse_manifest_json_value_allow_decimal(path, value)
-}
-
 pub(super) fn parse_manifest_json_value_allow_decimal(
     path: &Path,
     value: &ManifestValue<'_>,

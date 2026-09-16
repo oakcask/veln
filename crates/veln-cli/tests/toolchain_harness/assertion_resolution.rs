@@ -543,12 +543,3 @@ pub(super) fn parse_value_contains_operation(
 ) -> ValueAssertionOperation {
     ValueAssertionOperation::Contains(parse_string(path, value))
 }
-
-pub(super) fn record_mcp_contains_assertion(
-    assertion: &mut McpAssertion,
-    path: &Path,
-    value: &ManifestValue<'_>,
-) {
-    assertion.operation_count += 1;
-    assertion.operation = Some(RpcAssertionOperation::Contains(parse_string(path, value)));
-}

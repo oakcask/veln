@@ -1,6 +1,48 @@
 use super::*;
 
 #[test]
+pub(super) fn rpc_assertion_selectors_keep_protocol_rules_separate_from_equals_values() {
+    for protocol in ["lsp", "mcp"] {
+        let manifest_source = |id: &str| {
+            format!(
+                "command = [\"{protocol}\"]\nexit = 0\n[[{protocol}_assert]]\nid = {id}\npath = \"/result\"\nequals = null\n"
+            )
+        };
+        for id in ["null", "9223372036854775808", "1.0", "1e0", "true"] {
+            if id == "9223372036854775808" || (protocol == "lsp" && id == "null") {
+                let manifest = parse_manifest(Path::new("case.toml"), &manifest_source(id));
+                let (actual_id, operation, count) = if protocol == "lsp" {
+                    let assertion = &manifest.expectations.lsp_assertions[0];
+                    (
+                        &assertion.id,
+                        &assertion.operation,
+                        assertion.operation_count,
+                    )
+                } else {
+                    let assertion = &manifest.expectations.mcp_assertions[0];
+                    (
+                        &assertion.id,
+                        &assertion.operation,
+                        assertion.operation_count,
+                    )
+                };
+                assert_eq!(actual_id, &Some(parse_json(id).expect("valid JSON ID")));
+                assert_eq!(
+                    operation,
+                    &Some(RpcAssertionOperation::Equals(JsonValue::Null))
+                );
+                assert_eq!(count, 1);
+            } else {
+                assert_manifest_parse_error(
+                    &manifest_source(id),
+                    &format!("{protocol}_assert `id` must be a JSON string"),
+                );
+            }
+        }
+    }
+}
+
+#[test]
 pub(super) fn manifest_mcp_assertions_reject_link_like_workspace_uris() {
     let root = test_temp_root("mcp-link-uri-manifest");
     let manifest_path = root.join("case.toml");
