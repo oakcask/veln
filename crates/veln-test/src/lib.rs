@@ -71,6 +71,7 @@ pub fn attach_doctest_expectations(
 
 pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     let mut generated_sources = Vec::new();
+    let mut visible_source_locations = BTreeMap::new();
     let mut expectations = BTreeMap::new();
     let mut expected_failures = BTreeMap::new();
     let mut diagnostics = Vec::new();
@@ -88,6 +89,8 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
             if let Some(fail_span) = doctest.fail_span {
                 expected_failures.insert(generated_path.clone(), fail_span);
             }
+            visible_source_locations
+                .insert(generated_path.clone(), doctest.visible_source_locations);
             generated_sources.push(SourceFile::new(generated_path, generated));
             if !doctest.should_fail {
                 expectations.insert(
@@ -104,6 +107,7 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
 
     DoctestSources {
         sources: generated_sources,
+        visible_source_locations,
         expectations,
         expected_failures,
         diagnostics,

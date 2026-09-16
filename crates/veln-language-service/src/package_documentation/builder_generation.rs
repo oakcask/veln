@@ -519,11 +519,10 @@ impl<'a> PackageDocBuilder<'a> {
         if public_sources.is_empty() {
             return;
         }
-        let doctest_source_locations = doctest_source_locations(&public_sources);
         let doctests = doctest_sources(&public_sources);
         self.report_doctest_extraction_diagnostics(
             &doctests.diagnostics,
-            &doctest_source_locations,
+            &doctests.visible_source_locations,
         );
         let generated_doctests = generated_doctest_static_gate_sources(&doctests.sources);
         let static_gate_locations = doctest_static_gate_locations(&generated_doctests);
@@ -533,7 +532,7 @@ impl<'a> PackageDocBuilder<'a> {
         );
         self.report_doctest_static_gate_diagnostics(
             diagnostics,
-            &doctest_source_locations,
+            &doctests.visible_source_locations,
             &static_gate_locations,
         );
     }

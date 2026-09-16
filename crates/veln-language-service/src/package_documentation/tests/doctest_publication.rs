@@ -1,6 +1,61 @@
 use super::*;
 
 #[test]
+fn doctest_diagnostic_locations_survive_hidden_setup_and_keep_fence_order() {
+    for newline in ["\n", "\r\n"] {
+        let text = [
+            "## 日本語 docs.",
+            "## ```veln ignore",
+            "## @",
+            "## ```",
+            "## ```veln",
+            "## > let setup: Int = 1",
+            "## @",
+            "## ```",
+            "## ```veln-output stream=stdout",
+            "## ignored output",
+            "## ```",
+            "## ```veln",
+            "## @",
+            "## ```",
+            "pub fn value() -> Int",
+            "\t1",
+            "end",
+            "",
+        ]
+        .join(newline);
+        let result = generate(
+            "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",
+            &[("main.veln", &text)],
+        );
+
+        assert!(result.catalog().is_none());
+        let uri = source_uri("demo", result.snapshot_digest(), "main.veln");
+        for line in [7, 13] {
+            let offset = text
+                .split_inclusive('\n')
+                .take(line - 1)
+                .map(str::len)
+                .sum::<usize>()
+                + 3;
+            assert!(
+                result.status().diagnostics.iter().any(|diagnostic| {
+                    diagnostic.gate == "doctest"
+                        && diagnostic.span.as_ref().is_some_and(|span| {
+                            span.source_uri == uri
+                                && span.line == line
+                                && span.column == 4
+                                && span.offset == offset
+                        })
+                }),
+                "missing original location for line {line}: {:?}",
+                result.status().diagnostics,
+            );
+        }
+    }
+}
+
+#[test]
 fn doctest_metadata_gate_reports_once_at_original_source_position() {
     let result = generate(
         "[package]\nname = \"demo\"\n[lib]\nexports = [\"main.veln\"]\n",

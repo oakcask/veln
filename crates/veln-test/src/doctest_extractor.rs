@@ -53,7 +53,7 @@ impl<'a> DoctestExtractor<'a> {
             if content.trim_start().starts_with("```") {
                 self.close_fence();
             } else {
-                self.append_fence_line(content);
+                self.append_fence_line(content, line_range);
             }
             return;
         }
@@ -75,6 +75,7 @@ impl<'a> DoctestExtractor<'a> {
             self.fence = Some(Fence::Veln {
                 lines: Vec::new(),
                 visible_lines: Vec::new(),
+                visible_source_locations: Vec::new(),
                 error_type: doctest_error_type(info).map(ToString::to_string),
                 expected_runtime_failure: doctest_runtime_failure(info, span).map(Box::new),
                 ignored: doctest_ignored(info),
@@ -103,6 +104,7 @@ impl<'a> DoctestExtractor<'a> {
             Fence::Veln {
                 lines,
                 visible_lines,
+                visible_source_locations,
                 error_type,
                 expected_runtime_failure,
                 ignored,
@@ -114,6 +116,7 @@ impl<'a> DoctestExtractor<'a> {
                     self.pending = Some(ExtractedDoctest {
                         code: lines,
                         visible_code: visible_lines,
+                        visible_source_locations,
                         error_type,
                         expected_output: None,
                         expected_runtime_failure: expected_runtime_failure.map(|failure| *failure),
@@ -131,16 +134,21 @@ impl<'a> DoctestExtractor<'a> {
         }
     }
 
-    pub(super) fn append_fence_line(&mut self, content: &str) {
+    pub(super) fn append_fence_line(&mut self, content: &str, line_range: TextRange) {
         match self.fence.as_mut().expect("active fence should exist") {
             Fence::Veln {
                 lines,
                 visible_lines,
+                visible_source_locations,
                 ..
             } => {
                 lines.push(doctest_code_line(content));
                 if !content.starts_with("> ") {
                     visible_lines.push(content.to_string());
+                    visible_source_locations.push(self.source.span(TextRange::new(
+                        line_range.end - content.len(),
+                        line_range.end,
+                    )));
                 }
             }
             Fence::Output { lines, .. } => lines.push(content.to_string()),
