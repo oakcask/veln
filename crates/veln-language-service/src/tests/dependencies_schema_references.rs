@@ -497,6 +497,35 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn recovered_dependency_schema_alias_blocks_same_module_schema_fallback() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                ("alias.veln", "mod dep\n\npub schema Alias =\n"),
+                (
+                    "schema.veln",
+                    "mod dep\n\npub schema Alias\n  value: Int\nend\n",
+                ),
+            ],
+            ["alias.veln", "schema.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
+    }
+
+    #[test]
     fn dependency_schema_references_exclude_recovered_operation_leaves() {
         let dependency = dependency_snapshot(
             "example/dep",

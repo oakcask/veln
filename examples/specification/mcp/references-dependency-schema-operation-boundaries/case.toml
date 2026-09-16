@@ -121,6 +121,11 @@ id = 21
 path = "/result/structuredContent/references"
 equals = []
 
+[[mcp_assert]]
+id = 22
+path = "/result/structuredContent/references"
+equals = []
+
 
 [[mcp_assert]]
 id = 2

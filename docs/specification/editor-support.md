@@ -778,9 +778,9 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency schema
-  operation and direct-dependency and standard-library public function, public
-  function-alias, public type-alias, public type, and public constructor
-  reference boundaries.
+  and schema-alias operation boundaries and the direct-dependency and
+  standard-library public function, public function-alias, public type-alias,
+  public type, and public constructor reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, embedded standard-library,

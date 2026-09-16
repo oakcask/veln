@@ -20,7 +20,7 @@ fn read(view: ByteView) -> ()
   decode mismatch::OtherAlias from view at byte_offset(0)?
   decode transitive::TransitiveAlias from view at byte_offset(0)?
   decode public::badAlias from view at byte_offset(0)?
-
+  decode public::RecoveredAlias from view at byte_offset(0)?
   decode public::Public from view at byte_offset(0)?
 end
 

@@ -97,7 +97,8 @@ The dependency-schema operation boundary fixtures contain a direct same-module
 alias, an alias chain, a target-name schema-alias collision, invalid and
 graph-ineligible alias selections. They preserve the required positive or
 successful-empty result for each boundary. Focused shared and MCP tests cover
-recovered alias declarations. The paired dependency-schema-alias cases
+recovered alias declarations that collide with valid same-module schemas. The
+paired dependency-schema-alias cases
 preserve positive resolution when an unrelated type shares the target name.
 Current MCP and editor specifications own the implemented behavior.
 

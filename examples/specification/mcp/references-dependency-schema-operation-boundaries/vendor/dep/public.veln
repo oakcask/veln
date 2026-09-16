@@ -17,6 +17,9 @@ end
 pub schema CollisionTarget = Other
 pub schema CollidingAlias = CollisionTarget
 pub schema badAlias = Public
+pub schema RecoveredAlias
+  value: Int
+end
 
 fn package_operations(view: ByteView, value: {value: Int}) -> ()
   decode Public from view at byte_offset(0)?

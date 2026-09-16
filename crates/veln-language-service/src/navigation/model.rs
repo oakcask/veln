@@ -684,6 +684,7 @@ enum SchemaReferenceTarget {
 struct FileDeclarations {
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
+    schema_alias_blockers: Vec<NeutralSymbol>,
     package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,

@@ -89,11 +89,17 @@ fn index_dependency_sources(
 ) {
     for (source, entry) in dependency.indexed_sources() {
         let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
-        if !file.navigation_isolated && parsed.diagnostics.is_empty() {
-            declarations.extend(file_declarations(&file, &parsed.tree));
-            let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
-            assign_module_name(&mut source_module, &file.module);
-            append_surface_module(module, source_module);
+        if !file.navigation_isolated {
+            if parsed.diagnostics.is_empty() {
+                declarations.extend(file_declarations(&file, &parsed.tree));
+                let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
+                assign_module_name(&mut source_module, &file.module);
+                append_surface_module(module, source_module);
+            } else {
+                declarations
+                    .schema_alias_blockers
+                    .extend(schema_alias_declarations(&file, &parsed.tree));
+            }
         }
         files.push(file);
     }

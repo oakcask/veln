@@ -1,0 +1,3 @@
+mod public
+
+pub schema RecoveredAlias =

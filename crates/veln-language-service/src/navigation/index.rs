@@ -51,7 +51,12 @@ impl SymbolIndex {
         append_surface_module(&mut module, direct_dependencies.module.clone());
         append_surface_module(&mut module, standard_library.module.clone());
         attach_classified_path_segments(&mut files, &workspace_module, &module);
-        let schema_alias_declarations = declarations.schema_aliases.clone();
+        let schema_alias_declarations = declarations
+            .schema_aliases
+            .iter()
+            .chain(&declarations.schema_alias_blockers)
+            .cloned()
+            .collect();
         let schema_aliases = eligible_schema_aliases(
             declarations.schema_aliases,
             &declarations.package_schema_targets,

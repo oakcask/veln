@@ -465,11 +465,15 @@ fn references_keep_recovered_dependency_schema_alias_declarations_empty() {
     );
     workspace.write(
         "vendor/dep/veln.toml",
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+        concat!(
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"alias.veln\", \"schema.veln\"]\n",
+        ),
     );
+    workspace.write("vendor/dep/alias.veln", "mod dep\n\npub schema Alias =\n");
     workspace.write(
-        "vendor/dep/dep.veln",
-        "pub schema Packet\n  value: Int\nend\n\npub schema Alias =\n",
+        "vendor/dep/schema.veln",
+        "mod dep\n\npub schema Alias\n  value: Int\nend\n",
     );
 
     let result = references_result(&workspace, "main.veln", 4, 16);

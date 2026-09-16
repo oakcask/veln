@@ -50,6 +50,8 @@ impl FileDeclarations {
     fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
         self.schema_aliases.extend(other.schema_aliases);
+        self.schema_alias_blockers
+            .extend(other.schema_alias_blockers);
         self.package_schema_targets
             .extend(other.package_schema_targets);
         self.effects.extend(other.effects);
@@ -71,6 +73,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
     FileDeclarations {
         schemas: schema_declarations(file, syntax),
         schema_aliases: schema_alias_declarations(file, syntax),
+        schema_alias_blockers: Vec::new(),
         package_schema_targets: package_schema_targets(file, syntax),
         effects: effect_declarations(file, syntax),
         handlers: handler_declarations(file, syntax),
