@@ -73,8 +73,8 @@ response, not merely counted.
 | Select a module qualifier, invalid-casing or recovery alias, dependency alias, or standard-library alias. | Keep successful empty references and the existing scope metadata. | MCP boundary cases retaining unsupported package and recovery coverage. |
 | Same-spelled values, types, fields, strings, comments, or a shadowing schema occur beside alias uses. | Exclude occurrences that do not resolve to the selected alias. | Shared symbol-isolation cases. |
 | The selected manifest project has multiple owned files, a sibling project, and an unselected descendant package. | Include only selected-project owned-source references and report project-wide scope. | MCP project-isolation tests. |
-| The selection has anonymous single-file scope, including an unselected descendant source. | Include only references in that source and retain single-file scope metadata. | MCP anonymous and descendant-isolation tests. |
-| Saved capture cannot stabilize within the existing retry limit. | Return `snapshot_changed` without reference locations or success-only scope fields; preserve selected projects and retained package resources. | Deterministic MCP capture-failure test for an alias selection. |
+| The selection has anonymous single-file scope, including an unselected descendant source. | Include only references in that source and retain single-file scope metadata. | `references_keep_anonymous_sources_isolated_for_workspace_schema_alias_selections` and `references_keep_descendant_package_sources_isolated_for_workspace_schema_alias_selections`. |
+| Saved capture cannot stabilize within the existing retry limit. | Return `snapshot_changed` without reference locations or success-only scope fields; preserve selected projects and retained package resources. | `references_project_capture_exhausts_retries_for_workspace_schema_alias_selection`. |
 | MCP and LSP read identical saved sources with LSP declaration inclusion disabled. | Normalized URI and range sets match, including non-BMP source text before a selected token. | Paired executable MCP/LSP cases and shared coordinate tests. |
 
 ## Evidence And Completion

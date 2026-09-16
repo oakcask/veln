@@ -563,6 +563,34 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_references_keep_schema_specific_unsupported_selections_empty() {
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "pub schema Packet\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                concat!(
+                    "use main\n\n",
+                    "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  let decoded = decode main::Packet from view at byte_offset(0)?\n",
+                    "  let encoded = encode main::Packet from packet\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        assert!(query(sources.clone(), "other.veln", 4, 25).is_none());
+        assert!(query(sources, "other.veln", 5, 25).is_none());
+    }
+
+    #[test]
     fn workspace_schema_alias_references_keep_alias_identity_across_operations_and_composition() {
         let sources = vec![
             source(
@@ -754,6 +782,54 @@ mod navigation_schema_references_tests {
             ];
 
             assert!(query(sources, "main.veln", 4, 12).is_none());
+        }
+    }
+
+    #[test]
+    fn workspace_schema_alias_references_reject_ambiguous_qualified_operation_paths() {
+        for imports in [
+            "use a::wire\nuse b::wire\n",
+            "use b::wire\nuse a::wire\n",
+        ] {
+            for (other_declaration, same_named_schema) in [
+                (
+                    "pub schema Other\n  format binary\n  value: UInt8\nend\n",
+                    false,
+                ),
+                (
+                    "pub schema WirePacket\n  format binary\n  value: UInt8\nend\n",
+                    true,
+                ),
+            ] {
+                let sources = vec![
+                    source(
+                        "a/wire.veln",
+                        concat!(
+                            "pub schema Packet\n",
+                            "  format binary\n",
+                            "  value: UInt8\n",
+                            "end\n\n",
+                            "pub schema WirePacket = Packet\n",
+                        ),
+                    ),
+                    source("b/wire.veln", other_declaration),
+                    source(
+                        "main.veln",
+                        &format!(
+                            "{imports}\nfn operations(view: ByteView, packet: {{value: Int}}) -> ()\n  let decoded = decode wire::WirePacket from view at byte_offset(0)?\n  let encoded = encode wire::WirePacket from packet\nend\n"
+                        ),
+                    ),
+                ];
+
+                let alias = query(sources.clone(), "a/wire.veln", 6, 12).unwrap();
+                assert!(alias.references.is_empty());
+                if same_named_schema {
+                    let schema = query(sources.clone(), "b/wire.veln", 1, 12).unwrap();
+                    assert!(schema.references.is_empty());
+                }
+                assert!(query(sources.clone(), "main.veln", 5, 31).is_none());
+                assert!(query(sources, "main.veln", 6, 31).is_none());
+            }
         }
     }
 

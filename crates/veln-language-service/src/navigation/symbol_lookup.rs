@@ -20,11 +20,15 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        let qualified_modules = workspace_qualified_module_candidates(file, qualifier);
+        let QualifiedWorkspaceModule::Workspace(module) =
+            qualified_workspace_module(file, qualifier)
+        else {
+            return None;
+        };
         let mut candidates = self.schema_aliases.iter().filter(|symbol| {
             symbol.name == name
                 && symbol.package.is_none()
-                && qualified_modules.iter().any(|module| module == &symbol.module)
+                && symbol.module == module
                 && (symbol.module == file.module || file.uses.contains(&symbol.module))
         });
         let candidate = candidates.next()?;
@@ -708,22 +712,46 @@ impl SymbolIndex {
     }
 }
 
-fn workspace_qualified_module_candidates(file: &IndexedFile, qualifier: &str) -> Vec<String> {
+enum QualifiedWorkspaceModule {
+    Workspace(String),
+    External,
+    Ambiguous,
+    Unresolved,
+}
+
+fn qualified_workspace_module(file: &IndexedFile, qualifier: &str) -> QualifiedWorkspaceModule {
     if file.uses.contains(qualifier) || file.module == qualifier {
-        return vec![qualifier.to_string()];
+        return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
     }
-    let mut modules = file
+    let exact_external_count = file
+        .external_uses
+        .iter()
+        .filter(|(module, _)| module == qualifier)
+        .count();
+    if exact_external_count == 1 {
+        return QualifiedWorkspaceModule::External;
+    }
+    if exact_external_count > 1 {
+        return QualifiedWorkspaceModule::Ambiguous;
+    }
+
+    let workspace_modules = file
         .uses
         .iter()
         .filter(|module| module.rsplit("::").next() == Some(qualifier))
         .cloned()
         .collect::<Vec<_>>();
-    if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier)
-        && !modules.contains(&module)
-    {
-        modules.push(module);
+    let external_module_count = file
+        .external_uses
+        .iter()
+        .filter(|(module, _)| module.rsplit("::").next() == Some(qualifier))
+        .count();
+    match (workspace_modules.as_slice(), external_module_count) {
+        ([module], 0) => QualifiedWorkspaceModule::Workspace(module.clone()),
+        ([], 1) => QualifiedWorkspaceModule::External,
+        ([], 0) => QualifiedWorkspaceModule::Unresolved,
+        _ => QualifiedWorkspaceModule::Ambiguous,
     }
-    modules
 }
 
 fn constructor_selected_through_public_alias(mut symbol: ConstructorSymbol) -> ConstructorSymbol {
