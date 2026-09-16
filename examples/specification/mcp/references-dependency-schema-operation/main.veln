@@ -1,0 +1,11 @@
+use lib::wire from "example/dep"
+
+fn operations(view: ByteView, packet: {value: Int}) -> ()
+  "😀"
+  let decoded = decode lib::wire::Packet from view at byte_offset(0)?
+  let encoded = encode wire::Packet from packet
+end
+
+schema Frame
+  nested: wire::Packet
+end

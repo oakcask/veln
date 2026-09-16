@@ -320,6 +320,11 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-standard-library-type-alias/`.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
+- MCP and LSP saved workspace `references` for direct-dependency public schema
+  `decode` and `encode` leaves:
+  `../../examples/specification/mcp/references-dependency-schema-operation/`
+  and
+  `../../examples/specification/lsp/references-dependency-schema-operation/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases, including unsupported selections and workspace-file URI assertions
   for each returned reference:

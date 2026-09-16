@@ -1,34 +1,33 @@
 ---
-role: proposal
-update-when: Direct-dependency schema operation reference selection, saved navigation scope, package identity, or planned MCP and LSP reference evidence changes.
+role: implementation-record
+update-when: Direct-dependency schema operation reference selection, saved navigation scope, package identity, or MCP and LSP reference evidence changes.
 ---
 
 # MCP Saved Direct-Dependency Schema Operation References
 
-## Outcome And Readiness
+## Implemented Outcome
 
 Let an agent find saved workspace `decode` and `encode` uses of a public schema
-from a direct dependency. This is an independently actionable slice of
-[Agent Language Services](agent-language-services.md). It requires no new
-source syntax, tool schema, pagination, package composition resolution, or
-client plugin contract.
+from a direct dependency. This completed slice belongs to
+[Agent Language Services](../../proposals/agent-language-services.md). It
+required no new source syntax, tool schema, pagination, package composition
+resolution, or client plugin contract.
 
-The prerequisites are implemented:
+The implementation reuses these prerequisites:
 
 - Package schema definition selection, retained direct-dependency captures,
   saved project scope, and reference result schemas are specified by
-  [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
+  [MCP Workspace Projects, Resources, And Navigation](../../specification/mcp.md).
 - Shared saved-source navigation and LSP adaptation are specified by
-  [Editor Support](../specification/editor-support.md).
+  [Editor Support](../../specification/editor-support.md).
 - The JSONL harness supports exact response-local location assertions; see
-  [Toolchain Test Harness](../reference/toolchain-test-harness.md).
+  [Toolchain Test Harness](../toolchain-test-harness.md).
 
-The current MCP specification excludes package schema references. The shared
-`schema_references` collector in
-`../../crates/veln-language-service/src/navigation/symbol_references.rs`
-returns no locations for package schemas, although package schema definition
-resolution already exists. This is a new reference capability, not additional
-coverage for an implemented result.
+Current behavior is specified by
+[MCP Workspace Projects, Resources, And Navigation](../../specification/mcp.md)
+and [Editor Support](../../specification/editor-support.md). Executable protocol
+evidence lives in `examples/specification/mcp/references-dependency-schema-operation/`
+and `examples/specification/lsp/references-dependency-schema-operation/`.
 
 ## Bounded Contract
 
@@ -54,10 +53,10 @@ same set for equivalent saved sources.
 
 ## Acceptance Model
 
-These cases are planned evidence, not passing implementation claims. Exact
-location assertions must identify source leaves rather than only count them.
+These cases record the implemented acceptance boundary. Exact location
+assertions identify source leaves rather than only count them.
 
-| Input or state | Required observation | Planned verification |
+| Input or state | Required observation | Verification |
 | --- | --- | --- |
 | Select either a `decode` or an `encode` leaf resolving to one eligible schema. | Both return the same exact ordered set of operation leaves across selected-project owned sources. | Shared navigation tests and an MCP JSONL specification case. |
 | Use the full written imported module path and its valid implicit leaf alias. | Both spellings resolve under existing import rules and contribute to one schema identity. | Shared import tests and exact MCP ranges. |
@@ -71,18 +70,13 @@ location assertions must identify source leaves rather than only count them.
 | MCP and LSP read identical saved sources, including non-BMP text before an operation leaf. | Normalized URI and range sets match when LSP declaration inclusion is false. | Paired MCP and LSP executable cases. |
 | Resolve a supported operation through each admitted direct-dependency source kind. | Source kind does not alter identity or the workspace-only result boundary. | Shared saved-capture cases for path, vendor, mirror, and locally available git sources. |
 
-## Evidence And Completion
+## Evidence
 
-Add focused executable cases under `examples/specification/mcp/` and
+Focused executable cases under `examples/specification/mcp/` and
 `examples/specification/lsp/`, shared navigation tests in
-`crates/veln-language-service`, and scope/failure tests in `crates/veln-mcp`.
-Use the existing toolchain specification harness and guarded focused Rust tests
-to verify the acceptance rows. Preserve successful-empty checks for excluded
-package schema classes when widening existing negative fixtures.
-
-Completion requires passing acceptance evidence, aligned MCP and editor
-specifications, and moving this page to the implemented-proposal records.
-The umbrella and proposal catalog must then route to the completed slice.
+`crates/veln-language-service`, and scope and capture-failure tests in
+`crates/veln-mcp` verify the acceptance rows. Successful-empty checks preserve
+the excluded package schema classes.
 
 ## Deferred Boundary
 

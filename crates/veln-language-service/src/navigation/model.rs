@@ -349,6 +349,7 @@ impl Symbol {
 
     fn package_origin(&self) -> Option<PackageOrigin> {
         match self {
+            Self::Schema(symbol) | Self::SchemaAlias(symbol) => symbol.package_origin,
             Self::Function(symbol) => symbol.package_origin,
             Self::Type(symbol) => symbol.package_origin,
             Self::TypeAlias(symbol) => symbol.package_origin,
@@ -569,6 +570,7 @@ struct NeutralSymbol {
     name: String,
     declaration: NavigationLocation,
     package: Option<String>,
+    package_origin: Option<PackageOrigin>,
     public: bool,
 }
 

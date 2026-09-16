@@ -132,6 +132,8 @@ under `../../specification/` and its executable example routes.
   [mcp-saved-workspace-schema-composition-references.md](mcp-saved-workspace-schema-composition-references.md).
 - MCP saved workspace schema-alias references:
   [mcp-saved-workspace-schema-alias-references.md](mcp-saved-workspace-schema-alias-references.md).
+- MCP saved direct-dependency schema operation references:
+  [mcp-saved-dependency-schema-operation-references.md](mcp-saved-dependency-schema-operation-references.md).
 - MCP saved dependency function references:
   [mcp-saved-dependency-function-references.md](mcp-saved-dependency-function-references.md).
 - MCP saved direct-dependency function-alias references:

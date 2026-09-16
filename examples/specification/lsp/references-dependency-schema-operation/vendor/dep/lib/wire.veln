@@ -1,0 +1,8 @@
+pub schema Packet
+  format binary
+  value: UInt8
+end
+
+schema PackageFrame
+  nested: Packet
+end

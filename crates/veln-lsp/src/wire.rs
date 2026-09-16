@@ -8,7 +8,8 @@ use std::sync::Arc;
 use veln_diagnostics::Severity;
 use veln_language_service::{
     EffectiveProjectSnapshot, NavigationLocation, NavigationResult, NavigationSource,
-    RenameAffectedScope, RenameFailure, RenameFailureKind,
+    PackageOrigin, RenameAffectedScope, RenameFailure, RenameFailureKind, SymbolDeclarationKind,
+    SymbolKind,
 };
 use veln_project::discover_source_paths;
 use veln_source::{SourceFile, SourcePath, SourceSpan};
@@ -425,11 +426,14 @@ pub(crate) fn references_json(
     result: &NavigationResult,
     include_declaration: bool,
 ) -> String {
-    if !is_workspace_location(&result.definition) {
+    let package_schema_operations = result.selected_symbol.kind == SymbolKind::Schema
+        && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
+        && result.selected_symbol.declaration_kind == SymbolDeclarationKind::Declaration;
+    if !is_workspace_location(&result.definition) && !package_schema_operations {
         return "[]".to_string();
     }
     let mut locations = Vec::new();
-    if include_declaration {
+    if include_declaration && is_workspace_location(&result.definition) {
         locations.push(location_json(snapshot, root, &result.definition));
     }
     locations.extend(result.references.iter().map(|span| {

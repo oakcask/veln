@@ -277,7 +277,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 15,
         },
         Case {
-            name: "package schema",
+            name: "package schema composition",
             files: vec![
                 (
                     "veln.toml",
@@ -285,7 +285,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
                 ),
                 (
                     "main.veln",
-                    "use dep from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n  decode dep::Packet from view at byte_offset(0)?\nend\n",
+                    "use dep from \"example/dep\"\n\nschema Frame\n  nested: dep::Packet\nend\n",
                 ),
                 (
                     "vendor/dep/veln.toml",
@@ -298,7 +298,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             ],
             source: "main.veln",
             line: 4,
-            column: 15,
+            column: 16,
         },
         Case {
             name: "effect operation",

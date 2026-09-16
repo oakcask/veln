@@ -41,7 +41,7 @@ impl SymbolIndex {
     }
 
     fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
-        if symbol.package.is_some() {
+        if !self.schema_references_supported(symbol) {
             return Vec::new();
         }
         let mut references = self.files
@@ -63,19 +63,31 @@ impl SymbolIndex {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        references.extend(
-            self.schema_composition_references
-                .iter()
-                .filter(|reference| {
-                    matches!(
-                        &reference.target,
-                        SchemaReferenceTarget::Schema(candidate)
-                            if same_schema(candidate, symbol)
-                    )
-                })
-                .map(|reference| reference.span.clone()),
-        );
+        if symbol.package.is_none() {
+            references.extend(
+                self.schema_composition_references
+                    .iter()
+                    .filter(|reference| {
+                        matches!(
+                            &reference.target,
+                            SchemaReferenceTarget::Schema(candidate)
+                                if same_schema(candidate, symbol)
+                        )
+                    })
+                    .map(|reference| reference.span.clone()),
+            );
+        }
         references
+    }
+
+    fn schema_references_supported(&self, symbol: &NeutralSymbol) -> bool {
+        symbol.package.is_none()
+            || (symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                && symbol
+                    .name
+                    .chars()
+                    .next()
+                    .is_some_and(|initial| initial.is_ascii_uppercase()))
     }
 
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {
