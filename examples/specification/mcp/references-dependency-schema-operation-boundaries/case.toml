@@ -42,11 +42,6 @@ path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
-id = 9
-path = "/result/structuredContent/references"
-equals = []
-
-[[mcp_assert]]
 id = 10
 path = "/result/structuredContent/references"
 equals = []

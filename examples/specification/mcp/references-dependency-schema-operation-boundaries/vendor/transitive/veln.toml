@@ -1,0 +1,5 @@
+[package]
+name = "transitive/dep"
+
+[lib]
+exports = ["public.veln"]

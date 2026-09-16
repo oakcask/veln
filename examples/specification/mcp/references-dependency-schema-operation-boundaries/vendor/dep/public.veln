@@ -7,3 +7,8 @@ pub schema badSchema
 end
 
 pub schema Alias = Public
+
+fn package_operations(view: ByteView, value: {value: Int}) -> ()
+  decode Public from view at byte_offset(0)?
+  encode Public from value
+end

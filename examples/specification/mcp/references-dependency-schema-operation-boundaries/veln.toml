@@ -1,2 +1,8 @@
 [dependencies."example/dep"]
 path = "vendor/dep"
+
+[dependencies."other/dep"]
+path = "vendor/other"
+
+[dependencies."bridge/dep"]
+path = "vendor/bridge"

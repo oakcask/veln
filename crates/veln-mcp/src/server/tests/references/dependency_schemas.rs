@@ -209,7 +209,11 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
     let workspace = TempWorkspace::new("references-dependency-schema-boundaries");
     workspace.write(
         "veln.toml",
-        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+        concat!(
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n\n",
+            "[dependencies.\"other/dep\"]\npath = \"vendor/other\"\n\n",
+            "[dependencies.\"bridge/dep\"]\npath = \"vendor/bridge\"\n",
+        ),
     );
     workspace.write(
         "main.veln",
@@ -219,7 +223,7 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "use hidden from \"example/dep\"\n",
             "use mismatch from \"other/dep\"\n",
             "use transitive from \"transitive/dep\"\n",
-            "use standard from \"std\"\n\n",
+            "\n",
             "fn read(view: ByteView) -> ()\n",
             "  decode private::Private from view at byte_offset(0)?\n",
             "  decode hidden::Hidden from view at byte_offset(0)?\n",
@@ -228,7 +232,6 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "  decode public::badSchema from view at byte_offset(0)?\n",
             "  decode public::Missing from view at byte_offset(0)?\n",
             "  decode public::Alias from view at byte_offset(0)?\n",
-            "  decode standard::Standard from view at byte_offset(0)?\n",
             "end\n\n",
             "schema Frame\n",
             "  nested: public::Public\n",
@@ -244,7 +247,11 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         concat!(
             "pub schema Public\n  value: Int\nend\n\n",
             "pub schema badSchema\n  value: Int\nend\n\n",
-            "pub schema Alias = Public\n",
+            "pub schema Alias = Public\n\n",
+            "fn package_operations(view: ByteView, value: {value: Int}) -> ()\n",
+            "  decode Public from view at byte_offset(0)?\n",
+            "  encode Public from value\n",
+            "end\n",
         ),
     );
     workspace.write(
@@ -254,6 +261,39 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
     workspace.write(
         "vendor/dep/hidden.veln",
         "pub schema Hidden\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "vendor/other/veln.toml",
+        "[package]\nname = \"other/dep\"\n\n[lib]\nexports = [\"other.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/other/other.veln",
+        "pub schema Public\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "vendor/bridge/veln.toml",
+        concat!(
+            "[package]\nname = \"bridge/dep\"\n\n",
+            "[lib]\nexports = [\"bridge.veln\"]\n\n",
+            "[dependencies.\"transitive/dep\"]\npath = \"../transitive\"\n",
+        ),
+    );
+    workspace.write(
+        "vendor/bridge/bridge.veln",
+        concat!(
+            "use public from \"transitive/dep\"\n\n",
+            "pub fn consume(view: ByteView) -> ()\n",
+            "  decode public::Public from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/transitive/veln.toml",
+        "[package]\nname = \"transitive/dep\"\n\n[lib]\nexports = [\"public.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/transitive/public.veln",
+        "pub schema Public\n  value: Int\nend\n",
     );
     workspace.write(
         "recovery.veln",
@@ -266,16 +306,15 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
     );
 
     for (name, source, line, column) in [
-        ("private", "main.veln", 9, 19),
-        ("non-exported", "main.veln", 10, 18),
-        ("mismatched import", "main.veln", 11, 20),
-        ("transitive", "main.veln", 12, 22),
-        ("invalid casing", "main.veln", 13, 18),
-        ("unresolved", "main.veln", 14, 18),
-        ("package alias", "main.veln", 15, 18),
-        ("standard library", "main.veln", 16, 20),
-        ("package composition", "main.veln", 20, 19),
-        ("module qualifier", "main.veln", 13, 10),
+        ("private", "main.veln", 8, 19),
+        ("non-exported", "main.veln", 9, 18),
+        ("mismatched import", "main.veln", 10, 20),
+        ("transitive", "main.veln", 11, 22),
+        ("invalid casing", "main.veln", 12, 18),
+        ("unresolved", "main.veln", 13, 18),
+        ("package alias", "main.veln", 14, 18),
+        ("package composition", "main.veln", 18, 19),
+        ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),
     ] {
         let result = references_result(&workspace, source, line, column);
@@ -381,6 +420,12 @@ fn write_schema_dependency_workspace(
     );
     workspace.write(
         &format!("{dependency_root}/dep.veln"),
-        "pub schema Packet\n  value: Int\nend\n",
+        concat!(
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "fn package_operations(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
     );
 }

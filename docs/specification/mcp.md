@@ -468,10 +468,13 @@ transitive dependencies, recovery and invalid-casing records, and unresolved
 or mismatched imports succeed with an empty reference set. The
 `references-dependency-schema-operation` MCP case is the positive executable
 protocol contract. The
-`references-dependency-schema-operation-boundaries` MCP case selects each
-unsupported boundary and requires successful empty results. Focused
-language-service and MCP tests cover identity, scope, source-kind, and
-stable-capture boundaries.
+`references-dependency-schema-operation-boundaries` MCP case selects the
+unsupported direct-dependency boundaries and requires successful empty
+results. Because the embedded standard library currently exports no schema,
+the focused language-service test supplies a standard-package schema snapshot
+and verifies the successful empty standard-library boundary. Focused
+language-service and MCP tests also cover identity, package-source exclusion,
+scope, source-kind, and stable-capture boundaries.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -670,8 +673,12 @@ implicit leaf module paths, exact workspace-only ranges, selection parity,
 project-wide scope, and non-BMP saved input. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
-package-alias, standard-library, composition, module-qualifier, and recovery
-selections as successful empty results.
+package-alias, composition, module-qualifier, and recovery selections as
+successful empty results. Its mismatched import names a retained direct
+dependency whose exported module does not match, and its transitive package
+exists only through another retained dependency's manifest. The shared
+language-service boundary test uses a synthetic standard-package schema
+snapshot because the embedded standard library has no schema declaration.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

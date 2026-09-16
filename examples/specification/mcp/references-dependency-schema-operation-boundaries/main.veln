@@ -3,7 +3,7 @@ use private from "example/dep"
 use hidden from "example/dep"
 use mismatch from "other/dep"
 use transitive from "transitive/dep"
-use standard from "std"
+# The embedded standard library has no schema declaration to select here.
 
 fn read(view: ByteView) -> ()
   decode private::Private from view at byte_offset(0)?
@@ -13,7 +13,7 @@ fn read(view: ByteView) -> ()
   decode public::badSchema from view at byte_offset(0)?
   decode public::Missing from view at byte_offset(0)?
   decode public::Alias from view at byte_offset(0)?
-  decode standard::Standard from view at byte_offset(0)?
+
   decode public::Public from view at byte_offset(0)?
 end
 

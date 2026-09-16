@@ -14,6 +14,10 @@ mod dependencies_schema_references_tests {
                     "end\n\n",
                     "schema PackageFrame\n",
                     "  nested: Packet\n",
+                    "end\n\n",
+                    "fn package_operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  decode Packet from view at byte_offset(0)?\n",
+                    "  encode Packet from packet\n",
                     "end\n",
                 ),
             )],
@@ -122,6 +126,24 @@ mod dependencies_schema_references_tests {
             &[("wire.veln", "pub schema Standard\n  value: Int\nend\n")],
             ["wire.veln"],
         );
+        let mismatched = dependency_snapshot(
+            "other/dep",
+            &[("other.veln", "pub schema Public\n  value: Int\nend\n")],
+            ["other.veln"],
+        );
+        let bridge = dependency_snapshot(
+            "bridge/dep",
+            &[(
+                "bridge.veln",
+                concat!(
+                    "use public from \"transitive/dep\"\n\n",
+                    "pub fn consume(view: ByteView) -> ()\n",
+                    "  decode public::Public from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            ["bridge.veln"],
+        );
         let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![
                 source(
@@ -161,7 +183,7 @@ mod dependencies_schema_references_tests {
                     ),
                 ),
             ],
-            vec![direct],
+            vec![direct, mismatched, bridge],
         )
         .with_standard_library(standard);
 

@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"c167ae698d88b6228933164092828dd041006957"
+source_git_tree	"8d40598571e2ec447b63d98dbf48722f2e9606d5"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1683
@@ -14609,7 +14609,7 @@ field	expectations.lsp_assertions[0].id	2
 field	expectations.lsp_assertions[0].length	3
 field	expectations.lsp_assertions[0].operation	"length"
 field	expectations.lsp_assertions[0].path	"/result"
-field	expectations.lsp_assertions[10].equals	{"end":{"character":35,"line":5},"start":{"character":29,"line":5}}
+field	expectations.lsp_assertions[10].equals	{"end":{"character":35,"line":8},"start":{"character":29,"line":8}}
 field	expectations.lsp_assertions[10].id	3
 field	expectations.lsp_assertions[10].operation	"equals"
 field	expectations.lsp_assertions[10].path	"/result/1/range"
@@ -14625,7 +14625,7 @@ field	expectations.lsp_assertions[13].id	3
 field	expectations.lsp_assertions[13].operation	"workspace_file_uri"
 field	expectations.lsp_assertions[13].path	"/result/2/uri"
 field	expectations.lsp_assertions[13].workspace_file_uri	"other.veln"
-field	expectations.lsp_assertions[1].equals	{"end":{"character":40,"line":4},"start":{"character":34,"line":4}}
+field	expectations.lsp_assertions[1].equals	{"end":{"character":51,"line":7},"start":{"character":45,"line":7}}
 field	expectations.lsp_assertions[1].id	2
 field	expectations.lsp_assertions[1].operation	"equals"
 field	expectations.lsp_assertions[1].path	"/result/0/range"
@@ -14633,7 +14633,7 @@ field	expectations.lsp_assertions[2].id	2
 field	expectations.lsp_assertions[2].operation	"workspace_file_uri"
 field	expectations.lsp_assertions[2].path	"/result/0/uri"
 field	expectations.lsp_assertions[2].workspace_file_uri	"main.veln"
-field	expectations.lsp_assertions[3].equals	{"end":{"character":35,"line":5},"start":{"character":29,"line":5}}
+field	expectations.lsp_assertions[3].equals	{"end":{"character":35,"line":8},"start":{"character":29,"line":8}}
 field	expectations.lsp_assertions[3].id	2
 field	expectations.lsp_assertions[3].operation	"equals"
 field	expectations.lsp_assertions[3].path	"/result/1/range"
@@ -14653,7 +14653,7 @@ field	expectations.lsp_assertions[7].id	3
 field	expectations.lsp_assertions[7].length	3
 field	expectations.lsp_assertions[7].operation	"length"
 field	expectations.lsp_assertions[7].path	"/result"
-field	expectations.lsp_assertions[8].equals	{"end":{"character":40,"line":4},"start":{"character":34,"line":4}}
+field	expectations.lsp_assertions[8].equals	{"end":{"character":51,"line":7},"start":{"character":45,"line":7}}
 field	expectations.lsp_assertions[8].id	3
 field	expectations.lsp_assertions[8].operation	"equals"
 field	expectations.lsp_assertions[8].path	"/result/0/range"
@@ -14664,10 +14664,10 @@ field	expectations.lsp_assertions[9].workspace_file_uri	"main.veln"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":738,"sha256":"70e3f8c265bac53c2a7305486960f6c3e5d6c280821fd54c0b634b406cb90432"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":738,"sha256":"a4bdcdd7309f4d038f32f4c0711788d01212d4912e336a6e9132f19f83203eff"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"dcce711e41c8bb0f8bedd3a2056e7c649167a2e1e018343d4c3151ae90581d77"
+case_digest	"2d9464a33b8c46dbbf873b701ac1e8d1544a59b3b93a4419fd041b743b8a7199"
 case	"examples/specification/lsp/references-workspace-schema-alias"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].id	2
@@ -16457,7 +16457,7 @@ field	expectations.mcp_assertions[10].id	3
 field	expectations.mcp_assertions[10].operation	"workspace_file_uri"
 field	expectations.mcp_assertions[10].path	"/result/structuredContent/references/0/uri"
 field	expectations.mcp_assertions[10].workspace_file_uri	"main.veln"
-field	expectations.mcp_assertions[11].equals	{"end":{"column":36,"line":6},"start":{"column":30,"line":6}}
+field	expectations.mcp_assertions[11].equals	{"end":{"column":36,"line":9},"start":{"column":30,"line":9}}
 field	expectations.mcp_assertions[11].id	3
 field	expectations.mcp_assertions[11].operation	"equals"
 field	expectations.mcp_assertions[11].path	"/result/structuredContent/references/1/range"
@@ -16473,7 +16473,7 @@ field	expectations.mcp_assertions[14].id	3
 field	expectations.mcp_assertions[14].operation	"workspace_file_uri"
 field	expectations.mcp_assertions[14].path	"/result/structuredContent/references/2/uri"
 field	expectations.mcp_assertions[14].workspace_file_uri	"other.veln"
-field	expectations.mcp_assertions[1].equals	{"end":{"column":41,"line":5},"start":{"column":35,"line":5}}
+field	expectations.mcp_assertions[1].equals	{"end":{"column":51,"line":8},"start":{"column":45,"line":8}}
 field	expectations.mcp_assertions[1].id	2
 field	expectations.mcp_assertions[1].operation	"equals"
 field	expectations.mcp_assertions[1].path	"/result/structuredContent/references/0/range"
@@ -16481,7 +16481,7 @@ field	expectations.mcp_assertions[2].id	2
 field	expectations.mcp_assertions[2].operation	"workspace_file_uri"
 field	expectations.mcp_assertions[2].path	"/result/structuredContent/references/0/uri"
 field	expectations.mcp_assertions[2].workspace_file_uri	"main.veln"
-field	expectations.mcp_assertions[3].equals	{"end":{"column":36,"line":6},"start":{"column":30,"line":6}}
+field	expectations.mcp_assertions[3].equals	{"end":{"column":36,"line":9},"start":{"column":30,"line":9}}
 field	expectations.mcp_assertions[3].id	2
 field	expectations.mcp_assertions[3].operation	"equals"
 field	expectations.mcp_assertions[3].path	"/result/structuredContent/references/1/range"
@@ -16505,30 +16505,26 @@ field	expectations.mcp_assertions[8].id	3
 field	expectations.mcp_assertions[8].length	3
 field	expectations.mcp_assertions[8].operation	"length"
 field	expectations.mcp_assertions[8].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[9].equals	{"end":{"column":41,"line":5},"start":{"column":35,"line":5}}
+field	expectations.mcp_assertions[9].equals	{"end":{"column":51,"line":8},"start":{"column":45,"line":8}}
 field	expectations.mcp_assertions[9].id	3
 field	expectations.mcp_assertions[9].operation	"equals"
 field	expectations.mcp_assertions[9].path	"/result/structuredContent/references/0/range"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":418,"sha256":"0b8699d8c4e1f896c5241b8c2ffe3dd4fb539285db0163ddd90c8054910b14a6"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":418,"sha256":"34f1afcb62b265612985c8591b6e3338c54ba7073b223db96baeaf3321d2a066"}
 field	source_errors	"forbidden"
-case_digest	"0e74135ba9304a4978d04297f669cf058be01a0309f85386e4be87b4eb3b73ad"
+case_digest	"c3fc622da36de4d85edb081a59dd10658de05d80821580a677978e6e9a80fda8"
 case	"examples/specification/mcp/references-dependency-schema-operation-boundaries"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	[]
 field	expectations.mcp_assertions[0].id	2
 field	expectations.mcp_assertions[0].operation	"equals"
 field	expectations.mcp_assertions[0].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[10].equals	[]
-field	expectations.mcp_assertions[10].id	12
+field	expectations.mcp_assertions[10].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
+field	expectations.mcp_assertions[10].id	2
 field	expectations.mcp_assertions[10].operation	"equals"
-field	expectations.mcp_assertions[10].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[11].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
-field	expectations.mcp_assertions[11].id	2
-field	expectations.mcp_assertions[11].operation	"equals"
-field	expectations.mcp_assertions[11].path	"/result/structuredContent/scope"
+field	expectations.mcp_assertions[10].path	"/result/structuredContent/scope"
 field	expectations.mcp_assertions[1].equals	[]
 field	expectations.mcp_assertions[1].id	3
 field	expectations.mcp_assertions[1].operation	"equals"
@@ -16554,23 +16550,23 @@ field	expectations.mcp_assertions[6].id	8
 field	expectations.mcp_assertions[6].operation	"equals"
 field	expectations.mcp_assertions[6].path	"/result/structuredContent/references"
 field	expectations.mcp_assertions[7].equals	[]
-field	expectations.mcp_assertions[7].id	9
+field	expectations.mcp_assertions[7].id	10
 field	expectations.mcp_assertions[7].operation	"equals"
 field	expectations.mcp_assertions[7].path	"/result/structuredContent/references"
 field	expectations.mcp_assertions[8].equals	[]
-field	expectations.mcp_assertions[8].id	10
+field	expectations.mcp_assertions[8].id	11
 field	expectations.mcp_assertions[8].operation	"equals"
 field	expectations.mcp_assertions[8].path	"/result/structuredContent/references"
 field	expectations.mcp_assertions[9].equals	[]
-field	expectations.mcp_assertions[9].id	11
+field	expectations.mcp_assertions[9].id	12
 field	expectations.mcp_assertions[9].operation	"equals"
 field	expectations.mcp_assertions[9].path	"/result/structuredContent/references"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1640,"sha256":"8d6cee50482f6f9790238d328d8b5679a1ae2d74ff5dfe5ccbd63980f345c21d"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1505,"sha256":"45a012dae7bbd238016da7495e9ba2edc7d0c77bf51ed90f84312de4209cd79e"}
 field	source_errors	"expected"
-case_digest	"8ee07d57737a3d910a290435b00840e5607ba6941c4cce9f74d1feb3e69923f0"
+case_digest	"4a41fe792691505755e031b908140983534dcbace5089d1403dabc10ad2799b1"
 case	"examples/specification/mcp/references-dependency-type-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -57590,4 +57586,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"19d5bac064fce74254f84fbf86078314cef2f3e2648c88b97c4a3f5a29c92500"
+aggregate_digest	"61fafca9130a4c20cd075f87c982d54c05f91f953f4973453024ca1f8f865cbb"
