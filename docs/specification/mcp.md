@@ -410,8 +410,8 @@ status-only package-documentation results, unpublished declarations,
 unsupported symbol classes, and any package location that does not match a
 retained package-documentation location for that snapshot.
 
-`references` exposes the shared language-service reference result for these
-non-recovery workspace symbols:
+`references` exposes the shared language-service reference result for the
+following supported workspace symbols and eligible package selections:
 
 - schemas;
 - eligible workspace public schema aliases;
@@ -503,13 +503,18 @@ results. Definition and rename behavior does not expand to package schema
 aliases. The `references-dependency-schema-alias` MCP case is the exact-range
 protocol contract and has a paired LSP case over identical saved sources. The
 paired cases keep the alias eligible when a type shares its target name, cover
-exact-import precedence, and preserve successful empty results for the
-non-exported alias blocker. The
+exact-import precedence, exclude import, comment, and string selections, and
+preserve successful empty results for the non-exported alias blocker. Every
+positive decode and encode response binds each range to its workspace URI.
+The LSP case also verifies that declaration inclusion does not add the package
+alias declaration. The
 `references-dependency-schema-operation-boundaries` case requires successful
 empty results when a schema alias shares the target name and for invalid,
 non-exported, mismatched-import, duplicate-import, recovered-import, valid
 cross-module-target, and transitive alias selections. Focused MCP tests cover
-recovered aliases that duplicate otherwise eligible declarations.
+recovered aliases that duplicate otherwise eligible declarations, duplicate
+and recovered imports with a same-named schema fallback candidate,
+standard-library schema aliases, and package-source alias-target selection.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -715,13 +720,17 @@ dependency whose exported module does not match, and its transitive package
 exists only through another retained dependency's manifest. The checked
 `codec-schema-references` case independently establishes that a qualified
 cross-module schema-alias target is valid source language. A focused MCP server
-test injects a public standard-library schema and requires a successful empty
-result with project-wide scope.
+test injects a public standard-library schema alias and requires a successful
+empty result with project-wide scope.
 The `references-dependency-schema-alias` MCP specification case checks
 direct-dependency public schema-alias operation references through full written
 and implicit leaf module paths. It fixes exact workspace-only ranges,
 decode/encode selection parity, dependency-and-declaration identity,
 project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
+It also checks import, comment, and string selections as successful empty
+results. Its paired LSP case checks identical locations with declaration
+inclusion disabled and confirms that enabling declaration inclusion does not
+add a package-source declaration.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

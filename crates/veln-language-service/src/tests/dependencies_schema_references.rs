@@ -798,14 +798,21 @@ mod dependencies_schema_references_tests {
         ] {
             let dependency = dependency_snapshot(
                 "example/dep",
-                &[(
-                    "dep.veln",
-                    concat!(
-                        "pub schema Packet\n  value: Int\nend\n\n",
-                        "pub schema Alias = Packet\n",
+                &[
+                    (
+                        "alias.veln",
+                        concat!(
+                            "mod dep\n\n",
+                            "pub schema Packet\n  value: Int\nend\n\n",
+                            "pub schema Alias = Packet\n",
+                        ),
                     ),
-                )],
-                ["dep.veln"],
+                    (
+                        "schema.veln",
+                        "mod dep\n\npub schema Alias\n  value: Int\nend\n",
+                    ),
+                ],
+                ["alias.veln", "schema.veln"],
             );
             let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
                 vec![source(
@@ -820,7 +827,7 @@ mod dependencies_schema_references_tests {
 
             assert!(
                 query_snapshot(&snapshot, "main.veln", operation_line, 16).is_none(),
-                "{name} must not grant schema alias visibility"
+                "{name} must preserve the alias blocker instead of falling back to the same-named schema"
             );
         }
     }

@@ -76,13 +76,13 @@ Exact sets must identify source leaves per response, not merely count them.
 | The alias or target is duplicated, invalid-casing, unresolved, private, wrong-kind, cyclic, or syntax-recovered. | Successful empty references without lexical fallback to a same-spelled valid declaration. | Shared negative table and MCP boundary cases. |
 | The alias's target is qualified, belongs to another module or package, or is another alias. | Successful empty references for this bounded slice. | Target-boundary fixtures, including a valid cross-module target and an alias chain. |
 | The selected leaf is visible only through a duplicate or syntax-recovered import. | Successful empty references without granting dependency alias visibility. | Shared navigation tests, focused MCP tests, and MCP boundary cases. |
-| Select an alias from a non-exported module, a mismatched import, a transitive dependency, or the standard library. | Successful empty references with existing scope metadata. | Graph-aware MCP boundary cases; inject a standard-library alias in a focused server test if needed. |
-| Select a composition leaf, alias-target token, module qualifier, import token, or package-source URI. | Preserve the existing unsupported-selection or invalid-path result; do not reinterpret it as an operation leaf. | MCP negative cases and shared selection tests. |
-| Package sources, composition fields, comments, strings, or unrelated symbol classes contain the alias spelling. | None enter the alias operation-reference set. | Exact-set shared and adapter cases. |
+| Select an alias from a non-exported module, a mismatched import, a transitive dependency, or the standard library. | Successful empty references with existing scope metadata. | The graph-aware MCP boundary case and `references_keep_standard_library_schema_aliases_empty_with_project_scope`. |
+| Select a composition leaf, alias-target token, module qualifier, import token, or package-source URI. | Preserve the existing unsupported-selection or invalid-path result; do not reinterpret it as an operation leaf. | MCP negative cases, including `references_reject_dependency_schema_alias_target_package_source_selection`. |
+| Package sources, composition fields, comments, strings, or unrelated symbol classes contain the alias spelling. | None enter the alias operation-reference set. | Exact-set shared tests and the paired MCP/LSP case. |
 | A sibling project or unselected descendant package contains similar operations. | Include only selected-project owned-source references and retain project scope metadata. | MCP project-isolation cases. |
 | An anonymous single-file source is selected. | Preserve single-file scope and existing package eligibility; never borrow a neighboring project's dependency context. | MCP anonymous-scope regression. |
 | Saved capture exhausts stabilization retries. | Return `snapshot_changed` without locations or success-only scope fields; preserve project selection and retained resources. | MCP capture-failure test for an eligible alias selection. |
-| MCP and LSP read identical saved sources, including non-BMP text before a selected leaf. | Normalized URI and range sets match with LSP declaration inclusion disabled. | Paired executable MCP and LSP cases. |
+| MCP and LSP read identical saved sources, including non-BMP text before a selected leaf. | Normalized URI and range sets match with LSP declaration inclusion disabled. Enabling declaration inclusion does not add the package declaration. | Paired executable MCP and LSP cases. |
 | The direct dependency uses path, vendor, mirror, or locally available git capture. | Source kind does not change eligibility, alias identity, or workspace-only results. | Shared saved-capture source-kind cases. |
 
 ## Evidence And Completion
@@ -111,6 +111,10 @@ schemas. They preserve positive
 resolution when an unrelated type shares the target name and separate alias
 operation sets from direct target-schema operation sets. Current MCP and editor
 specifications own the implemented behavior.
+The focused package-source test selects the alias target in the retained
+dependency resource and fixes the existing `invalid_path` outcome. The paired
+cases select import, comment, and string tokens as successful empty results and
+bind every positive decode and encode range to its source URI.
 
 ## Deferred Boundary
 

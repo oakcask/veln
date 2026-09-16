@@ -21,7 +21,7 @@ impl SymbolIndex {
                 self.package_schema_alias_declarations.iter().any(|alias| {
                     alias.package_origin == PackageOrigin::DirectDependency
                         && alias.name == name
-                        && self.valid_schema_alias_external_import(
+                        && self.schema_alias_external_import_blocks_fallback(
                             file,
                             &qualifier,
                             &alias.module,
@@ -31,6 +31,27 @@ impl SymbolIndex {
             }
             QualifiedWorkspaceModule::Ambiguous | QualifiedWorkspaceModule::Unresolved => false,
         }
+    }
+
+    fn schema_alias_external_import_blocks_fallback(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        module: &str,
+        package: &str,
+    ) -> bool {
+        let has_written_exact_import = file
+            .schema_alias_external_imports
+            .iter()
+            .any(|import| import.module == qualifier);
+        file.schema_alias_external_imports
+            .iter()
+            .filter(|import| !has_written_exact_import || import.module == qualifier)
+            .any(|import| {
+                resolved_external_import_module(import, qualifier).is_some_and(|resolved| {
+                    resolved == module && import.package == package
+                })
+            })
     }
 
     fn visible_schema_alias_for_bare_reference(

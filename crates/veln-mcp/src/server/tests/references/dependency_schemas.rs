@@ -757,15 +757,20 @@ fn references_keep_dependency_schema_aliases_behind_invalid_imports_empty() {
             "vendor/dep/veln.toml",
             concat!(
                 "[package]\nname = \"example/dep\"\n\n",
-                "[lib]\nexports = [\"dep.veln\"]\n",
+                "[lib]\nexports = [\"alias.veln\", \"schema.veln\"]\n",
             ),
         );
         workspace.write(
-            "vendor/dep/dep.veln",
+            "vendor/dep/alias.veln",
             concat!(
+                "mod dep\n\n",
                 "pub schema Packet\n  value: Int\nend\n\n",
                 "pub schema Alias = Packet\n",
             ),
+        );
+        workspace.write(
+            "vendor/dep/schema.veln",
+            "mod dep\n\npub schema Alias\n  value: Int\nend\n",
         );
 
         let result = references_result(&workspace, "main.veln", line, 16);
@@ -787,6 +792,65 @@ fn references_keep_dependency_schema_aliases_behind_invalid_imports_empty() {
             "{name}: {result:#}"
         );
     }
+}
+
+#[test]
+fn references_reject_dependency_schema_alias_target_package_source_selection() {
+    let workspace = TempWorkspace::new("references-dependency-schema-alias-package-source");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode dep::Alias from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!(
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let admitted = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 16
+    }));
+    assert_eq!(admitted["isError"], false, "{admitted:#}");
+    let resources = all_resource_state(&mut server);
+    let package_source_uri = resources
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|resource| {
+            resource["uri"].as_str().filter(|uri| {
+                uri.contains("/example%2Fdep/snapshot/") && uri.ends_with("/dep.veln")
+            })
+        })
+        .expect("dependency package source should be retained");
+
+    let result = server.references_tool(&json!({
+        "source": package_source_uri,
+        "line": 5,
+        "column": 20
+    }));
+
+    assert_eq!(result["isError"], true, "{result:#}");
+    assert_eq!(result["structuredContent"]["code"], "invalid_path");
+    let structured = result["structuredContent"].as_object().unwrap();
+    assert!(!structured.contains_key("references"), "{result:#}");
+    assert!(!structured.contains_key("scope"), "{result:#}");
 }
 
 #[test]
