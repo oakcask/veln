@@ -210,7 +210,7 @@ fn is_effect_operation_declaration_name(tokens: &[Token], index: usize) -> bool 
             .is_some_and(|next| next.kind == TokenKind::LParen)
 }
 
-fn is_schema_path_leaf_token(tokens: &[Token], index: usize) -> bool {
+fn is_schema_operation_path_leaf_token(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
         && line_tokens_before(tokens, index)
             .iter()
@@ -221,6 +221,123 @@ fn is_schema_path_leaf_token(tokens: &[Token], index: usize) -> bool {
             .any(|token| token.kind == TokenKind::From)
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
+}
+
+fn is_schema_composition_path_leaf_token(tokens: &[Token], index: usize) -> bool {
+    if tokens[index].kind != TokenKind::Ident || !inside_schema_declaration(tokens, index) {
+        return false;
+    }
+    let line_start = line_start_index(tokens, index);
+    let line_end = tokens[index..]
+        .iter()
+        .position(|token| matches!(token.kind, TokenKind::Newline | TokenKind::Eof))
+        .map_or(tokens.len(), |offset| index + offset);
+    let mut significant = (line_start..line_end)
+        .filter(|candidate| {
+            !matches!(
+                tokens[*candidate].kind,
+                TokenKind::Whitespace | TokenKind::Comment
+            )
+        })
+        .collect::<Vec<_>>();
+    if let Some(where_position) = significant
+        .iter()
+        .position(|candidate| tokens[*candidate].kind == TokenKind::Where)
+    {
+        significant.truncate(where_position);
+    }
+    let Some(colon_position) = significant
+        .iter()
+        .position(|candidate| tokens[*candidate].kind == TokenKind::Colon)
+    else {
+        return false;
+    };
+    let field_type = &significant[colon_position + 1..];
+    if schema_path_leaf_in(field_type, tokens) == Some(index) {
+        return true;
+    }
+    if field_type.len() >= 5
+        && tokens[field_type[0]].kind == TokenKind::Ident
+        && tokens[field_type[0]].text == "Repeat"
+        && tokens[field_type[1]].kind == TokenKind::LParen
+        && tokens[*field_type.last().unwrap()].kind == TokenKind::RParen
+    {
+        let inner = &field_type[2..field_type.len() - 1];
+        if let Some(comma) = top_level_separator(inner, tokens, TokenKind::Comma) {
+            return schema_path_leaf_in(&inner[comma + 1..], tokens) == Some(index);
+        }
+    }
+    if field_type.len() >= 4
+        && tokens[field_type[0]].kind == TokenKind::LBracket
+        && tokens[*field_type.last().unwrap()].kind == TokenKind::RBracket
+    {
+        let inner = &field_type[1..field_type.len() - 1];
+        if let Some(semicolon) = top_level_separator(inner, tokens, TokenKind::Semicolon) {
+            return schema_path_leaf_in(&inner[..semicolon], tokens) == Some(index);
+        }
+    }
+    false
+}
+
+fn schema_path_leaf_in(indices: &[usize], tokens: &[Token]) -> Option<usize> {
+    if indices.is_empty() || indices.len().is_multiple_of(2) {
+        return None;
+    }
+    for (position, index) in indices.iter().enumerate() {
+        let expected = if position % 2 == 0 {
+            TokenKind::Ident
+        } else {
+            TokenKind::DoubleColon
+        };
+        if tokens[*index].kind != expected {
+            return None;
+        }
+    }
+    indices.last().copied()
+}
+
+fn top_level_separator(indices: &[usize], tokens: &[Token], separator: TokenKind) -> Option<usize> {
+    let mut depth = 0usize;
+    for (position, index) in indices.iter().enumerate() {
+        match tokens[*index].kind {
+            TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+            TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                depth = depth.saturating_sub(1)
+            }
+            kind if kind == separator && depth == 0 => return Some(position),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
+    let mut nested_blocks = 0usize;
+    for token in tokens[..index].iter().rev() {
+        if token.kind == TokenKind::End {
+            nested_blocks += 1;
+            continue;
+        }
+        if !matches!(
+            token.kind,
+            TokenKind::Fn
+                | TokenKind::Test
+                | TokenKind::Type
+                | TokenKind::Schema
+                | TokenKind::Codec
+                | TokenKind::Effect
+                | TokenKind::Handler
+                | TokenKind::If
+                | TokenKind::Match
+        ) {
+            continue;
+        }
+        if nested_blocks == 0 {
+            return token.kind == TokenKind::Schema;
+        }
+        nested_blocks -= 1;
+    }
+    false
 }
 
 fn is_effect_reference_token(tokens: &[Token], index: usize) -> bool {

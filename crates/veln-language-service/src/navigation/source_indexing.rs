@@ -177,6 +177,38 @@ fn append_parsed_surface_module(
     append_surface_module(merged, module);
 }
 
+fn workspace_schema_composition_references(
+    files: &[IndexedFile],
+    schemas: &[NeutralSymbol],
+    references: Vec<veln_sema::ResolvedSchemaCompositionReference>,
+) -> Vec<SchemaCompositionReference> {
+    references
+        .into_iter()
+        .filter_map(|reference| {
+            let target = schemas.iter().find(|schema| {
+                schema.package.is_none()
+                    && schema.name == reference.target_name
+                    && Some(schema.module.as_str()) == reference.target_module.as_deref()
+                    && schema.declaration.span.file == reference.target_span.file
+            })?;
+            let leaf = reference.path.last()?;
+            let file = files
+                .iter()
+                .find(|file| file.source.path() == &reference.field_span.file)?;
+            let (_, token) = file.tokens.iter().enumerate().find(|(index, token)| {
+                token.range.start >= reference.field_span.start.offset
+                    && token.range.end <= reference.field_span.end.offset
+                    && token.text == *leaf
+                    && is_schema_composition_path_leaf_token(&file.tokens, *index)
+            })?;
+            Some(SchemaCompositionReference {
+                span: file.source.span(token.range),
+                target: target.clone(),
+            })
+        })
+        .collect()
+}
+
 fn empty_surface_module() -> veln_ast::SurfaceModule {
     veln_ast::SurfaceModule {
         module: None,

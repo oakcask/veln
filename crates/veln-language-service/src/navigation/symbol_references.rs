@@ -3,7 +3,7 @@ impl SymbolIndex {
         if symbol.package.is_some() {
             return Vec::new();
         }
-        self.files
+        let mut references = self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))
             .flat_map(|file| {
@@ -13,7 +13,7 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && is_schema_path_leaf_token(&file.tokens, *index)
+                            && is_schema_operation_path_leaf_token(&file.tokens, *index)
                             && self
                                 .schema_for_reference(file, &file.tokens, *index, &token.text)
                                 .is_some_and(|candidate| same_schema(&candidate, symbol))
@@ -21,7 +21,14 @@ impl SymbolIndex {
                     .map(|(_, token)| file.source.span(token.range))
                     .collect::<Vec<_>>()
             })
-            .collect()
+            .collect::<Vec<_>>();
+        references.extend(
+            self.schema_composition_references
+                .iter()
+                .filter(|reference| same_schema(&reference.target, symbol))
+                .map(|reference| reference.span.clone()),
+        );
+        references
     }
 
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {

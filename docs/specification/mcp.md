@@ -421,8 +421,10 @@ non-recovery workspace symbols:
 - handler context parameters;
 - handler operation clause parameters.
 
-Workspace schema references are limited to schema path-leaf occurrences in
-`decode` and `encode` expressions in the selected navigation scope. For
+Workspace schema references include schema path-leaf occurrences in `decode`
+and `encode` expressions and directly resolved schema-composition path leaves
+in direct fields and supported repeated payloads. They use the selected
+navigation scope. For
 selected project sources, that scope is the selected project's captured owned
 sources. For anonymous single-file selections, that scope is only the
 requested source. They include same-module bare occurrences and qualified
@@ -431,7 +433,7 @@ selected workspace schema under ordinary import, visibility, exact
 test-companion, and shadowing rules. A written import does not put that
 imported module's schemas in the bare schema namespace. They exclude the
 declaration, module qualifiers, package schemas, public schema aliases, schema
-composition targets, recovery symbols, invalid-casing records, and
+alias traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
 strings, comments, and schema uses that resolve to another declaration.
 
@@ -610,8 +612,13 @@ preserves project-wide scope, excludes the schema declaration, and excludes a
 same-spelled local schema use that shadows an imported target. It also checks
 that compiler-rejected bare `decode` and `encode` paths in a module that only
 imports the selected schema's module do not appear as references. The same
-case keeps public schema-alias, schema-composition target, and decode and
-encode module-qualifier selections successful and empty.
+case keeps public schema-alias and decode and encode module-qualifier
+selections successful and empty.
+The `references-workspace-schema-composition` MCP specification case checks
+direct fields, both supported repeated-payload spellings, full import paths,
+implicit leaf import aliases, exact reference ranges, canonical ordering, and
+project-wide scope. It also keeps bare imported paths, schema-alias traversal,
+alias declarations, and module-qualifier selections successful and empty.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified
@@ -734,7 +741,8 @@ definition conversion for unique invalid-name recovery records and unsupported
 ambiguous recovery selection.
 `veln-mcp` tests check references schema rejection, selected-project
 inference, single-file isolation outside selected projects, deterministic
-canonical locations, workspace type, constructor, value-binding, and handler
+canonical locations, workspace schema operation and composition references,
+workspace type, constructor, value-binding, and handler
 parameter reference admission, unsupported-symbol success, recovery and package
 exclusion, direct-dependency and standard-library public function-alias
 selection, unsupported direct-dependency and standard-library function-alias

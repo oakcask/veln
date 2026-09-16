@@ -125,7 +125,7 @@ pub(super) fn quarantined_schema_composition_reference_reason(
     None
 }
 
-pub(super) fn schema_composition_reference_blocker(
+pub(crate) fn schema_composition_reference_blocker(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     field: &SchemaField,
@@ -186,7 +186,7 @@ pub(super) fn schema_field_uses_existing_grammar_at_boundary(
                 || reserved_bits_primitive(text).is_some()))
 }
 
-pub(super) fn schema_field_has_ordinary_type_target(
+pub(crate) fn schema_field_has_ordinary_type_target(
     module: &SurfaceModule,
     schema: &SchemaDecl,
     text: &str,
@@ -220,7 +220,7 @@ pub(super) fn schema_field_has_ordinary_type_target(
     })
 }
 
-pub(super) fn schema_composition_reaches(
+pub(crate) fn schema_composition_reaches(
     module: &SurfaceModule,
     current: &SchemaDecl,
     target: &SchemaDecl,

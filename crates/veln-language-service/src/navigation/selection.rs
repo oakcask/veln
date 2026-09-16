@@ -171,9 +171,14 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
-        if is_schema_path_leaf_token(tokens, token_index) {
+        if is_schema_operation_path_leaf_token(tokens, token_index) {
             return self
                 .schema_for_reference(file, tokens, token_index, name)
+                .map(Symbol::Schema);
+        }
+        if is_schema_composition_path_leaf_token(tokens, token_index) {
+            return self
+                .schema_composition_symbol_at(file, &tokens[token_index])
                 .map(Symbol::Schema);
         }
         if is_effect_reference_token(tokens, token_index)

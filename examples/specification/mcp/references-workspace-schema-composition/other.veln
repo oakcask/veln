@@ -1,0 +1,12 @@
+use main
+
+schema ImportedFrame
+  format binary
+  count: UInt8
+  qualified: main::Packet
+  alias_qualified: main::Packet
+  repeated: Repeat(count, main::Packet)
+  canonical: [main::Packet; count]
+  bare: Packet
+  aliased: main::AliasPacket
+end

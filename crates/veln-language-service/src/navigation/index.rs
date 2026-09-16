@@ -51,6 +51,11 @@ impl SymbolIndex {
         append_surface_module(&mut module, direct_dependencies.module.clone());
         append_surface_module(&mut module, standard_library.module.clone());
         attach_classified_path_segments(&mut files, &workspace_module, &module);
+        let schema_composition_references = workspace_schema_composition_references(
+            &files,
+            &declarations.schemas,
+            veln_sema::resolved_schema_composition_references(&module),
+        );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {
@@ -65,9 +70,25 @@ impl SymbolIndex {
             types: declarations.types,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
+            schema_composition_references,
             files,
             function_rename_index: OnceLock::new(),
         }
+    }
+
+    fn schema_composition_symbol_at(
+        &self,
+        file: &IndexedFile,
+        token: &Token,
+    ) -> Option<NeutralSymbol> {
+        self.schema_composition_references
+            .iter()
+            .find(|reference| {
+                reference.span.file == *file.source.path()
+                    && reference.span.start.offset == token.range.start
+                    && reference.span.end.offset == token.range.end
+            })
+            .map(|reference| reference.target.clone())
     }
 
     fn symbol_at_position(

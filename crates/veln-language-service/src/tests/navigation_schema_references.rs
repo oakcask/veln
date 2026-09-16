@@ -85,6 +85,64 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_references_cover_direct_and_repeated_composition_targets() {
+        let sources = vec![
+            source(
+                "app/wire.veln",
+                concat!(
+                    "pub schema Packet\n",
+                    "  format binary\n",
+                    "  value: UInt8\n",
+                    "end\n\n",
+                    "schema LocalFrame\n",
+                    "  format binary\n",
+                    "  count: UInt8\n",
+                    "  direct: Packet\n",
+                    "  repeated: Repeat(count, Packet)\n",
+                    "  canonical: [Packet; count]\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                concat!(
+                    "use app::wire\n\n",
+                    "schema ImportedFrame\n",
+                    "  format binary\n",
+                    "  count: UInt8\n",
+                    "  qualified: app::wire::Packet\n",
+                    "  alias_qualified: wire::Packet\n",
+                    "  repeated: Repeat(count, app::wire::Packet)\n",
+                    "  canonical: [wire::Packet; count]\n",
+                    "  bare: Packet\n",
+                    "  unresolved: missing::Packet\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let result = query(sources.clone(), "app/wire.veln", 1, 12).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Schema);
+        assert_eq!(
+            locations(&result.references),
+            [
+                ("app/wire.veln", 9, 11),
+                ("app/wire.veln", 10, 27),
+                ("app/wire.veln", 11, 15),
+                ("other.veln", 6, 25),
+                ("other.veln", 7, 26),
+                ("other.veln", 8, 38),
+                ("other.veln", 9, 21),
+            ]
+        );
+
+        let selected_target = query(sources, "other.veln", 8, 38).unwrap();
+        assert_eq!(selected_target.definition.span, result.definition.span);
+        assert_eq!(selected_target.references, result.references);
+    }
+
+    #[test]
     fn workspace_schema_references_preserve_import_visibility_and_shadowing() {
         let result = query(
             vec![
@@ -137,11 +195,20 @@ mod navigation_schema_references_tests {
     fn workspace_schema_references_include_exact_companion_private_qualified_uses() {
         let result = query(
             vec![
-                source("main.veln", "schema PrivatePacket\n  value: Int\nend\n"),
+                source(
+                    "main.veln",
+                    "schema PrivatePacket\n  format binary\n  value: UInt8\nend\n",
+                ),
                 source(
                     "main.test.veln",
                     concat!(
                         "use main\n\n",
+                        "schema CompanionFrame\n",
+                        "  format binary\n",
+                        "  count: UInt8\n",
+                        "  direct: main::PrivatePacket\n",
+                        "  repeated: [main::PrivatePacket; count]\n",
+                        "end\n\n",
                         "test companion(view: ByteView, packet: {value: Int}) -> ()\n",
                         "  let decoded = decode main::PrivatePacket from view at byte_offset(0)?\n",
                         "  let encoded = encode main::PrivatePacket from packet\n",
@@ -169,8 +236,10 @@ mod navigation_schema_references_tests {
         assert_eq!(
             locations(&result.references),
             [
-                ("main.test.veln", 4, 30),
-                ("main.test.veln", 5, 30),
+                ("main.test.veln", 6, 17),
+                ("main.test.veln", 7, 20),
+                ("main.test.veln", 11, 30),
+                ("main.test.veln", 12, 30),
             ]
         );
         assert!(query(
@@ -236,7 +305,7 @@ mod navigation_schema_references_tests {
                     "pub schema AliasPacket = Packet\n\n",
                     "schema Frame\n",
                     "  format binary\n",
-                    "  nested: Packet\n",
+                    "  nested: AliasPacket\n",
                     "end\n",
                 ),
             ),
