@@ -330,7 +330,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
   `../../examples/specification/lsp/references-dependency-schema-alias/`. The
   paired cases also keep schema-target lookup isolated from a same-spelled type
-  declaration.
+  declaration, prefer an exact dependency import over a colliding implicit
+  alias, and prevent a non-exported alias from falling back to a same-spelled
+  exported schema.
 - MCP successful-empty `references` boundaries for unsupported
   direct-dependency schema operation selections, including package schema
   alias chains, valid cross-module alias targets, alias-target schema namespace

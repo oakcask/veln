@@ -489,6 +489,10 @@ Selecting a saved
 `decode` or `encode` alias leaf through the full imported module path or its
 valid implicit leaf alias returns every operation leaf with the same dependency
 and alias-declaration identity in the selected project's owned sources.
+An exact full written dependency import takes precedence over an unrelated
+import with a colliding implicit leaf alias. A clean alias declaration in a
+non-exported package source blocks fallback to a same-spelled exported schema
+without becoming a navigation target.
 Duplicate and syntax-recovered imports do not grant alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
 composition leaves, package sources, sibling aliases, and direct target-schema
@@ -498,7 +502,9 @@ modules, mismatched imports, and recovered operations remain successful empty
 results. Definition and rename behavior does not expand to package schema
 aliases. The `references-dependency-schema-alias` MCP case is the exact-range
 protocol contract and has a paired LSP case over identical saved sources. The
-paired cases keep the alias eligible when a type shares its target name. The
+paired cases keep the alias eligible when a type shares its target name, cover
+exact-import precedence, and preserve successful empty results for the
+non-exported alias blocker. The
 `references-dependency-schema-operation-boundaries` case requires successful
 empty results when a schema alias shares the target name and for invalid,
 non-exported, mismatched-import, duplicate-import, recovered-import, valid

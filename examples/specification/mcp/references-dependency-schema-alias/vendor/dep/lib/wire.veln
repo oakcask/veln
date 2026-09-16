@@ -9,6 +9,10 @@ end
 
 pub schema WirePacket = Packet
 
+pub schema Hidden
+  value: Int
+end
+
 schema PackageFrame
   nested: WirePacket
 end

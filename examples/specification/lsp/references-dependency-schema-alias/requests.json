@@ -1,9 +1,10 @@
 [
   {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
-  {"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":47},"context":{"includeDeclaration":false}}},
-  {"jsonrpc":"2.0","id":3,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":8,"character":31},"context":{"includeDeclaration":false}}},
-  {"jsonrpc":"2.0","id":4,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":9,"character":21},"context":{"includeDeclaration":false}}},
-  {"jsonrpc":"2.0","id":5,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":10,"character":42},"context":{"includeDeclaration":false}}},
-  {"jsonrpc":"2.0","id":6,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":8,"character":47},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":3,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":9,"character":31},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":10,"character":21},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":5,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":11,"character":42},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":6,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":13,"character":39},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":7,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]

@@ -18,14 +18,15 @@ impl SymbolIndex {
                 })
             }
             QualifiedWorkspaceModule::External => {
-                let qualified_modules = self.qualified_module_candidates(file, &qualifier);
-                self.schema_alias_declarations.iter().any(|symbol| {
-                    symbol.name == name
-                        && qualified_modules.iter().any(|module| module == &symbol.module)
-                        && symbol.package.as_ref().is_some_and(|package| {
-                            file.external_uses
-                                .contains(&(symbol.module.clone(), package.clone()))
-                        })
+                self.package_schema_alias_declarations.iter().any(|alias| {
+                    alias.package_origin == PackageOrigin::DirectDependency
+                        && alias.name == name
+                        && self.valid_schema_alias_external_import(
+                            file,
+                            &qualifier,
+                            &alias.module,
+                            &alias.package,
+                        )
                 })
             }
             QualifiedWorkspaceModule::Ambiguous | QualifiedWorkspaceModule::Unresolved => false,
@@ -86,9 +87,15 @@ impl SymbolIndex {
         module: &str,
         package: &str,
     ) -> bool {
-        let mut matches = self
-            .valid_schema_alias_external_imports(file)
+        let imports = self.valid_schema_alias_external_imports(file);
+        let has_written_exact_import = file
+            .schema_alias_external_imports
+            .iter()
+            .any(|import| import.module == qualifier);
+        let considered_imports = imports
             .into_iter()
+            .filter(|import| !has_written_exact_import || import.module == qualifier);
+        let mut matches = considered_imports.into_iter()
             .filter_map(|import| {
                 resolved_external_import_module(import, qualifier)
                     .map(|resolved| (resolved, import.package.as_str()))

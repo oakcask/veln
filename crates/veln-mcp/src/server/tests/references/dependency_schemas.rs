@@ -500,6 +500,105 @@ fn references_keep_recovered_dependency_schema_alias_declarations_empty() {
 }
 
 #[test]
+fn references_prefer_exact_dependency_schema_alias_imports() {
+    let workspace = TempWorkspace::new("references-exact-dependency-schema-alias-import");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n\n",
+            "[dependencies.\"other/dep\"]\npath = \"vendor/other\"\n",
+        ),
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use lib::wire from \"example/dep\"\n",
+            "use other::lib from \"other/dep\"\n\n",
+            "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode lib::wire::Alias from view at byte_offset(0)?\n",
+            "  encode wire::Alias from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"lib/wire.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/lib/wire.veln",
+        concat!(
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n",
+        ),
+    );
+    workspace.write(
+        "vendor/other/veln.toml",
+        "[package]\nname = \"other/dep\"\n\n[lib]\nexports = [\"other/lib.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/other/other/lib.veln",
+        "pub schema Other\n  value: Int\nend\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 5, 22);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[("main.veln", 5, 21, 5, 26), ("main.veln", 6, 16, 6, 21)],
+        "exact dependency schema alias import precedence",
+    );
+}
+
+#[test]
+fn references_keep_non_exported_schema_alias_fallback_empty() {
+    let workspace = TempWorkspace::new("references-hidden-schema-alias-fallback");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode dep::Alias from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"exported.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/exported.veln",
+        "mod dep\n\npub schema Alias\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/hidden.veln",
+        concat!(
+            "mod dep\n\n",
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n",
+        ),
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 16);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+}
+
+#[test]
 fn references_keep_recovered_duplicate_dependency_schema_aliases_empty() {
     let workspace = TempWorkspace::new("references-recovered-duplicate-dependency-schema-alias");
     workspace.write(

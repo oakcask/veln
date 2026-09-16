@@ -198,6 +198,50 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn exact_dependency_schema_alias_import_precedes_colliding_implicit_alias() {
+        let selected = dependency_snapshot(
+            "example/dep",
+            &[(
+                "lib/wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema WirePacket = Packet\n",
+                ),
+            )],
+            ["lib/wire.veln"],
+        );
+        let collision = dependency_snapshot(
+            "other/dep",
+            &[("other/lib.veln", "pub schema Other\n  value: Int\nend\n")],
+            ["other/lib.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use lib::wire from \"example/dep\"\n",
+                    "use other::lib from \"other/dep\"\n\n",
+                    "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  decode lib::wire::WirePacket from view at byte_offset(0)?\n",
+                    "  encode wire::WirePacket from packet\n",
+                    "end\n",
+                ),
+            )],
+            vec![selected, collision],
+        );
+
+        let selected = query_snapshot(&snapshot, "main.veln", 5, 27).unwrap();
+        assert_eq!(
+            selected.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&selected.references),
+            [("main.veln", 5, 21), ("main.veln", 6, 16)]
+        );
+    }
+
+    #[test]
     fn direct_dependency_schema_alias_references_keep_alias_identity() {
         let selected = dependency_snapshot(
             "example/dep",
@@ -699,6 +743,42 @@ mod dependencies_schema_references_tests {
                 "{name} must block dependency alias eligibility"
             );
         }
+    }
+
+    #[test]
+    fn non_exported_dependency_schema_alias_blocks_exported_schema_fallback() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "exported.veln",
+                    "mod dep\n\npub schema Alias\n  value: Int\nend\n",
+                ),
+                (
+                    "hidden.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                    ),
+                ),
+            ],
+            ["exported.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
     }
 
     #[test]

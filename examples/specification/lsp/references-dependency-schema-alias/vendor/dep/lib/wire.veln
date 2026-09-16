@@ -8,3 +8,7 @@ pub type Packet
 end
 
 pub schema WirePacket = Packet
+
+pub schema Hidden
+  value: Int
+end

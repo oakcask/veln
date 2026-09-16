@@ -76,6 +76,7 @@ impl SymbolIndex {
             schemas: declarations.schemas,
             schema_aliases,
             schema_alias_declarations,
+            package_schema_alias_declarations: declarations.package_schema_alias_declarations,
             package_schema_targets: declarations.package_schema_targets,
             effects: declarations.effects,
             handlers: declarations.handlers,

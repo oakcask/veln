@@ -104,7 +104,10 @@ cross-module schema-alias targets are valid source language. Focused shared and
 MCP tests cover recovered alias declarations that collide with valid
 same-module schemas or aliases. They also cover recovered schema declarations
 and hidden same-module aliases that block alias eligibility without becoming
-navigation targets. The paired dependency-schema-alias cases preserve positive
+navigation targets. The paired dependency-schema-alias cases give exact
+written dependency imports precedence over colliding implicit leaf aliases and
+keep clean non-exported aliases as blockers against same-spelled exported
+schemas. They preserve positive
 resolution when an unrelated type shares the target name and separate alias
 operation sets from direct target-schema operation sets. Current MCP and editor
 specifications own the implemented behavior.

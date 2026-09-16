@@ -741,6 +741,7 @@ pub(crate) struct SymbolIndex {
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
     schema_alias_declarations: Vec<NeutralSymbol>,
+    package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
     package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,

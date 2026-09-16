@@ -1,4 +1,5 @@
 use lib::wire from "example/dep"
+use other::lib from "other/dep"
 
 fn keep(note: String, packet: {value: Int}) -> {value: Int}
   packet
@@ -10,4 +11,5 @@ fn operations(view: ByteView, packet: {value: Int}) -> ()
   let bare = encode WirePacket from packet
   let target_decoded = decode lib::wire::Packet from view at byte_offset(0)?
   let target_encoded = encode wire::Packet from packet
+  let hidden_alias = decode lib::wire::Hidden from view at byte_offset(0)?
 end

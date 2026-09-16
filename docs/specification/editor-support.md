@@ -260,8 +260,12 @@ name. Same-spelled declarations in unrelated namespaces do not affect target
 resolution. Alias identity includes the dependency and alias declaration, so
 target-schema uses, sibling aliases, and same-spelled aliases from other
 dependencies remain separate. Full written module paths and valid implicit
-leaf aliases select that identity. Duplicate or syntax-recovered imports do
-not grant alias visibility. Bare imported names, qualified and chained targets,
+leaf aliases select that identity. An exact full written dependency import
+takes precedence over an unrelated import with a colliding implicit leaf
+alias. Duplicate or syntax-recovered imports do not grant alias visibility.
+A clean alias in a non-exported package source blocks fallback to a
+same-spelled exported schema without becoming navigable. Bare imported names,
+qualified and chained targets,
 package-source and composition leaves, standard-library and transitive aliases,
 invalid or ambiguous declarations, and recovered operations remain empty.
 Package declarations are never added when declaration
