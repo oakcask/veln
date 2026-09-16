@@ -18,7 +18,8 @@ also states it.
 
 ## Ready
 
-There is no ready implementation target.
+- Saved direct-dependency public schema-alias operation references:
+  [mcp-saved-dependency-schema-alias-operation-references.md](mcp-saved-dependency-schema-alias-operation-references.md).
 
 ## Blocked
 
@@ -29,6 +30,8 @@ There is no ready implementation target.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
+  direct-dependency schema-alias operation-reference slice is extracted into
+  the Ready proposal above. Its
   workspace schema-alias reference slice is implemented and recorded by
   [MCP Saved Workspace Schema-Alias References](../reference/implemented-proposals/mcp-saved-workspace-schema-alias-references.md).
   Its direct-dependency schema operation-reference slice is implemented and
