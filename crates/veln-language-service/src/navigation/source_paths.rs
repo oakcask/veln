@@ -150,6 +150,38 @@ fn use_modules(text: &str) -> UseModuleIndexes {
     (local, external, local_aliases, external_aliases)
 }
 
+fn schema_alias_external_imports(parsed: &ParseOutput) -> Vec<ExternalImport> {
+    parsed
+        .tree
+        .uses
+        .iter()
+        .filter_map(|use_decl| {
+            let package = use_decl.package.as_ref()?;
+            let alias = use_decl
+                .name
+                .rsplit("::")
+                .next()
+                .unwrap_or(use_decl.name.as_str())
+                .to_string();
+            let syntax_valid = !module_identity_has_invalid_casing(&use_decl.name)
+                && !parsed.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.parser_context == "use_declaration"
+                        && diagnostic.span.as_ref().is_none_or(|span| {
+                            span.file == use_decl.span.file
+                                && span.start.offset <= use_decl.span.end.offset
+                                && span.end.offset >= use_decl.span.start.offset
+                        })
+                });
+            Some(ExternalImport {
+                module: use_decl.name.clone(),
+                package: package.name.clone(),
+                alias,
+                syntax_valid,
+            })
+        })
+        .collect()
+}
+
 fn workspace_location(span: SourceSpan) -> NavigationLocation {
     NavigationLocation {
         source: NavigationSource::Workspace,

@@ -57,17 +57,17 @@ impl SymbolIndex {
         if matches!(&qualification, QualifiedWorkspaceModule::Ambiguous) {
             return None;
         }
-        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         let mut candidates = self.schema_aliases.iter().filter(|symbol| {
             symbol.name == name
-                && qualified_modules.iter().any(|module| module == &symbol.module)
                 && match &symbol.package {
                     Some(package) => {
-                        !matches!(&qualification, QualifiedWorkspaceModule::Workspace(_))
-                            && symbol.package_origin == Some(PackageOrigin::DirectDependency)
-                            && file
-                                .external_uses
-                                .contains(&(symbol.module.clone(), package.clone()))
+                        symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                            && self.valid_schema_alias_external_import(
+                                file,
+                                qualifier,
+                                &symbol.module,
+                                package,
+                            )
                     }
                     None => {
                         !matches!(&qualification, QualifiedWorkspaceModule::External)
@@ -78,6 +78,56 @@ impl SymbolIndex {
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
+    }
+
+    fn valid_schema_alias_external_import(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        module: &str,
+        package: &str,
+    ) -> bool {
+        let mut matches = self
+            .valid_schema_alias_external_imports(file)
+            .into_iter()
+            .filter_map(|import| {
+                resolved_external_import_module(import, qualifier)
+                    .map(|resolved| (resolved, import.package.as_str()))
+            });
+        matches
+            .next()
+            .is_some_and(|(resolved, candidate_package)| {
+                resolved == module && candidate_package == package && matches.next().is_none()
+            })
+    }
+
+    fn valid_schema_alias_external_imports<'a>(
+        &'a self,
+        file: &'a IndexedFile,
+    ) -> Vec<&'a ExternalImport> {
+        file.schema_alias_external_imports
+            .iter()
+            .filter(|import| {
+                import.syntax_valid
+                    && self
+                        .files
+                        .iter()
+                        .filter(|candidate_file| {
+                            workspace_navigation_file(candidate_file)
+                                && candidate_file.module == file.module
+                        })
+                        .flat_map(|candidate_file| {
+                            candidate_file.schema_alias_external_imports.iter()
+                        })
+                        .filter(|candidate| {
+                            candidate.module == import.module
+                                && candidate.package == import.package
+                                && candidate.alias == import.alias
+                        })
+                        .count()
+                        == 1
+            })
+            .collect()
     }
 
     fn visible_schema_for_bare_reference(
@@ -755,6 +805,19 @@ impl SymbolIndex {
             .iter()
             .any(|symbol| visible_imported_function_for_bare_call(file, symbol, name))
     }
+}
+
+fn resolved_external_import_module(import: &ExternalImport, qualifier: &str) -> Option<String> {
+    if qualifier == import.module {
+        return Some(import.module.clone());
+    }
+    if qualifier == import.alias {
+        return Some(import.module.clone());
+    }
+    qualifier
+        .strip_prefix(import.alias.as_str())
+        .and_then(|rest| rest.strip_prefix("::"))
+        .map(|rest| format!("{}::{rest}", import.module))
 }
 
 enum QualifiedWorkspaceModule {

@@ -526,6 +526,119 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn recovered_dependency_schema_alias_blocks_same_named_valid_alias() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "valid.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                    ),
+                ),
+                ("recovered.veln", "mod dep\n\npub schema Alias =\n"),
+            ],
+            ["valid.veln", "recovered.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
+    }
+
+    #[test]
+    fn dependency_schema_alias_references_require_valid_imports() {
+        for (name, imports) in [
+            (
+                "duplicate import",
+                concat!(
+                    "use dep from \"example/dep\"\n",
+                    "use dep from \"example/dep\"\n",
+                ),
+            ),
+            (
+                "recovered import",
+                "use dep from \"example/dep\" unexpected\n",
+            ),
+        ] {
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &[(
+                    "dep.veln",
+                    concat!(
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                    ),
+                )],
+                ["dep.veln"],
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    &format!(
+                        "{imports}\nfn read(view: ByteView) -> ()\n  decode dep::Alias from view at byte_offset(0)?\nend\n"
+                    ),
+                )],
+                vec![dependency],
+            );
+            let operation_line = imports.lines().count() + 3;
+
+            assert!(
+                query_snapshot(&snapshot, "main.veln", operation_line, 16).is_none(),
+                "{name} must not grant schema alias visibility"
+            );
+        }
+    }
+
+    #[test]
+    fn valid_cross_module_dependency_schema_alias_target_stays_outside_reference_slice() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "core.veln",
+                    "mod core\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+                (
+                    "facade.veln",
+                    concat!(
+                        "mod facade\n",
+                        "use core\n\n",
+                        "pub schema Alias = core::Packet\n",
+                    ),
+                ),
+            ],
+            ["core.veln", "facade.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use facade from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode facade::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 19).is_none());
+    }
+
+    #[test]
     fn dependency_schema_references_exclude_recovered_operation_leaves() {
         let dependency = dependency_snapshot(
             "example/dep",

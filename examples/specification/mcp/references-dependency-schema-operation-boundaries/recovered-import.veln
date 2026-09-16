@@ -1,0 +1,5 @@
+use public from "example/dep" unexpected
+
+fn read(view: ByteView) -> ()
+  decode public::Alias from view at byte_offset(0)?
+end

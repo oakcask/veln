@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"a76df817966491f02eafafb09fdc9c67cf86aad2"
+source_git_tree	"657604164f60c4deb849295fef71760e1a13b2d2"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1685
@@ -16698,10 +16698,26 @@ field	expectations.mcp_assertions[23].equals	[]
 field	expectations.mcp_assertions[23].id	22
 field	expectations.mcp_assertions[23].operation	"equals"
 field	expectations.mcp_assertions[23].path	"/result/structuredContent/references"
-field	expectations.mcp_assertions[24].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
-field	expectations.mcp_assertions[24].id	2
+field	expectations.mcp_assertions[24].equals	[]
+field	expectations.mcp_assertions[24].id	23
 field	expectations.mcp_assertions[24].operation	"equals"
-field	expectations.mcp_assertions[24].path	"/result/structuredContent/scope"
+field	expectations.mcp_assertions[24].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[25].equals	[]
+field	expectations.mcp_assertions[25].id	24
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[26].equals	[]
+field	expectations.mcp_assertions[26].id	25
+field	expectations.mcp_assertions[26].operation	"equals"
+field	expectations.mcp_assertions[26].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[27].equals	[]
+field	expectations.mcp_assertions[27].id	26
+field	expectations.mcp_assertions[27].operation	"equals"
+field	expectations.mcp_assertions[27].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[28].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
+field	expectations.mcp_assertions[28].id	2
+field	expectations.mcp_assertions[28].operation	"equals"
+field	expectations.mcp_assertions[28].path	"/result/structuredContent/scope"
 field	expectations.mcp_assertions[2].equals	[]
 field	expectations.mcp_assertions[2].id	4
 field	expectations.mcp_assertions[2].operation	"equals"
@@ -16737,9 +16753,9 @@ field	expectations.mcp_assertions[9].path	"/result/structuredContent/references"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3031,"sha256":"e0ec95b90bf48884d1de5964671a58f20831325a30aaabae69fb9b8e201b2fcc"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3597,"sha256":"125f5334bcd08130be2e8393513d096dc282740758abc4e76d4068f9ddbf75d6"}
 field	source_errors	"expected"
-case_digest	"6c1d15395e38f8ef32d586333389993de3e57dd2b53ac3e50b3d0496a486f3c6"
+case_digest	"1edca93d54d46dc05bbb071a5bdc6587fdb36f7f5efdcdc86f93bdca99f67f22"
 case	"examples/specification/mcp/references-dependency-type-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -57759,4 +57775,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"801f99e46929b97f3e248d4b4a06b197507633d8962458ca57dc21cbb18c450e"
+aggregate_digest	"60e59d686258a47350641363cc3fe7c790c597e29a4a39d33e7b9734f3fdc0b2"

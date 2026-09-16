@@ -75,6 +75,7 @@ Exact sets must identify source leaves per response, not merely count them.
 | A schema alias or an unrelated-namespace declaration shares the target name. | The schema-alias collision is successful empty; the unrelated-namespace declaration does not change the eligible alias reference set. | Shared namespace tests, the MCP boundary case, and paired MCP/LSP cases. |
 | The alias or target is duplicated, invalid-casing, unresolved, private, wrong-kind, cyclic, or syntax-recovered. | Successful empty references without lexical fallback to a same-spelled valid declaration. | Shared negative table and MCP boundary cases. |
 | The alias's target is qualified, belongs to another module or package, or is another alias. | Successful empty references for this bounded slice. | Target-boundary fixtures, including a valid cross-module target and an alias chain. |
+| The selected leaf is visible only through a duplicate or syntax-recovered import. | Successful empty references without granting dependency alias visibility. | Shared navigation tests, focused MCP tests, and MCP boundary cases. |
 | Select an alias from a non-exported module, a mismatched import, a transitive dependency, or the standard library. | Successful empty references with existing scope metadata. | Graph-aware MCP boundary cases; inject a standard-library alias in a focused server test if needed. |
 | Select a composition leaf, alias-target token, module qualifier, import token, or package-source URI. | Preserve the existing unsupported-selection or invalid-path result; do not reinterpret it as an operation leaf. | MCP negative cases and shared selection tests. |
 | Package sources, composition fields, comments, strings, or unrelated symbol classes contain the alias spelling. | None enter the alias operation-reference set. | Exact-set shared and adapter cases. |
@@ -94,11 +95,14 @@ through the bounded runners described by
 [Toolchain Test Harness](../toolchain-test-harness.md).
 
 The dependency-schema operation boundary fixtures contain a direct same-module
-alias, an alias chain, a target-name schema-alias collision, invalid and
+alias, an alias chain, a valid qualified cross-module target, a target-name
+schema-alias collision, recovered duplicate aliases, invalid imports, and
 graph-ineligible alias selections. They preserve the required positive or
-successful-empty result for each boundary. Focused shared and MCP tests cover
-recovered alias declarations that collide with valid same-module schemas. The
-paired dependency-schema-alias cases
+successful-empty result for each boundary. The checked
+`codec-schema-references` case independently verifies that qualified
+cross-module schema-alias targets are valid source language. Focused shared and
+MCP tests cover recovered alias declarations that collide with valid
+same-module schemas or aliases. The paired dependency-schema-alias cases
 preserve positive resolution when an unrelated type shares the target name.
 Current MCP and editor specifications own the implemented behavior.
 

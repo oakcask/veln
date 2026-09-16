@@ -35,11 +35,13 @@ namespace-by-use-role boundaries, lower-case exact spelling collisions between
 casing-neutral declarations and value names, and the same-namespace duplicate
 boundary.
 
-A direct-dependency public schema alias target resolves only in the schema
-namespace of its own module and dependency. The bare target name must identify
-exactly one public schema declaration, and no schema alias may share that name.
-Same-spelled declarations in unrelated namespaces do not affect this target
-lookup.
+For saved operation-reference navigation, a direct-dependency public schema
+alias is eligible only when its target is a bare name in the schema namespace
+of its own module and retained dependency. The target must identify exactly one
+public schema declaration, and no schema alias may share that name.
+Same-spelled declarations in unrelated namespaces do not affect eligibility.
+A qualified target that resolves through a written import remains valid source
+language, but it is outside this bounded navigation feature.
 
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import

@@ -7,10 +7,11 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let module = explicit_module_name(source.text())
         .or(path_module)
         .unwrap_or_default();
-    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
     #[cfg(test)]
     record_workspace_source_parse();
     let parsed = parse(&source);
+    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
+    let schema_alias_external_imports = schema_alias_external_imports(&parsed);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
     let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
@@ -30,6 +31,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         external_uses,
         import_aliases,
         external_import_aliases,
+        schema_alias_external_imports,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
         schema_operation_leaf_spans,
@@ -135,6 +137,7 @@ fn indexed_dependency_source(
         external_uses,
         import_aliases,
         external_import_aliases,
+        schema_alias_external_imports: Vec::new(),
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
         schema_operation_leaf_spans,
@@ -358,6 +361,7 @@ fn workspace_schema_composition_references(
 
 fn eligible_schema_aliases(
     aliases: Vec<NeutralSymbol>,
+    blockers: &[NeutralSymbol],
     package_targets: &[PackageSchemaTarget],
     resolved: Vec<veln_sema::ResolvedSchemaAlias>,
 ) -> Vec<NeutralSymbol> {
@@ -380,6 +384,7 @@ fn eligible_schema_aliases(
                 };
                 aliases
                     .iter()
+                    .chain(blockers)
                     .filter(|candidate| {
                         candidate.package.as_deref() == Some(package)
                             && candidate.module == alias.module
@@ -387,7 +392,7 @@ fn eligible_schema_aliases(
                     })
                     .count()
                     == 1
-                    && !aliases.iter().any(|candidate| {
+                    && !aliases.iter().chain(blockers).any(|candidate| {
                         candidate.package.as_deref() == Some(package)
                             && candidate.module == alias.module
                             && candidate.name == target_name

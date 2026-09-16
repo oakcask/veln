@@ -316,6 +316,7 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "  decode mismatch::OtherAlias from view at byte_offset(0)?\n",
             "  decode transitive::TransitiveAlias from view at byte_offset(0)?\n",
             "  decode public::badAlias from view at byte_offset(0)?\n",
+            "  decode public::CrossModuleAlias from view at byte_offset(0)?\n",
             "end\n\n",
             "schema Frame\n",
             "  nested: public::Public\n",
@@ -324,11 +325,12 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
     );
     workspace.write(
         "vendor/dep/veln.toml",
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"public.veln\", \"private.veln\"]\n",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"public.veln\", \"private.veln\", \"core.veln\"]\n",
     );
     workspace.write(
         "vendor/dep/public.veln",
         concat!(
+            "use core\n\n",
             "pub schema Public\n  value: Int\nend\n\n",
             "pub schema badSchema\n  value: Int\nend\n\n",
             "pub schema Alias = Public\n\n",
@@ -338,11 +340,16 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "pub schema CollisionTarget = Other\n\n",
             "pub schema CollidingAlias = CollisionTarget\n\n",
             "pub schema badAlias = Public\n\n",
+            "pub schema CrossModuleAlias = core::Packet\n\n",
             "fn package_operations(view: ByteView, value: {value: Int}) -> ()\n",
             "  decode Public from view at byte_offset(0)?\n",
             "  encode Public from value\n",
             "end\n",
         ),
+    );
+    workspace.write(
+        "vendor/dep/core.veln",
+        "pub schema Packet\n  value: Int\nend\n",
     );
     workspace.write(
         "vendor/dep/private.veln",
@@ -415,7 +422,8 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("mismatched alias import", "main.veln", 19, 20),
         ("transitive alias", "main.veln", 20, 22),
         ("invalid-casing alias", "main.veln", 21, 18),
-        ("package composition", "main.veln", 25, 19),
+        ("valid cross-module alias target", "main.veln", 22, 18),
+        ("package composition", "main.veln", 26, 19),
         ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),
     ] {
@@ -489,6 +497,118 @@ fn references_keep_recovered_dependency_schema_alias_declarations_empty() {
             "project_wide": true
         })
     );
+}
+
+#[test]
+fn references_keep_recovered_duplicate_dependency_schema_aliases_empty() {
+    let workspace = TempWorkspace::new("references-recovered-duplicate-dependency-schema-alias");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use dep from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode dep::Alias from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        concat!(
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"valid.veln\", \"recovered.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/valid.veln",
+        concat!(
+            "mod dep\n\n",
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/recovered.veln",
+        "mod dep\n\npub schema Alias =\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 16);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+}
+
+#[test]
+fn references_keep_dependency_schema_aliases_behind_invalid_imports_empty() {
+    for (name, imports, line) in [
+        (
+            "duplicate",
+            concat!(
+                "use dep from \"example/dep\"\n",
+                "use dep from \"example/dep\"\n",
+            ),
+            5,
+        ),
+        ("recovered", "use dep from \"example/dep\" unexpected\n", 4),
+    ] {
+        let workspace =
+            TempWorkspace::new(&format!("references-dependency-schema-alias-{name}-import"));
+        workspace.write(
+            "veln.toml",
+            "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+        );
+        workspace.write(
+            "main.veln",
+            &format!(
+                "{imports}\nfn read(view: ByteView) -> ()\n  decode dep::Alias from view at byte_offset(0)?\nend\n"
+            ),
+        );
+        workspace.write(
+            "vendor/dep/veln.toml",
+            concat!(
+                "[package]\nname = \"example/dep\"\n\n",
+                "[lib]\nexports = [\"dep.veln\"]\n",
+            ),
+        );
+        workspace.write(
+            "vendor/dep/dep.veln",
+            concat!(
+                "pub schema Packet\n  value: Int\nend\n\n",
+                "pub schema Alias = Packet\n",
+            ),
+        );
+
+        let result = references_result(&workspace, "main.veln", line, 16);
+
+        assert_eq!(result["isError"], false, "{name}: {result:#}");
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{name}: {result:#}"
+        );
+        assert_eq!(
+            result["structuredContent"]["scope"],
+            json!({
+                "mode": "project",
+                "generation": 0,
+                "project": ".",
+                "project_wide": true
+            }),
+            "{name}: {result:#}"
+        );
+    }
 }
 
 #[test]

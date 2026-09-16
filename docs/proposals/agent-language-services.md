@@ -49,8 +49,8 @@ The remaining first-capability work includes:
   constructors and direct-dependency schema operations, including
   direct-dependency and standard-library public schema-alias references, plus
   paginated reference lookup;
-- package schema composition and schema-alias reference lookup plus
-  standard-library schema references;
+- package schema composition, broader dependency schema-alias reference lookup,
+  and standard-library schema and schema-alias references;
 - plugin packaging for Codex and Claude Code.
 
 ### Ready Extracted Slice
@@ -990,10 +990,11 @@ also implements saved direct-dependency and standard-library function, type,
 and constructor reference search, plus public function-alias and type-alias
 reference search for the implemented direct-dependency and standard-library
 boundaries, public schema-alias reference search for the implemented workspace
-boundary, and direct-dependency schema operation reference search. It does not
-implement package schema composition, standard-library schema, package
-schema-alias, transitive-dependency, recovery, casing-neutral, or paginated
-reference search.
+boundary, and direct-dependency schema operation and eligible
+direct-dependency schema-alias operation reference search. It does not
+implement package schema composition, standard-library schemas or schema
+aliases, broader dependency schema aliases, transitive-dependency, recovery,
+casing-neutral, or paginated reference search.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
 parameters, handler operation clause parameters, and exact test-companion
@@ -1015,9 +1016,10 @@ references.
 Later umbrella slices are:
 
 1. Extend package navigation with schema composition, standard-library schema,
-   public schema aliases, and other remaining package symbol references,
-   paginated references, recovery and casing-neutral symbol references, and
-   definition beyond the package-backed symbol inventory.
+   broader dependency and standard-library public schema aliases, and other
+   remaining package symbol references, paginated references, recovery and
+   casing-neutral symbol references, and definition beyond the package-backed
+   symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their

@@ -659,6 +659,7 @@ struct IndexedFile {
     external_uses: BTreeSet<(String, String)>,
     import_aliases: BTreeMap<String, String>,
     external_import_aliases: BTreeMap<String, (String, String)>,
+    schema_alias_external_imports: Vec<ExternalImport>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
     schema_operation_leaf_spans: Vec<SourceSpan>,
@@ -666,6 +667,14 @@ struct IndexedFile {
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ExternalImport {
+    module: String,
+    package: String,
+    alias: String,
+    syntax_valid: bool,
 }
 
 #[derive(Clone, Debug)]

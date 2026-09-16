@@ -1,3 +1,5 @@
+use core
+
 pub schema Public
   value: Int
 end
@@ -20,6 +22,9 @@ pub schema badAlias = Public
 pub schema RecoveredAlias
   value: Int
 end
+
+pub schema CrossModuleAlias = core::Packet
+pub schema DuplicateRecoveredAlias = Public
 
 fn package_operations(view: ByteView, value: {value: Int}) -> ()
   decode Public from view at byte_offset(0)?
