@@ -257,6 +257,7 @@ pub fn definition_at(
 impl Symbol {
     fn definition_supported(&self, index: &SymbolIndex) -> bool {
         match self {
+            Self::SchemaAlias(_) => false,
             Self::TypeAlias(symbol) if symbol.package.is_some() => {
                 index.type_alias_definition_supported(symbol)
             }
@@ -266,7 +267,7 @@ impl Symbol {
 
     fn definition(&self) -> NavigationLocation {
         match self {
-            Self::Schema(symbol) => symbol.declaration.clone(),
+            Self::Schema(symbol) | Self::SchemaAlias(symbol) => symbol.declaration.clone(),
             Self::Effect(symbol) => symbol.declaration.clone(),
             Self::Handler(symbol) => symbol.declaration.clone(),
             Self::EffectOperation(symbol) => symbol.declaration.clone(),
@@ -291,7 +292,7 @@ impl Symbol {
 
     fn kind(&self) -> SymbolKind {
         match self {
-            Self::Schema(_) => SymbolKind::Schema,
+            Self::Schema(_) | Self::SchemaAlias(_) => SymbolKind::Schema,
             Self::Effect(_) => SymbolKind::Effect,
             Self::Handler(_) => SymbolKind::Handler,
             Self::EffectOperation(_) => SymbolKind::EffectOperation,
@@ -305,7 +306,7 @@ impl Symbol {
 
     fn name(&self) -> &str {
         match self {
-            Self::Schema(symbol) => &symbol.name,
+            Self::Schema(symbol) | Self::SchemaAlias(symbol) => &symbol.name,
             Self::Effect(symbol) => &symbol.name,
             Self::Handler(symbol) => &symbol.name,
             Self::EffectOperation(symbol) => &symbol.name,
@@ -321,6 +322,7 @@ impl Symbol {
     fn references(&self, index: &SymbolIndex) -> Vec<SourceSpan> {
         match self {
             Self::Schema(symbol) => index.schema_references(symbol),
+            Self::SchemaAlias(symbol) => index.schema_alias_references(symbol),
             Self::Effect(_) | Self::Handler(_) | Self::EffectOperation(_) => Vec::new(),
             Self::Type(symbol) => index.type_references(symbol),
             Self::TypeAlias(symbol) => index.type_alias_references(symbol),
@@ -338,7 +340,7 @@ impl Symbol {
     fn declaration_kind(&self) -> SymbolDeclarationKind {
         match self {
             Self::Function(symbol) => symbol.declaration_kind,
-            Self::TypeAlias(_) => SymbolDeclarationKind::PublicAlias,
+            Self::SchemaAlias(_) | Self::TypeAlias(_) => SymbolDeclarationKind::PublicAlias,
             Self::Constructor(symbol) => symbol.declaration_kind,
             Self::Recovery(_) => SymbolDeclarationKind::Recovery,
             _ => SymbolDeclarationKind::Declaration,
@@ -479,7 +481,11 @@ impl SelectedNavigationSymbol {
 
 fn self_role_for_symbol(symbol: Option<&Symbol>) -> Option<NameClass> {
     match symbol? {
-        Symbol::Schema(_) | Symbol::Effect(_) | Symbol::Handler(_) | Symbol::EffectOperation(_) => {
+        Symbol::Schema(_)
+        | Symbol::SchemaAlias(_)
+        | Symbol::Effect(_)
+        | Symbol::Handler(_)
+        | Symbol::EffectOperation(_) => {
             None
         }
         Symbol::Type(_) | Symbol::TypeAlias(_) => Some(NameClass::Type),
@@ -545,6 +551,7 @@ struct SymbolRequest {
 #[derive(Clone, Debug)]
 enum Symbol {
     Schema(NeutralSymbol),
+    SchemaAlias(NeutralSymbol),
     Effect(NeutralSymbol),
     Handler(NeutralSymbol),
     EffectOperation(EffectOperationSymbol),
@@ -646,12 +653,19 @@ struct IndexedFile {
 #[derive(Clone, Debug)]
 struct SchemaCompositionReference {
     span: SourceSpan,
-    target: NeutralSymbol,
+    target: SchemaReferenceTarget,
+}
+
+#[derive(Clone, Debug)]
+enum SchemaReferenceTarget {
+    Schema(NeutralSymbol),
+    Alias(NeutralSymbol),
 }
 
 #[derive(Clone, Debug, Default)]
 struct FileDeclarations {
     schemas: Vec<NeutralSymbol>,
+    schema_aliases: Vec<NeutralSymbol>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
@@ -686,6 +700,7 @@ pub(crate) struct IndexedDependencies {
 pub(crate) struct SymbolIndex {
     files: Vec<IndexedFile>,
     schemas: Vec<NeutralSymbol>,
+    schema_aliases: Vec<NeutralSymbol>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,

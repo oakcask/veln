@@ -30,7 +30,10 @@ mod type_relations;
 mod type_syntax;
 mod types;
 
-pub use navigation::{ResolvedSchemaCompositionReference, resolved_schema_composition_references};
+pub use navigation::{
+    ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_aliases,
+    resolved_schema_composition_references,
+};
 #[cfg(test)]
 pub(crate) use pipeline::analyze_surface_module_with_base_for_test;
 pub use pipeline::{

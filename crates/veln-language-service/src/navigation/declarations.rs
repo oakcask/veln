@@ -49,6 +49,7 @@ fn same_type_alias(left: &TypeAliasSymbol, right: &TypeAliasSymbol) -> bool {
 impl FileDeclarations {
     fn extend(&mut self, other: Self) {
         self.schemas.extend(other.schemas);
+        self.schema_aliases.extend(other.schema_aliases);
         self.effects.extend(other.effects);
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
@@ -67,6 +68,7 @@ impl FileDeclarations {
 fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclarations {
     FileDeclarations {
         schemas: schema_declarations(file, syntax),
+        schema_aliases: schema_alias_declarations(file, syntax),
         effects: effect_declarations(file, syntax),
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
@@ -78,6 +80,24 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         constructors: constructor_declarations(file, syntax),
         type_aliases: type_alias_declarations(file, syntax),
     }
+}
+
+fn schema_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<NeutralSymbol> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::PublicAlias(alias) if alias.kind == PublicAliasKind::Schema => {
+                let name = alias.name.as_ref()?;
+                let span = alias.name_span.clone()?;
+                if is_invalid_declaration_name(file, &span) {
+                    return None;
+                }
+                neutral_declaration(file, name, span, Visibility::Public)
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 fn schema_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<NeutralSymbol> {

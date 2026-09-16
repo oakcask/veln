@@ -2368,36 +2368,75 @@ fn references_keep_descendant_package_sources_isolated_for_new_symbol_classes() 
 }
 
 #[test]
-fn references_keep_anonymous_sources_isolated_for_workspace_schema_selections() {
+fn references_keep_workspace_schema_aliases_inside_selected_project() {
+    let workspace = TempWorkspace::new("references-schema-alias-project-isolation");
+    for project in ["app_a", "app_b", "app_a/nested"] {
+        workspace.write(&format!("{project}/veln.toml"), "");
+        workspace.write(
+            &format!("{project}/main.veln"),
+            concat!(
+                "pub schema Packet\n",
+                "  value: Int\n",
+                "end\n\n",
+                "pub schema AliasPacket = Packet\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode AliasPacket from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        );
+    }
+
+    let result = references_result(&workspace, "app_a/main.veln", 5, 12);
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": "app_a",
+            "project_wide": true
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[("app_a/main.veln", 8, 10, 8, 21)],
+        "workspace schema alias project isolation",
+    );
+}
+
+#[test]
+fn references_keep_anonymous_sources_isolated_for_workspace_schema_alias_selections() {
     let workspace = TempWorkspace::new("references-anonymous-schema-isolation");
     workspace.write("app/veln.toml", "");
     workspace.write(
         "app/main.veln",
         concat!(
-            "schema Packet\n",
+            "pub schema Packet\n",
             "  value: Int\n",
             "end\n\n",
+            "pub schema AliasPacket = Packet\n\n",
             "fn selected(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode Packet from view at byte_offset(0)?\n",
-            "  encode Packet from packet\n",
+            "  decode AliasPacket from view at byte_offset(0)?\n",
+            "  encode AliasPacket from packet\n",
             "end\n\n",
             "schema Frame\n",
-            "  nested: Packet\n",
+            "  nested: AliasPacket\n",
             "end\n",
         ),
     );
     workspace.write(
         "loose.veln",
         concat!(
-            "schema Packet\n",
+            "pub schema Packet\n",
             "  value: Int\n",
             "end\n\n",
+            "pub schema AliasPacket = Packet\n\n",
             "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode Packet from view at byte_offset(0)?\n",
-            "  encode Packet from packet\n",
+            "  decode AliasPacket from view at byte_offset(0)?\n",
+            "  encode AliasPacket from packet\n",
             "end\n\n",
             "schema Frame\n",
-            "  nested: Packet\n",
+            "  nested: AliasPacket\n",
             "end\n",
         ),
     );
@@ -2414,7 +2453,7 @@ fn references_keep_anonymous_sources_isolated_for_workspace_schema_selections() 
         ),
     );
 
-    let result = references_result(&workspace, "loose.veln", 1, 8);
+    let result = references_result(&workspace, "loose.veln", 5, 12);
     assert_eq!(result["isError"], false, "{result:#}");
     assert_eq!(
         result["structuredContent"]["scope"],
@@ -2429,30 +2468,31 @@ fn references_keep_anonymous_sources_isolated_for_workspace_schema_selections() 
     assert_reference_ranges(
         &result,
         &[
-            ("loose.veln", 6, 10, 6, 16),
-            ("loose.veln", 7, 10, 7, 16),
-            ("loose.veln", 11, 11, 11, 17),
+            ("loose.veln", 8, 10, 8, 21),
+            ("loose.veln", 9, 10, 9, 21),
+            ("loose.veln", 13, 11, 13, 22),
         ],
         "anonymous schema isolation",
     );
 }
 
 #[test]
-fn references_keep_descendant_package_sources_isolated_for_workspace_schema_selections() {
+fn references_keep_descendant_package_sources_isolated_for_workspace_schema_alias_selections() {
     let workspace = TempWorkspace::new("references-descendant-package-schema-isolation");
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
         concat!(
-            "schema Packet\n",
+            "pub schema Packet\n",
             "  value: Int\n",
             "end\n\n",
+            "pub schema AliasPacket = Packet\n\n",
             "fn selected(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode Packet from view at byte_offset(0)?\n",
-            "  encode Packet from packet\n",
+            "  decode AliasPacket from view at byte_offset(0)?\n",
+            "  encode AliasPacket from packet\n",
             "end\n\n",
             "schema Frame\n",
-            "  nested: Packet\n",
+            "  nested: AliasPacket\n",
             "end\n",
         ),
     );
@@ -2460,20 +2500,21 @@ fn references_keep_descendant_package_sources_isolated_for_workspace_schema_sele
     workspace.write(
         "nested/main.veln",
         concat!(
-            "schema Packet\n",
+            "pub schema Packet\n",
             "  value: Int\n",
             "end\n\n",
+            "pub schema AliasPacket = Packet\n\n",
             "fn helper(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode Packet from view at byte_offset(0)?\n",
-            "  encode Packet from packet\n",
+            "  decode AliasPacket from view at byte_offset(0)?\n",
+            "  encode AliasPacket from packet\n",
             "end\n\n",
             "schema Frame\n",
-            "  nested: Packet\n",
+            "  nested: AliasPacket\n",
             "end\n",
         ),
     );
 
-    let result = references_result(&workspace, "nested/main.veln", 1, 8);
+    let result = references_result(&workspace, "nested/main.veln", 5, 12);
     assert_eq!(result["isError"], false, "{result:#}");
     assert_eq!(
         result["structuredContent"]["scope"],
@@ -2488,9 +2529,9 @@ fn references_keep_descendant_package_sources_isolated_for_workspace_schema_sele
     assert_reference_ranges(
         &result,
         &[
-            ("nested/main.veln", 6, 10, 6, 16),
-            ("nested/main.veln", 7, 10, 7, 16),
-            ("nested/main.veln", 11, 11, 11, 17),
+            ("nested/main.veln", 8, 10, 8, 21),
+            ("nested/main.veln", 9, 10, 9, 21),
+            ("nested/main.veln", 13, 11, 13, 22),
         ],
         "descendant package schema isolation",
     );
@@ -2735,13 +2776,13 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 25,
         },
         Case {
-            name: "workspace public schema alias",
+            name: "workspace schema alias with private target",
             files: vec![
                 ("veln.toml", ""),
                 (
                     "main.veln",
                     concat!(
-                        "pub schema Packet\n",
+                        "schema Packet\n",
                         "  format binary\n",
                         "  value: UInt8\n",
                         "end\n\n",
@@ -2754,7 +2795,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 12,
         },
         Case {
-            name: "workspace schema alias composition target",
+            name: "workspace schema alias-chain composition target",
             files: vec![
                 ("veln.toml", ""),
                 (
@@ -2764,7 +2805,8 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
                         "  format binary\n",
                         "  value: UInt8\n",
                         "end\n\n",
-                        "pub schema AliasPacket = Packet\n\n",
+                        "pub schema FirstAlias = Packet\n",
+                        "pub schema AliasPacket = FirstAlias\n\n",
                         "schema Frame\n",
                         "  format binary\n",
                         "  nested: AliasPacket\n",
@@ -2773,7 +2815,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
                 ),
             ],
             source: "main.veln",
-            line: 10,
+            line: 11,
             column: 11,
         },
         Case {
@@ -3155,20 +3197,21 @@ fn references_project_capture_exhausts_retries_after_owned_source_changes() {
 }
 
 #[test]
-fn references_project_capture_exhausts_retries_for_workspace_schema_selection() {
+fn references_project_capture_exhausts_retries_for_workspace_schema_alias_selection() {
     let workspace = TempWorkspace::new("references-workspace-schema-capture-retry");
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
         concat!(
-            "schema Packet\n",
+            "pub schema Packet\n",
             "  value: Int\n",
             "end\n\n",
+            "pub schema AliasPacket = Packet\n\n",
             "fn read(view: ByteView) -> ()\n",
-            "  decode Packet from view at byte_offset(0)?\n",
+            "  decode AliasPacket from view at byte_offset(0)?\n",
             "end\n\n",
             "schema Frame\n",
-            "  nested: Packet\n",
+            "  nested: AliasPacket\n",
             "end\n",
         ),
     );
@@ -3187,13 +3230,13 @@ fn references_project_capture_exhausts_retries_for_workspace_schema_selection() 
         fs::write(
             &main,
             format!(
-                "schema Packet\n  {field}: Int\nend\n\nfn read(view: ByteView) -> ()\n  decode Packet from view at byte_offset(0)?\nend\n\nschema Frame\n  nested: Packet\nend\n"
+                "pub schema Packet\n  {field}: Int\nend\n\npub schema AliasPacket = Packet\n\nfn read(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n\nschema Frame\n  nested: AliasPacket\nend\n"
             ),
         )
         .unwrap();
     });
 
-    let result = server.references_tool(&json!({"source":"main.veln","line":1,"column":8}));
+    let result = server.references_tool(&json!({"source":"main.veln","line":5,"column":12}));
 
     assert_snapshot_changed_without_references_or_scope(&result);
     assert_eq!(attempts.get(), 3);

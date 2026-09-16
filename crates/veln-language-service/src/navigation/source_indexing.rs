@@ -180,17 +180,28 @@ fn append_parsed_surface_module(
 fn workspace_schema_composition_references(
     files: &[IndexedFile],
     schemas: &[NeutralSymbol],
+    schema_aliases: &[NeutralSymbol],
     references: Vec<veln_sema::ResolvedSchemaCompositionReference>,
 ) -> Vec<SchemaCompositionReference> {
     references
         .into_iter()
         .filter_map(|reference| {
-            let target = schemas.iter().find(|schema| {
+            let schema_target = schemas.iter().find(|schema| {
                 schema.package.is_none()
                     && schema.name == reference.target_name
                     && Some(schema.module.as_str()) == reference.target_module.as_deref()
                     && schema.declaration.span.file == reference.target_span.file
             })?;
+            let alias_target = reference.alias_span.as_ref().and_then(|alias_span| {
+                schema_aliases.iter().find(|alias| {
+                    alias.package.is_none()
+                        && Some(alias.name.as_str()) == reference.alias_name.as_deref()
+                        && Some(alias.module.as_str()) == reference.alias_module.as_deref()
+                        && alias.declaration.span.file == alias_span.file
+                        && alias.declaration.span.start.offset >= alias_span.start.offset
+                        && alias.declaration.span.end.offset <= alias_span.end.offset
+                })
+            });
             let leaf = reference.path.last()?;
             let file = files
                 .iter()
@@ -203,8 +214,30 @@ fn workspace_schema_composition_references(
             })?;
             Some(SchemaCompositionReference {
                 span: file.source.span(token.range),
-                target: target.clone(),
+                target: alias_target.map_or_else(
+                    || SchemaReferenceTarget::Schema(schema_target.clone()),
+                    |alias| SchemaReferenceTarget::Alias(alias.clone()),
+                ),
             })
+        })
+        .collect()
+}
+
+fn eligible_workspace_schema_aliases(
+    aliases: Vec<NeutralSymbol>,
+    resolved: Vec<veln_sema::ResolvedSchemaAlias>,
+) -> Vec<NeutralSymbol> {
+    aliases
+        .into_iter()
+        .filter(|alias| {
+            alias.package.is_none()
+                && resolved.iter().any(|candidate| {
+                    candidate.alias_name == alias.name
+                        && candidate.alias_module.as_deref() == Some(alias.module.as_str())
+                        && candidate.alias_span.file == alias.declaration.span.file
+                        && alias.declaration.span.start.offset >= candidate.alias_span.start.offset
+                        && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
+                })
         })
         .collect()
 }

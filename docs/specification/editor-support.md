@@ -211,20 +211,27 @@ For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, and directly resolved
 schema-composition path leaves that resolve to that schema in workspace
 sources. Composition references include direct fields and both supported
-repeated-payload spellings. Same-module bare schema paths can resolve to the
-selected schema. Imported-module schema uses must be named by an accepted
-qualified path. Composition paths also accept a unique implicit leaf import
-alias. For composition paths, an exact full written import path takes
+repeated-payload spellings. An eligible public schema alias has its own
+declaration identity and returns the operation and composition leaves that
+resolve to that alias, without merging them into its direct public workspace
+schema target. Alias chains and package aliases are not eligible. Alias
+declarations are not included when declaration inclusion is false. Definition
+and rename support do not expand to schema aliases.
+
+Same-module bare schema and alias paths can resolve to their selected identity.
+Imported-module uses must be named by an accepted qualified path. Composition
+paths also accept a unique implicit leaf import alias. For composition paths,
+an exact full written import path takes
 precedence over a same-spelled implicit leaf alias. Otherwise, colliding
 workspace implicit leaf aliases select no composition schema identity in
 either import order when all candidates are workspace imports. This
 composition-alias uniqueness rule does not specify package-only or mixed
 workspace/package alias collisions. A written import does not make the
-imported schema available as a bare schema path. It does not add
-package-schema, schema-alias, module-qualifier, recovery, or rename behavior
-for schemas. The
-executable evidence is the `references-workspace-schema-composition` LSP case
-under `examples/specification/lsp/` and the shared
+imported schema or alias available as a bare schema path. It does not add
+package-schema, module-qualifier, recovery, or rename behavior for schemas.
+The executable evidence is the `references-workspace-schema-composition` and
+`references-workspace-schema-alias` LSP cases under
+`examples/specification/lsp/` and the shared
 `navigation_schema_references` Rust test module.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding

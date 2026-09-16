@@ -1,0 +1,6 @@
+use aliases
+
+fn imported(view: ByteView, packet: {value: Int}) -> ()
+  let decoded = decode aliases::WirePacket from view at byte_offset(0)?
+  let encoded = encode aliases::WirePacket from packet
+end

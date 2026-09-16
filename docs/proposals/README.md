@@ -16,12 +16,6 @@ also states it.
 - Completed proposal history:
   [Implemented Proposal Records](../reference/implemented-proposals/README.md).
 
-## Ready
-
-- Saved workspace public schema-alias references have implemented syntax,
-  resolution, saved-capture, and harness prerequisites:
-  [mcp-saved-workspace-schema-alias-references.md](mcp-saved-workspace-schema-alias-references.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
@@ -31,9 +25,9 @@ also states it.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory. Its
-  independently actionable workspace schema-alias reference slice is listed
-  under Ready. Its
-  saved workspace symbol-reference, standard-library package-documentation
+  workspace schema-alias reference slice is implemented and recorded by
+  [MCP Saved Workspace Schema-Alias References](../reference/implemented-proposals/mcp-saved-workspace-schema-alias-references.md).
+  Its saved workspace symbol-reference, standard-library package-documentation
   resource, dependency package-documentation resource, package-backed
   definition-link, direct-dependency function-reference, and
   package-documentation tool slices are implemented. Its standard-library

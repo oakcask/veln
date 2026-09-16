@@ -26,10 +26,14 @@ failure, and success-only scope metadata retain their existing behavior.
 
 ## Scope Boundary
 
-This slice does not add schema-alias identity or alias-chain references,
+This earlier slice did not add schema-alias identity or alias-chain references,
 package-schema references, declaration inclusion, package-source locations,
 pagination, recovery or casing-neutral selection, transitive-dependency
 references, rename behavior, or MCP schema expansion.
+
+Eligible one-hop workspace schema-alias identity was added by the later
+[MCP Saved Workspace Schema-Alias References](mcp-saved-workspace-schema-alias-references.md)
+slice. Alias-chain references remain outside the implemented boundary.
 
 ## Completion Evidence
 
@@ -39,6 +43,6 @@ references, rename behavior, or MCP schema expansion.
 | Workspace written import paths and unique workspace implicit leaf aliases share semantic composition resolution, exact full paths take precedence over same-spelled leaf aliases, and otherwise colliding workspace leaf aliases and bare imports remain rejected. Package-only and mixed workspace/package alias collisions retain their pre-existing boundary. | `schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`, `workspace_schema_references_cover_direct_and_repeated_composition_targets`, `colliding_implicit_schema_import_aliases_are_order_independent`, `exact_schema_import_path_precedes_colliding_implicit_leaf_alias`, and the MCP `references-workspace-schema-composition` case |
 | Visibility, shadowing, same-named workspace schemas, and exact companion access preserve identity boundaries. | `workspace_schema_references_include_exact_companion_private_qualified_uses`, `references_keep_same_named_workspace_schema_composition_identity`, and `references_keep_workspace_schema_identity_visibility_and_companion_boundaries` |
 | Ordinary-type collisions, unresolved paths, and unrelated lexical matches are excluded. | `schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`, `references_return_workspace_schema_composition_locations_and_scope`, and the MCP `references-workspace-schema-composition` case |
-| Alias traversal and module-qualifier selections remain unsupported; package schemas, recovery records, and casing-neutral selections retain the shared successful-empty boundary. | `workspace_schema_references_keep_schema_specific_unsupported_selections_empty`, `package_composition_does_not_bind_same_named_workspace_schema`, `dependency_composition_with_matching_source_identity_stays_isolated`, and `references_reject_recovery_package_and_unsupported_symbols` |
-| Anonymous and descendant sources do not widen navigation scope. | `references_keep_anonymous_sources_isolated_for_workspace_schema_selections` and `references_keep_descendant_package_sources_isolated_for_workspace_schema_selections` |
-| Stable-capture exhaustion returns `snapshot_changed` without success-only locations or scope. | `references_project_capture_exhausts_retries_for_workspace_schema_selection` |
+| Alias-chain traversal and module-qualifier selections remain unsupported; package schemas, recovery records, and casing-neutral selections retain the shared successful-empty boundary. | `workspace_schema_alias_references_require_a_direct_public_schema_target`, `package_composition_does_not_bind_same_named_workspace_schema`, `dependency_composition_with_matching_source_identity_stays_isolated`, and `references_reject_recovery_package_and_unsupported_symbols` |
+| Anonymous and descendant sources do not widen navigation scope. | `references_keep_anonymous_sources_isolated_for_workspace_schema_alias_selections` and `references_keep_descendant_package_sources_isolated_for_workspace_schema_alias_selections` |
+| Stable-capture exhaustion returns `snapshot_changed` without success-only locations or scope. | `references_project_capture_exhausts_retries_for_workspace_schema_alias_selection` |

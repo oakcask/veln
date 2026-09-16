@@ -1,4 +1,36 @@
 impl SymbolIndex {
+    fn visible_schema_alias_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        self.schema_aliases
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.module == file.module
+                    && symbol.package.is_none()
+            })
+            .cloned()
+    }
+
+    fn visible_schema_alias_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        let qualified_modules = workspace_qualified_module_candidates(file, qualifier);
+        let mut candidates = self.schema_aliases.iter().filter(|symbol| {
+            symbol.name == name
+                && symbol.package.is_none()
+                && qualified_modules.iter().any(|module| module == &symbol.module)
+                && (symbol.module == file.module || file.uses.contains(&symbol.module))
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
     fn visible_schema_for_bare_reference(
         &self,
         file: &IndexedFile,
@@ -674,6 +706,24 @@ impl SymbolIndex {
             .iter()
             .any(|symbol| visible_imported_function_for_bare_call(file, symbol, name))
     }
+}
+
+fn workspace_qualified_module_candidates(file: &IndexedFile, qualifier: &str) -> Vec<String> {
+    if file.uses.contains(qualifier) || file.module == qualifier {
+        return vec![qualifier.to_string()];
+    }
+    let mut modules = file
+        .uses
+        .iter()
+        .filter(|module| module.rsplit("::").next() == Some(qualifier))
+        .cloned()
+        .collect::<Vec<_>>();
+    if let Some(module) = resolve_qualified_alias(&file.import_aliases, qualifier)
+        && !modules.contains(&module)
+    {
+        modules.push(module);
+    }
+    modules
 }
 
 fn constructor_selected_through_public_alias(mut symbol: ConstructorSymbol) -> ConstructorSymbol {

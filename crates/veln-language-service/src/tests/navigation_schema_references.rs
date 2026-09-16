@@ -563,38 +563,150 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
-    fn workspace_schema_references_keep_schema_specific_unsupported_selections_empty() {
+    fn workspace_schema_alias_references_keep_alias_identity_across_operations_and_composition() {
         let sources = vec![
             source(
-                "main.veln",
+                "core.veln",
                 concat!(
                     "pub schema Packet\n",
                     "  format binary\n",
                     "  value: UInt8\n",
-                    "end\n\n",
-                    "pub schema AliasPacket = Packet\n\n",
-                    "schema Frame\n",
-                    "  format binary\n",
-                    "  nested: AliasPacket\n",
                     "end\n",
                 ),
             ),
             source(
-                "other.veln",
+                "aliases.veln",
                 concat!(
-                    "use main\n\n",
+                    "use core\n\n",
+                    "pub schema WirePacket = core::Packet\n",
+                    "pub schema OtherPacket = core::Packet\n\n",
+                    "schema Frame\n",
+                    "  format binary\n",
+                    "  count: UInt8\n",
+                    "  direct: WirePacket\n",
+                    "  repeated: Repeat(count, WirePacket)\n",
+                    "  canonical: [WirePacket; count]\n",
+                    "end\n\n",
+                    "fn local(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  let decoded = decode WirePacket from view at byte_offset(0)?\n",
+                    "  let encoded = encode WirePacket from packet\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use aliases\n\n",
                     "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
-                    "  let decoded = decode main::Packet from view at byte_offset(0)?\n",
-                    "  let encoded = encode main::Packet from packet\n",
+                    "  let decoded = decode aliases::WirePacket from view at byte_offset(0)?\n",
+                    "  let encoded = encode aliases::WirePacket from packet\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "other_alias.veln",
+                concat!(
+                    "use core\n\n",
+                    "pub schema WirePacket = core::Packet\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode WirePacket from view at byte_offset(0)?\n",
                     "end\n",
                 ),
             ),
         ];
 
-        assert!(query(sources.clone(), "main.veln", 6, 12).is_none());
+        let alias = query(sources.clone(), "aliases.veln", 3, 12).unwrap();
+        assert_eq!(alias.selected_symbol.kind, SymbolKind::Schema);
+        assert_eq!(
+            alias.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("aliases.veln", 9, 11),
+                ("aliases.veln", 10, 27),
+                ("aliases.veln", 11, 15),
+                ("aliases.veln", 15, 24),
+                ("aliases.veln", 16, 24),
+                ("main.veln", 4, 33),
+                ("main.veln", 5, 33),
+            ]
+        );
 
-        assert!(query(sources.clone(), "main.veln", 10, 11).is_none());
-        assert!(query(sources.clone(), "other.veln", 4, 25).is_none());
-        assert!(query(sources, "other.veln", 5, 25).is_none());
+        let selected_use = query(sources.clone(), "main.veln", 4, 33).unwrap();
+        assert_eq!(selected_use.definition, alias.definition);
+        assert_eq!(selected_use.references, alias.references);
+
+        let other_alias = query(sources.clone(), "aliases.veln", 4, 12).unwrap();
+        assert!(other_alias.references.is_empty());
+
+        let same_spelling = query(sources.clone(), "other_alias.veln", 3, 12).unwrap();
+        assert_eq!(
+            locations(&same_spelling.references),
+            [("other_alias.veln", 6, 10)]
+        );
+
+        let target = query(sources, "core.veln", 1, 12).unwrap();
+        assert!(target.references.is_empty());
+    }
+
+    #[test]
+    fn workspace_schema_alias_references_reject_alias_chains() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "pub schema Packet\n",
+                "  format binary\n",
+                "  value: UInt8\n",
+                "end\n\n",
+                "pub schema First = Packet\n",
+                "pub schema Chained = First\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode Chained from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        )];
+
+        assert!(query(sources.clone(), "main.veln", 7, 12).is_none());
+        assert!(query(sources, "main.veln", 10, 10).is_none());
+    }
+
+    #[test]
+    fn workspace_schema_alias_references_require_a_direct_public_schema_target() {
+        let cases = [
+            (
+                "private",
+                "schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
+                5,
+            ),
+            ("missing", "pub schema Alias = Missing\n", 1),
+            (
+                "wrong kind",
+                "pub type Packet\nend\n\npub schema Alias = Packet\n",
+                4,
+            ),
+            (
+                "alias chain",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema First = Packet\n",
+                    "pub schema Alias = First\n",
+                ),
+                6,
+            ),
+            (
+                "cycle",
+                "pub schema First = Second\npub schema Second = First\n",
+                1,
+            ),
+        ];
+
+        for (name, text, line) in cases {
+            assert!(
+                query(vec![source("main.veln", text)], "main.veln", line, 12).is_none(),
+                "{name} alias must remain unsupported"
+            );
+        }
     }
 }

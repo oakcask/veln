@@ -154,8 +154,9 @@ impl SymbolIndex {
     }
 
     fn neutral_declaration_symbol(&self, name: &str, selection: &SourceSpan) -> Option<Symbol> {
-        self.schema_declared_at(name, selection)
-            .map(Symbol::Schema)
+        self.schema_alias_declared_at(name, selection)
+            .map(Symbol::SchemaAlias)
+            .or_else(|| self.schema_declared_at(name, selection).map(Symbol::Schema))
             .or_else(|| self.effect_declared_at(name, selection).map(Symbol::Effect))
             .or_else(|| self.handler_declared_at(name, selection).map(Symbol::Handler))
             .or_else(|| {
@@ -173,13 +174,15 @@ impl SymbolIndex {
     ) -> Option<Symbol> {
         if is_schema_operation_path_leaf_token(tokens, token_index) {
             return self
-                .schema_for_reference(file, tokens, token_index, name)
-                .map(Symbol::Schema);
+                .schema_alias_for_reference(file, tokens, token_index, name)
+                .map(Symbol::SchemaAlias)
+                .or_else(|| {
+                    self.schema_for_reference(file, tokens, token_index, name)
+                        .map(Symbol::Schema)
+                });
         }
         if is_schema_composition_path_leaf_token(tokens, token_index) {
-            return self
-                .schema_composition_symbol_at(file, &tokens[token_index])
-                .map(Symbol::Schema);
+            return self.schema_composition_symbol_at(file, &tokens[token_index]);
         }
         if is_effect_reference_token(tokens, token_index)
             || is_perform_effect_qualifier_token(tokens, token_index)

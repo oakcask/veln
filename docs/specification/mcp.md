@@ -437,11 +437,23 @@ same-spelled implicit leaf alias. Otherwise, when all implicit-leaf candidates
 are workspace imports, a composition alias resolves to the selected workspace
 schema only when exactly one written workspace import provides that alias.
 This composition-alias uniqueness rule does not specify package-only or mixed
-workspace/package alias collisions. They exclude the
-declaration, module qualifiers, package schemas, public schema aliases, schema
-alias traversal, recovery symbols, invalid-casing records, and
+workspace/package alias collisions. A selected schema's set excludes the
+declaration, module qualifiers, package schemas, schema-alias leaves, alias
+traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
 strings, comments, and schema uses that resolve to another declaration.
+
+Eligible workspace public schema aliases have a separate reference identity
+from their target schema and from every other alias. An alias is eligible when
+its direct target resolves to a public schema in the selected workspace; alias
+chains and package targets are not eligible. Selecting the alias declaration
+or a resolved alias leaf returns its `decode`, `encode`, direct-composition,
+and supported repeated-payload leaves without the declaration or alias-target
+expression. A bare alias resolves only in its declaring module. A valid
+qualified workspace import can expose the alias in another owned source.
+Ineligible aliases, package aliases, module qualifiers, and recovery or
+invalid-casing selections remain successful empty results. Definition and
+rename behavior do not change.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -618,17 +630,21 @@ preserves project-wide scope, excludes the schema declaration, and excludes a
 same-spelled local schema use that shadows an imported target. It also checks
 that compiler-rejected bare `decode` and `encode` paths in a module that only
 imports the selected schema's module do not appear as references. The same
-case keeps public schema-alias and decode and encode module-qualifier
-selections successful and empty.
+case keeps decode and encode module-qualifier selections successful and empty
+and checks the eligible alias identity added to its fixture.
 The `references-workspace-schema-composition` MCP specification case checks
 direct fields, both supported repeated-payload spellings, full import paths,
 implicit leaf import aliases, exact reference ranges, canonical ordering, and
 project-wide scope. It excludes ordinary-type collisions, unresolved paths,
 comments, strings, and same-spelled descendant-project composition targets.
-It also keeps bare imported paths, schema-alias traversal, alias declarations,
-module-qualifier selections, collision selections, and unresolved selections
-successful and empty, while a descendant-project selection retains
-single-file scope.
+It also keeps bare imported paths, schema-alias traversal, module-qualifier
+selections, collision selections, and unresolved selections successful and
+empty, while its eligible alias declaration and leaf select the same reference
+set and a descendant-project selection retains single-file scope.
+The `references-workspace-schema-alias` MCP specification case is the focused
+executable contract for alias declaration and use selection, alias/target
+identity separation, direct and repeated composition, operation references,
+canonical ranges, Unicode-scalar coordinates, and project-wide saved scope.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

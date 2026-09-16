@@ -49,15 +49,6 @@ The remaining first-capability work includes:
   operation and composition boundaries;
 - plugin packaging for Codex and Claude Code.
 
-### Ready Extracted Slice
-
-The independently actionable workspace public schema-alias reference slice is
-specified by
-[MCP Saved Workspace Schema-Alias References](mcp-saved-workspace-schema-alias-references.md).
-That page owns its bounded acceptance contract. Package schema aliases,
-alias-chain traversal, and broader navigation remain in this inventory and do
-not block the extracted slice.
-
 ### Completed Extracted Slices
 
 The implemented identifier-casing and slice-closure prerequisites are recorded
@@ -86,6 +77,8 @@ slice is implemented and recorded by
 The independently actionable workspace schema composition-target reference
 slice is implemented and recorded by
 [MCP Saved Workspace Schema Composition References](../reference/implemented-proposals/mcp-saved-workspace-schema-composition-references.md).
+The workspace schema-alias reference slice is recorded by
+[MCP Saved Workspace Schema-Alias References](../reference/implemented-proposals/mcp-saved-workspace-schema-alias-references.md).
 
 ### Completed Extracted Catalog Slice
 
@@ -1164,8 +1157,7 @@ The standard-library public type-alias reference slice is recorded by
 [MCP Saved Standard-Library Type-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-type-alias-references.md).
 Later umbrella slices are:
 
-1. Extend workspace schema navigation with public schema-alias references, then
-   extend package navigation with schema, public schema aliases, and other
+1. Extend package navigation with schema, public schema aliases, and other
    remaining dependency and standard-library symbol references, paginated
    references, recovery and casing-neutral symbol references, and definition
    beyond the package-backed symbol inventory.
