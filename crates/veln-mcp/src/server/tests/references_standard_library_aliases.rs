@@ -37,9 +37,23 @@ fn install_alias_standard_library(server: &mut Server, source: &str) {
 }
 
 fn install_type_alias_standard_library(server: &mut Server, sources: &[(&str, &str)]) {
+    install_type_alias_standard_library_with_exports(
+        server,
+        sources,
+        sources.iter().map(|(path, _)| *path).collect(),
+    );
+}
+
+fn install_type_alias_standard_library_with_exports(
+    server: &mut Server,
+    sources: &[(&str, &str)],
+    exports: Vec<&str>,
+) {
     let exports = sources
         .iter()
-        .map(|(path, _)| format!("\"{path}\""))
+        .map(|(path, _)| *path)
+        .filter(|path| exports.contains(path))
+        .map(|path| format!("\"{path}\""))
         .collect::<Vec<_>>()
         .join(", ");
     let manifest = format!("[package]\nname = \"std\"\n\n[lib]\nexports = [{exports}]\n");
@@ -343,6 +357,129 @@ fn references_return_standard_library_type_alias_locations() {
         reference["uri"].as_str().unwrap().starts_with("file://")
             && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
     }));
+}
+
+#[test]
+fn references_keep_standard_library_type_aliases_inside_selected_project() {
+    let workspace = TempWorkspace::new("references-standard-library-type-alias-project-isolation");
+    workspace.write("app/veln.toml", "");
+    workspace.write(
+        "app/main.veln",
+        concat!(
+            "fn app(input: Count) -> Count\n",
+            "  Count::Count(1)\n",
+            "end\n",
+        ),
+    );
+    workspace.write("other/veln.toml", "");
+    workspace.write(
+        "other/main.veln",
+        concat!(
+            "fn other(input: Count) -> Count\n",
+            "  Count::Count(2)\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    install_type_alias_standard_library(
+        &mut server,
+        &[(
+            "prelude.veln",
+            "pub type Target\n  pub Count(Int)\nend\n\npub type Count = Target\n",
+        )],
+    );
+
+    let result = server.references_tool(&json!({"source":"app/main.veln","line":1,"column":15}));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": "app",
+            "project_wide": true
+        }),
+        "{result:#}"
+    );
+    assert_reference_ranges(
+        &result,
+        &[
+            ("app/main.veln", 1, 15, 1, 20),
+            ("app/main.veln", 1, 25, 1, 30),
+            ("app/main.veln", 2, 3, 2, 8),
+        ],
+        "standard library type alias project isolation",
+    );
+}
+
+#[test]
+fn references_keep_unsupported_standard_library_type_alias_selections_empty() {
+    struct Case {
+        name: &'static str,
+        source: &'static str,
+        standard_sources: Vec<(&'static str, &'static str)>,
+        exports: Vec<&'static str>,
+        column: usize,
+    }
+
+    for case in [
+        Case {
+            name: "private alias",
+            source: "use api from \"std\"\n\nfn read(input: api::PrivateAlias) -> Int\n  0\nend\n",
+            standard_sources: vec![(
+                "api.veln",
+                "pub type Target\nend\n\ntype PrivateAlias = Target\n",
+            )],
+            exports: vec!["api.veln"],
+            column: 21,
+        },
+        Case {
+            name: "non-exported module alias",
+            source: "use hidden from \"std\"\n\nfn read(input: hidden::HiddenAlias) -> Int\n  0\nend\n",
+            standard_sources: vec![
+                ("api.veln", "pub type Target\nend\n"),
+                (
+                    "hidden.veln",
+                    "pub type Target\nend\n\npub type HiddenAlias = Target\n",
+                ),
+            ],
+            exports: vec!["api.veln"],
+            column: 24,
+        },
+        Case {
+            name: "invalid-casing alias record",
+            source: "use api from \"std\"\n\nfn read(input: api::alias) -> Int\n  0\nend\n",
+            standard_sources: vec![(
+                "api.veln",
+                "pub type Target\nend\n\npub type alias = Target\n",
+            )],
+            exports: vec!["api.veln"],
+            column: 21,
+        },
+    ] {
+        let workspace = TempWorkspace::new(&format!(
+            "references-standard-library-type-alias-unsupported-{}",
+            case.name.replace(' ', "-")
+        ));
+        workspace.write("veln.toml", "");
+        workspace.write("main.veln", case.source);
+        let mut server = initialized_server(&workspace);
+        install_type_alias_standard_library_with_exports(
+            &mut server,
+            &case.standard_sources,
+            case.exports,
+        );
+        let result =
+            server.references_tool(&json!({"source":"main.veln","line":3,"column":case.column}));
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{}: {result:#}",
+            case.name
+        );
+    }
 }
 
 #[test]
