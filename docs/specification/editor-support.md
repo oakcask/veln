@@ -702,9 +702,9 @@ Implemented:
 - Stdio references responses for supported direct-dependency and
   standard-library public function aliases. Results include only
   selected-project workspace `file:` locations.
-- Shared navigation and MCP evidence for supported direct-dependency public
-  type aliases. Results include only selected-project workspace `file:`
-  locations and stay separate from the target type identity.
+- Shared navigation and MCP evidence for supported direct-dependency and
+  standard-library public type aliases. Results include only selected-project
+  workspace `file:` locations and stay separate from the target type identity.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.

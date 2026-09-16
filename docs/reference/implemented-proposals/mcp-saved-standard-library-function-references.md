@@ -26,8 +26,9 @@ Completion evidence:
   invalid-casing rejection.
 - `veln-mcp` server tests check the saved-project adapter boundary for
   standard-library public function references, collision filtering,
-  `snapshot_changed` retry exhaustion without success-only fields, and package
-  public type-alias selections empty.
+  `snapshot_changed` retry exhaustion without success-only fields, and the
+  then-out-of-scope package public type-alias selection boundary for this
+  function-reference slice.
 
 Out-of-scope pagination, declaration inclusion, package-source reference
 locations, non-function package symbols, recovery symbols, and
@@ -35,3 +36,5 @@ transitive-dependency references remain outside the implemented `references`
 result. Standard-library public function-alias references are recorded
 separately by
 [MCP Saved Standard-Library Function-Alias References](mcp-saved-standard-library-function-alias-references.md).
+Standard-library public type-alias references are recorded separately by
+[MCP Saved Standard-Library Type-Alias References](mcp-saved-standard-library-type-alias-references.md).
