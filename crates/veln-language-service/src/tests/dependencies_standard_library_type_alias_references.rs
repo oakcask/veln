@@ -79,35 +79,37 @@
     fn standard_library_type_alias_import_alias_and_written_module_path_share_identity() {
         let standard_library = standard_library_snapshot(
             &[
-                ("facade.veln", "use core\n\npub type Alias = core::Target\n"),
                 (
-                    "core.veln",
+                    "lib/facade.veln",
+                    "use lib::core\n\npub type Alias = core::Target\n",
+                ),
+                (
+                    "lib/core.veln",
                     "pub type Target\n  pub Ready(Int)\nend\n",
                 ),
             ],
-            ["facade.veln", "core.veln"],
+            ["lib/facade.veln", "lib/core.veln"],
         );
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             concat!(
-                "use facade from \"std\"\n\n",
-                "fn first(input: facade::Alias) -> facade::Alias\n",
+                "use lib::facade from \"std\"\n\n",
+                "fn first(input: lib::facade::Alias) -> facade::Alias\n",
                 "  facade::Alias::Ready(1)\n",
                 "end\n",
             ),
         )])
         .with_standard_library(standard_library);
 
-        {
-            let (name, column) = ("import alias parameter", 25);
+        for (name, column) in [("written module path parameter", 30), ("leaf alias return", 48)] {
             let result = query_snapshot(&snapshot, "main.veln", 3, column)
                 .unwrap_or_else(|| panic!("{name} did not select the standard alias"));
             assert_standard_library_type_alias(&result);
             assert_eq!(
                 locations(&result.references),
                 [
-                    ("main.veln", 3, 25),
-                    ("main.veln", 3, 43),
+                    ("main.veln", 3, 30),
+                    ("main.veln", 3, 48),
                     ("main.veln", 4, 11),
                 ],
                 "{name}"

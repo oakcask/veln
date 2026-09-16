@@ -66,15 +66,11 @@ fn install_type_alias_standard_library_with_exports(
 }
 
 fn assert_snapshot_changed_without_references_or_scope(result: &Value) {
-    assert_eq!(result["isError"], true);
+    assert_eq!(result["isError"], true, "{result:#}");
     assert_eq!(result["structuredContent"]["code"], "snapshot_changed");
-    assert!(
-        result["structuredContent"]
-            .as_object()
-            .unwrap()
-            .get("references")
-            .is_none()
-    );
+    let structured = result["structuredContent"].as_object().unwrap();
+    assert!(!structured.contains_key("references"), "{result:#}");
+    assert!(!structured.contains_key("scope"), "{result:#}");
 }
 
 fn all_resource_state(server: &mut Server) -> Value {
