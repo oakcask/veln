@@ -21,7 +21,8 @@ function-reference, direct-dependency function-alias-reference,
 standard-library function-alias-reference, direct-dependency
 type-alias-reference, standard-library type-alias-reference, and package
 type-reference, workspace schema-operation-reference, and workspace
-schema-composition-reference slices are implemented and specified in
+schema-composition-reference, and workspace schema-alias-reference slices are
+implemented and specified in
 [MCP Workspace Projects And Navigation](../specification/mcp.md). `veln mcp`
 currently exposes `workspace_projects`, `refresh_workspace`, `check_project`,
 `definition` for the language service's current saved-source selection set,
@@ -29,13 +30,13 @@ including bounded direct-dependency and standard-library package locations,
 workspace symbol, workspace schema operation, direct-dependency function,
 direct-dependency function alias, standard-library function and function
 alias, direct-dependency and standard-library type aliases, and package type
-and constructor `references`, `search_docs`, and `read_doc`.
+and constructor, and workspace schema-alias `references`, `search_docs`, and
+`read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, function-alias, direct-dependency type-alias, type, and
 constructor slices, paginated references, recovery and casing-neutral
-reference navigation, workspace schema references beyond the implemented and
-recorded operation and composition boundaries, conformance completion, and
-client plugin work in this proposal remain planned.
+reference navigation, package schema and schema-alias references, conformance
+completion, and client plugin work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
@@ -45,8 +46,8 @@ The remaining first-capability work includes:
   type aliases, standard-library public type aliases, types, and
   constructors, including direct-dependency and standard-library public
   schema-alias references, plus paginated reference lookup;
-- public schema-alias reference lookup beyond the implemented workspace schema
-  operation and composition boundaries;
+- package schema and schema-alias reference lookup beyond the implemented
+  workspace boundary;
 - plugin packaging for Codex and Claude Code.
 
 ### Completed Extracted Slices

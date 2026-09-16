@@ -634,13 +634,19 @@ mod navigation_schema_references_tests {
             ]
         );
 
-        let selected_use = query(sources.clone(), "main.veln", 4, 33).unwrap();
-        assert_eq!(selected_use.definition, alias.definition);
-        assert_eq!(selected_use.references, alias.references);
-
-        let selected_composition = query(sources.clone(), "aliases.veln", 11, 15).unwrap();
-        assert_eq!(selected_composition.definition, alias.definition);
-        assert_eq!(selected_composition.references, alias.references);
+        for (file, line, column) in [
+            ("aliases.veln", 9, 11),
+            ("aliases.veln", 10, 27),
+            ("aliases.veln", 11, 15),
+            ("aliases.veln", 15, 24),
+            ("aliases.veln", 16, 24),
+            ("main.veln", 4, 33),
+            ("main.veln", 5, 33),
+        ] {
+            let selected = query(sources.clone(), file, line, column).unwrap();
+            assert_eq!(selected.definition, alias.definition);
+            assert_eq!(selected.references, alias.references);
+        }
 
         let other_alias = query(sources.clone(), "aliases.veln", 4, 12).unwrap();
         assert!(other_alias.references.is_empty());
@@ -756,6 +762,9 @@ mod navigation_schema_references_tests {
                     "pub schema WirePacket = Packet\n\n",
                     "schema Frame\n",
                     "  field: WirePacket\n",
+                    "end\n\n",
+                    "fn field_noise(record: {WirePacket: Int}) -> Int\n",
+                    "  record.WirePacket\n",
                     "end\n",
                 ),
             ),

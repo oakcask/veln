@@ -6,7 +6,9 @@ use crate::analysis::boundary::schema_composition::{
     schema_field_has_ordinary_type_target,
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
-use crate::name_recovery::schema_composition_imported_use_for_path;
+use crate::name_recovery::{
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+};
 use crate::schema::primitives::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_payload_name_path,
 };
@@ -75,6 +77,9 @@ fn direct_public_schema_alias_target<'a>(
     module: &'a SurfaceModule,
     alias: &PublicAlias,
 ) -> Option<&'a SchemaDecl> {
+    if public_alias_has_invalid_target_leaf(module, alias, None) {
+        return None;
+    }
     let (target_module, target_name) = match alias.target.as_slice() {
         [name] => (alias.module_name.as_deref(), name.as_str()),
         [qualifiers @ .., name] => {
