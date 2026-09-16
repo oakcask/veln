@@ -44,8 +44,8 @@ The remaining first-capability work includes:
   type aliases, types, and constructors, including standard-library public
   type-alias and direct-dependency and standard-library public schema-alias
   references, plus paginated reference lookup;
-- workspace schema reference lookup beyond the implemented `decode` and
-  `encode` slice recorded as
+- workspace schema composition-target and public schema-alias reference lookup
+  beyond the implemented `decode` and `encode` slice recorded as
   [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md);
 - plugin packaging for Codex and Claude Code.
 
@@ -65,6 +65,13 @@ The widened workspace symbol-reference adapter is recorded by
 The independently actionable direct-dependency public type-alias reference
 slice is implemented and recorded by
 [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md).
+
+### Ready Extracted Slice
+
+The independently actionable standard-library public type-alias reference
+slice is specified by
+[MCP Saved Standard-Library Type-Alias References](mcp-saved-standard-library-type-alias-references.md).
+Select that focused proposal instead of this umbrella.
 
 ### Completed Extracted Catalog Slice
 
@@ -990,8 +997,8 @@ remain planned and do not imply that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, visible direct-dependency and standard-library public function aliases, visible direct-dependency public type aliases, visible direct-dependency and standard-library types, visible direct-dependency and standard-library constructors, and the bounded workspace schema `decode` and `encode` slice recorded by [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md). Direct-dependency public function-alias references are recorded by [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md). Standard-library public function-alias references are recorded by [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md). Direct-dependency public type-alias references are recorded by [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md). Schema-reference behavior beyond the implemented slice, remaining public-alias classes, transitive-dependency, recovery, casing-neutral, unsupported package, and pagination rows remain planned. |
-| Search references to a direct-dependency or standard-library function, type, constructor, public function alias, or direct-dependency public type alias from one selected project. | Consumer uses are returned; other projects and package-internal uses are excluded, and the scope is explicit. | Implemented for visible direct-dependency and standard-library functions, public function aliases, visible direct-dependency public type aliases, types, and constructors without declaration or package-source inclusion. Direct-dependency public function-alias references are recorded by [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md). Standard-library public function-alias references are recorded by [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md). Direct-dependency public type-alias references are recorded by [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md). Schema, remaining public-alias classes, transitive-dependency, recovery, casing-neutral, and paginated package reference rows remain planned. |
+| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Implemented for non-recovery workspace functions, types, constructors, value bindings, handler context parameters, handler operation clause parameters, visible direct-dependency and standard-library functions, visible direct-dependency and standard-library public function aliases, visible direct-dependency public type aliases, visible direct-dependency and standard-library types, visible direct-dependency and standard-library constructors, and the bounded workspace schema `decode` and `encode` slice recorded by [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md). Direct-dependency public function-alias references are recorded by [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md). Standard-library public function-alias references are recorded by [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md). Direct-dependency public type-alias references are recorded by [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md). Standard-library public type-alias references are extracted into [MCP Saved Standard-Library Type-Alias References](mcp-saved-standard-library-type-alias-references.md). Schema-reference behavior beyond the implemented slice, remaining public-alias classes, transitive-dependency, recovery, casing-neutral, unsupported package, and pagination rows remain planned. |
+| Search references to a direct-dependency or standard-library function, type, constructor, public function alias, or direct-dependency public type alias from one selected project. | Consumer uses are returned; other projects and package-internal uses are excluded, and the scope is explicit. | Implemented for visible direct-dependency and standard-library functions, public function aliases, visible direct-dependency public type aliases, types, and constructors without declaration or package-source inclusion. Direct-dependency public function-alias references are recorded by [MCP Saved Direct-Dependency Function-Alias References](../reference/implemented-proposals/mcp-saved-dependency-function-alias-references.md). Standard-library public function-alias references are recorded by [MCP Saved Standard-Library Function-Alias References](../reference/implemented-proposals/mcp-saved-standard-library-function-alias-references.md). Direct-dependency public type-alias references are recorded by [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md). Standard-library public type-alias references are extracted into [MCP Saved Standard-Library Type-Alias References](mcp-saved-standard-library-type-alias-references.md). Schema, remaining public-alias classes, transitive-dependency, recovery, casing-neutral, and paginated package reference rows remain planned. |
 | Continue a paged reference result. | The request contains only its single-use cursor and concatenated pages have no gaps or duplicates. | Q09 cursor state-machine cases. |
 | Use a tampered, cross-server, restarted, evicted, or pre-refresh cursor. | The server returns the specified `invalid_cursor` or `stale_snapshot` domain error without reinterpreting inputs. | Q09 cursor rejection cases. |
 | Resolve an exported dependency declaration. | `definition` returns a `veln-pkg:` location and documentation link. | Path-dependency MCP case. |
@@ -1104,8 +1111,8 @@ Workspace schema-reference search for `decode` and `encode` expressions is
 recorded by
 [MCP Saved Workspace Schema References](../reference/implemented-proposals/mcp-saved-workspace-schema-references.md).
 Package reference search beyond the implemented function, function-alias, type,
-direct-dependency type-alias, and constructor slices remains planned for
-standard-library public type aliases, public schema aliases,
+direct-dependency type-alias, and constructor slices remains planned for the
+extracted standard-library public type-alias slice, public schema aliases,
 transitive-dependency references, paginated references, recovery references,
 and casing-neutral references.
 The completed preceding slice is recorded by
@@ -1132,12 +1139,13 @@ The direct-dependency public type-alias reference slice is recorded by
 [MCP Saved Direct-Dependency Type-Alias References](../reference/implemented-proposals/mcp-saved-dependency-type-alias-references.md).
 Later umbrella slices are:
 
-1. Extend schema navigation beyond the extracted workspace `decode` and
-   `encode` slice, then extend package navigation with schema,
-   standard-library public type aliases, public schema aliases, and other
-   remaining dependency and standard-library symbol references, paginated
-   references, recovery and casing-neutral symbol references, and definition
-   beyond the package-backed symbol inventory.
+1. Implement the extracted standard-library public type-alias reference
+   proposal.
+1. Extend workspace schema navigation with composition-target and public
+   schema-alias references, then extend package navigation with schema, public
+   schema aliases, and other remaining dependency and standard-library symbol
+   references, paginated references, recovery and casing-neutral symbol
+   references, and definition beyond the package-backed symbol inventory.
 1. Add cross-adapter conformance cases, bounded search, pagination, and stale
    snapshot handling.
 1. Package and validate Codex and Claude Code plugins and document their

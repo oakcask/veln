@@ -12,10 +12,11 @@ creating transport-specific identifier-casing exceptions.
 
 ## Blocker
 
-The current MCP surface exposes workspace discovery, refresh, project
-diagnostics, and definition. It does not expose rename, prepare-rename, edit
-results, or rename failures. The agent-language-services proposal also keeps
-MCP mutation and rename outside its current bounded capability.
+The current MCP surface exposes read-only workspace discovery, refresh,
+project diagnostics, definition, references, and documentation tools. It does
+not expose rename, prepare-rename, edit results, or rename failures. The
+agent-language-services proposal also keeps MCP mutation and rename outside
+its current bounded capability.
 
 This proposal is not selectable until an owning MCP rename proposal defines:
 
