@@ -14,7 +14,9 @@ historical function slice and is recorded by
 Later workspace schema support added
 [operation references](mcp-saved-workspace-schema-references.md) and
 [composition references](mcp-saved-workspace-schema-composition-references.md)
-without changing this historical function boundary.
+without changing this historical function boundary. Eligible workspace
+schema-alias references were added later and are recorded by
+[MCP Saved Workspace Schema-Alias References](mcp-saved-workspace-schema-alias-references.md).
 
 Completion evidence:
 

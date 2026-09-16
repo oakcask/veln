@@ -1,0 +1,13 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":3,"character":12},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":3,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":3,"character":34},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":11,"character":15},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":5,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":9,"character":10},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":6,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":10,"character":26},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":7,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":15,"character":32},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":8,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":16,"character":23},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":9,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":32},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":10,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

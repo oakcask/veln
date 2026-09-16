@@ -11,7 +11,7 @@ use veln_language_service::{
     RenameAffectedScope, RenameFailure, RenameFailureKind,
 };
 use veln_project::discover_source_paths;
-use veln_source::{SourceFile, SourceSpan};
+use veln_source::{SourceFile, SourcePath, SourceSpan};
 use veln_syntax::{format_tree, parse};
 
 use crate::{legend, semantic_tokens_full};
@@ -82,6 +82,67 @@ pub(crate) fn position_json(line: usize, column: usize) -> String {
         line.saturating_sub(1),
         column.saturating_sub(1),
     )
+}
+
+pub(crate) fn navigation_range_json(
+    snapshot: &EffectiveProjectSnapshot,
+    source: &NavigationSource,
+    span: &SourceSpan,
+) -> String {
+    let text = match source {
+        NavigationSource::Workspace => snapshot.workspace_source(&span.file).map(SourceFile::text),
+        NavigationSource::Package { uri } => snapshot
+            .resolve_virtual_source(uri)
+            .and_then(|bytes| std::str::from_utf8(bytes).ok()),
+    };
+    let Some(text) = text else {
+        return range_json(Some(span));
+    };
+    format!(
+        "{{\"start\":{},\"end\":{}}}",
+        utf16_position_json(text, span.start.line, span.start.column),
+        utf16_position_json(text, span.end.line, span.end.column),
+    )
+}
+
+fn utf16_position_json(text: &str, line: usize, column: usize) -> String {
+    let character = text
+        .lines()
+        .nth(line.saturating_sub(1))
+        .map(|text| {
+            text.chars()
+                .take(column.saturating_sub(1))
+                .map(char::len_utf16)
+                .sum()
+        })
+        .unwrap_or_else(|| column.saturating_sub(1));
+    format!(
+        "{{\"line\":{},\"character\":{character}}}",
+        line.saturating_sub(1),
+    )
+}
+
+pub(crate) fn unicode_scalar_column(
+    snapshot: &EffectiveProjectSnapshot,
+    source: &SourcePath,
+    line: usize,
+    utf16_character: usize,
+) -> Option<usize> {
+    let text = snapshot.workspace_source(source)?.text();
+    let line = text.lines().nth(line)?;
+    let mut utf16_offset = 0usize;
+    let mut scalar_column = 1usize;
+    for ch in line.chars() {
+        if utf16_offset == utf16_character {
+            return Some(scalar_column);
+        }
+        utf16_offset += ch.len_utf16();
+        if utf16_offset > utf16_character {
+            return None;
+        }
+        scalar_column += 1;
+    }
+    (utf16_offset == utf16_character).then_some(scalar_column)
 }
 
 pub(crate) fn full_document_range_json(text: &str) -> String {
@@ -338,7 +399,11 @@ pub(crate) struct NavigationRequest {
     pub(crate) result: NavigationResult,
 }
 
-pub(crate) fn location_json(root: &Path, location: &NavigationLocation) -> String {
+pub(crate) fn location_json(
+    snapshot: &EffectiveProjectSnapshot,
+    root: &Path,
+    location: &NavigationLocation,
+) -> String {
     let uri = match &location.source {
         NavigationSource::Workspace => path_to_uri(&root.join(location.span.file.as_str())),
         NavigationSource::Package { uri } => uri.clone(),
@@ -346,7 +411,7 @@ pub(crate) fn location_json(root: &Path, location: &NavigationLocation) -> Strin
     format!(
         "{{\"uri\":\"{}\",\"range\":{}}}",
         escape_json(&uri),
-        range_json(Some(&location.span))
+        navigation_range_json(snapshot, &location.source, &location.span)
     )
 }
 
@@ -355,6 +420,7 @@ pub(crate) fn is_workspace_location(location: &NavigationLocation) -> bool {
 }
 
 pub(crate) fn references_json(
+    snapshot: &EffectiveProjectSnapshot,
     root: &Path,
     result: &NavigationResult,
     include_declaration: bool,
@@ -364,10 +430,11 @@ pub(crate) fn references_json(
     }
     let mut locations = Vec::new();
     if include_declaration {
-        locations.push(location_json(root, &result.definition));
+        locations.push(location_json(snapshot, root, &result.definition));
     }
     locations.extend(result.references.iter().map(|span| {
         location_json(
+            snapshot,
             root,
             &NavigationLocation {
                 source: NavigationSource::Workspace,
@@ -379,6 +446,7 @@ pub(crate) fn references_json(
 }
 
 pub(crate) fn workspace_edit_json(
+    snapshot: &EffectiveProjectSnapshot,
     root: &Path,
     result: &NavigationResult,
     new_name: &str,
@@ -401,7 +469,7 @@ pub(crate) fn workspace_edit_json(
                 .map(|span| {
                     format!(
                         "{{\"range\":{},\"newText\":\"{}\"}}",
-                        range_json(Some(span)),
+                        navigation_range_json(snapshot, &NavigationSource::Workspace, span),
                         escape_json(new_name)
                     )
                 })
@@ -479,8 +547,13 @@ pub(crate) fn error_response(id: &str, code: i32, message: &str) -> String {
     )
 }
 
-pub(crate) fn rename_failure_response(id: &str, root: &Path, failure: &RenameFailure) -> String {
-    let details = rename_failure_details_json(root, failure);
+pub(crate) fn rename_failure_response(
+    id: &str,
+    snapshot: &EffectiveProjectSnapshot,
+    root: &Path,
+    failure: &RenameFailure,
+) -> String {
+    let details = rename_failure_details_json(snapshot, root, failure);
     format!(
         "{{\"jsonrpc\":\"2.0\",\"id\":{id},\"error\":{{\"code\":-32602,\"message\":\"{}\",\"data\":{{\"code\":\"{}\",\"details\":{details}}}}}}}",
         escape_json(failure.code),
@@ -488,7 +561,11 @@ pub(crate) fn rename_failure_response(id: &str, root: &Path, failure: &RenameFai
     )
 }
 
-fn rename_failure_details_json(root: &Path, failure: &RenameFailure) -> String {
+fn rename_failure_details_json(
+    snapshot: &EffectiveProjectSnapshot,
+    root: &Path,
+    failure: &RenameFailure,
+) -> String {
     match &failure.kind {
         RenameFailureKind::InvalidCase { required_initial } => format!(
             "{{\"symbol_class\":\"{}\",\"requested_name\":\"{}\",\"required_initial\":\"{}\"}}",
@@ -503,7 +580,7 @@ fn rename_failure_details_json(root: &Path, failure: &RenameFailure) -> String {
             "{{\"symbol_class\":\"{}\",\"requested_name\":\"{}\",\"conflicting_declaration\":{},\"affected_scope\":{}}}",
             failure.symbol_class.as_str(),
             escape_json(&failure.requested_name),
-            location_json(root, conflicting_declaration),
+            location_json(snapshot, root, conflicting_declaration),
             affected_scope_json(affected_scope),
         ),
     }

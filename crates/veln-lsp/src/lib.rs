@@ -14,8 +14,8 @@ use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::Diagnostic;
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::{
-    DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, SourcePosition,
-    definition_at, navigate, validate_rename_in_snapshot,
+    DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationSource,
+    SourcePosition, definition_at, navigate, validate_rename_in_snapshot,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -212,7 +212,7 @@ impl Server {
         id.map(|id| {
             let result = self
                 .definition_at_request(message)
-                .map(|(root, definition)| location_json(&root, &definition))
+                .map(|(root, snapshot, definition)| location_json(&snapshot, &root, &definition))
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
         })
@@ -254,6 +254,7 @@ impl Server {
                 .symbol_at_request(message)
                 .map(|request| {
                     references_json(
+                        &request.snapshot,
                         &request.root,
                         &request.result,
                         extract_bool_field(message, "includeDeclaration").unwrap_or(false),
@@ -281,7 +282,13 @@ impl Server {
                 .symbol_at_request(message)
                 .filter(|request| is_workspace_location(&request.result.definition))
                 .filter(|request| request.result.selected_symbol.kind.is_renamable())
-                .map(|request| range_json(Some(&request.result.selection)))
+                .map(|request| {
+                    navigation_range_json(
+                        &request.snapshot,
+                        &NavigationSource::Workspace,
+                        &request.result.selection,
+                    )
+                })
                 .unwrap_or_else(|| "null".to_string());
             response(&id, &result)
         })
@@ -307,9 +314,16 @@ impl Server {
             match validate_rename_in_snapshot(&request.snapshot, &request.result, &new_name) {
                 Ok(()) => response(
                     &id,
-                    &workspace_edit_json(&request.root, &request.result, &new_name),
+                    &workspace_edit_json(
+                        &request.snapshot,
+                        &request.root,
+                        &request.result,
+                        &new_name,
+                    ),
                 ),
-                Err(failure) => rename_failure_response(&id, &request.root, &failure),
+                Err(failure) => {
+                    rename_failure_response(&id, &request.snapshot, &request.root, &failure)
+                }
             }
         })
         .into_iter()
@@ -450,12 +464,14 @@ impl Server {
         let source_path = workspace_relative_source_path(&document_root.relative)?;
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
         let snapshot = self.overlaid_project_snapshots.get(root)?;
+        let source = SourcePath::new(source_path);
+        let column = unicode_scalar_column(snapshot, &source, position.line, position.character)?;
         let result = navigate(
             snapshot,
             SourcePosition {
-                source: SourcePath::new(source_path),
+                source,
                 line: position.line.checked_add(1)?,
-                column: position.character.checked_add(1)?,
+                column,
             },
         )?;
         Some(NavigationRequest {
@@ -465,7 +481,10 @@ impl Server {
         })
     }
 
-    fn definition_at_request(&self, message: &str) -> Option<(PathBuf, NavigationLocation)> {
+    fn definition_at_request(
+        &self,
+        message: &str,
+    ) -> Option<(PathBuf, Arc<EffectiveProjectSnapshot>, NavigationLocation)> {
         let uri = extract_string_field(message, "uri")?;
         let position = extract_position(message)?;
         let document_root =
@@ -474,15 +493,17 @@ impl Server {
         let source_path = workspace_relative_source_path(&document_root.relative)?;
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
         let snapshot = self.overlaid_project_snapshots.get(root)?;
+        let source = SourcePath::new(source_path);
+        let column = unicode_scalar_column(snapshot, &source, position.line, position.character)?;
         let definition = definition_at(
             snapshot,
             SourcePosition {
-                source: SourcePath::new(source_path),
+                source,
                 line: position.line.checked_add(1)?,
-                column: position.character.checked_add(1)?,
+                column,
             },
         )?;
-        Some((visible_root.to_path_buf(), definition))
+        Some((visible_root.to_path_buf(), Arc::clone(snapshot), definition))
     }
 }
 

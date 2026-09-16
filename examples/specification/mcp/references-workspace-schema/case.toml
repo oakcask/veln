@@ -74,7 +74,12 @@ equals = false
 [[mcp_assert]]
 id = 4
 path = "/result/structuredContent/references"
-length = 0
+length = 1
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":15,"column":11},"end":{"line":15,"column":22}}
 
 [[mcp_assert]]
 id = 5
@@ -84,7 +89,12 @@ equals = false
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/references"
-length = 0
+length = 1
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":15,"column":11},"end":{"line":15,"column":22}}
 
 [[mcp_assert]]
 id = 6

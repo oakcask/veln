@@ -374,6 +374,40 @@ fn public_schema_alias_with_invalid_target_leaf_does_not_enter_schema_namespace(
 }
 
 #[test]
+fn public_schema_alias_with_invalid_target_leaf_has_no_navigation_identity() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  byte: UInt8\n",
+            "end\n",
+            "pub schema Alias = Packet\n",
+            "schema Frame\n",
+            "  format binary\n",
+            "  nested: Alias\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let mut module = lower_surface_ast(&parsed.tree);
+    let target_span = module.aliases[0].target_spans[0].clone();
+    module.invalid_names.push(InvalidName {
+        name: "Packet".to_string(),
+        class: NameClass::Function,
+        occurrence: NameOccurrence::AliasTarget,
+        span: target_span,
+        enclosing_function_span: None,
+        segment_index: None,
+    });
+
+    assert!(resolved_schema_aliases(&module).is_empty());
+    assert!(resolved_schema_composition_references(&module).is_empty());
+}
+
+#[test]
 fn public_alias_names_share_member_namespaces() {
     let source = SourceFile::new(
         "api.veln",

@@ -1,4 +1,40 @@
 impl SymbolIndex {
+    fn visible_schema_alias_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        self.schema_aliases
+            .iter()
+            .find(|symbol| {
+                symbol.name == name
+                    && symbol.module == file.module
+                    && symbol.package.is_none()
+            })
+            .cloned()
+    }
+
+    fn visible_schema_alias_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        let QualifiedWorkspaceModule::Workspace(module) =
+            qualified_workspace_module(file, qualifier)
+        else {
+            return None;
+        };
+        let mut candidates = self.schema_aliases.iter().filter(|symbol| {
+            symbol.name == name
+                && symbol.package.is_none()
+                && symbol.module == module
+                && (symbol.module == file.module || file.uses.contains(&symbol.module))
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
     fn visible_schema_for_bare_reference(
         &self,
         file: &IndexedFile,
@@ -673,6 +709,48 @@ impl SymbolIndex {
         self.functions
             .iter()
             .any(|symbol| visible_imported_function_for_bare_call(file, symbol, name))
+    }
+}
+
+enum QualifiedWorkspaceModule {
+    Workspace(String),
+    External,
+    Ambiguous,
+    Unresolved,
+}
+
+fn qualified_workspace_module(file: &IndexedFile, qualifier: &str) -> QualifiedWorkspaceModule {
+    if file.uses.contains(qualifier) || file.module == qualifier {
+        return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
+    }
+    let exact_external_count = file
+        .external_uses
+        .iter()
+        .filter(|(module, _)| module == qualifier)
+        .count();
+    if exact_external_count == 1 {
+        return QualifiedWorkspaceModule::External;
+    }
+    if exact_external_count > 1 {
+        return QualifiedWorkspaceModule::Ambiguous;
+    }
+
+    let workspace_modules = file
+        .uses
+        .iter()
+        .filter(|module| module.rsplit("::").next() == Some(qualifier))
+        .cloned()
+        .collect::<Vec<_>>();
+    let external_module_count = file
+        .external_uses
+        .iter()
+        .filter(|(module, _)| module.rsplit("::").next() == Some(qualifier))
+        .count();
+    match (workspace_modules.as_slice(), external_module_count) {
+        ([module], 0) => QualifiedWorkspaceModule::Workspace(module.clone()),
+        ([], 1) => QualifiedWorkspaceModule::External,
+        ([], 0) => QualifiedWorkspaceModule::Unresolved,
+        _ => QualifiedWorkspaceModule::Ambiguous,
     }
 }
 

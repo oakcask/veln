@@ -51,15 +51,21 @@ impl SymbolIndex {
         append_surface_module(&mut module, direct_dependencies.module.clone());
         append_surface_module(&mut module, standard_library.module.clone());
         attach_classified_path_segments(&mut files, &workspace_module, &module);
+        let schema_aliases = eligible_workspace_schema_aliases(
+            declarations.schema_aliases,
+            veln_sema::resolved_schema_aliases(&workspace_module),
+        );
         let schema_composition_references = workspace_schema_composition_references(
             &files,
             &declarations.schemas,
+            &schema_aliases,
             veln_sema::resolved_schema_composition_references(&workspace_module),
         );
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {
             schemas: declarations.schemas,
+            schema_aliases,
             effects: declarations.effects,
             handlers: declarations.handlers,
             operations: declarations.operations,
@@ -80,7 +86,7 @@ impl SymbolIndex {
         &self,
         file: &IndexedFile,
         token: &Token,
-    ) -> Option<NeutralSymbol> {
+    ) -> Option<Symbol> {
         self.schema_composition_references
             .iter()
             .find(|reference| {
@@ -88,7 +94,10 @@ impl SymbolIndex {
                     && reference.span.start.offset == token.range.start
                     && reference.span.end.offset == token.range.end
             })
-            .map(|reference| reference.target.clone())
+            .map(|reference| match &reference.target {
+                SchemaReferenceTarget::Schema(symbol) => Symbol::Schema(symbol.clone()),
+                SchemaReferenceTarget::Alias(symbol) => Symbol::SchemaAlias(symbol.clone()),
+            })
     }
 
     fn symbol_at_position(
@@ -283,6 +292,21 @@ impl SymbolIndex {
             .cloned()
     }
 
+    fn schema_alias_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<NeutralSymbol> {
+        self.schema_aliases
+            .iter()
+            .find(|symbol| {
+                declaration_matches(
+                    name,
+                    selection,
+                    &symbol.name,
+                    symbol.package.as_deref(),
+                    &symbol.declaration.span,
+                )
+            })
+            .cloned()
+    }
+
     fn effect_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<NeutralSymbol> {
         self.effects
             .iter()
@@ -340,9 +364,38 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
-            return self.visible_schema_for_qualified_reference(file, &qualifier, name);
+            return match qualified_workspace_module(file, &qualifier) {
+                QualifiedWorkspaceModule::Workspace(module) => self
+                    .schemas
+                    .iter()
+                    .find(|symbol| {
+                        symbol.name == name
+                            && symbol.module == module
+                            && symbol.package.is_none()
+                            && visible_schema_from_workspace_module(file, symbol)
+                    })
+                    .cloned(),
+                QualifiedWorkspaceModule::Ambiguous => None,
+                QualifiedWorkspaceModule::External
+                | QualifiedWorkspaceModule::Unresolved => {
+                    self.visible_schema_for_qualified_reference(file, &qualifier, name)
+                }
+            };
         }
         self.visible_schema_for_bare_reference(file, name)
+    }
+
+    fn schema_alias_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<NeutralSymbol> {
+        if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
+            return self.visible_schema_alias_for_qualified_reference(file, &qualifier, name);
+        }
+        self.visible_schema_alias_for_bare_reference(file, name)
     }
 
     fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {

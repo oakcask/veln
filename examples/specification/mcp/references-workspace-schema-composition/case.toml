@@ -249,7 +249,12 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/references"
-length = 0
+length = 1
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":11,"column":18},"end":{"line":11,"column":29}}
 
 [[mcp_assert]]
 id = 7
@@ -264,7 +269,12 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 [[mcp_assert]]
 id = 7
 path = "/result/structuredContent/references"
-length = 0
+length = 1
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":11,"column":18},"end":{"line":11,"column":29}}
 
 [[mcp_assert]]
 id = 8

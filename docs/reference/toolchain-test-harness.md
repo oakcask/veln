@@ -297,8 +297,9 @@ The `publish-diagnostics`, `semantic-tokens`,
 `identifier-casing-recovery-navigation`,
 `identifier-casing-handler-binding-navigation`, and
 `identifier-casing-rename-boundary`, and
-`references-workspace-schema-composition` LSP cases use structured request
-fixtures with decoded LSP assertions. Those cases use
+`references-workspace-schema-composition` and
+`references-workspace-schema-alias` LSP cases use structured request fixtures
+with decoded LSP assertions. Those cases use
 `$workspace_file_uri` directives for document URIs and, when open-document
 content must replace saved source text, `$case_text` sidecars for exact UTF-8
 document text. Their decoded assertions cover initialization capability
@@ -322,6 +323,9 @@ stdout fragments only for incidental initialization and tool discovery text.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.
+The `references-workspace-schema-alias` MCP specification case uses that model
+for exact alias reference locations, alias and target identity separation,
+empty unsupported-selection results, and project scope.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept

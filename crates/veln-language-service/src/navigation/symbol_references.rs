@@ -1,4 +1,45 @@
 impl SymbolIndex {
+    fn schema_alias_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
+        let mut references = self
+            .files
+            .iter()
+            .filter(|file| workspace_navigation_file(file))
+            .flat_map(|file| {
+                file.tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        token.kind == TokenKind::Ident
+                            && token.text == symbol.name
+                            && is_schema_operation_path_leaf_token(&file.tokens, *index)
+                            && self
+                                .schema_alias_for_reference(
+                                    file,
+                                    &file.tokens,
+                                    *index,
+                                    &token.text,
+                                )
+                                .is_some_and(|candidate| same_schema(&candidate, symbol))
+                    })
+                    .map(|(_, token)| file.source.span(token.range))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        references.extend(
+            self.schema_composition_references
+                .iter()
+                .filter_map(|reference| match &reference.target {
+                    SchemaReferenceTarget::Alias(candidate)
+                        if same_schema(candidate, symbol) =>
+                    {
+                        Some(reference.span.clone())
+                    }
+                    _ => None,
+                }),
+        );
+        references
+    }
+
     fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
         if symbol.package.is_some() {
             return Vec::new();
@@ -25,7 +66,13 @@ impl SymbolIndex {
         references.extend(
             self.schema_composition_references
                 .iter()
-                .filter(|reference| same_schema(&reference.target, symbol))
+                .filter(|reference| {
+                    matches!(
+                        &reference.target,
+                        SchemaReferenceTarget::Schema(candidate)
+                            if same_schema(candidate, symbol)
+                    )
+                })
                 .map(|reference| reference.span.clone()),
         );
         references

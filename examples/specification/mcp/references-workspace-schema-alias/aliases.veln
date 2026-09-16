@@ -1,0 +1,18 @@
+use core
+
+# The reference below checks a non-BMP prefix on the same source line.
+pub schema WirePacket = core::Packet
+pub schema OtherPacket = core::Packet
+
+schema Frame
+  format binary
+  count: UInt8
+  direct: WirePacket
+  repeated: Repeat(count, WirePacket)
+  canonical: [WirePacket; count]
+end
+
+fn local(view: ByteView, packet: {value: Int}) -> ()
+  let decoded = "😀😀" + decode WirePacket from view at byte_offset(0)?
+  let encoded = encode WirePacket from packet
+end

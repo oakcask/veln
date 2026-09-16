@@ -49,6 +49,8 @@ then widened through
 [workspace symbol references](mcp-saved-workspace-symbol-references.md),
 [workspace schema operation references](mcp-saved-workspace-schema-references.md),
 and
-[workspace schema composition references](mcp-saved-workspace-schema-composition-references.md).
+[workspace schema composition references](mcp-saved-workspace-schema-composition-references.md),
+then
+[workspace schema-alias references](mcp-saved-workspace-schema-alias-references.md).
 This record now remains only as the preceding harness and capture evidence for
 those later slices.
