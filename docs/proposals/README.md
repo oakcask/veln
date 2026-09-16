@@ -16,6 +16,13 @@ also states it.
 - Completed proposal history:
   [Implemented Proposal Records](../reference/implemented-proposals/README.md).
 
+## Ready
+
+- Saved direct-dependency schema operation references:
+  [mcp-saved-dependency-schema-operation-references.md](mcp-saved-dependency-schema-operation-references.md).
+  This slice uses existing package definition resolution and saved captures;
+  package composition references, schema aliases, and pagination remain separate.
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
