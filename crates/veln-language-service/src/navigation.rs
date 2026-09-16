@@ -176,6 +176,64 @@ mod tests {
     }
 
     #[test]
+    fn package_declarations_share_dependency_origin_metadata() {
+        let dependency = crate::tests::dependency_snapshot(
+            "example/pkg",
+            &[(
+                "prelude.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Value(value: Int)\n",
+                    "end\n\n",
+                    "pub type Exported = Item\n\n",
+                    "pub fn identity(value: Item) -> Item\n",
+                    "  value\n",
+                    "end\n",
+                ),
+            )],
+            ["prelude.veln"],
+        );
+        let (source, entry) = dependency.indexed_sources().next().unwrap();
+        let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
+        let declarations = file_declarations(&file, &parsed.tree);
+
+        fn assert_dependency_origin(
+            package: &Option<String>,
+            origin: Option<PackageOrigin>,
+            source: &NavigationSource,
+        ) {
+            assert_eq!(package.as_deref(), Some("example/pkg"));
+            assert_eq!(origin, Some(PackageOrigin::DirectDependency));
+            assert!(matches!(source, NavigationSource::Package { .. }));
+        }
+
+        let function = &declarations.functions[0];
+        assert_dependency_origin(
+            &function.package,
+            function.package_origin,
+            &function.declaration.source,
+        );
+        let symbol_type = &declarations.types[0];
+        assert_dependency_origin(
+            &symbol_type.package,
+            symbol_type.package_origin,
+            &symbol_type.declaration.source,
+        );
+        let constructor = &declarations.constructors[0];
+        assert_dependency_origin(
+            &constructor.package,
+            constructor.package_origin,
+            &constructor.declaration.source,
+        );
+        let alias = &declarations.type_aliases[0];
+        assert_dependency_origin(
+            &alias.package,
+            alias.package_origin,
+            &alias.declaration.source,
+        );
+    }
+
+    #[test]
     fn workspace_index_parses_each_source_once() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             SourceFile::new("main.veln", "fn main() -> Int\n  helper()\nend\n"),

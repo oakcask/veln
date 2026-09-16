@@ -185,25 +185,73 @@ fn neutral_navigation_origin(
     span: SourceSpan,
     public: bool,
 ) -> Option<(NavigationLocation, Option<String>)> {
+    let origin = declaration_origin(file, span, public)?;
+    Some((origin.declaration, origin.package))
+}
+
+struct DeclarationOrigin {
+    declaration: NavigationLocation,
+    package: Option<String>,
+    package_origin: Option<PackageOrigin>,
+    standard_prelude: bool,
+}
+
+fn declaration_origin(
+    file: &IndexedFile,
+    span: SourceSpan,
+    public: bool,
+) -> Option<DeclarationOrigin> {
     match &file.origin {
-        IndexedOrigin::Workspace => Some((workspace_location(span), None)),
+        IndexedOrigin::Workspace => Some(DeclarationOrigin {
+            declaration: workspace_location(span),
+            package: None,
+            package_origin: None,
+            standard_prelude: false,
+        }),
         IndexedOrigin::Package {
             identity,
             uri,
             exported,
-            ..
-        } => {
-            if !exported || !public {
-                return None;
-            }
-            Some((
-                NavigationLocation {
-                    source: NavigationSource::Package { uri: uri.clone() },
-                    span,
-                },
-                Some(identity.clone()),
-            ))
-        }
+            standard_library,
+        } if *exported && public => Some(DeclarationOrigin {
+            declaration: NavigationLocation {
+                source: NavigationSource::Package { uri: uri.clone() },
+                span,
+            },
+            package: Some(identity.clone()),
+            package_origin: Some(package_origin(*standard_library)),
+            standard_prelude: *standard_library && file.module == "prelude",
+        }),
+        IndexedOrigin::Package { .. } => None,
+    }
+}
+
+#[derive(Clone, Copy)]
+struct PackageContext<'a> {
+    identity: &'a str,
+    origin: PackageOrigin,
+}
+
+fn package_context(file: &IndexedFile) -> Option<PackageContext<'_>> {
+    let IndexedOrigin::Package {
+        identity,
+        standard_library,
+        ..
+    } = &file.origin
+    else {
+        return None;
+    };
+    Some(PackageContext {
+        identity,
+        origin: package_origin(*standard_library),
+    })
+}
+
+fn package_origin(standard_library: bool) -> PackageOrigin {
+    if standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
     }
 }
 
@@ -264,42 +312,19 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
             {
                 continue;
             }
-            let (declaration, package, package_origin, standard_prelude) = match &file.origin {
-                IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
-                IndexedOrigin::Package {
-                    identity,
-                    uri,
-                    exported,
-                    standard_library,
-                } => {
-                    if !exported || !public {
-                        continue;
-                    }
-                    (
-                        NavigationLocation {
-                            source: NavigationSource::Package { uri: uri.clone() },
-                            span,
-                        },
-                        Some(identity.clone()),
-                        Some(if *standard_library {
-                            PackageOrigin::StandardLibrary
-                        } else {
-                            PackageOrigin::DirectDependency
-                        }),
-                        *standard_library && file.module == "prelude",
-                    )
-                }
+            let Some(origin) = declaration_origin(file, span, public) else {
+                continue;
             };
             functions.push(FunctionSymbol {
                 module: file.module.clone(),
                 name: name.text.clone(),
                 alias_target_module: alias.target_module,
                 alias_target_name: alias.target_name,
-                declaration,
-                package,
-                package_origin,
+                declaration: origin.declaration,
+                package: origin.package,
+                package_origin: origin.package_origin,
                 public,
-                standard_prelude,
+                standard_prelude: origin.standard_prelude,
                 declaration_kind: alias.declaration_kind,
                 invalid_declaration_name,
             });
@@ -309,18 +334,8 @@ fn function_declarations(file: &IndexedFile) -> Vec<FunctionSymbol> {
 }
 
 fn package_function_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageFunctionTarget> {
-    let IndexedOrigin::Package {
-        identity,
-        standard_library,
-        ..
-    } = &file.origin
-    else {
+    let Some(package) = package_context(file) else {
         return Vec::new();
-    };
-    let package_origin = if *standard_library {
-        PackageOrigin::StandardLibrary
-    } else {
-        PackageOrigin::DirectDependency
     };
     syntax
         .items
@@ -335,8 +350,8 @@ fn package_function_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Pack
                 Some(PackageFunctionTarget {
                     module: file.module.clone(),
                     name: name.clone(),
-                    package: identity.clone(),
-                    package_origin,
+                    package: package.identity.to_string(),
+                    package_origin: package.origin,
                 })
             }
             _ => None,
@@ -345,18 +360,8 @@ fn package_function_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Pack
 }
 
 fn package_type_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageTypeTarget> {
-    let IndexedOrigin::Package {
-        identity,
-        standard_library,
-        ..
-    } = &file.origin
-    else {
+    let Some(package) = package_context(file) else {
         return Vec::new();
-    };
-    let package_origin = if *standard_library {
-        PackageOrigin::StandardLibrary
-    } else {
-        PackageOrigin::DirectDependency
     };
     syntax
         .items
@@ -371,8 +376,8 @@ fn package_type_targets(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<PackageT
                 Some(PackageTypeTarget {
                     module: file.module.clone(),
                     name: name.clone(),
-                    package: identity.clone(),
-                    package_origin,
+                    package: package.identity.to_string(),
+                    package_origin: package.origin,
                 })
             }
             _ => None,
@@ -384,18 +389,8 @@ fn package_constructor_targets(
     file: &IndexedFile,
     syntax: &SyntaxTree,
 ) -> Vec<PackageConstructorTarget> {
-    let IndexedOrigin::Package {
-        identity,
-        standard_library,
-        ..
-    } = &file.origin
-    else {
+    let Some(package) = package_context(file) else {
         return Vec::new();
-    };
-    let package_origin = if *standard_library {
-        PackageOrigin::StandardLibrary
-    } else {
-        PackageOrigin::DirectDependency
     };
     syntax
         .items
@@ -421,8 +416,8 @@ fn package_constructor_targets(
                     module: file.module.clone(),
                     type_name: type_name.clone(),
                     name: name.clone(),
-                    package: identity.clone(),
-                    package_origin,
+                    package: package.identity.to_string(),
+                    package_origin: package.origin,
                 })
             })
         })
@@ -441,41 +436,15 @@ fn type_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeSymbol>
                     return None;
                 }
                 let public = type_decl.visibility == Visibility::Public;
-                let (declaration, package, package_origin, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => (workspace_location(span), None, None, false),
-                    IndexedOrigin::Package {
-                        identity,
-                        uri,
-                        exported,
-                        standard_library,
-                        ..
-                    } => {
-                        if !exported || !public {
-                            return None;
-                        }
-                        (
-                            NavigationLocation {
-                                source: NavigationSource::Package { uri: uri.clone() },
-                                span,
-                            },
-                            Some(identity.clone()),
-                            Some(if *standard_library {
-                                PackageOrigin::StandardLibrary
-                            } else {
-                                PackageOrigin::DirectDependency
-                            }),
-                            *standard_library && file.module == "prelude",
-                        )
-                    }
-                };
+                let origin = declaration_origin(file, span, public)?;
                 Some(TypeSymbol {
                     module: file.module.clone(),
                     name: name.clone(),
-                    declaration,
-                    package,
-                    package_origin,
+                    declaration: origin.declaration,
+                    package: origin.package,
+                    package_origin: origin.package_origin,
                     public,
-                    standard_prelude,
+                    standard_prelude: origin.standard_prelude,
                 })
             }
             _ => None,
@@ -501,17 +470,16 @@ fn constructor_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Cons
                 if is_invalid_declaration_name(file, &span) {
                     return None;
                 }
-                let (declaration, package, package_origin, standard_prelude) =
-                    constructor_navigation_origin(file, span, public)?;
+                let origin = declaration_origin(file, span, public)?;
                 Some(ConstructorSymbol {
                     module: file.module.clone(),
                     type_name: type_decl.name.clone().unwrap_or_default(),
                     name: name.clone(),
-                    declaration,
-                    package,
-                    package_origin,
+                    declaration: origin.declaration,
+                    package: origin.package,
+                    package_origin: origin.package_origin,
                     public,
-                    standard_prelude,
+                    standard_prelude: origin.standard_prelude,
                     declaration_kind: SymbolDeclarationKind::Declaration,
                 })
             })
@@ -542,39 +510,6 @@ fn constructor_variant_name_span(
         )
 }
 
-fn constructor_navigation_origin(
-    file: &IndexedFile,
-    span: SourceSpan,
-    public: bool,
-) -> Option<(NavigationLocation, Option<String>, Option<PackageOrigin>, bool)> {
-    match &file.origin {
-        IndexedOrigin::Workspace => Some((workspace_location(span), None, None, false)),
-        IndexedOrigin::Package {
-            identity,
-            uri,
-            exported,
-            standard_library,
-        } => {
-            if !exported || !public {
-                return None;
-            }
-            Some((
-                NavigationLocation {
-                    source: NavigationSource::Package { uri: uri.clone() },
-                    span,
-                },
-                Some(identity.clone()),
-                Some(if *standard_library {
-                    PackageOrigin::StandardLibrary
-                } else {
-                    PackageOrigin::DirectDependency
-                }),
-                *standard_library && file.module == "prelude",
-            ))
-        }
-    }
-}
-
 fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeAliasSymbol> {
     syntax
         .items
@@ -592,44 +527,16 @@ fn type_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<TypeA
                     [segments @ .., _] => Some(segments.join("::")),
                     [] => None,
                 };
-                let (declaration, package, package_origin, standard_prelude) = match &file.origin {
-                    IndexedOrigin::Workspace => {
-                        (workspace_location(name_span.clone()), None, None, false)
-                    }
-                    IndexedOrigin::Package {
-                        identity,
-                        uri,
-                        exported,
-                        standard_library,
-                        ..
-                    } => {
-                        if !exported {
-                            return None;
-                        }
-                        (
-                            NavigationLocation {
-                                source: NavigationSource::Package { uri: uri.clone() },
-                                span: name_span.clone(),
-                            },
-                            Some(identity.clone()),
-                            Some(if *standard_library {
-                                PackageOrigin::StandardLibrary
-                            } else {
-                                PackageOrigin::DirectDependency
-                            }),
-                            *standard_library && file.module == "prelude",
-                        )
-                    }
-                };
+                let origin = declaration_origin(file, name_span.clone(), true)?;
                 Some(TypeAliasSymbol {
                     module: file.module.clone(),
                     name,
-                    declaration,
+                    declaration: origin.declaration,
                     target_module,
                     target_name,
-                    package,
-                    package_origin,
-                    standard_prelude,
+                    package: origin.package,
+                    package_origin: origin.package_origin,
+                    standard_prelude: origin.standard_prelude,
                 })
             }
             _ => None,
