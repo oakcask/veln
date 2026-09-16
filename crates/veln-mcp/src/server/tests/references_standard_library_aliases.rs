@@ -61,7 +61,7 @@ fn install_type_alias_standard_library_with_exports(
         &manifest,
         sources
             .iter()
-            .map(|(path, source)| PackageSnapshotSource::new(*path, source.as_bytes())),
+            .map(|(path, source)| PackageSnapshotSource::new(path, source.as_bytes())),
     );
 }
 

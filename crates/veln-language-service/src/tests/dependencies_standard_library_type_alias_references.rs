@@ -98,7 +98,8 @@
         )])
         .with_standard_library(standard_library);
 
-        for (name, column) in [("import alias parameter", 25)] {
+        {
+            let (name, column) = ("import alias parameter", 25);
             let result = query_snapshot(&snapshot, "main.veln", 3, column)
                 .unwrap_or_else(|| panic!("{name} did not select the standard alias"));
             assert_standard_library_type_alias(&result);
