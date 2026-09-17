@@ -1713,8 +1713,12 @@ mod dependencies_schema_references_tests {
         assert!(query_snapshot(&snapshot, "main.veln", 9, 18).is_none());
         let standard = query_snapshot(&snapshot, "main.veln", 10, 16).unwrap();
         assert!(standard.references.is_empty());
-        let invalid_casing = query_snapshot(&snapshot, "main.veln", 11, 18);
-        assert!(invalid_casing.is_none_or(|result| result.references.is_empty()));
+        let invalid_casing = query_snapshot(&snapshot, "main.veln", 11, 18).unwrap();
+        assert!(matches!(
+            invalid_casing.definition.source,
+            NavigationSource::Package { .. }
+        ));
+        assert!(invalid_casing.references.is_empty());
         let alias = query_snapshot(&snapshot, "main.veln", 12, 18).unwrap();
         assert_eq!(locations(&alias.references), [("main.veln", 12, 18)]);
         assert!(query_snapshot(&snapshot, "main.veln", 13, 18).is_none());

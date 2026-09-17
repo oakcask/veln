@@ -141,12 +141,14 @@ impl SymbolIndex {
                 .schema_alias_module_imports
                 .get(&file.module)?
                 .valid_external_route(qualifier)?;
-            if let Some(symbol) = self.direct_dependency_schemas.get(&(
-                package.clone(),
-                module.clone(),
-                name.to_string(),
-            )) {
-                return Some(symbol.clone());
+            let mut candidates = self.schemas.iter().filter(|symbol| {
+                symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                    && symbol.package.as_deref() == Some(package.as_str())
+                    && symbol.module == module
+                    && symbol.name == name
+            });
+            if let Some(candidate) = candidates.next() {
+                return candidates.next().is_none().then(|| candidate.clone());
             }
             return self
                 .schemas

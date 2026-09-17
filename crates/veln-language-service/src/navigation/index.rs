@@ -101,7 +101,6 @@ impl SymbolIndex {
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
             schema_composition_references,
-            direct_dependency_schemas,
             schema_alias_module_imports,
             files,
             function_rename_index: OnceLock::new(),
