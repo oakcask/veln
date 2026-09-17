@@ -34,6 +34,10 @@ include!("navigation/token_roles.rs");
 include!("navigation/source_paths.rs");
 
 #[cfg(test)]
+#[path = "navigation/classification_tests.rs"]
+mod classification_tests;
+
+#[cfg(test)]
 thread_local! {
     static FUNCTION_SCOPE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
     static TYPE_REFERENCE_COLLECTIONS: Cell<usize> = const { Cell::new(0) };
@@ -42,6 +46,7 @@ thread_local! {
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_PATH_CLASSIFICATIONS: Cell<usize> = const { Cell::new(0) };
+    static PATH_CLASSIFICATION_CONTEXTS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }

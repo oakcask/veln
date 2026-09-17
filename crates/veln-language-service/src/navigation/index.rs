@@ -1,8 +1,7 @@
 impl IndexedDependencies {
     pub(crate) fn new_direct(dependencies: Vec<DirectDependencySnapshot>) -> Self {
         let mut indexed = Self::index(dependencies);
-        let module = indexed.module.clone();
-        attach_classified_path_segments(&mut indexed.files, &module, &module);
+        attach_classified_path_segments(&mut indexed.files, &indexed.module, &indexed.module);
         indexed
     }
 
@@ -10,8 +9,7 @@ impl IndexedDependencies {
         standard_library: Option<DirectDependencySnapshot>,
     ) -> Self {
         let mut indexed = Self::index(standard_library);
-        let module = indexed.module.clone();
-        attach_classified_path_segments(&mut indexed.files, &module, &module);
+        attach_classified_path_segments(&mut indexed.files, &indexed.module, &indexed.module);
         indexed
     }
 
@@ -47,10 +45,12 @@ impl SymbolIndex {
         }
         declarations.extend(direct_dependencies.declarations.clone());
         declarations.extend(standard_library.declarations.clone());
-        let mut module = workspace_module.clone();
-        append_surface_module(&mut module, direct_dependencies.module.clone());
-        append_surface_module(&mut module, standard_library.module.clone());
-        attach_classified_path_segments(&mut files, &workspace_module, &module);
+        if workspace_needs_path_classification(&files, &workspace_module) {
+            let mut module = workspace_module.clone();
+            append_surface_module(&mut module, direct_dependencies.module.clone());
+            append_surface_module(&mut module, standard_library.module.clone());
+            attach_classified_path_segments(&mut files, &workspace_module, &module);
+        }
         let schema_alias_module_imports = index_schema_alias_module_imports(&files);
         let schema_alias_declarations = declarations
             .schema_aliases
