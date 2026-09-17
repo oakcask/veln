@@ -466,6 +466,8 @@ fn eligible_schema_aliases(
         .iter()
         .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
         .filter_map(|candidate| {
+            #[cfg(test)]
+            record_schema_alias_declaration_visit();
             Some((
                 (
                     candidate.package.as_str(),
@@ -482,6 +484,8 @@ fn eligible_schema_aliases(
         .iter()
         .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
     {
+        #[cfg(test)]
+        record_schema_alias_declaration_visit();
         *package_alias_counts
             .entry((
                 candidate.package.as_str(),
@@ -494,6 +498,8 @@ fn eligible_schema_aliases(
         .iter()
         .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
         .map(|target| {
+            #[cfg(test)]
+            record_schema_alias_declaration_visit();
             (
                 target.package.as_str(),
                 target.module.as_str(),
@@ -506,6 +512,8 @@ fn eligible_schema_aliases(
         .iter()
         .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
     {
+        #[cfg(test)]
+        record_schema_alias_declaration_visit();
         let entry = package_target_counts
             .entry((
                 target.package.as_str(),
@@ -527,6 +535,8 @@ fn eligible_schema_aliases(
                         && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
                 }),
             Some(PackageOrigin::DirectDependency) => {
+                #[cfg(test)]
+                record_schema_alias_declaration_visit();
                 let Some(package) = alias.package.as_deref() else {
                     return false;
                 };

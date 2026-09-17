@@ -49,6 +49,22 @@ thread_local! {
     static PATH_CLASSIFICATION_CONTEXTS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_ALIAS_DECLARATION_VISITS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_schema_alias_declaration_visit() {
+    SCHEMA_ALIAS_DECLARATION_VISITS.set(SCHEMA_ALIAS_DECLARATION_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_alias_declaration_visits() {
+    SCHEMA_ALIAS_DECLARATION_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn schema_alias_declaration_visits() -> usize {
+    SCHEMA_ALIAS_DECLARATION_VISITS.get()
 }
 
 #[cfg(test)]
