@@ -262,7 +262,10 @@ target-schema uses, sibling aliases, and same-spelled aliases from other
 dependencies remain separate. Full written module paths and valid implicit
 leaf aliases select that identity. An exact full written dependency import
 takes precedence over an unrelated import with a colliding implicit leaf
-alias. Duplicate or syntax-recovered imports do not grant alias visibility.
+alias. Imports and blockers are shared by owned sources with the same explicit
+workspace module identity as specified by
+[Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
+syntax-recovered imports do not grant alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
 same-spelled exported schema without becoming navigable. Bare imported names,
 qualified and chained targets,

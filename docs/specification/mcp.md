@@ -493,7 +493,10 @@ An exact full written dependency import takes precedence over an unrelated
 import with a colliding implicit leaf alias. A clean alias declaration in a
 non-exported package source blocks fallback to a same-spelled exported schema
 without becoming a navigation target.
-Duplicate and syntax-recovered imports do not grant alias visibility. The
+Import visibility and blocking across owned sources with the same explicit
+workspace module identity follow the shared rules in
+[Name Resolution And Identifier Casing](name-resolution.md). Duplicate and
+syntax-recovered imports do not grant alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
 composition leaves, package sources, sibling aliases, and direct target-schema
 uses. Bare imported names, qualified or chained targets, ambiguous or invalid

@@ -43,6 +43,17 @@ Same-spelled declarations in unrelated namespaces do not affect eligibility.
 A qualified target that resolves through a written import remains valid source
 language, but it is outside this bounded navigation feature.
 
+Schema-alias operation-reference lookup combines written imports from all
+owned sources with the same explicit workspace module identity. A valid
+dependency import in one such source can qualify an operation leaf in another.
+A colliding workspace import and dependency import, duplicate dependency
+imports, or a syntax-recovered dependency import in that module prevents the
+qualified operation leaf from selecting a dependency schema alias. The
+`direct_dependency_schema_alias_imports_are_visible_across_module_sources`,
+`workspace_and_dependency_schema_alias_imports_collide_across_module_sources`,
+and `invalid_dependency_schema_alias_imports_block_across_module_sources`
+language-service tests are the executable evidence for these outcomes.
+
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import
 path takes precedence over a same-spelled implicit leaf alias. When every
