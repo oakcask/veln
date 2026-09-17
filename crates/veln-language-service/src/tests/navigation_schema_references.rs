@@ -901,6 +901,40 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_alias_references_require_the_resolved_qualified_module() {
+        let sources = vec![
+            source("a.veln", "pub schema Other\n  value: Int\nend\n"),
+            source(
+                "b.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use a\n",
+                    "use b\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode a::Alias from view at byte_offset(0)?\n",
+                    "  decode missing::Alias from view at byte_offset(0)?\n",
+                    "  decode b::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        assert!(query(sources.clone(), "main.veln", 5, 13).is_none());
+        assert!(query(sources.clone(), "main.veln", 6, 19).is_none());
+        let alias = query(sources.clone(), "b.veln", 5, 12).unwrap();
+        assert_eq!(locations(&alias.references), [("main.veln", 7, 13)]);
+        let operation = query(sources, "main.veln", 7, 13).unwrap();
+        assert_eq!(operation.definition, alias.definition);
+        assert_eq!(operation.references, alias.references);
+    }
+
+    #[test]
     fn workspace_schema_alias_references_exclude_same_spelled_non_alias_symbols() {
         let sources = vec![
             source(

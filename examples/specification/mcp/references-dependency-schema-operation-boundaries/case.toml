@@ -39,7 +39,17 @@ equals = []
 [[mcp_assert]]
 id = 8
 path = "/result/structuredContent/references"
-equals = []
+length = 1
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":15,"column":18},"end":{"line":15,"column":23}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
 
 [[mcp_assert]]
 id = 9
@@ -80,6 +90,72 @@ equals = []
 id = 15
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 16
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 17
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 19
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 20
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 21
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 22
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 23
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 24
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 25
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 26
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 27
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 28
+path = "/result/structuredContent/references"
+equals = []
+
 
 [[mcp_assert]]
 id = 2

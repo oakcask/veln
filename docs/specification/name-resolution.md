@@ -11,7 +11,7 @@ This page specifies source name resolution and identifier casing behavior.
 Implemented checker namespaces are:
 
 - module imports
-- schema declarations
+- schema declarations and public schema aliases
 - effect declarations
 - handler declarations
 - effect operation declarations
@@ -34,6 +34,27 @@ that position admits both namespaces. The
 namespace-by-use-role boundaries, lower-case exact spelling collisions between
 casing-neutral declarations and value names, and the same-namespace duplicate
 boundary.
+
+For saved operation-reference navigation, a direct-dependency public schema
+alias is eligible only when its target is a bare name in the schema namespace
+of its own module and retained dependency. The target must identify exactly one
+public schema declaration, and no schema alias may share that name.
+Same-spelled declarations in unrelated namespaces do not affect eligibility.
+A qualified target that resolves through a written import remains valid source
+language, but it is outside this bounded navigation feature.
+
+Schema-alias operation-reference lookup combines written imports from all
+owned sources with the same explicit workspace module identity. A valid
+dependency import in one such source can qualify an operation leaf in another.
+A colliding workspace import and dependency import, duplicate dependency
+imports, or a syntax-recovered dependency import in that module prevents the
+qualified operation leaf from selecting a dependency schema alias or falling
+back to a schema imported only by the operation source. The
+`direct_dependency_schema_alias_imports_are_visible_across_module_sources`,
+`workspace_and_dependency_schema_alias_imports_collide_across_module_sources`,
+`dependency_alias_and_schema_imports_collide_across_module_sources`,
+and `invalid_dependency_schema_alias_imports_block_across_module_sources`
+language-service tests are the executable evidence for these outcomes.
 
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import

@@ -7,10 +7,11 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let module = explicit_module_name(source.text())
         .or(path_module)
         .unwrap_or_default();
-    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
     #[cfg(test)]
     record_workspace_source_parse();
     let parsed = parse(&source);
+    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
+    let schema_alias_external_imports = schema_alias_external_imports(&parsed);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
     let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
@@ -30,6 +31,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         external_uses,
         import_aliases,
         external_import_aliases,
+        schema_alias_external_imports,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
         schema_operation_leaf_spans,
@@ -89,11 +91,23 @@ fn index_dependency_sources(
 ) {
     for (source, entry) in dependency.indexed_sources() {
         let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
-        if !file.navigation_isolated && parsed.diagnostics.is_empty() {
-            declarations.extend(file_declarations(&file, &parsed.tree));
-            let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
-            assign_module_name(&mut source_module, &file.module);
-            append_surface_module(module, source_module);
+        if !file.navigation_isolated {
+            declarations
+                .package_schema_alias_declarations
+                .extend(package_schema_alias_declarations(&file, &parsed.tree));
+            if parsed.diagnostics.is_empty() {
+                declarations.extend(file_declarations(&file, &parsed.tree));
+                let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
+                assign_module_name(&mut source_module, &file.module);
+                append_surface_module(module, source_module);
+            } else {
+                declarations
+                    .schema_alias_blockers
+                    .extend(schema_alias_declarations(&file, &parsed.tree));
+                declarations
+                    .recovered_package_schema_targets
+                    .extend(package_schema_targets(&file, &parsed.tree));
+            }
         }
         files.push(file);
     }
@@ -129,6 +143,7 @@ fn indexed_dependency_source(
         external_uses,
         import_aliases,
         external_import_aliases,
+        schema_alias_external_imports: Vec::new(),
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
         schema_operation_leaf_spans,
@@ -350,23 +365,84 @@ fn workspace_schema_composition_references(
         .collect()
 }
 
-fn eligible_workspace_schema_aliases(
+fn eligible_schema_aliases(
     aliases: Vec<NeutralSymbol>,
+    package_aliases: &[PackageSchemaAliasDeclaration],
+    package_targets: &[PackageSchemaTarget],
+    recovered_package_targets: &[PackageSchemaTarget],
     resolved: Vec<veln_sema::ResolvedSchemaAlias>,
 ) -> Vec<NeutralSymbol> {
     aliases
-        .into_iter()
-        .filter(|alias| {
-            alias.package.is_none()
-                && resolved.iter().any(|candidate| {
+        .iter()
+        .filter(|alias| match alias.package_origin {
+            None => resolved.iter().any(|candidate| {
                     candidate.alias_name == alias.name
                         && candidate.alias_module.as_deref() == Some(alias.module.as_str())
                         && candidate.alias_span.file == alias.declaration.span.file
                         && alias.declaration.span.start.offset >= candidate.alias_span.start.offset
                         && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
-                })
+                }),
+            Some(PackageOrigin::DirectDependency) => {
+                let Some(package) = alias.package.as_deref() else {
+                    return false;
+                };
+                let Some(target_name) = alias.alias_target_name.as_deref() else {
+                    return false;
+                };
+                package_aliases
+                    .iter()
+                    .filter(|candidate| {
+                        candidate.package == package
+                            && candidate.module == alias.module
+                            && candidate.name == alias.name
+                            && candidate.package_origin == PackageOrigin::DirectDependency
+                    })
+                    .count()
+                    == 1
+                    && !package_aliases.iter().any(|candidate| {
+                        candidate.package == package
+                            && candidate.module == alias.module
+                            && candidate.name == target_name
+                            && candidate.package_origin == PackageOrigin::DirectDependency
+                    })
+                    && !recovered_package_targets.iter().any(|target| {
+                        target.package == package
+                            && target.module == alias.module
+                            && (target.name == alias.name || target.name == target_name)
+                            && target.package_origin == PackageOrigin::DirectDependency
+                    })
+                    && !package_targets.iter().any(|target| {
+                        target.package == package
+                            && target.module == alias.module
+                            && target.name == alias.name
+                            && target.package_origin == PackageOrigin::DirectDependency
+                    })
+                    && has_unique_public_direct_package_schema_target(
+                        package_targets,
+                        package,
+                        &alias.module,
+                        target_name,
+                    )
+            }
+            Some(PackageOrigin::StandardLibrary) => false,
         })
+        .cloned()
         .collect()
+}
+
+fn has_unique_public_direct_package_schema_target(
+    package_targets: &[PackageSchemaTarget],
+    package: &str,
+    module: &str,
+    name: &str,
+) -> bool {
+    let mut targets = package_targets.iter().filter(|target| {
+        target.package == package
+            && target.module == module
+            && target.name == name
+            && target.package_origin == PackageOrigin::DirectDependency
+    });
+    matches!((targets.next(), targets.next()), (Some(target), None) if target.public)
 }
 
 fn empty_surface_module() -> veln_ast::SurfaceModule {

@@ -1,0 +1,6 @@
+mod lib::wire
+
+pub schema Packet
+  format binary
+  value: UInt8
+end

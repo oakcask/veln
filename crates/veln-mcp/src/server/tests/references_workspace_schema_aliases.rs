@@ -386,30 +386,6 @@ fn references_keep_ineligible_workspace_schema_aliases_empty_with_project_scope(
             line: 4,
             column: 10,
         },
-        Case {
-            name: "direct-dependency schema alias",
-            files: vec![
-                (
-                    "veln.toml",
-                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
-                ),
-                (
-                    "main.veln",
-                    "use dep from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n  decode dep::AliasPacket from view at byte_offset(0)?\nend\n",
-                ),
-                (
-                    "vendor/dep/veln.toml",
-                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
-                ),
-                (
-                    "vendor/dep/dep.veln",
-                    "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
-                ),
-            ],
-            source: "main.veln",
-            line: 4,
-            column: 15,
-        },
     ];
 
     for case in cases {

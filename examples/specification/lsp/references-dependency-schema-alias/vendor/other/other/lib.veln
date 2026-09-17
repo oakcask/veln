@@ -1,0 +1,3 @@
+pub schema Other
+  value: Int
+end

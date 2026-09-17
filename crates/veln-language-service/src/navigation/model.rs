@@ -412,6 +412,15 @@ struct PackageFunctionTarget {
 }
 
 #[derive(Clone, Debug)]
+struct PackageSchemaTarget {
+    module: String,
+    name: String,
+    package: String,
+    package_origin: PackageOrigin,
+    public: bool,
+}
+
+#[derive(Clone, Debug)]
 struct PackageTypeTarget {
     module: String,
     name: String,
@@ -577,6 +586,7 @@ struct NeutralSymbol {
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
     public: bool,
+    alias_target_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -649,6 +659,7 @@ struct IndexedFile {
     external_uses: BTreeSet<(String, String)>,
     import_aliases: BTreeMap<String, String>,
     external_import_aliases: BTreeMap<String, (String, String)>,
+    schema_alias_external_imports: Vec<ExternalImport>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
     schema_operation_leaf_spans: Vec<SourceSpan>,
@@ -656,6 +667,24 @@ struct IndexedFile {
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ExternalImport {
+    module: String,
+    package: String,
+    alias: String,
+    syntax_valid: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+struct SchemaAliasModuleImports {
+    workspace_imports: BTreeSet<String>,
+    workspace_imports_by_alias: BTreeMap<String, BTreeSet<String>>,
+    external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
+    external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
+    valid_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
+    valid_external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
 }
 
 #[derive(Clone, Debug)]
@@ -674,6 +703,10 @@ enum SchemaReferenceTarget {
 struct FileDeclarations {
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
+    schema_alias_blockers: Vec<NeutralSymbol>,
+    package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
+    package_schema_targets: Vec<PackageSchemaTarget>,
+    recovered_package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
@@ -684,6 +717,14 @@ struct FileDeclarations {
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
+}
+
+#[derive(Clone, Debug)]
+struct PackageSchemaAliasDeclaration {
+    module: String,
+    name: String,
+    package: String,
+    package_origin: PackageOrigin,
 }
 
 #[derive(Clone, Debug)]
@@ -709,6 +750,9 @@ pub(crate) struct SymbolIndex {
     files: Vec<IndexedFile>,
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
+    schema_alias_declarations: Vec<NeutralSymbol>,
+    package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
+    package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
@@ -720,6 +764,7 @@ pub(crate) struct SymbolIndex {
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
     schema_composition_references: Vec<SchemaCompositionReference>,
+    schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
 

@@ -325,9 +325,24 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-dependency-schema-operation/`
   and
   `../../examples/specification/lsp/references-dependency-schema-operation/`.
-- MCP successful-empty `references` boundaries for unsupported
-  direct-dependency schema operation selections, including package schema
-  alias chains and syntax-recovered operation leaves:
+- MCP and LSP saved workspace `references` for eligible direct-dependency
+  public schema-alias `decode` and `encode` leaves:
+  `../../examples/specification/mcp/references-dependency-schema-alias/` and
+  `../../examples/specification/lsp/references-dependency-schema-alias/`. The
+  paired cases resolve a bare schema-alias target exported from another source
+  with the same explicit module, keep schema-target lookup isolated from a
+  same-spelled type declaration, exclude a workspace type with the alias
+  spelling, keep dependency-alias composition selection empty, prefer an exact
+  dependency import over a colliding implicit alias, and prevent a non-exported
+  alias from falling back to a same-spelled exported schema.
+- MCP `references` boundary fixture shared by direct-dependency schema and
+  schema-alias operation selections. It includes one eligible alias as a
+  positive control and successful-empty results for private, non-exported,
+  mismatched, transitive, missing, and invalid-cased schemas; package schema
+  alias chains; invalid-cased alias targets; valid cross-module and
+  other-package alias targets; alias-target schema namespace collisions;
+  recovered duplicate aliases; duplicate and recovered imports;
+  graph-ineligible aliases; and syntax-recovered operation leaves:
   `../../examples/specification/mcp/references-dependency-schema-operation-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases, including unsupported selections and workspace-file URI assertions

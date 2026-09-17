@@ -173,13 +173,22 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<Symbol> {
         if is_schema_operation_path_leaf_candidate_token(tokens, token_index) {
+            if let Some(alias) =
+                self.schema_alias_for_reference(file, tokens, token_index, name)
+            {
+                return Some(Symbol::SchemaAlias(alias));
+            }
+            if self.schema_alias_selection_blocks_schema_fallback(
+                file,
+                tokens,
+                token_index,
+                name,
+            ) {
+                return None;
+            }
             return self
-                .schema_alias_for_reference(file, tokens, token_index, name)
-                .map(Symbol::SchemaAlias)
-                .or_else(|| {
-                    self.schema_for_reference(file, tokens, token_index, name)
-                        .map(Symbol::Schema)
-                });
+                .schema_for_reference(file, tokens, token_index, name)
+                .map(Symbol::Schema);
         }
         if is_schema_composition_path_leaf_token(tokens, token_index) {
             return self.schema_composition_symbol_at(file, &tokens[token_index]);
