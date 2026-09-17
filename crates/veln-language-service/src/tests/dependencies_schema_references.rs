@@ -351,6 +351,81 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn direct_dependency_schema_alias_references_keep_declaration_identity_across_modules() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "alpha.veln",
+                    concat!(
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                    ),
+                ),
+                (
+                    "beta.veln",
+                    concat!(
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                    ),
+                ),
+            ],
+            ["alpha.veln", "beta.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "read.veln",
+                    concat!(
+                        "use alpha from \"example/dep\"\n",
+                        "use beta from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode alpha::Alias from view at byte_offset(0)?\n",
+                        "  decode beta::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "write.veln",
+                    concat!(
+                        "use alpha from \"example/dep\"\n",
+                        "use beta from \"example/dep\"\n\n",
+                        "fn write(packet: {value: Int}) -> ()\n",
+                        "  encode alpha::Alias from packet\n",
+                        "  encode beta::Alias from packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        for (path, line, column) in [("read.veln", 5, 17), ("write.veln", 5, 17)] {
+            let result = query_snapshot(&snapshot, path, line, column).unwrap();
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                locations(&result.references),
+                [("read.veln", 5, 17), ("write.veln", 5, 17)]
+            );
+        }
+
+        for (path, line, column) in [("read.veln", 6, 16), ("write.veln", 6, 16)] {
+            let result = query_snapshot(&snapshot, path, line, column).unwrap();
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                locations(&result.references),
+                [("read.veln", 6, 16), ("write.veln", 6, 16)]
+            );
+        }
+    }
+
+    #[test]
     fn direct_dependency_schema_alias_imports_are_visible_across_module_sources() {
         let dependency = dependency_snapshot(
             "example/dep",
