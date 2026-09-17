@@ -283,11 +283,28 @@ fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<Source
     }
 }
 
+fn workspace_needs_path_classification(
+    files: &[IndexedFile],
+    module: &veln_ast::SurfaceModule,
+) -> bool {
+    // Qualified syntax needs `::`, but invalid imports can contribute
+    // single-segment paths to the recovery classifier as well.
+    files
+        .iter()
+        .any(|file| file.tokens.iter().any(|token| token.kind == TokenKind::DoubleColon))
+        || module
+            .invalid_names
+            .iter()
+            .any(|name| name.occurrence == veln_ast::NameOccurrence::PathSegment)
+}
+
 fn attach_classified_path_segments(
     files: &mut [IndexedFile],
     module: &veln_ast::SurfaceModule,
     project: &veln_ast::SurfaceModule,
 ) {
+    #[cfg(test)]
+    PATH_CLASSIFICATION_CONTEXTS.set(PATH_CLASSIFICATION_CONTEXTS.get() + 1);
     #[cfg(test)]
     record_dependency_path_classifications(
         files
