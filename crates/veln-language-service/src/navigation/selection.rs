@@ -178,7 +178,12 @@ impl SymbolIndex {
             {
                 return Some(Symbol::SchemaAlias(alias));
             }
-            if self.has_visible_schema_alias_declaration(file, tokens, token_index, name) {
+            if self.schema_alias_selection_blocks_schema_fallback(
+                file,
+                tokens,
+                token_index,
+                name,
+            ) {
                 return None;
             }
             return self

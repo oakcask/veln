@@ -526,6 +526,50 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn dependency_alias_and_schema_imports_collide_across_module_sources() {
+        let alias_dependency = dependency_snapshot(
+            "example/alias",
+            &[(
+                "a/wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            )],
+            ["a/wire.veln"],
+        );
+        let schema_dependency = dependency_snapshot(
+            "example/schema",
+            &[("b/wire.veln", "pub schema Alias\n  value: Int\nend\n")],
+            ["b/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "alias_import.veln",
+                    "mod app\n\nuse a::wire from \"example/alias\"\n",
+                ),
+                source(
+                    "operation.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "use b::wire from \"example/schema\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode wire::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![alias_dependency, schema_dependency],
+        );
+
+        assert!(
+            query_snapshot(&snapshot, "operation.veln", 6, 16).is_none(),
+            "module-wide alias ambiguity must block file-local schema fallback"
+        );
+    }
+
+    #[test]
     fn invalid_dependency_schema_alias_imports_block_across_module_sources() {
         let dependency = dependency_snapshot(
             "example/dep",

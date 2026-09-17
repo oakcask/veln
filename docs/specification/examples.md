@@ -334,12 +334,14 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   dependency-alias composition selection empty, prefer an exact dependency
   import over a colliding implicit alias, and prevent a non-exported alias from
   falling back to a same-spelled exported schema.
-- MCP successful-empty `references` boundaries for unsupported
-  direct-dependency schema operation selections, including package schema
-  alias chains, invalid-cased alias targets, valid cross-module and
-  other-package alias targets, alias-target schema namespace collisions,
-  recovered duplicate aliases, invalid imports, graph-ineligible aliases, and
-  syntax-recovered operation leaves:
+- MCP `references` boundary fixture shared by direct-dependency schema and
+  schema-alias operation selections. It includes one eligible alias as a
+  positive control and successful-empty results for private, non-exported,
+  mismatched, transitive, missing, and invalid-cased schemas; package schema
+  alias chains; invalid-cased alias targets; valid cross-module and
+  other-package alias targets; alias-target schema namespace collisions;
+  recovered duplicate aliases; duplicate and recovered imports;
+  graph-ineligible aliases; and syntax-recovered operation leaves:
   `../../examples/specification/mcp/references-dependency-schema-operation-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type
   aliases, including unsupported selections and workspace-file URI assertions

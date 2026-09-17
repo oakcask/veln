@@ -277,7 +277,9 @@ inclusion is true, and definition and rename support do not expand. The
 fixes their normalized URI and range parity over identical non-BMP saved input,
 including a same-spelled type in the alias target's module. The paired cases
 also exclude a workspace type with the alias spelling from the exact result and
-keep dependency-alias composition selection empty. Shared navigation tests and
+keep dependency-alias composition selection empty. The LSP case also keeps
+definition and prepare-rename null and rename edits empty for the supported
+package alias leaf. Shared navigation tests and
 the MCP dependency-schema boundary case cover target-name schema alias
 collisions, recovered duplicate declarations, invalid imports, invalid-cased
 targets, valid cross-module and other-package targets, and graph-ineligible

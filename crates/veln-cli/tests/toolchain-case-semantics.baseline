@@ -14717,6 +14717,18 @@ field	expectations.lsp_assertions[34].equals	[]
 field	expectations.lsp_assertions[34].id	12
 field	expectations.lsp_assertions[34].operation	"equals"
 field	expectations.lsp_assertions[34].path	"/result"
+field	expectations.lsp_assertions[35].equals	null
+field	expectations.lsp_assertions[35].id	13
+field	expectations.lsp_assertions[35].operation	"equals"
+field	expectations.lsp_assertions[35].path	"/result"
+field	expectations.lsp_assertions[36].equals	null
+field	expectations.lsp_assertions[36].id	14
+field	expectations.lsp_assertions[36].operation	"equals"
+field	expectations.lsp_assertions[36].path	"/result"
+field	expectations.lsp_assertions[37].equals	{}
+field	expectations.lsp_assertions[37].id	15
+field	expectations.lsp_assertions[37].operation	"equals"
+field	expectations.lsp_assertions[37].path	"/result/changes"
 field	expectations.lsp_assertions[3].equals	{"end":{"character":39,"line":9},"start":{"character":29,"line":9}}
 field	expectations.lsp_assertions[3].id	2
 field	expectations.lsp_assertions[3].operation	"equals"
@@ -14748,10 +14760,10 @@ field	expectations.lsp_assertions[9].workspace_file_uri	"main.veln"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2951,"sha256":"5b1fa1b51410420d068eb5bbd767b4ca70e184ed0352c3c2a0221f350493e232"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3597,"sha256":"9fbe3cf0f3139edf6fd55f3feb65d2a0fa6a189030a55d5c77105460dc9295ea"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
-case_digest	"c9e1ed6546f70a38f906fb0c4ec63dafb92e18c952ed26638e43058ca00c2fb0"
+case_digest	"a4b9f12acb342623ffd9f6d4657039840df672e2293fced6e1b2e4f25bd5cf21"
 case	"examples/specification/lsp/references-dependency-schema-operation"
 field	expectations.exit	0
 field	expectations.lsp_assertions[0].id	2
@@ -57939,4 +57951,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1f538d7e32e711386f73a712ab07b7d03c3bbdd2ffee3476a68cebcc4d6a8563"
+aggregate_digest	"36d347b9708627563c1ba21e50900e767c8d5b9394552d98d96d9ce4c3d20e60"

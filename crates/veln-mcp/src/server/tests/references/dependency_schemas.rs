@@ -612,6 +612,62 @@ fn references_keep_non_exported_schema_alias_fallback_empty() {
 }
 
 #[test]
+fn references_keep_cross_source_alias_and_schema_import_collision_empty() {
+    let workspace = TempWorkspace::new("references-cross-source-alias-schema-collision");
+    workspace.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"example/alias\"]\npath = \"vendor/alias\"\n\n",
+            "[dependencies.\"example/schema\"]\npath = \"vendor/schema\"\n",
+        ),
+    );
+    workspace.write(
+        "alias_import.veln",
+        "mod app\n\nuse a::wire from \"example/alias\"\n",
+    );
+    workspace.write(
+        "operation.veln",
+        concat!(
+            "mod app\n\n",
+            "use b::wire from \"example/schema\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode wire::Alias from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/alias/veln.toml",
+        "[package]\nname = \"example/alias\"\n\n[lib]\nexports = [\"a/wire.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/alias/a/wire.veln",
+        "pub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
+    );
+    workspace.write(
+        "vendor/schema/veln.toml",
+        "[package]\nname = \"example/schema\"\n\n[lib]\nexports = [\"b/wire.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/schema/b/wire.veln",
+        "pub schema Alias\n  value: Int\nend\n",
+    );
+
+    let result = references_result(&workspace, "operation.veln", 6, 16);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+}
+
+#[test]
 fn references_keep_recovered_duplicate_dependency_schema_aliases_empty() {
     let workspace = TempWorkspace::new("references-recovered-duplicate-dependency-schema-alias");
     workspace.write(
@@ -877,16 +933,24 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
         let workspace = TempWorkspace::new(source_kind.name());
         write_schema_dependency_workspace(&workspace, source_kind);
 
-        let result = references_result(&workspace, "main.veln", 6, 16);
+        let schema = references_result(&workspace, "main.veln", 4, 16);
 
         assert_eq!(
-            result["isError"],
+            schema["isError"],
             false,
-            "{}: {result:#}",
+            "{}: {schema:#}",
             source_kind.name()
         );
         assert_reference_ranges(
-            &result,
+            &schema,
+            &[("main.veln", 4, 15, 4, 21), ("main.veln", 5, 15, 5, 21)],
+            source_kind.name(),
+        );
+
+        let alias = references_result(&workspace, "main.veln", 6, 16);
+        assert_eq!(alias["isError"], false, "{}: {alias:#}", source_kind.name());
+        assert_reference_ranges(
+            &alias,
             &[("main.veln", 6, 15, 6, 20), ("main.veln", 7, 15, 7, 20)],
             source_kind.name(),
         );

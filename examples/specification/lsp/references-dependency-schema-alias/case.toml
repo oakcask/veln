@@ -180,3 +180,18 @@ equals = []
 id = 12
 path = "/result"
 equals = []
+
+[[lsp_assert]]
+id = 13
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+equals = null
+
+[[lsp_assert]]
+id = 15
+path = "/result/changes"
+equals = {}

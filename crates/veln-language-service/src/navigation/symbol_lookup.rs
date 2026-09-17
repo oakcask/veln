@@ -1,5 +1,5 @@
 impl SymbolIndex {
-    fn has_visible_schema_alias_declaration(
+    fn schema_alias_selection_blocks_schema_fallback(
         &self,
         file: &IndexedFile,
         tokens: &[Token],
@@ -29,7 +29,7 @@ impl SymbolIndex {
                         )
                 })
             }
-            QualifiedWorkspaceModule::Ambiguous => false,
+            QualifiedWorkspaceModule::Ambiguous => true,
         }
     }
 

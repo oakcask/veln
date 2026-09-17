@@ -48,9 +48,11 @@ owned sources with the same explicit workspace module identity. A valid
 dependency import in one such source can qualify an operation leaf in another.
 A colliding workspace import and dependency import, duplicate dependency
 imports, or a syntax-recovered dependency import in that module prevents the
-qualified operation leaf from selecting a dependency schema alias. The
+qualified operation leaf from selecting a dependency schema alias or falling
+back to a schema imported only by the operation source. The
 `direct_dependency_schema_alias_imports_are_visible_across_module_sources`,
 `workspace_and_dependency_schema_alias_imports_collide_across_module_sources`,
+`dependency_alias_and_schema_imports_collide_across_module_sources`,
 and `invalid_dependency_schema_alias_imports_block_across_module_sources`
 language-service tests are the executable evidence for these outcomes.
 
