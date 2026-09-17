@@ -351,6 +351,125 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn direct_dependency_schema_alias_imports_are_visible_across_module_sources() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "lib/wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            )],
+            ["lib/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "imports.veln",
+                    "mod app\n\nuse lib::wire from \"example/dep\"\n",
+                ),
+                source(
+                    "read.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode wire::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "write.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "fn write(packet: {value: Int}) -> ()\n",
+                        "  encode wire::Alias from packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        for (path, column) in [("read.veln", 16), ("write.veln", 16)] {
+            let result = query_snapshot(&snapshot, path, 4, column).unwrap();
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                locations(&result.references),
+                [("read.veln", 4, 16), ("write.veln", 4, 16)]
+            );
+        }
+    }
+
+    #[test]
+    fn invalid_dependency_schema_alias_imports_block_across_module_sources() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "alias.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                    ),
+                ),
+                (
+                    "schema.veln",
+                    "mod dep\n\npub schema Alias\n  value: Int\nend\n",
+                ),
+            ],
+            ["alias.veln", "schema.veln"],
+        );
+
+        for (name, import_sources) in [
+            (
+                "duplicate import",
+                vec![
+                    source(
+                        "import_a.veln",
+                        "mod app\n\nuse dep from \"example/dep\"\n",
+                    ),
+                    source(
+                        "import_b.veln",
+                        "mod app\n\nuse dep from \"example/dep\"\n",
+                    ),
+                ],
+            ),
+            (
+                "recovered import",
+                vec![source(
+                    "import.veln",
+                    "mod app\n\nuse dep from \"example/dep\" unexpected\n",
+                )],
+            ),
+        ] {
+            let mut sources = import_sources;
+            sources.push(source(
+                "operation.veln",
+                concat!(
+                    "mod app\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ));
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                sources,
+                vec![dependency.clone()],
+            );
+
+            assert!(
+                query_snapshot(&snapshot, "operation.veln", 4, 16).is_none(),
+                "{name} must block dependency alias fallback across module sources"
+            );
+        }
+    }
+
+    #[test]
     fn package_schema_references_require_public_exported_direct_dependencies() {
         let direct = dependency_snapshot(
             "example/dep",

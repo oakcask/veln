@@ -17,7 +17,7 @@ impl SymbolIndex {
                     symbol.package.is_none() && symbol.module == module && symbol.name == name
                 })
             }
-            QualifiedWorkspaceModule::External => {
+            QualifiedWorkspaceModule::External | QualifiedWorkspaceModule::Unresolved => {
                 self.package_schema_alias_declarations.iter().any(|alias| {
                     alias.package_origin == PackageOrigin::DirectDependency
                         && alias.name == name
@@ -29,7 +29,7 @@ impl SymbolIndex {
                         )
                 })
             }
-            QualifiedWorkspaceModule::Ambiguous | QualifiedWorkspaceModule::Unresolved => false,
+            QualifiedWorkspaceModule::Ambiguous => false,
         }
     }
 
@@ -40,11 +40,11 @@ impl SymbolIndex {
         module: &str,
         package: &str,
     ) -> bool {
-        let has_written_exact_import = file
-            .schema_alias_external_imports
+        let module_imports = self.schema_alias_external_imports_in_module(file);
+        let has_written_exact_import = module_imports
             .iter()
             .any(|import| import.module == qualifier);
-        file.schema_alias_external_imports
+        module_imports
             .iter()
             .filter(|import| !has_written_exact_import || import.module == qualifier)
             .any(|import| {
@@ -79,7 +79,11 @@ impl SymbolIndex {
         let mut candidates = self.schema_aliases.iter().filter(|symbol| {
             symbol.name == name
                 && match (&qualification, &symbol.package) {
-                    (QualifiedWorkspaceModule::External, Some(package)) => {
+                    (
+                        QualifiedWorkspaceModule::External
+                        | QualifiedWorkspaceModule::Unresolved,
+                        Some(package),
+                    ) => {
                         symbol.package_origin == Some(PackageOrigin::DirectDependency)
                             && self.valid_schema_alias_external_import(
                                 file,
@@ -92,9 +96,9 @@ impl SymbolIndex {
                         symbol.module == *module
                     }
                     (QualifiedWorkspaceModule::Ambiguous, _)
-                    | (QualifiedWorkspaceModule::Unresolved, _)
                     | (QualifiedWorkspaceModule::Workspace(_), Some(_))
-                    | (QualifiedWorkspaceModule::External, None) => false,
+                    | (QualifiedWorkspaceModule::External, None)
+                    | (QualifiedWorkspaceModule::Unresolved, None) => false,
                 }
         });
         let candidate = candidates.next()?;
@@ -109,8 +113,8 @@ impl SymbolIndex {
         package: &str,
     ) -> bool {
         let imports = self.valid_schema_alias_external_imports(file);
-        let has_written_exact_import = file
-            .schema_alias_external_imports
+        let has_written_exact_import = self
+            .schema_alias_external_imports_in_module(file)
             .iter()
             .any(|import| import.module == qualifier);
         let considered_imports = imports
@@ -130,22 +134,16 @@ impl SymbolIndex {
 
     fn valid_schema_alias_external_imports<'a>(
         &'a self,
-        file: &'a IndexedFile,
+        file: &IndexedFile,
     ) -> Vec<&'a ExternalImport> {
-        file.schema_alias_external_imports
+        let imports = self.schema_alias_external_imports_in_module(file);
+        imports
             .iter()
+            .copied()
             .filter(|import| {
                 import.syntax_valid
-                    && self
-                        .files
+                    && imports
                         .iter()
-                        .filter(|candidate_file| {
-                            workspace_navigation_file(candidate_file)
-                                && candidate_file.module == file.module
-                        })
-                        .flat_map(|candidate_file| {
-                            candidate_file.schema_alias_external_imports.iter()
-                        })
                         .filter(|candidate| {
                             candidate.module == import.module
                                 && candidate.package == import.package
@@ -154,6 +152,19 @@ impl SymbolIndex {
                         .count()
                         == 1
             })
+            .collect()
+    }
+
+    fn schema_alias_external_imports_in_module<'a>(
+        &'a self,
+        file: &IndexedFile,
+    ) -> Vec<&'a ExternalImport> {
+        self.files
+            .iter()
+            .filter(|candidate_file| {
+                workspace_navigation_file(candidate_file) && candidate_file.module == file.module
+            })
+            .flat_map(|candidate_file| candidate_file.schema_alias_external_imports.iter())
             .collect()
     }
 
