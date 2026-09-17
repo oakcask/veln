@@ -12,3 +12,12 @@ pub schema WirePacket = Packet
 pub schema Hidden
   value: Int
 end
+
+schema PackageFrame
+  nested: WirePacket
+end
+
+fn package_operations(view: ByteView, packet: {value: Int}) -> ()
+  decode WirePacket from view at byte_offset(0)?
+  encode WirePacket from packet
+end

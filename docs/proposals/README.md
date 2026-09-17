@@ -27,8 +27,10 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- The agent-language-services umbrella remains a planning inventory. Do not
-  select the umbrella directly:
+- The agent-language-services umbrella remains a planning inventory for
+  broader dependency and standard-library schema-alias references plus
+  documentation, conformance, and plugin work. Do not select the umbrella
+  directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
