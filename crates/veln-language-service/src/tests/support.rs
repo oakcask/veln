@@ -7,7 +7,8 @@ use crate::navigation::{
     dependency_source_parses, function_scope_collections, reset_constructor_reference_collections,
     reset_dependency_path_classifications, reset_dependency_source_indexes,
     reset_dependency_source_parses, reset_function_scope_collections,
-    reset_type_reference_collections, type_reference_collections,
+    reset_schema_alias_import_work, reset_type_reference_collections, schema_alias_import_work,
+    type_reference_collections,
 };
 use veln_ast::{NameClass, NameOccurrence, QualifiedPathSegmentEvidence};
 use veln_project::{capture_package_snapshot, parse_manifest_text};

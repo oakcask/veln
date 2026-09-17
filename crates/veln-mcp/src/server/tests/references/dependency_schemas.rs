@@ -564,6 +564,50 @@ fn references_prefer_exact_dependency_schema_alias_imports() {
 }
 
 #[test]
+fn references_resolve_dependency_schema_alias_targets_across_same_module_sources() {
+    let workspace = TempWorkspace::new("references-schema-alias-same-module-sources");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use lib::wire from \"example/dep\"\n\n",
+            "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::WirePacket from view at byte_offset(0)?\n",
+            "  encode wire::WirePacket from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        concat!(
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"lib/packet.veln\", \"lib/alias.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/lib/packet.veln",
+        "mod lib::wire\n\npub schema Packet\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/lib/alias.veln",
+        "mod lib::wire\n\npub schema WirePacket = Packet\n",
+    );
+
+    for (line, column) in [(4, 16), (5, 16)] {
+        let result = references_result(&workspace, "main.veln", line, column);
+        assert_eq!(result["isError"], false, "{result:#}");
+        assert_reference_ranges(
+            &result,
+            &[("main.veln", 4, 16, 4, 26), ("main.veln", 5, 16, 5, 26)],
+            "same-module cross-source dependency schema alias operations",
+        );
+    }
+}
+
+#[test]
 fn references_reject_exact_workspace_and_dependency_schema_alias_import_collisions() {
     let workspace = TempWorkspace::new("references-exact-schema-alias-import-collision");
     workspace.write(

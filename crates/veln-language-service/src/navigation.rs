@@ -42,6 +42,8 @@ thread_local! {
     static DEPENDENCY_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static WORKSPACE_SOURCE_PARSES: Cell<usize> = const { Cell::new(0) };
     static DEPENDENCY_PATH_CLASSIFICATIONS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -147,6 +149,30 @@ pub(crate) fn reset_dependency_path_classifications() {
 #[cfg(test)]
 pub(crate) fn dependency_path_classifications() -> usize {
     DEPENDENCY_PATH_CLASSIFICATIONS.get()
+}
+
+#[cfg(test)]
+fn record_schema_alias_import_index_entries(count: usize) {
+    SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES.set(SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES.get() + count);
+}
+
+#[cfg(test)]
+fn record_schema_alias_import_route_lookup() {
+    SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS.set(SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_alias_import_work() {
+    SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES.set(0);
+    SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn schema_alias_import_work() -> (usize, usize) {
+    (
+        SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES.get(),
+        SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]

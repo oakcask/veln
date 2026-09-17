@@ -1,7 +1,4 @@
-pub schema Packet
-  format binary
-  value: UInt8
-end
+mod lib::wire
 
 pub type Packet
   pub Ready(Int)

@@ -841,6 +841,8 @@ fn index_schema_alias_module_imports(
         let (workspace_imports, external_imports) =
             collected.entry(file.module.clone()).or_default();
         workspace_imports.extend(file.uses.iter().cloned());
+        #[cfg(test)]
+        record_schema_alias_import_index_entries(file.schema_alias_external_imports.len());
         external_imports.extend(file.schema_alias_external_imports.iter().cloned());
     }
     collected
@@ -867,6 +869,8 @@ impl SchemaAliasModuleImports {
         let duplicate_counts = external_imports.iter().fold(
             BTreeMap::<(String, String, String), usize>::new(),
             |mut counts, import| {
+                #[cfg(test)]
+                record_schema_alias_import_index_entries(1);
                 *counts
                     .entry((
                         import.module.clone(),
@@ -883,6 +887,8 @@ impl SchemaAliasModuleImports {
             ..Self::default()
         };
         for import in external_imports {
+            #[cfg(test)]
+            record_schema_alias_import_index_entries(1);
             let identity = (import.module.clone(), import.package.clone());
             indexed
                 .external_imports_by_module
@@ -916,6 +922,8 @@ impl SchemaAliasModuleImports {
     }
 
     fn valid_external_route(&self, qualifier: &str) -> Option<(String, String)> {
+        #[cfg(test)]
+        record_schema_alias_import_route_lookup();
         if self.external_imports_by_module.contains_key(qualifier) {
             return unique_external_route(
                 self.valid_external_imports_by_module.get(qualifier)?,

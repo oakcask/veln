@@ -3,19 +3,22 @@ mod dependencies_schema_references_tests {
 
     #[test]
     fn dependency_schema_alias_reference_lookup_avoids_nonlinear_import_rescans() {
-        let elapsed = [100, 200, 400].map(|count| {
-            let mut samples = (0..3)
-                .map(|_| dependency_schema_alias_reference_time(count))
-                .collect::<Vec<_>>();
-            samples.sort();
-            samples[1]
-        });
-
-        assert!(elapsed[1] <= elapsed[0] * 3 + std::time::Duration::from_millis(50));
-        assert!(elapsed[2] <= elapsed[1] * 3 + std::time::Duration::from_millis(50));
+        for count in [100, 200, 400] {
+            let (index_entries, route_lookups) = dependency_schema_alias_reference_work(count);
+            assert_eq!(
+                index_entries,
+                count * 3,
+                "index construction must make only its three linear import passes",
+            );
+            assert_eq!(
+                route_lookups,
+                count + 1,
+                "the first query must perform one indexed route lookup per candidate plus selection",
+            );
+        }
     }
 
-    fn dependency_schema_alias_reference_time(count: usize) -> std::time::Duration {
+    fn dependency_schema_alias_reference_work(count: usize) -> (usize, usize) {
         let mut consumer = String::from("use schema0 from \"example/dep\"\n");
         for index in 1..count {
             consumer.push_str(&format!("use unused{index} from \"example/dep\"\n"));
@@ -37,13 +40,17 @@ mod dependencies_schema_references_tests {
             vec![source("main.veln", &consumer)],
             vec![dependency],
         );
+        reset_schema_alias_import_work();
         let _ = snapshot.navigation_index();
-        let start = std::time::Instant::now();
+        let (index_entries, construction_lookups) = schema_alias_import_work();
+        assert_eq!(construction_lookups, 0);
 
+        reset_schema_alias_import_work();
         let result = query_snapshot(&snapshot, "main.veln", count + 3, 20).unwrap();
-
         assert_eq!(result.references.len(), count);
-        start.elapsed()
+        let (query_index_entries, route_lookups) = schema_alias_import_work();
+        assert_eq!(query_index_entries, 0);
+        (index_entries, route_lookups)
     }
 
     #[test]
@@ -393,6 +400,52 @@ mod dependencies_schema_references_tests {
         let workspace = query_snapshot(&snapshot, "workspace.veln", 5, 12).unwrap();
         assert!(workspace.references.is_empty());
         assert!(query_snapshot(&snapshot, "boundaries.veln", 8, 18).is_none());
+    }
+
+    #[test]
+    fn direct_dependency_schema_alias_target_resolves_across_same_module_sources() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "lib/packet.veln",
+                    concat!(
+                        "mod lib::wire\n\n",
+                        "pub schema Packet\n  value: Int\nend\n",
+                    ),
+                ),
+                (
+                    "lib/alias.veln",
+                    "mod lib::wire\n\npub schema WirePacket = Packet\n",
+                ),
+            ],
+            ["lib/packet.veln", "lib/alias.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use lib::wire from \"example/dep\"\n\n",
+                    "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  decode wire::WirePacket from view at byte_offset(0)?\n",
+                    "  encode wire::WirePacket from packet\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        for (line, column) in [(4, 16), (5, 16)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                locations(&result.references),
+                [("main.veln", 4, 16), ("main.veln", 5, 16)]
+            );
+        }
     }
 
     #[test]

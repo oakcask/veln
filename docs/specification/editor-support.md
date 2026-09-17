@@ -275,7 +275,8 @@ Package declarations are never added when declaration
 inclusion is true, and definition and rename support do not expand. The
 `references-dependency-schema-alias` LSP case is paired with the MCP case and
 fixes their normalized URI and range parity over identical non-BMP saved input,
-including a same-spelled type in the alias target's module. The paired cases
+including an alias and target schema exported from separate sources with the
+same explicit module and a same-spelled type in that module. The paired cases
 also exclude a workspace type with the alias spelling from the exact result and
 keep dependency-alias composition selection empty. The LSP case also keeps
 definition and prepare-rename null and rename edits empty for the supported

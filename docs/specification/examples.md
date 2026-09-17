@@ -329,11 +329,12 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   public schema-alias `decode` and `encode` leaves:
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
   `../../examples/specification/lsp/references-dependency-schema-alias/`. The
-  paired cases also keep schema-target lookup isolated from a same-spelled type
-  declaration, exclude a workspace type with the alias spelling, keep
-  dependency-alias composition selection empty, prefer an exact dependency
-  import over a colliding implicit alias, and prevent a non-exported alias from
-  falling back to a same-spelled exported schema.
+  paired cases resolve a bare schema-alias target exported from another source
+  with the same explicit module, keep schema-target lookup isolated from a
+  same-spelled type declaration, exclude a workspace type with the alias
+  spelling, keep dependency-alias composition selection empty, prefer an exact
+  dependency import over a colliding implicit alias, and prevent a non-exported
+  alias from falling back to a same-spelled exported schema.
 - MCP `references` boundary fixture shared by direct-dependency schema and
   schema-alias operation selections. It includes one eligible alias as a
   positive control and successful-empty results for private, non-exported,
