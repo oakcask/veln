@@ -858,67 +858,50 @@ fn index_schema_alias_module_imports(
 
 impl SchemaAliasModuleImports {
     fn new(workspace_imports: BTreeSet<String>, external_imports: Vec<ExternalImport>) -> Self {
-        let workspace_imports_by_alias = workspace_imports.iter().fold(
-            BTreeMap::<String, BTreeSet<String>>::new(),
-            |mut by_alias, module| {
-                let alias = module.rsplit("::").next().unwrap_or(module).to_string();
-                by_alias.entry(alias).or_default().insert(module.clone());
-                by_alias
-            },
-        );
-        let duplicate_counts = external_imports.iter().fold(
-            BTreeMap::<(String, String, String), usize>::new(),
-            |mut counts, import| {
-                #[cfg(test)]
-                record_schema_alias_import_index_entries(1);
-                *counts
-                    .entry((
-                        import.module.clone(),
-                        import.package.clone(),
-                        import.alias.clone(),
-                    ))
-                    .or_default() += 1;
-                counts
-            },
-        );
+        let workspace_imports_by_alias = workspace_imports_by_alias(&workspace_imports);
+        let duplicate_counts = schema_alias_import_duplicate_counts(&external_imports);
         let mut indexed = Self {
             workspace_imports,
             workspace_imports_by_alias,
             ..Self::default()
         };
         for import in external_imports {
-            #[cfg(test)]
-            record_schema_alias_import_index_entries(1);
-            let identity = (import.module.clone(), import.package.clone());
-            indexed
-                .external_imports_by_module
-                .entry(import.module.clone())
-                .or_default()
-                .insert(identity.clone());
-            indexed
-                .external_imports_by_alias
-                .entry(import.alias.clone())
-                .or_default()
-                .insert(identity.clone());
-            let duplicate_key = (
-                import.module.clone(),
-                import.package.clone(),
-                import.alias.clone(),
-            );
-            if import.syntax_valid && duplicate_counts.get(&duplicate_key) == Some(&1) {
-                indexed
-                    .valid_external_imports_by_module
-                    .entry(import.module)
-                    .or_default()
-                    .insert(identity.clone());
-                indexed
-                    .valid_external_imports_by_alias
-                    .entry(import.alias)
-                    .or_default()
-                    .insert(identity);
-            }
+            indexed.index_external_import(import, &duplicate_counts);
         }
         indexed
+    }
+
+    fn index_external_import(
+        &mut self,
+        import: ExternalImport,
+        duplicate_counts: &BTreeMap<(String, String, String), usize>,
+    ) {
+        #[cfg(test)]
+        record_schema_alias_import_index_entries(1);
+        let identity = (import.module.clone(), import.package.clone());
+        self.external_imports_by_module
+            .entry(import.module.clone())
+            .or_default()
+            .insert(identity.clone());
+        self.external_imports_by_alias
+            .entry(import.alias.clone())
+            .or_default()
+            .insert(identity.clone());
+        let duplicate_key = (
+            import.module.clone(),
+            import.package.clone(),
+            import.alias.clone(),
+        );
+        if import.syntax_valid && duplicate_counts.get(&duplicate_key) == Some(&1) {
+            self.valid_external_imports_by_module
+                .entry(import.module)
+                .or_default()
+                .insert(identity.clone());
+            self.valid_external_imports_by_alias
+                .entry(import.alias)
+                .or_default()
+                .insert(identity);
+        }
     }
 
     fn valid_external_route(&self, qualifier: &str) -> Option<(String, String)> {
@@ -955,6 +938,39 @@ impl SchemaAliasModuleImports {
                 })
             })
     }
+}
+
+fn workspace_imports_by_alias(
+    workspace_imports: &BTreeSet<String>,
+) -> BTreeMap<String, BTreeSet<String>> {
+    workspace_imports.iter().fold(
+        BTreeMap::<String, BTreeSet<String>>::new(),
+        |mut by_alias, module| {
+            let alias = module.rsplit("::").next().unwrap_or(module).to_string();
+            by_alias.entry(alias).or_default().insert(module.clone());
+            by_alias
+        },
+    )
+}
+
+fn schema_alias_import_duplicate_counts(
+    external_imports: &[ExternalImport],
+) -> BTreeMap<(String, String, String), usize> {
+    external_imports.iter().fold(
+        BTreeMap::<(String, String, String), usize>::new(),
+        |mut counts, import| {
+            #[cfg(test)]
+            record_schema_alias_import_index_entries(1);
+            *counts
+                .entry((
+                    import.module.clone(),
+                    import.package.clone(),
+                    import.alias.clone(),
+                ))
+                .or_default() += 1;
+            counts
+        },
+    )
 }
 
 fn split_import_qualifier(qualifier: &str) -> (&str, Option<&str>) {
