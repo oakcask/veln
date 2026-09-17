@@ -244,6 +244,13 @@ fn references_project_capture_exhausts_retries_for_dependency_schema_alias_selec
         ),
     );
     let mut server = initialized_server(&workspace);
+    let admitted = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 16
+    }));
+    assert_eq!(admitted["isError"], false, "{admitted:#}");
+    assert!(dependency_resource_is_listed(&mut server, "example/dep"));
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
@@ -274,7 +281,7 @@ fn references_project_capture_exhausts_retries_for_dependency_schema_alias_selec
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+    assert!(dependency_resource_is_listed(&mut server, "example/dep"));
 }
 
 #[test]

@@ -480,6 +480,52 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn workspace_and_dependency_schema_alias_imports_collide_across_module_sources() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "lib/wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            )],
+            ["lib/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "workspace/wire.veln",
+                    concat!(
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                    ),
+                ),
+                source("workspace_import.veln", "mod app\n\nuse workspace::wire\n"),
+                source(
+                    "dependency_import.veln",
+                    "mod app\n\nuse lib::wire from \"example/dep\"\n",
+                ),
+                source(
+                    "operation.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode wire::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        assert!(
+            query_snapshot(&snapshot, "operation.veln", 4, 16).is_none(),
+            "a workspace import and dependency import with the same implicit qualifier must be ambiguous across module sources"
+        );
+    }
+
+    #[test]
     fn invalid_dependency_schema_alias_imports_block_across_module_sources() {
         let dependency = dependency_snapshot(
             "example/dep",

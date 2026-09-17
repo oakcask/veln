@@ -11,7 +11,7 @@ impl SymbolIndex {
                 symbol.package.is_none() && symbol.module == file.module && symbol.name == name
             });
         };
-        match qualified_workspace_module(file, &qualifier) {
+        match self.schema_alias_qualified_workspace_module(file, &qualifier) {
             QualifiedWorkspaceModule::Workspace(module) => {
                 self.schema_alias_declarations.iter().any(|symbol| {
                     symbol.package.is_none() && symbol.module == module && symbol.name == name
@@ -75,7 +75,7 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        let qualification = qualified_workspace_module(file, qualifier);
+        let qualification = self.schema_alias_qualified_workspace_module(file, qualifier);
         let mut candidates = self.schema_aliases.iter().filter(|symbol| {
             symbol.name == name
                 && match (&qualification, &symbol.package) {
@@ -166,6 +166,57 @@ impl SymbolIndex {
             })
             .flat_map(|candidate_file| candidate_file.schema_alias_external_imports.iter())
             .collect()
+    }
+
+    fn schema_alias_qualified_workspace_module(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+    ) -> QualifiedWorkspaceModule {
+        if file.module == qualifier {
+            return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
+        }
+
+        let module_files = self.files.iter().filter(|candidate_file| {
+            workspace_navigation_file(candidate_file) && candidate_file.module == file.module
+        });
+        let workspace_imports = module_files
+            .flat_map(|candidate_file| candidate_file.uses.iter())
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        if workspace_imports.contains(qualifier) {
+            return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
+        }
+
+        let external_imports = self.schema_alias_external_imports_in_module(file);
+        let exact_external_imports = external_imports
+            .iter()
+            .filter(|import| import.module == qualifier)
+            .map(|import| (import.module.as_str(), import.package.as_str()))
+            .collect::<BTreeSet<_>>();
+        if exact_external_imports.len() == 1 {
+            return QualifiedWorkspaceModule::External;
+        }
+        if exact_external_imports.len() > 1 {
+            return QualifiedWorkspaceModule::Ambiguous;
+        }
+
+        let workspace_modules = workspace_imports
+            .into_iter()
+            .filter(|module| module.rsplit("::").next() == Some(qualifier))
+            .collect::<Vec<_>>();
+        let external_module_count = external_imports
+            .iter()
+            .filter(|import| import.module.rsplit("::").next() == Some(qualifier))
+            .map(|import| (import.module.as_str(), import.package.as_str()))
+            .collect::<BTreeSet<_>>()
+            .len();
+        match (workspace_modules.as_slice(), external_module_count) {
+            ([module], 0) => QualifiedWorkspaceModule::Workspace((*module).to_string()),
+            ([], 1) => QualifiedWorkspaceModule::External,
+            ([], 0) => QualifiedWorkspaceModule::Unresolved,
+            _ => QualifiedWorkspaceModule::Ambiguous,
+        }
     }
 
     fn visible_schema_for_bare_reference(

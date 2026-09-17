@@ -967,6 +967,8 @@ fn write_schema_dependency_workspace(
             "fn package_operations(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode Packet from view at byte_offset(0)?\n",
             "  encode Packet from packet\n",
+            "  decode Alias from view at byte_offset(0)?\n",
+            "  encode Alias from packet\n",
             "end\n",
         ),
     );
