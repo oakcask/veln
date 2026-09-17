@@ -251,7 +251,9 @@ count is a valid schema count expression. Comments, strings, import tokens,
 and module qualifiers are not schema
 references. Standard-library schemas,
 ineligible package schema aliases, transitive dependencies, recovery records,
-syntax-recovered leaves, and invalid-casing records remain unsupported. The
+and syntax-recovered leaves remain unsupported. An invalid-cased schema
+declaration in an otherwise eligible direct-dependency source retains its
+package definition location, but its reference set is empty. The
 `references-dependency-schema-composition` LSP case covers the unified set,
 both declaration policies, full and implicit module paths, workspace-only exact
 ranges, non-BMP saved input, and parity with the MCP case. The existing

@@ -385,9 +385,11 @@ the embedded standard library. They also include public type aliases from
 exported direct-dependency modules when the alias target resolves to a type
 declaration in the same retained dependency. The source must select the exact
 visible import or implicit standard-library prelude path required by name
-resolution. Invalid casing records, private declarations, non-exported
-sources, mismatched package imports, unsupported symbol classes, and package
-module-segment selections succeed with `definition: null`.
+resolution. Invalid-casing recovery records, private declarations,
+non-exported sources, mismatched package imports, unsupported symbol classes,
+and package module-segment selections succeed with `definition: null`. An
+invalid-cased schema declaration in an otherwise eligible direct-dependency
+source retains its package definition location.
 MCP only exposes the recovery record source range through `definition`.
 Prepare-rename, rename edits, and package reference locations are outside the
 MCP definition result.
@@ -474,8 +476,12 @@ payload resolves only when its count is a valid schema count expression;
 another count shape does not select the payload and does not enter its
 reference set.
 Standard-library schemas, private or non-exported schemas,
-transitive dependencies, recovery and invalid-casing records, and unresolved
-or mismatched imports succeed with an empty reference set. The
+transitive dependencies, recovery records, invalid-cased schema declarations,
+and unresolved or mismatched imports succeed with an empty reference set. An
+invalid-cased schema declaration can retain its package definition location;
+that definition does not admit it to the reference set. The focused
+`package_schema_references_require_public_exported_direct_dependencies`
+language-service test covers this boundary. The
 `references-dependency-schema-composition` MCP case is the unified positive
 executable protocol contract. The existing
 `references-dependency-schema-operation` case preserves operation behavior. The
