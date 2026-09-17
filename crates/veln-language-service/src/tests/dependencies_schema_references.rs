@@ -2,6 +2,51 @@ mod dependencies_schema_references_tests {
     use super::*;
 
     #[test]
+    fn dependency_schema_alias_reference_lookup_avoids_nonlinear_import_rescans() {
+        let elapsed = [100, 200, 400].map(|count| {
+            let mut samples = (0..3)
+                .map(|_| dependency_schema_alias_reference_time(count))
+                .collect::<Vec<_>>();
+            samples.sort();
+            samples[1]
+        });
+
+        assert!(elapsed[1] <= elapsed[0] * 3 + std::time::Duration::from_millis(50));
+        assert!(elapsed[2] <= elapsed[1] * 3 + std::time::Duration::from_millis(50));
+    }
+
+    fn dependency_schema_alias_reference_time(count: usize) -> std::time::Duration {
+        let mut consumer = String::from("use schema0 from \"example/dep\"\n");
+        for index in 1..count {
+            consumer.push_str(&format!("use unused{index} from \"example/dep\"\n"));
+        }
+        consumer.push_str("\nfn read(view: ByteView) -> ()\n");
+        for _ in 0..count {
+            consumer.push_str("  decode schema0::Alias from view at byte_offset(0)?\n");
+        }
+        consumer.push_str("end\n");
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "schema0.veln",
+                "pub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
+            )],
+            ["schema0.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source("main.veln", &consumer)],
+            vec![dependency],
+        );
+        let _ = snapshot.navigation_index();
+        let start = std::time::Instant::now();
+
+        let result = query_snapshot(&snapshot, "main.veln", count + 3, 20).unwrap();
+
+        assert_eq!(result.references.len(), count);
+        start.elapsed()
+    }
+
+    #[test]
     fn direct_dependency_schema_references_cover_operation_leaves_and_identity() {
         let selected = dependency_snapshot(
             "example/dep",

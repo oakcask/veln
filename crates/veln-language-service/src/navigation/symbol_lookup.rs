@@ -40,18 +40,9 @@ impl SymbolIndex {
         module: &str,
         package: &str,
     ) -> bool {
-        let module_imports = self.schema_alias_external_imports_in_module(file);
-        let has_written_exact_import = module_imports
-            .iter()
-            .any(|import| import.module == qualifier);
-        module_imports
-            .iter()
-            .filter(|import| !has_written_exact_import || import.module == qualifier)
-            .any(|import| {
-                resolved_external_import_module(import, qualifier).is_some_and(|resolved| {
-                    resolved == module && import.package == package
-                })
-            })
+        self.schema_alias_module_imports
+            .get(&file.module)
+            .is_some_and(|imports| imports.raw_external_route_matches(qualifier, module, package))
     }
 
     fn visible_schema_alias_for_bare_reference(
@@ -112,60 +103,12 @@ impl SymbolIndex {
         module: &str,
         package: &str,
     ) -> bool {
-        let imports = self.valid_schema_alias_external_imports(file);
-        let has_written_exact_import = self
-            .schema_alias_external_imports_in_module(file)
-            .iter()
-            .any(|import| import.module == qualifier);
-        let considered_imports = imports
-            .into_iter()
-            .filter(|import| !has_written_exact_import || import.module == qualifier);
-        let mut matches = considered_imports.into_iter()
-            .filter_map(|import| {
-                resolved_external_import_module(import, qualifier)
-                    .map(|resolved| (resolved, import.package.as_str()))
-            });
-        matches
-            .next()
+        self.schema_alias_module_imports
+            .get(&file.module)
+            .and_then(|imports| imports.valid_external_route(qualifier))
             .is_some_and(|(resolved, candidate_package)| {
-                resolved == module && candidate_package == package && matches.next().is_none()
+                resolved == module && candidate_package == package
             })
-    }
-
-    fn valid_schema_alias_external_imports<'a>(
-        &'a self,
-        file: &IndexedFile,
-    ) -> Vec<&'a ExternalImport> {
-        let imports = self.schema_alias_external_imports_in_module(file);
-        imports
-            .iter()
-            .copied()
-            .filter(|import| {
-                import.syntax_valid
-                    && imports
-                        .iter()
-                        .filter(|candidate| {
-                            candidate.module == import.module
-                                && candidate.package == import.package
-                                && candidate.alias == import.alias
-                        })
-                        .count()
-                        == 1
-            })
-            .collect()
-    }
-
-    fn schema_alias_external_imports_in_module<'a>(
-        &'a self,
-        file: &IndexedFile,
-    ) -> Vec<&'a ExternalImport> {
-        self.files
-            .iter()
-            .filter(|candidate_file| {
-                workspace_navigation_file(candidate_file) && candidate_file.module == file.module
-            })
-            .flat_map(|candidate_file| candidate_file.schema_alias_external_imports.iter())
-            .collect()
     }
 
     fn schema_alias_qualified_workspace_module(
@@ -177,47 +120,38 @@ impl SymbolIndex {
             return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
         }
 
-        let module_files = self.files.iter().filter(|candidate_file| {
-            workspace_navigation_file(candidate_file) && candidate_file.module == file.module
-        });
-        let workspace_imports = module_files
-            .flat_map(|candidate_file| candidate_file.uses.iter())
-            .map(String::as_str)
-            .collect::<BTreeSet<_>>();
-        let external_imports = self.schema_alias_external_imports_in_module(file);
-        let exact_external_imports = external_imports
-            .iter()
-            .filter(|import| import.module == qualifier)
-            .map(|import| (import.module.as_str(), import.package.as_str()))
-            .collect::<BTreeSet<_>>();
-        let has_exact_workspace_module = workspace_imports.contains(qualifier);
-        if has_exact_workspace_module && !exact_external_imports.is_empty() {
+        let Some(imports) = self.schema_alias_module_imports.get(&file.module) else {
+            return QualifiedWorkspaceModule::Unresolved;
+        };
+        let exact_external_imports = imports.external_imports_by_module.get(qualifier);
+        let has_exact_workspace_module = imports.workspace_imports.contains(qualifier);
+        if has_exact_workspace_module && exact_external_imports.is_some_and(|set| !set.is_empty()) {
             return QualifiedWorkspaceModule::Ambiguous;
         }
         if has_exact_workspace_module {
             return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
         }
-        if exact_external_imports.len() == 1 {
+        if exact_external_imports.is_some_and(|set| set.len() == 1) {
             return QualifiedWorkspaceModule::External;
         }
-        if exact_external_imports.len() > 1 {
+        if exact_external_imports.is_some_and(|set| set.len() > 1) {
             return QualifiedWorkspaceModule::Ambiguous;
         }
 
-        let workspace_modules = workspace_imports
-            .into_iter()
-            .filter(|module| module.rsplit("::").next() == Some(qualifier))
-            .collect::<Vec<_>>();
-        let external_module_count = external_imports
-            .iter()
-            .filter(|import| import.module.rsplit("::").next() == Some(qualifier))
-            .map(|import| (import.module.as_str(), import.package.as_str()))
-            .collect::<BTreeSet<_>>()
-            .len();
-        match (workspace_modules.as_slice(), external_module_count) {
-            ([module], 0) => QualifiedWorkspaceModule::Workspace((*module).to_string()),
-            ([], 1) => QualifiedWorkspaceModule::External,
-            ([], 0) => QualifiedWorkspaceModule::Unresolved,
+        let workspace_modules = imports.workspace_imports_by_alias.get(qualifier);
+        let external_module_count = imports
+            .external_imports_by_alias
+            .get(qualifier)
+            .map_or(0, BTreeSet::len);
+        match (workspace_modules.map(BTreeSet::len).unwrap_or(0), external_module_count) {
+            (1, 0) => QualifiedWorkspaceModule::Workspace(
+                workspace_modules
+                    .and_then(|modules| modules.iter().next())
+                    .cloned()
+                    .expect("one workspace module is present"),
+            ),
+            (0, 1) => QualifiedWorkspaceModule::External,
+            (0, 0) => QualifiedWorkspaceModule::Unresolved,
             _ => QualifiedWorkspaceModule::Ambiguous,
         }
     }
@@ -899,17 +833,138 @@ impl SymbolIndex {
     }
 }
 
-fn resolved_external_import_module(import: &ExternalImport, qualifier: &str) -> Option<String> {
-    if qualifier == import.module {
-        return Some(import.module.clone());
+fn index_schema_alias_module_imports(
+    files: &[IndexedFile],
+) -> BTreeMap<String, SchemaAliasModuleImports> {
+    let mut collected = BTreeMap::<String, (BTreeSet<String>, Vec<ExternalImport>)>::new();
+    for file in files.iter().filter(|file| workspace_navigation_file(file)) {
+        let (workspace_imports, external_imports) =
+            collected.entry(file.module.clone()).or_default();
+        workspace_imports.extend(file.uses.iter().cloned());
+        external_imports.extend(file.schema_alias_external_imports.iter().cloned());
     }
-    if qualifier == import.alias {
-        return Some(import.module.clone());
+    collected
+        .into_iter()
+        .map(|(module, (workspace_imports, external_imports))| {
+            (
+                module,
+                SchemaAliasModuleImports::new(workspace_imports, external_imports),
+            )
+        })
+        .collect()
+}
+
+impl SchemaAliasModuleImports {
+    fn new(workspace_imports: BTreeSet<String>, external_imports: Vec<ExternalImport>) -> Self {
+        let workspace_imports_by_alias = workspace_imports.iter().fold(
+            BTreeMap::<String, BTreeSet<String>>::new(),
+            |mut by_alias, module| {
+                let alias = module.rsplit("::").next().unwrap_or(module).to_string();
+                by_alias.entry(alias).or_default().insert(module.clone());
+                by_alias
+            },
+        );
+        let duplicate_counts = external_imports.iter().fold(
+            BTreeMap::<(String, String, String), usize>::new(),
+            |mut counts, import| {
+                *counts
+                    .entry((
+                        import.module.clone(),
+                        import.package.clone(),
+                        import.alias.clone(),
+                    ))
+                    .or_default() += 1;
+                counts
+            },
+        );
+        let mut indexed = Self {
+            workspace_imports,
+            workspace_imports_by_alias,
+            ..Self::default()
+        };
+        for import in external_imports {
+            let identity = (import.module.clone(), import.package.clone());
+            indexed
+                .external_imports_by_module
+                .entry(import.module.clone())
+                .or_default()
+                .insert(identity.clone());
+            indexed
+                .external_imports_by_alias
+                .entry(import.alias.clone())
+                .or_default()
+                .insert(identity.clone());
+            let duplicate_key = (
+                import.module.clone(),
+                import.package.clone(),
+                import.alias.clone(),
+            );
+            if import.syntax_valid && duplicate_counts.get(&duplicate_key) == Some(&1) {
+                indexed
+                    .valid_external_imports_by_module
+                    .entry(import.module)
+                    .or_default()
+                    .insert(identity.clone());
+                indexed
+                    .valid_external_imports_by_alias
+                    .entry(import.alias)
+                    .or_default()
+                    .insert(identity);
+            }
+        }
+        indexed
     }
+
+    fn valid_external_route(&self, qualifier: &str) -> Option<(String, String)> {
+        if self.external_imports_by_module.contains_key(qualifier) {
+            return unique_external_route(
+                self.valid_external_imports_by_module.get(qualifier)?,
+                None,
+            );
+        }
+        let (alias, suffix) = split_import_qualifier(qualifier);
+        unique_external_route(self.valid_external_imports_by_alias.get(alias)?, suffix)
+    }
+
+    fn raw_external_route_matches(
+        &self,
+        qualifier: &str,
+        expected_module: &str,
+        expected_package: &str,
+    ) -> bool {
+        if let Some(routes) = self.external_imports_by_module.get(qualifier) {
+            return routes
+                .iter()
+                .any(|(module, package)| module == expected_module && package == expected_package);
+        }
+        let (alias, suffix) = split_import_qualifier(qualifier);
+        self.external_imports_by_alias
+            .get(alias)
+            .is_some_and(|routes| {
+                routes.iter().any(|(module, package)| {
+                    append_module_suffix(module, suffix) == expected_module
+                        && package == expected_package
+                })
+            })
+    }
+}
+
+fn split_import_qualifier(qualifier: &str) -> (&str, Option<&str>) {
     qualifier
-        .strip_prefix(import.alias.as_str())
-        .and_then(|rest| rest.strip_prefix("::"))
-        .map(|rest| format!("{}::{rest}", import.module))
+        .split_once("::")
+        .map_or((qualifier, None), |(alias, suffix)| (alias, Some(suffix)))
+}
+
+fn unique_external_route(
+    routes: &BTreeSet<(String, String)>,
+    suffix: Option<&str>,
+) -> Option<(String, String)> {
+    let (module, package) = routes.iter().next()?;
+    (routes.len() == 1).then(|| (append_module_suffix(module, suffix), package.clone()))
+}
+
+fn append_module_suffix(module: &str, suffix: Option<&str>) -> String {
+    suffix.map_or_else(|| module.to_string(), |suffix| format!("{module}::{suffix}"))
 }
 
 enum QualifiedWorkspaceModule {

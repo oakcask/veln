@@ -677,6 +677,16 @@ struct ExternalImport {
     syntax_valid: bool,
 }
 
+#[derive(Clone, Debug, Default)]
+struct SchemaAliasModuleImports {
+    workspace_imports: BTreeSet<String>,
+    workspace_imports_by_alias: BTreeMap<String, BTreeSet<String>>,
+    external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
+    external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
+    valid_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
+    valid_external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
+}
+
 #[derive(Clone, Debug)]
 struct SchemaCompositionReference {
     span: SourceSpan,
@@ -754,6 +764,7 @@ pub(crate) struct SymbolIndex {
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
     schema_composition_references: Vec<SchemaCompositionReference>,
+    schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
 

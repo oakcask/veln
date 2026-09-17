@@ -51,6 +51,7 @@ impl SymbolIndex {
         append_surface_module(&mut module, direct_dependencies.module.clone());
         append_surface_module(&mut module, standard_library.module.clone());
         attach_classified_path_segments(&mut files, &workspace_module, &module);
+        let schema_alias_module_imports = index_schema_alias_module_imports(&files);
         let schema_alias_declarations = declarations
             .schema_aliases
             .iter()
@@ -89,6 +90,7 @@ impl SymbolIndex {
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
             schema_composition_references,
+            schema_alias_module_imports,
             files,
             function_rename_index: OnceLock::new(),
         }
