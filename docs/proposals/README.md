@@ -16,7 +16,9 @@ also states it.
 
 ## Ready
 
-No proposals are ready for implementation.
+- Direct-dependency schema aliases with a qualified target in another module
+  of the same retained package:
+  [dependency-schema-alias-cross-module-targets.md](dependency-schema-alias-cross-module-targets.md).
 
 ## Blocked
 
