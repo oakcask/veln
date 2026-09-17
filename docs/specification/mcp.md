@@ -504,14 +504,17 @@ aliases. The `references-dependency-schema-alias` MCP case is the exact-range
 protocol contract and has a paired LSP case over identical saved sources. The
 paired cases keep the alias eligible when a type shares its target name, cover
 exact-import precedence, exclude import, comment, and string selections, and
-preserve successful empty results for the non-exported alias blocker. Every
-positive decode and encode response binds each range to its workspace URI.
+preserve successful empty results for the non-exported alias blocker. They also
+exclude a same-spelled workspace type from the exact alias set and keep
+dependency-alias composition selection successful and empty. Every positive
+decode and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
 alias declaration. The
 `references-dependency-schema-operation-boundaries` case requires successful
 empty results when a schema alias shares the target name and for invalid,
-non-exported, mismatched-import, duplicate-import, recovered-import, valid
-cross-module-target, and transitive alias selections. Focused MCP tests cover
+non-exported, mismatched-import, duplicate-import, recovered-import,
+invalid-cased-target, valid cross-module-target, valid other-package-target,
+and transitive alias selections. Focused MCP tests cover
 recovered aliases that duplicate otherwise eligible declarations, duplicate
 and recovered imports with a same-named schema fallback candidate,
 standard-library schema aliases, and package-source alias-target selection.
@@ -713,9 +716,10 @@ implicit leaf module paths, exact workspace-only ranges, selection parity,
 project-wide scope, and non-BMP saved input. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
-package-alias-chain, valid cross-module alias-target, duplicate-import,
-recovered-import, composition, module-qualifier, and recovery selections as
-successful empty results. Its mismatched import names a retained direct
+package-alias-chain, invalid-cased alias-target, valid cross-module and
+other-package alias-target, duplicate-import, recovered-import, composition,
+module-qualifier, and recovery selections as successful empty results. Its
+mismatched import names a retained direct
 dependency whose exported module does not match, and its transitive package
 exists only through another retained dependency's manifest. The checked
 `codec-schema-references` case independently establishes that a qualified
@@ -727,10 +731,11 @@ direct-dependency public schema-alias operation references through full written
 and implicit leaf module paths. It fixes exact workspace-only ranges,
 decode/encode selection parity, dependency-and-declaration identity,
 project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
-It also checks import, comment, and string selections as successful empty
-results. Its paired LSP case checks identical locations with declaration
-inclusion disabled and confirms that enabling declaration inclusion does not
-add a package-source declaration.
+It also excludes a same-spelled workspace type from the exact result and checks
+import, comment, string, and dependency-alias composition selections as
+successful empty results. Its paired LSP case checks identical locations with
+declaration inclusion disabled and confirms that enabling declaration
+inclusion does not add a package-source declaration.
 The `references-dependency-function` MCP specification case checks that a
 saved selected project returns only workspace `file:` locations for a visible
 direct-dependency function selected through a qualified call or qualified

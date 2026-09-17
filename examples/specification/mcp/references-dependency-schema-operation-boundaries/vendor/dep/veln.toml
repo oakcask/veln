@@ -3,3 +3,6 @@ name = "example/dep"
 
 [lib]
 exports = ["public.veln", "private.veln", "recovered.veln", "core.veln"]
+
+[dependencies."other/dep"]
+path = "../other"

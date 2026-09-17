@@ -15,3 +15,11 @@ fn operations(view: ByteView, packet: {value: Int}) -> ()
   let lexical_noise = "WirePacket"
 end
 # WirePacket is lexical noise, not an operation leaf.
+
+type WirePacket
+  Local(Int)
+end
+
+schema Frame
+  nested: lib::wire::WirePacket
+end

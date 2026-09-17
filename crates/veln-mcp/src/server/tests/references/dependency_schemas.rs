@@ -320,17 +320,26 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "end\n\n",
             "schema Frame\n",
             "  nested: public::Public\n",
+            "end\n\n",
+            "fn alias_target_boundaries(view: ByteView) -> ()\n",
+            "  decode public::InvalidTargetAlias from view at byte_offset(0)?\n",
+            "  decode public::OtherPackageAlias from view at byte_offset(0)?\n",
             "end\n",
         ),
     );
     workspace.write(
         "vendor/dep/veln.toml",
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"public.veln\", \"private.veln\", \"core.veln\"]\n",
+        concat!(
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"public.veln\", \"private.veln\", \"core.veln\"]\n\n",
+            "[dependencies.\"other/dep\"]\npath = \"../other\"\n",
+        ),
     );
     workspace.write(
         "vendor/dep/public.veln",
         concat!(
-            "use core\n\n",
+            "use core\n",
+            "use other from \"other/dep\"\n\n",
             "pub schema Public\n  value: Int\nend\n\n",
             "pub schema badSchema\n  value: Int\nend\n\n",
             "pub schema Alias = Public\n\n",
@@ -341,6 +350,8 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "pub schema CollidingAlias = CollisionTarget\n\n",
             "pub schema badAlias = Public\n\n",
             "pub schema CrossModuleAlias = core::Packet\n\n",
+            "pub schema InvalidTargetAlias = badTarget\n\n",
+            "pub schema OtherPackageAlias = other::Public\n\n",
             "fn package_operations(view: ByteView, value: {value: Int}) -> ()\n",
             "  decode Public from view at byte_offset(0)?\n",
             "  encode Public from value\n",
@@ -423,6 +434,8 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("transitive alias", "main.veln", 20, 22),
         ("invalid-casing alias", "main.veln", 21, 18),
         ("valid cross-module alias target", "main.veln", 22, 18),
+        ("invalid-casing alias target", "main.veln", 30, 18),
+        ("other-package alias target", "main.veln", 31, 18),
         ("package composition", "main.veln", 26, 19),
         ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),

@@ -24,6 +24,8 @@ fn read(view: ByteView) -> ()
   decode public::Public from view at byte_offset(0)?
   decode public::CrossModuleAlias from view at byte_offset(0)?
   decode public::DuplicateRecoveredAlias from view at byte_offset(0)?
+  decode public::InvalidTargetAlias from view at byte_offset(0)?
+  decode public::OtherPackageAlias from view at byte_offset(0)?
 end
 
 schema Frame

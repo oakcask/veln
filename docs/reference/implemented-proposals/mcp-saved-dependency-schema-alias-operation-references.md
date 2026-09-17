@@ -95,10 +95,11 @@ through the bounded runners described by
 [Toolchain Test Harness](../toolchain-test-harness.md).
 
 The dependency-schema operation boundary fixtures contain a direct same-module
-alias, an alias chain, a valid qualified cross-module target, a target-name
-schema-alias collision, recovered duplicate aliases, invalid imports, and
-graph-ineligible alias selections. They preserve the required positive or
-successful-empty result for each boundary. The checked
+alias, an alias chain, an invalid-cased target, valid qualified cross-module
+and other-package targets, a target-name schema-alias collision, recovered
+duplicate aliases, invalid imports, and graph-ineligible alias selections.
+They preserve the required positive or successful-empty result for each
+boundary. The checked
 `codec-schema-references` case independently verifies that qualified
 cross-module schema-alias targets are valid source language. Focused shared and
 MCP tests cover recovered alias declarations that collide with valid
@@ -107,10 +108,12 @@ and hidden same-module aliases that block alias eligibility without becoming
 navigation targets. The paired dependency-schema-alias cases give exact
 written dependency imports precedence over colliding implicit leaf aliases and
 keep clean non-exported aliases as blockers against same-spelled exported
-schemas. They preserve positive
-resolution when an unrelated type shares the target name and separate alias
-operation sets from direct target-schema operation sets. Current MCP and editor
-specifications own the implemented behavior.
+schemas. They preserve positive resolution when an unrelated type shares the
+target name, exclude a workspace type that shares the alias name from the
+exact operation set, keep a dependency-alias composition selection successful
+and empty, and separate alias operation sets from direct target-schema
+operation sets. Current MCP and editor specifications own the implemented
+behavior.
 The focused package-source test selects the alias target in the retained
 dependency resource and fixes the existing `invalid_path` outcome. The paired
 cases select import, comment, and string tokens as successful empty results and

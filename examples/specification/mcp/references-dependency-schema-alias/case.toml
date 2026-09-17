@@ -139,3 +139,13 @@ length = 0
 id = 9
 path = "/result/structuredContent/references"
 length = 0
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/references"
+equals = []

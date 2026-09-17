@@ -307,6 +307,16 @@ mod dependencies_schema_references_tests {
                         "pub schema WirePacket = Packet\n",
                     ),
                 ),
+                source(
+                    "boundaries.veln",
+                    concat!(
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "type WirePacket\n  Local(Int)\nend\n\n",
+                        "schema Frame\n",
+                        "  nested: wire::WirePacket\n",
+                        "end\n",
+                    ),
+                ),
             ],
             vec![selected, collision],
         );
@@ -337,6 +347,7 @@ mod dependencies_schema_references_tests {
         assert_eq!(locations(&collision.references), [("collision.veln", 4, 16)]);
         let workspace = query_snapshot(&snapshot, "workspace.veln", 5, 12).unwrap();
         assert!(workspace.references.is_empty());
+        assert!(query_snapshot(&snapshot, "boundaries.veln", 8, 18).is_none());
     }
 
     #[test]
@@ -450,6 +461,10 @@ mod dependencies_schema_references_tests {
             (
                 "missing target",
                 "pub schema Alias = Missing\n",
+            ),
+            (
+                "invalid-casing target",
+                "pub schema Alias = badTarget\n",
             ),
             (
                 "wrong kind target",

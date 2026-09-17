@@ -1,4 +1,5 @@
 use core
+use other from "other/dep"
 
 pub schema Public
   value: Int
@@ -25,6 +26,8 @@ end
 
 pub schema CrossModuleAlias = core::Packet
 pub schema DuplicateRecoveredAlias = Public
+pub schema InvalidTargetAlias = badTarget
+pub schema OtherPackageAlias = other::Public
 
 fn package_operations(view: ByteView, value: {value: Int}) -> ()
   decode Public from view at byte_offset(0)?
