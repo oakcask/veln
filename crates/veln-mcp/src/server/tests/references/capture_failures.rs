@@ -267,16 +267,10 @@ fn references_project_capture_exhausts_retries_for_dependency_schema_alias_selec
     let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
         let attempt = attempts_for_hook.get();
         attempts_for_hook.set(attempt + 1);
-        let source = root.join("main.veln");
+        let source = root.join("vendor/dep/core.veln");
         fs::remove_file(&source).unwrap();
-        let value = if attempt % 2 == 0 { 1 } else { 2 };
-        fs::write(
-            &source,
-            format!(
-                "use dep from \"example/dep\"\n\nfn main(view: ByteView) -> ()\n  let marker: Int = {value}\n  decode dep::Alias from view at byte_offset(0)?\nend\n"
-            ),
-        )
-        .unwrap();
+        let field = if attempt % 2 == 0 { "other" } else { "value" };
+        fs::write(&source, format!("pub schema Packet\n  {field}: Int\nend\n")).unwrap();
     });
 
     let result = server.references_tool(&json!({

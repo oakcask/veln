@@ -1376,6 +1376,50 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn direct_dependency_schema_alias_target_imports_are_visible_across_module_sources() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "core.veln",
+                    "mod core\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+                ("facade/imports.veln", "mod facade\nuse core\n"),
+                (
+                    "facade/alias.veln",
+                    "mod facade\n\npub schema Alias = core::Packet\n",
+                ),
+            ],
+            ["core.veln", "facade/alias.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use facade from \"example/dep\"\n\n",
+                    "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  decode facade::Alias from view at byte_offset(0)?\n",
+                    "  encode facade::Alias from packet\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        for (line, column) in [(4, 19), (5, 19)] {
+            let result = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                locations(&result.references),
+                [("main.veln", 4, 18), ("main.veln", 5, 18)]
+            );
+        }
+    }
+
+    #[test]
     fn direct_dependency_schema_alias_qualified_target_resolution_matrix() {
         let cases = [
             (
