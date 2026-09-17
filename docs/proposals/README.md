@@ -16,6 +16,10 @@ also states it.
 
 ## Ready
 
+- Direct-dependency schema-alias composition references reuse the implemented
+  alias eligibility and saved navigation boundary:
+  [dependency-schema-alias-composition-references.md](dependency-schema-alias-composition-references.md).
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

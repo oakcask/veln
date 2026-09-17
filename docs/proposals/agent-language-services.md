@@ -61,6 +61,12 @@ The remaining first-capability work includes:
   schema-alias references;
 - plugin packaging for Codex and Claude Code.
 
+The ready [direct-dependency schema-alias composition slice](dependency-schema-alias-composition-references.md)
+owns the acceptance contract for composition references to aliases already
+eligible for direct-dependency operation references. Package schema-alias
+composition mentions below are inventory references to that slice for this
+boundary; alias chains and other package origins remain later work.
+
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
