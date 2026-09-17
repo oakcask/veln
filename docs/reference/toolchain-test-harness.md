@@ -333,7 +333,9 @@ model for successful empty results at unsupported package-schema boundaries.
 The paired `references-dependency-schema-alias` MCP and LSP specification cases
 use identical saved sources. Their decoded assertions cover exact normalized
 workspace operation-leaf locations, alias and target identity separation,
-unsupported selections, and exclusion of dependency-package source locations.
+unsupported selections, exclusion of dependency-package source locations, and
+null definition and prepare-rename results plus an empty rename change set for
+the supported package alias leaf.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept
