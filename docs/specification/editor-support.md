@@ -244,10 +244,14 @@ For a public schema in an exported retained direct-dependency module,
 direct-field, `Repeat`, array-payload, `decode`, and `encode` leaves that
 resolve to the same package declaration.
 It excludes the package declaration even when declaration inclusion is true,
-as well as package-source occurrences. Standard-library
-schemas, ineligible package schema aliases, transitive dependencies, recovery records,
-syntax-recovered leaves, and invalid-casing records remain
-unsupported. The
+as well as package-source occurrences. A clean or syntax-recovered package
+schema alias with the selected name blocks fallback to a same-spelled package
+schema. A repeated payload is selected only when its `Repeat` count or array
+count is one identifier or two identifiers separated by `+`, `-`, `*`, or
+`/`. Comments, strings, import tokens, and module qualifiers are not schema
+references. Standard-library schemas,
+ineligible package schema aliases, transitive dependencies, recovery records,
+syntax-recovered leaves, and invalid-casing records remain unsupported. The
 `references-dependency-schema-composition` LSP case covers the unified set,
 both declaration policies, full and implicit module paths, workspace-only exact
 ranges, non-BMP saved input, and parity with the MCP case. The existing

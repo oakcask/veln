@@ -467,7 +467,12 @@ to the same identity. Exact dependency imports take precedence; conflicting
 exact dependency imports, duplicate dependency imports, and syntax-recovered
 dependency imports resolve no dependency identity. Results contain
 only workspace `file:` locations and exclude the declaration, package sources,
-aliases and alias targets, import tokens, and module qualifiers.
+aliases and alias targets, import tokens, module qualifiers, comments, and
+strings. A clean or syntax-recovered package schema alias with the selected
+name blocks fallback to a same-spelled package schema. A `Repeat` or array
+payload resolves only when its count is one identifier or two identifiers
+separated by `+`, `-`, `*`, or `/`; another count shape does not select the
+payload and does not enter its reference set.
 Standard-library schemas, private or non-exported schemas,
 transitive dependencies, recovery and invalid-casing records, and unresolved
 or mismatched imports succeed with an empty reference set. The
@@ -479,7 +484,8 @@ unsupported direct-dependency boundaries through operation and composition
 leaves. It covers private and non-exported declarations, mismatched and
 transitive imports, invalid casing, schema aliases, recovered declarations and
 leaves, dependency import collisions in both orders, and requires successful
-empty results. A focused MCP server test injects
+empty results. Focused language-service tests cover malformed repeated counts,
+schema-alias blockers, and lexical-noise exclusion. A focused MCP server test injects
 a public standard-library schema and verifies the successful empty result with
 the selected project scope. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture

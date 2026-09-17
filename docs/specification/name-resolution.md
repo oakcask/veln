@@ -74,7 +74,12 @@ exact match, the leaf alias resolves only when exactly one valid workspace or
 package import provides it. Conflicting exact imports and colliding implicit
 leaf aliases remain unresolved in either import order. Duplicate and
 syntax-recovered dependency imports do not provide dependency schema
-composition visibility. The
+composition visibility. A clean or syntax-recovered package schema alias with
+the selected name prevents a same-spelled package schema from acting as a
+fallback composition target. A `Repeat` or array payload participates in
+schema composition lookup only when its count is one identifier or two
+identifiers separated by `+`, `-`, `*`, or `/`. Comments and strings do not
+participate in schema composition lookup. The
 focused evidence is
 `schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`,
 `colliding_implicit_schema_import_aliases_are_order_independent`, and
@@ -83,7 +88,12 @@ targets, plus
 `dependency_schema_composition_respects_import_identity_boundaries`,
 `dependency_schema_composition_import_collisions_are_order_independent`, and
 `dependency_schema_composition_imports_are_shared_by_explicit_module_identity`
-for retained direct-dependency targets.
+for retained direct-dependency targets. The
+`dependency_schema_alias_declarations_block_composition_schema_fallback`,
+`malformed_dependency_schema_repeats_do_not_select_or_enter_reference_sets`,
+and `dependency_schema_composition_reference_sets_exclude_lexical_noise`
+language-service tests cover the remaining fallback, repeated-count, and
+lexical boundaries.
 
 Bare names resolve to local bindings. Function calls resolve to:
 
