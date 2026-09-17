@@ -184,16 +184,19 @@ impl SymbolIndex {
             .flat_map(|candidate_file| candidate_file.uses.iter())
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
-        if workspace_imports.contains(qualifier) {
-            return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
-        }
-
         let external_imports = self.schema_alias_external_imports_in_module(file);
         let exact_external_imports = external_imports
             .iter()
             .filter(|import| import.module == qualifier)
             .map(|import| (import.module.as_str(), import.package.as_str()))
             .collect::<BTreeSet<_>>();
+        let has_exact_workspace_module = workspace_imports.contains(qualifier);
+        if has_exact_workspace_module && !exact_external_imports.is_empty() {
+            return QualifiedWorkspaceModule::Ambiguous;
+        }
+        if has_exact_workspace_module {
+            return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
+        }
         if exact_external_imports.len() == 1 {
             return QualifiedWorkspaceModule::External;
         }

@@ -526,6 +526,53 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn exact_workspace_and_dependency_schema_alias_imports_are_ambiguous() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "workspace/wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                    "pub schema Fallback = Packet\n",
+                ),
+            )],
+            ["workspace/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "workspace/wire.veln",
+                    concat!(
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Alias = Packet\n",
+                        "pub schema Fallback\n  value: Int\nend\n",
+                    ),
+                ),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use workspace::wire\n",
+                        "use workspace::wire from \"example/dep\"\n\n",
+                        "fn operations(view: ByteView) -> ()\n",
+                        "  decode workspace::wire::Alias from view at byte_offset(0)?\n",
+                        "  decode workspace::wire::Fallback from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        for (line, column) in [(5, 27), (6, 27)] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "an exact workspace and dependency import collision must block alias selection and schema fallback"
+            );
+        }
+    }
+
+    #[test]
     fn dependency_alias_and_schema_imports_collide_across_module_sources() {
         let alias_dependency = dependency_snapshot(
             "example/alias",

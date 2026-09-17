@@ -564,6 +564,55 @@ fn references_prefer_exact_dependency_schema_alias_imports() {
 }
 
 #[test]
+fn references_reject_exact_workspace_and_dependency_schema_alias_import_collisions() {
+    let workspace = TempWorkspace::new("references-exact-schema-alias-import-collision");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use workspace::wire\n",
+            "use workspace::wire from \"example/dep\"\n\n",
+            "fn operations(view: ByteView) -> ()\n",
+            "  decode workspace::wire::Alias from view at byte_offset(0)?\n",
+            "  decode workspace::wire::Fallback from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "workspace/wire.veln",
+        concat!(
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n",
+            "pub schema Fallback\n  value: Int\nend\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        concat!(
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"workspace/wire.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/workspace/wire.veln",
+        concat!(
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n",
+            "pub schema Fallback = Packet\n",
+        ),
+    );
+
+    for (line, column) in [(5, 28), (6, 28)] {
+        let result = references_result(&workspace, "main.veln", line, column);
+        assert_eq!(result["isError"], false, "{result:#}");
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
+}
+
+#[test]
 fn references_keep_non_exported_schema_alias_fallback_empty() {
     let workspace = TempWorkspace::new("references-hidden-schema-alias-fallback");
     workspace.write(
