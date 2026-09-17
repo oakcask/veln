@@ -23,10 +23,8 @@ Every added or modified Markdown document under `docs/` must declare one role.
 | --- | --- | --- | --- |
 | `routing` | Selects another document without defining behavior | Not allowed | `closed` or `superseded` |
 | `specification` | Defines current behavior or a current project contract | `normative` is required | Not allowed |
-| `proposal` | Defines planned or incomplete behavior | Not allowed | `closed`, `rejected`, or `superseded` only after leaving `docs/proposals/` |
+| `proposal` | Defines planned or incomplete behavior | Not allowed | Not allowed |
 | `reference` | Defines stable requirements, policy, rationale, or source support | `normative` or `supporting` is required | `superseded` |
-| `review` | Records bounded findings, diagnostic evidence, or quality-gate results | `supporting` is optional | `superseded` |
-| `implementation-record` | Preserves completed proposal history or completion evidence | `supporting` is optional | `superseded` |
 
 Use `status:` only for an exceptional lifecycle state. Do not add it to an
 active proposal, ordinary route, or current supporting record. Do not repeat
@@ -76,14 +74,17 @@ update-when: A CLI specification page is added, moved, reclassified, or removed.
 - Use `docs/specification/` for current implemented language behavior.
 - Use `docs/proposals/` only for active `role: proposal` targets that are not
   fully implemented.
-- Remove or relocate rejected, superseded, implemented, and otherwise closed
-  proposal pages from `docs/proposals/`.
+- Delete implemented, rejected, superseded, and otherwise closed proposal pages
+  from `docs/proposals/` after removing their catalog entries.
 - Use `docs/reference/source-decisions/` for implemented rationale and decision
   history.
-- Use `docs/reference/implemented-proposals/` for completed proposal history
-  and completion evidence, not current behavior.
 - Keep implementation gaps, verification evidence, and correction lists in
   the matching proposal or reference page.
+- Do not retain completed proposal records or bounded review-result snapshots
+  under `docs/`. Current specifications, executable examples, checked fixtures,
+  code, and tests own implemented behavior and its verification. Preserve only
+  durable rationale that remains useful independently of proposal completion,
+  and place it under `docs/reference/source-decisions/`.
 - When prose and executable evidence disagree, update the implementation,
   executable evidence, or prose together.
 

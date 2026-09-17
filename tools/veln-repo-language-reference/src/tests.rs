@@ -663,7 +663,7 @@ fn non_authoritative_and_equivalent_input_changes_do_not_change_generation() {
         baseline.bytes
     );
 
-    let development_doc_change_is_not_an_input = "docs/reference/implemented-proposals/ignored.md";
+    let development_doc_change_is_not_an_input = "docs/proposals/ignored.md";
     assert!(
         !baseline
             .bytes

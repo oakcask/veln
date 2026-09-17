@@ -16,7 +16,7 @@ is not obvious.
   [specification/README.md](specification/README.md).
 - Planned or accepted proposal work:
   [proposals/README.md](proposals/README.md).
-- Rationale, source support, and implemented proposal records:
+- Rationale, source support, and repository policy:
   [reference/README.md](reference/README.md).
 
 ## Choose One Task
@@ -52,8 +52,7 @@ is not obvious.
 
 - `specification/`: current implemented language behavior, kept as the latest
   specification only.
-- `reference/`: durable policy, rationale, source support, and completed
-  proposal records.
+- `reference/`: durable policy, rationale, and source support.
 - `proposals/`: planned or accepted targets not fully implemented. Proposal
   pages in this directory declare `role: proposal`.
 
@@ -61,6 +60,3 @@ is not obvious.
 
 - Use the directory README files for status and placement routes instead of
   repeating those rules here.
-- Do not read implemented proposal records before the current specification page
-  and [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md)
-  route.

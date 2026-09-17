@@ -1,3 +1,9 @@
+---
+role: specification
+authority: normative
+update-when: The HTTP/2 standard-module API, protocol behavior, diagnostics, or checked HTTP/2 evidence changes.
+---
+
 # HTTP/2 Standard Modules
 
 HTTP/2 support is opt-in. Source files import the required public module from
@@ -1134,5 +1140,4 @@ diagnostic projections are current observable behavior. Standard-package
 `core_test.veln` cover the public modules without reading the retired fixture
 or a historical migration manifest. The migration-only inventories,
 generator, checker, and generated retirement tests were removed after this
-independent coverage passed. The completion boundary is recorded in
-[`http2-standard-library-completion-and-fixture-retirement.md`](../reference/implemented-proposals/http2-standard-library-completion-and-fixture-retirement.md).
+independent coverage passed.

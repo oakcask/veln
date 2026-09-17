@@ -5,10 +5,8 @@ import { fileURLToPath } from "node:url";
 
 const vagueUpdateTriggerPattern = /^(?:always|as needed|periodically|regularly|tbd|todo|when necessary)[.!]?$/i;
 const roleRules = new Map([
-  ["implementation-record", { authority: "optional", values: ["supporting"], statuses: ["superseded"] }],
-  ["proposal", { authority: "forbidden", values: [], statuses: ["closed", "rejected", "superseded"] }],
+  ["proposal", { authority: "forbidden", values: [], statuses: [] }],
   ["reference", { authority: "required", values: ["normative", "supporting"], statuses: ["superseded"] }],
-  ["review", { authority: "optional", values: ["supporting"], statuses: ["superseded"] }],
   ["routing", { authority: "forbidden", values: [], statuses: ["closed", "superseded"] }],
   ["specification", { authority: "required", values: ["normative"], statuses: [] }],
 ]);

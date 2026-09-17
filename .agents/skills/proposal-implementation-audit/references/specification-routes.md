@@ -3,8 +3,7 @@
 Use the smallest route matching the implemented observable behavior:
 
 - Shared command analysis, source discovery, checked-core readiness, typed-IR
-  readiness, and command parity: start from
-  `docs/reference/implemented-proposals/project-analysis-pipeline.md`, then use
+  readiness, and command parity: use
   `docs/specification/commands.md`, `docs/specification/execution.md`, or
   `docs/specification/json-output.md` as applicable.
 - Source syntax, tests, doctests, names, types, and effects: start from

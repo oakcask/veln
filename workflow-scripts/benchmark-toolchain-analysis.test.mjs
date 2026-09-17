@@ -44,7 +44,7 @@ test("records replay command labels separately from executable paths", () => {
       runs: 5,
       warmups: 1,
       sizes: [32, 64, 128],
-      output: "docs/reviews/toolchain-analysis-stage-benchmark.json",
+      output: "<output>/toolchain-analysis-stage-benchmark.json",
     }),
     [
       "benchmark-toolchain-analysis",
@@ -66,7 +66,7 @@ test("records replay command labels separately from executable paths", () => {
       "--new-identity",
       "new build",
       "--output",
-      "docs/reviews/toolchain-analysis-stage-benchmark.json",
+      "<output>/toolchain-analysis-stage-benchmark.json",
     ],
   );
 });
@@ -410,25 +410,6 @@ test("validates checked benchmark result structure", () => {
         },
       ],
     }),
-  );
-});
-
-test("checked stage benchmark record includes replay metadata", () => {
-  const record = JSON.parse(readFileSync("docs/reviews/toolchain-analysis-stage-benchmark.json", "utf8"));
-
-  assert.deepEqual(record.command.slice(0, 4), [
-    "benchmark-toolchain-analysis",
-    "compare",
-    "target/debug/veln-before-stage-timing",
-    "target/debug/veln",
-  ]);
-  assert.ok(record.command.includes("--baseline-label"));
-  assert.ok(record.command.includes("<baseline-debug-veln>"));
-
-  const connection = record.workloads.find((workload) => workload.id === "http2_connection");
-  assert.deepEqual(
-    connection.env,
-    DEFAULT_WORKLOADS.find((workload) => workload.id === "http2_connection").env,
   );
 });
 

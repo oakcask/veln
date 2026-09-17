@@ -25,7 +25,7 @@ routes below are not enough.
 - Proposal catalog: [proposals/README.md](proposals/README.md).
 - Proposal implementation and promotion: compare the selected proposal with the
   matching specification page.
-- Reviews, bibliography, or rationale:
+- Bibliography or rationale:
   [navigation-full.md#history-and-evidence](navigation-full.md#history-and-evidence).
 - Documentation maintenance:
   [reference/documentation-authoring.md](reference/documentation-authoring.md).
