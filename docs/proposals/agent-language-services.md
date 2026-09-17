@@ -62,6 +62,13 @@ The remaining first-capability work includes:
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
+The ready
+[Direct-Dependency Schema Composition References](direct-dependency-schema-composition-references.md)
+proposal owns the bounded direct-dependency schema composition slice and its
+acceptance table. The package-composition inventory below includes that slice;
+it does not expand its scope to schema aliases, standard-library schemas, or
+the umbrella's final declaration-inclusion and pagination contract.
+
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
 models. The MCP server does not start an LSP subprocess or proxy LSP messages.

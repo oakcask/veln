@@ -16,7 +16,9 @@ also states it.
 
 ## Ready
 
-There are no ready targets.
+- Direct-dependency schema composition references, reusing retained package
+  identity and existing workspace composition and operation-reference support:
+  [direct-dependency-schema-composition-references.md](direct-dependency-schema-composition-references.md).
 
 ## Blocked
 
