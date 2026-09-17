@@ -2,7 +2,7 @@
 name = "example/dep"
 
 [lib]
-exports = ["public.veln", "private.veln", "recovered.veln", "core.veln"]
+exports = ["public.veln", "private.veln", "recovered.veln", "recovered-schema.veln", "core.veln", "shared.veln", "alpha/wire.veln"]
 
 [dependencies."other/dep"]
 path = "../other"

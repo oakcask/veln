@@ -66,12 +66,23 @@ impl SymbolIndex {
             &declarations.resolved_package_schema_aliases,
             veln_sema::resolved_schema_aliases(&workspace_module),
         );
-        let schema_composition_references = workspace_schema_composition_references(
+        let mut schema_composition_references = workspace_schema_composition_references(
             &files,
             &declarations.schemas,
             &schema_aliases,
             veln_sema::resolved_schema_composition_references(&workspace_module),
         );
+        let direct_dependency_schemas = direct_dependency_schema_index(
+            &declarations.schemas,
+            &declarations.package_schema_alias_declarations,
+            &declarations.package_schema_targets,
+            &declarations.recovered_package_schema_targets,
+        );
+        schema_composition_references.extend(direct_dependency_schema_composition_references(
+            &files,
+            &direct_dependency_schemas,
+            &schema_alias_module_imports,
+        ));
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {

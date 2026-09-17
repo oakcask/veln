@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn references_return_direct_dependency_schema_operations_from_selected_project() {
+fn references_return_direct_dependency_schema_uses_from_selected_project() {
     let workspace = TempWorkspace::new("references-dependency-schema-project");
     write_schema_dependency_workspace(&workspace, DependencySchemaSource::Path);
     workspace.write(
@@ -50,9 +50,12 @@ fn references_return_direct_dependency_schema_operations_from_selected_project()
         &[
             ("main.veln", 4, 15, 4, 21),
             ("main.veln", 5, 15, 5, 21),
+            ("main.veln", 12, 16, 12, 22),
+            ("main.veln", 13, 32, 13, 38),
+            ("main.veln", 14, 20, 14, 26),
             ("other.veln", 4, 15, 4, 21),
         ],
-        "direct dependency schema operations",
+        "direct dependency schema uses",
     );
 
     let recovered = references_result(&workspace, "other.veln", 5, 16);
@@ -80,7 +83,11 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
     let dependency_manifest =
         "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"core.veln\", \"facade.veln\"]\n";
     let source = concat!(
-        "use facade from \"example/dep\"\n\n",
+        "use facade from \"example/dep\"\n",
+        "use core from \"example/dep\"\n\n",
+        "schema Host\n",
+        "  nested: core::Packet\n",
+        "end\n\n",
         "fn read(view: ByteView) -> ()\n",
         "  decode facade::Alias from view at byte_offset(0)?\n",
         "  encode facade::Alias from {value: 1}\n",
@@ -103,7 +110,7 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
         );
     }
 
-    let result = references_result(&workspace, "left/main.veln", 4, 19);
+    let result = references_result(&workspace, "left/main.veln", 9, 19);
 
     assert_eq!(result["isError"], false, "{result:#}");
     assert_eq!(
@@ -118,13 +125,21 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
     assert_reference_ranges(
         &result,
         &[
-            ("left/main.veln", 4, 18, 4, 23),
-            ("left/main.veln", 5, 18, 5, 23),
+            ("left/main.veln", 9, 18, 9, 23),
+            ("left/main.veln", 10, 18, 10, 23),
         ],
         "left selected project cross-module schema alias isolation",
     );
 
-    let right = references_result(&workspace, "right/main.veln", 5, 19);
+    let left_composition = references_result(&workspace, "left/main.veln", 5, 17);
+    assert_eq!(left_composition["isError"], false, "{left_composition:#}");
+    assert_reference_ranges(
+        &left_composition,
+        &[("left/main.veln", 5, 17, 5, 23)],
+        "left selected project direct schema composition isolation",
+    );
+
+    let right = references_result(&workspace, "right/main.veln", 10, 19);
     assert_eq!(right["isError"], false, "{right:#}");
     assert_eq!(
         right["structuredContent"]["scope"],
@@ -138,10 +153,18 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
     assert_reference_ranges(
         &right,
         &[
-            ("right/main.veln", 4, 18, 4, 23),
-            ("right/main.veln", 5, 18, 5, 23),
+            ("right/main.veln", 9, 18, 9, 23),
+            ("right/main.veln", 10, 18, 10, 23),
         ],
         "right selected project cross-module schema alias isolation",
+    );
+
+    let right_composition = references_result(&workspace, "right/main.veln", 5, 17);
+    assert_eq!(right_composition["isError"], false, "{right_composition:#}");
+    assert_reference_ranges(
+        &right_composition,
+        &[("right/main.veln", 5, 17, 5, 23)],
+        "right selected project direct schema composition isolation",
     );
 }
 
@@ -450,7 +473,6 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("invalid-casing alias", "main.veln", 21, 18),
         ("invalid-casing alias target", "main.veln", 30, 18),
         ("other-package alias target", "main.veln", 31, 18),
-        ("package composition", "main.veln", 26, 19),
         ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),
     ] {
@@ -472,6 +494,14 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "{name}: {result:#}"
         );
     }
+
+    let composition = references_result(&workspace, "main.veln", 26, 19);
+    assert_eq!(composition["isError"], false, "{composition:#}");
+    assert_reference_ranges(
+        &composition,
+        &[("main.veln", 26, 19, 26, 25)],
+        "direct dependency schema composition",
+    );
 
     let alias = references_result(&workspace, "main.veln", 14, 18);
     assert_eq!(alias["isError"], false, "{alias:#}");
@@ -1108,7 +1138,13 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
         );
         assert_reference_ranges(
             &schema,
-            &[("main.veln", 4, 15, 4, 21), ("main.veln", 5, 15, 5, 21)],
+            &[
+                ("main.veln", 4, 15, 4, 21),
+                ("main.veln", 5, 15, 5, 21),
+                ("main.veln", 12, 16, 12, 22),
+                ("main.veln", 13, 32, 13, 38),
+                ("main.veln", 14, 20, 14, 26),
+            ],
             source_kind.name(),
         );
 
@@ -1119,6 +1155,15 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
             &[("main.veln", 6, 15, 6, 20), ("main.veln", 7, 15, 7, 20)],
             source_kind.name(),
         );
+
+        let alias_composition = references_result(&workspace, "main.veln", 15, 15);
+        assert_eq!(
+            alias_composition["isError"],
+            false,
+            "{}: {alias_composition:#}",
+            source_kind.name()
+        );
+        assert_reference_ranges(&alias_composition, &[], source_kind.name());
     }
 }
 
@@ -1168,6 +1213,14 @@ fn write_schema_dependency_workspace(
             "  encode dep::Packet from packet\n",
             "  decode dep::Alias from view at byte_offset(0)?\n",
             "  encode dep::Alias from packet\n",
+            "end\n",
+            "\n",
+            "schema Host\n",
+            "  count: UInt8\n",
+            "  nested: dep::Packet\n",
+            "  repeated: Repeat(count, dep::Packet)\n",
+            "  canonical: [dep::Packet; count]\n",
+            "  alias: dep::Alias\n",
             "end\n",
         ),
     );

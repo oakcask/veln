@@ -31,3 +31,16 @@ end
 schema Frame
   nested: public::Public
 end
+
+schema Boundary
+  private_schema: private::Private
+  non_exported_schema: hidden::Hidden
+  mismatched_import: mismatch::Public
+  transitive_schema: transitive::Public
+  invalid_casing: public::badSchema
+  recovered_declaration: public::RecoveredPacket
+  schema_alias: public::Alias
+  unresolved_schema: public::Missing
+  alias_collision: public::CollisionTarget
+  recovered_alias_collision: public::RecoveredAliasCollision
+end

@@ -385,9 +385,11 @@ the embedded standard library. They also include public type aliases from
 exported direct-dependency modules when the alias target resolves to a type
 declaration in the same retained dependency. The source must select the exact
 visible import or implicit standard-library prelude path required by name
-resolution. Invalid casing records, private declarations, non-exported
-sources, mismatched package imports, unsupported symbol classes, and package
-module-segment selections succeed with `definition: null`.
+resolution. Invalid-casing recovery records, private declarations,
+non-exported sources, mismatched package imports, unsupported symbol classes,
+and package module-segment selections succeed with `definition: null`. An
+invalid-cased schema declaration in an otherwise eligible direct-dependency
+source retains its package definition location.
 MCP only exposes the recovery record source range through `definition`.
 Prepare-rename, rename edits, and package reference locations are outside the
 MCP definition result.
@@ -435,11 +437,11 @@ selected workspace schema under ordinary import, visibility, exact
 test-companion, and shadowing rules. A written import does not put that
 imported module's schemas in the bare schema namespace. For composition
 references, an exact full written import path takes precedence over a
-same-spelled implicit leaf alias. Otherwise, when all implicit-leaf candidates
-are workspace imports, a composition alias resolves to the selected workspace
-schema only when exactly one written workspace import provides that alias.
-This composition-alias uniqueness rule does not specify package-only or mixed
-workspace/package alias collisions. A selected workspace schema's set excludes the
+same-spelled implicit leaf alias. Otherwise, a composition alias resolves only
+when exactly one workspace or package import provides that alias. Conflicting
+exact imports resolve no composition identity. Duplicate and syntax-recovered
+dependency imports resolve no dependency composition identity. A selected
+workspace schema's set excludes the
 declaration, module qualifiers, package schemas, schema-alias leaves, alias
 traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
@@ -459,21 +461,37 @@ invalid-casing selections remain successful empty results. Definition and
 rename behavior do not change.
 
 A public schema declared in an exported module of a retained direct dependency
-has an operation-reference identity. Selecting a resolved `decode` or `encode`
-leaf returns every operation leaf for that declaration in the selected
-project's captured owned sources. Full written module paths and their valid
-implicit leaf aliases resolve to the same identity. Results contain only
-workspace `file:` locations and exclude the declaration, package sources,
-composition fields, aliases and alias targets, import tokens, and module
-qualifiers. Standard-library schemas, private or non-exported schemas,
-transitive dependencies, recovery and invalid-casing records, and unresolved
-or mismatched imports succeed with an empty reference set. The
-`references-dependency-schema-operation` MCP case is the positive executable
-protocol contract. The
+has one reference identity across direct fields, `Repeat` payloads, array
+payloads, `decode`, and `encode`. Selecting any resolved leaf returns every
+leaf for that declaration in the selected project's captured owned sources.
+Full written module paths and their valid unique implicit leaf aliases resolve
+to the same identity. Exact dependency imports take precedence; conflicting
+exact dependency imports, duplicate dependency imports, and syntax-recovered
+dependency imports resolve no dependency identity. Results contain
+only workspace `file:` locations and exclude the declaration, package sources,
+aliases and alias targets, import tokens, module qualifiers, comments, and
+strings. A clean or syntax-recovered package schema alias with the selected
+name blocks fallback to a same-spelled package schema. A `Repeat` or array
+payload resolves only when its count is a valid schema count expression;
+another count shape does not select the payload and does not enter its
+reference set.
+Standard-library schemas, private or non-exported schemas,
+transitive dependencies, recovery records, invalid-cased schema declarations,
+and unresolved or mismatched imports succeed with an empty reference set. An
+invalid-cased schema declaration can retain its package definition location;
+that definition does not admit it to the reference set. The focused
+`package_schema_references_require_public_exported_direct_dependencies`
+language-service test covers this boundary. The
+`references-dependency-schema-composition` MCP case is the unified positive
+executable protocol contract. The existing
+`references-dependency-schema-operation` case preserves operation behavior. The
 `references-dependency-schema-operation-boundaries` MCP case selects the
-unsupported direct-dependency boundaries, including a package schema alias
-chain and a syntax-recovered operation leaf, and requires successful empty
-results. A focused MCP server test injects
+unsupported direct-dependency boundaries through operation and composition
+leaves. It covers private and non-exported declarations, mismatched and
+transitive imports, invalid casing, schema aliases, recovered declarations and
+leaves, dependency import collisions in both orders, and requires successful
+empty results. Focused language-service tests cover malformed repeated counts,
+schema-alias blockers, and lexical-noise exclusion. A focused MCP server test injects
 a public standard-library schema and verifies the successful empty result with
 the selected project scope. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
@@ -502,7 +520,7 @@ without becoming a navigation target.
 Import visibility and blocking across owned sources with the same explicit
 workspace module identity follow the shared rules in
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate and
-syntax-recovered imports do not grant alias visibility. The
+syntax-recovered dependency imports do not grant dependency alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
 composition leaves, package sources, sibling aliases, and direct target-schema
 uses. The direct target can be a same-module bare schema or a qualified schema
@@ -732,10 +750,15 @@ The `references-dependency-schema-operation` MCP specification case checks
 direct-dependency public schema operation references through full written and
 implicit leaf module paths, exact workspace-only ranges, selection parity,
 project-wide scope, and non-BMP saved input. The
+`references-dependency-schema-composition` case checks the declaration-specific
+union of direct, `Repeat`, array, decode, and encode leaves, exact range order,
+Unicode-scalar coordinates, project scope, package-source exclusion, and
+selection parity with both LSP declaration policies. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
 package-alias-chain, invalid-cased and other-package alias targets,
-duplicate-import, recovered-import, composition,
+duplicate-import, recovered-import, recovered-declaration, syntax-recovered
+composition, dependency exact and implicit collisions in both import orders,
 module-qualifier, and recovery selections as successful empty results. Its
 mismatched import names a retained direct
 dependency whose exported module does not match, and its transitive package

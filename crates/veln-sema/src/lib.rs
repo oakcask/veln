@@ -32,7 +32,7 @@ mod types;
 
 pub use navigation::{
     ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_aliases,
-    resolved_schema_composition_references,
+    resolved_schema_composition_references, schema_repeat_count_expression_is_valid,
 };
 #[cfg(test)]
 pub(crate) use navigation::{

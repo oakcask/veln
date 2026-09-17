@@ -116,44 +116,7 @@ impl SymbolIndex {
         file: &IndexedFile,
         qualifier: &str,
     ) -> QualifiedWorkspaceModule {
-        if file.module == qualifier {
-            return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
-        }
-
-        let Some(imports) = self.schema_alias_module_imports.get(&file.module) else {
-            return QualifiedWorkspaceModule::Unresolved;
-        };
-        let exact_external_imports = imports.external_imports_by_module.get(qualifier);
-        let has_exact_workspace_module = imports.workspace_imports.contains(qualifier);
-        if has_exact_workspace_module && exact_external_imports.is_some_and(|set| !set.is_empty()) {
-            return QualifiedWorkspaceModule::Ambiguous;
-        }
-        if has_exact_workspace_module {
-            return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
-        }
-        if exact_external_imports.is_some_and(|set| set.len() == 1) {
-            return QualifiedWorkspaceModule::External;
-        }
-        if exact_external_imports.is_some_and(|set| set.len() > 1) {
-            return QualifiedWorkspaceModule::Ambiguous;
-        }
-
-        let workspace_modules = imports.workspace_imports_by_alias.get(qualifier);
-        let external_module_count = imports
-            .external_imports_by_alias
-            .get(qualifier)
-            .map_or(0, BTreeSet::len);
-        match (workspace_modules.map(BTreeSet::len).unwrap_or(0), external_module_count) {
-            (1, 0) => QualifiedWorkspaceModule::Workspace(
-                workspace_modules
-                    .and_then(|modules| modules.iter().next())
-                    .cloned()
-                    .expect("one workspace module is present"),
-            ),
-            (0, 1) => QualifiedWorkspaceModule::External,
-            (0, 0) => QualifiedWorkspaceModule::Unresolved,
-            _ => QualifiedWorkspaceModule::Ambiguous,
-        }
+        schema_qualified_workspace_module(file, qualifier, &self.schema_alias_module_imports)
     }
 
     fn visible_schema_for_bare_reference(
@@ -172,19 +135,40 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        let qualification = self.schema_alias_qualified_workspace_module(file, qualifier);
+        if matches!(qualification, QualifiedWorkspaceModule::External) {
+            let (module, package) = self
+                .schema_alias_module_imports
+                .get(&file.module)?
+                .valid_external_route(qualifier)?;
+            let mut candidates = self.schemas.iter().filter(|symbol| {
+                symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                    && symbol.package.as_deref() == Some(package.as_str())
+                    && symbol.module == module
+                    && symbol.name == name
+            });
+            if let Some(candidate) = candidates.next() {
+                return candidates.next().is_none().then(|| candidate.clone());
+            }
+            return self
+                .schemas
+                .iter()
+                .find(|symbol| {
+                    symbol.package_origin == Some(PackageOrigin::StandardLibrary)
+                        && symbol.package.as_deref() == Some(package.as_str())
+                        && symbol.module == module
+                        && symbol.name == name
+                })
+                .cloned();
+        }
+        let QualifiedWorkspaceModule::Workspace(module) = qualification else {
+            return None;
+        };
         let mut candidates = self.schemas.iter().filter(|symbol| {
-            symbol.name == name
-                && qualified_modules.iter().any(|module| module == &symbol.module)
-                && match &symbol.package {
-                    Some(package) => file
-                        .external_uses
-                        .contains(&(symbol.module.clone(), package.clone())),
-                    None => {
-                        (symbol.module == file.module || file.uses.contains(&symbol.module))
-                            && visible_schema_from_workspace_module(file, symbol)
-                    }
-                }
+            symbol.package.is_none()
+                && symbol.name == name
+                && symbol.module == module
+                && visible_schema_from_workspace_module(file, symbol)
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
@@ -854,6 +838,54 @@ fn index_schema_alias_module_imports(
             )
         })
         .collect()
+}
+
+fn schema_qualified_workspace_module(
+    file: &IndexedFile,
+    qualifier: &str,
+    module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
+) -> QualifiedWorkspaceModule {
+    if file.module == qualifier {
+        return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
+    }
+
+    let Some(imports) = module_imports.get(&file.module) else {
+        return QualifiedWorkspaceModule::Unresolved;
+    };
+    let exact_external_imports = imports.external_imports_by_module.get(qualifier);
+    let has_exact_workspace_module = imports.workspace_imports.contains(qualifier);
+    if has_exact_workspace_module && exact_external_imports.is_some_and(|set| !set.is_empty()) {
+        return QualifiedWorkspaceModule::Ambiguous;
+    }
+    if has_exact_workspace_module {
+        return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
+    }
+    if exact_external_imports.is_some_and(|set| set.len() == 1) {
+        return QualifiedWorkspaceModule::External;
+    }
+    if exact_external_imports.is_some_and(|set| set.len() > 1) {
+        return QualifiedWorkspaceModule::Ambiguous;
+    }
+
+    let workspace_modules = imports.workspace_imports_by_alias.get(qualifier);
+    let external_module_count = imports
+        .external_imports_by_alias
+        .get(qualifier)
+        .map_or(0, BTreeSet::len);
+    match (
+        workspace_modules.map(BTreeSet::len).unwrap_or(0),
+        external_module_count,
+    ) {
+        (1, 0) => QualifiedWorkspaceModule::Workspace(
+            workspace_modules
+                .and_then(|modules| modules.iter().next())
+                .cloned()
+                .expect("one workspace module is present"),
+        ),
+        (0, 1) => QualifiedWorkspaceModule::External,
+        (0, 0) => QualifiedWorkspaceModule::Unresolved,
+        _ => QualifiedWorkspaceModule::Ambiguous,
+    }
 }
 
 impl SchemaAliasModuleImports {

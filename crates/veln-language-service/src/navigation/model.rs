@@ -665,6 +665,7 @@ struct IndexedFile {
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
     schema_operation_leaf_spans: Vec<SourceSpan>,
+    schema_composition_leaf_spans: Vec<SourceSpan>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,

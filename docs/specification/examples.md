@@ -321,7 +321,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
 - MCP and LSP saved workspace `references` for direct-dependency public schema
-  `decode` and `encode` leaves:
+  composition, `decode`, and `encode` leaves:
+  `../../examples/specification/mcp/references-dependency-schema-composition/`,
+  `../../examples/specification/lsp/references-dependency-schema-composition/`,
   `../../examples/specification/mcp/references-dependency-schema-operation/`
   and
   `../../examples/specification/lsp/references-dependency-schema-operation/`.
@@ -340,13 +342,15 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   alias whose target source is not exported and an alias with an invalid-cased
   target import empty, and exclude the same qualified alias use in an
   unselected descendant project from the root project's exact result.
-- MCP `references` boundary fixture shared by direct-dependency schema and
-  schema-alias operation selections. It includes one eligible alias as a
-  positive control and successful-empty results for private, non-exported,
-  mismatched, transitive, missing, and invalid-cased schemas; package schema
-  alias chains; invalid-cased and other-package alias targets; cross-module
-  alias target success; alias-target schema namespace collisions;
-  recovered duplicate aliases; duplicate and recovered imports;
+- MCP `references` boundary fixture shared by direct-dependency schema
+  composition, schema-operation, and schema-alias-operation selections. Its
+  positive controls cover exact dependency import precedence, import-order
+  invariance, and cross-module alias targets. Its successful-empty results
+  cover private, non-exported, mismatched, transitive, missing, invalid-cased,
+  ambiguous, and recovered schemas and composition leaves; package schema
+  alias chains; invalid-cased and other-package alias targets; alias-target
+  schema namespace collisions; recovered duplicate aliases; duplicate and
+  recovered imports;
   graph-ineligible aliases; and syntax-recovered operation leaves:
   `../../examples/specification/mcp/references-dependency-schema-operation-boundaries/`.
 - MCP saved workspace `references` for visible direct-dependency public type

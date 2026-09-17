@@ -15,6 +15,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
     let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
+    let schema_composition_leaf_spans =
+        valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
     let recovery_symbols = workspace_recovery_symbols(
         navigation_isolated,
         &source,
@@ -35,6 +37,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
         schema_operation_leaf_spans,
+        schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
@@ -206,6 +209,8 @@ fn indexed_dependency_source(
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source_file).tokens;
     let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
+    let schema_composition_leaf_spans =
+        valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
     let file = IndexedFile {
         source: source_file,
         tokens,
@@ -219,6 +224,7 @@ fn indexed_dependency_source(
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
         schema_operation_leaf_spans,
+        schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
@@ -253,6 +259,103 @@ fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
         }
     }
     spans
+}
+
+fn valid_schema_composition_leaf_spans(
+    source: &SourceFile,
+    tokens: &[Token],
+    parsed: &ParseOutput,
+) -> Vec<SourceSpan> {
+    if parsed
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.parser_context == "schema_field" && diagnostic.span.is_none())
+    {
+        return Vec::new();
+    }
+    let mut recovery_ranges = parsed
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.parser_context == "schema_field")
+        .filter_map(|diagnostic| diagnostic.span.as_ref())
+        .filter(|span| span.file == *source.path())
+        .map(|span| (span.start.offset, span.end.offset))
+        .collect::<Vec<_>>();
+    recovery_ranges.sort_unstable();
+
+    let mut spans = Vec::new();
+    let mut token_cursor = 0usize;
+    let mut recovery_cursor = 0usize;
+    let mut recovery_end = 0usize;
+    for field in parsed
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Schema(schema) => Some(schema.fields.as_slice()),
+            _ => None,
+        })
+        .flatten()
+    {
+        while token_cursor < tokens.len()
+            && tokens[token_cursor].range.end <= field.span.start.offset
+        {
+            token_cursor += 1;
+        }
+        let field_start = token_cursor;
+        while token_cursor < tokens.len()
+            && tokens[token_cursor].range.start < field.span.end.offset
+        {
+            token_cursor += 1;
+        }
+        #[cfg(test)]
+        record_schema_composition_field_token_visits(token_cursor - field_start);
+        let Some(leaf_index) =
+            schema_composition_path_leaf_in_field(tokens, field_start, token_cursor)
+        else {
+            continue;
+        };
+        let token = &tokens[leaf_index];
+        while recovery_cursor < recovery_ranges.len()
+            && recovery_ranges[recovery_cursor].0 <= token.range.start
+        {
+            recovery_end = recovery_end.max(recovery_ranges[recovery_cursor].1);
+            recovery_cursor += 1;
+        }
+        if recovery_end >= token.range.end {
+            continue;
+        }
+        spans.push(source.span(token.range));
+    }
+    spans
+}
+
+fn schema_composition_path_leaf_in_field(
+    tokens: &[Token],
+    start: usize,
+    end: usize,
+) -> Option<usize> {
+    let mut significant = (start..end)
+        .filter(|index| {
+            !matches!(
+                tokens[*index].kind,
+                TokenKind::Whitespace | TokenKind::Comment | TokenKind::Newline
+            )
+        })
+        .collect::<Vec<_>>();
+    if let Some(where_position) = significant
+        .iter()
+        .position(|index| tokens[*index].kind == TokenKind::Where)
+    {
+        significant.truncate(where_position);
+    }
+    let colon_position = significant
+        .iter()
+        .position(|index| tokens[*index].kind == TokenKind::Colon)?;
+    let field_type = &significant[colon_position + 1..];
+    schema_path_leaf_in(field_type, tokens)
+        .or_else(|| repeat_schema_path_leaf(field_type, tokens))
+        .or_else(|| array_schema_path_leaf(field_type, tokens))
 }
 
 fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<SourceSpan>) {
@@ -454,6 +557,136 @@ fn workspace_schema_composition_references(
         .collect()
 }
 
+fn direct_dependency_schema_composition_references(
+    files: &[IndexedFile],
+    schema_index: &BTreeMap<(String, String, String), NeutralSymbol>,
+    module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
+) -> Vec<SchemaCompositionReference> {
+    files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .flat_map(|file| {
+            let mut token_cursor = 0usize;
+            file.schema_composition_leaf_spans
+                .iter()
+                .filter_map(|span| {
+                    while token_cursor < file.tokens.len()
+                        && file.tokens[token_cursor].range.end <= span.start.offset
+                    {
+                        token_cursor += 1;
+                    }
+                    let token = file.tokens.get(token_cursor)?;
+                    if token.range.start != span.start.offset
+                        || token.range.end != span.end.offset
+                        || !token
+                            .text
+                            .chars()
+                            .next()
+                            .is_some_and(|initial| initial.is_ascii_uppercase())
+                    {
+                        return None;
+                    }
+                    let index = token_cursor;
+                    let qualifier = qualifier_for_token(&file.tokens, index)?;
+                    if !matches!(
+                        schema_qualified_workspace_module(file, &qualifier, module_imports),
+                        QualifiedWorkspaceModule::External
+                    ) {
+                        return None;
+                    }
+                    let (module, package) = module_imports
+                        .get(&file.module)?
+                        .valid_external_route(&qualifier)?;
+                    let target = schema_index.get(&(package, module, token.text.clone()))?;
+                    Some(SchemaCompositionReference {
+                        span: span.clone(),
+                        target: SchemaReferenceTarget::Schema(target.clone()),
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn direct_dependency_schema_index(
+    schemas: &[NeutralSymbol],
+    package_aliases: &[PackageSchemaAliasDeclaration],
+    package_targets: &[PackageSchemaTarget],
+    recovered_package_targets: &[PackageSchemaTarget],
+) -> BTreeMap<(String, String, String), NeutralSymbol> {
+    let mut alias_blockers = BTreeSet::new();
+    for alias in package_aliases
+        .iter()
+        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        alias_blockers.insert((
+            alias.package.clone(),
+            alias.module.clone(),
+            alias.name.clone(),
+        ));
+    }
+    let mut target_eligibility = BTreeMap::new();
+    for target in package_targets
+        .iter()
+        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        let entry = target_eligibility
+            .entry((
+                target.package.clone(),
+                target.module.clone(),
+                target.name.clone(),
+            ))
+            .or_insert((0usize, false));
+        entry.0 += 1;
+        entry.1 |= target.public && target.exported;
+    }
+    for target in recovered_package_targets
+        .iter()
+        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        target_eligibility
+            .entry((
+                target.package.clone(),
+                target.module.clone(),
+                target.name.clone(),
+            ))
+            .or_insert((0usize, false))
+            .0 += 1;
+    }
+
+    let mut candidates = BTreeMap::new();
+    for schema in schemas
+        .iter()
+        .filter(|schema| schema.package_origin == Some(PackageOrigin::DirectDependency))
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        let Some(package) = schema.package.as_ref() else {
+            continue;
+        };
+        candidates
+            .entry((package.clone(), schema.module.clone(), schema.name.clone()))
+            .or_insert_with(Vec::new)
+            .push(schema);
+    }
+
+    candidates
+        .into_iter()
+        .filter_map(|(identity, candidates)| {
+            (target_eligibility.get(&identity) == Some(&(1, true))
+                && candidates.len() == 1
+                && !alias_blockers.contains(&identity))
+            .then(|| (identity, candidates[0].clone()))
+        })
+        .collect()
+}
+
 fn eligible_schema_aliases(
     aliases: Vec<NeutralSymbol>,
     package_aliases: &[PackageSchemaAliasDeclaration],
@@ -462,7 +695,90 @@ fn eligible_schema_aliases(
     resolved_package_aliases: &[ResolvedPackageSchemaAlias],
     resolved: Vec<veln_sema::ResolvedSchemaAlias>,
 ) -> Vec<NeutralSymbol> {
-    let resolved_package_aliases = resolved_package_aliases
+    let package_eligibility = PackageSchemaAliasEligibility::new(
+        package_aliases,
+        package_targets,
+        recovered_package_targets,
+        resolved_package_aliases,
+    );
+    aliases
+        .iter()
+        .filter(|alias| match alias.package_origin {
+            None => resolved.iter().any(|candidate| {
+                    candidate.alias_name == alias.name
+                        && candidate.alias_module.as_deref() == Some(alias.module.as_str())
+                        && candidate.alias_span.file == alias.declaration.span.file
+                        && alias.declaration.span.start.offset >= candidate.alias_span.start.offset
+                        && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
+                }),
+            Some(PackageOrigin::DirectDependency) => package_eligibility.contains(alias),
+            Some(PackageOrigin::StandardLibrary) => false,
+        })
+        .cloned()
+        .collect()
+}
+
+type PackageSchemaIdentity<'a> = (&'a str, &'a str, &'a str);
+type PackageSchemaAliasIdentity<'a> = (&'a str, &'a str, &'a str, &'a str);
+
+struct PackageSchemaAliasEligibility<'a> {
+    resolved_aliases:
+        BTreeMap<PackageSchemaAliasIdentity<'a>, &'a ResolvedPackageSchemaAlias>,
+    alias_counts: BTreeMap<PackageSchemaIdentity<'a>, usize>,
+    recovered_targets: BTreeSet<PackageSchemaIdentity<'a>>,
+    target_counts: BTreeMap<PackageSchemaIdentity<'a>, (usize, bool)>,
+}
+
+impl<'a> PackageSchemaAliasEligibility<'a> {
+    fn new(
+        aliases: &'a [PackageSchemaAliasDeclaration],
+        targets: &'a [PackageSchemaTarget],
+        recovered_targets: &'a [PackageSchemaTarget],
+        resolved_aliases: &'a [ResolvedPackageSchemaAlias],
+    ) -> Self {
+        Self {
+            resolved_aliases: resolved_package_schema_alias_index(resolved_aliases),
+            alias_counts: direct_dependency_alias_counts(aliases),
+            recovered_targets: direct_dependency_recovered_targets(recovered_targets),
+            target_counts: direct_dependency_target_counts(targets),
+        }
+    }
+
+    fn contains(&self, alias: &NeutralSymbol) -> bool {
+        #[cfg(test)]
+        record_schema_alias_declaration_visit();
+        let Some(package) = alias.package.as_deref() else {
+            return false;
+        };
+        let Some(resolved_alias) = self.resolved_aliases.get(&(
+            package,
+            alias.module.as_str(),
+            alias.name.as_str(),
+            alias.declaration.span.file.as_str(),
+        )) else {
+            return false;
+        };
+        let Some(target_module) = resolved_alias.target_module.as_deref() else {
+            return false;
+        };
+        if !resolved_alias.target_exported {
+            return false;
+        }
+        let alias_identity = (package, alias.module.as_str(), alias.name.as_str());
+        let target_identity = (package, target_module, resolved_alias.target_name.as_str());
+        self.alias_counts.get(&alias_identity) == Some(&1)
+            && !self.alias_counts.contains_key(&target_identity)
+            && !self.recovered_targets.contains(&alias_identity)
+            && !self.recovered_targets.contains(&target_identity)
+            && !self.target_counts.contains_key(&alias_identity)
+            && self.target_counts.get(&target_identity) == Some(&(1, true))
+    }
+}
+
+fn resolved_package_schema_alias_index(
+    aliases: &[ResolvedPackageSchemaAlias],
+) -> BTreeMap<PackageSchemaAliasIdentity<'_>, &ResolvedPackageSchemaAlias> {
+    aliases
         .iter()
         .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
         .filter_map(|candidate| {
@@ -478,23 +794,34 @@ fn eligible_schema_aliases(
                 candidate,
             ))
         })
-        .collect::<BTreeMap<_, _>>();
-    let mut package_alias_counts = BTreeMap::new();
-    for candidate in package_aliases
+        .collect()
+}
+
+fn direct_dependency_alias_counts(
+    aliases: &[PackageSchemaAliasDeclaration],
+) -> BTreeMap<PackageSchemaIdentity<'_>, usize> {
+    let mut counts = BTreeMap::new();
+    for alias in aliases
         .iter()
-        .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
+        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
-        *package_alias_counts
+        *counts
             .entry((
-                candidate.package.as_str(),
-                candidate.module.as_str(),
-                candidate.name.as_str(),
+                alias.package.as_str(),
+                alias.module.as_str(),
+                alias.name.as_str(),
             ))
             .or_insert(0usize) += 1;
     }
-    let recovered_package_targets = recovered_package_targets
+    counts
+}
+
+fn direct_dependency_recovered_targets(
+    targets: &[PackageSchemaTarget],
+) -> BTreeSet<PackageSchemaIdentity<'_>> {
+    targets
         .iter()
         .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
         .map(|target| {
@@ -506,15 +833,20 @@ fn eligible_schema_aliases(
                 target.name.as_str(),
             )
         })
-        .collect::<BTreeSet<_>>();
-    let mut package_target_counts = BTreeMap::new();
-    for target in package_targets
+        .collect()
+}
+
+fn direct_dependency_target_counts(
+    targets: &[PackageSchemaTarget],
+) -> BTreeMap<PackageSchemaIdentity<'_>, (usize, bool)> {
+    let mut counts = BTreeMap::new();
+    for target in targets
         .iter()
         .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
-        let entry = package_target_counts
+        let entry = counts
             .entry((
                 target.package.as_str(),
                 target.module.as_str(),
@@ -524,61 +856,7 @@ fn eligible_schema_aliases(
         entry.0 += 1;
         entry.1 |= target.public && target.exported;
     }
-    aliases
-        .iter()
-        .filter(|alias| match alias.package_origin {
-            None => resolved.iter().any(|candidate| {
-                    candidate.alias_name == alias.name
-                        && candidate.alias_module.as_deref() == Some(alias.module.as_str())
-                        && candidate.alias_span.file == alias.declaration.span.file
-                        && alias.declaration.span.start.offset >= candidate.alias_span.start.offset
-                        && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
-                }),
-            Some(PackageOrigin::DirectDependency) => {
-                #[cfg(test)]
-                record_schema_alias_declaration_visit();
-                let Some(package) = alias.package.as_deref() else {
-                    return false;
-                };
-                let Some(resolved_alias) = resolved_package_aliases.get(&(
-                    package,
-                    alias.module.as_str(),
-                    alias.name.as_str(),
-                    alias.declaration.span.file.as_str(),
-                )) else {
-                    return false;
-                };
-                let Some(target_module) = resolved_alias.target_module.as_deref() else {
-                    return false;
-                };
-                let target_name = resolved_alias.target_name.as_str();
-                if !resolved_alias.target_exported {
-                    return false;
-                }
-                package_alias_counts.get(&(
-                    package,
-                    alias.module.as_str(),
-                    alias.name.as_str(),
-                )) == Some(&1)
-                    && !package_alias_counts.contains_key(&(package, target_module, target_name))
-                    && !recovered_package_targets.contains(&(
-                        package,
-                        alias.module.as_str(),
-                        alias.name.as_str(),
-                    ))
-                    && !recovered_package_targets.contains(&(package, target_module, target_name))
-                    && !package_target_counts.contains_key(&(
-                        package,
-                        alias.module.as_str(),
-                        alias.name.as_str(),
-                    ))
-                    && package_target_counts.get(&(package, target_module, target_name))
-                        == Some(&(1, true))
-            }
-            Some(PackageOrigin::StandardLibrary) => false,
-        })
-        .cloned()
-        .collect()
+    counts
 }
 
 fn empty_surface_module() -> veln_ast::SurfaceModule {

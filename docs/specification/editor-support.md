@@ -226,29 +226,39 @@ Same-module bare schema and alias paths can resolve to their selected identity.
 Imported-module uses must be named by an accepted qualified path. Composition
 paths also accept a unique implicit leaf import alias. For composition paths,
 an exact full written import path takes
-precedence over a same-spelled implicit leaf alias. Otherwise, colliding
-workspace implicit leaf aliases select no composition schema identity in
-either import order when all candidates are workspace imports. This
-composition-alias uniqueness rule does not specify package-only or mixed
-workspace/package alias collisions. A written import does not make the
+precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
+leaf alias selects a composition schema identity only when it is unique across
+workspace and package imports. Conflicting exact imports select no identity.
+Duplicate and syntax-recovered dependency imports do not grant dependency
+composition visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
-package-schema composition, module-qualifier, recovery, or rename behavior for
+module-qualifier, recovery, or rename behavior for
 schemas.
-The executable evidence is the `references-workspace-schema-composition` and
+The executable evidence is the `references-workspace-schema-composition`,
+`references-dependency-schema-composition`, and
 `references-workspace-schema-alias` LSP cases under
 `examples/specification/lsp/` and the shared
 `navigation_schema_references` Rust test module.
 For a public schema in an exported retained direct-dependency module,
 `textDocument/references` returns the selected project's saved workspace
-`decode` and `encode` leaves that resolve to the same package declaration.
+direct-field, `Repeat`, array-payload, `decode`, and `encode` leaves that
+resolve to the same package declaration.
 It excludes the package declaration even when declaration inclusion is true,
-as well as package-source and composition occurrences. Standard-library
-schemas, ineligible package schema aliases, transitive dependencies, recovery records,
-syntax-recovered operation leaves, and invalid-casing records remain
-unsupported. The
-`references-dependency-schema-operation` LSP case covers full and implicit
-module paths, workspace-only exact ranges, non-BMP saved input, and parity with
-the MCP case when declaration inclusion is false. Focused MCP server coverage
+as well as package-source occurrences. A clean or syntax-recovered package
+schema alias with the selected name blocks fallback to a same-spelled package
+schema. A repeated payload is selected only when its `Repeat` count or array
+count is a valid schema count expression. Comments, strings, import tokens,
+and module qualifiers are not schema
+references. Standard-library schemas,
+ineligible package schema aliases, transitive dependencies, recovery records,
+and syntax-recovered leaves remain unsupported. An invalid-cased schema
+declaration in an otherwise eligible direct-dependency source retains its
+package definition location, but its reference set is empty. The
+`references-dependency-schema-composition` LSP case covers the unified set,
+both declaration policies, full and implicit module paths, workspace-only exact
+ranges, non-BMP saved input, and parity with the MCP case. The existing
+`references-dependency-schema-operation` case preserves operation behavior.
+Focused MCP server coverage
 injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
 For an eligible public schema alias in an exported retained direct-dependency
@@ -271,7 +281,7 @@ takes precedence over an unrelated import with a colliding implicit leaf
 alias. Imports and blockers are shared by owned sources with the same explicit
 workspace module identity as specified by
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
-syntax-recovered imports do not grant alias visibility.
+syntax-recovered dependency imports do not grant dependency alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
 same-spelled exported schema without becoming navigable. Bare imported names,
 alias chains, external-package targets, ambiguous or recovered target imports,
@@ -781,9 +791,9 @@ Implemented:
 - Shared navigation and MCP evidence for supported direct-dependency and
   standard-library public type aliases. Results include only selected-project
   workspace `file:` locations and stay separate from the target type identity.
-- Paired LSP and MCP evidence for direct-dependency public schema `decode` and
-  `encode` references. Results include only selected-project workspace `file:`
-  locations and never include the package declaration.
+- Paired LSP and MCP evidence for direct-dependency public schema composition,
+  `decode`, and `encode` references. Results include only selected-project
+  workspace `file:` locations and never include the package declaration.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
   `decode` and `encode` references. Results preserve alias identity and include
   only selected-project workspace `file:` locations.
@@ -801,9 +811,10 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency schema
-  and schema-alias operation boundaries and the direct-dependency and
-  standard-library public function, public function-alias, public type-alias,
-  public type, and public constructor reference boundaries.
+  composition-and-operation boundary, schema-alias operation boundary, and
+  direct-dependency and standard-library public function, public
+  function-alias, public type-alias, public type, and public constructor
+  reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, embedded standard-library,

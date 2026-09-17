@@ -252,6 +252,40 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_references_accept_member_path_repeat_counts() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "schema Packet\n",
+                "  format binary\n",
+                "  value: UInt8\n",
+                "end\n\n",
+                "schema Header\n",
+                "  format binary\n",
+                "  count: UInt8\n",
+                "end\n\n",
+                "schema Host\n",
+                "  format binary\n",
+                "  header: Header\n",
+                "  direct: Packet\n",
+                "  repeated: Repeat(header.count, Packet)\n",
+                "  canonical: [Packet; header.count]\n",
+                "end\n",
+            ),
+        )];
+        let expected = [
+            ("main.veln", 14, 11),
+            ("main.veln", 15, 34),
+            ("main.veln", 16, 15),
+        ];
+
+        for (_, line, column) in expected {
+            let result = query(sources.clone(), "main.veln", line, column).unwrap();
+            assert_eq!(locations(&result.references), expected);
+        }
+    }
+
+    #[test]
     fn workspace_schema_composition_uses_file_scoped_schema_identity() {
         let direct = query(
             vec![
@@ -340,8 +374,17 @@ mod navigation_schema_references_tests {
 
         let result = query_snapshot(&snapshot, "model.veln", 1, 12).unwrap();
         assert!(result.references.is_empty());
-        assert!(query_snapshot(&snapshot, "main.veln", 5, 18).is_none());
-        assert!(query_snapshot(&snapshot, "main.veln", 6, 22).is_none());
+        for (line, column) in [(6, 18), (7, 22)] {
+            let package = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert!(matches!(
+                package.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(
+                locations(&package.references),
+                [("main.veln", 6, 18), ("main.veln", 7, 21)]
+            );
+        }
     }
 
     #[test]
