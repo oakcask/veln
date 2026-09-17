@@ -29,6 +29,10 @@ pub schema DuplicateRecoveredAlias = Public
 pub schema InvalidTargetAlias = badTarget
 pub schema OtherPackageAlias = other::Public
 
+pub schema RecoveredPacket
+  value: Int
+end
+
 fn package_operations(view: ByteView, value: {value: Int}) -> ()
   decode Public from view at byte_offset(0)?
   encode Public from value

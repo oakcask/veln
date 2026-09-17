@@ -273,6 +273,10 @@ fn schema_composition_field_type(tokens: &[Token], index: usize) -> Option<Vec<u
 }
 
 fn is_repeat_schema_path_leaf(field_type: &[usize], tokens: &[Token], index: usize) -> bool {
+    repeat_schema_path_leaf(field_type, tokens) == Some(index)
+}
+
+fn repeat_schema_path_leaf(field_type: &[usize], tokens: &[Token]) -> Option<usize> {
     if field_type.len() >= 5
         && tokens[field_type[0]].kind == TokenKind::Ident
         && tokens[field_type[0]].text == "Repeat"
@@ -281,23 +285,27 @@ fn is_repeat_schema_path_leaf(field_type: &[usize], tokens: &[Token], index: usi
     {
         let inner = &field_type[2..field_type.len() - 1];
         if let Some(comma) = top_level_separator(inner, tokens, TokenKind::Comma) {
-            return schema_path_leaf_in(&inner[comma + 1..], tokens) == Some(index);
+            return schema_path_leaf_in(&inner[comma + 1..], tokens);
         }
     }
-    false
+    None
 }
 
 fn is_array_schema_path_leaf(field_type: &[usize], tokens: &[Token], index: usize) -> bool {
+    array_schema_path_leaf(field_type, tokens) == Some(index)
+}
+
+fn array_schema_path_leaf(field_type: &[usize], tokens: &[Token]) -> Option<usize> {
     if field_type.len() >= 4
         && tokens[field_type[0]].kind == TokenKind::LBracket
         && tokens[*field_type.last().unwrap()].kind == TokenKind::RBracket
     {
         let inner = &field_type[1..field_type.len() - 1];
         if let Some(semicolon) = top_level_separator(inner, tokens, TokenKind::Semicolon) {
-            return schema_path_leaf_in(&inner[..semicolon], tokens) == Some(index);
+            return schema_path_leaf_in(&inner[..semicolon], tokens);
         }
     }
-    false
+    None
 }
 
 fn schema_path_leaf_in(indices: &[usize], tokens: &[Token]) -> Option<usize> {

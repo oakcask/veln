@@ -266,22 +266,96 @@ fn valid_schema_composition_leaf_spans(
     tokens: &[Token],
     parsed: &ParseOutput,
 ) -> Vec<SourceSpan> {
-    tokens
+    if parsed
+        .diagnostics
         .iter()
-        .enumerate()
-        .filter(|(index, token)| {
-            is_schema_composition_path_leaf_token(tokens, *index)
-                && !parsed.diagnostics.iter().any(|diagnostic| {
-                    diagnostic.parser_context == "schema_field"
-                        && diagnostic.span.as_ref().is_none_or(|span| {
-                            span.file == *source.path()
-                                && span.start.offset <= token.range.start
-                                && span.end.offset >= token.range.end
-                        })
-                })
+        .any(|diagnostic| diagnostic.parser_context == "schema_field" && diagnostic.span.is_none())
+    {
+        return Vec::new();
+    }
+    let mut recovery_ranges = parsed
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.parser_context == "schema_field")
+        .filter_map(|diagnostic| diagnostic.span.as_ref())
+        .filter(|span| span.file == *source.path())
+        .map(|span| (span.start.offset, span.end.offset))
+        .collect::<Vec<_>>();
+    recovery_ranges.sort_unstable();
+
+    let mut spans = Vec::new();
+    let mut token_cursor = 0usize;
+    let mut recovery_cursor = 0usize;
+    let mut recovery_end = 0usize;
+    for field in parsed
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Schema(schema) => Some(schema.fields.as_slice()),
+            _ => None,
         })
-        .map(|(_, token)| source.span(token.range))
-        .collect()
+        .flatten()
+    {
+        while token_cursor < tokens.len()
+            && tokens[token_cursor].range.end <= field.span.start.offset
+        {
+            token_cursor += 1;
+        }
+        let field_start = token_cursor;
+        while token_cursor < tokens.len()
+            && tokens[token_cursor].range.start < field.span.end.offset
+        {
+            token_cursor += 1;
+        }
+        #[cfg(test)]
+        record_schema_composition_field_token_visits(token_cursor - field_start);
+        let Some(leaf_index) =
+            schema_composition_path_leaf_in_field(tokens, field_start, token_cursor)
+        else {
+            continue;
+        };
+        let token = &tokens[leaf_index];
+        while recovery_cursor < recovery_ranges.len()
+            && recovery_ranges[recovery_cursor].0 <= token.range.start
+        {
+            recovery_end = recovery_end.max(recovery_ranges[recovery_cursor].1);
+            recovery_cursor += 1;
+        }
+        if recovery_end >= token.range.end {
+            continue;
+        }
+        spans.push(source.span(token.range));
+    }
+    spans
+}
+
+fn schema_composition_path_leaf_in_field(
+    tokens: &[Token],
+    start: usize,
+    end: usize,
+) -> Option<usize> {
+    let mut significant = (start..end)
+        .filter(|index| {
+            !matches!(
+                tokens[*index].kind,
+                TokenKind::Whitespace | TokenKind::Comment | TokenKind::Newline
+            )
+        })
+        .collect::<Vec<_>>();
+    if let Some(where_position) = significant
+        .iter()
+        .position(|index| tokens[*index].kind == TokenKind::Where)
+    {
+        significant.truncate(where_position);
+    }
+    let colon_position = significant
+        .iter()
+        .position(|index| tokens[*index].kind == TokenKind::Colon)?;
+    let field_type = &significant[colon_position + 1..];
+    schema_path_leaf_in(field_type, tokens)
+        .or_else(|| repeat_schema_path_leaf(field_type, tokens))
+        .or_else(|| array_schema_path_leaf(field_type, tokens))
 }
 
 fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<SourceSpan>) {
@@ -486,28 +560,40 @@ fn workspace_schema_composition_references(
 fn direct_dependency_schema_composition_references(
     files: &[IndexedFile],
     schemas: &[NeutralSymbol],
+    package_targets: &[PackageSchemaTarget],
+    recovered_package_targets: &[PackageSchemaTarget],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Vec<SchemaCompositionReference> {
+    let schema_index = direct_dependency_schema_index(
+        schemas,
+        package_targets,
+        recovered_package_targets,
+    );
     files
         .iter()
         .filter(|file| workspace_navigation_file(file))
         .flat_map(|file| {
-            file.tokens
+            let mut token_cursor = 0usize;
+            file.schema_composition_leaf_spans
                 .iter()
-                .enumerate()
-                .filter_map(|(index, token)| {
-                    let span = file.source.span(token.range);
-                    if !file.schema_composition_leaf_spans.iter().any(|candidate| {
-                        candidate.start.offset == span.start.offset
-                            && candidate.end.offset == span.end.offset
-                    }) || !token
-                        .text
-                        .chars()
-                        .next()
-                        .is_some_and(|initial| initial.is_ascii_uppercase())
+                .filter_map(|span| {
+                    while token_cursor < file.tokens.len()
+                        && file.tokens[token_cursor].range.end <= span.start.offset
+                    {
+                        token_cursor += 1;
+                    }
+                    let token = file.tokens.get(token_cursor)?;
+                    if token.range.start != span.start.offset
+                        || token.range.end != span.end.offset
+                        || !token
+                            .text
+                            .chars()
+                            .next()
+                            .is_some_and(|initial| initial.is_ascii_uppercase())
                     {
                         return None;
                     }
+                    let index = token_cursor;
                     let qualifier = qualifier_for_token(&file.tokens, index)?;
                     if !matches!(
                         schema_qualified_workspace_module(file, &qualifier, module_imports),
@@ -518,23 +604,76 @@ fn direct_dependency_schema_composition_references(
                     let (module, package) = module_imports
                         .get(&file.module)?
                         .valid_external_route(&qualifier)?;
-                    let mut candidates = schemas.iter().filter(|schema| {
-                        schema.name == token.text
-                            && schema.module == module
-                            && schema.package.as_deref() == Some(package.as_str())
-                            && schema.package_origin == Some(PackageOrigin::DirectDependency)
-                            && schema.public
-                    });
-                    let target = candidates.next()?;
-                    if candidates.next().is_some() {
-                        return None;
-                    }
+                    let target = schema_index.get(&(package, module, token.text.clone()))?;
                     Some(SchemaCompositionReference {
-                        span,
+                        span: span.clone(),
                         target: SchemaReferenceTarget::Schema(target.clone()),
                     })
                 })
                 .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn direct_dependency_schema_index(
+    schemas: &[NeutralSymbol],
+    package_targets: &[PackageSchemaTarget],
+    recovered_package_targets: &[PackageSchemaTarget],
+) -> BTreeMap<(String, String, String), NeutralSymbol> {
+    let mut target_eligibility = BTreeMap::new();
+    for target in package_targets
+        .iter()
+        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        let entry = target_eligibility
+            .entry((
+                target.package.clone(),
+                target.module.clone(),
+                target.name.clone(),
+            ))
+            .or_insert((0usize, false));
+        entry.0 += 1;
+        entry.1 |= target.public && target.exported;
+    }
+    for target in recovered_package_targets
+        .iter()
+        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        target_eligibility
+            .entry((
+                target.package.clone(),
+                target.module.clone(),
+                target.name.clone(),
+            ))
+            .or_insert((0usize, false))
+            .0 += 1;
+    }
+
+    let mut candidates = BTreeMap::new();
+    for schema in schemas
+        .iter()
+        .filter(|schema| schema.package_origin == Some(PackageOrigin::DirectDependency))
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        let Some(package) = schema.package.as_ref() else {
+            continue;
+        };
+        candidates
+            .entry((package.clone(), schema.module.clone(), schema.name.clone()))
+            .or_insert_with(Vec::new)
+            .push(schema);
+    }
+
+    candidates
+        .into_iter()
+        .filter_map(|(identity, candidates)| {
+            (target_eligibility.get(&identity) == Some(&(1, true)) && candidates.len() == 1)
+                .then(|| (identity, candidates[0].clone()))
         })
         .collect()
 }

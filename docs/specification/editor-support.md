@@ -784,9 +784,9 @@ Implemented:
 - Shared navigation and MCP evidence for supported direct-dependency and
   standard-library public type aliases. Results include only selected-project
   workspace `file:` locations and stay separate from the target type identity.
-- Paired LSP and MCP evidence for direct-dependency public schema `decode` and
-  `encode` references. Results include only selected-project workspace `file:`
-  locations and never include the package declaration.
+- Paired LSP and MCP evidence for direct-dependency public schema composition,
+  `decode`, and `encode` references. Results include only selected-project
+  workspace `file:` locations and never include the package declaration.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
   `decode` and `encode` references. Results preserve alias identity and include
   only selected-project workspace `file:` locations.
@@ -804,9 +804,10 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency schema
-  and schema-alias operation boundaries and the direct-dependency and
-  standard-library public function, public function-alias, public type-alias,
-  public type, and public constructor reference boundaries.
+  composition-and-operation boundary, schema-alias operation boundary, and
+  direct-dependency and standard-library public function, public
+  function-alias, public type-alias, public type, and public constructor
+  reference boundaries.
 - General rename and go-to-definition support outside the implemented
   companion private-function identity, handler binding, direct path, vendor,
   mirror, locally available direct git dependency, embedded standard-library,

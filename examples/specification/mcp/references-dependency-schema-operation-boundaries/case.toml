@@ -64,7 +64,17 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 [[mcp_assert]]
 id = 10
 path = "/result/structuredContent/references"
-equals = []
+length = 2
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":24,"column":18},"end":{"line":24,"column":24}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":32,"column":19},"end":{"line":32,"column":25}}
 
 [[mcp_assert]]
 id = 11
@@ -163,6 +173,91 @@ equals = []
 
 [[mcp_assert]]
 id = 28
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 29
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 30
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 31
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 32
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 33
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 34
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 35
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 36
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 37
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 37
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "exact-order-a.veln"
+
+[[mcp_assert]]
+id = 37
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "exact-order-b.veln"
+
+[[mcp_assert]]
+id = 38
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 39
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 40
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 41
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 42
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 43
 path = "/result/structuredContent/references"
 equals = []
 

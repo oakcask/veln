@@ -1,0 +1,6 @@
+use beta::wire from "other/dep"
+use alpha::wire from "example/dep"
+
+schema Host
+  nested: wire::Packet
+end

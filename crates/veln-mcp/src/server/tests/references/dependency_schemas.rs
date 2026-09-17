@@ -81,7 +81,11 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
     let dependency_manifest =
         "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"core.veln\", \"facade.veln\"]\n";
     let source = concat!(
-        "use facade from \"example/dep\"\n\n",
+        "use facade from \"example/dep\"\n",
+        "use core from \"example/dep\"\n\n",
+        "schema Host\n",
+        "  nested: core::Packet\n",
+        "end\n\n",
         "fn read(view: ByteView) -> ()\n",
         "  decode facade::Alias from view at byte_offset(0)?\n",
         "  encode facade::Alias from {value: 1}\n",
@@ -104,7 +108,7 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
         );
     }
 
-    let result = references_result(&workspace, "left/main.veln", 4, 19);
+    let result = references_result(&workspace, "left/main.veln", 9, 19);
 
     assert_eq!(result["isError"], false, "{result:#}");
     assert_eq!(
@@ -119,13 +123,21 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
     assert_reference_ranges(
         &result,
         &[
-            ("left/main.veln", 4, 18, 4, 23),
-            ("left/main.veln", 5, 18, 5, 23),
+            ("left/main.veln", 9, 18, 9, 23),
+            ("left/main.veln", 10, 18, 10, 23),
         ],
         "left selected project cross-module schema alias isolation",
     );
 
-    let right = references_result(&workspace, "right/main.veln", 5, 19);
+    let left_composition = references_result(&workspace, "left/main.veln", 5, 17);
+    assert_eq!(left_composition["isError"], false, "{left_composition:#}");
+    assert_reference_ranges(
+        &left_composition,
+        &[("left/main.veln", 5, 17, 5, 23)],
+        "left selected project direct schema composition isolation",
+    );
+
+    let right = references_result(&workspace, "right/main.veln", 10, 19);
     assert_eq!(right["isError"], false, "{right:#}");
     assert_eq!(
         right["structuredContent"]["scope"],
@@ -139,10 +151,18 @@ fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_al
     assert_reference_ranges(
         &right,
         &[
-            ("right/main.veln", 4, 18, 4, 23),
-            ("right/main.veln", 5, 18, 5, 23),
+            ("right/main.veln", 9, 18, 9, 23),
+            ("right/main.veln", 10, 18, 10, 23),
         ],
         "right selected project cross-module schema alias isolation",
+    );
+
+    let right_composition = references_result(&workspace, "right/main.veln", 5, 17);
+    assert_eq!(right_composition["isError"], false, "{right_composition:#}");
+    assert_reference_ranges(
+        &right_composition,
+        &[("right/main.veln", 5, 17, 5, 23)],
+        "right selected project direct schema composition isolation",
     );
 }
 

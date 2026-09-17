@@ -50,6 +50,8 @@ thread_local! {
     static SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_DECLARATION_VISITS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_COMPOSITION_DECLARATION_VISITS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -65,6 +67,30 @@ pub(crate) fn reset_schema_alias_declaration_visits() {
 #[cfg(test)]
 pub(crate) fn schema_alias_declaration_visits() -> usize {
     SCHEMA_ALIAS_DECLARATION_VISITS.get()
+}
+
+#[cfg(test)]
+fn record_schema_composition_declaration_visit() {
+    SCHEMA_COMPOSITION_DECLARATION_VISITS.set(SCHEMA_COMPOSITION_DECLARATION_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_schema_composition_field_token_visits(count: usize) {
+    SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS.set(SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS.get() + count);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_composition_index_work() {
+    SCHEMA_COMPOSITION_DECLARATION_VISITS.set(0);
+    SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn schema_composition_index_work() -> (usize, usize) {
+    (
+        SCHEMA_COMPOSITION_DECLARATION_VISITS.get(),
+        SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS.get(),
+    )
 }
 
 #[cfg(test)]

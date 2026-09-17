@@ -1,0 +1,6 @@
+use shared from "example/dep"
+use shared from "other/dep"
+
+schema Host
+  nested: shared::Packet
+end

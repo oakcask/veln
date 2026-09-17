@@ -473,9 +473,11 @@ or mismatched imports succeed with an empty reference set. The
 executable protocol contract. The existing
 `references-dependency-schema-operation` case preserves operation behavior. The
 `references-dependency-schema-operation-boundaries` MCP case selects the
-unsupported direct-dependency boundaries, including a package schema alias
-chain and a syntax-recovered operation leaf, and requires successful empty
-results. A focused MCP server test injects
+unsupported direct-dependency boundaries through operation and composition
+leaves. It covers private and non-exported declarations, mismatched and
+transitive imports, invalid casing, schema aliases, recovered declarations and
+leaves, dependency import collisions in both orders, and requires successful
+empty results. A focused MCP server test injects
 a public standard-library schema and verifies the successful empty result with
 the selected project scope. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
@@ -741,7 +743,8 @@ selection parity with both LSP declaration policies. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
 package-alias-chain, invalid-cased and other-package alias targets,
-duplicate-import, recovered-import, composition,
+duplicate-import, recovered-import, recovered-declaration, syntax-recovered
+composition, dependency exact and implicit collisions in both import orders,
 module-qualifier, and recovery selections as successful empty results. Its
 mismatched import names a retained direct
 dependency whose exported module does not match, and its transitive package

@@ -2,7 +2,7 @@ mod dependencies_schema_references_tests {
     use super::*;
 
     #[test]
-    fn dependency_schema_alias_resolution_avoids_nonlinear_declaration_scans() {
+    fn dependency_schema_alias_eligibility_visits_declarations_once() {
         // Count eligibility traversals instead of repeatedly timing the entire index build.
         // Keep instrumentation inside declaration visits when changing these traversals.
         for count in [100, 200, 400] {
@@ -68,6 +68,50 @@ mod dependencies_schema_references_tests {
                 count + 1,
                 "the first query must perform one indexed route lookup per candidate plus selection",
             );
+        }
+    }
+
+    #[test]
+    fn dependency_schema_composition_index_work_grows_linearly() {
+        let mut field_token_visits_per_schema = None;
+        for count in [100, 200, 400] {
+            let mut declarations = String::new();
+            let mut fields = String::from("schema Host\n");
+            for index in 0..count {
+                declarations.push_str(&format!(
+                    "pub schema Packet{index}\n  value: Int\nend\n\n"
+                ));
+                fields.push_str(&format!("  field{index}: dep::Packet{index}\n"));
+            }
+            fields.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    &format!("use dep from \"example/dep\"\n\n{fields}"),
+                )],
+                vec![dependency_snapshot(
+                    "example/dep",
+                    &[("dep.veln", &declarations)],
+                    ["dep.veln"],
+                )],
+            );
+
+            crate::navigation::reset_schema_composition_index_work();
+            let _ = snapshot.navigation_index();
+            let (declaration_visits, field_token_visits) =
+                crate::navigation::schema_composition_index_work();
+            assert_eq!(declaration_visits, count * 2);
+            assert_eq!(field_token_visits % count, 0);
+            let visits_per_schema = field_token_visits / count;
+            assert_eq!(
+                *field_token_visits_per_schema.get_or_insert(visits_per_schema),
+                visits_per_schema,
+            );
+
+            let first = query_snapshot(&snapshot, "main.veln", 4, 18).unwrap();
+            assert_eq!(first.selected_symbol.name, "Packet0");
+            let last = query_snapshot(&snapshot, "main.veln", count + 3, 18).unwrap();
+            assert_eq!(last.selected_symbol.name, format!("Packet{}", count - 1));
         }
     }
 
@@ -421,6 +465,161 @@ mod dependencies_schema_references_tests {
             panic!("exact dependency import must select a package declaration");
         };
         assert_eq!(exact.definition.span.file.as_str(), "wire.veln");
+    }
+
+    #[test]
+    fn recovered_dependency_schema_declaration_blocks_composition_identity() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "valid.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Clean\n  value: Int\nend\n",
+                    ),
+                ),
+                (
+                    "recovered.veln",
+                    "mod dep\n\npub schema Packet\n  recovered: Int\n",
+                ),
+            ],
+            ["valid.veln", "recovered.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "schema Host\n",
+                        "  nested: dep::Packet\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "recovery.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "schema Host\n",
+                        "  nested: dep::Clean unexpected\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
+        assert!(query_snapshot(&snapshot, "recovery.veln", 4, 16).is_none());
+    }
+
+    #[test]
+    fn dependency_schema_composition_rejects_casing_mismatch_and_transitive_inputs() {
+        let selected = dependency_snapshot(
+            "example/dep",
+            &[(
+                "public.veln",
+                concat!(
+                    "mod public\n\n",
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema badPacket\n  value: Int\nend\n",
+                ),
+            )],
+            ["public.veln"],
+        );
+        let mismatch = dependency_snapshot(
+            "other/dep",
+            &[("other.veln", "mod other\n\npub schema Packet\n  value: Int\nend\n")],
+            ["other.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use public from \"example/dep\"\n",
+                    "use mismatch from \"other/dep\"\n",
+                    "use transitive from \"transitive/dep\"\n\n",
+                    "schema Host\n",
+                    "  invalid_casing: public::badPacket\n",
+                    "  mismatched_import: mismatch::Packet\n",
+                    "  transitive_schema: transitive::Packet\n",
+                    "end\n",
+                ),
+            )],
+            vec![selected, mismatch],
+        );
+
+        for (line, column) in [(6, 28), (7, 33), (8, 35)] {
+            assert!(query_snapshot(&snapshot, "main.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
+    fn dependency_schema_composition_import_collisions_are_order_independent() {
+        let first = dependency_snapshot(
+            "first/dep",
+            &[
+                ("shared.veln", "mod shared\n\npub schema Packet\n  value: Int\nend\n"),
+                ("alpha/wire.veln", "mod alpha::wire\n\npub schema Packet\n  value: Int\nend\n"),
+            ],
+            ["shared.veln", "alpha/wire.veln"],
+        );
+        let second = dependency_snapshot(
+            "second/dep",
+            &[
+                ("shared.veln", "mod shared\n\npub schema Packet\n  value: Int\nend\n"),
+                ("beta/wire.veln", "mod beta::wire\n\npub schema Packet\n  value: Int\nend\n"),
+            ],
+            ["shared.veln", "beta/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "exact_a.veln",
+                    concat!(
+                        "use shared from \"first/dep\"\n",
+                        "use shared from \"second/dep\"\n\n",
+                        "schema Host\n  nested: shared::Packet\nend\n",
+                    ),
+                ),
+                source(
+                    "exact_b.veln",
+                    concat!(
+                        "use shared from \"second/dep\"\n",
+                        "use shared from \"first/dep\"\n\n",
+                        "schema Host\n  nested: shared::Packet\nend\n",
+                    ),
+                ),
+                source(
+                    "implicit_a.veln",
+                    concat!(
+                        "use alpha::wire from \"first/dep\"\n",
+                        "use beta::wire from \"second/dep\"\n\n",
+                        "schema Host\n  nested: wire::Packet\nend\n",
+                    ),
+                ),
+                source(
+                    "implicit_b.veln",
+                    concat!(
+                        "use beta::wire from \"second/dep\"\n",
+                        "use alpha::wire from \"first/dep\"\n\n",
+                        "schema Host\n  nested: wire::Packet\nend\n",
+                    ),
+                ),
+            ],
+            vec![first, second],
+        );
+
+        for path in [
+            "exact_a.veln",
+            "exact_b.veln",
+            "implicit_a.veln",
+            "implicit_b.veln",
+        ] {
+            assert!(query_snapshot(&snapshot, path, 5, 20).is_none(), "{path}");
+        }
     }
 
     #[test]

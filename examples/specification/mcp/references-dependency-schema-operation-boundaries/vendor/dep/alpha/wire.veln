@@ -1,0 +1,5 @@
+mod alpha::wire
+
+pub schema Packet
+  value: Int
+end
