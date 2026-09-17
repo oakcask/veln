@@ -72,12 +72,15 @@ impl SymbolIndex {
             &schema_aliases,
             veln_sema::resolved_schema_composition_references(&workspace_module),
         );
-        schema_composition_references.extend(direct_dependency_schema_composition_references(
-            &files,
+        let direct_dependency_schemas = direct_dependency_schema_index(
             &declarations.schemas,
             &declarations.package_schema_alias_declarations,
             &declarations.package_schema_targets,
             &declarations.recovered_package_schema_targets,
+        );
+        schema_composition_references.extend(direct_dependency_schema_composition_references(
+            &files,
+            &direct_dependency_schemas,
             &schema_alias_module_imports,
         ));
         files.extend(direct_dependencies.files.clone());
@@ -98,6 +101,7 @@ impl SymbolIndex {
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
             schema_composition_references,
+            direct_dependency_schemas,
             schema_alias_module_imports,
             files,
             function_rename_index: OnceLock::new(),

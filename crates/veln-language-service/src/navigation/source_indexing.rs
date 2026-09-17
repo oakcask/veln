@@ -559,18 +559,9 @@ fn workspace_schema_composition_references(
 
 fn direct_dependency_schema_composition_references(
     files: &[IndexedFile],
-    schemas: &[NeutralSymbol],
-    package_aliases: &[PackageSchemaAliasDeclaration],
-    package_targets: &[PackageSchemaTarget],
-    recovered_package_targets: &[PackageSchemaTarget],
+    schema_index: &BTreeMap<(String, String, String), NeutralSymbol>,
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Vec<SchemaCompositionReference> {
-    let schema_index = direct_dependency_schema_index(
-        schemas,
-        package_aliases,
-        package_targets,
-        recovered_package_targets,
-    );
     files
         .iter()
         .filter(|file| workspace_navigation_file(file))

@@ -313,18 +313,11 @@ fn array_schema_path_leaf(field_type: &[usize], tokens: &[Token]) -> Option<usiz
 }
 
 fn valid_schema_repeat_count(indices: &[usize], tokens: &[Token]) -> bool {
-    match indices {
-        [name] => tokens[*name].kind == TokenKind::Ident,
-        [left, operator, right] => {
-            tokens[*left].kind == TokenKind::Ident
-                && matches!(
-                    tokens[*operator].kind,
-                    TokenKind::Minus | TokenKind::Plus | TokenKind::Star | TokenKind::Slash
-                )
-                && tokens[*right].kind == TokenKind::Ident
-        }
-        _ => false,
-    }
+    let expression = indices
+        .iter()
+        .map(|index| tokens[*index].text.as_str())
+        .collect::<String>();
+    veln_sema::schema_repeat_count_expression_is_valid(&expression)
 }
 
 fn schema_path_leaf_in(indices: &[usize], tokens: &[Token]) -> Option<usize> {

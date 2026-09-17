@@ -77,9 +77,9 @@ syntax-recovered dependency imports do not provide dependency schema
 composition visibility. A clean or syntax-recovered package schema alias with
 the selected name prevents a same-spelled package schema from acting as a
 fallback composition target. A `Repeat` or array payload participates in
-schema composition lookup only when its count is one identifier or two
-identifiers separated by `+`, `-`, `*`, or `/`. Comments and strings do not
-participate in schema composition lookup. The
+schema composition lookup when its count is a valid schema count expression.
+This includes member paths accepted by schema analysis. Comments and strings
+do not participate in schema composition lookup. The
 focused evidence is
 `schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`,
 `colliding_implicit_schema_import_aliases_are_order_independent`, and
@@ -87,7 +87,7 @@ focused evidence is
 targets, plus
 `dependency_schema_composition_respects_import_identity_boundaries`,
 `dependency_schema_composition_import_collisions_are_order_independent`, and
-`dependency_schema_composition_imports_are_shared_by_explicit_module_identity`
+`dependency_schema_imports_unify_all_leaf_roles_across_explicit_module_sources`
 for retained direct-dependency targets. The
 `dependency_schema_alias_declarations_block_composition_schema_fallback`,
 `malformed_dependency_schema_repeats_do_not_select_or_enter_reference_sets`,

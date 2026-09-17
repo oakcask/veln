@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn references_return_direct_dependency_schema_operations_from_selected_project() {
+fn references_return_direct_dependency_schema_uses_from_selected_project() {
     let workspace = TempWorkspace::new("references-dependency-schema-project");
     write_schema_dependency_workspace(&workspace, DependencySchemaSource::Path);
     workspace.write(
@@ -50,10 +50,12 @@ fn references_return_direct_dependency_schema_operations_from_selected_project()
         &[
             ("main.veln", 4, 15, 4, 21),
             ("main.veln", 5, 15, 5, 21),
-            ("main.veln", 11, 16, 11, 22),
+            ("main.veln", 12, 16, 12, 22),
+            ("main.veln", 13, 32, 13, 38),
+            ("main.veln", 14, 20, 14, 26),
             ("other.veln", 4, 15, 4, 21),
         ],
-        "direct dependency schema operations",
+        "direct dependency schema uses",
     );
 
     let recovered = references_result(&workspace, "other.veln", 5, 16);
@@ -1139,7 +1141,9 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
             &[
                 ("main.veln", 4, 15, 4, 21),
                 ("main.veln", 5, 15, 5, 21),
-                ("main.veln", 11, 16, 11, 22),
+                ("main.veln", 12, 16, 12, 22),
+                ("main.veln", 13, 32, 13, 38),
+                ("main.veln", 14, 20, 14, 26),
             ],
             source_kind.name(),
         );
@@ -1152,7 +1156,7 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
             source_kind.name(),
         );
 
-        let alias_composition = references_result(&workspace, "main.veln", 12, 15);
+        let alias_composition = references_result(&workspace, "main.veln", 15, 15);
         assert_eq!(
             alias_composition["isError"],
             false,
@@ -1212,7 +1216,10 @@ fn write_schema_dependency_workspace(
             "end\n",
             "\n",
             "schema Host\n",
+            "  count: UInt8\n",
             "  nested: dep::Packet\n",
+            "  repeated: Repeat(count, dep::Packet)\n",
+            "  canonical: [dep::Packet; count]\n",
             "  alias: dep::Alias\n",
             "end\n",
         ),

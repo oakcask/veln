@@ -470,9 +470,9 @@ only workspace `file:` locations and exclude the declaration, package sources,
 aliases and alias targets, import tokens, module qualifiers, comments, and
 strings. A clean or syntax-recovered package schema alias with the selected
 name blocks fallback to a same-spelled package schema. A `Repeat` or array
-payload resolves only when its count is one identifier or two identifiers
-separated by `+`, `-`, `*`, or `/`; another count shape does not select the
-payload and does not enter its reference set.
+payload resolves only when its count is a valid schema count expression;
+another count shape does not select the payload and does not enter its
+reference set.
 Standard-library schemas, private or non-exported schemas,
 transitive dependencies, recovery and invalid-casing records, and unresolved
 or mismatched imports succeed with an empty reference set. The

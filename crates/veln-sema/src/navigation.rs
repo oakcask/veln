@@ -12,7 +12,8 @@ use crate::name_recovery::{
     public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
 };
 use crate::schema::primitives::{
-    SchemaRepeatPayload, repeat_schema_primitive, schema_payload_name_path,
+    SchemaRepeatPayload, repeat_schema_primitive, schema_length_expression,
+    schema_payload_name_path,
 };
 use crate::types::schema_types::schema_field_uses_existing_grammar;
 
@@ -67,6 +68,10 @@ pub struct ResolvedSchemaAlias {
     pub target_span: SourceSpan,
     pub target_module: Option<String>,
     pub target_name: String,
+}
+
+pub fn schema_repeat_count_expression_is_valid(text: &str) -> bool {
+    schema_length_expression(text).is_some()
 }
 
 pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlias> {

@@ -135,19 +135,38 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        let qualification = self.schema_alias_qualified_workspace_module(file, qualifier);
+        if matches!(qualification, QualifiedWorkspaceModule::External) {
+            let (module, package) = self
+                .schema_alias_module_imports
+                .get(&file.module)?
+                .valid_external_route(qualifier)?;
+            if let Some(symbol) = self.direct_dependency_schemas.get(&(
+                package.clone(),
+                module.clone(),
+                name.to_string(),
+            )) {
+                return Some(symbol.clone());
+            }
+            return self
+                .schemas
+                .iter()
+                .find(|symbol| {
+                    symbol.package_origin == Some(PackageOrigin::StandardLibrary)
+                        && symbol.package.as_deref() == Some(package.as_str())
+                        && symbol.module == module
+                        && symbol.name == name
+                })
+                .cloned();
+        }
+        let QualifiedWorkspaceModule::Workspace(module) = qualification else {
+            return None;
+        };
         let mut candidates = self.schemas.iter().filter(|symbol| {
-            symbol.name == name
-                && qualified_modules.iter().any(|module| module == &symbol.module)
-                && match &symbol.package {
-                    Some(package) => file
-                        .external_uses
-                        .contains(&(symbol.module.clone(), package.clone())),
-                    None => {
-                        (symbol.module == file.module || file.uses.contains(&symbol.module))
-                            && visible_schema_from_workspace_module(file, symbol)
-                    }
-                }
+            symbol.package.is_none()
+                && symbol.name == name
+                && symbol.module == module
+                && visible_schema_from_workspace_module(file, symbol)
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())

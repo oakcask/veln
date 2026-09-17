@@ -252,6 +252,40 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_references_accept_member_path_repeat_counts() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "schema Packet\n",
+                "  format binary\n",
+                "  value: UInt8\n",
+                "end\n\n",
+                "schema Header\n",
+                "  format binary\n",
+                "  count: UInt8\n",
+                "end\n\n",
+                "schema Host\n",
+                "  format binary\n",
+                "  header: Header\n",
+                "  direct: Packet\n",
+                "  repeated: Repeat(header.count, Packet)\n",
+                "  canonical: [Packet; header.count]\n",
+                "end\n",
+            ),
+        )];
+        let expected = [
+            ("main.veln", 14, 11),
+            ("main.veln", 15, 34),
+            ("main.veln", 16, 15),
+        ];
+
+        for (_, line, column) in expected {
+            let result = query(sources.clone(), "main.veln", line, column).unwrap();
+            assert_eq!(locations(&result.references), expected);
+        }
+    }
+
+    #[test]
     fn workspace_schema_composition_uses_file_scoped_schema_identity() {
         let direct = query(
             vec![

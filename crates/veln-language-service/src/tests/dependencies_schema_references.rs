@@ -552,6 +552,14 @@ mod dependencies_schema_references_tests {
         for (name, alias_source) in [
             ("clean alias", "mod dep\n\npub schema Alias = Packet\n"),
             ("recovered alias", "mod dep\n\npub schema Alias =\n"),
+            (
+                "alias chain",
+                concat!(
+                    "mod dep\n\n",
+                    "pub schema Alias = Middle\n",
+                    "pub schema Middle = Packet\n",
+                ),
+            ),
         ] {
             let dependency = dependency_snapshot(
                 "example/dep",
@@ -832,6 +840,215 @@ mod dependencies_schema_references_tests {
         let result = query_snapshot(&snapshot, "host.veln", 4, 19).unwrap();
         assert_eq!(locations(&result.references), [("host.veln", 4, 17)]);
         assert!(matches!(result.definition.source, NavigationSource::Package { .. }));
+    }
+
+    #[test]
+    fn dependency_schema_imports_unify_all_leaf_roles_across_explicit_module_sources() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "import.veln",
+                    "mod app\nuse lib::wire from \"example/dep\"\n",
+                ),
+                source(
+                    "composition.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "schema Host\n",
+                        "  count: UInt8\n",
+                        "  direct: lib::wire::Packet\n",
+                        "  repeated: Repeat(count, wire::Packet)\n",
+                        "  canonical: [wire::Packet; count]\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "decode.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode wire::Packet from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "encode.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "fn write(packet: {value: Int}) -> ()\n",
+                        "  encode lib::wire::Packet from packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("lib/wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+                ["lib/wire.veln"],
+            )],
+        );
+        let expected = [
+            ("composition.veln", 5, 22),
+            ("composition.veln", 6, 33),
+            ("composition.veln", 7, 21),
+            ("decode.veln", 4, 16),
+            ("encode.veln", 4, 21),
+        ];
+
+        for (path, line, column) in expected {
+            let result = query_snapshot(&snapshot, path, line, column).unwrap();
+            assert_eq!(locations(&result.references), expected, "{path}:{line}");
+        }
+    }
+
+    #[test]
+    fn invalid_module_wide_dependency_schema_imports_block_composition_and_operations() {
+        let cases = [
+            (
+                "duplicate import",
+                vec![
+                    ("a.veln", "mod app\nuse dep from \"first/dep\"\n"),
+                    ("b.veln", "mod app\nuse dep from \"first/dep\"\n"),
+                ],
+                "dep",
+                16,
+                15,
+            ),
+            (
+                "recovered import",
+                vec![(
+                    "a.veln",
+                    "mod app\nuse dep from \"first/dep\" unexpected\n",
+                )],
+                "dep",
+                16,
+                15,
+            ),
+            (
+                "conflicting exact imports",
+                vec![
+                    ("a.veln", "mod app\nuse shared from \"first/dep\"\n"),
+                    ("b.veln", "mod app\nuse shared from \"second/dep\"\n"),
+                    (
+                        "c.veln",
+                        "mod app\nuse fallback::shared from \"first/dep\"\n",
+                    ),
+                ],
+                "shared",
+                19,
+                18,
+            ),
+            (
+                "ambiguous implicit alias",
+                vec![
+                    (
+                        "a.veln",
+                        "mod app\nuse alpha::wire from \"first/dep\"\n",
+                    ),
+                    (
+                        "b.veln",
+                        "mod app\nuse beta::wire from \"second/dep\"\n",
+                    ),
+                ],
+                "wire",
+                17,
+                16,
+            ),
+        ];
+
+        for (name, imports, qualifier, composition_column, operation_column) in cases {
+            for reverse in [false, true] {
+                let mut sources = imports
+                    .iter()
+                    .map(|(path, text)| source(path, text))
+                    .collect::<Vec<_>>();
+                sources.push(source(
+                    "selection.veln",
+                    &format!(
+                        concat!(
+                            "mod app\n",
+                            "schema Host\n",
+                            "  nested: {0}::Packet\n",
+                            "end\n",
+                            "fn read(view: ByteView) -> ()\n",
+                            "  decode {0}::Packet from view at byte_offset(0)?\n",
+                            "end\n",
+                        ),
+                        qualifier,
+                    ),
+                ));
+                if reverse {
+                    sources.reverse();
+                }
+                let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                    sources,
+                    vec![
+                        dependency_snapshot(
+                            "first/dep",
+                            &[
+                                (
+                                    "dep.veln",
+                                    "mod dep\npub schema Packet\n  value: Int\nend\n",
+                                ),
+                                (
+                                    "shared.veln",
+                                    "mod shared\npub schema Packet\n  value: Int\nend\n",
+                                ),
+                                (
+                                    "fallback/shared.veln",
+                                    "mod fallback::shared\npub schema Packet\n  value: Int\nend\n",
+                                ),
+                                (
+                                    "alpha/wire.veln",
+                                    "mod alpha::wire\npub schema Packet\n  value: Int\nend\n",
+                                ),
+                            ],
+                            [
+                                "dep.veln",
+                                "shared.veln",
+                                "fallback/shared.veln",
+                                "alpha/wire.veln",
+                            ],
+                        ),
+                        dependency_snapshot(
+                            "second/dep",
+                            &[
+                                (
+                                    "shared.veln",
+                                    "mod shared\npub schema Packet\n  value: Int\nend\n",
+                                ),
+                                (
+                                    "beta/wire.veln",
+                                    "mod beta::wire\npub schema Packet\n  value: Int\nend\n",
+                                ),
+                            ],
+                            ["shared.veln", "beta/wire.veln"],
+                        ),
+                    ],
+                );
+
+                assert!(
+                    query_snapshot(
+                        &snapshot,
+                        "selection.veln",
+                        3,
+                        composition_column,
+                    )
+                    .is_none(),
+                    "{name}, reverse={reverse}: composition",
+                );
+                assert!(
+                    query_snapshot(
+                        &snapshot,
+                        "selection.veln",
+                        6,
+                        operation_column,
+                    )
+                    .is_none(),
+                    "{name}, reverse={reverse}: operation",
+                );
+            }
+        }
     }
 
     #[test]

@@ -779,6 +779,7 @@ pub(crate) struct SymbolIndex {
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
     schema_composition_references: Vec<SchemaCompositionReference>,
+    direct_dependency_schemas: BTreeMap<(String, String, String), NeutralSymbol>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }

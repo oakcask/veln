@@ -138,3 +138,198 @@ equals = {"start":{"line":5,"column":17},"end":{"line":5,"column":23}}
 id = 3
 path = "/result/structuredContent/references/5/uri"
 workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references"
+length = 6
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":6,"column":22},"end":{"line":6,"column":28}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":7,"column":33},"end":{"line":7,"column":39}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":8,"column":21},"end":{"line":8,"column":27}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":12,"column":45},"end":{"line":12,"column":51}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/3/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/4/range"
+equals = {"start":{"line":13,"column":16},"end":{"line":13,"column":22}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/4/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/5/range"
+equals = {"start":{"line":5,"column":17},"end":{"line":5,"column":23}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/5/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references"
+length = 6
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":6,"column":22},"end":{"line":6,"column":28}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":7,"column":33},"end":{"line":7,"column":39}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":8,"column":21},"end":{"line":8,"column":27}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":12,"column":45},"end":{"line":12,"column":51}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/3/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/4/range"
+equals = {"start":{"line":13,"column":16},"end":{"line":13,"column":22}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/4/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/5/range"
+equals = {"start":{"line":5,"column":17},"end":{"line":5,"column":23}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/5/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references"
+length = 6
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":6,"column":22},"end":{"line":6,"column":28}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":7,"column":33},"end":{"line":7,"column":39}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/2/range"
+equals = {"start":{"line":8,"column":21},"end":{"line":8,"column":27}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":12,"column":45},"end":{"line":12,"column":51}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/3/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/4/range"
+equals = {"start":{"line":13,"column":16},"end":{"line":13,"column":22}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/4/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/5/range"
+equals = {"start":{"line":5,"column":17},"end":{"line":5,"column":23}}
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references/5/uri"
+workspace_file_uri = "other.veln"

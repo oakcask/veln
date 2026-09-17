@@ -247,8 +247,8 @@ It excludes the package declaration even when declaration inclusion is true,
 as well as package-source occurrences. A clean or syntax-recovered package
 schema alias with the selected name blocks fallback to a same-spelled package
 schema. A repeated payload is selected only when its `Repeat` count or array
-count is one identifier or two identifiers separated by `+`, `-`, `*`, or
-`/`. Comments, strings, import tokens, and module qualifiers are not schema
+count is a valid schema count expression. Comments, strings, import tokens,
+and module qualifiers are not schema
 references. Standard-library schemas,
 ineligible package schema aliases, transitive dependencies, recovery records,
 syntax-recovered leaves, and invalid-casing records remain unsupported. The
