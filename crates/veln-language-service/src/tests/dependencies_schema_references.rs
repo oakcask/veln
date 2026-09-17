@@ -3,19 +3,27 @@ mod dependencies_schema_references_tests {
 
     #[test]
     fn dependency_schema_alias_resolution_avoids_nonlinear_declaration_scans() {
-        let elapsed = [100, 200, 400].map(|count| {
-            let mut samples = (0..3)
-                .map(|_| dependency_schema_alias_resolution_time(count))
-                .collect::<Vec<_>>();
-            samples.sort();
-            samples[1]
-        });
-
-        assert!(elapsed[1] <= elapsed[0] * 3 + std::time::Duration::from_millis(50));
-        assert!(elapsed[2] <= elapsed[1] * 3 + std::time::Duration::from_millis(50));
+        // Count eligibility traversals instead of repeatedly timing the entire index build.
+        // Keep instrumentation inside declaration visits when changing these traversals.
+        for count in [100, 200, 400] {
+            let snapshot = dependency_schema_alias_resolution_snapshot(count);
+            crate::navigation::reset_schema_alias_declaration_visits();
+            let _ = snapshot.navigation_index();
+            assert_eq!(
+                crate::navigation::schema_alias_declaration_visits(),
+                count * 4,
+                "eligibility must visit each resolved alias, alias declaration, target, and candidate once",
+            );
+            let result = query_snapshot(&snapshot, "main.veln", 4, 19).unwrap();
+            assert_eq!(result.selected_symbol.name, "Alias0");
+            assert_eq!(locations(&result.references), [("main.veln", 4, 18)]);
+            let last = query_snapshot(&snapshot, "main.veln", 5, 19).unwrap();
+            assert_eq!(last.selected_symbol.name, format!("Alias{}", count - 1));
+            assert_eq!(locations(&last.references), [("main.veln", 5, 18)]);
+        }
     }
 
-    fn dependency_schema_alias_resolution_time(count: usize) -> std::time::Duration {
+    fn dependency_schema_alias_resolution_snapshot(count: usize) -> EffectiveProjectSnapshot {
         let mut targets = String::from("mod core\n\n");
         let mut aliases = String::from("mod facade\nuse core\n\n");
         for index in 0..count {
@@ -31,22 +39,19 @@ mod dependencies_schema_references_tests {
             &[("core.veln", &targets), ("facade.veln", &aliases)],
             ["core.veln", "facade.veln"],
         );
-        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+        EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(
                 "main.veln",
-                concat!(
+                &format!(concat!(
                     "use facade from \"example/dep\"\n\n",
                     "fn read(view: ByteView) -> ()\n",
                     "  decode facade::Alias0 from view at byte_offset(0)?\n",
+                    "  decode facade::Alias{} from view at byte_offset(0)?\n",
                     "end\n",
-                ),
+                ), count - 1),
             )],
             vec![dependency],
-        );
-        let start = std::time::Instant::now();
-
-        let _ = snapshot.navigation_index();
-        start.elapsed()
+        )
     }
 
     #[test]
