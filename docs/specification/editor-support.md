@@ -258,7 +258,8 @@ must be a unique public schema declared by an exported source in the retained
 dependency. It can be a bare target in the alias module or a qualified target
 resolved through the alias source's valid local import. Full written target
 modules and unique implicit leaf import aliases are accepted. Consumer imports
-do not affect target resolution. No schema alias in the resolved schema
+do not affect target resolution. The qualified import can resolve to another
+module or back to the alias's own module. No schema alias in the resolved schema
 namespace may share the target name. Same-spelled declarations in unrelated
 namespaces do not affect target resolution. Alias identity includes the
 dependency and alias declaration, so

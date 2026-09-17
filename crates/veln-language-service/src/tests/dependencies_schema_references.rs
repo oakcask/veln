@@ -1376,7 +1376,7 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
-    fn direct_dependency_schema_alias_cross_module_target_resolution_matrix() {
+    fn direct_dependency_schema_alias_qualified_target_resolution_matrix() {
         let cases = [
             (
                 "implicit leaf",
@@ -1390,6 +1390,17 @@ mod dependencies_schema_references_tests {
                 "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
                 "mod spare\n",
                 "mod facade\nuse nested::core\n\npub schema Alias = nested::core::Packet\n",
+                true,
+            ),
+            (
+                "qualified import back into alias module",
+                "mod facade\n\npub schema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                concat!(
+                    "mod facade\n",
+                    "use facade\n\n",
+                    "pub schema Alias = facade::Packet\n",
+                ),
                 true,
             ),
             (
@@ -1531,8 +1542,14 @@ mod dependencies_schema_references_tests {
 
             let selected = query_snapshot(&snapshot, "main.veln", 5, 19);
             if eligible {
+                let selected = selected.unwrap();
                 assert_eq!(
-                    locations(&selected.unwrap().references),
+                    selected.selected_symbol.declaration_kind,
+                    SymbolDeclarationKind::PublicAlias,
+                    "{name}",
+                );
+                assert_eq!(
+                    locations(&selected.references),
                     [("main.veln", 5, 18), ("main.veln", 6, 18)],
                     "{name}",
                 );

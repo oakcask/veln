@@ -485,8 +485,9 @@ target must resolve uniquely to a public schema declared by an exported source
 in the retained dependency. A bare target resolves in the alias module. A
 qualified target resolves through the alias source's valid package-local
 import, including a full module path or a unique implicit leaf alias. Consumer
-imports do not participate in target resolution. No schema alias in the
-resolved schema namespace may have the target name. A declaration in an
+imports do not participate in target resolution. The qualified import can
+resolve to another module or back to the alias's own module. No schema alias in
+the resolved schema namespace may have the target name. A declaration in an
 unrelated namespace, such as a type with the target name, does not affect
 eligibility.
 Selecting a saved
@@ -503,8 +504,9 @@ workspace module identity follow the shared rules in
 syntax-recovered imports do not grant alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
 composition leaves, package sources, sibling aliases, and direct target-schema
-uses. The direct target can be a same-module bare schema or a cross-module
-schema resolved through a valid package-local full or implicit-leaf import.
+uses. The direct target can be a same-module bare schema or a qualified schema
+resolved through a valid package-local full or implicit-leaf import. The
+qualified target can resolve to the alias module or another module.
 Consumer imports do not affect target resolution. Bare imported operation
 names, alias chains, external-package targets, ambiguous or invalid aliases,
 targets, and target imports, standard-library and transitive aliases, non-exported

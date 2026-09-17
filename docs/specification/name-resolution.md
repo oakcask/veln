@@ -41,12 +41,14 @@ declared by an exported source in the retained dependency. A bare target
 resolves in the alias module. A
 qualified target resolves through a valid local import written in the alias's
 package source, including full module paths and unique implicit leaf aliases.
+The imported target can resolve to another module or back to the alias's own
+module.
 Consumer imports do not participate in target resolution. No schema alias may
 share the target name in the resolved schema namespace. Same-spelled
 declarations in unrelated namespaces do not affect eligibility. Alias chains,
 external-package targets, ambiguous imports, and recovered imports remain
 ineligible. The executable evidence is the
-`direct_dependency_schema_alias_cross_module_target_resolution_matrix` and
+`direct_dependency_schema_alias_qualified_target_resolution_matrix` and
 `dependency_schema_alias_requires_an_exported_cross_module_target_source`
 language-service tests.
 
