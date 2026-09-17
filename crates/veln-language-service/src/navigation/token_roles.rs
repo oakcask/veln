@@ -284,7 +284,9 @@ fn repeat_schema_path_leaf(field_type: &[usize], tokens: &[Token]) -> Option<usi
         && tokens[*field_type.last().unwrap()].kind == TokenKind::RParen
     {
         let inner = &field_type[2..field_type.len() - 1];
-        if let Some(comma) = top_level_separator(inner, tokens, TokenKind::Comma) {
+        if let Some(comma) = top_level_separator(inner, tokens, TokenKind::Comma)
+            && valid_schema_repeat_count(&inner[..comma], tokens)
+        {
             return schema_path_leaf_in(&inner[comma + 1..], tokens);
         }
     }
@@ -301,11 +303,28 @@ fn array_schema_path_leaf(field_type: &[usize], tokens: &[Token]) -> Option<usiz
         && tokens[*field_type.last().unwrap()].kind == TokenKind::RBracket
     {
         let inner = &field_type[1..field_type.len() - 1];
-        if let Some(semicolon) = top_level_separator(inner, tokens, TokenKind::Semicolon) {
+        if let Some(semicolon) = top_level_separator(inner, tokens, TokenKind::Semicolon)
+            && valid_schema_repeat_count(&inner[semicolon + 1..], tokens)
+        {
             return schema_path_leaf_in(&inner[..semicolon], tokens);
         }
     }
     None
+}
+
+fn valid_schema_repeat_count(indices: &[usize], tokens: &[Token]) -> bool {
+    match indices {
+        [name] => tokens[*name].kind == TokenKind::Ident,
+        [left, operator, right] => {
+            tokens[*left].kind == TokenKind::Ident
+                && matches!(
+                    tokens[*operator].kind,
+                    TokenKind::Minus | TokenKind::Plus | TokenKind::Star | TokenKind::Slash
+                )
+                && tokens[*right].kind == TokenKind::Ident
+        }
+        _ => false,
+    }
 }
 
 fn schema_path_leaf_in(indices: &[usize], tokens: &[Token]) -> Option<usize> {

@@ -362,6 +362,38 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn malformed_dependency_schema_repeats_do_not_select_or_enter_reference_sets() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "dep.veln",
+                "mod dep\n\npub schema Packet\n  value: Int\nend\n",
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "schema Host\n",
+                    "  count: UInt8\n",
+                    "  direct: dep::Packet\n",
+                    "  missing_call_count: Repeat(, dep::Packet)\n",
+                    "  missing_array_count: [dep::Packet;]\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let selected = query_snapshot(&snapshot, "main.veln", 5, 18).unwrap();
+        assert_eq!(locations(&selected.references), [("main.veln", 5, 16)]);
+        assert!(query_snapshot(&snapshot, "main.veln", 6, 43).is_none());
+        assert!(query_snapshot(&snapshot, "main.veln", 7, 37).is_none());
+    }
+
+    #[test]
     fn dependency_schema_composition_respects_import_identity_boundaries() {
         let selected = dependency_snapshot(
             "example/dep",
@@ -665,6 +697,93 @@ mod dependencies_schema_references_tests {
             "implicit_b.veln",
         ] {
             assert!(query_snapshot(&snapshot, path, 5, 20).is_none(), "{path}");
+        }
+    }
+
+    #[test]
+    fn conflicting_exact_dependency_imports_do_not_fall_back_to_an_implicit_alias() {
+        let first = dependency_snapshot(
+            "first/dep",
+            &[
+                (
+                    "shared.veln",
+                    "mod shared\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+                (
+                    "fallback/shared.veln",
+                    "mod fallback::shared\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+            ["shared.veln", "fallback/shared.veln"],
+        );
+        let second = dependency_snapshot(
+            "second/dep",
+            &[(
+                "shared.veln",
+                "mod shared\n\npub schema Packet\n  value: Int\nend\n",
+            )],
+            ["shared.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "first_order.veln",
+                    concat!(
+                        "use fallback::shared from \"first/dep\"\n",
+                        "use shared from \"first/dep\"\n",
+                        "use shared from \"second/dep\"\n\n",
+                        "schema Host\n  nested: shared::Packet\nend\n",
+                    ),
+                ),
+                source(
+                    "second_order.veln",
+                    concat!(
+                        "use shared from \"second/dep\"\n",
+                        "use shared from \"first/dep\"\n",
+                        "use fallback::shared from \"first/dep\"\n\n",
+                        "schema Host\n  nested: shared::Packet\nend\n",
+                    ),
+                ),
+            ],
+            vec![first, second],
+        );
+
+        for path in ["first_order.veln", "second_order.veln"] {
+            assert!(query_snapshot(&snapshot, path, 6, 20).is_none(), "{path}");
+        }
+    }
+
+    #[test]
+    fn dependency_schema_composition_reference_sets_exclude_lexical_noise() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "dep.veln",
+                "mod dep\n\npub schema Packet\n  value: Int\nend\n",
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "schema Host\n",
+                    "  nested: dep::Packet\n",
+                    "end\n\n",
+                    "fn noise() -> String\n",
+                    "  // dep::Packet\n",
+                    "  \"dep::Packet\"\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let selected = query_snapshot(&snapshot, "main.veln", 4, 17).unwrap();
+        assert_eq!(locations(&selected.references), [("main.veln", 4, 16)]);
+        for (line, column) in [(1, 5), (4, 11), (7, 10), (8, 9)] {
+            assert!(query_snapshot(&snapshot, "main.veln", line, column).is_none());
         }
     }
 
