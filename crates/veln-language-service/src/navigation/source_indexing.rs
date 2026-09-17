@@ -686,7 +686,90 @@ fn eligible_schema_aliases(
     resolved_package_aliases: &[ResolvedPackageSchemaAlias],
     resolved: Vec<veln_sema::ResolvedSchemaAlias>,
 ) -> Vec<NeutralSymbol> {
-    let resolved_package_aliases = resolved_package_aliases
+    let package_eligibility = PackageSchemaAliasEligibility::new(
+        package_aliases,
+        package_targets,
+        recovered_package_targets,
+        resolved_package_aliases,
+    );
+    aliases
+        .iter()
+        .filter(|alias| match alias.package_origin {
+            None => resolved.iter().any(|candidate| {
+                    candidate.alias_name == alias.name
+                        && candidate.alias_module.as_deref() == Some(alias.module.as_str())
+                        && candidate.alias_span.file == alias.declaration.span.file
+                        && alias.declaration.span.start.offset >= candidate.alias_span.start.offset
+                        && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
+                }),
+            Some(PackageOrigin::DirectDependency) => package_eligibility.contains(alias),
+            Some(PackageOrigin::StandardLibrary) => false,
+        })
+        .cloned()
+        .collect()
+}
+
+type PackageSchemaIdentity<'a> = (&'a str, &'a str, &'a str);
+type PackageSchemaAliasIdentity<'a> = (&'a str, &'a str, &'a str, &'a str);
+
+struct PackageSchemaAliasEligibility<'a> {
+    resolved_aliases:
+        BTreeMap<PackageSchemaAliasIdentity<'a>, &'a ResolvedPackageSchemaAlias>,
+    alias_counts: BTreeMap<PackageSchemaIdentity<'a>, usize>,
+    recovered_targets: BTreeSet<PackageSchemaIdentity<'a>>,
+    target_counts: BTreeMap<PackageSchemaIdentity<'a>, (usize, bool)>,
+}
+
+impl<'a> PackageSchemaAliasEligibility<'a> {
+    fn new(
+        aliases: &'a [PackageSchemaAliasDeclaration],
+        targets: &'a [PackageSchemaTarget],
+        recovered_targets: &'a [PackageSchemaTarget],
+        resolved_aliases: &'a [ResolvedPackageSchemaAlias],
+    ) -> Self {
+        Self {
+            resolved_aliases: resolved_package_schema_alias_index(resolved_aliases),
+            alias_counts: direct_dependency_alias_counts(aliases),
+            recovered_targets: direct_dependency_recovered_targets(recovered_targets),
+            target_counts: direct_dependency_target_counts(targets),
+        }
+    }
+
+    fn contains(&self, alias: &NeutralSymbol) -> bool {
+        #[cfg(test)]
+        record_schema_alias_declaration_visit();
+        let Some(package) = alias.package.as_deref() else {
+            return false;
+        };
+        let Some(resolved_alias) = self.resolved_aliases.get(&(
+            package,
+            alias.module.as_str(),
+            alias.name.as_str(),
+            alias.declaration.span.file.as_str(),
+        )) else {
+            return false;
+        };
+        let Some(target_module) = resolved_alias.target_module.as_deref() else {
+            return false;
+        };
+        if !resolved_alias.target_exported {
+            return false;
+        }
+        let alias_identity = (package, alias.module.as_str(), alias.name.as_str());
+        let target_identity = (package, target_module, resolved_alias.target_name.as_str());
+        self.alias_counts.get(&alias_identity) == Some(&1)
+            && !self.alias_counts.contains_key(&target_identity)
+            && !self.recovered_targets.contains(&alias_identity)
+            && !self.recovered_targets.contains(&target_identity)
+            && !self.target_counts.contains_key(&alias_identity)
+            && self.target_counts.get(&target_identity) == Some(&(1, true))
+    }
+}
+
+fn resolved_package_schema_alias_index(
+    aliases: &[ResolvedPackageSchemaAlias],
+) -> BTreeMap<PackageSchemaAliasIdentity<'_>, &ResolvedPackageSchemaAlias> {
+    aliases
         .iter()
         .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
         .filter_map(|candidate| {
@@ -702,23 +785,34 @@ fn eligible_schema_aliases(
                 candidate,
             ))
         })
-        .collect::<BTreeMap<_, _>>();
-    let mut package_alias_counts = BTreeMap::new();
-    for candidate in package_aliases
+        .collect()
+}
+
+fn direct_dependency_alias_counts(
+    aliases: &[PackageSchemaAliasDeclaration],
+) -> BTreeMap<PackageSchemaIdentity<'_>, usize> {
+    let mut counts = BTreeMap::new();
+    for alias in aliases
         .iter()
-        .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
+        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
-        *package_alias_counts
+        *counts
             .entry((
-                candidate.package.as_str(),
-                candidate.module.as_str(),
-                candidate.name.as_str(),
+                alias.package.as_str(),
+                alias.module.as_str(),
+                alias.name.as_str(),
             ))
             .or_insert(0usize) += 1;
     }
-    let recovered_package_targets = recovered_package_targets
+    counts
+}
+
+fn direct_dependency_recovered_targets(
+    targets: &[PackageSchemaTarget],
+) -> BTreeSet<PackageSchemaIdentity<'_>> {
+    targets
         .iter()
         .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
         .map(|target| {
@@ -730,15 +824,20 @@ fn eligible_schema_aliases(
                 target.name.as_str(),
             )
         })
-        .collect::<BTreeSet<_>>();
-    let mut package_target_counts = BTreeMap::new();
-    for target in package_targets
+        .collect()
+}
+
+fn direct_dependency_target_counts(
+    targets: &[PackageSchemaTarget],
+) -> BTreeMap<PackageSchemaIdentity<'_>, (usize, bool)> {
+    let mut counts = BTreeMap::new();
+    for target in targets
         .iter()
         .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
-        let entry = package_target_counts
+        let entry = counts
             .entry((
                 target.package.as_str(),
                 target.module.as_str(),
@@ -748,61 +847,7 @@ fn eligible_schema_aliases(
         entry.0 += 1;
         entry.1 |= target.public && target.exported;
     }
-    aliases
-        .iter()
-        .filter(|alias| match alias.package_origin {
-            None => resolved.iter().any(|candidate| {
-                    candidate.alias_name == alias.name
-                        && candidate.alias_module.as_deref() == Some(alias.module.as_str())
-                        && candidate.alias_span.file == alias.declaration.span.file
-                        && alias.declaration.span.start.offset >= candidate.alias_span.start.offset
-                        && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
-                }),
-            Some(PackageOrigin::DirectDependency) => {
-                #[cfg(test)]
-                record_schema_alias_declaration_visit();
-                let Some(package) = alias.package.as_deref() else {
-                    return false;
-                };
-                let Some(resolved_alias) = resolved_package_aliases.get(&(
-                    package,
-                    alias.module.as_str(),
-                    alias.name.as_str(),
-                    alias.declaration.span.file.as_str(),
-                )) else {
-                    return false;
-                };
-                let Some(target_module) = resolved_alias.target_module.as_deref() else {
-                    return false;
-                };
-                let target_name = resolved_alias.target_name.as_str();
-                if !resolved_alias.target_exported {
-                    return false;
-                }
-                package_alias_counts.get(&(
-                    package,
-                    alias.module.as_str(),
-                    alias.name.as_str(),
-                )) == Some(&1)
-                    && !package_alias_counts.contains_key(&(package, target_module, target_name))
-                    && !recovered_package_targets.contains(&(
-                        package,
-                        alias.module.as_str(),
-                        alias.name.as_str(),
-                    ))
-                    && !recovered_package_targets.contains(&(package, target_module, target_name))
-                    && !package_target_counts.contains_key(&(
-                        package,
-                        alias.module.as_str(),
-                        alias.name.as_str(),
-                    ))
-                    && package_target_counts.get(&(package, target_module, target_name))
-                        == Some(&(1, true))
-            }
-            Some(PackageOrigin::StandardLibrary) => false,
-        })
-        .cloned()
-        .collect()
+    counts
 }
 
 fn empty_surface_module() -> veln_ast::SurfaceModule {
