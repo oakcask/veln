@@ -58,11 +58,14 @@ impl SymbolIndex {
             .chain(&declarations.schema_alias_blockers)
             .cloned()
             .collect();
-        let schema_aliases = eligible_schema_aliases(
-            declarations.schema_aliases,
+        let package_schemas = PackageSchemaDeclarations::new(
             &declarations.package_schema_alias_declarations,
             &declarations.package_schema_targets,
             &declarations.recovered_package_schema_targets,
+        );
+        let schema_aliases = eligible_schema_aliases(
+            declarations.schema_aliases,
+            &package_schemas,
             &declarations.resolved_package_schema_aliases,
             veln_sema::resolved_schema_aliases(&workspace_module),
         );
@@ -74,9 +77,7 @@ impl SymbolIndex {
         );
         let direct_dependency_schemas = direct_dependency_schema_index(
             &declarations.schemas,
-            &declarations.package_schema_alias_declarations,
-            &declarations.package_schema_targets,
-            &declarations.recovered_package_schema_targets,
+            &package_schemas,
         );
         schema_composition_references.extend(direct_dependency_schema_composition_references(
             &files,
