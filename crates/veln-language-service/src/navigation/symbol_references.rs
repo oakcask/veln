@@ -1,10 +1,5 @@
 impl SymbolIndex {
     fn schema_alias_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
-        if symbol.package_origin == Some(PackageOrigin::DirectDependency)
-            && !self.package_schema_alias_references_supported(symbol)
-        {
-            return Vec::new();
-        }
         let mut references = self
             .files
             .iter()
@@ -49,21 +44,6 @@ impl SymbolIndex {
             );
         }
         references
-    }
-
-    fn package_schema_alias_references_supported(&self, symbol: &NeutralSymbol) -> bool {
-        let Some(package) = symbol.package.as_deref() else {
-            return false;
-        };
-        let Some(target_name) = symbol.alias_target_name.as_deref() else {
-            return false;
-        };
-        has_unique_public_direct_package_schema_target(
-            &self.package_schema_targets,
-            package,
-            &symbol.module,
-            target_name,
-        )
     }
 
     fn schema_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {

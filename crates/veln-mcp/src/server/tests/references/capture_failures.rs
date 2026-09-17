@@ -237,11 +237,19 @@ fn references_project_capture_exhausts_retries_for_dependency_schema_alias_selec
         None,
     );
     workspace.write(
-        "vendor/dep/dep.veln",
+        "vendor/dep/veln.toml",
         concat!(
-            "pub schema Packet\n  value: Int\nend\n\n",
-            "pub schema Alias = Packet\n",
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"dep.veln\", \"core.veln\"]\n",
         ),
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        concat!("use core\n\n", "pub schema Alias = core::Packet\n",),
+    );
+    workspace.write(
+        "vendor/dep/core.veln",
+        "pub schema Packet\n  value: Int\nend\n",
     );
     let mut server = initialized_server(&workspace);
     let admitted = server.references_tool(&json!({

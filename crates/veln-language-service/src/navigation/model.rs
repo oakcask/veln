@@ -586,6 +586,7 @@ struct NeutralSymbol {
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
     public: bool,
+    alias_target_module: Option<String>,
     alias_target_name: Option<String>,
 }
 
@@ -707,6 +708,7 @@ struct FileDeclarations {
     package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
     package_schema_targets: Vec<PackageSchemaTarget>,
     recovered_package_schema_targets: Vec<PackageSchemaTarget>,
+    resolved_package_schema_aliases: Vec<ResolvedPackageSchemaAlias>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,
@@ -725,6 +727,17 @@ struct PackageSchemaAliasDeclaration {
     name: String,
     package: String,
     package_origin: PackageOrigin,
+}
+
+#[derive(Clone, Debug)]
+struct ResolvedPackageSchemaAlias {
+    package: String,
+    package_origin: PackageOrigin,
+    alias_module: Option<String>,
+    alias_name: String,
+    alias_span: SourceSpan,
+    target_module: Option<String>,
+    target_name: String,
 }
 
 #[derive(Clone, Debug)]
@@ -752,7 +765,6 @@ pub(crate) struct SymbolIndex {
     schema_aliases: Vec<NeutralSymbol>,
     schema_alias_declarations: Vec<NeutralSymbol>,
     package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
-    package_schema_targets: Vec<PackageSchemaTarget>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,

@@ -1277,7 +1277,7 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
-    fn valid_cross_module_dependency_schema_alias_target_stays_outside_reference_slice() {
+    fn direct_dependency_schema_alias_target_resolves_across_modules() {
         let dependency = dependency_snapshot(
             "example/dep",
             &[
@@ -1300,16 +1300,187 @@ mod dependencies_schema_references_tests {
             vec![source(
                 "main.veln",
                 concat!(
-                    "use facade from \"example/dep\"\n\n",
-                    "fn read(view: ByteView) -> ()\n",
+                    "use facade from \"example/dep\"\n",
+                    "use unrelated::core\n\n",
+                    "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
                     "  decode facade::Alias from view at byte_offset(0)?\n",
+                    "  encode facade::Alias from packet\n",
                     "end\n",
                 ),
             )],
             vec![dependency],
         );
 
-        assert!(query_snapshot(&snapshot, "main.veln", 4, 19).is_none());
+        for (path, line, column) in [
+            ("main.veln", 5, 19),
+            ("main.veln", 6, 19),
+        ] {
+            let result = query_snapshot(&snapshot, path, line, column).unwrap();
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                locations(&result.references),
+                [("main.veln", 5, 18), ("main.veln", 6, 18)]
+            );
+        }
+    }
+
+    #[test]
+    fn direct_dependency_schema_alias_cross_module_target_resolution_matrix() {
+        let cases = [
+            (
+                "implicit leaf",
+                "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::Packet\n",
+                true,
+            ),
+            (
+                "full written path",
+                "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = nested::core::Packet\n",
+                true,
+            ),
+            (
+                "private target",
+                "mod nested::core\n\nschema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::Packet\n",
+                false,
+            ),
+            (
+                "missing target",
+                "mod nested::core\n",
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::Packet\n",
+                false,
+            ),
+            (
+                "wrong kind",
+                "mod nested::core\n\npub type Packet\n  pub Ready(Int)\nend\n",
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::Packet\n",
+                false,
+            ),
+            (
+                "invalid-cased target",
+                "mod nested::core\n\npub schema badPacket\n  value: Int\nend\n",
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::badPacket\n",
+                false,
+            ),
+            (
+                "recovered target",
+                "mod nested::core\n\npub schema Packet\n  value: Int\n",
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::Packet\n",
+                false,
+            ),
+            (
+                "ambiguous target",
+                "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod nested::core\n\npub schema Packet\n  other: Int\nend\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::Packet\n",
+                false,
+            ),
+            (
+                "alias chain",
+                concat!(
+                    "mod nested::core\n\n",
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Chained = Packet\n",
+                ),
+                "mod spare\n",
+                "mod facade\nuse nested::core\n\npub schema Alias = core::Chained\n",
+                false,
+            ),
+            (
+                "ambiguous implicit import",
+                "mod alpha::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod beta::core\n\npub schema Packet\n  value: Int\nend\n",
+                concat!(
+                    "mod facade\n",
+                    "use alpha::core\n",
+                    "use beta::core\n\n",
+                    "pub schema Alias = core::Packet\n",
+                ),
+                false,
+            ),
+            (
+                "duplicate target import",
+                "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                concat!(
+                    "mod facade\n",
+                    "use nested::core\n",
+                    "use nested::core\n\n",
+                    "pub schema Alias = core::Packet\n",
+                ),
+                false,
+            ),
+            (
+                "recovered target import",
+                "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                concat!(
+                    "mod facade\n",
+                    "use nested::core unexpected\n\n",
+                    "pub schema Alias = core::Packet\n",
+                ),
+                false,
+            ),
+            (
+                "other package import",
+                "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                concat!(
+                    "mod facade\n",
+                    "use nested::core from \"other/dep\"\n\n",
+                    "pub schema Alias = core::Packet\n",
+                ),
+                false,
+            ),
+        ];
+
+        for (name, core, other, facade, eligible) in cases {
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &[
+                    ("core.veln", core),
+                    ("other.veln", other),
+                    ("facade.veln", facade),
+                ],
+                ["core.veln", "other.veln", "facade.veln"],
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use facade from \"example/dep\"\n",
+                        "use unrelated::core\n\n",
+                        "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                        "  decode facade::Alias from view at byte_offset(0)?\n",
+                        "  encode facade::Alias from packet\n",
+                        "end\n",
+                    ),
+                )],
+                vec![dependency],
+            );
+
+            let selected = query_snapshot(&snapshot, "main.veln", 5, 19);
+            if eligible {
+                assert_eq!(
+                    locations(&selected.unwrap().references),
+                    [("main.veln", 5, 18), ("main.veln", 6, 18)],
+                    "{name}",
+                );
+            } else {
+                assert!(selected.is_none(), "{name}");
+            }
+        }
     }
 
     #[test]

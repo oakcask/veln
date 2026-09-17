@@ -89,6 +89,13 @@ fn index_dependency_sources(
     module: &mut veln_ast::SurfaceModule,
     dependency: DirectDependencySnapshot,
 ) {
+    let package = dependency.identity.as_str().to_string();
+    let package_origin = if dependency.standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    let mut dependency_module = empty_surface_module();
     for (source, entry) in dependency.indexed_sources() {
         let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
         if !file.navigation_isolated {
@@ -99,6 +106,7 @@ fn index_dependency_sources(
                 declarations.extend(file_declarations(&file, &parsed.tree));
                 let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
                 assign_module_name(&mut source_module, &file.module);
+                append_surface_module(&mut dependency_module, source_module.clone());
                 append_surface_module(module, source_module);
             } else {
                 declarations
@@ -111,6 +119,19 @@ fn index_dependency_sources(
         }
         files.push(file);
     }
+    declarations.resolved_package_schema_aliases.extend(
+        veln_sema::resolved_schema_aliases(&dependency_module)
+            .into_iter()
+            .map(|resolved| ResolvedPackageSchemaAlias {
+                package: package.clone(),
+                package_origin,
+                alias_module: resolved.alias_module,
+                alias_name: resolved.alias_name,
+                alias_span: resolved.alias_span,
+                target_module: resolved.target_module,
+                target_name: resolved.target_name,
+            }),
+    );
 }
 
 fn indexed_dependency_source(
@@ -387,8 +408,24 @@ fn eligible_schema_aliases(
     package_aliases: &[PackageSchemaAliasDeclaration],
     package_targets: &[PackageSchemaTarget],
     recovered_package_targets: &[PackageSchemaTarget],
+    resolved_package_aliases: &[ResolvedPackageSchemaAlias],
     resolved: Vec<veln_sema::ResolvedSchemaAlias>,
 ) -> Vec<NeutralSymbol> {
+    let resolved_package_aliases = resolved_package_aliases
+        .iter()
+        .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
+        .filter_map(|candidate| {
+            Some((
+                (
+                    candidate.package.as_str(),
+                    candidate.alias_module.as_deref()?,
+                    candidate.alias_name.as_str(),
+                    candidate.alias_span.file.as_str(),
+                ),
+                candidate,
+            ))
+        })
+        .collect::<BTreeMap<_, _>>();
     aliases
         .iter()
         .filter(|alias| match alias.package_origin {
@@ -403,9 +440,18 @@ fn eligible_schema_aliases(
                 let Some(package) = alias.package.as_deref() else {
                     return false;
                 };
-                let Some(target_name) = alias.alias_target_name.as_deref() else {
+                let Some(resolved_alias) = resolved_package_aliases.get(&(
+                    package,
+                    alias.module.as_str(),
+                    alias.name.as_str(),
+                    alias.declaration.span.file.as_str(),
+                )) else {
                     return false;
                 };
+                let Some(target_module) = resolved_alias.target_module.as_deref() else {
+                    return false;
+                };
+                let target_name = resolved_alias.target_name.as_str();
                 package_aliases
                     .iter()
                     .filter(|candidate| {
@@ -418,14 +464,14 @@ fn eligible_schema_aliases(
                     == 1
                     && !package_aliases.iter().any(|candidate| {
                         candidate.package == package
-                            && candidate.module == alias.module
+                            && candidate.module == *target_module
                             && candidate.name == target_name
                             && candidate.package_origin == PackageOrigin::DirectDependency
                     })
                     && !recovered_package_targets.iter().any(|target| {
                         target.package == package
-                            && target.module == alias.module
-                            && (target.name == alias.name || target.name == target_name)
+                            && ((target.module == alias.module && target.name == alias.name)
+                                || (target.module == *target_module && target.name == target_name))
                             && target.package_origin == PackageOrigin::DirectDependency
                     })
                     && !package_targets.iter().any(|target| {
@@ -437,7 +483,7 @@ fn eligible_schema_aliases(
                     && has_unique_public_direct_package_schema_target(
                         package_targets,
                         package,
-                        &alias.module,
+                        target_module,
                         target_name,
                     )
             }

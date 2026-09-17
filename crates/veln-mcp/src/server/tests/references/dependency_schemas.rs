@@ -433,7 +433,6 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("mismatched alias import", "main.veln", 19, 20),
         ("transitive alias", "main.veln", 20, 22),
         ("invalid-casing alias", "main.veln", 21, 18),
-        ("valid cross-module alias target", "main.veln", 22, 18),
         ("invalid-casing alias target", "main.veln", 30, 18),
         ("other-package alias target", "main.veln", 31, 18),
         ("package composition", "main.veln", 26, 19),
@@ -465,6 +464,17 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         &alias,
         &[("main.veln", 14, 18, 14, 23)],
         "direct dependency schema alias operation",
+    );
+
+    let cross_module_alias = references_result(&workspace, "main.veln", 22, 18);
+    assert_eq!(
+        cross_module_alias["isError"], false,
+        "{cross_module_alias:#}"
+    );
+    assert_reference_ranges(
+        &cross_module_alias,
+        &[("main.veln", 22, 18, 22, 34)],
+        "cross-module direct dependency schema alias operation",
     );
 }
 

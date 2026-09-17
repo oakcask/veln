@@ -1,10 +1,12 @@
 mod lib::wire
 
+use lib::core
+
 pub type Packet
   pub Ready(Int)
 end
 
-pub schema WirePacket = Packet
+pub schema WirePacket = core::Packet
 
 pub schema Hidden
   value: Int

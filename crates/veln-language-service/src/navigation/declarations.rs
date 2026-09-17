@@ -58,6 +58,8 @@ impl FileDeclarations {
             .extend(other.package_schema_targets);
         self.recovered_package_schema_targets
             .extend(other.recovered_package_schema_targets);
+        self.resolved_package_schema_aliases
+            .extend(other.resolved_package_schema_aliases);
         self.effects.extend(other.effects);
         self.handlers.extend(other.handlers);
         self.operations.extend(other.operations);
@@ -81,6 +83,7 @@ fn file_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> FileDeclaration
         package_schema_alias_declarations: Vec::new(),
         package_schema_targets: package_schema_targets(file, syntax),
         recovered_package_schema_targets: Vec::new(),
+        resolved_package_schema_aliases: Vec::new(),
         effects: effect_declarations(file, syntax),
         handlers: handler_declarations(file, syntax),
         operations: effect_operation_declarations(file, syntax),
@@ -111,10 +114,10 @@ fn schema_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Neu
                     return None;
                 }
                 let mut symbol = neutral_declaration(file, name, span, Visibility::Public)?;
-                symbol.alias_target_name = match alias.target.as_slice() {
-                    [target] => Some(target.clone()),
-                    _ => None,
-                };
+                let (target_name, target_qualifier) = alias.target.split_last()?;
+                symbol.alias_target_module = (!target_qualifier.is_empty())
+                    .then(|| target_qualifier.join("::"));
+                symbol.alias_target_name = Some(target_name.clone());
                 Some(symbol)
             }
             _ => None,
@@ -284,6 +287,7 @@ fn neutral_declaration(
         package,
         package_origin,
         public,
+        alias_target_module: None,
         alias_target_name: None,
     })
 }
@@ -294,6 +298,7 @@ fn same_schema(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
         && left.name == right.name
         && left.package_origin == right.package_origin
         && left.public == right.public
+        && left.alias_target_module == right.alias_target_module
         && left.alias_target_name == right.alias_target_name
         && left.declaration == right.declaration
 }
