@@ -330,12 +330,13 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
   `../../examples/specification/lsp/references-dependency-schema-alias/`. The
   paired cases resolve a qualified schema-alias target exported from another
-  module through the alias source's implicit leaf import, keep schema-target
-  lookup isolated from a same-spelled type declaration, exclude a workspace
-  type with the alias spelling, keep dependency-alias composition selection
-  empty, prefer an exact dependency import over a colliding implicit alias, and
-  prevent a non-exported alias from falling back to a same-spelled exported
-  schema. They also keep an
+  module through an implicit leaf import shared by retained package sources
+  with the alias's explicit module identity, keep schema-target lookup isolated
+  from a same-spelled type declaration, exclude a workspace type with the
+  alias spelling, keep dependency-alias composition selection empty, prefer an
+  exact dependency import over a colliding implicit alias, and prevent a
+  non-exported alias from falling back to a same-spelled exported schema. They
+  also keep an
   alias whose target source is not exported and an alias with an invalid-cased
   target import empty, and exclude the same qualified alias use in an
   unselected descendant project from the root project's exact result.

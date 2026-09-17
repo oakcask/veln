@@ -483,10 +483,11 @@ An eligible public schema alias declared in an exported module of a retained
 direct dependency has a separate operation-reference identity. Its written
 target must resolve uniquely to a public schema declared by an exported source
 in the retained dependency. A bare target resolves in the alias module. A
-qualified target resolves through the alias source's valid package-local
-import, including a full module path or a unique implicit leaf alias. Consumer
-imports do not participate in target resolution. The qualified import can
-resolve to another module or back to the alias's own module. No schema alias in
+qualified target resolves through a valid package-local import from any
+retained package source with the alias's explicit module identity, including a
+full module path or a unique implicit leaf alias. Consumer imports do not
+participate in target resolution. The qualified import can resolve to another
+module or back to the alias's own module. No schema alias in
 the resolved schema namespace may have the target name. A declaration in an
 unrelated namespace, such as a type with the target name, does not affect
 eligibility.
