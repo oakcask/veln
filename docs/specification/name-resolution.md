@@ -69,15 +69,20 @@ language-service tests are the executable evidence for these outcomes.
 
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import
-path takes precedence over a same-spelled implicit leaf alias. When every
-implicit-leaf candidate is a workspace import, the leaf alias resolves only
-when exactly one written workspace import provides it. Colliding workspace
-leaf aliases remain unresolved in either import order. Package-only and mixed
-workspace/package alias collisions retain their existing behavior but are not
-part of this uniqueness contract. The focused evidence is
+path takes precedence over a same-spelled implicit leaf alias. Without an
+exact match, the leaf alias resolves only when exactly one valid workspace or
+package import provides it. Conflicting exact imports and colliding implicit
+leaf aliases remain unresolved in either import order. Duplicate imports and
+syntax-recovered imports do not provide schema composition visibility. The
+focused evidence is
 `schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`,
 `colliding_implicit_schema_import_aliases_are_order_independent`, and
-`exact_schema_import_path_precedes_colliding_implicit_leaf_alias`.
+`exact_schema_import_path_precedes_colliding_implicit_leaf_alias` for workspace
+targets, plus
+`dependency_schema_composition_respects_import_identity_boundaries`,
+`dependency_schema_composition_import_collisions_are_order_independent`, and
+`dependency_schema_composition_imports_are_shared_by_explicit_module_identity`
+for retained direct-dependency targets.
 
 Bare names resolve to local bindings. Function calls resolve to:
 

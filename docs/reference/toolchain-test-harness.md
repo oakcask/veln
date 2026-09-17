@@ -297,6 +297,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `identifier-casing-rename-boundary`, and
 `references-workspace-schema-composition` and
 `references-workspace-schema-alias`, and
+`references-dependency-schema-composition` and
 `references-dependency-schema-operation` and
 `references-dependency-schema-alias` LSP cases use structured request fixtures
 with decoded LSP assertions. Those cases use
@@ -326,10 +327,14 @@ results, project scope, and isolated single-file scope.
 The `references-workspace-schema-alias` MCP specification case uses that model
 for exact alias reference locations, alias and target identity separation,
 empty unsupported-selection results, and project scope.
-The `references-dependency-schema-operation` MCP specification case uses that
-model for exact workspace-only reference locations and project scope. Its
-`references-dependency-schema-operation-boundaries` companion uses the same
-model for successful empty results at unsupported package-schema boundaries.
+The `references-dependency-schema-composition` MCP specification case uses that
+model for exact workspace-only composition and operation reference locations,
+selection parity, and project scope. The
+`references-dependency-schema-operation` case preserves operation-only
+coverage. Their `references-dependency-schema-operation-boundaries` companion
+uses the same model for exact-import precedence, import-order-independent
+collisions, cross-module alias targets, and successful empty results at
+unsupported, ambiguous, and recovered package-schema boundaries.
 The paired `references-dependency-schema-alias` MCP and LSP specification cases
 use identical saved sources. Their decoded assertions cover exact normalized
 workspace operation-leaf locations, alias and target identity separation,
