@@ -1,6 +1,38 @@
 use super::*;
 
 #[test]
+fn schema_alias_target_import_resolution_is_indexed_once() {
+    for count in [100usize, 200, 400] {
+        let mut facade_text = String::from("mod facade\n");
+        for index in 0..count.saturating_sub(1) {
+            facade_text.push_str(&format!("use unused{index}\n"));
+        }
+        facade_text.push_str("use core\n\n");
+        let mut core_text = String::from("mod core\n\n");
+        for index in 0..count {
+            facade_text.push_str(&format!("pub schema Alias{index} = core::Packet{index}\n"));
+            core_text.push_str(&format!("pub schema Packet{index}\n  value: Int\nend\n\n"));
+        }
+        let facade_source = SourceFile::new("facade.veln", &facade_text);
+        let facade = parse(&facade_source);
+        assert!(facade.diagnostics.is_empty(), "{:#?}", facade.diagnostics);
+        let core_source = SourceFile::new("core.veln", &core_text);
+        let core = parse(&core_source);
+        assert!(core.diagnostics.is_empty(), "{:#?}", core.diagnostics);
+        let mut module = lower_surface_ast(&facade.tree);
+        module.schemas.extend(lower_surface_ast(&core.tree).schemas);
+
+        reset_schema_alias_target_import_work();
+        assert_eq!(resolved_schema_aliases(&module).len(), count);
+        assert_eq!(
+            schema_alias_target_import_work(),
+            (count, count),
+            "imports must be indexed once and each qualified alias must use one route lookup"
+        );
+    }
+}
+
+#[test]
 fn duplicate_use_aliases_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",

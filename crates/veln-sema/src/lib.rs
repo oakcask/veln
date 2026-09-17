@@ -35,6 +35,10 @@ pub use navigation::{
     resolved_schema_composition_references,
 };
 #[cfg(test)]
+pub(crate) use navigation::{
+    reset_schema_alias_target_import_work, schema_alias_target_import_work,
+};
+#[cfg(test)]
 pub(crate) use pipeline::analyze_surface_module_with_base_for_test;
 pub use pipeline::{
     LoweredSurfaceModule, analyze_surface_module, check_project_surface_module,

@@ -1543,6 +1543,63 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn dependency_schema_alias_target_import_blockers_cross_source_boundaries() {
+        for (name, import_sources) in [
+            (
+                "duplicate target import",
+                vec![
+                    ("import_a.veln", "mod facade\n\nuse nested::core\n"),
+                    ("import_b.veln", "mod facade\n\nuse nested::core\n"),
+                ],
+            ),
+            (
+                "recovered target import",
+                vec![
+                    ("import_a.veln", "mod facade\n\nuse nested::core\n"),
+                    (
+                        "import_b.veln",
+                        "mod facade\n\nuse nested::core unexpected\n",
+                    ),
+                ],
+            ),
+        ] {
+            let mut dependency_sources = vec![
+                (
+                    "core.veln",
+                    "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+                (
+                    "facade.veln",
+                    "mod facade\n\npub schema Alias = nested::core::Packet\n",
+                ),
+            ];
+            dependency_sources.extend(import_sources);
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &dependency_sources,
+                dependency_sources.iter().map(|(path, _)| *path),
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use facade from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode facade::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                )],
+                vec![dependency],
+            );
+
+            assert!(
+                query_snapshot(&snapshot, "main.veln", 4, 19).is_none(),
+                "{name} must block cross-module alias target resolution"
+            );
+        }
+    }
+
+    #[test]
     fn dependency_schema_alias_requires_an_exported_cross_module_target_source() {
         let dependency = dependency_snapshot(
             "example/dep",

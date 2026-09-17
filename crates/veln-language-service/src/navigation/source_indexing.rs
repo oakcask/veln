@@ -102,10 +102,10 @@ fn index_dependency_sources(
             declarations
                 .package_schema_alias_declarations
                 .extend(package_schema_alias_declarations(&file, &parsed.tree));
+            let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
+            assign_module_name(&mut source_module, &file.module);
             if parsed.diagnostics.is_empty() {
                 declarations.extend(file_declarations(&file, &parsed.tree));
-                let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
-                assign_module_name(&mut source_module, &file.module);
                 append_surface_module(&mut dependency_module, source_module.clone());
                 append_surface_module(module, source_module);
             } else {
@@ -115,6 +115,11 @@ fn index_dependency_sources(
                 declarations
                     .recovered_package_schema_targets
                     .extend(package_schema_targets(&file, &parsed.tree));
+                append_recovered_dependency_imports(
+                    &mut dependency_module,
+                    source_module,
+                    &parsed,
+                );
             }
         }
         files.push(file);
@@ -138,6 +143,46 @@ fn index_dependency_sources(
                 }
             }),
     );
+}
+
+fn append_recovered_dependency_imports(
+    dependency_module: &mut veln_ast::SurfaceModule,
+    mut source_module: veln_ast::SurfaceModule,
+    parsed: &ParseOutput,
+) {
+    for use_decl in &source_module.uses {
+        let recovered = parsed.diagnostics.iter().any(|diagnostic| {
+            diagnostic.parser_context == "use_declaration"
+                && diagnostic.span.as_ref().is_none_or(|span| {
+                    span.file == use_decl.span.file
+                        && span.start.offset <= use_decl.span.end.offset
+                        && span.end.offset >= use_decl.span.start.offset
+                })
+        });
+        if !recovered {
+            continue;
+        }
+        let span = use_decl
+            .name_spans
+            .first()
+            .cloned()
+            .unwrap_or_else(|| use_decl.span.clone());
+        source_module.invalid_names.push(veln_ast::InvalidName {
+            name: use_decl.name.clone(),
+            class: veln_ast::NameClass::Module,
+            occurrence: veln_ast::NameOccurrence::PathSegment,
+            span,
+            enclosing_function_span: None,
+            segment_index: None,
+        });
+    }
+    source_module.aliases.clear();
+    source_module.effects.clear();
+    source_module.handlers.clear();
+    source_module.schemas.clear();
+    source_module.types.clear();
+    source_module.functions.clear();
+    append_surface_module(dependency_module, source_module);
 }
 
 fn indexed_dependency_source(
