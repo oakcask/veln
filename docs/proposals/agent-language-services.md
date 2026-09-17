@@ -62,6 +62,13 @@ The remaining first-capability work includes:
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
+The bounded same-package cross-module schema-alias operation-reference slice
+is owned by
+[Direct-Dependency Schema Alias Cross-Module Targets](dependency-schema-alias-cross-module-targets.md).
+That page owns its acceptance conditions; cross-module mentions below are
+inventory entries. Alias chains, composition, and other package scopes remain
+outside that slice.
+
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport
 models. The MCP server does not start an LSP subprocess or proxy LSP messages.
