@@ -16,8 +16,7 @@ also states it.
 
 ## Ready
 
-- Saved direct-dependency public schema-alias operation references:
-  [mcp-saved-dependency-schema-alias-operation-references.md](mcp-saved-dependency-schema-alias-operation-references.md).
+No proposals are ready for implementation.
 
 ## Blocked
 
