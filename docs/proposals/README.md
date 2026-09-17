@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Direct-dependency schema composition references, reusing retained package
-  identity and existing workspace composition and operation-reference support:
-  [direct-dependency-schema-composition-references.md](direct-dependency-schema-composition-references.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

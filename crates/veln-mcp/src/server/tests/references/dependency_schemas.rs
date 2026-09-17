@@ -50,6 +50,7 @@ fn references_return_direct_dependency_schema_operations_from_selected_project()
         &[
             ("main.veln", 4, 15, 4, 21),
             ("main.veln", 5, 15, 5, 21),
+            ("main.veln", 11, 16, 11, 22),
             ("other.veln", 4, 15, 4, 21),
         ],
         "direct dependency schema operations",
@@ -450,7 +451,6 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("invalid-casing alias", "main.veln", 21, 18),
         ("invalid-casing alias target", "main.veln", 30, 18),
         ("other-package alias target", "main.veln", 31, 18),
-        ("package composition", "main.veln", 26, 19),
         ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),
     ] {
@@ -472,6 +472,14 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "{name}: {result:#}"
         );
     }
+
+    let composition = references_result(&workspace, "main.veln", 26, 19);
+    assert_eq!(composition["isError"], false, "{composition:#}");
+    assert_reference_ranges(
+        &composition,
+        &[("main.veln", 26, 19, 26, 25)],
+        "direct dependency schema composition",
+    );
 
     let alias = references_result(&workspace, "main.veln", 14, 18);
     assert_eq!(alias["isError"], false, "{alias:#}");
@@ -1108,7 +1116,11 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
         );
         assert_reference_ranges(
             &schema,
-            &[("main.veln", 4, 15, 4, 21), ("main.veln", 5, 15, 5, 21)],
+            &[
+                ("main.veln", 4, 15, 4, 21),
+                ("main.veln", 5, 15, 5, 21),
+                ("main.veln", 11, 16, 11, 22),
+            ],
             source_kind.name(),
         );
 
@@ -1119,6 +1131,15 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
             &[("main.veln", 6, 15, 6, 20), ("main.veln", 7, 15, 7, 20)],
             source_kind.name(),
         );
+
+        let alias_composition = references_result(&workspace, "main.veln", 12, 15);
+        assert_eq!(
+            alias_composition["isError"],
+            false,
+            "{}: {alias_composition:#}",
+            source_kind.name()
+        );
+        assert_reference_ranges(&alias_composition, &[], source_kind.name());
     }
 }
 
@@ -1168,6 +1189,11 @@ fn write_schema_dependency_workspace(
             "  encode dep::Packet from packet\n",
             "  decode dep::Alias from view at byte_offset(0)?\n",
             "  encode dep::Alias from packet\n",
+            "end\n",
+            "\n",
+            "schema Host\n",
+            "  nested: dep::Packet\n",
+            "  alias: dep::Alias\n",
             "end\n",
         ),
     );

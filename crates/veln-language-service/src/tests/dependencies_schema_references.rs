@@ -206,6 +206,7 @@ mod dependencies_schema_references_tests {
             assert_eq!(
                 locations(&result.references),
                 [
+                    ("main.veln", 8, 17),
                     ("main.veln", 14, 32),
                     ("main.veln", 15, 28),
                     ("other.veln", 4, 16),
@@ -257,6 +258,216 @@ mod dependencies_schema_references_tests {
             NavigationSource::Package { .. }
         ));
         assert_eq!(locations(&selected.references), [("main.veln", 5, 16)]);
+    }
+
+    #[test]
+    fn direct_dependency_schema_references_unify_composition_and_operation_leaves() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "lib/wire.veln",
+                "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+            )],
+            ["lib/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "schema Frame\n",
+                        "  format binary\n",
+                        "  count: UInt8\n",
+                        "  direct: lib::wire::Packet\n",
+                        "  repeated: Repeat(count, wire::Packet)\n",
+                        "  canonical: [wire::Packet; count]\n",
+                        "end\n\n",
+                        "fn operations(view: ByteView, packet: {value: Int}) -> ()\n",
+                        "  let decoded = decode wire::Packet from view at byte_offset(0)?\n",
+                        "  encode lib::wire::Packet from packet\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "schema Other\n",
+                        "  format binary\n",
+                        "  nested: wire::Packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency],
+        );
+        let expected = [
+            ("main.veln", 6, 22),
+            ("main.veln", 7, 33),
+            ("main.veln", 8, 21),
+            ("main.veln", 12, 30),
+            ("main.veln", 13, 21),
+            ("other.veln", 5, 17),
+        ];
+        for (path, line, column) in expected {
+            let result = query_snapshot(&snapshot, path, line, column).unwrap();
+            assert!(matches!(result.definition.source, NavigationSource::Package { .. }));
+            assert_eq!(locations(&result.references), expected);
+        }
+    }
+
+    #[test]
+    fn dependency_schema_composition_respects_import_identity_boundaries() {
+        let selected = dependency_snapshot(
+            "example/dep",
+            &[(
+                "lib/wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "schema Private\n  value: Int\nend\n\n",
+                    "pub schema Alias = Packet\n",
+                ),
+            )],
+            ["lib/wire.veln"],
+        );
+        let hidden = dependency_snapshot(
+            "example/hidden",
+            &[("hidden.veln", "pub schema Packet\n  value: Int\nend\n")],
+            [],
+        );
+        let collision = dependency_snapshot(
+            "other/dep",
+            &[("wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "lib/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n",
+                ),
+                source(
+                    "ambiguous_exact.veln",
+                    concat!(
+                        "use lib::wire\n",
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "schema Host\n  nested: lib::wire::Packet\nend\n",
+                    ),
+                ),
+                source(
+                    "ambiguous_alias.veln",
+                    concat!(
+                        "use app::wire\n",
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "schema Host\n  nested: wire::Packet\nend\n",
+                    ),
+                ),
+                source(
+                    "duplicate.veln",
+                    concat!(
+                        "use lib::wire from \"example/dep\"\n",
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "schema Host\n  nested: lib::wire::Packet\nend\n",
+                    ),
+                ),
+                source(
+                    "boundaries.veln",
+                    concat!(
+                        "use lib::wire from \"example/dep\"\n",
+                        "use hidden from \"example/hidden\"\n\n",
+                        "schema Host\n",
+                        "  private: wire::Private\n",
+                        "  alias: wire::Alias\n",
+                        "  hidden: hidden::Packet\n",
+                        "  bare: Packet\n",
+                        "  unresolved: missing::Packet\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "exact.veln",
+                    concat!(
+                        "use wire from \"other/dep\"\n",
+                        "use lib::wire from \"example/dep\"\n\n",
+                        "schema Host\n  nested: wire::Packet\nend\n",
+                    ),
+                ),
+            ],
+            vec![selected, hidden, collision],
+        );
+
+        for (path, line, column) in [
+            ("ambiguous_exact.veln", 5, 28),
+            ("ambiguous_alias.veln", 5, 19),
+            ("duplicate.veln", 5, 28),
+            ("boundaries.veln", 5, 18),
+            ("boundaries.veln", 6, 16),
+            ("boundaries.veln", 7, 19),
+            ("boundaries.veln", 8, 9),
+            ("boundaries.veln", 9, 24),
+        ] {
+            assert!(query_snapshot(&snapshot, path, line, column).is_none());
+        }
+
+        let exact = query_snapshot(&snapshot, "exact.veln", 5, 19).unwrap();
+        assert_eq!(exact.selected_symbol.name, "Packet");
+        assert_eq!(
+            exact.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency)
+        );
+        assert_eq!(locations(&exact.references), [("exact.veln", 5, 17)]);
+        let NavigationSource::Package { .. } = exact.definition.source else {
+            panic!("exact dependency import must select a package declaration");
+        };
+        assert_eq!(exact.definition.span.file.as_str(), "wire.veln");
+    }
+
+    #[test]
+    fn standard_library_schema_composition_is_not_a_dependency_reference() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use wire from \"std\"\n\n",
+                "schema Host\n  nested: wire::Packet\nend\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[("wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["wire.veln"],
+        ));
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 19).is_none());
+    }
+
+    #[test]
+    fn dependency_schema_composition_imports_are_shared_by_explicit_module_identity() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "import.veln",
+                    "mod app\nuse lib::wire from \"example/dep\"\n",
+                ),
+                source(
+                    "host.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "schema Host\n",
+                        "  nested: wire::Packet\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("lib/wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+                ["lib/wire.veln"],
+            )],
+        );
+
+        let result = query_snapshot(&snapshot, "host.veln", 4, 19).unwrap();
+        assert_eq!(locations(&result.references), [("host.veln", 4, 17)]);
+        assert!(matches!(result.definition.source, NavigationSource::Package { .. }));
     }
 
     #[test]

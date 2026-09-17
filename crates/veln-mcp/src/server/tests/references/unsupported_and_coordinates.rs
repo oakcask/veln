@@ -277,30 +277,6 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 15,
         },
         Case {
-            name: "package schema composition",
-            files: vec![
-                (
-                    "veln.toml",
-                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
-                ),
-                (
-                    "main.veln",
-                    "use dep from \"example/dep\"\n\nschema Frame\n  nested: dep::Packet\nend\n",
-                ),
-                (
-                    "vendor/dep/veln.toml",
-                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
-                ),
-                (
-                    "vendor/dep/dep.veln",
-                    "pub schema Packet\n  value: Int\nend\n",
-                ),
-            ],
-            source: "main.veln",
-            line: 4,
-            column: 16,
-        },
-        Case {
             name: "effect operation",
             files: vec![
                 ("veln.toml", ""),

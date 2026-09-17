@@ -15,6 +15,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
     let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
+    let schema_composition_leaf_spans =
+        valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
     let recovery_symbols = workspace_recovery_symbols(
         navigation_isolated,
         &source,
@@ -35,6 +37,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
         schema_operation_leaf_spans,
+        schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
@@ -206,6 +209,8 @@ fn indexed_dependency_source(
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source_file).tokens;
     let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
+    let schema_composition_leaf_spans =
+        valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
     let file = IndexedFile {
         source: source_file,
         tokens,
@@ -219,6 +224,7 @@ fn indexed_dependency_source(
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
         schema_operation_leaf_spans,
+        schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
@@ -253,6 +259,29 @@ fn valid_schema_operation_leaf_spans(syntax: &SyntaxTree) -> Vec<SourceSpan> {
         }
     }
     spans
+}
+
+fn valid_schema_composition_leaf_spans(
+    source: &SourceFile,
+    tokens: &[Token],
+    parsed: &ParseOutput,
+) -> Vec<SourceSpan> {
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| {
+            is_schema_composition_path_leaf_token(tokens, *index)
+                && !parsed.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.parser_context == "schema_field"
+                        && diagnostic.span.as_ref().is_none_or(|span| {
+                            span.file == *source.path()
+                                && span.start.offset <= token.range.start
+                                && span.end.offset >= token.range.end
+                        })
+                })
+        })
+        .map(|(_, token)| source.span(token.range))
+        .collect()
 }
 
 fn collect_valid_schema_operation_leaf_spans(expr: &Expr, spans: &mut Vec<SourceSpan>) {
@@ -450,6 +479,62 @@ fn workspace_schema_composition_references(
                     |alias| SchemaReferenceTarget::Alias(alias.clone()),
                 ),
             })
+        })
+        .collect()
+}
+
+fn direct_dependency_schema_composition_references(
+    files: &[IndexedFile],
+    schemas: &[NeutralSymbol],
+    module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
+) -> Vec<SchemaCompositionReference> {
+    files
+        .iter()
+        .filter(|file| workspace_navigation_file(file))
+        .flat_map(|file| {
+            file.tokens
+                .iter()
+                .enumerate()
+                .filter_map(|(index, token)| {
+                    let span = file.source.span(token.range);
+                    if !file.schema_composition_leaf_spans.iter().any(|candidate| {
+                        candidate.start.offset == span.start.offset
+                            && candidate.end.offset == span.end.offset
+                    }) || !token
+                        .text
+                        .chars()
+                        .next()
+                        .is_some_and(|initial| initial.is_ascii_uppercase())
+                    {
+                        return None;
+                    }
+                    let qualifier = qualifier_for_token(&file.tokens, index)?;
+                    if !matches!(
+                        schema_qualified_workspace_module(file, &qualifier, module_imports),
+                        QualifiedWorkspaceModule::External
+                    ) {
+                        return None;
+                    }
+                    let (module, package) = module_imports
+                        .get(&file.module)?
+                        .valid_external_route(&qualifier)?;
+                    let mut candidates = schemas.iter().filter(|schema| {
+                        schema.name == token.text
+                            && schema.module == module
+                            && schema.package.as_deref() == Some(package.as_str())
+                            && schema.package_origin == Some(PackageOrigin::DirectDependency)
+                            && schema.public
+                    });
+                    let target = candidates.next()?;
+                    if candidates.next().is_some() {
+                        return None;
+                    }
+                    Some(SchemaCompositionReference {
+                        span,
+                        target: SchemaReferenceTarget::Schema(target.clone()),
+                    })
+                })
+                .collect::<Vec<_>>()
         })
         .collect()
 }

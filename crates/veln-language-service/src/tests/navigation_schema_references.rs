@@ -340,8 +340,17 @@ mod navigation_schema_references_tests {
 
         let result = query_snapshot(&snapshot, "model.veln", 1, 12).unwrap();
         assert!(result.references.is_empty());
-        assert!(query_snapshot(&snapshot, "main.veln", 5, 18).is_none());
-        assert!(query_snapshot(&snapshot, "main.veln", 6, 22).is_none());
+        for (line, column) in [(6, 18), (7, 22)] {
+            let package = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert!(matches!(
+                package.definition.source,
+                NavigationSource::Package { .. }
+            ));
+            assert_eq!(
+                locations(&package.references),
+                [("main.veln", 6, 18), ("main.veln", 7, 21)]
+            );
+        }
     }
 
     #[test]

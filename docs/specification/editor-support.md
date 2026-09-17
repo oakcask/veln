@@ -226,29 +226,32 @@ Same-module bare schema and alias paths can resolve to their selected identity.
 Imported-module uses must be named by an accepted qualified path. Composition
 paths also accept a unique implicit leaf import alias. For composition paths,
 an exact full written import path takes
-precedence over a same-spelled implicit leaf alias. Otherwise, colliding
-workspace implicit leaf aliases select no composition schema identity in
-either import order when all candidates are workspace imports. This
-composition-alias uniqueness rule does not specify package-only or mixed
-workspace/package alias collisions. A written import does not make the
+precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
+leaf alias selects a composition schema identity only when it is unique across
+workspace and package imports. Conflicting exact imports select no identity.
+Duplicate and syntax-recovered imports do not grant visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
-package-schema composition, module-qualifier, recovery, or rename behavior for
+module-qualifier, recovery, or rename behavior for
 schemas.
-The executable evidence is the `references-workspace-schema-composition` and
+The executable evidence is the `references-workspace-schema-composition`,
+`references-dependency-schema-composition`, and
 `references-workspace-schema-alias` LSP cases under
 `examples/specification/lsp/` and the shared
 `navigation_schema_references` Rust test module.
 For a public schema in an exported retained direct-dependency module,
 `textDocument/references` returns the selected project's saved workspace
-`decode` and `encode` leaves that resolve to the same package declaration.
+direct-field, `Repeat`, array-payload, `decode`, and `encode` leaves that
+resolve to the same package declaration.
 It excludes the package declaration even when declaration inclusion is true,
-as well as package-source and composition occurrences. Standard-library
+as well as package-source occurrences. Standard-library
 schemas, ineligible package schema aliases, transitive dependencies, recovery records,
-syntax-recovered operation leaves, and invalid-casing records remain
+syntax-recovered leaves, and invalid-casing records remain
 unsupported. The
-`references-dependency-schema-operation` LSP case covers full and implicit
-module paths, workspace-only exact ranges, non-BMP saved input, and parity with
-the MCP case when declaration inclusion is false. Focused MCP server coverage
+`references-dependency-schema-composition` LSP case covers the unified set,
+both declaration policies, full and implicit module paths, workspace-only exact
+ranges, non-BMP saved input, and parity with the MCP case. The existing
+`references-dependency-schema-operation` case preserves operation behavior.
+Focused MCP server coverage
 injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
 For an eligible public schema alias in an exported retained direct-dependency

@@ -73,7 +73,9 @@ impl SymbolIndex {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        if symbol.package.is_none() {
+        if symbol.package.is_none()
+            || symbol.package_origin == Some(PackageOrigin::DirectDependency)
+        {
             references.extend(
                 self.schema_composition_references
                     .iter()

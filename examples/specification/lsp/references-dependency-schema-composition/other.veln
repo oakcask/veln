@@ -1,0 +1,6 @@
+use lib::wire from "example/dep"
+
+schema Other
+  format binary
+  nested: wire::Packet
+end

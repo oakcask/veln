@@ -435,11 +435,10 @@ selected workspace schema under ordinary import, visibility, exact
 test-companion, and shadowing rules. A written import does not put that
 imported module's schemas in the bare schema namespace. For composition
 references, an exact full written import path takes precedence over a
-same-spelled implicit leaf alias. Otherwise, when all implicit-leaf candidates
-are workspace imports, a composition alias resolves to the selected workspace
-schema only when exactly one written workspace import provides that alias.
-This composition-alias uniqueness rule does not specify package-only or mixed
-workspace/package alias collisions. A selected workspace schema's set excludes the
+same-spelled implicit leaf alias. Otherwise, a composition alias resolves only
+when exactly one workspace or package import provides that alias. Conflicting
+exact imports, duplicate imports, and syntax-recovered imports resolve no
+composition identity. A selected workspace schema's set excludes the
 declaration, module qualifiers, package schemas, schema-alias leaves, alias
 traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
@@ -459,17 +458,20 @@ invalid-casing selections remain successful empty results. Definition and
 rename behavior do not change.
 
 A public schema declared in an exported module of a retained direct dependency
-has an operation-reference identity. Selecting a resolved `decode` or `encode`
-leaf returns every operation leaf for that declaration in the selected
-project's captured owned sources. Full written module paths and their valid
-implicit leaf aliases resolve to the same identity. Results contain only
-workspace `file:` locations and exclude the declaration, package sources,
-composition fields, aliases and alias targets, import tokens, and module
-qualifiers. Standard-library schemas, private or non-exported schemas,
+has one reference identity across direct fields, `Repeat` payloads, array
+payloads, `decode`, and `encode`. Selecting any resolved leaf returns every
+leaf for that declaration in the selected project's captured owned sources.
+Full written module paths and their valid unique implicit leaf aliases resolve
+to the same identity. Exact imports take precedence; conflicting exact,
+duplicate, and syntax-recovered imports resolve no identity. Results contain
+only workspace `file:` locations and exclude the declaration, package sources,
+aliases and alias targets, import tokens, and module qualifiers.
+Standard-library schemas, private or non-exported schemas,
 transitive dependencies, recovery and invalid-casing records, and unresolved
 or mismatched imports succeed with an empty reference set. The
-`references-dependency-schema-operation` MCP case is the positive executable
-protocol contract. The
+`references-dependency-schema-composition` MCP case is the unified positive
+executable protocol contract. The existing
+`references-dependency-schema-operation` case preserves operation behavior. The
 `references-dependency-schema-operation-boundaries` MCP case selects the
 unsupported direct-dependency boundaries, including a package schema alias
 chain and a syntax-recovered operation leaf, and requires successful empty
@@ -732,6 +734,10 @@ The `references-dependency-schema-operation` MCP specification case checks
 direct-dependency public schema operation references through full written and
 implicit leaf module paths, exact workspace-only ranges, selection parity,
 project-wide scope, and non-BMP saved input. The
+`references-dependency-schema-composition` case checks the declaration-specific
+union of direct, `Repeat`, array, decode, and encode leaves, exact range order,
+Unicode-scalar coordinates, project scope, package-source exclusion, and
+selection parity with both LSP declaration policies. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
 package-alias-chain, invalid-cased and other-package alias targets,
