@@ -481,10 +481,14 @@ boundaries.
 
 An eligible public schema alias declared in an exported module of a retained
 direct dependency has a separate operation-reference identity. Its written
-target must be a bare name that resolves uniquely to a public schema
-declaration in the same module and retained dependency. No schema alias in
-that schema namespace may have the target name. A declaration in an unrelated
-namespace, such as a type with the target name, does not affect eligibility.
+target must resolve uniquely to a public schema declared by an exported source
+in the retained dependency. A bare target resolves in the alias module. A
+qualified target resolves through the alias source's valid package-local
+import, including a full module path or a unique implicit leaf alias. Consumer
+imports do not participate in target resolution. No schema alias in the
+resolved schema namespace may have the target name. A declaration in an
+unrelated namespace, such as a type with the target name, does not affect
+eligibility.
 Selecting a saved
 `decode` or `encode` alias leaf through the full imported module path or its
 valid implicit leaf alias returns every operation leaf with the same dependency
@@ -512,9 +516,12 @@ paired cases keep the alias eligible when its target schema is exported from a
 separate module and when a type in the alias module shares its target name,
 cover
 exact-import precedence, exclude import, comment, and string selections, and
-preserve successful empty results for the non-exported alias blocker. They also
+preserve successful empty results for a non-exported alias blocker, a target
+declared in a non-exported source, and an invalid-cased target import. They also
 exclude a same-spelled workspace type from the exact alias set and keep
-dependency-alias composition selection successful and empty. Every positive
+dependency-alias composition selection successful and empty. An unselected
+descendant project contains the same qualified alias use and remains outside
+the selected root project's exact result. Every positive
 decode and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
 alias declaration. The
@@ -740,8 +747,9 @@ direct-dependency public schema-alias operation references through full written
 and implicit leaf module paths. It fixes exact workspace-only ranges,
 decode/encode selection parity, dependency-and-declaration identity,
 project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
-It also excludes a same-spelled workspace type from the exact result and checks
-import, comment, string, and dependency-alias composition selections as
+It also excludes a same-spelled workspace type and an unselected descendant
+project from the exact result. Import, comment, string, dependency-alias
+composition, non-exported-target, and invalid-target-import selections produce
 successful empty results. Its paired LSP case checks identical locations with
 declaration inclusion disabled and confirms that enabling declaration
 inclusion does not add a package-source declaration.

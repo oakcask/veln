@@ -418,6 +418,7 @@ struct PackageSchemaTarget {
     package: String,
     package_origin: PackageOrigin,
     public: bool,
+    exported: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -738,6 +739,7 @@ struct ResolvedPackageSchemaAlias {
     alias_span: SourceSpan,
     target_module: Option<String>,
     target_name: String,
+    target_exported: bool,
 }
 
 #[derive(Clone, Debug)]

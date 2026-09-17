@@ -119,3 +119,13 @@ equals = []
 id = 11
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/references"
+equals = []

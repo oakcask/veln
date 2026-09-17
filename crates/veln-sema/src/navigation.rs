@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use veln_ast::{PublicAlias, PublicAliasKind, SchemaDecl, SurfaceModule, Visibility};
 use veln_source::SourceSpan;
 
@@ -37,30 +39,46 @@ pub struct ResolvedSchemaAlias {
 }
 
 pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlias> {
+    let mut alias_counts = BTreeMap::new();
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Schema)
+    {
+        let Some(name) = alias.name.as_deref() else {
+            continue;
+        };
+        *alias_counts
+            .entry((alias.module_name.as_deref(), name))
+            .or_insert(0usize) += 1;
+    }
+    let mut schemas = BTreeMap::<_, Vec<_>>::new();
+    for schema in &module.schemas {
+        let Some(name) = schema.name.as_deref() else {
+            continue;
+        };
+        schemas
+            .entry((schema.module_name.as_deref(), name))
+            .or_default()
+            .push(schema);
+    }
     module
         .aliases
         .iter()
         .filter(|alias| alias.kind == PublicAliasKind::Schema)
         .filter(|alias| {
-            module
-                .aliases
-                .iter()
-                .filter(|candidate| {
-                    candidate.kind == PublicAliasKind::Schema
-                        && candidate.name == alias.name
-                        && candidate.module_name == alias.module_name
-                })
-                .count()
-                == 1
+            alias.name.as_deref().is_some_and(|name| {
+                alias_counts.get(&(alias.module_name.as_deref(), name)) == Some(&1)
+            })
         })
         .filter(|alias| {
-            !module
-                .schemas
-                .iter()
-                .any(|schema| schema.name == alias.name && schema.module_name == alias.module_name)
+            alias
+                .name
+                .as_deref()
+                .is_some_and(|name| !schemas.contains_key(&(alias.module_name.as_deref(), name)))
         })
         .filter_map(|alias| {
-            let target = direct_public_schema_alias_target(module, alias)?;
+            let target = direct_public_schema_alias_target_with_index(module, alias, &schemas)?;
             Some(ResolvedSchemaAlias {
                 alias_span: alias.span.clone(),
                 alias_module: alias.module_name.clone(),
@@ -73,6 +91,24 @@ pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlia
         .collect()
 }
 
+fn direct_public_schema_alias_target_with_index<'a>(
+    module: &'a SurfaceModule,
+    alias: &PublicAlias,
+    schemas: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a SchemaDecl>>,
+) -> Option<&'a SchemaDecl> {
+    if public_alias_has_invalid_target_leaf(module, alias, None) {
+        return None;
+    }
+    let (target_module, target_name) = direct_schema_alias_target_identity(module, alias)?;
+    let mut candidates = schemas
+        .get(&(target_module, target_name))?
+        .iter()
+        .copied()
+        .filter(|target| target.visibility == Visibility::Public);
+    let target = candidates.next()?;
+    candidates.next().is_none().then_some(target)
+}
+
 fn direct_public_schema_alias_target<'a>(
     module: &'a SurfaceModule,
     alias: &PublicAlias,
@@ -80,7 +116,21 @@ fn direct_public_schema_alias_target<'a>(
     if public_alias_has_invalid_target_leaf(module, alias, None) {
         return None;
     }
-    let (target_module, target_name) = match alias.target.as_slice() {
+    let (target_module, target_name) = direct_schema_alias_target_identity(module, alias)?;
+    let mut candidates = module.schemas.iter().filter(|schema| {
+        schema.name.as_deref() == Some(target_name)
+            && schema.module_name.as_deref() == target_module
+            && schema.visibility == Visibility::Public
+    });
+    let target = candidates.next()?;
+    candidates.next().is_none().then_some(target)
+}
+
+fn direct_schema_alias_target_identity<'a>(
+    module: &'a SurfaceModule,
+    alias: &'a PublicAlias,
+) -> Option<(Option<&'a str>, &'a str)> {
+    Some(match alias.target.as_slice() {
         [name] => (alias.module_name.as_deref(), name.as_str()),
         [qualifiers @ .., name] => {
             let use_decl = schema_composition_imported_use_for_path(
@@ -94,14 +144,7 @@ fn direct_public_schema_alias_target<'a>(
             (Some(use_decl.name.as_str()), name.as_str())
         }
         [] => return None,
-    };
-    let mut candidates = module.schemas.iter().filter(|schema| {
-        schema.name.as_deref() == Some(target_name)
-            && schema.module_name.as_deref() == target_module
-            && schema.visibility == Visibility::Public
-    });
-    let target = candidates.next()?;
-    candidates.next().is_none().then_some(target)
+    })
 }
 
 pub fn resolved_schema_composition_references(

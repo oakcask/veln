@@ -1,12 +1,16 @@
 mod lib::wire
 
 use lib::core
+use private
+use lib::Core
 
 pub type Packet
   pub Ready(Int)
 end
 
 pub schema WirePacket = core::Packet
+pub schema PrivateTarget = private::Packet
+pub schema InvalidImport = Core::Packet
 
 pub schema Hidden
   value: Int

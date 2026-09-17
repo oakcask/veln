@@ -901,6 +901,53 @@ fn references_keep_dependency_schema_alias_collision_blockers_empty() {
 }
 
 #[test]
+fn references_reject_cross_module_schema_alias_target_in_non_exported_source() {
+    let workspace = TempWorkspace::new("references-dependency-schema-alias-hidden-target");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use facade from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode facade::Alias from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        concat!(
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"facade.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/core.veln",
+        "mod core\n\npub schema Packet\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/facade.veln",
+        "mod facade\nuse core\n\npub schema Alias = core::Packet\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 19);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
+}
+
+#[test]
 fn references_keep_dependency_schema_aliases_behind_invalid_imports_empty() {
     for (name, imports, line) in [
         (

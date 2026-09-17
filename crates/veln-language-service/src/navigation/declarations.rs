@@ -188,6 +188,7 @@ fn package_schema_targets(
                     package: package.identity.to_string(),
                     package_origin: package.origin,
                     public: schema.visibility == Visibility::Public,
+                    exported: package.exported,
                 })
             }
             _ => None,
@@ -353,11 +354,13 @@ fn declaration_origin(
 struct PackageContext<'a> {
     identity: &'a str,
     origin: PackageOrigin,
+    exported: bool,
 }
 
 fn package_context(file: &IndexedFile) -> Option<PackageContext<'_>> {
     let IndexedOrigin::Package {
         identity,
+        exported,
         standard_library,
         ..
     } = &file.origin
@@ -367,6 +370,7 @@ fn package_context(file: &IndexedFile) -> Option<PackageContext<'_>> {
     Some(PackageContext {
         identity,
         origin: package_origin(*standard_library),
+        exported: *exported,
     })
 }
 

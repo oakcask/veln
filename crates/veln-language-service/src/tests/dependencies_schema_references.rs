@@ -2,6 +2,54 @@ mod dependencies_schema_references_tests {
     use super::*;
 
     #[test]
+    fn dependency_schema_alias_resolution_avoids_nonlinear_declaration_scans() {
+        let elapsed = [100, 200, 400].map(|count| {
+            let mut samples = (0..3)
+                .map(|_| dependency_schema_alias_resolution_time(count))
+                .collect::<Vec<_>>();
+            samples.sort();
+            samples[1]
+        });
+
+        assert!(elapsed[1] <= elapsed[0] * 3 + std::time::Duration::from_millis(50));
+        assert!(elapsed[2] <= elapsed[1] * 3 + std::time::Duration::from_millis(50));
+    }
+
+    fn dependency_schema_alias_resolution_time(count: usize) -> std::time::Duration {
+        let mut targets = String::from("mod core\n\n");
+        let mut aliases = String::from("mod facade\nuse core\n\n");
+        for index in 0..count {
+            targets.push_str(&format!(
+                "pub schema Packet{index}\n  value: Int\nend\n\n"
+            ));
+            aliases.push_str(&format!(
+                "pub schema Alias{index} = core::Packet{index}\n"
+            ));
+        }
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[("core.veln", &targets), ("facade.veln", &aliases)],
+            ["core.veln", "facade.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use facade from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode facade::Alias0 from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+        let start = std::time::Instant::now();
+
+        let _ = snapshot.navigation_index();
+        start.elapsed()
+    }
+
+    #[test]
     fn dependency_schema_alias_reference_lookup_avoids_nonlinear_import_rescans() {
         for count in [100, 200, 400] {
             let (index_entries, route_lookups) = dependency_schema_alias_reference_work(count);
@@ -1422,6 +1470,17 @@ mod dependencies_schema_references_tests {
                 false,
             ),
             (
+                "invalid-cased target import",
+                "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                "mod spare\n",
+                concat!(
+                    "mod facade\n",
+                    "use nested::Core\n\n",
+                    "pub schema Alias = Core::Packet\n",
+                ),
+                false,
+            ),
+            (
                 "recovered target import",
                 "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
                 "mod spare\n",
@@ -1481,6 +1540,109 @@ mod dependencies_schema_references_tests {
                 assert!(selected.is_none(), "{name}");
             }
         }
+    }
+
+    #[test]
+    fn dependency_schema_alias_requires_an_exported_cross_module_target_source() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "core.veln",
+                    "mod core\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+                (
+                    "facade.veln",
+                    "mod facade\nuse core\n\npub schema Alias = core::Packet\n",
+                ),
+            ],
+            ["facade.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use facade from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode facade::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 19).is_none());
+    }
+
+    #[test]
+    fn cross_module_dependency_schema_alias_keeps_its_exact_identity() {
+        let selected = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "core.veln",
+                    "mod core\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+                (
+                    "facade.veln",
+                    concat!(
+                        "mod facade\n",
+                        "use core\n\n",
+                        "pub schema Alias = core::Packet\n",
+                        "pub schema Sibling = core::Packet\n",
+                    ),
+                ),
+            ],
+            ["core.veln", "facade.veln"],
+        );
+        let other = dependency_snapshot(
+            "other/dep",
+            &[(
+                "other.veln",
+                "mod other\n\npub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
+            )],
+            ["other.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "main.veln",
+                    concat!(
+                        "use facade from \"example/dep\"\n",
+                        "use core from \"example/dep\"\n",
+                        "use other from \"other/dep\"\n\n",
+                        "schema Alias\n  value: Int\nend\n\n",
+                        "fn operations(view: ByteView) -> ()\n",
+                        "  decode facade::Alias from view at byte_offset(0)?\n",
+                        "  decode facade::Sibling from view at byte_offset(0)?\n",
+                        "  decode core::Packet from view at byte_offset(0)?\n",
+                        "  decode other::Alias from view at byte_offset(0)?\n",
+                        "  decode Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    concat!(
+                        "use facade from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode facade::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![selected, other],
+        );
+
+        let result = query_snapshot(&snapshot, "main.veln", 10, 19).unwrap();
+        assert_eq!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        );
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 10, 18), ("other.veln", 4, 18)]
+        );
     }
 
     #[test]

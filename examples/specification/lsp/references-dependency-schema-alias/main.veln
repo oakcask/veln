@@ -13,6 +13,8 @@ fn operations(view: ByteView, packet: {value: Int}) -> ()
   let target_encoded = encode wire::Packet from packet
   let hidden_alias = decode lib::wire::Hidden from view at byte_offset(0)?
   let lexical_noise = "WirePacket"
+  let private_target = decode lib::wire::PrivateTarget from view at byte_offset(0)?
+  let invalid_import = decode lib::wire::InvalidImport from view at byte_offset(0)?
 end
 # WirePacket is lexical noise, not an operation leaf.
 
