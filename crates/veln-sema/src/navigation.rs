@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use veln_ast::{PublicAlias, PublicAliasKind, SchemaDecl, SurfaceModule, Visibility};
 use veln_source::SourceSpan;
 
@@ -13,6 +15,37 @@ use crate::schema::primitives::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_payload_name_path,
 };
 use crate::types::schema_types::schema_field_uses_existing_grammar;
+
+#[cfg(test)]
+thread_local! {
+    static SCHEMA_ALIAS_TARGET_IMPORT_INDEX_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static SCHEMA_ALIAS_TARGET_IMPORT_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_schema_alias_target_import_index_entry() {
+    SCHEMA_ALIAS_TARGET_IMPORT_INDEX_ENTRIES
+        .set(SCHEMA_ALIAS_TARGET_IMPORT_INDEX_ENTRIES.get() + 1);
+}
+
+#[cfg(test)]
+fn record_schema_alias_target_import_lookup() {
+    SCHEMA_ALIAS_TARGET_IMPORT_LOOKUPS.set(SCHEMA_ALIAS_TARGET_IMPORT_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_alias_target_import_work() {
+    SCHEMA_ALIAS_TARGET_IMPORT_INDEX_ENTRIES.set(0);
+    SCHEMA_ALIAS_TARGET_IMPORT_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn schema_alias_target_import_work() -> (usize, usize) {
+    (
+        SCHEMA_ALIAS_TARGET_IMPORT_INDEX_ENTRIES.get(),
+        SCHEMA_ALIAS_TARGET_IMPORT_LOOKUPS.get(),
+    )
+}
 
 #[derive(Clone, Debug)]
 pub struct ResolvedSchemaCompositionReference {
@@ -37,30 +70,48 @@ pub struct ResolvedSchemaAlias {
 }
 
 pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlias> {
+    let imports = SchemaAliasTargetImportIndex::new(module);
+    let mut alias_counts = BTreeMap::new();
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Schema)
+    {
+        let Some(name) = alias.name.as_deref() else {
+            continue;
+        };
+        *alias_counts
+            .entry((alias.module_name.as_deref(), name))
+            .or_insert(0usize) += 1;
+    }
+    let mut schemas = BTreeMap::<_, Vec<_>>::new();
+    for schema in &module.schemas {
+        let Some(name) = schema.name.as_deref() else {
+            continue;
+        };
+        schemas
+            .entry((schema.module_name.as_deref(), name))
+            .or_default()
+            .push(schema);
+    }
     module
         .aliases
         .iter()
         .filter(|alias| alias.kind == PublicAliasKind::Schema)
         .filter(|alias| {
-            module
-                .aliases
-                .iter()
-                .filter(|candidate| {
-                    candidate.kind == PublicAliasKind::Schema
-                        && candidate.name == alias.name
-                        && candidate.module_name == alias.module_name
-                })
-                .count()
-                == 1
+            alias.name.as_deref().is_some_and(|name| {
+                alias_counts.get(&(alias.module_name.as_deref(), name)) == Some(&1)
+            })
         })
         .filter(|alias| {
-            !module
-                .schemas
-                .iter()
-                .any(|schema| schema.name == alias.name && schema.module_name == alias.module_name)
+            alias
+                .name
+                .as_deref()
+                .is_some_and(|name| !schemas.contains_key(&(alias.module_name.as_deref(), name)))
         })
         .filter_map(|alias| {
-            let target = direct_public_schema_alias_target(module, alias)?;
+            let target =
+                direct_public_schema_alias_target_with_index(module, alias, &schemas, &imports)?;
             Some(ResolvedSchemaAlias {
                 alias_span: alias.span.clone(),
                 alias_module: alias.module_name.clone(),
@@ -73,6 +124,143 @@ pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlia
         .collect()
 }
 
+fn direct_public_schema_alias_target_with_index<'a>(
+    module: &'a SurfaceModule,
+    alias: &PublicAlias,
+    schemas: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a SchemaDecl>>,
+    imports: &SchemaAliasTargetImportIndex<'a>,
+) -> Option<&'a SchemaDecl> {
+    if public_alias_has_invalid_target_leaf(module, alias, None) {
+        return None;
+    }
+    let (target_module, target_name) =
+        direct_schema_alias_target_identity_with_index(alias, imports)?;
+    let mut candidates = schemas
+        .get(&(target_module, target_name))?
+        .iter()
+        .copied()
+        .filter(|target| target.visibility == Visibility::Public);
+    let target = candidates.next()?;
+    candidates.next().is_none().then_some(target)
+}
+
+#[derive(Clone, Copy)]
+struct IndexedSchemaAliasTargetImport<'a> {
+    use_decl: &'a veln_ast::UseDecl,
+    valid: bool,
+}
+
+struct SchemaAliasTargetImportIndex<'a> {
+    exact: BTreeMap<(Option<String>, String), Vec<IndexedSchemaAliasTargetImport<'a>>>,
+    implicit: BTreeMap<(Option<String>, String), Vec<IndexedSchemaAliasTargetImport<'a>>>,
+}
+
+impl<'a> SchemaAliasTargetImportIndex<'a> {
+    fn new(module: &'a SurfaceModule) -> Self {
+        let invalid_name_spans = module
+            .invalid_names
+            .iter()
+            .filter(|invalid| {
+                invalid.class == veln_ast::NameClass::Module
+                    && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+            })
+            .map(|invalid| {
+                (
+                    invalid.span.file.as_str(),
+                    invalid.span.start.offset,
+                    invalid.span.end.offset,
+                )
+            })
+            .collect::<BTreeSet<_>>();
+        let mut index = Self {
+            exact: BTreeMap::new(),
+            implicit: BTreeMap::new(),
+        };
+        for use_decl in &module.uses {
+            #[cfg(test)]
+            record_schema_alias_target_import_index_entry();
+            let candidate = IndexedSchemaAliasTargetImport {
+                use_decl,
+                valid: !use_decl.name_spans.iter().any(|span| {
+                    invalid_name_spans.contains(&(
+                        span.file.as_str(),
+                        span.start.offset,
+                        span.end.offset,
+                    ))
+                }),
+            };
+            let declaring_module = use_decl.module_name.clone();
+            index
+                .exact
+                .entry((declaring_module.clone(), use_decl.name.clone()))
+                .or_default()
+                .push(candidate);
+            if let Some(package_relative) = standard_package_relative_import(use_decl) {
+                index
+                    .exact
+                    .entry((declaring_module.clone(), package_relative.to_string()))
+                    .or_default()
+                    .push(candidate);
+            }
+            index
+                .implicit
+                .entry((declaring_module, use_decl.alias.clone()))
+                .or_default()
+                .push(candidate);
+        }
+        index
+    }
+
+    fn resolve(
+        &self,
+        declaring_module: Option<&str>,
+        qualifier: &str,
+    ) -> Option<&'a veln_ast::UseDecl> {
+        #[cfg(test)]
+        record_schema_alias_target_import_lookup();
+        let key = (declaring_module.map(str::to_string), qualifier.to_string());
+        if let Some(candidates) = self.exact.get(&key) {
+            return unique_valid_local_import(candidates);
+        }
+        unique_valid_local_import(self.implicit.get(&key)?)
+    }
+}
+
+fn standard_package_relative_import(use_decl: &veln_ast::UseDecl) -> Option<&str> {
+    let package_relative = use_decl.name.strip_prefix("std::")?;
+    (use_decl.package.as_deref() == Some(veln_stdlib::PACKAGE_NAME)
+        || (use_decl.package.is_none()
+            && use_decl
+                .module_name
+                .as_deref()
+                .is_some_and(|module| module.starts_with("std::"))))
+    .then_some(package_relative)
+}
+
+fn unique_valid_local_import<'a>(
+    candidates: &[IndexedSchemaAliasTargetImport<'a>],
+) -> Option<&'a veln_ast::UseDecl> {
+    let [candidate] = candidates else {
+        return None;
+    };
+    (candidate.valid && candidate.use_decl.package.is_none()).then_some(candidate.use_decl)
+}
+
+fn direct_schema_alias_target_identity_with_index<'a>(
+    alias: &'a PublicAlias,
+    imports: &SchemaAliasTargetImportIndex<'a>,
+) -> Option<(Option<&'a str>, &'a str)> {
+    Some(match alias.target.as_slice() {
+        [name] => (alias.module_name.as_deref(), name.as_str()),
+        [qualifiers @ .., name] => {
+            let qualifier = qualifiers.join("::");
+            let use_decl = imports.resolve(alias.module_name.as_deref(), &qualifier)?;
+            (Some(use_decl.name.as_str()), name.as_str())
+        }
+        [] => return None,
+    })
+}
+
 fn direct_public_schema_alias_target<'a>(
     module: &'a SurfaceModule,
     alias: &PublicAlias,
@@ -80,7 +268,21 @@ fn direct_public_schema_alias_target<'a>(
     if public_alias_has_invalid_target_leaf(module, alias, None) {
         return None;
     }
-    let (target_module, target_name) = match alias.target.as_slice() {
+    let (target_module, target_name) = direct_schema_alias_target_identity(module, alias)?;
+    let mut candidates = module.schemas.iter().filter(|schema| {
+        schema.name.as_deref() == Some(target_name)
+            && schema.module_name.as_deref() == target_module
+            && schema.visibility == Visibility::Public
+    });
+    let target = candidates.next()?;
+    candidates.next().is_none().then_some(target)
+}
+
+fn direct_schema_alias_target_identity<'a>(
+    module: &'a SurfaceModule,
+    alias: &'a PublicAlias,
+) -> Option<(Option<&'a str>, &'a str)> {
+    Some(match alias.target.as_slice() {
         [name] => (alias.module_name.as_deref(), name.as_str()),
         [qualifiers @ .., name] => {
             let use_decl = schema_composition_imported_use_for_path(
@@ -94,14 +296,7 @@ fn direct_public_schema_alias_target<'a>(
             (Some(use_decl.name.as_str()), name.as_str())
         }
         [] => return None,
-    };
-    let mut candidates = module.schemas.iter().filter(|schema| {
-        schema.name.as_deref() == Some(target_name)
-            && schema.module_name.as_deref() == target_module
-            && schema.visibility == Visibility::Public
-    });
-    let target = candidates.next()?;
-    candidates.next().is_none().then_some(target)
+    })
 }
 
 pub fn resolved_schema_composition_references(

@@ -333,7 +333,8 @@ model for successful empty results at unsupported package-schema boundaries.
 The paired `references-dependency-schema-alias` MCP and LSP specification cases
 use identical saved sources. Their decoded assertions cover exact normalized
 workspace operation-leaf locations, alias and target identity separation,
-unsupported selections, exclusion of dependency-package source locations, and
+qualified cross-module target resolution, unsupported target and composition
+selections, descendant-project and dependency-package source exclusion, and
 null definition and prepare-rename results plus an empty rename change set for
 the supported package alias leaf.
 

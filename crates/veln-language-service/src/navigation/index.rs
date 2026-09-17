@@ -63,6 +63,7 @@ impl SymbolIndex {
             &declarations.package_schema_alias_declarations,
             &declarations.package_schema_targets,
             &declarations.recovered_package_schema_targets,
+            &declarations.resolved_package_schema_aliases,
             veln_sema::resolved_schema_aliases(&workspace_module),
         );
         let schema_composition_references = workspace_schema_composition_references(
@@ -78,7 +79,6 @@ impl SymbolIndex {
             schema_aliases,
             schema_alias_declarations,
             package_schema_alias_declarations: declarations.package_schema_alias_declarations,
-            package_schema_targets: declarations.package_schema_targets,
             effects: declarations.effects,
             handlers: declarations.handlers,
             operations: declarations.operations,

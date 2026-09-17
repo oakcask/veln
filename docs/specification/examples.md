@@ -329,18 +329,23 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   public schema-alias `decode` and `encode` leaves:
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
   `../../examples/specification/lsp/references-dependency-schema-alias/`. The
-  paired cases resolve a bare schema-alias target exported from another source
-  with the same explicit module, keep schema-target lookup isolated from a
-  same-spelled type declaration, exclude a workspace type with the alias
-  spelling, keep dependency-alias composition selection empty, prefer an exact
-  dependency import over a colliding implicit alias, and prevent a non-exported
-  alias from falling back to a same-spelled exported schema.
+  paired cases resolve a qualified schema-alias target exported from another
+  module through an implicit leaf import shared by retained package sources
+  with the alias's explicit module identity, keep schema-target lookup isolated
+  from a same-spelled type declaration, exclude a workspace type with the
+  alias spelling, keep dependency-alias composition selection empty, prefer an
+  exact dependency import over a colliding implicit alias, and prevent a
+  non-exported alias from falling back to a same-spelled exported schema. They
+  also keep an
+  alias whose target source is not exported and an alias with an invalid-cased
+  target import empty, and exclude the same qualified alias use in an
+  unselected descendant project from the root project's exact result.
 - MCP `references` boundary fixture shared by direct-dependency schema and
   schema-alias operation selections. It includes one eligible alias as a
   positive control and successful-empty results for private, non-exported,
   mismatched, transitive, missing, and invalid-cased schemas; package schema
-  alias chains; invalid-cased alias targets; valid cross-module and
-  other-package alias targets; alias-target schema namespace collisions;
+  alias chains; invalid-cased and other-package alias targets; cross-module
+  alias target success; alias-target schema namespace collisions;
   recovered duplicate aliases; duplicate and recovered imports;
   graph-ineligible aliases; and syntax-recovered operation leaves:
   `../../examples/specification/mcp/references-dependency-schema-operation-boundaries/`.

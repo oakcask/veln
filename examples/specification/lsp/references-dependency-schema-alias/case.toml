@@ -84,37 +84,7 @@ length = 0
 [[lsp_assert]]
 id = 5
 path = "/result"
-length = 3
-
-[[lsp_assert]]
-id = 5
-path = "/result/0/range"
-equals = {"start":{"line":11,"character":41},"end":{"line":11,"character":47}}
-
-[[lsp_assert]]
-id = 5
-path = "/result/0/uri"
-workspace_file_uri = "main.veln"
-
-[[lsp_assert]]
-id = 5
-path = "/result/1/range"
-equals = {"start":{"line":12,"character":36},"end":{"line":12,"character":42}}
-
-[[lsp_assert]]
-id = 5
-path = "/result/1/uri"
-workspace_file_uri = "main.veln"
-
-[[lsp_assert]]
-id = 5
-path = "/result/2/range"
-equals = {"start":{"line":4,"character":15},"end":{"line":4,"character":21}}
-
-[[lsp_assert]]
-id = 5
-path = "/result/2/uri"
-workspace_file_uri = "other.veln"
+length = 0
 
 [[lsp_assert]]
 id = 6
@@ -195,3 +165,13 @@ equals = null
 id = 15
 path = "/result/changes"
 equals = {}
+
+[[lsp_assert]]
+id = 17
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+equals = []

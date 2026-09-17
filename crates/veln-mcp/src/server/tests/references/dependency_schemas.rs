@@ -74,16 +74,16 @@ fn references_return_direct_dependency_schema_operations_from_selected_project()
 }
 
 #[test]
-fn references_keep_sibling_selected_projects_isolated_for_dependency_schemas() {
+fn references_keep_sibling_selected_projects_isolated_for_cross_module_schema_aliases() {
     let workspace = TempWorkspace::new("references-dependency-schema-sibling-projects");
     let project_manifest = "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n";
     let dependency_manifest =
-        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n";
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"core.veln\", \"facade.veln\"]\n";
     let source = concat!(
-        "use dep from \"example/dep\"\n\n",
+        "use facade from \"example/dep\"\n\n",
         "fn read(view: ByteView) -> ()\n",
-        "  decode dep::Packet from view at byte_offset(0)?\n",
-        "  decode dep::Alias from view at byte_offset(0)?\n",
+        "  decode facade::Alias from view at byte_offset(0)?\n",
+        "  encode facade::Alias from {value: 1}\n",
         "end\n",
     );
     for project in ["left", "right"] {
@@ -94,12 +94,16 @@ fn references_keep_sibling_selected_projects_isolated_for_dependency_schemas() {
             dependency_manifest,
         );
         workspace.write(
-            &format!("{project}/vendor/dep/dep.veln"),
-            "pub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
+            &format!("{project}/vendor/dep/core.veln"),
+            "mod core\n\npub schema Packet\n  value: Int\nend\n",
+        );
+        workspace.write(
+            &format!("{project}/vendor/dep/facade.veln"),
+            "mod facade\nuse core\n\npub schema Alias = core::Packet\n",
         );
     }
 
-    let result = references_result(&workspace, "left/main.veln", 4, 16);
+    let result = references_result(&workspace, "left/main.veln", 4, 19);
 
     assert_eq!(result["isError"], false, "{result:#}");
     assert_eq!(
@@ -113,20 +117,31 @@ fn references_keep_sibling_selected_projects_isolated_for_dependency_schemas() {
     );
     assert_reference_ranges(
         &result,
-        &[("left/main.veln", 4, 15, 4, 21)],
-        "sibling project dependency schema isolation",
+        &[
+            ("left/main.veln", 4, 18, 4, 23),
+            ("left/main.veln", 5, 18, 5, 23),
+        ],
+        "left selected project cross-module schema alias isolation",
     );
 
-    let alias = references_result(&workspace, "left/main.veln", 5, 16);
-    assert_eq!(alias["isError"], false, "{alias:#}");
+    let right = references_result(&workspace, "right/main.veln", 5, 19);
+    assert_eq!(right["isError"], false, "{right:#}");
     assert_eq!(
-        alias["structuredContent"]["scope"],
-        result["structuredContent"]["scope"]
+        right["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": "right",
+            "project_wide": true
+        })
     );
     assert_reference_ranges(
-        &alias,
-        &[("left/main.veln", 5, 15, 5, 20)],
-        "sibling project dependency schema alias isolation",
+        &right,
+        &[
+            ("right/main.veln", 4, 18, 4, 23),
+            ("right/main.veln", 5, 18, 5, 23),
+        ],
+        "right selected project cross-module schema alias isolation",
     );
 }
 
@@ -433,7 +448,6 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("mismatched alias import", "main.veln", 19, 20),
         ("transitive alias", "main.veln", 20, 22),
         ("invalid-casing alias", "main.veln", 21, 18),
-        ("valid cross-module alias target", "main.veln", 22, 18),
         ("invalid-casing alias target", "main.veln", 30, 18),
         ("other-package alias target", "main.veln", 31, 18),
         ("package composition", "main.veln", 26, 19),
@@ -465,6 +479,17 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         &alias,
         &[("main.veln", 14, 18, 14, 23)],
         "direct dependency schema alias operation",
+    );
+
+    let cross_module_alias = references_result(&workspace, "main.veln", 22, 18);
+    assert_eq!(
+        cross_module_alias["isError"], false,
+        "{cross_module_alias:#}"
+    );
+    assert_reference_ranges(
+        &cross_module_alias,
+        &[("main.veln", 22, 18, 22, 34)],
+        "cross-module direct dependency schema alias operation",
     );
 }
 
@@ -888,6 +913,53 @@ fn references_keep_dependency_schema_alias_collision_blockers_empty() {
             "{name}: {result:#}"
         );
     }
+}
+
+#[test]
+fn references_reject_cross_module_schema_alias_target_in_non_exported_source() {
+    let workspace = TempWorkspace::new("references-dependency-schema-alias-hidden-target");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use facade from \"example/dep\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode facade::Alias from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        concat!(
+            "[package]\nname = \"example/dep\"\n\n",
+            "[lib]\nexports = [\"facade.veln\"]\n",
+        ),
+    );
+    workspace.write(
+        "vendor/dep/core.veln",
+        "mod core\n\npub schema Packet\n  value: Int\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/facade.veln",
+        "mod facade\nuse core\n\npub schema Alias = core::Packet\n",
+    );
+
+    let result = references_result(&workspace, "main.veln", 4, 19);
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        })
+    );
 }
 
 #[test]

@@ -129,7 +129,17 @@ equals = []
 [[mcp_assert]]
 id = 23
 path = "/result/structuredContent/references"
-equals = []
+length = 1
+
+[[mcp_assert]]
+id = 23
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":25,"column":18},"end":{"line":25,"column":34}}
+
+[[mcp_assert]]
+id = 23
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
 
 [[mcp_assert]]
 id = 24

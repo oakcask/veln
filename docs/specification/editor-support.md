@@ -253,11 +253,17 @@ injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace operation
-leaves as MCP when declaration inclusion is false. The alias target must be a
-unique public schema named by a bare target in the alias's module and retained
-dependency. No schema alias in that schema namespace may share the target
-name. Same-spelled declarations in unrelated namespaces do not affect target
-resolution. Alias identity includes the dependency and alias declaration, so
+leaves as MCP when declaration inclusion is false. The direct alias target
+must be a unique public schema declared by an exported source in the retained
+dependency. It can be a bare target in the alias module or a qualified target
+resolved through a valid local import from any retained package source with the
+alias's explicit module identity. Full written target modules and unique
+implicit leaf import aliases are accepted. Consumer imports do not affect
+target resolution. The qualified import can resolve to another module or back
+to the alias's own module. No schema alias in the resolved schema
+namespace may share the target name. Same-spelled declarations in unrelated
+namespaces do not affect target resolution. Alias identity includes the
+dependency and alias declaration, so
 target-schema uses, sibling aliases, and same-spelled aliases from other
 dependencies remain separate. Full written module paths and valid implicit
 leaf aliases select that identity. An exact full written dependency import
@@ -268,23 +274,25 @@ workspace module identity as specified by
 syntax-recovered imports do not grant alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
 same-spelled exported schema without becoming navigable. Bare imported names,
-qualified and chained targets,
+alias chains, external-package targets, ambiguous or recovered target imports,
 package-source and composition leaves, standard-library and transitive aliases,
 invalid or ambiguous declarations, and recovered operations remain empty.
 Package declarations are never added when declaration
 inclusion is true, and definition and rename support do not expand. The
 `references-dependency-schema-alias` LSP case is paired with the MCP case and
 fixes their normalized URI and range parity over identical non-BMP saved input,
-including an alias and target schema exported from separate sources with the
-same explicit module and a same-spelled type in that module. The paired cases
-also exclude a workspace type with the alias spelling from the exact result and
-keep dependency-alias composition selection empty. The LSP case also keeps
-definition and prepare-rename null and rename edits empty for the supported
-package alias leaf. Shared navigation tests and
+including an alias and target schema exported from separate sources with
+different explicit modules and a same-spelled type in the alias module. The
+paired cases also exclude a workspace type with the alias spelling from the
+exact result and keep dependency-alias composition, non-exported-target, and
+invalid-target-import selections empty. An unselected descendant project with
+the same qualified alias use remains outside the selected root project's
+result. The LSP case also keeps definition and prepare-rename null and rename
+edits empty for the supported package alias leaf. Shared navigation tests and
 the MCP dependency-schema boundary case cover target-name schema alias
 collisions, recovered duplicate declarations, invalid imports, invalid-cased
-targets, valid cross-module and other-package targets, and graph-ineligible
-alias selections.
+targets, cross-module target success, other-package target rejection, and
+graph-ineligible alias selections.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.

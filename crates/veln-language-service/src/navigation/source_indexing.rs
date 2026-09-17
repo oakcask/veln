@@ -89,16 +89,24 @@ fn index_dependency_sources(
     module: &mut veln_ast::SurfaceModule,
     dependency: DirectDependencySnapshot,
 ) {
+    let package = dependency.identity.as_str().to_string();
+    let package_origin = if dependency.standard_library {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    let mut dependency_module = empty_surface_module();
     for (source, entry) in dependency.indexed_sources() {
         let (file, parsed) = indexed_dependency_source(&dependency, source, entry.uri());
         if !file.navigation_isolated {
             declarations
                 .package_schema_alias_declarations
                 .extend(package_schema_alias_declarations(&file, &parsed.tree));
+            let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
+            assign_module_name(&mut source_module, &file.module);
             if parsed.diagnostics.is_empty() {
                 declarations.extend(file_declarations(&file, &parsed.tree));
-                let mut source_module = veln_ast::lower_surface_ast(&parsed.tree);
-                assign_module_name(&mut source_module, &file.module);
+                append_surface_module(&mut dependency_module, source_module.clone());
                 append_surface_module(module, source_module);
             } else {
                 declarations
@@ -107,10 +115,74 @@ fn index_dependency_sources(
                 declarations
                     .recovered_package_schema_targets
                     .extend(package_schema_targets(&file, &parsed.tree));
+                append_recovered_dependency_imports(
+                    &mut dependency_module,
+                    source_module,
+                    &parsed,
+                );
             }
         }
         files.push(file);
     }
+    declarations.resolved_package_schema_aliases.extend(
+        veln_sema::resolved_schema_aliases(&dependency_module)
+            .into_iter()
+            .map(|resolved| {
+                let target_exported = dependency
+                    .exported_sources
+                    .contains(resolved.target_span.file.as_str());
+                ResolvedPackageSchemaAlias {
+                    package: package.clone(),
+                    package_origin,
+                    alias_module: resolved.alias_module,
+                    alias_name: resolved.alias_name,
+                    alias_span: resolved.alias_span,
+                    target_module: resolved.target_module,
+                    target_name: resolved.target_name,
+                    target_exported,
+                }
+            }),
+    );
+}
+
+fn append_recovered_dependency_imports(
+    dependency_module: &mut veln_ast::SurfaceModule,
+    mut source_module: veln_ast::SurfaceModule,
+    parsed: &ParseOutput,
+) {
+    for use_decl in &source_module.uses {
+        let recovered = parsed.diagnostics.iter().any(|diagnostic| {
+            diagnostic.parser_context == "use_declaration"
+                && diagnostic.span.as_ref().is_none_or(|span| {
+                    span.file == use_decl.span.file
+                        && span.start.offset <= use_decl.span.end.offset
+                        && span.end.offset >= use_decl.span.start.offset
+                })
+        });
+        if !recovered {
+            continue;
+        }
+        let span = use_decl
+            .name_spans
+            .first()
+            .cloned()
+            .unwrap_or_else(|| use_decl.span.clone());
+        source_module.invalid_names.push(veln_ast::InvalidName {
+            name: use_decl.name.clone(),
+            class: veln_ast::NameClass::Module,
+            occurrence: veln_ast::NameOccurrence::PathSegment,
+            span,
+            enclosing_function_span: None,
+            segment_index: None,
+        });
+    }
+    source_module.aliases.clear();
+    source_module.effects.clear();
+    source_module.handlers.clear();
+    source_module.schemas.clear();
+    source_module.types.clear();
+    source_module.functions.clear();
+    append_surface_module(dependency_module, source_module);
 }
 
 fn indexed_dependency_source(
@@ -387,8 +459,63 @@ fn eligible_schema_aliases(
     package_aliases: &[PackageSchemaAliasDeclaration],
     package_targets: &[PackageSchemaTarget],
     recovered_package_targets: &[PackageSchemaTarget],
+    resolved_package_aliases: &[ResolvedPackageSchemaAlias],
     resolved: Vec<veln_sema::ResolvedSchemaAlias>,
 ) -> Vec<NeutralSymbol> {
+    let resolved_package_aliases = resolved_package_aliases
+        .iter()
+        .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
+        .filter_map(|candidate| {
+            Some((
+                (
+                    candidate.package.as_str(),
+                    candidate.alias_module.as_deref()?,
+                    candidate.alias_name.as_str(),
+                    candidate.alias_span.file.as_str(),
+                ),
+                candidate,
+            ))
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut package_alias_counts = BTreeMap::new();
+    for candidate in package_aliases
+        .iter()
+        .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
+    {
+        *package_alias_counts
+            .entry((
+                candidate.package.as_str(),
+                candidate.module.as_str(),
+                candidate.name.as_str(),
+            ))
+            .or_insert(0usize) += 1;
+    }
+    let recovered_package_targets = recovered_package_targets
+        .iter()
+        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
+        .map(|target| {
+            (
+                target.package.as_str(),
+                target.module.as_str(),
+                target.name.as_str(),
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    let mut package_target_counts = BTreeMap::new();
+    for target in package_targets
+        .iter()
+        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
+    {
+        let entry = package_target_counts
+            .entry((
+                target.package.as_str(),
+                target.module.as_str(),
+                target.name.as_str(),
+            ))
+            .or_insert((0usize, false));
+        entry.0 += 1;
+        entry.1 |= target.public && target.exported;
+    }
     aliases
         .iter()
         .filter(|alias| match alias.package_origin {
@@ -403,63 +530,45 @@ fn eligible_schema_aliases(
                 let Some(package) = alias.package.as_deref() else {
                     return false;
                 };
-                let Some(target_name) = alias.alias_target_name.as_deref() else {
+                let Some(resolved_alias) = resolved_package_aliases.get(&(
+                    package,
+                    alias.module.as_str(),
+                    alias.name.as_str(),
+                    alias.declaration.span.file.as_str(),
+                )) else {
                     return false;
                 };
-                package_aliases
-                    .iter()
-                    .filter(|candidate| {
-                        candidate.package == package
-                            && candidate.module == alias.module
-                            && candidate.name == alias.name
-                            && candidate.package_origin == PackageOrigin::DirectDependency
-                    })
-                    .count()
-                    == 1
-                    && !package_aliases.iter().any(|candidate| {
-                        candidate.package == package
-                            && candidate.module == alias.module
-                            && candidate.name == target_name
-                            && candidate.package_origin == PackageOrigin::DirectDependency
-                    })
-                    && !recovered_package_targets.iter().any(|target| {
-                        target.package == package
-                            && target.module == alias.module
-                            && (target.name == alias.name || target.name == target_name)
-                            && target.package_origin == PackageOrigin::DirectDependency
-                    })
-                    && !package_targets.iter().any(|target| {
-                        target.package == package
-                            && target.module == alias.module
-                            && target.name == alias.name
-                            && target.package_origin == PackageOrigin::DirectDependency
-                    })
-                    && has_unique_public_direct_package_schema_target(
-                        package_targets,
+                let Some(target_module) = resolved_alias.target_module.as_deref() else {
+                    return false;
+                };
+                let target_name = resolved_alias.target_name.as_str();
+                if !resolved_alias.target_exported {
+                    return false;
+                }
+                package_alias_counts.get(&(
+                    package,
+                    alias.module.as_str(),
+                    alias.name.as_str(),
+                )) == Some(&1)
+                    && !package_alias_counts.contains_key(&(package, target_module, target_name))
+                    && !recovered_package_targets.contains(&(
                         package,
-                        &alias.module,
-                        target_name,
-                    )
+                        alias.module.as_str(),
+                        alias.name.as_str(),
+                    ))
+                    && !recovered_package_targets.contains(&(package, target_module, target_name))
+                    && !package_target_counts.contains_key(&(
+                        package,
+                        alias.module.as_str(),
+                        alias.name.as_str(),
+                    ))
+                    && package_target_counts.get(&(package, target_module, target_name))
+                        == Some(&(1, true))
             }
             Some(PackageOrigin::StandardLibrary) => false,
         })
         .cloned()
         .collect()
-}
-
-fn has_unique_public_direct_package_schema_target(
-    package_targets: &[PackageSchemaTarget],
-    package: &str,
-    module: &str,
-    name: &str,
-) -> bool {
-    let mut targets = package_targets.iter().filter(|target| {
-        target.package == package
-            && target.module == module
-            && target.name == name
-            && target.package_origin == PackageOrigin::DirectDependency
-    });
-    matches!((targets.next(), targets.next()), (Some(target), None) if target.public)
 }
 
 fn empty_surface_module() -> veln_ast::SurfaceModule {

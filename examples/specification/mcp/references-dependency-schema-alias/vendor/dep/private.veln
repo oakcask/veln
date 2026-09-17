@@ -1,0 +1,5 @@
+mod private
+
+pub schema Packet
+  value: Int
+end
