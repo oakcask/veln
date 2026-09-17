@@ -97,10 +97,14 @@ mod dependencies_schema_references_tests {
             );
 
             crate::navigation::reset_schema_composition_index_work();
+            crate::navigation::reset_schema_alias_declaration_visits();
             let _ = snapshot.navigation_index();
             let (declaration_visits, field_token_visits) =
                 crate::navigation::schema_composition_index_work();
-            assert_eq!(declaration_visits, count * 2);
+            // Declaration eligibility is shared with alias indexing; composition only
+            // visits its schema candidates.
+            assert_eq!(declaration_visits, count);
+            assert_eq!(crate::navigation::schema_alias_declaration_visits(), count);
             assert_eq!(field_token_visits % count, 0);
             let visits_per_schema = field_token_visits / count;
             assert_eq!(
@@ -497,6 +501,61 @@ mod dependencies_schema_references_tests {
             panic!("exact dependency import must select a package declaration");
         };
         assert_eq!(exact.definition.span.file.as_str(), "wire.veln");
+    }
+
+    #[test]
+    fn dependency_schema_collisions_block_composition_and_aliases_by_package_identity() {
+        let valid = concat!(
+            "mod dep\n\n",
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Alias = Packet\n",
+        );
+        for (name, blocker) in [
+            ("private target", "mod dep\n\nschema Packet\n  value: Int\nend\n"),
+            ("recovered target", "mod dep\n\npub schema Packet\n  value: Int\n"),
+        ] {
+            for blocker_first in [false, true] {
+                let blocker_path = if blocker_first { "before.veln" } else { "zz_after.veln" };
+                let sources = [("valid.veln", valid), (blocker_path, blocker)];
+                let blocked = dependency_snapshot(
+                    "example/blocked",
+                    &sources,
+                    ["valid.veln"],
+                );
+                let clean = dependency_snapshot(
+                    "example/clean",
+                    &[("valid.veln", valid)],
+                    ["valid.veln"],
+                );
+                let consumer = |package| format!(concat!(
+                    "use dep from \"{}\"\n\n",
+                    "schema Host\n",
+                    "  nested: dep::Packet\n",
+                    "end\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ), package);
+                let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                    vec![
+                        source("blocked.veln", &consumer("example/blocked")),
+                        source("clean.veln", &consumer("example/clean")),
+                    ],
+                    vec![blocked, clean],
+                );
+
+                for (line, column, symbol) in [(4, 16, "Packet"), (8, 15, "Alias")] {
+                    assert!(
+                        query_snapshot(&snapshot, "blocked.veln", line, column).is_none(),
+                        "{name} must block {symbol}, blocker_first={blocker_first}",
+                    );
+                    let result = query_snapshot(&snapshot, "clean.veln", line, column)
+                        .expect("a collision in another package must not block selection");
+                    assert_eq!(result.selected_symbol.name, symbol);
+                    assert_eq!(locations(&result.references), [("clean.veln", line, column)]);
+                }
+            }
+        }
     }
 
     #[test]
