@@ -72,8 +72,9 @@ written import module path or its implicit leaf alias. An exact full import
 path takes precedence over a same-spelled implicit leaf alias. Without an
 exact match, the leaf alias resolves only when exactly one valid workspace or
 package import provides it. Conflicting exact imports and colliding implicit
-leaf aliases remain unresolved in either import order. Duplicate imports and
-syntax-recovered imports do not provide schema composition visibility. The
+leaf aliases remain unresolved in either import order. Duplicate and
+syntax-recovered dependency imports do not provide dependency schema
+composition visibility. The
 focused evidence is
 `schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`,
 `colliding_implicit_schema_import_aliases_are_order_independent`, and

@@ -2,3 +2,4 @@ mod public
 
 pub schema RecoveredAlias =
 pub schema DuplicateRecoveredAlias =
+pub schema RecoveredAliasCollision =

@@ -560,12 +560,14 @@ fn workspace_schema_composition_references(
 fn direct_dependency_schema_composition_references(
     files: &[IndexedFile],
     schemas: &[NeutralSymbol],
+    package_aliases: &[PackageSchemaAliasDeclaration],
     package_targets: &[PackageSchemaTarget],
     recovered_package_targets: &[PackageSchemaTarget],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Vec<SchemaCompositionReference> {
     let schema_index = direct_dependency_schema_index(
         schemas,
+        package_aliases,
         package_targets,
         recovered_package_targets,
     );
@@ -617,9 +619,23 @@ fn direct_dependency_schema_composition_references(
 
 fn direct_dependency_schema_index(
     schemas: &[NeutralSymbol],
+    package_aliases: &[PackageSchemaAliasDeclaration],
     package_targets: &[PackageSchemaTarget],
     recovered_package_targets: &[PackageSchemaTarget],
 ) -> BTreeMap<(String, String, String), NeutralSymbol> {
+    let mut alias_blockers = BTreeSet::new();
+    for alias in package_aliases
+        .iter()
+        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
+    {
+        #[cfg(test)]
+        record_schema_composition_declaration_visit();
+        alias_blockers.insert((
+            alias.package.clone(),
+            alias.module.clone(),
+            alias.name.clone(),
+        ));
+    }
     let mut target_eligibility = BTreeMap::new();
     for target in package_targets
         .iter()
@@ -672,8 +688,10 @@ fn direct_dependency_schema_index(
     candidates
         .into_iter()
         .filter_map(|(identity, candidates)| {
-            (target_eligibility.get(&identity) == Some(&(1, true)) && candidates.len() == 1)
-                .then(|| (identity, candidates[0].clone()))
+            (target_eligibility.get(&identity) == Some(&(1, true))
+                && candidates.len() == 1
+                && !alias_blockers.contains(&identity))
+            .then(|| (identity, candidates[0].clone()))
         })
         .collect()
 }

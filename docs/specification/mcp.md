@@ -437,8 +437,9 @@ imported module's schemas in the bare schema namespace. For composition
 references, an exact full written import path takes precedence over a
 same-spelled implicit leaf alias. Otherwise, a composition alias resolves only
 when exactly one workspace or package import provides that alias. Conflicting
-exact imports, duplicate imports, and syntax-recovered imports resolve no
-composition identity. A selected workspace schema's set excludes the
+exact imports resolve no composition identity. Duplicate and syntax-recovered
+dependency imports resolve no dependency composition identity. A selected
+workspace schema's set excludes the
 declaration, module qualifiers, package schemas, schema-alias leaves, alias
 traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
@@ -462,8 +463,9 @@ has one reference identity across direct fields, `Repeat` payloads, array
 payloads, `decode`, and `encode`. Selecting any resolved leaf returns every
 leaf for that declaration in the selected project's captured owned sources.
 Full written module paths and their valid unique implicit leaf aliases resolve
-to the same identity. Exact imports take precedence; conflicting exact,
-duplicate, and syntax-recovered imports resolve no identity. Results contain
+to the same identity. Exact dependency imports take precedence; conflicting
+exact dependency imports, duplicate dependency imports, and syntax-recovered
+dependency imports resolve no dependency identity. Results contain
 only workspace `file:` locations and exclude the declaration, package sources,
 aliases and alias targets, import tokens, and module qualifiers.
 Standard-library schemas, private or non-exported schemas,
@@ -506,7 +508,7 @@ without becoming a navigation target.
 Import visibility and blocking across owned sources with the same explicit
 workspace module identity follow the shared rules in
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate and
-syntax-recovered imports do not grant alias visibility. The
+syntax-recovered dependency imports do not grant dependency alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
 composition leaves, package sources, sibling aliases, and direct target-schema
 uses. The direct target can be a same-module bare schema or a qualified schema

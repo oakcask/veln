@@ -229,7 +229,8 @@ an exact full written import path takes
 precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
 leaf alias selects a composition schema identity only when it is unique across
 workspace and package imports. Conflicting exact imports select no identity.
-Duplicate and syntax-recovered imports do not grant visibility. A written import does not make the
+Duplicate and syntax-recovered dependency imports do not grant dependency
+composition visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
 module-qualifier, recovery, or rename behavior for
 schemas.
@@ -274,7 +275,7 @@ takes precedence over an unrelated import with a colliding implicit leaf
 alias. Imports and blockers are shared by owned sources with the same explicit
 workspace module identity as specified by
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
-syntax-recovered imports do not grant alias visibility.
+syntax-recovered dependency imports do not grant dependency alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
 same-spelled exported schema without becoming navigable. Bare imported names,
 alias chains, external-package targets, ambiguous or recovered target imports,

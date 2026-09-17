@@ -41,4 +41,6 @@ schema Boundary
   recovered_declaration: public::RecoveredPacket
   schema_alias: public::Alias
   unresolved_schema: public::Missing
+  alias_collision: public::CollisionTarget
+  recovered_alias_collision: public::RecoveredAliasCollision
 end

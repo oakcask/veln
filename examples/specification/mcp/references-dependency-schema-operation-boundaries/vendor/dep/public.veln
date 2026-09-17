@@ -33,6 +33,10 @@ pub schema RecoveredPacket
   value: Int
 end
 
+pub schema RecoveredAliasCollision
+  value: Int
+end
+
 fn package_operations(view: ByteView, value: {value: Int}) -> ()
   decode Public from view at byte_offset(0)?
   encode Public from value

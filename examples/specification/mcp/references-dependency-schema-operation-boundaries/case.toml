@@ -182,9 +182,19 @@ path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
+id = 29
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
 id = 30
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 30
+path = "/result/isError"
+equals = false
 
 [[mcp_assert]]
 id = 31
@@ -192,9 +202,19 @@ path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
+id = 31
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
 id = 32
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 32
+path = "/result/isError"
+equals = false
 
 [[mcp_assert]]
 id = 33
@@ -202,9 +222,19 @@ path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
+id = 33
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
 id = 34
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 34
+path = "/result/isError"
+equals = false
 
 [[mcp_assert]]
 id = 35
@@ -212,9 +242,19 @@ path = "/result/structuredContent/references"
 equals = []
 
 [[mcp_assert]]
+id = 35
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
 id = 36
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 36
+path = "/result/isError"
+equals = false
 
 [[mcp_assert]]
 id = 37
@@ -235,6 +275,16 @@ workspace_file_uri = "exact-order-b.veln"
 id = 38
 path = "/result/structuredContent/references"
 length = 2
+
+[[mcp_assert]]
+id = 38
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "exact-order-a.veln"
+
+[[mcp_assert]]
+id = 38
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "exact-order-b.veln"
 
 [[mcp_assert]]
 id = 39
@@ -260,6 +310,36 @@ equals = []
 id = 43
 path = "/result/structuredContent/references"
 equals = []
+
+[[mcp_assert]]
+id = 44
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 44
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 44
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 45
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 45
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 45
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 
 
 [[mcp_assert]]

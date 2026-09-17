@@ -516,6 +516,52 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn dependency_schema_alias_declarations_block_composition_schema_fallback() {
+        for (name, alias_source) in [
+            ("clean alias", "mod dep\n\npub schema Alias = Packet\n"),
+            ("recovered alias", "mod dep\n\npub schema Alias =\n"),
+        ] {
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &[
+                    (
+                        "schemas.veln",
+                        concat!(
+                            "mod dep\n\n",
+                            "pub schema Alias\n  value: Int\nend\n\n",
+                            "pub schema Packet\n  value: Int\nend\n",
+                        ),
+                    ),
+                    ("alias.veln", alias_source),
+                ],
+                ["schemas.veln", "alias.veln"],
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "schema Host\n",
+                        "  count: UInt8\n",
+                        "  direct: dep::Alias\n",
+                        "  repeated: Repeat(count, dep::Alias)\n",
+                        "  canonical: [dep::Alias; count]\n",
+                        "end\n",
+                    ),
+                )],
+                vec![dependency],
+            );
+
+            for (line, column) in [(5, 16), (6, 32), (7, 20)] {
+                assert!(
+                    query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                    "{name} must block composition schema fallback",
+                );
+            }
+        }
+    }
+
+    #[test]
     fn dependency_schema_composition_rejects_casing_mismatch_and_transitive_inputs() {
         let selected = dependency_snapshot(
             "example/dep",

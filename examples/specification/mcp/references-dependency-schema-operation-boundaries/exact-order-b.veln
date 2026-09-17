@@ -3,4 +3,5 @@ use alpha::wire from "example/dep"
 
 schema Host
   nested: wire::Packet
+  implicit_candidate_identity: alpha::wire::Packet
 end
