@@ -542,9 +542,9 @@ cover
 exact-import precedence, exclude import, comment, and string selections, and
 preserve successful empty results for a non-exported alias blocker, a target
 declared in a non-exported source, and an invalid-cased target import. They also
-exclude a same-spelled workspace type from the exact alias set and keep
-dependency-alias composition selection successful and included in the
-alias-specific union. The union is identical when selected from a full
+exclude a same-spelled workspace type from the exact alias set. A successful
+dependency-alias composition selection returns the alias-specific union. The
+union is identical when selected from a full
 written module path, a unique implicit leaf path, a direct field, a valid
 `Repeat` payload, or an array payload. An unselected
 descendant project contains the same qualified alias use and remains outside
@@ -560,6 +560,9 @@ and transitive alias selections. Focused MCP tests cover
 cross-module target success, recovered aliases that duplicate otherwise eligible declarations, duplicate
 and recovered imports with a same-named schema fallback candidate,
 standard-library schema aliases, and package-source alias-target selection.
+Focused language-service tests also keep direct, `Repeat`, and array-payload
+composition leaves empty for external alias targets, recovered consumer
+imports, and otherwise ineligible aliases.
 
 It also exposes references to public function, type, and constructor
 declarations from

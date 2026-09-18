@@ -309,7 +309,10 @@ targets, cross-module target success, other-package target rejection, and
 graph-ineligible alias selections.
 An ineligible direct-dependency schema alias selected from a direct field, a
 valid `Repeat` payload, or an array payload also returns a successful empty
-reference set and does not enter any eligible alias union.
+reference set and does not enter any eligible alias union. The
+`dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
+and `ineligible_dependency_schema_alias_composition_leaves_stay_empty`
+language-service tests cover these composition-selection boundaries.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.

@@ -53,6 +53,7 @@ ineligible. The executable evidence is the following language-service tests:
 - `direct_dependency_schema_alias_qualified_target_resolution_matrix`
 - `direct_dependency_schema_alias_target_imports_are_visible_across_module_sources`
 - `dependency_schema_alias_requires_an_exported_cross_module_target_source`
+- `dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module
@@ -71,6 +72,9 @@ language-service tests execute composition leaves as well as operation leaves;
 the positive cross-source case joins them in one alias identity, and the
 collision, duplicate-import, and recovered-import cases keep composition
 selection unresolved.
+The `ineligible_dependency_schema_alias_composition_leaves_stay_empty` test
+checks that direct, `Repeat`, and array-payload leaves do not select an
+ineligible alias or enter an eligible alias reference set.
 
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import
