@@ -14,6 +14,12 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
+## Ready
+
+- Resolve same-dependency public schema-alias chains while preserving the
+  selected alias's consumer-reference identity:
+  [dependency-schema-alias-chain-references.md](dependency-schema-alias-chain-references.md).
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
@@ -23,7 +29,8 @@ also states it.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory for
-  broader dependency and standard-library schema-alias references plus
+  broader dependency and standard-library schema-alias references beyond the
+  independently ready same-dependency chain slice, plus
   documentation, conformance, and plugin work. Do not select the umbrella
   directly:
   [agent-language-services.md](agent-language-services.md).
