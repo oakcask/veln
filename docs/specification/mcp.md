@@ -25,8 +25,8 @@ schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
 invalid-params error. The `definition` input requires one source plus positive
-JSON integer line and column coordinates. The `references` input uses the same
-coordinate contract.
+JSON integer line and column coordinates. An initial `references` input uses
+the same coordinate contract; a continuation uses only its cursor.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -442,10 +442,12 @@ post-restart, or already-consumed cursors return `invalid_cursor`. Invalid
 request shapes and failed initial captures do not consume cursor state. A
 continuation consumes its cursor before issuing a distinct cursor for a later
 nonfinal page. A final continuation releases its retained result and FIFO
-admission. There is no time-based cursor expiry, and refresh or eviction keeps
-an unconsumed cursor distinguishable as `stale_snapshot` without reviving it
-when file bytes are restored. Continuation does not recapture sources or admit
-new package resources. Cursor failures use exactly `{}` for `details`.
+admission. There is no time-based cursor expiry. Refresh or eviction keeps an
+unconsumed cursor distinguishable as `stale_snapshot` while its bounded
+admission remains available; reusing that admission slot later may classify the
+old authenticated cursor as `invalid_cursor`, and never revives it when file
+bytes are restored. Continuation does not recapture sources or admit new
+package resources. Cursor failures use exactly `{}` for `details`.
 The checked schemas, focused server transition tests, and the
 `references-workspace-schema` MCP stdio case are the primary verification
 artifacts for these rules. The server transition tests check default and

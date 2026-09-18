@@ -1,7 +1,7 @@
 ---
 role: reference
 authority: normative
-update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
+update-when: The CLI integration harness discovery inventory, manifest grammar, common JSON assertion operations, file assertion operations, structured JSON-RPC input directives, interactive MCP cursor directive, decoded LSP or MCP JSON Pointer token model, decoded MCP JSONL output assertion model, fixture diagnostics, semantic case baseline, manifest authoring policy, case-text fixture sidecar convention, workspace-file URI directive convention, or source-error guard evidence changes.
 ---
 
 # Toolchain Test Harness
@@ -169,6 +169,15 @@ MCP cases use `stdin_file` with stream fragments or `equals_file` sidecars when
 the behavior under test is the newline-delimited stdio protocol itself. Keep
 those fixtures as ordinary `case-text/` files when LF-normalized JSON lines are
 the intended observable bytes.
+
+An MCP `stdin_file` can use `$mcp_cursor:<response-id>` as a JSON string value
+when a later request must use `next_cursor` from an earlier response. The
+harness writes one input line and reads one response before processing the next
+line. It replaces the first cursor directive on the current line with
+`result.structuredContent.next_cursor` from the already received response whose
+integer `id` is `<response-id>`. The fixture fails if that response is absent or
+does not contain a string cursor. Use this directive only in MCP streams where
+every input line produces one response.
 
 Use repeatable `[[mcp_assert]]` sections to check decoded newline-delimited
 JSON-RPC responses from `veln mcp` stdout. Each nonempty stdout line must

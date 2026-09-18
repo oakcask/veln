@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -87,21 +87,26 @@ impl<'a> ReferenceArguments<'a> {
 }
 
 const MAX_RETAINED_RESULTS: usize = 64;
+const MAX_ADMISSION_SLOTS: usize = MAX_RETAINED_RESULTS * 2;
 static NEXT_PAGINATION_SECRET: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]
 pub(crate) struct ReferencePagination {
     secret: [u8; 32],
-    next_result_id: u64,
-    next_token_id: u64,
     retained: HashMap<String, RetainedReferences>,
-    order: VecDeque<u64>,
-    stale: HashSet<String>,
+    order: VecDeque<usize>,
+    admissions: Vec<Admission>,
+}
+
+#[derive(Clone, Copy)]
+enum Admission {
+    Free { generation: u64 },
+    Live { generation: u64 },
+    Stale { generation: u64 },
 }
 
 #[derive(Clone)]
 struct RetainedReferences {
-    result_id: u64,
     references: Vec<Value>,
     scope: Value,
     page_size: usize,
@@ -138,20 +143,19 @@ impl ReferencePagination {
         let secret: [u8; 32] = secret.finalize().into();
         Ok(Self {
             secret,
-            next_result_id: 0,
-            next_token_id: 0,
             retained: HashMap::new(),
             order: VecDeque::new(),
-            stale: HashSet::new(),
+            admissions: vec![Admission::Free { generation: 0 }; MAX_ADMISSION_SLOTS],
         })
     }
 
     pub(crate) fn clear(&mut self) {
-        for token in self.retained.keys().cloned().collect::<Vec<_>>() {
-            self.mark_stale(token);
+        for slot in self.order.drain(..) {
+            if let Admission::Live { generation } = self.admissions[slot] {
+                self.admissions[slot] = Admission::Stale { generation };
+            }
         }
         self.retained.clear();
-        self.order.clear();
     }
 
     pub(crate) fn initial_page(
@@ -165,20 +169,36 @@ impl ReferencePagination {
     }
 
     fn continue_page(&mut self, cursor: &str) -> ToolOutcome {
-        let Some(retained) = self.retained.remove(cursor) else {
-            return if self.stale.contains(cursor) {
-                stale_snapshot()
-            } else {
-                invalid_cursor()
+        let Some((slot, generation)) = self.parse_token(cursor) else {
+            return invalid_cursor();
+        };
+        let Admission::Live {
+            generation: live_generation,
+        } = self
+            .admissions
+            .get(slot)
+            .copied()
+            .unwrap_or(Admission::Free { generation: 0 })
+        else {
+            return match self.admissions.get(slot).copied() {
+                Some(Admission::Stale {
+                    generation: stale_generation,
+                }) if stale_generation == generation => stale_snapshot(),
+                _ => invalid_cursor(),
             };
         };
-        let result_id = retained.result_id;
+        if live_generation != generation {
+            return invalid_cursor();
+        }
+        let Some(retained) = self.retained.remove(cursor) else {
+            return invalid_cursor();
+        };
         self.page(
             retained.references,
             retained.scope,
             retained.page_size,
             retained.offset,
-            Some(result_id),
+            Some(slot),
         )
     }
 
@@ -188,7 +208,7 @@ impl ReferencePagination {
         scope: Value,
         page_size: usize,
         offset: usize,
-        result_id: Option<u64>,
+        slot: Option<usize>,
     ) -> ToolOutcome {
         let end = (offset + page_size).min(references.len());
         let mut result = json!({
@@ -196,58 +216,111 @@ impl ReferencePagination {
             "scope": scope,
         });
         if end < references.len() {
-            let result_id = result_id.unwrap_or_else(|| {
-                self.next_result_id = self.next_result_id.wrapping_add(1);
-                let result_id = self.next_result_id;
-                self.order.push_back(result_id);
-                result_id
-            });
-            self.next_token_id = self.next_token_id.wrapping_add(1);
-            let token_id = self.next_token_id;
-            let token = self.token(token_id);
+            let is_new = slot.is_none();
+            let slot = slot.unwrap_or_else(|| self.admit_slot());
+            let generation = self.admission_generation(slot).wrapping_add(1);
+            self.admissions[slot] = Admission::Live { generation };
+            if is_new {
+                self.order.push_back(slot);
+            }
+            let token = self.token(slot, generation);
             self.retained.insert(
                 token.clone(),
                 RetainedReferences {
-                    result_id,
                     references,
                     scope: result["scope"].clone(),
                     page_size,
                     offset: end,
                 },
             );
-            if self.order.len() > MAX_RETAINED_RESULTS
-                && let Some(evicted) = self.order.pop_front()
-            {
-                let evicted_tokens = self
-                    .retained
-                    .iter()
-                    .filter(|(_, value)| value.result_id == evicted)
-                    .map(|(token, _)| token.clone())
-                    .collect::<Vec<_>>();
-                for token in evicted_tokens {
-                    self.retained.remove(&token);
-                    self.mark_stale(token);
-                }
-            }
             result["next_cursor"] = Value::String(token);
-        } else if let Some(result_id) = result_id {
-            self.order.retain(|id| *id != result_id);
+        } else if let Some(slot) = slot {
+            self.order.retain(|admitted| *admitted != slot);
+            self.admissions[slot] = Admission::Free {
+                generation: self.admission_generation(slot),
+            };
         }
         ToolOutcome::Success(result)
     }
 
-    fn mark_stale(&mut self, token: String) {
-        self.stale.insert(token);
+    fn admit_slot(&mut self) -> usize {
+        if let Some(slot) = self
+            .admissions
+            .iter()
+            .position(|admission| matches!(admission, Admission::Free { .. }))
+        {
+            if self.order.len() >= MAX_RETAINED_RESULTS {
+                let evicted = self.order.pop_front().expect("live admission exists");
+                self.evict_slot(evicted);
+            }
+            return slot;
+        }
+
+        if let Some(slot) = self
+            .admissions
+            .iter()
+            .position(|admission| matches!(admission, Admission::Stale { .. }))
+        {
+            if self.order.len() >= MAX_RETAINED_RESULTS {
+                let evicted = self.order.pop_front().expect("live admission exists");
+                self.evict_slot(evicted);
+            }
+            return slot;
+        }
+
+        let evicted = self.order.pop_front().expect("live admission exists");
+        self.evict_slot(evicted);
+        evicted
     }
 
-    fn token(&self, result_id: u64) -> String {
-        format!("{result_id:x}.{}", self.mac(result_id))
+    fn evict_slot(&mut self, slot: usize) {
+        let tokens = self
+            .retained
+            .keys()
+            .filter(|token| {
+                self.parse_token(token)
+                    .is_some_and(|(admitted, _)| admitted == slot)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        for token in tokens {
+            self.retained.remove(&token);
+        }
+        let generation = self.admission_generation(slot);
+        self.admissions[slot] = Admission::Stale { generation };
     }
 
-    fn mac(&self, token_id: u64) -> String {
+    fn admission_generation(&self, slot: usize) -> u64 {
+        match self.admissions[slot] {
+            Admission::Free { generation }
+            | Admission::Live { generation }
+            | Admission::Stale { generation } => generation,
+        }
+    }
+
+    fn token(&self, slot: usize, generation: u64) -> String {
+        format!("{slot:x}.{generation:x}.{}", self.mac(slot, generation))
+    }
+
+    fn parse_token(&self, token: &str) -> Option<(usize, u64)> {
+        let mut parts = token.split('.');
+        let slot = usize::from_str_radix(parts.next()?, 16).ok()?;
+        let generation = u64::from_str_radix(parts.next()?, 16).ok()?;
+        let mac = parts.next()?;
+        if parts.next().is_some()
+            || slot >= self.admissions.len()
+            || mac != self.mac(slot, generation)
+        {
+            return None;
+        }
+        Some((slot, generation))
+    }
+
+    fn mac(&self, slot: usize, generation: u64) -> String {
         let mut mac = Sha256::new();
         mac.update(self.secret);
-        mac.update(token_id.to_le_bytes());
+        mac.update((slot as u64).to_le_bytes());
+        mac.update(generation.to_le_bytes());
         mac.finalize()
             .iter()
             .map(|byte| format!("{byte:02x}"))
@@ -550,7 +623,7 @@ mod tests {
     }
 
     #[test]
-    fn every_invalidated_cursor_remains_stale_across_repeated_invalidation() {
+    fn invalidation_admissions_remain_bounded_across_repeated_refreshes() {
         let mut pagination = ReferencePagination::new().unwrap();
         let mut cursors = Vec::new();
         for index in 0..256 {
@@ -568,10 +641,23 @@ mod tests {
             pagination.clear();
         }
 
-        assert_eq!(pagination.stale.len(), 256);
-        for cursor in cursors {
-            assert_eq!(pagination.continue_page(&cursor).code(), "stale_snapshot");
-        }
+        assert!(pagination.retained.is_empty());
+        assert!(
+            pagination
+                .admissions
+                .iter()
+                .filter(|admission| matches!(admission, Admission::Stale { .. }))
+                .count()
+                <= MAX_ADMISSION_SLOTS
+        );
+        assert_eq!(
+            pagination.continue_page(cursors.last().unwrap()).code(),
+            "stale_snapshot"
+        );
+        assert_eq!(
+            pagination.continue_page(&cursors[0]).code(),
+            "invalid_cursor"
+        );
     }
 
     trait TestOutcome {
