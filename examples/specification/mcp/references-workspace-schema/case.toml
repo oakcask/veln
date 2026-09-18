@@ -150,3 +150,38 @@ length = 1
 id = 10
 path = "/result/structuredContent/next_cursor"
 contains = "."
+
+[[mcp_assert]]
+id = 11
+path = "/result/isError"
+equals = true
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/code"
+equals = "invalid_cursor"
+
+[[mcp_assert]]
+id = 12
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references"
+length = 4
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/next_cursor"
+missing = true
+
+[[mcp_assert]]
+id = 13
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 14
+path = "/error/code"
+equals = -32602

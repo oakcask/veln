@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -87,7 +87,6 @@ impl<'a> ReferenceArguments<'a> {
 }
 
 const MAX_RETAINED_RESULTS: usize = 64;
-const MAX_STALE_CURSORS: usize = 64;
 static NEXT_PAGINATION_SECRET: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]
@@ -97,7 +96,7 @@ pub(crate) struct ReferencePagination {
     next_token_id: u64,
     retained: HashMap<String, RetainedReferences>,
     order: VecDeque<u64>,
-    stale: VecDeque<String>,
+    stale: HashSet<String>,
 }
 
 #[derive(Clone)]
@@ -130,7 +129,7 @@ impl ReferencePagination {
             next_token_id: 0,
             retained: HashMap::new(),
             order: VecDeque::new(),
-            stale: VecDeque::new(),
+            stale: HashSet::new(),
         }
     }
 
@@ -154,7 +153,7 @@ impl ReferencePagination {
 
     fn continue_page(&mut self, cursor: &str) -> ToolOutcome {
         let Some(retained) = self.retained.remove(cursor) else {
-            return if self.stale.iter().any(|stale| stale == cursor) {
+            return if self.stale.contains(cursor) {
                 stale_snapshot()
             } else {
                 invalid_cursor()
@@ -226,13 +225,7 @@ impl ReferencePagination {
     }
 
     fn mark_stale(&mut self, token: String) {
-        if self.stale.iter().any(|stale| stale == &token) {
-            return;
-        }
-        self.stale.push_back(token);
-        if self.stale.len() > MAX_STALE_CURSORS {
-            self.stale.pop_front();
-        }
+        self.stale.insert(token);
     }
 
     fn token(&self, result_id: u64) -> String {
@@ -545,10 +538,11 @@ mod tests {
     }
 
     #[test]
-    fn stale_cursor_bookkeeping_remains_bounded_across_repeated_invalidation() {
+    fn every_invalidated_cursor_remains_stale_across_repeated_invalidation() {
         let mut pagination = ReferencePagination::new();
+        let mut cursors = Vec::new();
         for index in 0..256 {
-            let _cursor = pagination
+            let cursor = pagination
                 .initial_page(
                     vec![
                         location(&format!("file://{index}"), 1, 1),
@@ -558,10 +552,14 @@ mod tests {
                     1,
                 )
                 .into_success_cursor();
+            cursors.push(cursor);
             pagination.clear();
         }
 
-        assert_eq!(pagination.stale.len(), MAX_STALE_CURSORS);
+        assert_eq!(pagination.stale.len(), 256);
+        for cursor in cursors {
+            assert_eq!(pagination.continue_page(&cursor).code(), "stale_snapshot");
+        }
     }
 
     trait TestOutcome {

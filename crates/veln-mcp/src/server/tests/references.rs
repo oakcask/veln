@@ -45,6 +45,12 @@ fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware()
 
     let foreign = second.references_tool(&json!({"cursor": cursor}));
     assert_eq!(foreign["structuredContent"]["code"], "invalid_cursor");
+    let tampered = first.references_tool(&json!({"cursor": cursor.to_owned() + "x"}));
+    assert_eq!(tampered["structuredContent"]["code"], "invalid_cursor");
+
+    let mut restarted = initialized_server(&workspace);
+    let post_restart = restarted.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(post_restart["structuredContent"]["code"], "invalid_cursor");
 
     workspace.write(
         "main.veln",
@@ -83,6 +89,128 @@ fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware()
     assert_eq!(refreshed["isError"], false);
     let stale = first.references_tool(&json!({"cursor": refresh_cursor}));
     assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
+}
+
+#[test]
+fn references_pages_preserve_order_scope_and_captured_locations() {
+    let workspace = TempWorkspace::new("references-page-contract");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn helper(value: Int) -> Int\n",
+            "  helper(value - 1)\n",
+            "end\n\n",
+            "fn main() -> Int\n",
+            "  helper(1)\n",
+            "end\n",
+        ),
+    );
+
+    let mut server = initialized_server(&workspace);
+    let complete = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4,
+        "page_size": 1000
+    }));
+    let expected = complete["structuredContent"]["references"].clone();
+    let expected_scope = complete["structuredContent"]["scope"].clone();
+
+    let first = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4,
+        "page_size": 1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(first["structuredContent"]["scope"], expected_scope);
+    assert_eq!(
+        first["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let captured_first = first["structuredContent"]["references"][0].clone();
+    workspace.write("main.veln", "fn helper(value: Int) -> Int\n  value\nend\n");
+    let second = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(second["structuredContent"]["scope"], expected_scope);
+    assert_eq!(
+        second["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(captured_first, expected[0]);
+    assert_eq!(second["structuredContent"]["references"][0], expected[1]);
+    assert!(
+        !second["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("next_cursor")
+    );
+}
+
+#[test]
+fn failed_refresh_and_invalid_continuation_requests_preserve_live_state() {
+    let workspace = TempWorkspace::new("references-failure-atomicity");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  helper(value - 1)\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let first = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4,
+        "page_size": 1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let initial_failure = server.references_tool(&json!({
+        "source": "missing.veln",
+        "line": 1,
+        "column": 1
+    }));
+    assert_eq!(initial_failure["isError"], true);
+    assert_eq!(initial_failure["structuredContent"]["code"], "invalid_path");
+
+    let invalid_shape = server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id": 1, "method":"tools/call",
+            "params":{"name":"references","arguments":{"cursor":cursor,"page_size":1}}
+        }))
+        .unwrap();
+    assert_eq!(invalid_shape["error"]["code"], -32602);
+
+    let failed_refresh = server.refresh_workspace_tool(|selection| {
+        selection.refresh_with(|| Err(std::io::Error::other("injected failure")))
+    });
+    assert_eq!(failed_refresh["isError"], true);
+    assert_eq!(
+        failed_refresh["structuredContent"]["code"],
+        "generation_failed"
+    );
+
+    let continuation = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 struct WorkspaceSymbolCase {
