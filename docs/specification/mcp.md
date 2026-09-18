@@ -594,8 +594,8 @@ composition, decode, and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
 alias declaration. The
 `references-dependency-schema-operation-boundaries` case requires successful
-empty results when a final target name resolves to a schema alias (the wrong
-declaration kind) and for invalid,
+empty results when a target name is ambiguous because a schema and schema alias
+share that name, and for invalid,
 non-exported, mismatched-import, duplicate-import, recovered-import,
 invalid-cased-target, valid other-package-target,
 and transitive alias selections. Focused MCP tests cover

@@ -308,8 +308,8 @@ An unselected descendant project with
 the same qualified alias use remains outside the selected root project's
 result. The LSP case also keeps definition and prepare-rename null and rename
 edits empty for the supported package alias leaf. Shared navigation tests and
-the MCP dependency-schema boundary case cover final-target schema-alias
-wrong-kind collisions, recovered duplicate declarations, invalid imports, invalid-cased
+the MCP dependency-schema boundary case cover schema/schema-alias name
+collisions, recovered duplicate declarations, invalid imports, invalid-cased
 targets, cross-module target success, other-package target rejection, and
 graph-ineligible alias selections.
 An ineligible direct-dependency schema alias selected from a direct field, a
