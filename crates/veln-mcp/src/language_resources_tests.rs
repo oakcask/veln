@@ -89,6 +89,36 @@ fn checked_resources_return_independent_mutable_state() {
 }
 
 #[test]
+fn checked_resources_return_independent_reference_pagination_state() {
+    let mut first = LanguageResources::checked().unwrap();
+    let mut second = LanguageResources::checked().unwrap();
+    let first_cursor = match first.reference_pagination().initial_page(
+            vec![
+                serde_json::json!({"uri":"file://a","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}}),
+                serde_json::json!({"uri":"file://b","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}}),
+            ],
+            serde_json::json!({}),
+            1,
+        ) {
+        crate::outcome::ToolOutcome::Success(value) => value["next_cursor"].as_str().unwrap().to_owned(),
+        crate::outcome::ToolOutcome::DomainFailure { .. } => panic!("expected page"),
+    };
+    let second_cursor = match second.reference_pagination().initial_page(
+        vec![
+            serde_json::json!({"uri":"file://a","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}}),
+            serde_json::json!({"uri":"file://b","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}}}),
+        ],
+        serde_json::json!({}),
+        1,
+    ) {
+        crate::outcome::ToolOutcome::Success(value) => value["next_cursor"].as_str().unwrap().to_owned(),
+        crate::outcome::ToolOutcome::DomainFailure { .. } => panic!("expected page"),
+    };
+
+    assert_ne!(first_cursor, second_cursor);
+}
+
+#[test]
 fn standard_library_capture_rejects_invalid_embedded_inputs() {
     let error = StandardLibraryResources::from_embedded_inputs(
         "name = \"std\"\n",

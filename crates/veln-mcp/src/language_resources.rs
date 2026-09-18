@@ -84,7 +84,11 @@ impl LanguageResources {
     pub(crate) fn checked() -> Result<Self, String> {
         static CHECKED: OnceLock<Result<LanguageResources, String>> = OnceLock::new();
 
-        CHECKED.get_or_init(Self::build_checked).clone()
+        let mut resources = CHECKED.get_or_init(Self::build_checked).clone()?;
+        // The checked resource payload is shared as a cache, but continuation
+        // state belongs to the server instance that receives the cursor.
+        resources.reference_pagination = ReferencePagination::new();
+        Ok(resources)
     }
 
     fn build_checked() -> Result<Self, String> {

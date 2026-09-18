@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -87,6 +87,7 @@ impl<'a> ReferenceArguments<'a> {
 }
 
 const MAX_RETAINED_RESULTS: usize = 64;
+const MAX_STALE_CURSORS: usize = 64;
 static NEXT_PAGINATION_SECRET: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone)]
@@ -96,7 +97,7 @@ pub(crate) struct ReferencePagination {
     next_token_id: u64,
     retained: HashMap<String, RetainedReferences>,
     order: VecDeque<u64>,
-    stale: HashSet<String>,
+    stale: VecDeque<String>,
 }
 
 #[derive(Clone)]
@@ -116,6 +117,9 @@ impl ReferencePagination {
         let address = (&tick as *const u64 as usize) as u64;
         let counter = NEXT_PAGINATION_SECRET.fetch_add(1, Ordering::Relaxed);
         let mut secret = Sha256::new();
+        let mut entropy = [0_u8; 32];
+        let _ = rustix::rand::getrandom(&mut entropy, rustix::rand::GetRandomFlags::empty());
+        secret.update(entropy);
         secret.update(tick.to_le_bytes());
         secret.update(address.to_le_bytes());
         secret.update(counter.to_le_bytes());
@@ -126,7 +130,7 @@ impl ReferencePagination {
             next_token_id: 0,
             retained: HashMap::new(),
             order: VecDeque::new(),
-            stale: HashSet::new(),
+            stale: VecDeque::new(),
         }
     }
 
@@ -138,7 +142,7 @@ impl ReferencePagination {
         self.order.clear();
     }
 
-    fn initial_page(
+    pub(crate) fn initial_page(
         &mut self,
         mut references: Vec<Value>,
         scope: Value,
@@ -150,7 +154,7 @@ impl ReferencePagination {
 
     fn continue_page(&mut self, cursor: &str) -> ToolOutcome {
         let Some(retained) = self.retained.remove(cursor) else {
-            return if self.stale.contains(cursor) {
+            return if self.stale.iter().any(|stale| stale == cursor) {
                 stale_snapshot()
             } else {
                 invalid_cursor()
@@ -222,7 +226,13 @@ impl ReferencePagination {
     }
 
     fn mark_stale(&mut self, token: String) {
-        self.stale.insert(token);
+        if self.stale.iter().any(|stale| stale == &token) {
+            return;
+        }
+        self.stale.push_back(token);
+        if self.stale.len() > MAX_STALE_CURSORS {
+            self.stale.pop_front();
+        }
     }
 
     fn token(&self, result_id: u64) -> String {
@@ -532,6 +542,26 @@ mod tests {
             "stale_snapshot"
         );
         assert_eq!(pagination.continue_page(&cursors[1]).code(), "success");
+    }
+
+    #[test]
+    fn stale_cursor_bookkeeping_remains_bounded_across_repeated_invalidation() {
+        let mut pagination = ReferencePagination::new();
+        for index in 0..256 {
+            let _cursor = pagination
+                .initial_page(
+                    vec![
+                        location(&format!("file://{index}"), 1, 1),
+                        location(&format!("file://{index}-tail"), 1, 1),
+                    ],
+                    json!({}),
+                    1,
+                )
+                .into_success_cursor();
+            pagination.clear();
+        }
+
+        assert_eq!(pagination.stale.len(), MAX_STALE_CURSORS);
     }
 
     trait TestOutcome {

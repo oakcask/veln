@@ -14,6 +14,77 @@ mod standard_library_and_scope;
 mod unsupported_and_coordinates;
 mod workspace_symbols;
 
+#[test]
+fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware() {
+    let workspace = TempWorkspace::new("references-cursor-transitions");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn helper(value: Int) -> Int\n",
+            "  helper(value - 1)\n",
+            "end\n\n",
+            "fn main() -> Int\n",
+            "  helper(1)\n",
+            "end\n",
+        ),
+    );
+
+    let mut first = initialized_server(&workspace);
+    let mut second = initialized_server(&workspace);
+    let first_page = first.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4,
+        "page_size": 1
+    }));
+    let cursor = first_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let foreign = second.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(foreign["structuredContent"]["code"], "invalid_cursor");
+
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+    let continuation = first.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert!(continuation["result"].is_null());
+    assert!(continuation["structuredContent"]["references"].is_array());
+
+    let replay = first.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(replay["structuredContent"]["code"], "invalid_cursor");
+
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn helper(value: Int) -> Int\n",
+            "  helper(value - 1)\n",
+            "end\n\n",
+            "fn main() -> Int\n",
+            "  helper(1)\n",
+            "end\n",
+        ),
+    );
+    let refresh_page = first.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4,
+        "page_size": 1
+    }));
+    let refresh_cursor = refresh_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let refreshed = first.refresh_workspace_tool(|_| Ok(()));
+    assert_eq!(refreshed["isError"], false);
+    let stale = first.references_tool(&json!({"cursor": refresh_cursor}));
+    assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
+}
+
 struct WorkspaceSymbolCase {
     name: &'static str,
     files: Vec<(&'static str, &'static str)>,
