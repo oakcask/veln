@@ -67,6 +67,16 @@
       },
       "required": ["code", "message", "details"]
     }
+    ,"cursorFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "enum": ["invalid_cursor", "stale_snapshot"] },
+        "message": { "type": "string" },
+        "details": { "const": {} }
+      },
+      "required": ["code", "message", "details"]
+    }
   },
   "type": "object",
   "oneOf": [
@@ -78,10 +88,12 @@
           "type": "array",
           "items": { "$ref": "#/$defs/location" }
         },
-        "scope": { "$ref": "#/$defs/scope" }
+        "scope": { "$ref": "#/$defs/scope" },
+        "next_cursor": { "type": "string", "minLength": 1 }
       },
       "required": ["references", "scope"]
     },
-    { "$ref": "#/$defs/failure" }
+    { "$ref": "#/$defs/failure" },
+    { "$ref": "#/$defs/cursorFailure" }
   ]
 }

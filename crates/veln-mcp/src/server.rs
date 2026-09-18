@@ -235,7 +235,10 @@ impl Server {
         refresh: impl FnOnce(&mut Selection) -> io::Result<()>,
     ) -> Value {
         let outcome = match refresh(&mut self.selection) {
-            Ok(()) => ToolOutcome::Success(self.selection_result()),
+            Ok(()) => {
+                self.language_resources.reference_pagination().clear();
+                ToolOutcome::Success(self.selection_result())
+            }
             Err(_) => ToolOutcome::DomainFailure {
                 code: "generation_failed",
                 message: "workspace project discovery failed",

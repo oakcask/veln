@@ -473,6 +473,7 @@ version = "0.1.0"
 dependencies = [
  "rustix",
  "serde_json",
+ "sha2",
  "veln-analysis",
  "veln-diagnostics",
  "veln-language-service",

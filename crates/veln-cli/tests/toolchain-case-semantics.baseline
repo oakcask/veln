@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"bdded2f68116389753d712ac268a648b3271507f"
+source_git_tree	"cbe17b62ef7ca17c70a3d4f044187ba5cc3dcf8c"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1687
@@ -19666,6 +19666,18 @@ field	expectations.mcp_assertions[24].id	9
 field	expectations.mcp_assertions[24].length	0
 field	expectations.mcp_assertions[24].operation	"length"
 field	expectations.mcp_assertions[24].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[25].equals	false
+field	expectations.mcp_assertions[25].id	10
+field	expectations.mcp_assertions[25].operation	"equals"
+field	expectations.mcp_assertions[25].path	"/result/isError"
+field	expectations.mcp_assertions[26].id	10
+field	expectations.mcp_assertions[26].length	1
+field	expectations.mcp_assertions[26].operation	"length"
+field	expectations.mcp_assertions[26].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[27].contains	"."
+field	expectations.mcp_assertions[27].id	10
+field	expectations.mcp_assertions[27].operation	"contains"
+field	expectations.mcp_assertions[27].path	"/result/structuredContent/next_cursor"
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].length	4
 field	expectations.mcp_assertions[2].operation	"length"
@@ -19703,9 +19715,9 @@ field	expectations.stdout.contains[0]	"\"description\":\"Return references for a
 field	expectations.stdout.contains[1]	"\"name\":\"references\",\"outputSchema\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1152,"sha256":"6b2e20b435c4cd797f35d5efb28fbdecb6c7a5394de2abbf7ffa44499b4d7403"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1301,"sha256":"742aa88444a230ae36d7ef5f0d4c5c79480ef0d31c2d20fe94fe71d6a873b49a"}
 field	source_errors	"forbidden"
-case_digest	"6ee33d8eb86c8bce5b0a085b72a762cbfc5e3c843dc6465222f89aeb042d6a1a"
+case_digest	"2e667aa4016549670590325b80336346630f6c116401656116dea55c7d34fd8a"
 case	"examples/specification/mcp/references-workspace-schema-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -59576,4 +59588,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1f2f9ff87e1dac039c7f7321307e240334803412752cc7e344a10d07c9ed781b"
+aggregate_digest	"c89738918480d92be46e315d4e11adbcd73c7cff98fad12b01e8b0177fa7468f"

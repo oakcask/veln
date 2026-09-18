@@ -91,6 +91,28 @@ fn definition_input_requires_closed_positive_coordinates() {
 fn references_input_requires_closed_positive_coordinates() {
     let tool = tool("references").unwrap();
     assert_position_input_schema(tool);
+    assert!(tool.accepts_input(&serde_json::json!({
+        "source": "main.veln",
+        "line": 1,
+        "column": 1,
+        "page_size": 1
+    })));
+    assert!(tool.accepts_input(&serde_json::json!({
+        "source": "main.veln",
+        "line": 1,
+        "column": 1,
+        "page_size": 1000
+    })));
+    assert!(tool.accepts_input(&serde_json::json!({"cursor": "opaque"})));
+    for value in [
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":0}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":1001}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":null}),
+        serde_json::json!({"cursor":"opaque","page_size":1}),
+        serde_json::json!({"cursor":""}),
+    ] {
+        assert!(!tool.accepts_input(&value), "{value}");
+    }
 }
 
 fn assert_position_input_schema(tool: ToolSchema) {
@@ -179,7 +201,7 @@ fn references_result_accepts_locations_scope_and_domain_failures() {
         }
     });
     assert!(tool.accepts_result(&serde_json::json!({
-        "references": [location],
+        "references": [location.clone()],
         "scope": {
             "mode": "project",
             "generation": 0,
@@ -197,18 +219,37 @@ fn references_result_accepts_locations_scope_and_domain_failures() {
             "project_wide": false
         }
     })));
+    assert!(tool.accepts_result(&serde_json::json!({
+        "references": [location],
+        "scope": {
+            "mode": "project",
+            "generation": 0,
+            "project": ".",
+            "project_wide": true
+        },
+        "next_cursor": "opaque"
+    })));
     for code in [
         "invalid_path",
         "invalid_position",
         "snapshot_changed",
         "resource_capacity",
+        "invalid_cursor",
+        "stale_snapshot",
     ] {
         let result = serde_json::json!({
             "code": code,
             "message": "failed",
-            "details": {"source": "main.veln"}
+            "details": {}
         });
         assert!(tool.accepts_result(&result), "{result}");
+        if matches!(code, "invalid_cursor" | "stale_snapshot") {
+            assert!(!tool.accepts_result(&serde_json::json!({
+                "code": code,
+                "message": "failed",
+                "details": {"source": "main.veln"}
+            })));
+        }
     }
     assert!(!tool.accepts_result(&serde_json::json!({
         "code": "snapshot_changed",

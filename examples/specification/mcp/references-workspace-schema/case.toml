@@ -135,3 +135,18 @@ equals = false
 id = 9
 path = "/result/structuredContent/references"
 length = 0
+
+[[mcp_assert]]
+id = 10
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/next_cursor"
+contains = "."

@@ -425,6 +425,30 @@ following supported workspace symbols and eligible package selections:
 - handler context parameters;
 - handler operation clause parameters.
 
+The `references` input is either an initial source-coordinate request or a
+continuation request containing only a non-empty `cursor`. Initial requests
+accept `page_size` from 1 through 1,000 and default it to 100. The result is
+sorted by URI UTF-8 bytes, then numeric start line, start column, end line, and
+end column before paging. A nonfinal page has exactly the requested size and
+contains `next_cursor`; an empty or final page omits that field. Every page
+repeats the captured scope metadata. The complete captured locations and
+scope remain stable when files change until refresh or cursor invalidation.
+
+Continuation state is authenticated to the server process and is single-use.
+The server retains at most 64 unfinished results in initial-admission FIFO
+order. A successful refresh invalidates live cursors with `stale_snapshot`.
+Evicted cursors also return `stale_snapshot`; malformed, tampered, foreign,
+post-restart, or already-consumed cursors return `invalid_cursor`. Invalid
+request shapes and failed initial captures do not consume cursor state. A
+continuation consumes its cursor before issuing a distinct cursor for a later
+nonfinal page. A final continuation releases its retained result and FIFO
+admission. There is no time-based cursor expiry, and refresh or eviction keeps
+an unconsumed cursor distinguishable as `stale_snapshot` without reviving it
+when file bytes are restored. Continuation does not recapture sources or admit
+new package resources. Cursor failures use exactly `{}` for `details`.
+The checked schemas and the focused server transition tests are the primary
+verification artifacts for these rules.
+
 Workspace schema references include schema path-leaf occurrences in `decode`
 and `encode` expressions and directly resolved schema-composition path leaves
 in direct fields and supported repeated payloads. They use the selected
