@@ -14,6 +14,12 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
+## Ready
+
+- Standard-library schema composition and operation references, using the
+  existing package snapshots and shared navigation adapters:
+  [standard-library-schema-references.md](standard-library-schema-references.md).
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
@@ -26,7 +32,8 @@ also states it.
   broader dependency and standard-library schema-alias references beyond the
   implemented same-dependency chain slice, plus
   documentation, conformance, and plugin work. Do not select the umbrella
-  directly:
+  directly. Its independently ready standard-library schema reference slice
+  is listed above:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
