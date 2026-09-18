@@ -2,8 +2,8 @@ type PackageSchemaIdentity<'a> = (&'a str, &'a str, &'a str);
 type PackageSchemaAliasIdentity<'a> = PackageSchemaIdentity<'a>;
 
 struct PackageSchemaDeclarations<'a> {
-    aliases: &'a [PackageSchemaAliasDeclaration],
     alias_counts: BTreeMap<PackageSchemaIdentity<'a>, usize>,
+    exported_aliases: BTreeSet<PackageSchemaIdentity<'a>>,
     recovered_targets: BTreeSet<PackageSchemaIdentity<'a>>,
     target_counts: BTreeMap<PackageSchemaIdentity<'a>, (usize, bool)>,
 }
@@ -15,8 +15,8 @@ impl<'a> PackageSchemaDeclarations<'a> {
         recovered_targets: &'a [PackageSchemaTarget],
     ) -> Self {
         Self {
-            aliases,
             alias_counts: direct_dependency_alias_counts(aliases),
+            exported_aliases: direct_dependency_exported_aliases(aliases),
             recovered_targets: direct_dependency_recovered_targets(recovered_targets),
             target_counts: direct_dependency_target_counts(targets),
         }
@@ -36,9 +36,7 @@ impl<'a> PackageSchemaDeclarations<'a> {
 }
 
 struct PackageSchemaAliasEligibility<'a> {
-    declarations: &'a PackageSchemaDeclarations<'a>,
-    resolved_aliases:
-        BTreeMap<PackageSchemaAliasIdentity<'a>, &'a ResolvedPackageSchemaAlias>,
+    eligible_aliases: BTreeSet<PackageSchemaAliasIdentity<'a>>,
 }
 
 impl<'a> PackageSchemaAliasEligibility<'a> {
@@ -46,92 +44,76 @@ impl<'a> PackageSchemaAliasEligibility<'a> {
         declarations: &'a PackageSchemaDeclarations<'a>,
         resolved_aliases: &'a [ResolvedPackageSchemaAlias],
     ) -> Self {
-        Self {
-            declarations,
-            resolved_aliases: resolved_package_schema_alias_index(resolved_aliases),
-        }
+        let resolved_aliases = resolved_package_schema_alias_index(resolved_aliases);
+        let eligible_aliases = eligible_package_schema_aliases(declarations, &resolved_aliases);
+        Self { eligible_aliases }
     }
 
     fn contains(&self, alias: &NeutralSymbol) -> bool {
-        #[cfg(test)]
-        record_schema_alias_declaration_visit();
         let Some(package) = alias.package.as_deref() else {
             return false;
         };
-        let Some(resolved_alias) = self.resolved_aliases.get(&(
-            package,
-            alias.module.as_str(),
-            alias.name.as_str(),
-        )) else {
-            return false;
-        };
-        let Some(target_module) = resolved_alias.target_module.as_deref() else {
-            return false;
-        };
-        if !resolved_alias.target_exported {
-            return false;
-        }
-        let alias_identity = (package, alias.module.as_str(), alias.name.as_str());
-        let target_identity = (package, target_module, resolved_alias.target_name.as_str());
-        self.chain_is_eligible(resolved_alias, alias_identity, target_identity)
+        self.eligible_aliases
+            .contains(&(package, alias.module.as_str(), alias.name.as_str()))
     }
+}
 
-    fn chain_is_eligible(
-        &self,
-        initial: &ResolvedPackageSchemaAlias,
-        initial_identity: PackageSchemaIdentity<'_>,
-        final_target: PackageSchemaIdentity<'_>,
-    ) -> bool {
-        let mut current = initial;
-        let mut identity = initial_identity;
-        let mut visited = BTreeSet::new();
-        loop {
-            if !visited.insert(identity)
-                || !self.declarations.contains_alias(&identity)
-                || !self.alias_is_exported(identity)
+fn eligible_package_schema_aliases<'a>(
+    declarations: &'a PackageSchemaDeclarations<'a>,
+    resolved_aliases: &BTreeMap<PackageSchemaAliasIdentity<'a>, &'a ResolvedPackageSchemaAlias>,
+) -> BTreeSet<PackageSchemaAliasIdentity<'a>> {
+    let mut eligibility = BTreeMap::<PackageSchemaAliasIdentity<'a>, bool>::new();
+    for &identity in resolved_aliases.keys() {
+        if eligibility.contains_key(&identity) {
+            continue;
+        }
+        let mut identity = identity;
+        let mut path = Vec::new();
+        let mut positions = BTreeMap::new();
+        let outcome = loop {
+            if let Some(&known) = eligibility.get(&identity) {
+                break known;
+            }
+            let Some(&current) = resolved_aliases.get(&identity) else {
+                break false;
+            };
+            if !declarations.contains_alias(&identity)
+                || !declarations.exported_aliases.contains(&identity)
             {
-                return false;
+                break false;
             }
-            let next_identity = (
-                identity.0,
-                current.direct_target_module.as_deref(),
-                current.direct_target_name.as_str(),
-            );
-            let Some(next_module) = next_identity.1 else {
-                return false;
-            };
-            let next_identity = (next_identity.0, next_module, next_identity.2);
+            if positions.insert(identity, path.len()).is_some() {
+                break false;
+            }
+            path.push(identity);
             if !current.direct_target_is_alias {
-                return next_identity == final_target
-                    && self.declarations.contains_schema(&next_identity);
+                let Some(target_module) = current.direct_target_module.as_deref() else {
+                    break false;
+                };
+                break current.target_exported
+                    && declarations.contains_schema(&(
+                        identity.0,
+                        target_module,
+                        current.direct_target_name.as_str(),
+                    ));
             }
-            let Some(next) = self
-                .resolved_aliases
-                .get(&(next_identity.0, next_module, next_identity.2))
-            else {
-                return false;
+            let Some(target_module) = current.direct_target_module.as_deref() else {
+                break false;
             };
-            identity = next_identity;
-            current = next;
+            let next = (identity.0, target_module, current.direct_target_name.as_str());
+            if eligibility.contains_key(&next) {
+                break *eligibility.get(&next).unwrap_or(&false);
+            }
+            identity = next;
+        };
+        for path_identity in path {
+            eligibility.insert(path_identity, outcome);
         }
     }
-
-    fn alias_is_exported(&self, identity: PackageSchemaIdentity<'_>) -> bool {
-        self.declarations
-            .alias_counts
-            .get(&identity)
-            .is_some_and(|count| *count == 1)
-            && self
-                .declarations
-                .aliases
-                .iter()
-                .filter(|alias| {
-                    alias.package == identity.0
-                        && alias.module == identity.1
-                        && alias.name == identity.2
-                })
-                .all(|alias| alias.exported)
-    }
+    eligibility
+        .into_iter()
+        .filter_map(|(identity, eligible)| eligible.then_some(identity))
+        .collect()
 }
 
 fn resolved_package_schema_alias_index(
@@ -174,6 +156,25 @@ fn direct_dependency_alias_counts(
             .or_insert(0usize) += 1;
     }
     counts
+}
+
+fn direct_dependency_exported_aliases(
+    aliases: &[PackageSchemaAliasDeclaration],
+) -> BTreeSet<PackageSchemaIdentity<'_>> {
+    let mut exported = BTreeSet::new();
+    for alias in aliases
+        .iter()
+        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
+    {
+        if alias.exported {
+            exported.insert((
+                alias.package.as_str(),
+                alias.module.as_str(),
+                alias.name.as_str(),
+            ));
+        }
+    }
+    exported
 }
 
 fn direct_dependency_recovered_targets(

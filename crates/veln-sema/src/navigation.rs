@@ -195,17 +195,8 @@ pub fn resolved_schema_alias_chains(module: &SurfaceModule) -> Vec<ResolvedSchem
         let [alias] = candidates.as_slice() else {
             continue;
         };
-        let mut visiting = BTreeSet::new();
         let Some((target, direct_target_module, direct_target_name, direct_target_is_alias)) =
-            resolve_schema_alias_chain(
-                module,
-                alias,
-                &imports,
-                &aliases,
-                &schemas,
-                &mut visiting,
-                &mut memo,
-            )
+            resolve_schema_alias_chain(module, alias, &imports, &aliases, &schemas, &mut memo)
         else {
             continue;
         };
@@ -230,79 +221,102 @@ fn resolve_schema_alias_chain<'a>(
     imports: &SchemaAliasTargetImportIndex<'a>,
     aliases: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a PublicAlias>>,
     schemas: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a SchemaDecl>>,
-    visiting: &mut BTreeSet<(Option<&'a str>, &'a str)>,
     memo: &mut BTreeMap<(Option<&'a str>, &'a str), Option<&'a SchemaDecl>>,
 ) -> Option<(&'a SchemaDecl, Option<String>, String, bool)> {
-    #[cfg(test)]
-    record_schema_alias_chain_resolution_visit();
-    if public_alias_has_invalid_target_leaf(module, alias, None) {
-        return None;
-    }
-    let alias_name = alias.name.as_deref()?;
-    let alias_identity = (alias.module_name.as_deref(), alias_name);
-    if let Some(result) = memo.get(&alias_identity) {
-        let target = result.as_ref().copied()?;
-        let (target_module, target_name) =
-            direct_schema_alias_target_identity_with_index(alias, imports)?;
-        let direct_target_is_alias = aliases.contains_key(&(target_module, target_name));
-        return Some((
-            target,
-            target_module.map(str::to_string),
-            target_name.to_string(),
-            direct_target_is_alias,
-        ));
-    }
-    if !visiting.insert(alias_identity) {
-        memo.insert(alias_identity, None);
-        return None;
-    }
-    let result = (|| {
-        let (target_module, target_name) =
-            direct_schema_alias_target_identity_with_index(alias, imports)?;
-        if schemas.contains_key(&(target_module, target_name))
-            && aliases.contains_key(&(target_module, target_name))
+    alias.name.as_deref()?;
+    let mut path = Vec::new();
+    let mut positions = BTreeMap::new();
+    let mut current = alias;
+    let (target, target_module, target_name, direct_target_is_alias) = loop {
+        #[cfg(test)]
+        record_schema_alias_chain_resolution_visit();
+        let identity = (current.module_name.as_deref(), current.name.as_deref()?);
+        if let Some(result) = memo.get(&identity) {
+            let Some(target) = result.as_ref().copied() else {
+                for path_identity in &path {
+                    memo.insert(*path_identity, None);
+                }
+                return None;
+            };
+            for path_identity in &path {
+                memo.insert(*path_identity, Some(target));
+            }
+            let (target_module, target_name) =
+                direct_schema_alias_target_identity_with_index(alias, imports)?;
+            let direct_target_is_alias = aliases.contains_key(&(target_module, target_name));
+            break (
+                target,
+                target_module.map(str::to_string),
+                target_name.to_string(),
+                direct_target_is_alias,
+            );
+        }
+        if positions.insert(identity, path.len()).is_some()
+            || public_alias_has_invalid_target_leaf(module, current, None)
         {
+            for identity in path {
+                memo.insert(identity, None);
+            }
             return None;
         }
-        if let Some(targets) = schemas.get(&(target_module, target_name)) {
+        path.push(identity);
+        let Some((next_module, next_name)) =
+            direct_schema_alias_target_identity_with_index(current, imports)
+        else {
+            memoize_schema_alias_failure(&path, memo);
+            return None;
+        };
+        if schemas.contains_key(&(next_module, next_name))
+            && aliases.contains_key(&(next_module, next_name))
+        {
+            for identity in &path {
+                memo.insert(*identity, None);
+            }
+            return None;
+        }
+        if let Some(targets) = schemas.get(&(next_module, next_name)) {
             let [target] = targets.as_slice() else {
+                for identity in &path {
+                    memo.insert(*identity, None);
+                }
                 return None;
             };
             if target.visibility != Visibility::Public {
+                for identity in &path {
+                    memo.insert(*identity, None);
+                }
                 return None;
             }
-            return Some((
+            for identity in &path {
+                memo.insert(*identity, Some(*target));
+            }
+            break (
                 *target,
-                target_module.map(str::to_string),
-                target_name.to_string(),
+                next_module.map(str::to_string),
+                next_name.to_string(),
                 false,
-            ));
+            );
         }
-        let [target_alias] = aliases.get(&(target_module, target_name))?.as_slice() else {
+        let Some(candidates) = aliases.get(&(next_module, next_name)) else {
+            memoize_schema_alias_failure(&path, memo);
             return None;
         };
-        let (target, _, _, _) = resolve_schema_alias_chain(
-            module,
-            *target_alias,
-            imports,
-            aliases,
-            schemas,
-            visiting,
-            memo,
-        )?;
-        Some((
-            target,
-            target_module.map(str::to_string),
-            target_name.to_string(),
-            true,
-        ))
-    })();
-    visiting.remove(&alias_identity);
-    memo.insert(
-        alias_identity,
-        result.as_ref().map(|(target, _, _, _)| *target),
-    );
-    result
+        let [target_alias] = candidates.as_slice() else {
+            memoize_schema_alias_failure(&path, memo);
+            return None;
+        };
+        current = target_alias;
+    };
+    Some((target, target_module, target_name, direct_target_is_alias))
+}
+
+fn memoize_schema_alias_failure<'a>(
+    path: &[(Option<&'a str>, &'a str)],
+    memo: &mut BTreeMap<(Option<&'a str>, &'a str), Option<&'a SchemaDecl>>,
+) {
+    for identity in path {
+        memo.insert(*identity, None);
+    }
 }
 
 fn direct_public_schema_alias_target_with_index<'a>(

@@ -139,8 +139,6 @@ fn index_dependency_sources(
                     package_origin,
                     alias_module: resolved.alias_module,
                     alias_name: resolved.alias_name,
-                    target_module: resolved.target_module,
-                    target_name: resolved.target_name,
                     target_exported,
                     direct_target_module: resolved.direct_target_module,
                     direct_target_name: resolved.direct_target_name,

@@ -738,8 +738,6 @@ struct ResolvedPackageSchemaAlias {
     package_origin: PackageOrigin,
     alias_module: Option<String>,
     alias_name: String,
-    target_module: Option<String>,
-    target_name: String,
     target_exported: bool,
     direct_target_module: Option<String>,
     direct_target_name: String,

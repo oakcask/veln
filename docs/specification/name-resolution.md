@@ -46,8 +46,10 @@ aliases. The imported target can resolve to another module or back to the
 alias's own module.
 Consumer imports do not participate in target resolution. No schema alias may
 share the target name in the resolved schema namespace. Same-spelled
-declarations in unrelated namespaces do not affect eligibility. Alias chains,
-external-package targets, ambiguous imports, and recovered imports remain
+declarations in unrelated namespaces do not affect eligibility. A finite,
+acyclic chain of public schema aliases in the same retained direct dependency
+is eligible when every hop and the terminal schema are in exported sources.
+External-package targets, ambiguous imports, and recovered imports remain
 ineligible. The executable evidence is the following language-service tests:
 
 - `direct_dependency_schema_alias_qualified_target_resolution_matrix`

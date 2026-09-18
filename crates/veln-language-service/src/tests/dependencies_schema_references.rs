@@ -11,8 +11,8 @@ mod dependencies_schema_references_tests {
             let _ = snapshot.navigation_index();
             assert_eq!(
                 crate::navigation::schema_alias_declaration_visits(),
-                count * 4,
-                "eligibility must visit each resolved alias, alias declaration, target, and candidate once",
+                count * 3,
+                "eligibility must visit each resolved alias, alias declaration, and target once",
             );
             let result = query_snapshot(&snapshot, "main.veln", 4, 19).unwrap();
             assert_eq!(result.selected_symbol.name, "Alias0");
@@ -37,6 +37,52 @@ mod dependencies_schema_references_tests {
             assert_eq!(selected.selected_symbol.name, format!("Alias{}", count - 1));
             assert_eq!(locations(&selected.references), [("main.veln", 4, 15)]);
         }
+    }
+
+    #[test]
+    fn dependency_schema_alias_chain_keeps_each_identity_and_isolates_cycles() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "dep.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Mid = Packet\n",
+                    "pub schema Top = Mid\n",
+                    "pub schema Sibling = Packet\n",
+                    "pub schema BrokenA = BrokenB\n",
+                    "pub schema BrokenB = BrokenA\n",
+                    "pub schema Valid = Packet\n",
+                ),
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Top from view at byte_offset(0)?\n",
+                    "  decode dep::Mid from view at byte_offset(0)?\n",
+                    "  decode dep::Packet from view at byte_offset(0)?\n",
+                    "  decode dep::BrokenA from view at byte_offset(0)?\n",
+                    "  decode dep::Valid from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        let top = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
+        assert_eq!(locations(&top.references), [("main.veln", 4, 15)]);
+        let mid = query_snapshot(&snapshot, "main.veln", 5, 16).unwrap();
+        assert_eq!(locations(&mid.references), [("main.veln", 5, 15)]);
+        let packet = query_snapshot(&snapshot, "main.veln", 6, 16).unwrap();
+        assert_eq!(locations(&packet.references), [("main.veln", 6, 15)]);
+        assert!(query_snapshot(&snapshot, "main.veln", 7, 16).is_none());
+        let valid = query_snapshot(&snapshot, "main.veln", 8, 16).unwrap();
+        assert_eq!(locations(&valid.references), [("main.veln", 8, 15)]);
     }
 
     #[test]
@@ -321,7 +367,7 @@ mod dependencies_schema_references_tests {
             assert_eq!(schema_visits, count);
             assert_eq!(
                 crate::navigation::schema_alias_declaration_visits(),
-                count * 4,
+                count * 3,
                 "eligible aliases must be indexed once per declaration-resolution boundary",
             );
             assert_eq!(field_token_visits % count, 0);
