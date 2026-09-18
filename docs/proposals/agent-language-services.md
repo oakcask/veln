@@ -55,8 +55,12 @@ The remaining first-capability work includes:
 - plugin packaging for Codex and Claude Code.
 
 Direct-dependency schema-alias composition and operation references share the
-implemented eligibility and identity boundary. Alias chains and other package
-origins remain later work.
+implemented eligibility and identity boundary. The independently ready
+[same-dependency schema-alias chain slice](dependency-schema-alias-chain-references.md)
+owns the planned extension for finite public alias chains in one retained
+direct dependency. Other package origins remain later work. The slice's
+acceptance table owns that bounded target; this umbrella does not add plugin,
+conformance-manifest, or broader navigation prerequisites to it.
 
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
@@ -1001,6 +1005,8 @@ standard-library schemas and schema aliases, transitive dependencies,
 recovery, and casing-neutral references.
 Later umbrella slices are:
 
+1. Implement the independently selectable
+   [same-dependency schema-alias chain references](dependency-schema-alias-chain-references.md).
 1. Extend package navigation with standard-library schema, broader dependency
    and standard-library public schema aliases, and
    other remaining package symbol references, recovery
