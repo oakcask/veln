@@ -59,6 +59,9 @@ Direct-dependency schema-alias composition and operation references share the
 implemented eligibility and identity boundary. Alias chains and other package
 origins remain later work.
 
+The ready [MCP Reference Pagination](mcp-reference-pagination.md) slice depends
+only on the implemented saved-source reference boundary.
+
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
@@ -313,13 +316,12 @@ zero or one semantic location. When the declaration has published
 documentation, the result also contains its documentation resource URI and
 declaration identifier.
 
-The first `references` request accepts a workspace-relative source path,
-position, `include_declaration`, and a bounded page size. A continuation
-request contains only `cursor`. `include_declaration` defaults to true and the
-page size defaults to 100 with a maximum of 1,000. Values outside that range
-are rejected rather than clamped. Results are sorted by URI, start line, start
-column, end line, and end column. Each result states whether its scope is a
-selected project or one file and whether it is project-wide.
+The independently selectable
+[MCP Reference Pagination](mcp-reference-pagination.md) proposal owns bounded
+pages and continuation state for the implemented reference set. It does not
+include declarations or expand symbol coverage. A later declaration-inclusion
+slice may add `include_declaration`, defaulting to true; that flag and default
+are not requirements of the pagination slice.
 
 `search_docs` accepts a query of at most 256 Unicode scalars, a scope of
 `language`, `package`, `stdlib`, or `all`, and a result count that defaults to
@@ -399,15 +401,9 @@ relative scope root when present, and whether the result is project-wide. An
 empty single-file result is therefore not presented as a complete project-wide
 answer.
 
-The server retains at most 64 reference continuation states. A cursor is an
-opaque authenticated token bound to one server process, selection generation,
-captured result, page size, declaration policy, and next offset. A continuation
-contains only that cursor. Tampered, cross-server, post-restart, reused, and
-terminal cursors return `invalid_cursor`. A cursor whose retained state was
-evicted returns `stale_snapshot`. There is no time-based expiry. Unrelated file
-changes do not affect a retained result, but a successful workspace refresh
-stales every earlier cursor. Byte-identical restoration does not revive an
-evicted cursor.
+[MCP Reference Pagination](mcp-reference-pagination.md) owns the continuation
+state contract and its acceptance table. Broader symbol coverage and
+reference declaration inclusion are independent follow-up work.
 
 ## Semantic Locations
 
@@ -1025,8 +1021,8 @@ Later umbrella slices are:
    other remaining package symbol references, paginated references, recovery
    and casing-neutral symbol references, and definition beyond the
    package-backed symbol inventory.
-1. Add cross-adapter conformance cases, bounded search, pagination, and stale
-   snapshot handling.
+1. Implement [MCP Reference Pagination](mcp-reference-pagination.md) independently
+   of broader symbol coverage, then complete cross-adapter conformance cases.
 1. Package and validate Codex and Claude Code plugins and document their
    client-native installation flows.
 

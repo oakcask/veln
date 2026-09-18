@@ -14,6 +14,12 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
+## Ready
+
+- Paginate the implemented saved-source reference result without expanding
+  symbol coverage or including declarations:
+  [mcp-reference-pagination.md](mcp-reference-pagination.md).
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
