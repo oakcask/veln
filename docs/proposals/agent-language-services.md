@@ -57,6 +57,12 @@ The remaining first-capability work includes:
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
+[Standard-Library Schema References](standard-library-schema-references.md)
+owns the independently selectable standard-library schema composition and
+operation reference slice. Its acceptance table and completion boundary take
+precedence over this inventory for that slice. Standard-library schema aliases
+and the remaining conformance and plugin work do not block it.
+
 Current direct-dependency schema composition and eligible schema-alias behavior
 is specified by
 [Editor Support](../specification/editor-support.md) and
@@ -996,7 +1002,9 @@ standard-library schemas and schema aliases, transitive dependencies,
 recovery, and casing-neutral references.
 Later umbrella slices are:
 
-1. Extend package navigation with standard-library schema, broader dependency
+1. Implement the bounded
+   [standard-library schema reference slice](standard-library-schema-references.md).
+1. Extend package navigation with broader dependency
    and standard-library public schema aliases, and
    other remaining package symbol references, recovery
    and casing-neutral symbol references, and definition beyond the
