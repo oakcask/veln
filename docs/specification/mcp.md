@@ -541,10 +541,12 @@ preserve successful empty results for a non-exported alias blocker, a target
 declared in a non-exported source, and an invalid-cased target import. They also
 exclude a same-spelled workspace type from the exact alias set and keep
 dependency-alias composition selection successful and included in the
-alias-specific union. An unselected
+alias-specific union. The union is identical when selected from a full
+written module path, a unique implicit leaf path, a direct field, a valid
+`Repeat` payload, or an array payload. An unselected
 descendant project contains the same qualified alias use and remains outside
 the selected root project's exact result. Every positive
-decode and encode response binds each range to its workspace URI.
+composition, decode, and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
 alias declaration. The
 `references-dependency-schema-operation-boundaries` case requires successful
@@ -771,7 +773,9 @@ standard-library schema alias and requires a successful empty result with
 project-wide scope.
 The `references-dependency-schema-alias` MCP specification case checks
 direct-dependency public schema-alias composition and operation references through full written
-and implicit leaf module paths. It fixes exact workspace-only ranges,
+and implicit leaf module paths. It fixes the complete exact workspace-only
+union, including every URI and range for direct, `Repeat`, and array
+composition leaves, as well as
 decode/encode selection parity, dependency-and-declaration identity,
 project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
 It also excludes a same-spelled workspace type and an unselected descendant

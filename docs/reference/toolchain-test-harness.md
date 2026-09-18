@@ -336,12 +336,14 @@ uses the same model for exact-import precedence, import-order-independent
 collisions, cross-module alias targets, and successful empty results at
 unsupported, ambiguous, and recovered package-schema boundaries.
 The paired `references-dependency-schema-alias` MCP and LSP specification cases
-use identical saved sources. Their decoded assertions cover exact normalized
-workspace operation-leaf locations, alias and target identity separation,
-qualified cross-module target resolution, unsupported target and composition
-selections, descendant-project and dependency-package source exclusion, and
-null definition and prepare-rename results plus an empty rename change set for
-the supported package alias leaf.
+use identical saved sources. Their decoded assertions cover the exact
+normalized workspace composition-and-operation union from full and implicit
+module paths, direct fields, `Repeat` payloads, and array payloads, alias and
+target identity separation, qualified cross-module target resolution,
+unsupported target selections, descendant-project and dependency-package
+source exclusion, both LSP declaration-inclusion policies, and null definition
+and prepare-rename results plus an empty rename change set when a composition
+leaf is selected.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept

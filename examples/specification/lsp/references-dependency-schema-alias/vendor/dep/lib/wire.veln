@@ -9,6 +9,7 @@ pub type Packet
 end
 
 pub schema WirePacket = core::Packet
+pub schema SiblingPacket = core::Packet
 pub schema PrivateTarget = private::Packet
 pub schema InvalidImport = Core::Packet
 

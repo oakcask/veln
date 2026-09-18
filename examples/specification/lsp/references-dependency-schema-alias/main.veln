@@ -25,8 +25,14 @@ end
 schema Frame
   count: UInt8
   nested: lib::wire::WirePacket
+  implicit: wire::WirePacket
   repeated: Repeat(count, lib::wire::WirePacket)
   array: [lib::wire::WirePacket; count]
   invalid_repeat: Repeat(count + 1, lib::wire::WirePacket)
   invalid_array: [lib::wire::WirePacket; count + 1]
+end
+
+fn identity_boundaries(view: ByteView, packet: {value: Int}) -> ()
+  decode lib::wire::SiblingPacket from view at byte_offset(0)?
+  encode other::lib::WirePacket from packet
 end
