@@ -291,6 +291,40 @@ fn stdio_call_spans_include_nested_aggregate_and_match_calls() {
 }
 
 #[test]
+fn stdio_call_spans_preserve_nested_call_locations_across_expression_forms() {
+    // Span collection runs on syntax, including expressions that are not well typed.
+    for expression in [
+        "consume(stdio::print<String>(\"first\"), stdio::eprint(\"second\"))",
+        "stdio::print<String>(\"first\")(stdio::eprint(\"second\"))",
+        "{stdio::print<String>(\"first\"): stdio::eprint(\"second\")}",
+        "stdio::print<String>(\"first\") + stdio::eprint(\"second\")",
+        "decode Packet from stdio::print<String>(\"first\") at stdio::eprint(\"second\")",
+        "handle perform Ask::value(stdio::print<String>(\"first\")) with ask(stdio::eprint(\"second\"))",
+        "if stdio::print<String>(\"first\")\n    ()\n  else if false\n    stdio::eprint(\"second\")\n  else\n    ()\n  end",
+        "match stdio::print<String>(\"first\")\n    _ => (encode Packet from stdio::eprint(\"second\"))?\n  end",
+    ] {
+        let text = format!("test first() -> () effects [stdio]\n  {expression}\nend\n");
+        let module = module(&text);
+        let call_spans = stdio_call_spans(&module);
+        let mut spans = call_spans.values().collect::<Vec<_>>();
+        spans.sort_by_key(|span| span.start.offset);
+        let snippets = spans
+            .iter()
+            .map(|span| &text[span.start.offset..span.end.offset])
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            snippets,
+            [
+                "stdio::print<String>(\"first\")",
+                "stdio::eprint(\"second\")"
+            ],
+            "{expression}",
+        );
+    }
+}
+
+#[test]
 fn stdio_trace_skips_malformed_lines() {
     let source_file = SourceFile::new("main_test.veln", "test first() -> ()\n  ()\nend\n");
     let source = TestCaseSource {

@@ -4,91 +4,18 @@ pub(super) fn collect_stdio_call_spans(
     expr: &Expr,
     spans: &mut BTreeMap<(String, String), SourceSpan>,
 ) {
-    match &expr.kind {
-        ExprKind::Call { callee, args } => {
-            if is_stdio_callee(callee) {
-                spans.insert(
-                    (
-                        expr.span.file.as_str().to_string(),
-                        expr.node_id.display("call"),
-                    ),
-                    expr.span.clone(),
-                );
-            }
-            collect_stdio_call_spans(callee, spans);
-            for arg in args {
-                collect_stdio_call_spans(arg, spans);
-            }
-        }
-        ExprKind::TypeApply { callee, .. } => collect_stdio_call_spans(callee, spans),
-        ExprKind::Perform { args, .. } => {
-            for arg in args {
-                collect_stdio_call_spans(arg, spans);
-            }
-        }
-        ExprKind::Handle { body, args, .. } => {
-            collect_stdio_call_spans(body, spans);
-            for arg in args {
-                collect_stdio_call_spans(arg, spans);
-            }
-        }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            collect_stdio_call_spans(input, spans);
-            collect_stdio_call_spans(base, spans);
-        }
-        ExprKind::SchemaEncode { value, .. } => collect_stdio_call_spans(value, spans),
-        ExprKind::FieldAccess { base, .. } => collect_stdio_call_spans(base, spans),
-        ExprKind::Try(inner) => collect_stdio_call_spans(inner, spans),
-        ExprKind::Record(fields) => {
-            for field in fields {
-                collect_stdio_call_spans(&field.expr, spans);
-            }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_stdio_call_spans(&entry.key, spans);
-                collect_stdio_call_spans(&entry.value, spans);
-            }
-        }
-        ExprKind::List(items) => {
-            for item in items {
-                collect_stdio_call_spans(item, spans);
-            }
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            collect_stdio_call_spans(scrutinee, spans);
-            for arm in arms {
-                collect_stdio_call_spans(&arm.expr, spans);
-            }
-        }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            collect_stdio_call_spans(condition, spans);
-            collect_stdio_call_spans(then_branch, spans);
-            for branch in else_if_branches {
-                collect_stdio_call_spans(&branch.condition, spans);
-                collect_stdio_call_spans(&branch.expr, spans);
-            }
-            collect_stdio_call_spans(else_branch, spans);
-        }
-        ExprKind::Prefix { expr, .. } => collect_stdio_call_spans(expr, spans),
-        ExprKind::Binary { left, right, .. } => {
-            collect_stdio_call_spans(left, spans);
-            collect_stdio_call_spans(right, spans);
-        }
-        ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::NamePath { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit => {}
+    if let ExprKind::Call { callee, .. } = &expr.kind
+        && is_stdio_callee(callee)
+    {
+        spans.insert(
+            (
+                expr.span.file.as_str().to_string(),
+                expr.node_id.display("call"),
+            ),
+            expr.span.clone(),
+        );
     }
+    expr.for_each_child(&mut |child| collect_stdio_call_spans(child, spans));
 }
 
 pub(super) fn is_stdio_callee(expr: &Expr) -> bool {

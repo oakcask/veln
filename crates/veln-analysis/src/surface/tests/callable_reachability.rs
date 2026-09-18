@@ -1,6 +1,37 @@
 use super::*;
 
 #[test]
+fn nested_callee_collection_keeps_match_bindings_local() {
+    let module = lower(concat!(
+        "fn argument() -> Int\n  1\nend\n",
+        "fn pick(value: Int) -> Int\n  value\nend\n",
+        "fn hidden() -> Int\n  2\nend\n",
+        "fn sibling() -> Int\n  3\nend\n",
+        "pub fn main(value: Option<Int>) -> Int\n",
+        "  let values = [{field: pick(argument())}]\n",
+        "  match value\n",
+        "    Some(hidden) => hidden\n",
+        "    None => match value\n",
+        "      Some(sibling) => sibling\n",
+        "      None => sibling()\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+    let functions = reachable
+        .functions
+        .iter()
+        .map(|function| (function.name.as_deref().unwrap(), function.params.len()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        functions,
+        [("argument", 0), ("pick", 1), ("sibling", 0), ("main", 1)]
+    );
+}
+
+#[test]
 fn test_entry_can_reach_function_callee() {
     let module = lower(concat!(
         "test foo() -> ()\n",
