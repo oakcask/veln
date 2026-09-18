@@ -2912,7 +2912,11 @@ mod dependencies_schema_references_tests {
                 ("facade/imports.veln", "mod facade\nuse core\n"),
                 (
                     "facade/alias.veln",
-                    "mod facade\n\npub schema Alias = core::Packet\n",
+                    concat!(
+                        "mod facade\n\n",
+                        "pub schema Intermediate = core::Packet\n",
+                        "pub schema Alias = Intermediate\n",
+                    ),
                 ),
             ],
             ["core.veln", "facade/alias.veln"],

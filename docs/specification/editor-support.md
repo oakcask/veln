@@ -268,12 +268,12 @@ and operation leaves as MCP when declaration inclusion is false. Each
 non-terminal hop must resolve to one unique public schema alias, and the final
 hop must resolve to one unique public schema declared by an exported source in
 the retained dependency. The chain must be finite and acyclic. A bare target
-resolves in the alias module or the current hop's module. A qualified target
+resolves in the declaring alias module of the current hop. A qualified target
 resolves through a valid local import from any retained package source with the
 current hop's explicit module identity. Full written target modules and unique
 implicit leaf import aliases are accepted. Consumer imports do not affect
 target resolution. The qualified import can resolve to another module or back
-to the alias's own module. At each hop, the declaration kind must match the
+to the current hop's declaring module. At each hop, the declaration kind must match the
 expected kind: a non-terminal target is one public schema alias, and the final
 target is one public schema. Same-spelled declarations in unrelated
 namespaces do not affect target resolution. Alias identity includes the

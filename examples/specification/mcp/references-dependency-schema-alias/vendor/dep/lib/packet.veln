@@ -1,7 +1,5 @@
 mod lib::core
 
-use lib::wire
-
 pub schema Packet
   format binary
   value: UInt8

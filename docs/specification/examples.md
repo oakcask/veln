@@ -343,6 +343,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   dependencies separate, prefer an
   exact dependency import over a colliding implicit alias, and prevent a
   non-exported alias from falling back to a same-spelled exported schema. They
+  also exercise a chain whose non-terminal target import is declared in a
+  different retained source with the same explicit module identity. They
   also keep an alias whose target source is not exported, an alias with an
   invalid-cased target import, cycles, a chain ending at a private schema in an
   exported source, and a separate chain ending at a public schema in a
