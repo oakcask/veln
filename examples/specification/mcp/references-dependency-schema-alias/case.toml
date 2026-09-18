@@ -448,6 +448,11 @@ equals = []
 
 [[mcp_assert]]
 id = 24
+path = "/result/structuredContent/references"
+length = 7
+
+[[mcp_assert]]
+id = 24
 path = "/result/structuredContent/references/0/range"
 equals = {"start":{"line":9,"column":45},"end":{"line":9,"column":55}}
 [[mcp_assert]]
