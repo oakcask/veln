@@ -62,29 +62,9 @@ fn initialized_server_with_captured_state(workspace: &TempWorkspace) -> (Server,
 #[test]
 fn references_project_capture_exhausts_retries_for_workspace_schema_selection() {
     let workspace = TempWorkspace::new("references-workspace-schema-capture-retry");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "main.veln",
-        concat!(
-            "schema Packet\n",
-            "  value: Int\n",
-            "end\n\n",
-            "fn read(view: ByteView) -> ()\n",
-            "  decode Packet from view at byte_offset(0)?\n",
-            "end\n\n",
-            "schema Frame\n",
-            "  nested: Packet\n",
-            "end\n",
-        ),
-    );
+    write_workspace_schema_capture_project(&workspace);
     let mut server = initialized_server(&workspace);
-    let live_page = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8, "page_size":1
-    }));
-    let live_cursor = live_page["structuredContent"]["next_cursor"]
-        .as_str()
-        .unwrap()
-        .to_owned();
+    let live_cursor = live_reference_cursor(&mut server, "main.veln", 1, 8);
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
@@ -111,7 +91,38 @@ fn references_project_capture_exhausts_retries_for_workspace_schema_selection() 
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-    let continuation = server.references_tool(&json!({"cursor": live_cursor}));
+    assert_live_reference_cursor(&mut server, &live_cursor);
+}
+
+fn write_workspace_schema_capture_project(workspace: &TempWorkspace) {
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "schema Packet\n",
+            "  value: Int\n",
+            "end\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "end\n\n",
+            "schema Frame\n",
+            "  nested: Packet\n",
+            "end\n",
+        ),
+    );
+}
+
+fn live_reference_cursor(server: &mut Server, source: &str, line: u64, column: u64) -> String {
+    server.references_tool(&json!({
+        "source":source, "line":line, "column":column, "page_size":1
+    }))["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+fn assert_live_reference_cursor(server: &mut Server, cursor: &str) {
+    let continuation = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(continuation["isError"], false);
     assert_eq!(
         continuation["structuredContent"]["references"]

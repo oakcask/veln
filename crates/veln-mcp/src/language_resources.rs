@@ -18,7 +18,7 @@ pub(crate) use self::package_resources::{
 pub(crate) use self::standard_library::StandardLibraryResources;
 pub(crate) use self::topics::LanguageTopic;
 use self::topics::language_topics;
-use crate::references::ReferencePagination;
+use crate::reference_pagination::ReferencePagination;
 
 mod dependencies;
 mod package_resources;

@@ -17,86 +17,84 @@ mod workspace_symbols;
 #[test]
 fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware() {
     let workspace = TempWorkspace::new("references-cursor-transitions");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "main.veln",
-        concat!(
-            "fn helper(value: Int) -> Int\n",
-            "  helper(value - 1)\n",
-            "end\n\n",
-            "fn main() -> Int\n",
-            "  helper(1)\n",
-            "end\n",
-        ),
-    );
+    write_recursive_reference_workspace(&workspace);
 
     let mut first = initialized_server(&workspace);
-    let mut second = initialized_server(&workspace);
-    let first_page = first.references_tool(&json!({
-        "source": "main.veln",
-        "line": 6,
-        "column": 4,
-        "page_size": 1
-    }));
-    let cursor = first_page["structuredContent"]["next_cursor"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-
-    let foreign = second.references_tool(&json!({"cursor": cursor}));
-    assert_eq!(foreign["structuredContent"]["code"], "invalid_cursor");
-    let tampered = first.references_tool(&json!({"cursor": cursor.to_owned() + "x"}));
-    assert_eq!(tampered["structuredContent"]["code"], "invalid_cursor");
-
-    let mut restarted = initialized_server(&workspace);
-    let post_restart = restarted.references_tool(&json!({"cursor": cursor}));
-    assert_eq!(post_restart["structuredContent"]["code"], "invalid_cursor");
-
-    workspace.write(
-        "main.veln",
-        "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
-    );
-    let continuation = first.references_tool(&json!({"cursor": cursor}));
-    assert_eq!(continuation["isError"], false);
-    assert!(continuation["result"].is_null());
-    assert!(continuation["structuredContent"]["references"].is_array());
-
-    workspace.write(
-        "main.veln",
-        concat!(
-            "fn helper(value: Int) -> Int\n",
-            "  helper(value - 1)\n",
-            "end\n\n",
-            "fn main() -> Int\n",
-            "  helper(1)\n",
-            "end\n",
-        ),
-    );
-    let refresh_page = first.references_tool(&json!({
-        "source": "main.veln",
-        "line": 6,
-        "column": 4,
-        "page_size": 1
-    }));
-    let refresh_cursor = refresh_page["structuredContent"]["next_cursor"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let refreshed = first.refresh_workspace_tool(|_| Ok(()));
-    assert_eq!(refreshed["isError"], false);
-    let stale = first.references_tool(&json!({"cursor": refresh_cursor}));
-    assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
-    workspace.write(
-        "main.veln",
-        "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
-    );
-    let restored = first.references_tool(&json!({"cursor": refresh_cursor}));
-    assert_eq!(restored["structuredContent"]["code"], "stale_snapshot");
+    let cursor = first_reference_cursor(&mut first);
+    assert_cursor_authentication_rejections(&workspace, &mut first, &cursor);
+    assert_cursor_uses_captured_locations(&workspace, &mut first, &cursor);
+    write_recursive_reference_source(&workspace);
+    let refresh_cursor = first_reference_cursor(&mut first);
+    assert_refresh_invalidates_cursor(&workspace, &mut first, &refresh_cursor);
     let consumed_after_refresh = first.references_tool(&json!({"cursor": cursor}));
     assert_eq!(
         consumed_after_refresh["structuredContent"]["code"],
         "invalid_cursor"
     );
+}
+
+fn write_recursive_reference_workspace(workspace: &TempWorkspace) {
+    workspace.write("veln.toml", "");
+    write_recursive_reference_source(workspace);
+}
+
+fn write_recursive_reference_source(workspace: &TempWorkspace) {
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  helper(value - 1)\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+}
+
+fn first_reference_cursor(server: &mut Server) -> String {
+    server.references_tool(&json!({
+        "source": "main.veln", "line": 6, "column": 4, "page_size": 1
+    }))["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+fn assert_cursor_authentication_rejections(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+    cursor: &str,
+) {
+    let mut foreign_server = initialized_server(workspace);
+    let foreign = foreign_server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(foreign["structuredContent"]["code"], "invalid_cursor");
+    let tampered = server.references_tool(&json!({"cursor": format!("{cursor}x")}));
+    assert_eq!(tampered["structuredContent"]["code"], "invalid_cursor");
+    let mut restarted = initialized_server(workspace);
+    let post_restart = restarted.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(post_restart["structuredContent"]["code"], "invalid_cursor");
+}
+
+fn assert_cursor_uses_captured_locations(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+    cursor: &str,
+) {
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+    let continuation = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert!(continuation["result"].is_null());
+    assert!(continuation["structuredContent"]["references"].is_array());
+}
+
+fn assert_refresh_invalidates_cursor(workspace: &TempWorkspace, server: &mut Server, cursor: &str) {
+    let refreshed = server.refresh_workspace_tool(|_| Ok(()));
+    assert_eq!(refreshed["isError"], false);
+    let stale = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+    let restored = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(restored["structuredContent"]["code"], "stale_snapshot");
 }
 
 #[test]
@@ -265,30 +263,7 @@ fn references_initial_empty_and_final_pages_omit_next_cursor() {
 #[test]
 fn references_server_pages_concatenate_ordered_multi_file_results() {
     let workspace = TempWorkspace::new("references-multi-file-pagination");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "app/wire.veln",
-        concat!(
-            "pub schema Packet\n",
-            "  format binary\n",
-            "  value: UInt8\n",
-            "end\n\n",
-            "fn local(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode Packet from view at byte_offset(0)?\n",
-            "  encode Packet from packet\n",
-            "end\n",
-        ),
-    );
-    workspace.write(
-        "other.veln",
-        concat!(
-            "use app::wire\n\n",
-            "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode app::wire::Packet from view at byte_offset(0)?\n",
-            "  encode wire::Packet from packet\n",
-            "end\n",
-        ),
-    );
+    write_multi_file_schema_reference_workspace(&workspace);
     let mut server = initialized_server(&workspace);
     let complete = server.references_tool(&json!({
         "source":"app/wire.veln", "line":1, "column":12, "page_size":1000
@@ -319,6 +294,33 @@ fn references_server_pages_concatenate_ordered_multi_file_results() {
             .as_object()
             .unwrap()
             .contains_key("next_cursor")
+    );
+}
+
+fn write_multi_file_schema_reference_workspace(workspace: &TempWorkspace) {
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "app/wire.veln",
+        concat!(
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "end\n\n",
+            "fn local(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "use app::wire\n\n",
+            "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode app::wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+        ),
     );
 }
 
@@ -392,7 +394,12 @@ fn references_page_size_defaults_to_100_and_rejects_all_invalid_boundaries() {
         ),
     );
     let mut server = initialized_server(&workspace);
+    assert_default_reference_page_size(&mut server);
+    assert_maximum_reference_page_size(&mut server);
+    assert_invalid_reference_page_sizes(&mut server);
+}
 
+fn assert_default_reference_page_size(server: &mut Server) {
     let default_page = server.references_tool(&json!({
         "source": "main.veln",
         "line": 1,
@@ -418,7 +425,9 @@ fn references_page_size_defaults_to_100_and_rejects_all_invalid_boundaries() {
             .len(),
         100
     );
+}
 
+fn assert_maximum_reference_page_size(server: &mut Server) {
     let maximum_page = server.references_tool(&json!({
         "source": "main.veln",
         "line": 1,
@@ -443,7 +452,9 @@ fn references_page_size_defaults_to_100_and_rejects_all_invalid_boundaries() {
             .len(),
         1
     );
+}
 
+fn assert_invalid_reference_page_sizes(server: &mut Server) {
     for page_size in [json!(0), json!(1001), json!(1.5), Value::Null] {
         let response = server
             .handle_request(json!({

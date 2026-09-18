@@ -472,6 +472,15 @@ fn references_capacity_failure_preserves_a_prior_live_cursor() {
         .as_str()
         .unwrap()
         .to_owned();
+    fill_dependency_resource_capacity(&mut server);
+    let before_failure = all_resource_state(&mut server);
+    workspace.write("vendor/dep/dep.veln", &dependency_source("rejected digest"));
+    assert_reference_capacity_failure(&mut server);
+    assert_eq!(all_resource_state(&mut server), before_failure);
+    assert_live_reference_cursor(&mut server, &cursor);
+}
+
+fn fill_dependency_resource_capacity(server: &mut Server) {
     let boundary = (0..255)
         .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
         .collect::<Vec<_>>();
@@ -479,8 +488,9 @@ fn references_capacity_failure_preserves_a_prior_live_cursor() {
         .language_resources
         .admit_dependencies(&boundary[..254])
         .unwrap();
-    let before_failure = all_resource_state(&mut server);
-    workspace.write("vendor/dep/dep.veln", &dependency_source("rejected digest"));
+}
+
+fn assert_reference_capacity_failure(server: &mut Server) {
     let initial_failure = server.references_tool(&json!({
         "source":"main.veln", "line":4, "column":8
     }));
@@ -501,7 +511,9 @@ fn references_capacity_failure_preserves_a_prior_live_cursor() {
             .unwrap()
             .contains_key("scope")
     );
-    assert_eq!(all_resource_state(&mut server), before_failure);
+}
+
+fn assert_live_reference_cursor(server: &mut Server, cursor: &str) {
     let continuation = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(continuation["isError"], false);
     assert_eq!(
