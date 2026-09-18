@@ -19678,10 +19678,53 @@ field	expectations.mcp_assertions[27].contains	"."
 field	expectations.mcp_assertions[27].id	10
 field	expectations.mcp_assertions[27].operation	"contains"
 field	expectations.mcp_assertions[27].path	"/result/structuredContent/next_cursor"
+field	expectations.mcp_assertions[28].equals	true
+field	expectations.mcp_assertions[28].id	11
+field	expectations.mcp_assertions[28].operation	"equals"
+field	expectations.mcp_assertions[28].path	"/result/isError"
+field	expectations.mcp_assertions[29].equals	"invalid_cursor"
+field	expectations.mcp_assertions[29].id	11
+field	expectations.mcp_assertions[29].operation	"equals"
+field	expectations.mcp_assertions[29].path	"/result/structuredContent/code"
 field	expectations.mcp_assertions[2].id	3
 field	expectations.mcp_assertions[2].length	4
 field	expectations.mcp_assertions[2].operation	"length"
 field	expectations.mcp_assertions[2].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[30].equals	{}
+field	expectations.mcp_assertions[30].id	11
+field	expectations.mcp_assertions[30].operation	"equals"
+field	expectations.mcp_assertions[30].path	"/result/structuredContent/details"
+field	expectations.mcp_assertions[31].equals	false
+field	expectations.mcp_assertions[31].id	12
+field	expectations.mcp_assertions[31].operation	"equals"
+field	expectations.mcp_assertions[31].path	"/result/isError"
+field	expectations.mcp_assertions[32].id	12
+field	expectations.mcp_assertions[32].length	4
+field	expectations.mcp_assertions[32].operation	"length"
+field	expectations.mcp_assertions[32].path	"/result/structuredContent/references"
+field	expectations.mcp_assertions[33].equals	{"generation":0,"mode":"project","project":".","project_wide":true}
+field	expectations.mcp_assertions[33].id	12
+field	expectations.mcp_assertions[33].operation	"equals"
+field	expectations.mcp_assertions[33].path	"/result/structuredContent/scope"
+field	expectations.mcp_assertions[34].id	12
+field	expectations.mcp_assertions[34].operation	"missing"
+field	expectations.mcp_assertions[34].path	"/result/structuredContent/next_cursor"
+field	expectations.mcp_assertions[35].equals	-32602
+field	expectations.mcp_assertions[35].id	13
+field	expectations.mcp_assertions[35].operation	"equals"
+field	expectations.mcp_assertions[35].path	"/error/code"
+field	expectations.mcp_assertions[36].equals	-32602
+field	expectations.mcp_assertions[36].id	14
+field	expectations.mcp_assertions[36].operation	"equals"
+field	expectations.mcp_assertions[36].path	"/error/code"
+field	expectations.mcp_assertions[37].equals	-32602
+field	expectations.mcp_assertions[37].id	15
+field	expectations.mcp_assertions[37].operation	"equals"
+field	expectations.mcp_assertions[37].path	"/error/code"
+field	expectations.mcp_assertions[38].equals	-32602
+field	expectations.mcp_assertions[38].id	16
+field	expectations.mcp_assertions[38].operation	"equals"
+field	expectations.mcp_assertions[38].path	"/error/code"
 field	expectations.mcp_assertions[3].id	3
 field	expectations.mcp_assertions[3].operation	"workspace_file_uri"
 field	expectations.mcp_assertions[3].path	"/result/structuredContent/references/0/uri"
@@ -19715,9 +19758,9 @@ field	expectations.stdout.contains[0]	"\"description\":\"Return references for a
 field	expectations.stdout.contains[1]	"\"name\":\"references\",\"outputSchema\""
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1301,"sha256":"742aa88444a230ae36d7ef5f0d4c5c79480ef0d31c2d20fe94fe71d6a873b49a"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":2168,"sha256":"4c3baf756eb0c60254f2f53a11486e5ddd86e8403a05e1e8b12610828236c85f"}
 field	source_errors	"forbidden"
-case_digest	"2e667aa4016549670590325b80336346630f6c116401656116dea55c7d34fd8a"
+case_digest	"7faf83c52507cd4bb64d295879afb334aa050e571f943f6cf58ec315f7fc122e"
 case	"examples/specification/mcp/references-workspace-schema-alias"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -59588,4 +59631,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"c89738918480d92be46e315d4e11adbcd73c7cff98fad12b01e8b0177fa7468f"
+aggregate_digest	"58a8fc320a3b28c8d403cd77dd09ccd2385a6b904d6078e0cd61137abbfc1657"

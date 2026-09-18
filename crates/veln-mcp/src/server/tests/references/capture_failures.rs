@@ -78,6 +78,13 @@ fn references_project_capture_exhausts_retries_for_workspace_schema_selection() 
         ),
     );
     let mut server = initialized_server(&workspace);
+    let live_page = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8, "page_size":1
+    }));
+    let live_cursor = live_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
@@ -104,6 +111,15 @@ fn references_project_capture_exhausts_retries_for_workspace_schema_selection() 
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
+    let continuation = server.references_tool(&json!({"cursor": live_cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[test]

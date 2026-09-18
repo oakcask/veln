@@ -162,6 +162,11 @@ path = "/result/structuredContent/code"
 equals = "invalid_cursor"
 
 [[mcp_assert]]
+id = 11
+path = "/result/structuredContent/details"
+equals = {}
+
+[[mcp_assert]]
 id = 12
 path = "/result/isError"
 equals = false
@@ -170,6 +175,11 @@ equals = false
 id = 12
 path = "/result/structuredContent/references"
 length = 4
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/scope"
+equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 
 [[mcp_assert]]
 id = 12

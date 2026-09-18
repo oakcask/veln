@@ -448,10 +448,12 @@ when file bytes are restored. Continuation does not recapture sources or admit
 new package resources. Cursor failures use exactly `{}` for `details`.
 The checked schemas, focused server transition tests, and the
 `references-workspace-schema` MCP stdio case are the primary verification
-artifacts for these rules. The stdio case checks the advertised schemas,
-default and maximum page sizes, exact ordered multi-file results, cursor
-failure recovery, and rejected fractional, null, zero, and over-maximum page
-sizes.
+artifacts for these rules. The server transition tests check default and
+maximum page-size boundaries, exact ordered multi-file concatenation, cursor
+lifecycle, refresh, eviction, file-change capture, and failure preservation.
+The stdio case checks the advertised schemas, exact ordered multi-file
+results, repeated scope metadata, invalid-cursor recovery, and rejected
+fractional, null, zero, and over-maximum page sizes.
 
 Workspace schema references include schema path-leaf occurrences in `decode`
 and `encode` expressions and directly resolved schema-composition path leaves

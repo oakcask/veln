@@ -61,9 +61,6 @@ fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware()
     assert!(continuation["result"].is_null());
     assert!(continuation["structuredContent"]["references"].is_array());
 
-    let replay = first.references_tool(&json!({"cursor": cursor}));
-    assert_eq!(replay["structuredContent"]["code"], "invalid_cursor");
-
     workspace.write(
         "main.veln",
         concat!(
@@ -89,6 +86,11 @@ fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware()
     assert_eq!(refreshed["isError"], false);
     let stale = first.references_tool(&json!({"cursor": refresh_cursor}));
     assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
+    let consumed_after_refresh = first.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(
+        consumed_after_refresh["structuredContent"]["code"],
+        "invalid_cursor"
+    );
 }
 
 #[test]
@@ -158,6 +160,66 @@ fn references_pages_preserve_order_scope_and_captured_locations() {
 }
 
 #[test]
+fn references_server_pages_concatenate_ordered_multi_file_results() {
+    let workspace = TempWorkspace::new("references-multi-file-pagination");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "app/wire.veln",
+        concat!(
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8\n",
+            "end\n\n",
+            "fn local(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode Packet from view at byte_offset(0)?\n",
+            "  encode Packet from packet\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "use app::wire\n\n",
+            "fn imported(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode app::wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let complete = server.references_tool(&json!({
+        "source":"app/wire.veln", "line":1, "column":12, "page_size":1000
+    }));
+    let expected = complete["structuredContent"]["references"].clone();
+    let expected_scope = complete["structuredContent"]["scope"].clone();
+    let first = server.references_tool(&json!({
+        "source":"app/wire.veln", "line":1, "column":12, "page_size":2
+    }));
+    let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let second = server.references_tool(&json!({"cursor": cursor}));
+    let mut concatenated = first["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .clone();
+    concatenated.extend(
+        second["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .cloned(),
+    );
+    assert_eq!(first["structuredContent"]["scope"], expected_scope);
+    assert_eq!(second["structuredContent"]["scope"], expected_scope);
+    assert_eq!(concatenated, expected.as_array().unwrap().clone());
+    assert!(
+        !second["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("next_cursor")
+    );
+}
+
+#[test]
 fn failed_refresh_and_invalid_continuation_requests_preserve_live_state() {
     let workspace = TempWorkspace::new("references-failure-atomicity");
     workspace.write("veln.toml", "");
@@ -217,7 +279,7 @@ fn failed_refresh_and_invalid_continuation_requests_preserve_live_state() {
 fn references_page_size_defaults_to_100_and_rejects_all_invalid_boundaries() {
     let workspace = TempWorkspace::new("references-page-size-boundaries");
     workspace.write("veln.toml", "");
-    let calls = (0..101)
+    let calls = (0..1001)
         .map(|index| format!("  helper({index})\n"))
         .collect::<String>();
     workspace.write(
@@ -251,6 +313,31 @@ fn references_page_size_defaults_to_100_and_rejects_all_invalid_boundaries() {
             .as_array()
             .unwrap()
             .len(),
+        100
+    );
+
+    let maximum_page = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 1,
+        "column": 4,
+        "page_size": 1000
+    }));
+    assert_eq!(
+        maximum_page["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1000
+    );
+    let maximum_cursor = maximum_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap();
+    let maximum_final = server.references_tool(&json!({"cursor": maximum_cursor}));
+    assert_eq!(
+        maximum_final["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
         1
     );
 
@@ -265,6 +352,39 @@ fn references_page_size_defaults_to_100_and_rejects_all_invalid_boundaries() {
             .unwrap();
         assert_eq!(response["error"]["code"], -32602, "{response:#}");
     }
+}
+
+#[test]
+fn references_server_eviction_marks_the_oldest_live_cursor_stale() {
+    let workspace = TempWorkspace::new("references-server-eviction");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  helper(value - 1)\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let cursors = (0..65)
+        .map(|_| {
+            server.references_tool(&json!({
+                "source":"main.veln", "line":6, "column":4, "page_size":1
+            }))["structuredContent"]["next_cursor"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        })
+        .collect::<Vec<_>>();
+
+    let evicted = server.references_tool(&json!({"cursor": cursors[0]}));
+    assert_eq!(evicted["structuredContent"]["code"], "stale_snapshot");
+    let retained = server.references_tool(&json!({"cursor": cursors[1]}));
+    assert_eq!(retained["isError"], false);
+    assert_eq!(
+        retained["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 struct WorkspaceSymbolCase {
