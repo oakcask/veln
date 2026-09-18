@@ -729,6 +729,11 @@ path = "/result/2/range"
 equals = {"start":{"line":63,"character":20},"end":{"line":63,"character":26}}
 
 [[lsp_assert]]
+id = 33
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
 id = 34
 path = "/result"
 length = 3
@@ -747,6 +752,11 @@ equals = {"start":{"line":50,"character":15},"end":{"line":50,"character":21}}
 id = 34
 path = "/result/2/range"
 equals = {"start":{"line":63,"character":20},"end":{"line":63,"character":26}}
+
+[[lsp_assert]]
+id = 34
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
 
 [[lsp_assert]]
 id = 35

@@ -2044,7 +2044,8 @@ mod dependencies_schema_references_tests {
                 "lib/wire.veln",
                 concat!(
                     "pub schema Packet\n  value: Int\nend\n\n",
-                    "pub schema Alias = Packet\n",
+                    "pub schema Mid = Packet\n",
+                    "pub schema Alias = Mid\n",
                 ),
             )],
             ["lib/wire.veln"],
@@ -2116,7 +2117,8 @@ mod dependencies_schema_references_tests {
                     "workspace/wire.veln",
                     concat!(
                         "pub schema Packet\n  value: Int\nend\n\n",
-                        "pub schema Alias = Packet\n",
+                        "pub schema Mid = Packet\n",
+                        "pub schema Alias = Mid\n",
                     ),
                 ),
                 source("workspace_import.veln", "mod app\n\nuse workspace::wire\n"),
@@ -2201,7 +2203,8 @@ mod dependencies_schema_references_tests {
                 "a/wire.veln",
                 concat!(
                     "pub schema Packet\n  value: Int\nend\n\n",
-                    "pub schema Alias = Packet\n",
+                    "pub schema Mid = Packet\n",
+                    "pub schema Alias = Mid\n",
                 ),
             )],
             ["a/wire.veln"],
@@ -2250,7 +2253,8 @@ mod dependencies_schema_references_tests {
                     concat!(
                         "mod dep\n\n",
                         "pub schema Packet\n  value: Int\nend\n\n",
-                        "pub schema Alias = Packet\n",
+                        "pub schema Mid = Packet\n",
+                        "pub schema Alias = Mid\n",
                     ),
                 ),
                 (

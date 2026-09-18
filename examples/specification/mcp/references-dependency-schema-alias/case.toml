@@ -724,6 +724,11 @@ path = "/result/structuredContent/references/2/range"
 equals = {"start":{"line":64,"column":21},"end":{"line":64,"column":27}}
 
 [[mcp_assert]]
+id = 33
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
 id = 34
 path = "/result/structuredContent/references"
 length = 3
@@ -742,6 +747,11 @@ equals = {"start":{"line":51,"column":16},"end":{"line":51,"column":22}}
 id = 34
 path = "/result/structuredContent/references/2/range"
 equals = {"start":{"line":64,"column":21},"end":{"line":64,"column":27}}
+
+[[mcp_assert]]
+id = 34
+path = "/result/structuredContent/references/2/uri"
+workspace_file_uri = "main.veln"
 
 [[mcp_assert]]
 id = 35
