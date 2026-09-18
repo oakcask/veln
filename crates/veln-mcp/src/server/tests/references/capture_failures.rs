@@ -230,6 +230,9 @@ fn references_project_capture_exhausts_retries_for_dependency_schema_alias_selec
         &workspace,
         concat!(
             "use dep from \"example/dep\"\n\n",
+            "schema Host\n",
+            "  nested: dep::Alias\n",
+            "end\n\n",
             "fn main(view: ByteView) -> ()\n",
             "  decode dep::Alias from view at byte_offset(0)?\n",
             "end\n",

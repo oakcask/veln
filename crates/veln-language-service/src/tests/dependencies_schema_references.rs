@@ -119,6 +119,57 @@ mod dependencies_schema_references_tests {
         }
     }
 
+    #[test]
+    fn eligible_schema_alias_composition_index_work_grows_linearly() {
+        let mut field_token_visits_per_field = None;
+        for count in [100, 200, 400] {
+            let started = std::time::Instant::now();
+            let mut declarations = String::new();
+            let mut fields = String::from("schema Host\n");
+            for index in 0..count {
+                declarations.push_str(&format!(
+                    "pub schema Packet{index}\n  value: Int\nend\n\n"
+                ));
+                declarations.push_str(&format!("pub schema Alias{index} = Packet{index}\n"));
+                fields.push_str(&format!("  field{index}: dep::Alias{index}\n"));
+            }
+            fields.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    &format!("use dep from \"example/dep\"\n\n{fields}"),
+                )],
+                vec![dependency_snapshot(
+                    "example/dep",
+                    &[("dep.veln", &declarations)],
+                    ["dep.veln"],
+                )],
+            );
+
+            crate::navigation::reset_schema_composition_index_work();
+            crate::navigation::reset_schema_alias_declaration_visits();
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let (schema_visits, field_token_visits) =
+                crate::navigation::schema_composition_index_work();
+            assert_eq!(schema_visits, count);
+            assert_eq!(
+                crate::navigation::schema_alias_declaration_visits(),
+                count * 4,
+                "eligible aliases must be indexed once per declaration-resolution boundary",
+            );
+            assert_eq!(field_token_visits % count, 0);
+            let visits_per_field = field_token_visits / count;
+            assert_eq!(
+                *field_token_visits_per_field.get_or_insert(visits_per_field),
+                visits_per_field,
+            );
+            eprintln!(
+                "eligible schema-alias composition index: aliases={count} fields={count} elapsed={elapsed:?} schema_visits={schema_visits} field_token_visits={field_token_visits}"
+            );
+        }
+    }
+
     fn dependency_schema_alias_reference_work(count: usize) -> (usize, usize) {
         let mut consumer = String::from("use schema0 from \"example/dep\"\n");
         for index in 1..count {
@@ -482,13 +533,15 @@ mod dependencies_schema_references_tests {
             ("ambiguous_alias.veln", 5, 19),
             ("duplicate.veln", 5, 28),
             ("boundaries.veln", 5, 18),
-            ("boundaries.veln", 6, 16),
             ("boundaries.veln", 7, 19),
             ("boundaries.veln", 8, 9),
             ("boundaries.veln", 9, 24),
         ] {
             assert!(query_snapshot(&snapshot, path, line, column).is_none());
         }
+
+        let alias = query_snapshot(&snapshot, "boundaries.veln", 6, 16).unwrap();
+        assert_eq!(locations(&alias.references), [("boundaries.veln", 6, 16)]);
 
         let exact = query_snapshot(&snapshot, "exact.veln", 5, 19).unwrap();
         assert_eq!(exact.selected_symbol.name, "Packet");
@@ -1287,6 +1340,7 @@ mod dependencies_schema_references_tests {
             assert_eq!(
                 locations(&result.references),
                 [
+                    ("boundaries.veln", 8, 17),
                     ("main.veln", 4, 21),
                     ("main.veln", 5, 16),
                     ("other.veln", 4, 16),
@@ -1303,7 +1357,16 @@ mod dependencies_schema_references_tests {
         assert_eq!(locations(&collision.references), [("collision.veln", 4, 16)]);
         let workspace = query_snapshot(&snapshot, "workspace.veln", 5, 12).unwrap();
         assert!(workspace.references.is_empty());
-        assert!(query_snapshot(&snapshot, "boundaries.veln", 8, 18).is_none());
+        let boundary = query_snapshot(&snapshot, "boundaries.veln", 8, 18).unwrap();
+        assert_eq!(
+            locations(&boundary.references),
+            [
+                ("boundaries.veln", 8, 17),
+                ("main.veln", 4, 21),
+                ("main.veln", 5, 16),
+                ("other.veln", 4, 16),
+            ]
+        );
     }
 
     #[test]

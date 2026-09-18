@@ -1152,7 +1152,11 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
         assert_eq!(alias["isError"], false, "{}: {alias:#}", source_kind.name());
         assert_reference_ranges(
             &alias,
-            &[("main.veln", 6, 15, 6, 20), ("main.veln", 7, 15, 7, 20)],
+            &[
+                ("main.veln", 6, 15, 6, 20),
+                ("main.veln", 7, 15, 7, 20),
+                ("main.veln", 15, 15, 15, 20),
+            ],
             source_kind.name(),
         );
 
@@ -1163,7 +1167,15 @@ fn references_accept_all_direct_dependency_schema_source_kinds() {
             "{}: {alias_composition:#}",
             source_kind.name()
         );
-        assert_reference_ranges(&alias_composition, &[], source_kind.name());
+        assert_reference_ranges(
+            &alias_composition,
+            &[
+                ("main.veln", 6, 15, 6, 20),
+                ("main.veln", 7, 15, 7, 20),
+                ("main.veln", 15, 15, 15, 20),
+            ],
+            source_kind.name(),
+        );
     }
 }
 

@@ -262,8 +262,8 @@ Focused MCP server coverage
 injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
 For an eligible public schema alias in an exported retained direct-dependency
-module, `textDocument/references` returns the same saved workspace operation
-leaves as MCP when declaration inclusion is false. The direct alias target
+module, `textDocument/references` returns the same saved workspace composition
+and operation leaves as MCP when declaration inclusion is false. The direct alias target
 must be a unique public schema declared by an exported source in the retained
 dependency. It can be a bare target in the alias module or a qualified target
 resolved through a valid local import from any retained package source with the
@@ -285,7 +285,7 @@ syntax-recovered dependency imports do not grant dependency alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
 same-spelled exported schema without becoming navigable. Bare imported names,
 alias chains, external-package targets, ambiguous or recovered target imports,
-package-source and composition leaves, standard-library and transitive aliases,
+package-source leaves, standard-library and transitive aliases,
 invalid or ambiguous declarations, and recovered operations remain empty.
 Package declarations are never added when declaration
 inclusion is true, and definition and rename support do not expand. The
@@ -294,8 +294,9 @@ fixes their normalized URI and range parity over identical non-BMP saved input,
 including an alias and target schema exported from separate sources with
 different explicit modules and a same-spelled type in the alias module. The
 paired cases also exclude a workspace type with the alias spelling from the
-exact result and keep dependency-alias composition, non-exported-target, and
-invalid-target-import selections empty. An unselected descendant project with
+exact result and include dependency-alias composition in the alias-specific
+union; non-exported-target and invalid-target-import selections remain empty.
+An unselected descendant project with
 the same qualified alias use remains outside the selected root project's
 result. The LSP case also keeps definition and prepare-rename null and rename
 edits empty for the supported package alias leaf. Shared navigation tests and
@@ -811,7 +812,7 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency schema
-  composition-and-operation boundary, schema-alias operation boundary, and
+composition-and-operation boundary, schema-alias composition-and-operation boundary, and
   direct-dependency and standard-library public function, public
   function-alias, public type-alias, public type, and public constructor
   reference boundaries.

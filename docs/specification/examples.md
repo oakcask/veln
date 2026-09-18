@@ -335,7 +335,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   module through an implicit leaf import shared by retained package sources
   with the alias's explicit module identity, keep schema-target lookup isolated
   from a same-spelled type declaration, exclude a workspace type with the
-  alias spelling, keep dependency-alias composition selection empty, prefer an
+  alias spelling, include dependency-alias composition in the alias-specific
+  union, prefer an
   exact dependency import over a colliding implicit alias, and prevent a
   non-exported alias from falling back to a same-spelled exported schema. They
   also keep an

@@ -560,8 +560,21 @@ fn workspace_schema_composition_references(
 fn direct_dependency_schema_composition_references(
     files: &[IndexedFile],
     schema_index: &BTreeMap<(String, String, String), NeutralSymbol>,
+    schema_aliases: &[NeutralSymbol],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Vec<SchemaCompositionReference> {
+    let mut alias_index: BTreeMap<(String, String, String), Vec<NeutralSymbol>> = BTreeMap::new();
+    for alias in schema_aliases.iter().filter(|alias| {
+        alias.package_origin == Some(PackageOrigin::DirectDependency)
+    }) {
+        let Some(package) = alias.package.as_ref() else {
+            continue;
+        };
+        alias_index
+            .entry((package.clone(), alias.module.clone(), alias.name.clone()))
+            .or_default()
+            .push(alias.clone());
+    }
     files
         .iter()
         .filter(|file| workspace_navigation_file(file))
@@ -597,10 +610,20 @@ fn direct_dependency_schema_composition_references(
                     let (module, package) = module_imports
                         .get(&file.module)?
                         .valid_external_route(&qualifier)?;
-                    let target = schema_index.get(&(package, module, token.text.clone()))?;
+                    let key = (package, module, token.text.clone());
+                    let target = if let Some(candidates) = alias_index.get(&key) {
+                        (candidates.len() == 1).then(|| {
+                            SchemaReferenceTarget::Alias(candidates[0].clone())
+                        })?
+                    } else {
+                        schema_index
+                            .get(&key)
+                            .cloned()
+                            .map(SchemaReferenceTarget::Schema)?
+                    };
                     Some(SchemaCompositionReference {
                         span: span.clone(),
-                        target: SchemaReferenceTarget::Schema(target.clone()),
+                        target,
                     })
                 })
                 .collect::<Vec<_>>()

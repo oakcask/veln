@@ -23,5 +23,10 @@ type WirePacket
 end
 
 schema Frame
+  count: UInt8
   nested: lib::wire::WirePacket
+  repeated: Repeat(count, lib::wire::WirePacket)
+  array: [lib::wire::WirePacket; count]
+  invalid_repeat: Repeat(count + 1, lib::wire::WirePacket)
+  invalid_array: [lib::wire::WirePacket; count + 1]
 end
