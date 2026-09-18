@@ -18,6 +18,7 @@ pub(crate) use self::package_resources::{
 pub(crate) use self::standard_library::StandardLibraryResources;
 pub(crate) use self::topics::LanguageTopic;
 use self::topics::language_topics;
+use crate::reference_pagination::ReferencePagination;
 
 mod dependencies;
 mod package_resources;
@@ -76,13 +77,18 @@ pub(crate) struct LanguageResources {
         Vec<RetainedPackageKey>,
         Arc<EffectiveProjectSnapshot>,
     )>,
+    reference_pagination: ReferencePagination,
 }
 
 impl LanguageResources {
     pub(crate) fn checked() -> Result<Self, String> {
         static CHECKED: OnceLock<Result<LanguageResources, String>> = OnceLock::new();
 
-        CHECKED.get_or_init(Self::build_checked).clone()
+        let mut resources = CHECKED.get_or_init(Self::build_checked).clone()?;
+        // The checked resource payload is shared as a cache, but continuation
+        // state belongs to the server instance that receives the cursor.
+        resources.reference_pagination = ReferencePagination::new()?;
+        Ok(resources)
     }
 
     fn build_checked() -> Result<Self, String> {
@@ -113,7 +119,7 @@ impl LanguageResources {
             None,
             EffectiveProjectSnapshot::new(Vec::new()),
         )
-        .expect("test resources should be unique")
+        .expect("test resources should build")
     }
 
     #[cfg(test)]
@@ -223,7 +229,12 @@ impl LanguageResources {
             standard_library_navigation,
             dependency_navigation: None,
             workspace_navigation: None,
+            reference_pagination: ReferencePagination::new()?,
         })
+    }
+
+    pub(crate) fn reference_pagination(&mut self) -> &mut ReferencePagination {
+        &mut self.reference_pagination
     }
 
     pub(crate) fn admit_dependencies(

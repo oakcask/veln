@@ -1,4 +1,5 @@
 use super::*;
+use std::io::{BufRead, BufReader, Read};
 
 pub(super) fn case_name(case_dir: &Path) -> String {
     case_dir
@@ -101,21 +102,7 @@ impl TestProject {
         stdin: Option<&str>,
         artifact_path: Option<&Path>,
     ) -> Output {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
-        command.current_dir(cwd.map_or_else(|| self.root.clone(), |cwd| self.root.join(cwd)));
-        command.args(args);
-        command.stdout(Stdio::piped());
-        command.stderr(Stdio::piped());
-        command.env("VELN_CACHE_DIR", self.root.join(".veln-harness-cache"));
-        if let Some(path) = &self.tool_path {
-            command.env("PATH", path);
-        }
-        for (name, value) in env {
-            command.env(name, value);
-        }
-        if let Some(path) = artifact_path {
-            command.env(SOURCE_DIAGNOSTIC_ARTIFACT_ENV, path);
-        }
+        let mut command = self.veln_command(args, cwd, env, artifact_path);
         if stdin.is_some() {
             command.stdin(Stdio::piped());
         }
@@ -129,6 +116,44 @@ impl TestProject {
         child.wait_with_output().expect("veln should run")
     }
 
+    pub(super) fn veln_with_interactive_mcp(
+        &self,
+        args: &[String],
+        cwd: Option<&Path>,
+        env: &[(String, String)],
+        stdin: &str,
+        artifact_path: Option<&Path>,
+    ) -> Output {
+        let mut command = self.veln_command(args, cwd, env, artifact_path);
+        command.stdin(Stdio::piped());
+        let mut child = command.spawn().expect("veln should spawn");
+        let stdout = exchange_mcp_requests(&mut child, stdin);
+        finish_interactive_child(child, stdout)
+    }
+
+    fn veln_command(
+        &self,
+        args: &[String],
+        cwd: Option<&Path>,
+        env: &[(String, String)],
+        artifact_path: Option<&Path>,
+    ) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
+        command.current_dir(cwd.map_or_else(|| self.root.clone(), |cwd| self.root.join(cwd)));
+        command.args(args);
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
+        command.env("VELN_CACHE_DIR", self.root.join(".veln-harness-cache"));
+        if let Some(path) = &self.tool_path {
+            command.env("PATH", path);
+        }
+        command.envs(env.iter().cloned());
+        if let Some(path) = artifact_path {
+            command.env(SOURCE_DIAGNOSTIC_ARTIFACT_ENV, path);
+        }
+        command
+    }
+
     pub(super) fn setup_tools(&self, tools: &ToolSetup) {
         let Some(tool_path) = &self.tool_path else {
             return;
@@ -139,6 +164,71 @@ impl TestProject {
             tool.setup(tool_path);
         }
     }
+}
+
+fn exchange_mcp_requests(child: &mut std::process::Child, stdin: &str) -> Vec<u8> {
+    let mut input = child.stdin.take().expect("veln stdin should be piped");
+    let mut output = BufReader::new(child.stdout.take().expect("stdout should be piped"));
+    let mut stdout = Vec::new();
+    let mut responses = Vec::new();
+    for line in stdin.lines() {
+        let line = substitute_mcp_cursor(line, &responses);
+        writeln!(input, "{line}").expect("interactive MCP input should be written");
+        input
+            .flush()
+            .expect("interactive MCP input should be flushed");
+
+        let mut response = String::new();
+        output
+            .read_line(&mut response)
+            .expect("interactive MCP response should be readable");
+        assert!(
+            !response.is_empty(),
+            "interactive MCP response should be present"
+        );
+        responses.push(parse_json(&response).expect("interactive MCP response should be JSON"));
+        stdout.extend_from_slice(response.as_bytes());
+    }
+    drop(input);
+    stdout
+}
+
+fn finish_interactive_child(mut child: std::process::Child, stdout: Vec<u8>) -> Output {
+    let mut stderr = Vec::new();
+    child
+        .stderr
+        .take()
+        .expect("stderr should be piped")
+        .read_to_end(&mut stderr)
+        .expect("interactive MCP stderr should be readable");
+    let status = child.wait().expect("veln should run");
+    Output {
+        status,
+        stdout,
+        stderr,
+    }
+}
+
+fn substitute_mcp_cursor(input: &str, responses: &[JsonValue]) -> String {
+    let Some(start) = input.find("$mcp_cursor:") else {
+        return input.to_owned();
+    };
+    let id_start = start + "$mcp_cursor:".len();
+    let id_end = input[id_start..]
+        .find('"')
+        .map_or(input.len(), |offset| id_start + offset);
+    let id = &input[id_start..id_end];
+    let response = responses
+        .iter()
+        .find(|response| response.object_field("id").and_then(JsonValue::as_i64) == id.parse().ok())
+        .unwrap_or_else(|| panic!("MCP cursor source response id `{id}` was not found"));
+    let cursor = response
+        .object_field("result")
+        .and_then(|result| result.object_field("structuredContent"))
+        .and_then(|structured| structured.object_field("next_cursor"))
+        .and_then(JsonValue::as_str)
+        .unwrap_or_else(|| panic!("MCP response id `{id}` did not contain next_cursor"));
+    input.replacen(&input[start..id_end], cursor, 1)
 }
 
 impl Drop for TestProject {

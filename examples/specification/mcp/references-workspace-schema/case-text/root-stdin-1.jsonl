@@ -7,3 +7,12 @@
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"references","arguments":{"source":"other.veln","line":10,"column":25}}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"bare.veln","line":4,"column":10}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"references","arguments":{"source":"bare.veln","line":5,"column":10}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":2}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:10","page_size":1}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:10"}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:10"}}}
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":0}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":null}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1.5}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1001}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1}}}

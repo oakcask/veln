@@ -17,43 +17,67 @@ pub(crate) fn references(
     language_resources: &mut LanguageResources,
     arguments: &Value,
 ) -> ToolOutcome {
-    let request = ReferenceArguments::new(arguments);
-    let (captured, captured_source, scope) =
-        match capture_navigation_source(base, selection, request.source) {
-            Ok(captured) => captured,
-            Err(failure) => return failure,
-        };
-    let references =
-        match collect_references(captured, &captured_source, &request, language_resources) {
-            Ok(references) => references,
-            Err(failure) => return failure,
-        };
+    let request = ReferenceArguments::parse(arguments);
+    match request {
+        ReferenceRequest::Continuation(cursor) => language_resources
+            .reference_pagination()
+            .continue_page(cursor),
+        ReferenceRequest::Initial(request) => {
+            let (captured, captured_source, scope) =
+                match capture_navigation_source(base, selection, request.source) {
+                    Ok(captured) => captured,
+                    Err(failure) => return failure,
+                };
+            let references = match collect_references(
+                captured,
+                &captured_source,
+                &request,
+                language_resources,
+            ) {
+                Ok(references) => references,
+                Err(failure) => return failure,
+            };
+            language_resources.reference_pagination().initial_page(
+                references,
+                scope.metadata(selection.generation()),
+                request.page_size,
+            )
+        }
+    }
+}
 
-    ToolOutcome::Success(json!({
-        "references": references,
-        "scope": scope.metadata(selection.generation())
-    }))
+enum ReferenceRequest<'a> {
+    Initial(ReferenceArguments<'a>),
+    Continuation(&'a str),
 }
 
 struct ReferenceArguments<'a> {
     source: &'a str,
     line: Coordinate,
     column: Coordinate,
+    page_size: usize,
     raw_line: &'a Value,
     raw_column: &'a Value,
 }
 
 impl<'a> ReferenceArguments<'a> {
-    fn new(arguments: &'a Value) -> Self {
-        Self {
+    fn parse(arguments: &'a Value) -> ReferenceRequest<'a> {
+        if let Some(cursor) = arguments.get("cursor").and_then(Value::as_str) {
+            return ReferenceRequest::Continuation(cursor);
+        }
+        ReferenceRequest::Initial(Self {
             source: arguments["source"]
                 .as_str()
                 .expect("references input schema requires a string source"),
             line: coordinate(&arguments["line"]),
             column: coordinate(&arguments["column"]),
+            page_size: arguments
+                .get("page_size")
+                .and_then(crate::schema::json_integer_usize)
+                .unwrap_or(100),
             raw_line: &arguments["line"],
             raw_column: &arguments["column"],
-        }
+        })
     }
 }
 

@@ -26,9 +26,30 @@ pub(super) fn run_case_with_guard_and_after_invocation(
 ) {
     guard_case(case_dir);
     let manifest = CaseManifest::read(&case_dir.join("case.toml"));
+    let Some(project) = prepare_case_project(case_dir, &manifest) else {
+        return;
+    };
+
+    let mut run_failures = Vec::new();
+    for run_index in 0..manifest.invocation.repeat {
+        run_case_once(
+            case_dir,
+            &manifest,
+            &project,
+            run_index,
+            &mut run_failures,
+            &mut after_invocation,
+        );
+    }
+    if !run_failures.is_empty() {
+        panic!("toolchain case failures:\n{}", run_failures.join("\n"));
+    }
+}
+
+fn prepare_case_project(case_dir: &Path, manifest: &CaseManifest) -> Option<TestProject> {
     if let Some(reason) = manifest.skip_reason() {
         eprintln!("skipping {}: {reason}", case_dir.display());
-        return;
+        return None;
     }
 
     let project = TestProject::new(case_name(case_dir), &manifest.tools);
@@ -41,52 +62,81 @@ pub(super) fn run_case_with_guard_and_after_invocation(
         .expect_err("case should fail manifest validation");
         let message = panic_message(panic);
         expected_error.assert_matches(case_dir, &message);
-        return;
+        return None;
     }
 
     if manifest.needs_pre_command_source_error_guard(case_dir) {
         manifest.assert_no_unexpected_example_source_errors(case_dir, &project.root);
     }
     manifest.validate_fixture_schema_references(&project.root);
+    Some(project)
+}
 
-    let mut run_failures = Vec::new();
-    for run_index in 0..manifest.invocation.repeat {
-        let context = CaseRunContext {
-            case_dir,
-            run_number: run_index + 1,
-        };
-        let artifact_path = manifest
-            .needs_command_source_error_guard(case_dir)
-            .then(|| project.source_diagnostic_artifact_path(run_index));
-        let stdin = manifest.invocation.materialized_stdin(&project.root);
-        let output = CapturedOutput::read(
-            &context,
-            project.veln_with_artifact(
-                &manifest.invocation.command,
-                manifest.invocation.cwd.as_deref(),
-                &manifest.invocation.env,
-                stdin.as_deref(),
-                artifact_path.as_deref(),
-            ),
+fn run_case_once(
+    case_dir: &Path,
+    manifest: &CaseManifest,
+    project: &TestProject,
+    run_index: usize,
+    run_failures: &mut Vec<String>,
+    after_invocation: &mut impl FnMut(&CaseRunContext<'_>, &Path),
+) {
+    let context = CaseRunContext {
+        case_dir,
+        run_number: run_index + 1,
+    };
+    let artifact_path = manifest
+        .needs_command_source_error_guard(case_dir)
+        .then(|| project.source_diagnostic_artifact_path(run_index));
+    let stdin = manifest.invocation.materialized_stdin(&project.root);
+    let output = CapturedOutput::read(
+        &context,
+        run_invocation(
+            manifest,
+            project,
+            stdin.as_deref(),
+            artifact_path.as_deref(),
+        ),
+    );
+    collect_panic_failure(run_failures, || {
+        if let Some(artifact_path) = artifact_path.as_deref() {
+            let evidence = CommandSourceDiagnosticEvidence::read(&context, artifact_path);
+            manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
+        }
+        manifest
+            .expectations
+            .assert_matches(&context, &output, &project.root);
+        manifest
+            .expectations
+            .assert_files_match(&context, &project.root);
+        assert_no_metrics_baseline_temp_file(&context, &project.root);
+        after_invocation(&context, &project.root);
+    });
+}
+
+fn run_invocation(
+    manifest: &CaseManifest,
+    project: &TestProject,
+    stdin: Option<&str>,
+    artifact_path: Option<&Path>,
+) -> Output {
+    if manifest.invocation.command.first().map(String::as_str) == Some("mcp")
+        && stdin.is_some_and(|input| input.contains("$mcp_cursor:"))
+    {
+        return project.veln_with_interactive_mcp(
+            &manifest.invocation.command,
+            manifest.invocation.cwd.as_deref(),
+            &manifest.invocation.env,
+            stdin.expect("interactive MCP input should exist"),
+            artifact_path,
         );
-        collect_panic_failure(&mut run_failures, || {
-            if let Some(artifact_path) = artifact_path.as_deref() {
-                let evidence = CommandSourceDiagnosticEvidence::read(&context, artifact_path);
-                manifest.assert_no_unexpected_command_source_errors(&context, &evidence);
-            }
-            manifest
-                .expectations
-                .assert_matches(&context, &output, &project.root);
-            manifest
-                .expectations
-                .assert_files_match(&context, &project.root);
-            assert_no_metrics_baseline_temp_file(&context, &project.root);
-            after_invocation(&context, &project.root);
-        });
     }
-    if !run_failures.is_empty() {
-        panic!("toolchain case failures:\n{}", run_failures.join("\n"));
-    }
+    project.veln_with_artifact(
+        &manifest.invocation.command,
+        manifest.invocation.cwd.as_deref(),
+        &manifest.invocation.env,
+        stdin,
+        artifact_path,
+    )
 }
 
 pub(super) fn collect_panic_failure(failures: &mut Vec<String>, action: impl FnOnce()) {

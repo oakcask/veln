@@ -25,8 +25,8 @@ schemas. The `check_project` result schema closes diagnostics, summary counts,
 and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
 invalid-params error. The `definition` input requires one source plus positive
-JSON integer line and column coordinates. The `references` input uses the same
-coordinate contract.
+JSON integer line and column coordinates. An initial `references` input uses
+the same coordinate contract; a continuation uses only its cursor.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -424,6 +424,40 @@ following supported workspace symbols and eligible package selections:
 - value bindings;
 - handler context parameters;
 - handler operation clause parameters.
+
+The `references` input is either an initial source-coordinate request or a
+continuation request containing only a non-empty `cursor`. Initial requests
+accept `page_size` from 1 through 1,000 and default it to 100. The result is
+sorted by URI UTF-8 bytes, then numeric start line, start column, end line, and
+end column before paging. A nonfinal page has exactly the requested size and
+contains `next_cursor`; an empty or final page omits that field. Every page
+repeats the captured scope metadata. The complete captured locations and
+scope remain stable when files change until refresh or cursor invalidation.
+
+Continuation state is authenticated to the server process and is single-use.
+The server retains at most 64 unfinished results in initial-admission FIFO
+order. A successful refresh invalidates live cursors with `stale_snapshot`.
+Evicted cursors also return `stale_snapshot`; malformed, tampered, foreign,
+post-restart, or already-consumed cursors return `invalid_cursor`. Invalid
+request shapes and failed initial captures do not consume cursor state. A
+continuation consumes its cursor before issuing a distinct cursor for a later
+nonfinal page. A final continuation releases its retained result and FIFO
+admission. There is no time-based cursor expiry. Refresh or eviction keeps an
+unconsumed cursor distinguishable as `stale_snapshot` while its bounded
+admission remains available; reusing that admission slot later may classify the
+old authenticated cursor as `invalid_cursor`, and never revives it when file
+bytes are restored. Continuation does not recapture sources or admit new
+package resources. Cursor failures use exactly `{}` for `details`.
+The checked schemas, focused server transition tests, and the
+`references-workspace-schema` MCP stdio case are the primary verification
+artifacts for these rules. The server transition tests check default and
+maximum page-size boundaries, exact ordered multi-file concatenation, cursor
+lifecycle, refresh, eviction, file-change capture, resource-capacity failure
+preservation, replay after final consumption, and failure preservation. The
+stdio case checks the advertised schemas, exact ordered multi-file page
+concatenation, repeated scope metadata, a valid cursor round trip, same-cursor
+invalid-shape recovery, replay rejection, and rejected fractional, null, zero,
+and over-maximum page sizes.
 
 Workspace schema references include schema path-leaf occurrences in `decode`
 and `encode` expressions and directly resolved schema-composition path leaves
