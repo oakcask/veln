@@ -297,6 +297,9 @@ fn conflicting_payload_constructor_type_arguments_report_mismatch() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
     assert_diagnostic_span(&diagnostics[0], 5, 23, 5, 28);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"expected_type_source\":\"inferred_expression\""));
+    assert!(details.contains("\"constraint\":\"call_argument\""));
 }
 
 #[test]
@@ -317,4 +320,32 @@ fn non_constructor_expected_type_still_reports_outer_mismatch() {
         diagnostics[0].message,
         "expected `Int`, but found `Option<Int>`"
     );
+}
+
+#[test]
+fn unrelated_adt_expected_type_does_not_constrain_constructor_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Box<A>\n",
+            "  Box(value: A)\n",
+            "end\n",
+            "fn main() -> Option<Int>\n",
+            "  Box(\"ok\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `Option<Int>`, but found `Box<String>`"
+    );
+    assert_diagnostic_span(&diagnostics[0], 5, 3, 5, 12);
 }
