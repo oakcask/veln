@@ -278,8 +278,8 @@ details}`.
 
 The stable v1 domain codes are `invalid_path`, `invalid_position`,
 `invalid_query`, `source_required`, `project_not_selected`,
-`project_ambiguous`, `snapshot_changed`, `resource_not_found`,
-`generation_failed`, `resource_capacity`, and
+`project_ambiguous`, `snapshot_changed`, `invalid_cursor`, `stale_snapshot`,
+`resource_not_found`, `generation_failed`, `resource_capacity`, and
 `incompatible_version`. The request spelling of the
 workspace base is `.`. Numeric values outside JSON schema ranges are rejected
 and are never clamped. Positive coordinate values that pass schema validation
