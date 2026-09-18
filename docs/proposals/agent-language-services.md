@@ -40,10 +40,9 @@ Broader definition navigation, package reference navigation beyond the
 implemented function, function-alias, direct-dependency type-alias, type,
 constructor, paginated
 references, recovery and casing-neutral reference navigation, package schema
-alias composition, alias-chain schema-alias targets, other
-dependency schema-alias scopes, standard-library schema and schema-alias
-references, conformance completion, and client plugin work in this proposal
-remain planned.
+alias-chain targets, other dependency schema-alias scopes, standard-library
+schema and schema-alias references, conformance completion, and client plugin
+work in this proposal remain planned.
 
 The remaining first-capability work includes:
 
@@ -63,11 +62,14 @@ origins remain later work.
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
-Current direct-dependency schema composition behavior is specified by
+Current direct-dependency schema composition and eligible schema-alias behavior
+is specified by
 [Editor Support](../specification/editor-support.md) and
 [MCP Navigation](../specification/mcp.md). The remaining inventory does not
-expand that behavior to schema aliases, standard-library schemas, or the
-umbrella's final declaration-inclusion and pagination contract.
+expand that behavior to alias chains, other dependency origins or scopes,
+standard-library schemas or aliases, recovery or casing-neutral navigation,
+pagination, or the umbrella's remaining declaration-inclusion and related
+contract work.
 
 Language semantics belong to an editor- and agent-neutral language service.
 `veln lsp` and `veln mcp` adapt that service to different session and transport

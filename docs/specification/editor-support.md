@@ -797,8 +797,9 @@ Implemented:
   `decode`, and `encode` references. Results include only selected-project
   workspace `file:` locations and never include the package declaration.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
-  `decode` and `encode` references. Results preserve alias identity and include
-  only selected-project workspace `file:` locations.
+  direct, valid `Repeat`, and array-payload composition, `decode`, and `encode`
+  references. Results preserve alias identity and include only selected-project
+  workspace `file:` locations.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -813,7 +814,7 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency schema
-composition-and-operation boundary, schema-alias composition-and-operation boundary, and
+  composition-and-operation boundary, schema-alias composition-and-operation boundary, and
   direct-dependency and standard-library public function, public
   function-alias, public type-alias, public type, and public constructor
   reference boundaries.
