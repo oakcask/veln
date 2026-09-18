@@ -3,3 +3,7 @@ use lib::wire from "example/dep"
 fn read(view: ByteView) -> ()
   decode wire::WirePacket from view at byte_offset(0)?
 end
+
+schema Descendant
+  nested: lib::wire::WirePacket
+end

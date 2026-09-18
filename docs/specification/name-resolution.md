@@ -35,10 +35,10 @@ namespace-by-use-role boundaries, lower-case exact spelling collisions between
 casing-neutral declarations and value names, and the same-namespace duplicate
 boundary.
 
-For saved operation-reference navigation, a direct-dependency public schema
-alias is eligible when its direct target identifies exactly one public schema
-declared by an exported source in the retained dependency. A bare target
-resolves in the alias module. A
+For saved composition-and-operation reference navigation, a direct-dependency
+public schema alias is eligible when its direct target identifies exactly one
+public schema declared by an exported source in the retained dependency. A
+bare target resolves in the alias module. A
 qualified target resolves through a valid local import written in the alias's
 module. Imports from all retained package sources with that explicit module
 identity participate, including full module paths and unique implicit leaf
@@ -53,19 +53,28 @@ ineligible. The executable evidence is the following language-service tests:
 - `direct_dependency_schema_alias_qualified_target_resolution_matrix`
 - `direct_dependency_schema_alias_target_imports_are_visible_across_module_sources`
 - `dependency_schema_alias_requires_an_exported_cross_module_target_source`
+- `dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
 
-Schema-alias operation-reference lookup combines written imports from all
-owned sources with the same explicit workspace module identity. A valid
-dependency import in one such source can qualify an operation leaf in another.
+Schema-alias composition-and-operation reference lookup combines written
+imports from all owned sources with the same explicit workspace module
+identity. A valid dependency import in one such source can qualify a
+composition or operation leaf in another.
 A colliding workspace import and dependency import, duplicate dependency
 imports, or a syntax-recovered dependency import in that module prevents the
-qualified operation leaf from selecting a dependency schema alias or falling
-back to a schema imported only by the operation source. The
+qualified leaf from selecting a dependency schema alias or falling back to a
+schema imported only by the leaf's source. The
 `direct_dependency_schema_alias_imports_are_visible_across_module_sources`,
 `workspace_and_dependency_schema_alias_imports_collide_across_module_sources`,
 `dependency_alias_and_schema_imports_collide_across_module_sources`,
-and `invalid_dependency_schema_alias_imports_block_across_module_sources`
-language-service tests are the executable evidence for these outcomes.
+`invalid_dependency_schema_alias_imports_block_across_module_sources`, and
+`direct_dependency_schema_alias_references_keep_alias_identity`
+language-service tests execute composition leaves as well as operation leaves;
+the positive cross-source case joins them in one alias identity, and the
+collision, duplicate-import, and recovered-import cases keep composition
+selection unresolved.
+The `ineligible_dependency_schema_alias_composition_leaves_stay_empty` test
+checks that direct, `Repeat`, and array-payload leaves do not select an
+ineligible alias or enter an eligible alias reference set.
 
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import

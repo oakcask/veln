@@ -456,7 +456,7 @@ and supported repeated-payload leaves without the declaration or alias-target
 expression. A bare alias resolves only in its declaring module. A valid
 qualified workspace import can expose the alias in another owned source.
 Ineligible workspace aliases, package alias selections outside the eligible
-direct-dependency operation boundary, module qualifiers, and recovery or
+direct-dependency composition-and-operation boundary, module qualifiers, and recovery or
 invalid-casing selections remain successful empty results. Definition and
 rename behavior do not change.
 
@@ -498,9 +498,10 @@ identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries.
 
 An eligible public schema alias declared in an exported module of a retained
-direct dependency has a separate operation-reference identity. Its written
-target must resolve uniquely to a public schema declared by an exported source
-in the retained dependency. A bare target resolves in the alias module. A
+direct dependency has a separate composition-and-operation reference
+identity. Its written target must resolve uniquely to a public schema declared
+by an exported source in the retained dependency. A bare target resolves in
+the alias module. A
 qualified target resolves through a valid package-local import from any
 retained package source with the alias's explicit module identity, including a
 full module path or a unique implicit leaf alias. Consumer imports do not
@@ -509,10 +510,10 @@ module or back to the alias's own module. No schema alias in
 the resolved schema namespace may have the target name. A declaration in an
 unrelated namespace, such as a type with the target name, does not affect
 eligibility.
-Selecting a saved
-`decode` or `encode` alias leaf through the full imported module path or its
-valid implicit leaf alias returns every operation leaf with the same dependency
-and alias-declaration identity in the selected project's owned sources.
+Selecting a saved composition, `decode`, or `encode` alias leaf through the
+full imported module path or its valid implicit leaf alias returns every
+composition and operation leaf with the same dependency and alias-declaration
+identity in the selected project's owned sources.
 An exact full written dependency import takes precedence over an unrelated
 import with a colliding implicit leaf alias. A clean alias declaration in a
 non-exported package source blocks fallback to a same-spelled exported schema
@@ -522,14 +523,16 @@ workspace module identity follow the shared rules in
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate and
 syntax-recovered dependency imports do not grant dependency alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
-composition leaves, package sources, sibling aliases, and direct target-schema
+package sources, sibling aliases, and direct target-schema
 uses. The direct target can be a same-module bare schema or a qualified schema
 resolved through a valid package-local full or implicit-leaf import. The
 qualified target can resolve to the alias module or another module.
-Consumer imports do not affect target resolution. Bare imported operation
-names, alias chains, external-package targets, ambiguous or invalid aliases,
+Consumer imports do not affect target resolution. Bare imported schema-alias
+composition and operation leaves, alias chains, external-package targets,
+ambiguous or invalid aliases,
 targets, and target imports, standard-library and transitive aliases, non-exported
-modules, mismatched imports, and recovered operations remain successful empty
+modules, mismatched imports, and recovered schema-alias composition or operation
+leaves remain successful empty
 results. Definition and rename behavior does not expand to package schema
 aliases. The `references-dependency-schema-alias` MCP case is the exact-range
 protocol contract and has a paired LSP case over identical saved sources. The
@@ -539,11 +542,14 @@ cover
 exact-import precedence, exclude import, comment, and string selections, and
 preserve successful empty results for a non-exported alias blocker, a target
 declared in a non-exported source, and an invalid-cased target import. They also
-exclude a same-spelled workspace type from the exact alias set and keep
-dependency-alias composition selection successful and empty. An unselected
+exclude a same-spelled workspace type from the exact alias set. A successful
+dependency-alias composition selection returns the alias-specific union. The
+union is identical when selected from a full
+written module path, a unique implicit leaf path, a direct field, a valid
+`Repeat` payload, or an array payload. An unselected
 descendant project contains the same qualified alias use and remains outside
 the selected root project's exact result. Every positive
-decode and encode response binds each range to its workspace URI.
+composition, decode, and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
 alias declaration. The
 `references-dependency-schema-operation-boundaries` case requires successful
@@ -554,6 +560,9 @@ and transitive alias selections. Focused MCP tests cover
 cross-module target success, recovered aliases that duplicate otherwise eligible declarations, duplicate
 and recovered imports with a same-named schema fallback candidate,
 standard-library schema aliases, and package-source alias-target selection.
+Focused language-service tests also keep direct, `Repeat`, and array-payload
+composition leaves empty for external alias targets, recovered consumer
+imports, and otherwise ineligible aliases.
 
 It also exposes references to public function, type, and constructor
 declarations from
@@ -769,14 +778,20 @@ checks cross-module reference success, while another injects a public
 standard-library schema alias and requires a successful empty result with
 project-wide scope.
 The `references-dependency-schema-alias` MCP specification case checks
-direct-dependency public schema-alias operation references through full written
-and implicit leaf module paths. It fixes exact workspace-only ranges,
+direct-dependency public schema-alias composition and operation references
+through full written and implicit leaf module paths. It fixes the complete
+exact workspace-only
+union, including every URI and range for direct, `Repeat`, and array
+composition leaves, as well as
 decode/encode selection parity, dependency-and-declaration identity,
 project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
+An ineligible alias selected from a direct field, a valid `Repeat` payload, or
+an array payload returns a successful empty reference set and does not enter
+an eligible alias union.
 It also excludes a same-spelled workspace type and an unselected descendant
-project from the exact result. Import, comment, string, dependency-alias
-composition, non-exported-target, and invalid-target-import selections produce
-successful empty results. Its paired LSP case checks identical locations with
+project from the exact result. Import, comment, string, non-exported-target,
+and invalid-target-import selections produce successful empty results. Its
+paired LSP case checks identical locations with
 declaration inclusion disabled and confirms that enabling declaration
 inclusion does not add a package-source declaration.
 The `references-dependency-function` MCP specification case checks that a

@@ -119,6 +119,57 @@ mod dependencies_schema_references_tests {
         }
     }
 
+    #[test]
+    fn eligible_schema_alias_composition_index_work_grows_linearly() {
+        let mut field_token_visits_per_field = None;
+        for count in [100, 200, 400] {
+            let started = std::time::Instant::now();
+            let mut declarations = String::new();
+            let mut fields = String::from("schema Host\n");
+            for index in 0..count {
+                declarations.push_str(&format!(
+                    "pub schema Packet{index}\n  value: Int\nend\n\n"
+                ));
+                declarations.push_str(&format!("pub schema Alias{index} = Packet{index}\n"));
+                fields.push_str(&format!("  field{index}: dep::Alias{index}\n"));
+            }
+            fields.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    &format!("use dep from \"example/dep\"\n\n{fields}"),
+                )],
+                vec![dependency_snapshot(
+                    "example/dep",
+                    &[("dep.veln", &declarations)],
+                    ["dep.veln"],
+                )],
+            );
+
+            crate::navigation::reset_schema_composition_index_work();
+            crate::navigation::reset_schema_alias_declaration_visits();
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let (schema_visits, field_token_visits) =
+                crate::navigation::schema_composition_index_work();
+            assert_eq!(schema_visits, count);
+            assert_eq!(
+                crate::navigation::schema_alias_declaration_visits(),
+                count * 4,
+                "eligible aliases must be indexed once per declaration-resolution boundary",
+            );
+            assert_eq!(field_token_visits % count, 0);
+            let visits_per_field = field_token_visits / count;
+            assert_eq!(
+                *field_token_visits_per_field.get_or_insert(visits_per_field),
+                visits_per_field,
+            );
+            eprintln!(
+                "eligible schema-alias composition index: aliases={count} fields={count} elapsed={elapsed:?} schema_visits={schema_visits} field_token_visits={field_token_visits}"
+            );
+        }
+    }
+
     fn dependency_schema_alias_reference_work(count: usize) -> (usize, usize) {
         let mut consumer = String::from("use schema0 from \"example/dep\"\n");
         for index in 1..count {
@@ -482,13 +533,15 @@ mod dependencies_schema_references_tests {
             ("ambiguous_alias.veln", 5, 19),
             ("duplicate.veln", 5, 28),
             ("boundaries.veln", 5, 18),
-            ("boundaries.veln", 6, 16),
             ("boundaries.veln", 7, 19),
             ("boundaries.veln", 8, 9),
             ("boundaries.veln", 9, 24),
         ] {
             assert!(query_snapshot(&snapshot, path, line, column).is_none());
         }
+
+        let alias = query_snapshot(&snapshot, "boundaries.veln", 6, 16).unwrap();
+        assert_eq!(locations(&alias.references), [("boundaries.veln", 6, 16)]);
 
         let exact = query_snapshot(&snapshot, "exact.veln", 5, 19).unwrap();
         assert_eq!(exact.selected_symbol.name, "Packet");
@@ -655,6 +708,74 @@ mod dependencies_schema_references_tests {
                 assert!(
                     query_snapshot(&snapshot, "main.veln", line, column).is_none(),
                     "{name} must block composition schema fallback",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves() {
+        let external_target = dependency_snapshot(
+            "example/external-target",
+            &[
+                (
+                    "alias.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "use other from \"other/dep\"\n\n",
+                        "pub schema Alias = other::Packet\n",
+                    ),
+                ),
+                (
+                    "other.veln",
+                    "mod other\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+            ["alias.veln", "other.veln"],
+        );
+        let valid_alias = dependency_snapshot(
+            "example/valid",
+            &[(
+                "dep.veln",
+                "mod dep\n\npub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "external.veln",
+                    concat!(
+                        "use dep from \"example/external-target\"\n\n",
+                        "schema Host\n",
+                        "  count: UInt8\n",
+                        "  direct: dep::Alias\n",
+                        "  repeated: Repeat(count, dep::Alias)\n",
+                        "  array: [dep::Alias; count]\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "recovered-import.veln",
+                    concat!(
+                        "use dep from \"example/valid\" unexpected\n\n",
+                        "schema Host\n",
+                        "  count: UInt8\n",
+                        "  direct: dep::Alias\n",
+                        "  repeated: Repeat(count, dep::Alias)\n",
+                        "  array: [dep::Alias; count]\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![external_target, valid_alias],
+        );
+
+        for path in ["external.veln", "recovered-import.veln"] {
+            for (line, column) in [(5, 16), (6, 32), (7, 20)] {
+                assert!(
+                    query_snapshot(&snapshot, path, line, column).is_none(),
+                    "{path}:{line}:{column} must not select a dependency schema alias",
                 );
             }
         }
@@ -1287,6 +1408,7 @@ mod dependencies_schema_references_tests {
             assert_eq!(
                 locations(&result.references),
                 [
+                    ("boundaries.veln", 8, 17),
                     ("main.veln", 4, 21),
                     ("main.veln", 5, 16),
                     ("other.veln", 4, 16),
@@ -1303,7 +1425,16 @@ mod dependencies_schema_references_tests {
         assert_eq!(locations(&collision.references), [("collision.veln", 4, 16)]);
         let workspace = query_snapshot(&snapshot, "workspace.veln", 5, 12).unwrap();
         assert!(workspace.references.is_empty());
-        assert!(query_snapshot(&snapshot, "boundaries.veln", 8, 18).is_none());
+        let boundary = query_snapshot(&snapshot, "boundaries.veln", 8, 18).unwrap();
+        assert_eq!(
+            locations(&boundary.references),
+            [
+                ("boundaries.veln", 8, 17),
+                ("main.veln", 4, 21),
+                ("main.veln", 5, 16),
+                ("other.veln", 4, 16),
+            ]
+        );
     }
 
     #[test]
@@ -1450,6 +1581,9 @@ mod dependencies_schema_references_tests {
                     "read.veln",
                     concat!(
                         "mod app\n\n",
+                        "schema Frame\n",
+                        "  value: wire::Alias\n",
+                        "end\n\n",
                         "fn read(view: ByteView) -> ()\n",
                         "  decode wire::Alias from view at byte_offset(0)?\n",
                         "end\n",
@@ -1476,7 +1610,11 @@ mod dependencies_schema_references_tests {
             );
             assert_eq!(
                 locations(&result.references),
-                [("read.veln", 4, 16), ("write.veln", 4, 16)]
+                [
+                    ("read.veln", 4, 16),
+                    ("read.veln", 8, 16),
+                    ("write.veln", 4, 16),
+                ]
             );
         }
     }
@@ -1512,6 +1650,9 @@ mod dependencies_schema_references_tests {
                     "operation.veln",
                     concat!(
                         "mod app\n\n",
+                        "schema Frame\n",
+                        "  value: wire::Alias\n",
+                        "end\n\n",
                         "fn read(view: ByteView) -> ()\n",
                         "  decode wire::Alias from view at byte_offset(0)?\n",
                         "end\n",
@@ -1603,6 +1744,9 @@ mod dependencies_schema_references_tests {
                     concat!(
                         "mod app\n\n",
                         "use b::wire from \"example/schema\"\n\n",
+                        "schema Frame\n",
+                        "  value: wire::Alias\n",
+                        "end\n\n",
                         "fn read(view: ByteView) -> ()\n",
                         "  decode wire::Alias from view at byte_offset(0)?\n",
                         "end\n",
@@ -1666,6 +1810,9 @@ mod dependencies_schema_references_tests {
                 "operation.veln",
                 concat!(
                     "mod app\n\n",
+                    "schema Frame\n",
+                    "  value: dep::Alias\n",
+                    "end\n\n",
                     "fn read(view: ByteView) -> ()\n",
                     "  decode dep::Alias from view at byte_offset(0)?\n",
                     "end\n",
@@ -1677,7 +1824,7 @@ mod dependencies_schema_references_tests {
             );
 
             assert!(
-                query_snapshot(&snapshot, "operation.veln", 4, 16).is_none(),
+                query_snapshot(&snapshot, "operation.veln", 4, 15).is_none(),
                 "{name} must block dependency alias fallback across module sources"
             );
         }
@@ -1933,6 +2080,50 @@ mod dependencies_schema_references_tests {
             vec![dependency],
         );
         assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
+    }
+
+    #[test]
+    fn ineligible_dependency_schema_alias_composition_leaves_stay_empty() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "lib/wire.veln",
+                    concat!(
+                        "mod lib::wire\n",
+                        "use private\n\n",
+                        "pub schema PrivateTarget = private::Packet\n",
+                    ),
+                ),
+                (
+                    "private.veln",
+                    "mod private\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+            ["lib/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use lib::wire from \"example/dep\"\n\n",
+                    "schema Frame\n",
+                    "  count: UInt8\n",
+                    "  direct: lib::wire::PrivateTarget\n",
+                    "  repeated: Repeat(count, lib::wire::PrivateTarget)\n",
+                    "  array: [lib::wire::PrivateTarget; count]\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        for (line, column) in [(5, 24), (6, 40), (7, 23)] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "ineligible alias composition leaf at {line}:{column} must not be selectable"
+            );
+        }
     }
 
     #[test]

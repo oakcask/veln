@@ -82,6 +82,7 @@ impl SymbolIndex {
         schema_composition_references.extend(direct_dependency_schema_composition_references(
             &files,
             &direct_dependency_schemas,
+            &schema_aliases,
             &schema_alias_module_imports,
         ));
         files.extend(direct_dependencies.files.clone());

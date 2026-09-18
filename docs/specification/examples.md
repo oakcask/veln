@@ -328,14 +328,16 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   and
   `../../examples/specification/lsp/references-dependency-schema-operation/`.
 - MCP and LSP saved workspace `references` for eligible direct-dependency
-  public schema-alias `decode` and `encode` leaves:
+  public schema-alias composition, `decode`, and `encode` leaves:
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
   `../../examples/specification/lsp/references-dependency-schema-alias/`. The
   paired cases resolve a qualified schema-alias target exported from another
   module through an implicit leaf import shared by retained package sources
   with the alias's explicit module identity, keep schema-target lookup isolated
   from a same-spelled type declaration, exclude a workspace type with the
-  alias spelling, keep dependency-alias composition selection empty, prefer an
+  alias spelling, include the exact dependency-alias composition union from
+  full and implicit module paths, direct fields, `Repeat` payloads, and array
+  payloads in the alias-specific union, prefer an
   exact dependency import over a colliding implicit alias, and prevent a
   non-exported alias from falling back to a same-spelled exported schema. They
   also keep an
@@ -343,7 +345,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   target import empty, and exclude the same qualified alias use in an
   unselected descendant project from the root project's exact result.
 - MCP `references` boundary fixture shared by direct-dependency schema
-  composition, schema-operation, and schema-alias-operation selections. Its
+  composition, schema-operation, and schema-alias composition-and-operation
+  selections. Its
   positive controls cover exact dependency import precedence, import-order
   invariance, and cross-module alias targets. Its successful-empty results
   cover private, non-exported, mismatched, transitive, missing, invalid-cased,

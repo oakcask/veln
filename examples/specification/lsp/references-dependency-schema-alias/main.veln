@@ -1,6 +1,6 @@
 use lib::wire from "example/dep"
 use other::lib from "other/dep"
-
+use lib::core from "example/dep"
 fn keep(note: String, packet: {value: Int}) -> {value: Int}
   packet
 end
@@ -23,5 +23,32 @@ type WirePacket
 end
 
 schema Frame
+  count: UInt8
   nested: lib::wire::WirePacket
+  implicit: wire::WirePacket
+  repeated: Repeat(count, lib::wire::WirePacket)
+  array: [lib::wire::WirePacket; count]
+  invalid_repeat: Repeat(count + 1, lib::wire::WirePacket)
+  invalid_array: [lib::wire::WirePacket; count + 1]
+end
+
+fn identity_boundaries(view: ByteView, packet: {value: Int}) -> ()
+  decode lib::wire::SiblingPacket from view at byte_offset(0)?
+  encode other::lib::WirePacket from packet
+end
+
+schema IneligibleFrame
+  count: UInt8
+  direct: lib::wire::PrivateTarget
+  repeated: Repeat(count, lib::wire::PrivateTarget)
+  array: [lib::wire::PrivateTarget; count]
+end
+
+# Target schema uses keep a distinct identity from the alias.
+
+fn target_identity_boundaries(view: ByteView, packet: {value: Int}) -> ()
+  decode lib::core::Packet from view at byte_offset(0)?
+  encode core::Packet from packet
+  decode other::lib::Packet from view at byte_offset(0)?
+  encode other::lib::Packet from packet
 end

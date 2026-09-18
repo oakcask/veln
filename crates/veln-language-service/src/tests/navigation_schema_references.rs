@@ -978,6 +978,55 @@ mod navigation_schema_references_tests {
     }
 
     #[test]
+    fn workspace_schema_alias_composition_resolves_qualified_cross_module_targets() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use lib::wire from \"example/dep\"\n\n",
+                    "schema Frame\n",
+                    "  count: UInt8\n",
+                    "  direct: wire::WirePacket\n",
+                    "  repeated: Repeat(count, wire::WirePacket)\n",
+                    "  array: [wire::WirePacket; count]\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[
+                    (
+                        "lib/packet.veln",
+                        "mod lib::core\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "lib/alias.veln",
+                        "mod lib::wire\nuse lib::core\npub schema WirePacket = core::Packet\n",
+                    ),
+                ],
+                ["lib/packet.veln", "lib/alias.veln"],
+            )],
+        );
+
+        let expected = [(5, 17), (6, 33), (7, 17)];
+        let alias = query_snapshot(&snapshot, "main.veln", 5, 17).unwrap();
+        assert_eq!(
+            locations(&alias.references),
+            [
+                ("main.veln", 5, 17),
+                ("main.veln", 6, 33),
+                ("main.veln", 7, 17),
+            ]
+        );
+
+        for (line, column) in expected {
+            let composition = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_eq!(composition.definition, alias.definition);
+            assert_eq!(composition.references, alias.references);
+        }
+    }
+
+    #[test]
     fn workspace_schema_alias_references_exclude_same_spelled_non_alias_symbols() {
         let sources = vec![
             source(

@@ -215,9 +215,10 @@ the declaration when requested plus `decode`, `encode`, and directly resolved
 schema-composition path leaves that resolve to that schema in workspace
 sources. Composition references include direct fields and both supported
 repeated-payload spellings. An eligible public schema alias has its own
-declaration identity and returns the operation and composition leaves that
-resolve to that alias, without merging them into its direct public workspace
-schema target. Alias chains are not eligible, and package aliases do not enter
+declaration identity and returns the `decode`, `encode`, direct-composition,
+`Repeat`, and array-payload leaves that resolve to that alias, without merging
+them into its direct public workspace schema target. Alias chains are not
+eligible, and package aliases do not enter
 the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
@@ -262,8 +263,8 @@ Focused MCP server coverage
 injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
 For an eligible public schema alias in an exported retained direct-dependency
-module, `textDocument/references` returns the same saved workspace operation
-leaves as MCP when declaration inclusion is false. The direct alias target
+module, `textDocument/references` returns the same saved workspace composition
+and operation leaves as MCP when declaration inclusion is false. The direct alias target
 must be a unique public schema declared by an exported source in the retained
 dependency. It can be a bare target in the alias module or a qualified target
 resolved through a valid local import from any retained package source with the
@@ -283,10 +284,12 @@ workspace module identity as specified by
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
 syntax-recovered dependency imports do not grant dependency alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
-same-spelled exported schema without becoming navigable. Bare imported names,
+same-spelled exported schema without becoming navigable. Bare imported
+schema-alias composition and operation leaves,
 alias chains, external-package targets, ambiguous or recovered target imports,
-package-source and composition leaves, standard-library and transitive aliases,
-invalid or ambiguous declarations, and recovered operations remain empty.
+package-source leaves, standard-library and transitive aliases,
+invalid or ambiguous declarations, and recovered schema-alias composition or
+operation leaves remain empty.
 Package declarations are never added when declaration
 inclusion is true, and definition and rename support do not expand. The
 `references-dependency-schema-alias` LSP case is paired with the MCP case and
@@ -294,8 +297,9 @@ fixes their normalized URI and range parity over identical non-BMP saved input,
 including an alias and target schema exported from separate sources with
 different explicit modules and a same-spelled type in the alias module. The
 paired cases also exclude a workspace type with the alias spelling from the
-exact result and keep dependency-alias composition, non-exported-target, and
-invalid-target-import selections empty. An unselected descendant project with
+exact result and include dependency-alias composition in the alias-specific
+union; non-exported-target and invalid-target-import selections remain empty.
+An unselected descendant project with
 the same qualified alias use remains outside the selected root project's
 result. The LSP case also keeps definition and prepare-rename null and rename
 edits empty for the supported package alias leaf. Shared navigation tests and
@@ -303,6 +307,12 @@ the MCP dependency-schema boundary case cover target-name schema alias
 collisions, recovered duplicate declarations, invalid imports, invalid-cased
 targets, cross-module target success, other-package target rejection, and
 graph-ineligible alias selections.
+An ineligible direct-dependency schema alias selected from a direct field, a
+valid `Repeat` payload, or an array payload also returns a successful empty
+reference set and does not enter any eligible alias union. The
+`dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
+and `ineligible_dependency_schema_alias_composition_leaves_stay_empty`
+language-service tests cover these composition-selection boundaries.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.
@@ -795,8 +805,9 @@ Implemented:
   `decode`, and `encode` references. Results include only selected-project
   workspace `file:` locations and never include the package declaration.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
-  `decode` and `encode` references. Results preserve alias identity and include
-  only selected-project workspace `file:` locations.
+  direct, valid `Repeat`, and array-payload composition, `decode`, and `encode`
+  references. Results preserve alias identity and include only selected-project
+  workspace `file:` locations.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -811,7 +822,7 @@ Not implemented:
 - LSP range and delta semantic token requests.
 - Completion and hover.
 - Dependency reference search outside the implemented direct-dependency schema
-  composition-and-operation boundary, schema-alias operation boundary, and
+  composition-and-operation boundary, schema-alias composition-and-operation boundary, and
   direct-dependency and standard-library public function, public
   function-alias, public type-alias, public type, and public constructor
   reference boundaries.

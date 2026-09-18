@@ -1,3 +1,7 @@
-pub schema Other
+mod other::lib
+
+pub schema Packet
   value: Int
 end
+
+pub schema WirePacket = Packet
