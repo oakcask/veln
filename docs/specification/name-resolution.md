@@ -36,13 +36,13 @@ casing-neutral declarations and value names, and the same-namespace duplicate
 boundary.
 
 For saved composition-and-operation reference navigation, a direct-dependency
-public schema alias is eligible when its direct target identifies exactly one
-public schema declared by an exported source in the retained dependency. A
-bare target resolves in the alias module. A
-qualified target resolves through a valid local import written in the alias's
-module. Imports from all retained package sources with that explicit module
-identity participate, including full module paths and unique implicit leaf
-aliases. The imported target can resolve to another module or back to the
+public schema alias is eligible when each hop resolves to exactly one public
+schema alias or, at the final hop, one public schema declared by an exported
+source in the retained dependency. A bare target resolves in the alias
+module. A qualified target resolves through a valid local import written in the
+alias's module. Imports from all retained package sources with that explicit
+module identity participate, including full module paths and unique implicit
+leaf aliases. The imported target can resolve to another module or back to the
 alias's own module.
 Consumer imports do not participate in target resolution. No schema alias may
 share the target name in the resolved schema namespace. Same-spelled
@@ -56,6 +56,8 @@ ineligible. The executable evidence is the following language-service tests:
 - `direct_dependency_schema_alias_target_imports_are_visible_across_module_sources`
 - `dependency_schema_alias_requires_an_exported_cross_module_target_source`
 - `dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
+- `dependency_schema_alias_chain_intermediate_blockers_return_empty`
+- `dependency_schema_alias_shared_suffix_and_disconnected_cycle_stay_bounded`
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module

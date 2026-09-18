@@ -54,6 +54,35 @@ fn schema_alias_chain_resolution_work_is_linear() {
 }
 
 #[test]
+fn schema_alias_chain_shared_suffix_and_disconnected_cycle_stay_bounded() {
+    for count in [64usize, 128, 256] {
+        let mut source = String::from("mod facade\n\npub schema Packet\n  value: Int\nend\n\n");
+        source.push_str("pub schema Shared0 = Packet\n");
+        for index in 1..count {
+            source.push_str(&format!("pub schema Shared{index} = Shared{}\n", index - 1));
+        }
+        for index in 0..count {
+            source.push_str(&format!("pub schema Left{index} = Shared0\n"));
+            source.push_str(&format!("pub schema Right{index} = Shared0\n"));
+        }
+        source.push_str("pub schema CycleA = CycleB\npub schema CycleB = CycleA\n");
+
+        let parsed = parse(&SourceFile::new("facade.veln", &source));
+        assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+        let module = lower_surface_ast(&parsed.tree);
+
+        reset_schema_alias_chain_resolution_work();
+        let resolved = resolved_schema_alias_chains(&module);
+        assert_eq!(resolved.len(), count * 3);
+        let work = schema_alias_chain_resolution_work();
+        assert!(
+            work <= count * 8 + 8,
+            "shared suffixes and disconnected cycles must not cause repeated walks: work={work} count={count}"
+        );
+    }
+}
+
+#[test]
 fn duplicate_use_aliases_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",

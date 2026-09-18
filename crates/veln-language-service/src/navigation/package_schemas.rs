@@ -71,6 +71,8 @@ fn eligible_package_schema_aliases<'a>(
         let mut path = Vec::new();
         let mut positions = BTreeMap::new();
         let outcome = loop {
+            #[cfg(test)]
+            record_schema_alias_eligibility_visit();
             if let Some(&known) = eligibility.get(&identity) {
                 break known;
             }

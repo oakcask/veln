@@ -653,7 +653,7 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, function aliases, type aliases, or constructors,
 non-exported package modules, invalid-casing records, recovery records,
-unsupported schema-alias chains, public function aliases with unresolved,
+unsupported schema-alias origins or scopes, public function aliases with unresolved,
 non-function, or invalid-cased targets, public type aliases with transitive,
 unresolved, non-type, or invalid-cased targets, unsupported package public
 alias symbols, package schema classes outside direct-dependency declarations

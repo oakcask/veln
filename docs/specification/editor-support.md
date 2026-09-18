@@ -576,7 +576,7 @@ in this slice. Supported direct-dependency and standard-library public
 function aliases return only selected-project workspace `file:` locations for
 references. Supported direct-dependency and standard-library public type
 aliases return only selected-project workspace `file:` locations for
-references. Unsupported schema-alias chains, public function aliases with unresolved,
+references. Unsupported schema-alias origins or scopes, public function aliases with unresolved,
 non-function, or invalid-cased targets, and public type aliases with
 transitive, unresolved, non-type, or invalid-cased targets do not produce
 definition or reference locations.

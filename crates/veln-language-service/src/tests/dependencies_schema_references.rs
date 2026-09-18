@@ -40,6 +40,56 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn dependency_schema_alias_shared_suffix_and_disconnected_cycle_stay_bounded() {
+        for count in [64, 128, 256] {
+            let mut dependency_source = String::from(
+                "pub schema Packet\n  value: Int\nend\n\n",
+            );
+            dependency_source.push_str("pub schema Shared0 = Packet\n");
+            for index in 1..count {
+                dependency_source.push_str(&format!(
+                    "pub schema Shared{index} = Shared{}\n",
+                    index - 1
+                ));
+            }
+            for index in 0..count {
+                dependency_source.push_str(&format!(
+                    "pub schema Left{index} = Shared0\npub schema Right{index} = Shared0\n"
+                ));
+            }
+            dependency_source.push_str(
+                "pub schema CycleA = CycleB\npub schema CycleB = CycleA\n",
+            );
+            let dependency = dependency_snapshot(
+                "example/dep",
+                &[("dep.veln", &dependency_source)],
+                ["dep.veln"],
+            );
+            let main_source = format!(
+                "use dep from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n  decode dep::Left{} from view at byte_offset(0)?\n  decode dep::Right{} from view at byte_offset(0)?\n  decode dep::CycleA from view at byte_offset(0)?\nend\n",
+                count - 1,
+                count - 1
+            );
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("main.veln", &main_source)],
+                vec![dependency],
+            );
+
+            crate::navigation::reset_schema_alias_eligibility_visits();
+            let _ = snapshot.navigation_index();
+            assert!(
+                crate::navigation::schema_alias_eligibility_visits() <= count * 3 + 2,
+                "package eligibility must not re-expand shared suffixes or cycles"
+            );
+            let left = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
+            assert_eq!(left.selected_symbol.name, format!("Left{}", count - 1));
+            let right = query_snapshot(&snapshot, "main.veln", 5, 16).unwrap();
+            assert_eq!(right.selected_symbol.name, format!("Right{}", count - 1));
+            assert!(query_snapshot(&snapshot, "main.veln", 6, 16).is_none());
+        }
+    }
+
+    #[test]
     fn dependency_schema_alias_chain_keeps_each_identity_and_isolates_cycles() {
         let dependency = dependency_snapshot(
             "example/dep",
@@ -2886,7 +2936,7 @@ mod dependencies_schema_references_tests {
                 ),
                 (
                     "facade.veln",
-                    "mod facade\n\npub schema Alias = nested::core::Packet\n",
+                    "mod facade\n\npub schema Mid = nested::core::Packet\npub schema Alias = Mid\n",
                 ),
             ];
             dependency_sources.extend(import_sources);
