@@ -714,6 +714,74 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves() {
+        let external_target = dependency_snapshot(
+            "example/external-target",
+            &[
+                (
+                    "alias.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "use other from \"other/dep\"\n\n",
+                        "pub schema Alias = other::Packet\n",
+                    ),
+                ),
+                (
+                    "other.veln",
+                    "mod other\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+            ["alias.veln", "other.veln"],
+        );
+        let valid_alias = dependency_snapshot(
+            "example/valid",
+            &[(
+                "dep.veln",
+                "mod dep\n\npub schema Packet\n  value: Int\nend\n\npub schema Alias = Packet\n",
+            )],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "external.veln",
+                    concat!(
+                        "use dep from \"example/external-target\"\n\n",
+                        "schema Host\n",
+                        "  count: UInt8\n",
+                        "  direct: dep::Alias\n",
+                        "  repeated: Repeat(count, dep::Alias)\n",
+                        "  array: [dep::Alias; count]\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "recovered-import.veln",
+                    concat!(
+                        "use dep from \"example/valid\" unexpected\n\n",
+                        "schema Host\n",
+                        "  count: UInt8\n",
+                        "  direct: dep::Alias\n",
+                        "  repeated: Repeat(count, dep::Alias)\n",
+                        "  array: [dep::Alias; count]\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![external_target, valid_alias],
+        );
+
+        for path in ["external.veln", "recovered-import.veln"] {
+            for (line, column) in [(5, 16), (6, 32), (7, 20)] {
+                assert!(
+                    query_snapshot(&snapshot, path, line, column).is_none(),
+                    "{path}:{line}:{column} must not select a dependency schema alias",
+                );
+            }
+        }
+    }
+
+    #[test]
     fn dependency_schema_composition_rejects_casing_mismatch_and_transitive_inputs() {
         let selected = dependency_snapshot(
             "example/dep",

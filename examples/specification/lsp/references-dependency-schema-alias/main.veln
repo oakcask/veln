@@ -43,3 +43,12 @@ schema IneligibleFrame
   repeated: Repeat(count, lib::wire::PrivateTarget)
   array: [lib::wire::PrivateTarget; count]
 end
+
+use lib::core from "example/dep"
+
+fn target_identity_boundaries(view: ByteView, packet: {value: Int}) -> ()
+  decode lib::core::Packet from view at byte_offset(0)?
+  encode core::Packet from packet
+  decode other::lib::Packet from view at byte_offset(0)?
+  encode other::lib::Packet from packet
+end

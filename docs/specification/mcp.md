@@ -527,10 +527,12 @@ package sources, sibling aliases, and direct target-schema
 uses. The direct target can be a same-module bare schema or a qualified schema
 resolved through a valid package-local full or implicit-leaf import. The
 qualified target can resolve to the alias module or another module.
-Consumer imports do not affect target resolution. Bare imported operation
-names, alias chains, external-package targets, ambiguous or invalid aliases,
+Consumer imports do not affect target resolution. Bare imported schema-alias
+composition and operation leaves, alias chains, external-package targets,
+ambiguous or invalid aliases,
 targets, and target imports, standard-library and transitive aliases, non-exported
-modules, mismatched imports, and recovered operations remain successful empty
+modules, mismatched imports, and recovered schema-alias composition or operation
+leaves remain successful empty
 results. Definition and rename behavior does not expand to package schema
 aliases. The `references-dependency-schema-alias` MCP case is the exact-range
 protocol contract and has a paired LSP case over identical saved sources. The

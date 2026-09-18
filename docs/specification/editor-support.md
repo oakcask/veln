@@ -284,10 +284,12 @@ workspace module identity as specified by
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
 syntax-recovered dependency imports do not grant dependency alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
-same-spelled exported schema without becoming navigable. Bare imported names,
+same-spelled exported schema without becoming navigable. Bare imported
+schema-alias composition and operation leaves,
 alias chains, external-package targets, ambiguous or recovered target imports,
 package-source leaves, standard-library and transitive aliases,
-invalid or ambiguous declarations, and recovered operations remain empty.
+invalid or ambiguous declarations, and recovered schema-alias composition or
+operation leaves remain empty.
 Package declarations are never added when declaration
 inclusion is true, and definition and rename support do not expand. The
 `references-dependency-schema-alias` LSP case is paired with the MCP case and
