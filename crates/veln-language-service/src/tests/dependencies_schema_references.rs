@@ -430,7 +430,7 @@ mod dependencies_schema_references_tests {
 
     fn dependency_schema_alias_resolution_snapshot(count: usize) -> EffectiveProjectSnapshot {
         let mut targets = String::from("mod core\n\n");
-        let mut aliases = String::from("mod facade\nuse core\n\n");
+        let mut aliases = String::from("mod facade\n\n");
         for index in 0..count {
             targets.push_str(&format!(
                 "pub schema Packet{index}\n  value: Int\nend\n\n"
@@ -441,8 +441,15 @@ mod dependencies_schema_references_tests {
         }
         let dependency = dependency_snapshot(
             "example/dep",
-            &[("core.veln", &targets), ("facade.veln", &aliases)],
-            ["core.veln", "facade.veln"],
+            &[
+                ("core.veln", &targets),
+                // Keep the qualified import in a different retained source
+                // from the alias declarations. Every hop must use the same
+                // cross-source import index as a direct target.
+                ("facade-import.veln", "mod facade\nuse core\n"),
+                ("facade.veln", &aliases),
+            ],
+            ["core.veln", "facade-import.veln", "facade.veln"],
         );
         EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(

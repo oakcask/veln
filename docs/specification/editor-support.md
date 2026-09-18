@@ -300,7 +300,8 @@ inclusion is true, and definition and rename support do not expand. The
 `references-dependency-schema-alias` LSP case is paired with the MCP case and
 fixes their normalized URI and range parity over identical non-BMP saved input,
 including an alias and target schema exported from separate sources with
-different explicit modules and a same-spelled type in the alias module. The
+different explicit modules, a same-spelled type in the alias module, and two
+retained dependencies exporting the same module and alias spelling. The
 paired cases also exclude a workspace type with the alias spelling from the
 exact result and include dependency-alias composition in the alias-specific
 union; non-exported-target and invalid-target-import selections remain empty.

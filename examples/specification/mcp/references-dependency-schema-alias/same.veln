@@ -1,0 +1,6 @@
+use lib::wire from "other/dep"
+
+fn read(view: ByteView, packet: {value: Int}) -> ()
+  decode lib::wire::WirePacket from view at byte_offset(0)?
+  encode wire::WirePacket from packet
+end

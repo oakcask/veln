@@ -35,3 +35,4 @@
 {"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:40"}}}
 {"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":63,"column":21}}}
 {"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":64,"column":21}}}
+{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"references","arguments":{"source":"same.veln","line":4,"column":26}}}

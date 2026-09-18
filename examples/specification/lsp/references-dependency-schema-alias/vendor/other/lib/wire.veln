@@ -1,0 +1,8 @@
+mod lib::wire
+
+pub schema Packet
+  value: Int
+end
+
+pub schema IntermediatePacket = Packet
+pub schema WirePacket = IntermediatePacket

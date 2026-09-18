@@ -579,7 +579,8 @@ results. Definition and rename behavior does not expand to package schema
 aliases. The `references-dependency-schema-alias` MCP case is the exact-range
 protocol contract and has a paired LSP case over identical saved sources. The
 paired cases keep the alias eligible when its target schema is exported from a
-separate module and when a type in the alias module shares its target name,
+separate module, when a type in the alias module shares its target name, and
+when two retained dependencies export the same module and alias spelling,
 cover
 exact-import precedence, exclude import, comment, and string selections, and
 preserve successful empty results for a non-exported alias blocker, a target

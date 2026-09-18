@@ -860,3 +860,43 @@ equals = {"start":{"line":50,"character":15},"end":{"line":50,"character":21}}
 id = 42
 path = "/result/2/range"
 equals = {"start":{"line":63,"character":20},"end":{"line":63,"character":26}}
+
+[[lsp_assert]]
+id = 42
+path = "/result/0/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 42
+path = "/result/1/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 42
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 44
+path = "/result"
+length = 2
+
+[[lsp_assert]]
+id = 44
+path = "/result/0/range"
+equals = {"start":{"line":3,"character":20},"end":{"line":3,"character":30}}
+
+[[lsp_assert]]
+id = 44
+path = "/result/0/uri"
+workspace_file_uri = "same.veln"
+
+[[lsp_assert]]
+id = 44
+path = "/result/1/range"
+equals = {"start":{"line":4,"character":15},"end":{"line":4,"character":25}}
+
+[[lsp_assert]]
+id = 44
+path = "/result/1/uri"
+workspace_file_uri = "same.veln"
