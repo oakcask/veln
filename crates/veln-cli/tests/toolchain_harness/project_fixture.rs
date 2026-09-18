@@ -161,7 +161,7 @@ impl TestProject {
         let mut stdout = Vec::new();
         let mut responses = Vec::new();
         for line in stdin.lines() {
-            let line = substitute_mcp_cursor(&line, &responses);
+            let line = substitute_mcp_cursor(line, &responses);
             writeln!(input, "{line}").expect("interactive MCP input should be written");
             input
                 .flush()
