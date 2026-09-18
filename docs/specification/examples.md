@@ -345,7 +345,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   target import empty, and exclude the same qualified alias use in an
   unselected descendant project from the root project's exact result.
 - MCP `references` boundary fixture shared by direct-dependency schema
-  composition, schema-operation, and schema-alias-operation selections. Its
+  composition, schema-operation, and schema-alias composition-and-operation
+  selections. Its
   positive controls cover exact dependency import precedence, import-order
   invariance, and cross-module alias targets. Its successful-empty results
   cover private, non-exported, mismatched, transitive, missing, invalid-cased,

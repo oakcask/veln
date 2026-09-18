@@ -215,9 +215,10 @@ the declaration when requested plus `decode`, `encode`, and directly resolved
 schema-composition path leaves that resolve to that schema in workspace
 sources. Composition references include direct fields and both supported
 repeated-payload spellings. An eligible public schema alias has its own
-declaration identity and returns the operation and composition leaves that
-resolve to that alias, without merging them into its direct public workspace
-schema target. Alias chains are not eligible, and package aliases do not enter
+declaration identity and returns the `decode`, `encode`, direct-composition,
+`Repeat`, and array-payload leaves that resolve to that alias, without merging
+them into its direct public workspace schema target. Alias chains are not
+eligible, and package aliases do not enter
 the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.

@@ -772,16 +772,17 @@ checks cross-module reference success, while another injects a public
 standard-library schema alias and requires a successful empty result with
 project-wide scope.
 The `references-dependency-schema-alias` MCP specification case checks
-direct-dependency public schema-alias composition and operation references through full written
-and implicit leaf module paths. It fixes the complete exact workspace-only
+direct-dependency public schema-alias composition and operation references
+through full written and implicit leaf module paths. It fixes the complete
+exact workspace-only
 union, including every URI and range for direct, `Repeat`, and array
 composition leaves, as well as
 decode/encode selection parity, dependency-and-declaration identity,
 project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
 It also excludes a same-spelled workspace type and an unselected descendant
-project from the exact result. Import, comment, string, dependency-alias
-composition, non-exported-target, and invalid-target-import selections produce
-successful empty results. Its paired LSP case checks identical locations with
+project from the exact result. Import, comment, string, non-exported-target,
+and invalid-target-import selections produce successful empty results. Its
+paired LSP case checks identical locations with
 declaration inclusion disabled and confirms that enabling declaration
 inclusion does not add a package-source declaration.
 The `references-dependency-function` MCP specification case checks that a
