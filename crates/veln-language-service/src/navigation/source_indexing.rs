@@ -128,7 +128,7 @@ fn index_dependency_sources(
         files.push(file);
     }
     declarations.resolved_package_schema_aliases.extend(
-        veln_sema::resolved_schema_aliases(&dependency_module)
+        veln_sema::resolved_schema_alias_chains(&dependency_module)
             .into_iter()
             .map(|resolved| {
                 let target_exported = dependency
@@ -139,10 +139,12 @@ fn index_dependency_sources(
                     package_origin,
                     alias_module: resolved.alias_module,
                     alias_name: resolved.alias_name,
-                    alias_span: resolved.alias_span,
                     target_module: resolved.target_module,
                     target_name: resolved.target_name,
                     target_exported,
+                    direct_target_module: resolved.direct_target_module,
+                    direct_target_name: resolved.direct_target_name,
+                    direct_target_is_alias: resolved.direct_target_is_alias,
                 }
             }),
     );

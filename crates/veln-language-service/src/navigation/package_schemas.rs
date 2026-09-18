@@ -1,7 +1,8 @@
 type PackageSchemaIdentity<'a> = (&'a str, &'a str, &'a str);
-type PackageSchemaAliasIdentity<'a> = (&'a str, &'a str, &'a str, &'a str);
+type PackageSchemaAliasIdentity<'a> = PackageSchemaIdentity<'a>;
 
 struct PackageSchemaDeclarations<'a> {
+    aliases: &'a [PackageSchemaAliasDeclaration],
     alias_counts: BTreeMap<PackageSchemaIdentity<'a>, usize>,
     recovered_targets: BTreeSet<PackageSchemaIdentity<'a>>,
     target_counts: BTreeMap<PackageSchemaIdentity<'a>, (usize, bool)>,
@@ -14,6 +15,7 @@ impl<'a> PackageSchemaDeclarations<'a> {
         recovered_targets: &'a [PackageSchemaTarget],
     ) -> Self {
         Self {
+            aliases,
             alias_counts: direct_dependency_alias_counts(aliases),
             recovered_targets: direct_dependency_recovered_targets(recovered_targets),
             target_counts: direct_dependency_target_counts(targets),
@@ -60,7 +62,6 @@ impl<'a> PackageSchemaAliasEligibility<'a> {
             package,
             alias.module.as_str(),
             alias.name.as_str(),
-            alias.declaration.span.file.as_str(),
         )) else {
             return false;
         };
@@ -72,8 +73,64 @@ impl<'a> PackageSchemaAliasEligibility<'a> {
         }
         let alias_identity = (package, alias.module.as_str(), alias.name.as_str());
         let target_identity = (package, target_module, resolved_alias.target_name.as_str());
-        self.declarations.contains_alias(&alias_identity)
-            && self.declarations.contains_schema(&target_identity)
+        self.chain_is_eligible(resolved_alias, alias_identity, target_identity)
+    }
+
+    fn chain_is_eligible(
+        &self,
+        initial: &ResolvedPackageSchemaAlias,
+        initial_identity: PackageSchemaIdentity<'_>,
+        final_target: PackageSchemaIdentity<'_>,
+    ) -> bool {
+        let mut current = initial;
+        let mut identity = initial_identity;
+        let mut visited = BTreeSet::new();
+        loop {
+            if !visited.insert(identity)
+                || !self.declarations.contains_alias(&identity)
+                || !self.alias_is_exported(identity)
+            {
+                return false;
+            }
+            let next_identity = (
+                identity.0,
+                current.direct_target_module.as_deref(),
+                current.direct_target_name.as_str(),
+            );
+            let Some(next_module) = next_identity.1 else {
+                return false;
+            };
+            let next_identity = (next_identity.0, next_module, next_identity.2);
+            if !current.direct_target_is_alias {
+                return next_identity == final_target
+                    && self.declarations.contains_schema(&next_identity);
+            }
+            let Some(next) = self
+                .resolved_aliases
+                .get(&(next_identity.0, next_module, next_identity.2))
+            else {
+                return false;
+            };
+            identity = next_identity;
+            current = next;
+        }
+    }
+
+    fn alias_is_exported(&self, identity: PackageSchemaIdentity<'_>) -> bool {
+        self.declarations
+            .alias_counts
+            .get(&identity)
+            .is_some_and(|count| *count == 1)
+            && self
+                .declarations
+                .aliases
+                .iter()
+                .filter(|alias| {
+                    alias.package == identity.0
+                        && alias.module == identity.1
+                        && alias.name == identity.2
+                })
+                .all(|alias| alias.exported)
     }
 }
 
@@ -91,7 +148,6 @@ fn resolved_package_schema_alias_index(
                     candidate.package.as_str(),
                     candidate.alias_module.as_deref()?,
                     candidate.alias_name.as_str(),
-                    candidate.alias_span.file.as_str(),
                 ),
                 candidate,
             ))

@@ -729,6 +729,7 @@ struct PackageSchemaAliasDeclaration {
     name: String,
     package: String,
     package_origin: PackageOrigin,
+    exported: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -737,10 +738,12 @@ struct ResolvedPackageSchemaAlias {
     package_origin: PackageOrigin,
     alias_module: Option<String>,
     alias_name: String,
-    alias_span: SourceSpan,
     target_module: Option<String>,
     target_name: String,
     target_exported: bool,
+    direct_target_module: Option<String>,
+    direct_target_name: String,
+    direct_target_is_alias: bool,
 }
 
 #[derive(Clone, Debug)]

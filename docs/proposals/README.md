@@ -14,12 +14,6 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
-## Ready
-
-- Resolve same-dependency public schema-alias chains while preserving the
-  selected alias's consumer-reference identity:
-  [dependency-schema-alias-chain-references.md](dependency-schema-alias-chain-references.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

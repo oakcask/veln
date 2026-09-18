@@ -488,6 +488,14 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             }),
             "{name}: {result:#}"
         );
+        if name == "package alias chain" {
+            assert_reference_ranges(
+                &result,
+                &[("main.veln", 15, 18, 15, 28)],
+                "same-dependency alias chain identity",
+            );
+            continue;
+        }
         assert_eq!(
             result["structuredContent"]["references"],
             json!([]),

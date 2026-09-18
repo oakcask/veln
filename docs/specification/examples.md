@@ -350,8 +350,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   positive controls cover exact dependency import precedence, import-order
   invariance, and cross-module alias targets. Its successful-empty results
   cover private, non-exported, mismatched, transitive, missing, invalid-cased,
-  ambiguous, and recovered schemas and composition leaves; package schema
-  alias chains; invalid-cased and other-package alias targets; alias-target
+  ambiguous, and recovered schemas and composition leaves; invalid-cased and
+  other-package alias targets; alias-target
   schema namespace collisions; recovered duplicate aliases; duplicate and
   recovered imports;
   graph-ineligible aliases; and syntax-recovered operation leaves:

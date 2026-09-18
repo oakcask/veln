@@ -284,9 +284,11 @@ workspace module identity as specified by
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
 syntax-recovered dependency imports do not grant dependency alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
-same-spelled exported schema without becoming navigable. Bare imported
-schema-alias composition and operation leaves,
-alias chains, external-package targets, ambiguous or recovered target imports,
+same-spelled exported schema without becoming navigable. Public aliases may
+resolve through a finite, acyclic chain of public aliases in the same retained
+direct dependency, provided every hop and the terminal schema is declared in
+an exported source. Bare imported schema-alias composition and operation leaves,
+external-package targets, ambiguous or recovered target imports,
 package-source leaves, standard-library and transitive aliases,
 invalid or ambiguous declarations, and recovered schema-alias composition or
 operation leaves remain empty.
@@ -574,7 +576,7 @@ in this slice. Supported direct-dependency and standard-library public
 function aliases return only selected-project workspace `file:` locations for
 references. Supported direct-dependency and standard-library public type
 aliases return only selected-project workspace `file:` locations for
-references. Unsupported alias chains, public function aliases with unresolved,
+references. Unsupported schema-alias chains, public function aliases with unresolved,
 non-function, or invalid-cased targets, and public type aliases with
 transitive, unresolved, non-type, or invalid-cased targets do not produce
 definition or reference locations.

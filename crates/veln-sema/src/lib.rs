@@ -31,12 +31,14 @@ mod type_syntax;
 mod types;
 
 pub use navigation::{
-    ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_aliases,
-    resolved_schema_composition_references, schema_repeat_count_expression_is_valid,
+    ResolvedSchemaAlias, ResolvedSchemaCompositionReference, resolved_schema_alias_chains,
+    resolved_schema_aliases, resolved_schema_composition_references,
+    schema_repeat_count_expression_is_valid,
 };
 #[cfg(test)]
 pub(crate) use navigation::{
-    reset_schema_alias_target_import_work, schema_alias_target_import_work,
+    reset_schema_alias_chain_resolution_work, reset_schema_alias_target_import_work,
+    schema_alias_chain_resolution_work, schema_alias_target_import_work,
 };
 #[cfg(test)]
 pub(crate) use pipeline::analyze_surface_module_with_base_for_test;

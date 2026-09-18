@@ -34,12 +34,13 @@ direct-dependency functions and function aliases, standard-library functions
 and function aliases, direct-dependency and standard-library type aliases,
 package types and constructors, and workspace schema aliases, plus
 direct-dependency public schema composition and operation leaves and eligible
-schema-alias composition and operation leaves,
+schema-alias composition and operation leaves, including finite same-dependency
+public schema-alias chains,
 `search_docs`, and `read_doc`.
 Broader definition navigation, package reference navigation beyond the
 implemented function, function-alias, direct-dependency type-alias, type,
-constructor, recovery and casing-neutral reference navigation, package schema
-alias-chain targets, other dependency schema-alias scopes, standard-library
+constructor, recovery and casing-neutral reference navigation, other dependency
+schema-alias scopes, standard-library
 schema and schema-alias references, conformance completion, and client plugin
 work in this proposal remain planned.
 
@@ -50,17 +51,15 @@ The remaining first-capability work includes:
 - package reference lookup for symbol classes other than the implemented
   direct-dependency and standard-library functions, function aliases, public
   type aliases, types, and constructors;
-- alias-chain schema-alias target lookup, other dependency schema-alias scopes,
+- other dependency schema-alias scopes,
   and standard-library schema and schema-alias references;
 - plugin packaging for Codex and Claude Code.
 
 Direct-dependency schema-alias composition and operation references share the
-implemented eligibility and identity boundary. The independently ready
-[same-dependency schema-alias chain slice](dependency-schema-alias-chain-references.md)
-owns the planned extension for finite public alias chains in one retained
-direct dependency. Other package origins remain later work. The slice's
-acceptance table owns that bounded target; this umbrella does not add plugin,
-conformance-manifest, or broader navigation prerequisites to it.
+implemented eligibility and identity boundary, including finite public alias
+chains in one retained direct dependency. Other package origins remain later
+work. This umbrella does not add plugin, conformance-manifest, or broader
+navigation prerequisites to that completed slice.
 
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
@@ -69,7 +68,7 @@ Current direct-dependency schema composition and eligible schema-alias behavior
 is specified by
 [Editor Support](../specification/editor-support.md) and
 [MCP Navigation](../specification/mcp.md). The remaining inventory does not
-expand that behavior to alias chains, other dependency origins or scopes,
+expand that behavior to other dependency origins or scopes,
 standard-library schemas or aliases, recovery or casing-neutral navigation,
 or the umbrella's remaining declaration-inclusion and related
 contract work.
@@ -982,8 +981,8 @@ reference search for the implemented direct-dependency and standard-library
 boundaries, public schema-alias reference search for the implemented workspace
 boundary, direct-dependency schema composition and operation reference search,
 and eligible direct-dependency schema-alias composition and operation reference
-search. It does not implement alias-chain schema-alias
-targets, standard-library schema, other dependency schema-alias classes,
+search, including finite same-dependency alias chains. It does not implement
+standard-library schema, other dependency schema-alias classes,
 transitive-dependency, recovery, or casing-neutral reference search.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
@@ -999,14 +998,11 @@ Package constructor, workspace schema operation, workspace schema composition,
 workspace public schema-alias, and direct-dependency schema and eligible
 schema-alias composition and operation reference search are covered by executable
 language-service and MCP tests.
-Remaining package reference work includes alias-chain schema-alias targets,
-other dependency schema-alias scopes,
+Remaining package reference work includes other dependency schema-alias scopes,
 standard-library schemas and schema aliases, transitive dependencies,
 recovery, and casing-neutral references.
 Later umbrella slices are:
 
-1. Implement the independently selectable
-   [same-dependency schema-alias chain references](dependency-schema-alias-chain-references.md).
 1. Extend package navigation with standard-library schema, broader dependency
    and standard-library public schema aliases, and
    other remaining package symbol references, recovery

@@ -8,7 +8,8 @@ pub type Packet
   pub Ready(Int)
 end
 
-pub schema WirePacket = core::Packet
+pub schema IntermediatePacket = core::Packet
+pub schema WirePacket = IntermediatePacket
 pub schema SiblingPacket = core::Packet
 pub schema PrivateTarget = private::Packet
 pub schema InvalidImport = Core::Packet

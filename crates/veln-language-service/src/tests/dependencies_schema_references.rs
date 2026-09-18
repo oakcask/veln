@@ -23,6 +23,172 @@ mod dependencies_schema_references_tests {
         }
     }
 
+    #[test]
+    fn dependency_schema_alias_chains_resolve_with_bounded_index_work() {
+        for count in [64, 128, 256] {
+            let snapshot = dependency_schema_alias_chain_snapshot(count);
+            crate::navigation::reset_schema_alias_declaration_visits();
+            let _ = snapshot.navigation_index();
+            assert!(
+                crate::navigation::schema_alias_declaration_visits() <= count * 4,
+                "chain eligibility work must remain linear"
+            );
+            let selected = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
+            assert_eq!(selected.selected_symbol.name, format!("Alias{}", count - 1));
+            assert_eq!(locations(&selected.references), [("main.veln", 4, 15)]);
+        }
+    }
+
+    #[test]
+    fn dependency_schema_alias_chain_intermediate_blockers_return_empty() {
+        let cases = [
+            (
+                "private intermediate",
+                vec![ (
+                    "facade.veln",
+                    concat!(
+                        "mod facade\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "schema Mid = Packet\n",
+                        "pub schema Top = Mid\n",
+                    ),
+                )],
+                vec!["facade.veln"],
+            ),
+            (
+                "non-exported intermediate source",
+                vec![
+                    (
+                        "packet.veln",
+                        "mod facade\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "mid.veln",
+                        "mod facade\n\npub schema Mid = Packet\n",
+                    ),
+                    (
+                        "top.veln",
+                        "mod facade\n\npub schema Top = Mid\n",
+                    ),
+                ],
+                vec!["packet.veln", "top.veln"],
+            ),
+            (
+                "invalid-cased intermediate",
+                vec![ (
+                    "facade.veln",
+                    concat!(
+                        "mod facade\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema mid = Packet\n",
+                        "pub schema Top = mid\n",
+                    ),
+                )],
+                vec!["facade.veln"],
+            ),
+            (
+                "duplicate intermediate aliases",
+                vec![ (
+                    "facade.veln",
+                    concat!(
+                        "mod facade\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Mid = Packet\n",
+                        "pub schema Mid = Packet\n",
+                        "pub schema Top = Mid\n",
+                    ),
+                )],
+                vec!["facade.veln"],
+            ),
+            (
+                "wrong-kind intermediate",
+                vec![ (
+                    "facade.veln",
+                    concat!(
+                        "mod facade\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub type Mid\n  Ready(Int)\nend\n\n",
+                        "pub schema Top = Mid\n",
+                    ),
+                )],
+                vec!["facade.veln"],
+            ),
+            (
+                "missing intermediate",
+                vec![ (
+                    "facade.veln",
+                    "mod facade\n\npub schema Top = Mid\n",
+                )],
+                vec!["facade.veln"],
+            ),
+            (
+                "recovered schema collision",
+                vec![
+                    (
+                        "packet.veln",
+                        "mod facade\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "mid.veln",
+                        "mod facade\n\npub schema Mid = Packet\n",
+                    ),
+                    (
+                        "recovered.veln",
+                        "mod facade\n\npub schema Mid\n  value: Int\n",
+                    ),
+                    (
+                        "top.veln",
+                        "mod facade\n\npub schema Top = Mid\n",
+                    ),
+                ],
+                vec!["packet.veln", "mid.veln", "top.veln"],
+            ),
+        ];
+
+        for (name, sources, exported) in cases {
+            let dependency = dependency_snapshot("example/dep", &sources, exported);
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use facade from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode facade::Top from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                )],
+                vec![dependency],
+            );
+            assert!(
+                query_snapshot(&snapshot, "main.veln", 4, 16).is_none(),
+                "ineligible chain must be empty: {name}"
+            );
+        }
+    }
+
+    fn dependency_schema_alias_chain_snapshot(count: usize) -> EffectiveProjectSnapshot {
+        let mut dependency_source = String::from("pub schema Packet\n  value: Int\nend\n\n");
+        dependency_source.push_str("pub schema Alias0 = Packet\n");
+        for index in 1..count {
+            dependency_source.push_str(&format!("pub schema Alias{index} = Alias{}\n", index - 1));
+        }
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[("dep.veln", &dependency_source)],
+            ["dep.veln"],
+        );
+        EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                &format!(
+                    "use dep from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n  decode dep::Alias{} from view at byte_offset(0)?\nend\n",
+                    count - 1
+                ),
+            )],
+            vec![dependency],
+        )
+    }
+
     fn dependency_schema_alias_resolution_snapshot(count: usize) -> EffectiveProjectSnapshot {
         let mut targets = String::from("mod core\n\n");
         let mut aliases = String::from("mod facade\nuse core\n\n");
@@ -1955,14 +2121,6 @@ mod dependencies_schema_references_tests {
                 "pub type Packet\nend\n\npub schema Alias = Packet\n",
             ),
             (
-                "alias chain",
-                concat!(
-                    "pub schema Packet\n  value: Int\nend\n\n",
-                    "pub schema First = Packet\n",
-                    "pub schema Alias = First\n",
-                ),
-            ),
-            (
                 "qualified target",
                 concat!(
                     "pub schema Packet\n  value: Int\nend\n\n",
@@ -2549,7 +2707,7 @@ mod dependencies_schema_references_tests {
                 ),
                 "mod spare\n",
                 "mod facade\nuse nested::core\n\npub schema Alias = core::Chained\n",
-                false,
+                true,
             ),
             (
                 "ambiguous implicit import",

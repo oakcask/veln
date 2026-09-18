@@ -561,8 +561,11 @@ package sources, sibling aliases, and direct target-schema
 uses. The direct target can be a same-module bare schema or a qualified schema
 resolved through a valid package-local full or implicit-leaf import. The
 qualified target can resolve to the alias module or another module.
-Consumer imports do not affect target resolution. Bare imported schema-alias
-composition and operation leaves, alias chains, external-package targets,
+Consumer imports do not affect target resolution. A public schema alias may
+resolve through a finite, acyclic chain of public schema aliases in the same
+retained direct dependency when every hop and the terminal schema is declared
+in an exported source. Bare imported schema-alias composition and operation
+leaves, external-package targets,
 ambiguous or invalid aliases,
 targets, and target imports, standard-library and transitive aliases, non-exported
 modules, mismatched imports, and recovered schema-alias composition or operation
@@ -650,7 +653,7 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, function aliases, type aliases, or constructors,
 non-exported package modules, invalid-casing records, recovery records,
-unsupported alias chains, public function aliases with unresolved,
+unsupported schema-alias chains, public function aliases with unresolved,
 non-function, or invalid-cased targets, public type aliases with transitive,
 unresolved, non-type, or invalid-cased targets, unsupported package public
 alias symbols, package schema classes outside direct-dependency declarations
@@ -799,7 +802,8 @@ Unicode-scalar coordinates, project scope, package-source exclusion, and
 selection parity with both LSP declaration policies. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
-package-alias-chain, invalid-cased and other-package alias targets,
+invalid-cased and other-package alias targets; its package-alias-chain case
+checks successful selected-alias identity.
 duplicate-import, recovered-import, recovered-declaration, syntax-recovered
 composition, dependency exact and implicit collisions in both import orders,
 module-qualifier, and recovery selections as successful empty results. Its
