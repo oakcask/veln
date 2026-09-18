@@ -609,7 +609,9 @@ fn generated_invalid_module_qualified_calls(count: usize) -> String {
     source
 }
 
-fn merged_modules_with_names<const N: usize>(sources: [(&str, SourceFile); N]) -> SurfaceModule {
+pub(super) fn merged_modules_with_names<const N: usize>(
+    sources: [(&str, SourceFile); N],
+) -> SurfaceModule {
     let mut merged = SurfaceModule {
         module: None,
         uses: Vec::new(),

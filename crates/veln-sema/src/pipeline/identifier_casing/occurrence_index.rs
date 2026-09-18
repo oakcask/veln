@@ -207,53 +207,6 @@ impl QualifiedPathOccurrenceIndex {
             | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
                 self.collect_expr(callee, current_module, call_role);
             }
-            veln_ast::ExprKind::Binary { left, right, .. } => {
-                self.collect_expr(left, current_module, false);
-                self.collect_expr(right, current_module, false);
-            }
-            veln_ast::ExprKind::If {
-                condition,
-                then_branch,
-                else_if_branches,
-                else_branch,
-            } => {
-                self.collect_expr(condition, current_module, false);
-                self.collect_expr(then_branch, current_module, false);
-                for branch in else_if_branches {
-                    self.collect_expr(&branch.condition, current_module, false);
-                    self.collect_expr(&branch.expr, current_module, false);
-                }
-                self.collect_expr(else_branch, current_module, false);
-            }
-            veln_ast::ExprKind::Record(fields) => {
-                for field in fields {
-                    self.collect_expr(&field.expr, current_module, false);
-                }
-            }
-            veln_ast::ExprKind::Dict(entries) => {
-                for entry in entries {
-                    self.collect_expr(&entry.key, current_module, false);
-                    self.collect_expr(&entry.value, current_module, false);
-                }
-            }
-            veln_ast::ExprKind::List(items) | veln_ast::ExprKind::Perform { args: items, .. } => {
-                for item in items {
-                    self.collect_expr(item, current_module, false);
-                }
-            }
-            veln_ast::ExprKind::Handle { body, args, .. } => {
-                self.collect_expr(body, current_module, false);
-                for arg in args {
-                    self.collect_expr(arg, current_module, false);
-                }
-            }
-            veln_ast::ExprKind::SchemaDecode { input, base, .. } => {
-                self.collect_expr(input, current_module, false);
-                self.collect_expr(base, current_module, false);
-            }
-            veln_ast::ExprKind::SchemaEncode { value, .. } => {
-                self.collect_expr(value, current_module, false);
-            }
             veln_ast::ExprKind::Match { scrutinee, arms } => {
                 self.collect_expr(scrutinee, current_module, false);
                 for arm in arms {
@@ -261,7 +214,9 @@ impl QualifiedPathOccurrenceIndex {
                     self.collect_expr(&arm.expr, current_module, false);
                 }
             }
-            _ => {}
+            _ => expr.for_each_child(&mut |child| {
+                self.collect_expr(child, current_module, false);
+            }),
         }
     }
 
