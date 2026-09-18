@@ -3,6 +3,7 @@
 mod lower;
 mod model;
 mod satisfy;
+mod traversal;
 mod wire;
 
 pub use lower::{lower_surface_ast, lower_surface_ast_with_module_identity};
