@@ -264,15 +264,18 @@ injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace composition
-and operation leaves as MCP when declaration inclusion is false. The direct alias target
-must be a unique public schema declared by an exported source in the retained
-dependency. It can be a bare target in the alias module or a qualified target
-resolved through a valid local import from any retained package source with the
-alias's explicit module identity. Full written target modules and unique
+and operation leaves as MCP when declaration inclusion is false. Each
+non-terminal hop must resolve to one unique public schema alias, and the final
+hop must resolve to one unique public schema declared by an exported source in
+the retained dependency. The chain must be finite and acyclic. A bare target
+resolves in the declaring alias module of the current hop. A qualified target
+resolves through a valid local import from any retained package source with the
+current hop's explicit module identity. Full written target modules and unique
 implicit leaf import aliases are accepted. Consumer imports do not affect
 target resolution. The qualified import can resolve to another module or back
-to the alias's own module. No schema alias in the resolved schema
-namespace may share the target name. Same-spelled declarations in unrelated
+to the current hop's declaring module. At each hop, the declaration kind must match the
+expected kind: a non-terminal target is one public schema alias, and the final
+target is one public schema. Same-spelled declarations in unrelated
 namespaces do not affect target resolution. Alias identity includes the
 dependency and alias declaration, so
 target-schema uses, sibling aliases, and same-spelled aliases from other
@@ -284,9 +287,11 @@ workspace module identity as specified by
 [Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
 syntax-recovered dependency imports do not grant dependency alias visibility.
 A clean alias in a non-exported package source blocks fallback to a
-same-spelled exported schema without becoming navigable. Bare imported
-schema-alias composition and operation leaves,
-alias chains, external-package targets, ambiguous or recovered target imports,
+same-spelled exported schema without becoming navigable. Public aliases may
+resolve through a finite, acyclic chain of public aliases in the same retained
+direct dependency, provided every hop and the terminal schema is declared in
+an exported source. Bare imported schema-alias composition and operation leaves,
+external-package targets, ambiguous or recovered target imports,
 package-source leaves, standard-library and transitive aliases,
 invalid or ambiguous declarations, and recovered schema-alias composition or
 operation leaves remain empty.
@@ -295,7 +300,8 @@ inclusion is true, and definition and rename support do not expand. The
 `references-dependency-schema-alias` LSP case is paired with the MCP case and
 fixes their normalized URI and range parity over identical non-BMP saved input,
 including an alias and target schema exported from separate sources with
-different explicit modules and a same-spelled type in the alias module. The
+different explicit modules, a same-spelled type in the alias module, and two
+retained dependencies exporting the same module and alias spelling. The
 paired cases also exclude a workspace type with the alias spelling from the
 exact result and include dependency-alias composition in the alias-specific
 union; non-exported-target and invalid-target-import selections remain empty.
@@ -303,10 +309,12 @@ An unselected descendant project with
 the same qualified alias use remains outside the selected root project's
 result. The LSP case also keeps definition and prepare-rename null and rename
 edits empty for the supported package alias leaf. Shared navigation tests and
-the MCP dependency-schema boundary case cover target-name schema alias
+the MCP dependency-schema boundary case cover schema/schema-alias name
 collisions, recovered duplicate declarations, invalid imports, invalid-cased
 targets, cross-module target success, other-package target rejection, and
-graph-ineligible alias selections.
+graph-ineligible alias selections. The paired executable cases select the top
+alias, an intermediate alias, and the terminal schema separately. Their exact
+URI/range sets prove that chain identity does not merge these selections.
 An ineligible direct-dependency schema alias selected from a direct field, a
 valid `Repeat` payload, or an array payload also returns a successful empty
 reference set and does not enter any eligible alias union. The
@@ -574,7 +582,7 @@ in this slice. Supported direct-dependency and standard-library public
 function aliases return only selected-project workspace `file:` locations for
 references. Supported direct-dependency and standard-library public type
 aliases return only selected-project workspace `file:` locations for
-references. Unsupported alias chains, public function aliases with unresolved,
+references. Unsupported schema-alias origins or scopes, public function aliases with unresolved,
 non-function, or invalid-cased targets, and public type aliases with
 transitive, unresolved, non-type, or invalid-cased targets do not produce
 definition or reference locations.

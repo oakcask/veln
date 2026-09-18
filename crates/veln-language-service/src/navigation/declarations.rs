@@ -152,6 +152,7 @@ fn package_schema_alias_declarations(
                     name: name.clone(),
                     package: package.identity.to_string(),
                     package_origin: package.origin,
+                    exported: package.exported,
                 })
             }
             _ => None,

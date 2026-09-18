@@ -362,6 +362,8 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "fn alias_target_boundaries(view: ByteView) -> ()\n",
             "  decode public::InvalidTargetAlias from view at byte_offset(0)?\n",
             "  decode public::OtherPackageAlias from view at byte_offset(0)?\n",
+            "  decode public::OtherPackageChain from view at byte_offset(0)?\n",
+            "  decode public::CycleA from view at byte_offset(0)?\n",
             "end\n",
         ),
     );
@@ -382,6 +384,8 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "pub schema badSchema\n  value: Int\nend\n\n",
             "pub schema Alias = Public\n\n",
             "pub schema AliasChain = Alias\n\n",
+            "pub schema CycleA = CycleB\n",
+            "pub schema CycleB = CycleA\n\n",
             "pub schema Other\n  value: Int\nend\n\n",
             "pub schema CollisionTarget\n  value: Int\nend\n\n",
             "pub schema CollisionTarget = Other\n\n",
@@ -389,7 +393,8 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "pub schema badAlias = Public\n\n",
             "pub schema CrossModuleAlias = core::Packet\n\n",
             "pub schema InvalidTargetAlias = badTarget\n\n",
-            "pub schema OtherPackageAlias = other::Public\n\n",
+            "pub schema OtherPackageAlias = other::Public\n",
+            "pub schema OtherPackageChain = OtherPackageAlias\n\n",
             "fn package_operations(view: ByteView, value: {value: Int}) -> ()\n",
             "  decode Public from view at byte_offset(0)?\n",
             "  encode Public from value\n",
@@ -473,6 +478,8 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("invalid-casing alias", "main.veln", 21, 18),
         ("invalid-casing alias target", "main.veln", 30, 18),
         ("other-package alias target", "main.veln", 31, 18),
+        ("other-package alias chain target", "main.veln", 32, 18),
+        ("cycle alias", "main.veln", 33, 18),
         ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),
     ] {
@@ -488,6 +495,14 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             }),
             "{name}: {result:#}"
         );
+        if name == "package alias chain" {
+            assert_reference_ranges(
+                &result,
+                &[("main.veln", 15, 18, 15, 28)],
+                "same-dependency alias chain identity",
+            );
+            continue;
+        }
         assert_eq!(
             result["structuredContent"]["references"],
             json!([]),

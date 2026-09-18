@@ -2,4 +2,4 @@
 name = "example/dep"
 
 [lib]
-exports = ["lib/packet.veln", "lib/wire.veln"]
+exports = ["lib/packet.veln", "lib/wire.veln", "private.veln"]

@@ -51,6 +51,7 @@ thread_local! {
     static SCHEMA_ALIAS_IMPORT_INDEX_ENTRIES: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_IMPORT_ROUTE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_ALIAS_DECLARATION_VISITS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_ALIAS_ELIGIBILITY_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_COMPOSITION_DECLARATION_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
 }
@@ -68,6 +69,21 @@ pub(crate) fn reset_schema_alias_declaration_visits() {
 #[cfg(test)]
 pub(crate) fn schema_alias_declaration_visits() -> usize {
     SCHEMA_ALIAS_DECLARATION_VISITS.get()
+}
+
+#[cfg(test)]
+fn record_schema_alias_eligibility_visit() {
+    SCHEMA_ALIAS_ELIGIBILITY_VISITS.set(SCHEMA_ALIAS_ELIGIBILITY_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_alias_eligibility_visits() {
+    SCHEMA_ALIAS_ELIGIBILITY_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn schema_alias_eligibility_visits() -> usize {
+    SCHEMA_ALIAS_ELIGIBILITY_VISITS.get()
 }
 
 #[cfg(test)]

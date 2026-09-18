@@ -275,7 +275,11 @@ fn references_project_capture_exhausts_retries_for_dependency_schema_alias_selec
     );
     workspace.write(
         "vendor/dep/dep.veln",
-        concat!("use core\n\n", "pub schema Alias = core::Packet\n",),
+        concat!(
+            "use core\n\n",
+            "pub schema Intermediate = core::Packet\n",
+            "pub schema Alias = Intermediate\n",
+        ),
     );
     workspace.write(
         "vendor/dep/core.veln",

@@ -1,6 +1,6 @@
 ---
 role: routing
-update-when: The executable specification case directory layout, fixture evidence placement, case grouping, or example routing guidance changes.
+update-when: The executable specification case directory layout, checked case contract, fixture evidence placement, case grouping, or example routing guidance changes.
 ---
 
 # Examples
@@ -337,21 +337,30 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   from a same-spelled type declaration, exclude a workspace type with the
   alias spelling, include the exact dependency-alias composition union from
   full and implicit module paths, direct fields, `Repeat` payloads, and array
-  payloads in the alias-specific union, prefer an
+  payloads in the alias-specific union, resolve finite same-dependency alias
+  chains while keeping top-alias, intermediate-alias, and terminal-schema
+  selections separate, keep same-spelled aliases from different retained
+  dependencies separate, prefer an
   exact dependency import over a colliding implicit alias, and prevent a
   non-exported alias from falling back to a same-spelled exported schema. They
-  also keep an
-  alias whose target source is not exported and an alias with an invalid-cased
-  target import empty, and exclude the same qualified alias use in an
-  unselected descendant project from the root project's exact result.
+  also exercise a chain whose non-terminal target import is declared in a
+  different retained source with the same explicit module identity. They
+  also keep an alias whose target source is not exported, an alias with an
+  invalid-cased target import, cycles, a chain ending at a private schema in an
+  exported source, and a separate chain ending at a public schema in a
+  non-exported source; all such selections are empty. They exclude the same
+  qualified alias use in an unselected descendant project from the root
+  project's exact result. The MCP case also checks bounded pagination and
+  cursor continuation for the top-alias result.
 - MCP `references` boundary fixture shared by direct-dependency schema
   composition, schema-operation, and schema-alias composition-and-operation
   selections. Its
   positive controls cover exact dependency import precedence, import-order
-  invariance, and cross-module alias targets. Its successful-empty results
+  invariance, cross-module alias targets, and selected alias identity through
+  an alias chain. Its successful-empty results
   cover private, non-exported, mismatched, transitive, missing, invalid-cased,
-  ambiguous, and recovered schemas and composition leaves; package schema
-  alias chains; invalid-cased and other-package alias targets; alias-target
+  ambiguous, and recovered schemas and composition leaves; invalid-cased and
+  other-package alias targets; alias-target
   schema namespace collisions; recovered duplicate aliases; duplicate and
   recovered imports;
   graph-ineligible aliases; and syntax-recovered operation leaves:

@@ -533,17 +533,19 @@ boundaries.
 
 An eligible public schema alias declared in an exported module of a retained
 direct dependency has a separate composition-and-operation reference
-identity. Its written target must resolve uniquely to a public schema declared
-by an exported source in the retained dependency. A bare target resolves in
+identity. Its written target must resolve through a finite, acyclic chain whose
+non-terminal hops each resolve uniquely to a public schema alias and whose
+final hop resolves uniquely to a public schema declared by an exported source
+in the retained dependency. A bare target resolves in
 the alias module. A
 qualified target resolves through a valid package-local import from any
 retained package source with the alias's explicit module identity, including a
 full module path or a unique implicit leaf alias. Consumer imports do not
 participate in target resolution. The qualified import can resolve to another
-module or back to the alias's own module. No schema alias in
-the resolved schema namespace may have the target name. A declaration in an
-unrelated namespace, such as a type with the target name, does not affect
-eligibility.
+module or back to the alias's own module. At each hop, the declaration kind
+must match the expected kind: a non-terminal target is one public schema alias,
+and the final target is one public schema. A declaration in an unrelated
+namespace, such as a type with the target name, does not affect eligibility.
 Selecting a saved composition, `decode`, or `encode` alias leaf through the
 full imported module path or its valid implicit leaf alias returns every
 composition and operation leaf with the same dependency and alias-declaration
@@ -558,11 +560,17 @@ workspace module identity follow the shared rules in
 syntax-recovered dependency imports do not grant dependency alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
 package sources, sibling aliases, and direct target-schema
-uses. The direct target can be a same-module bare schema or a qualified schema
-resolved through a valid package-local full or implicit-leaf import. The
-qualified target can resolve to the alias module or another module.
-Consumer imports do not affect target resolution. Bare imported schema-alias
-composition and operation leaves, alias chains, external-package targets,
+uses. At each hop, a bare target resolves in that hop's module, and a qualified
+target resolves through a valid package-local full or implicit-leaf import with
+that hop's explicit module identity. The qualified target can resolve to the
+alias module or another module. Consumer imports do not affect target
+resolution. A public schema alias may resolve through a finite, acyclic chain
+in the same retained direct dependency.
+Each non-terminal hop must resolve to one eligible public schema alias, and the
+final hop must resolve to one eligible public schema. Every hop and the
+terminal schema must be declared in an exported source. The existing
+direct-target module and import rules apply at every hop. Bare imported
+schema-alias composition and operation leaves, external-package targets,
 ambiguous or invalid aliases,
 targets, and target imports, standard-library and transitive aliases, non-exported
 modules, mismatched imports, and recovered schema-alias composition or operation
@@ -571,7 +579,8 @@ results. Definition and rename behavior does not expand to package schema
 aliases. The `references-dependency-schema-alias` MCP case is the exact-range
 protocol contract and has a paired LSP case over identical saved sources. The
 paired cases keep the alias eligible when its target schema is exported from a
-separate module and when a type in the alias module shares its target name,
+separate module, when a type in the alias module shares its target name, and
+when two retained dependencies export the same module and alias spelling,
 cover
 exact-import precedence, exclude import, comment, and string selections, and
 preserve successful empty results for a non-exported alias blocker, a target
@@ -585,9 +594,13 @@ descendant project contains the same qualified alias use and remains outside
 the selected root project's exact result. Every positive
 composition, decode, and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
-alias declaration. The
+alias declaration. The paired cases also select the top alias, an intermediate
+alias, and the terminal schema separately. The MCP case requests the top-alias
+result in a bounded page and a cursor continuation; concatenating those pages
+gives the same exact set as the LSP result. The
 `references-dependency-schema-operation-boundaries` case requires successful
-empty results when a schema alias shares the target name and for invalid,
+empty results when a target name is ambiguous because a schema and schema alias
+share that name, and for invalid,
 non-exported, mismatched-import, duplicate-import, recovered-import,
 invalid-cased-target, valid other-package-target,
 and transitive alias selections. Focused MCP tests cover
@@ -650,7 +663,7 @@ references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
 package types, functions, function aliases, type aliases, or constructors,
 non-exported package modules, invalid-casing records, recovery records,
-unsupported alias chains, public function aliases with unresolved,
+unsupported schema-alias origins or scopes, public function aliases with unresolved,
 non-function, or invalid-cased targets, public type aliases with transitive,
 unresolved, non-type, or invalid-cased targets, unsupported package public
 alias symbols, package schema classes outside direct-dependency declarations
@@ -799,8 +812,9 @@ Unicode-scalar coordinates, project scope, package-source exclusion, and
 selection parity with both LSP declaration policies. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
-package-alias-chain, invalid-cased and other-package alias targets,
-duplicate-import, recovered-import, recovered-declaration, syntax-recovered
+invalid-cased and other-package alias targets; its package-alias-chain case
+checks successful selected-alias identity. Duplicate-import, recovered-import,
+recovered-declaration, syntax-recovered
 composition, dependency exact and implicit collisions in both import orders,
 module-qualifier, and recovery selections as successful empty results. Its
 mismatched import names a retained direct

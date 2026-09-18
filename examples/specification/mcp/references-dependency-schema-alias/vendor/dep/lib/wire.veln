@@ -3,15 +3,23 @@ mod lib::wire
 use lib::core
 use private
 use lib::Core
+use hidden
 
 pub type Packet
   pub Ready(Int)
 end
 
-pub schema WirePacket = core::Packet
+pub schema IntermediatePacket = core::Packet
+pub schema WirePacket = lib::core::FacadePacket
 pub schema SiblingPacket = core::Packet
 pub schema PrivateTarget = private::Packet
 pub schema InvalidImport = Core::Packet
+pub schema SelfCycle = SelfCycle
+pub schema ChainCycle = CycleTail
+pub schema CycleTail = ChainCycle
+pub schema DeepPrivate = DeepPrivateMid
+pub schema DeepPrivateMid = private::Packet
+pub schema DeepNonExported = hidden::Packet
 
 pub schema Hidden
   value: Int

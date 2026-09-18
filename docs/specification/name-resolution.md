@@ -36,24 +36,38 @@ casing-neutral declarations and value names, and the same-namespace duplicate
 boundary.
 
 For saved composition-and-operation reference navigation, a direct-dependency
-public schema alias is eligible when its direct target identifies exactly one
-public schema declared by an exported source in the retained dependency. A
-bare target resolves in the alias module. A
-qualified target resolves through a valid local import written in the alias's
-module. Imports from all retained package sources with that explicit module
-identity participate, including full module paths and unique implicit leaf
-aliases. The imported target can resolve to another module or back to the
+public schema alias is eligible when each hop resolves to exactly one public
+schema alias or, at the final hop, one public schema declared by an exported
+source in the retained dependency. A bare target resolves in the alias
+module. A qualified target resolves through a valid local import written in the
+alias's module. Imports from all retained package sources with that explicit
+module identity participate, including full module paths and unique implicit
+leaf aliases. The imported target can resolve to another module or back to the
 alias's own module.
-Consumer imports do not participate in target resolution. No schema alias may
-share the target name in the resolved schema namespace. Same-spelled
-declarations in unrelated namespaces do not affect eligibility. Alias chains,
-external-package targets, ambiguous imports, and recovered imports remain
+Consumer imports do not participate in target resolution. At each hop, the
+declaration kind must match the expected kind: a non-terminal target is one
+public schema alias, and the final target is one public schema. Same-spelled
+declarations in unrelated namespaces do not affect eligibility. A finite,
+acyclic chain of public schema aliases in the same retained direct dependency
+is eligible when every hop and the terminal schema are in exported sources.
+External-package targets, ambiguous imports, and recovered imports remain
 ineligible. The executable evidence is the following language-service tests:
 
 - `direct_dependency_schema_alias_qualified_target_resolution_matrix`
 - `direct_dependency_schema_alias_target_imports_are_visible_across_module_sources`
 - `dependency_schema_alias_requires_an_exported_cross_module_target_source`
 - `dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
+- `dependency_schema_alias_chain_intermediate_blockers_return_empty`
+- `dependency_schema_alias_recovered_deep_terminal_does_not_hide_valid_chain`
+- `non_exported_dependency_schema_alias_blocks_exported_schema_fallback`
+- `dependency_schema_alias_shared_suffix_and_disconnected_cycle_stay_bounded`
+
+The chain index keeps its executable linear-work guard in
+`dependency_schema_alias_chains_resolve_with_bounded_index_work` and
+`dependency_schema_alias_eligibility_visits_declarations_once`. The guarded
+performance audit runs those tests for adjacent generated sizes and compares
+the declaration and eligibility visit counts; it does not publish
+machine-dependent wall-clock values as current behavior.
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module
