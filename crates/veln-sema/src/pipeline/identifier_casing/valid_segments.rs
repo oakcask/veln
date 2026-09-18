@@ -186,64 +186,6 @@ fn collect_valid_segments_from_expr(
                 collect_valid_segments_from_expr(arg, current_module, environment, output);
             }
         }
-        veln_ast::ExprKind::TypeApply { callee, .. }
-        | veln_ast::ExprKind::FieldAccess { base: callee, .. }
-        | veln_ast::ExprKind::Try(callee)
-        | veln_ast::ExprKind::Prefix { expr: callee, .. } => {
-            collect_valid_segments_from_expr(callee, current_module, environment, output);
-        }
-        veln_ast::ExprKind::Binary { left, right, .. } => {
-            collect_valid_segments_from_expr(left, current_module, environment, output);
-            collect_valid_segments_from_expr(right, current_module, environment, output);
-        }
-        veln_ast::ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
-            collect_valid_segments_from_expr(condition, current_module, environment, output);
-            collect_valid_segments_from_expr(then_branch, current_module, environment, output);
-            for branch in else_if_branches {
-                collect_valid_segments_from_expr(
-                    &branch.condition,
-                    current_module,
-                    environment,
-                    output,
-                );
-                collect_valid_segments_from_expr(&branch.expr, current_module, environment, output);
-            }
-            collect_valid_segments_from_expr(else_branch, current_module, environment, output);
-        }
-        veln_ast::ExprKind::Record(fields) => {
-            for field in fields {
-                collect_valid_segments_from_expr(&field.expr, current_module, environment, output);
-            }
-        }
-        veln_ast::ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_valid_segments_from_expr(&entry.key, current_module, environment, output);
-                collect_valid_segments_from_expr(&entry.value, current_module, environment, output);
-            }
-        }
-        veln_ast::ExprKind::List(items) | veln_ast::ExprKind::Perform { args: items, .. } => {
-            for item in items {
-                collect_valid_segments_from_expr(item, current_module, environment, output);
-            }
-        }
-        veln_ast::ExprKind::Handle { body, args, .. } => {
-            collect_valid_segments_from_expr(body, current_module, environment, output);
-            for arg in args {
-                collect_valid_segments_from_expr(arg, current_module, environment, output);
-            }
-        }
-        veln_ast::ExprKind::SchemaDecode { input, base, .. } => {
-            collect_valid_segments_from_expr(input, current_module, environment, output);
-            collect_valid_segments_from_expr(base, current_module, environment, output);
-        }
-        veln_ast::ExprKind::SchemaEncode { value, .. } => {
-            collect_valid_segments_from_expr(value, current_module, environment, output);
-        }
         veln_ast::ExprKind::Match { scrutinee, arms } => {
             collect_valid_segments_from_expr(scrutinee, current_module, environment, output);
             for arm in arms {
@@ -256,13 +198,9 @@ fn collect_valid_segments_from_expr(
                 collect_valid_segments_from_expr(&arm.expr, current_module, environment, output);
             }
         }
-        veln_ast::ExprKind::Missing
-        | veln_ast::ExprKind::Hole { .. }
-        | veln_ast::ExprKind::StringLiteral(_)
-        | veln_ast::ExprKind::IntLiteral(_)
-        | veln_ast::ExprKind::FloatLiteral(_)
-        | veln_ast::ExprKind::BoolLiteral(_)
-        | veln_ast::ExprKind::Unit => {}
+        _ => expr.for_each_child(&mut |child| {
+            collect_valid_segments_from_expr(child, current_module, environment, output);
+        }),
     }
 }
 
