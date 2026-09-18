@@ -106,154 +106,6 @@ fn visit_private_expr_references(
         visitor(key)?;
     }
     match &expr.kind {
-        ExprKind::List(_) | ExprKind::Dict(_) | ExprKind::Record(_) => {
-            visit_private_collection_references(
-                expr,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )
-        }
-        ExprKind::Call { .. } | ExprKind::Perform { .. } | ExprKind::Handle { .. } => {
-            visit_private_invocation_references(
-                expr,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )
-        }
-        ExprKind::SchemaDecode { input, base, .. } => {
-            visit_private_expr_references(
-                input,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )?;
-            visit_private_expr_references(base, current_module, function_by_path, bindings, visitor)
-        }
-        ExprKind::SchemaEncode { value, .. }
-        | ExprKind::FieldAccess { base: value, .. }
-        | ExprKind::Try(value)
-        | ExprKind::Prefix { expr: value, .. } => visit_private_expr_references(
-            value,
-            current_module,
-            function_by_path,
-            bindings,
-            visitor,
-        ),
-        ExprKind::Match { .. } | ExprKind::If { .. } | ExprKind::Binary { .. } => {
-            visit_private_control_flow_references(
-                expr,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )
-        }
-        ExprKind::NamePath { .. }
-        | ExprKind::Missing
-        | ExprKind::Hole { .. }
-        | ExprKind::StringLiteral(_)
-        | ExprKind::IntLiteral(_)
-        | ExprKind::FloatLiteral(_)
-        | ExprKind::BoolLiteral(_)
-        | ExprKind::Unit
-        | ExprKind::TypeApply { .. } => ControlFlow::Continue(()),
-    }
-}
-
-fn visit_private_collection_references(
-    expr: &Expr,
-    current_module: Option<&str>,
-    function_by_path: &FunctionAstMap<'_>,
-    bindings: &[Binding],
-    visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
-) -> ControlFlow<()> {
-    match &expr.kind {
-        ExprKind::List(items) => {
-            for item in items {
-                visit_private_expr_references(
-                    item,
-                    current_module,
-                    function_by_path,
-                    bindings,
-                    visitor,
-                )?;
-            }
-        }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                visit_private_expr_references(
-                    &entry.key,
-                    current_module,
-                    function_by_path,
-                    bindings,
-                    visitor,
-                )?;
-                visit_private_expr_references(
-                    &entry.value,
-                    current_module,
-                    function_by_path,
-                    bindings,
-                    visitor,
-                )?;
-            }
-        }
-        ExprKind::Record(fields) => {
-            for field in fields {
-                visit_private_expr_references(
-                    &field.expr,
-                    current_module,
-                    function_by_path,
-                    bindings,
-                    visitor,
-                )?;
-            }
-        }
-        _ => unreachable!("collection reference traversal requires a collection expression"),
-    }
-    ControlFlow::Continue(())
-}
-
-fn visit_private_invocation_references(
-    expr: &Expr,
-    current_module: Option<&str>,
-    function_by_path: &FunctionAstMap<'_>,
-    bindings: &[Binding],
-    visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
-) -> ControlFlow<()> {
-    let (leading, args) = match &expr.kind {
-        ExprKind::Call { callee, args } => (Some(callee.as_ref()), args.as_slice()),
-        ExprKind::Perform { args, .. } => (None, args.as_slice()),
-        ExprKind::Handle { body, args, .. } => (Some(body.as_ref()), args.as_slice()),
-        _ => unreachable!("invocation reference traversal requires an invocation expression"),
-    };
-    if let Some(leading) = leading {
-        visit_private_expr_references(
-            leading,
-            current_module,
-            function_by_path,
-            bindings,
-            visitor,
-        )?;
-    }
-    for arg in args {
-        visit_private_expr_references(arg, current_module, function_by_path, bindings, visitor)?;
-    }
-    ControlFlow::Continue(())
-}
-
-fn visit_private_control_flow_references(
-    expr: &Expr,
-    current_module: Option<&str>,
-    function_by_path: &FunctionAstMap<'_>,
-    bindings: &[Binding],
-    visitor: &mut impl FnMut(FunctionKey) -> ControlFlow<()>,
-) -> ControlFlow<()> {
-    match &expr.kind {
         ExprKind::Match { scrutinee, arms } => {
             visit_private_expr_references(
                 scrutinee,
@@ -273,70 +125,20 @@ fn visit_private_control_flow_references(
                     visitor,
                 )?;
             }
+            ControlFlow::Continue(())
         }
-        ExprKind::If {
-            condition,
-            then_branch,
-            else_if_branches,
-            else_branch,
-        } => {
+        // Explicitly instantiated callees do not contribute private inference constraints.
+        ExprKind::TypeApply { .. } => ControlFlow::Continue(()),
+        _ => expr.try_for_each_child(&mut |child| {
             visit_private_expr_references(
-                condition,
+                child,
                 current_module,
                 function_by_path,
                 bindings,
                 visitor,
-            )?;
-            visit_private_expr_references(
-                then_branch,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )?;
-            for branch in else_if_branches {
-                visit_private_expr_references(
-                    &branch.condition,
-                    current_module,
-                    function_by_path,
-                    bindings,
-                    visitor,
-                )?;
-                visit_private_expr_references(
-                    &branch.expr,
-                    current_module,
-                    function_by_path,
-                    bindings,
-                    visitor,
-                )?;
-            }
-            visit_private_expr_references(
-                else_branch,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )?;
-        }
-        ExprKind::Binary { left, right, .. } => {
-            visit_private_expr_references(
-                left,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )?;
-            visit_private_expr_references(
-                right,
-                current_module,
-                function_by_path,
-                bindings,
-                visitor,
-            )?;
-        }
-        _ => unreachable!("control-flow traversal requires a control-flow expression"),
+            )
+        }),
     }
-    ControlFlow::Continue(())
 }
 
 pub(crate) fn private_expr_reference_target(
@@ -429,3 +231,7 @@ pub(crate) fn returns_by_path(functions: &[FunctionSignature]) -> FunctionReturn
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "reference_discovery_tests.rs"]
+mod tests;
