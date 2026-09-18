@@ -9,8 +9,7 @@ use crate::analysis::boundary::schema_composition::{
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
 use crate::name_recovery::{
-    InvalidAliasTargetIndex, public_alias_has_invalid_target_leaf,
-    schema_composition_imported_use_for_path,
+    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
 };
 use crate::schema::primitives::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_length_expression,
@@ -18,11 +17,19 @@ use crate::schema::primitives::{
 };
 use crate::types::schema_types::schema_field_uses_existing_grammar;
 
+mod schema_alias_chains;
+
+pub use schema_alias_chains::resolved_schema_alias_chains;
+
+#[cfg(test)]
+pub(crate) use schema_alias_chains::{
+    reset_schema_alias_chain_resolution_work, schema_alias_chain_resolution_work,
+};
+
 #[cfg(test)]
 thread_local! {
     static SCHEMA_ALIAS_TARGET_IMPORT_INDEX_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
     static SCHEMA_ALIAS_TARGET_IMPORT_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-    static SCHEMA_ALIAS_CHAIN_RESOLUTION_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -48,21 +55,6 @@ pub(crate) fn schema_alias_target_import_work() -> (usize, usize) {
         SCHEMA_ALIAS_TARGET_IMPORT_INDEX_ENTRIES.get(),
         SCHEMA_ALIAS_TARGET_IMPORT_LOOKUPS.get(),
     )
-}
-
-#[cfg(test)]
-fn record_schema_alias_chain_resolution_visit() {
-    SCHEMA_ALIAS_CHAIN_RESOLUTION_VISITS.set(SCHEMA_ALIAS_CHAIN_RESOLUTION_VISITS.get() + 1);
-}
-
-#[cfg(test)]
-pub(crate) fn reset_schema_alias_chain_resolution_work() {
-    SCHEMA_ALIAS_CHAIN_RESOLUTION_VISITS.set(0);
-}
-
-#[cfg(test)]
-pub(crate) fn schema_alias_chain_resolution_work() -> usize {
-    SCHEMA_ALIAS_CHAIN_RESOLUTION_VISITS.get()
 }
 
 #[derive(Clone, Debug)]
@@ -150,177 +142,6 @@ pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlia
             })
         })
         .collect()
-}
-
-/// Resolves public schema aliases through other public schema aliases.
-///
-/// This is intentionally separate from `resolved_schema_aliases`: workspace
-/// navigation keeps its direct-schema-only contract, while dependency
-/// navigation opts into the bounded chain behavior explicitly.
-pub fn resolved_schema_alias_chains(module: &SurfaceModule) -> Vec<ResolvedSchemaAlias> {
-    let imports = SchemaAliasTargetImportIndex::new(module);
-    let invalid_alias_targets = InvalidAliasTargetIndex::new(module);
-    let mut aliases = BTreeMap::new();
-    for alias in module
-        .aliases
-        .iter()
-        .filter(|alias| alias.kind == PublicAliasKind::Schema)
-    {
-        let Some(name) = alias.name.as_deref() else {
-            continue;
-        };
-        if !name
-            .chars()
-            .next()
-            .is_some_and(|ch| ch.is_ascii_uppercase())
-        {
-            continue;
-        }
-        aliases
-            .entry((alias.module_name.as_deref(), name))
-            .or_insert_with(Vec::new)
-            .push(alias);
-    }
-    let mut schemas = BTreeMap::<_, Vec<_>>::new();
-    for schema in &module.schemas {
-        let Some(name) = schema.name.as_deref() else {
-            continue;
-        };
-        schemas
-            .entry((schema.module_name.as_deref(), name))
-            .or_default()
-            .push(schema);
-    }
-    let mut results = Vec::new();
-    let mut memo = BTreeMap::new();
-    for candidates in aliases.values() {
-        let [alias] = candidates.as_slice() else {
-            continue;
-        };
-        let Some((target, direct_target_module, direct_target_name, direct_target_is_alias)) =
-            resolve_schema_alias_chain(
-                alias,
-                &imports,
-                &invalid_alias_targets,
-                &aliases,
-                &schemas,
-                &mut memo,
-            )
-        else {
-            continue;
-        };
-        results.push(ResolvedSchemaAlias {
-            alias_span: alias.span.clone(),
-            alias_module: alias.module_name.clone(),
-            alias_name: alias.name.clone().unwrap_or_default(),
-            target_span: target.span.clone(),
-            target_module: target.module_name.clone(),
-            target_name: target.name.clone().unwrap_or_default(),
-            direct_target_module,
-            direct_target_name,
-            direct_target_is_alias,
-        });
-    }
-    results
-}
-
-fn resolve_schema_alias_chain<'a>(
-    alias: &'a PublicAlias,
-    imports: &SchemaAliasTargetImportIndex<'a>,
-    invalid_alias_targets: &InvalidAliasTargetIndex,
-    aliases: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a PublicAlias>>,
-    schemas: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a SchemaDecl>>,
-    memo: &mut BTreeMap<(Option<&'a str>, &'a str), Option<&'a SchemaDecl>>,
-) -> Option<(&'a SchemaDecl, Option<String>, String, bool)> {
-    alias.name.as_deref()?;
-    let (direct_target_module, direct_target_name) =
-        direct_schema_alias_target_identity_with_index(alias, imports)?;
-    let direct_target_is_alias = aliases.contains_key(&(direct_target_module, direct_target_name));
-    let mut path = Vec::new();
-    let mut positions = BTreeMap::new();
-    let mut current = alias;
-    let target = loop {
-        #[cfg(test)]
-        record_schema_alias_chain_resolution_visit();
-        let identity = (current.module_name.as_deref(), current.name.as_deref()?);
-        if let Some(result) = memo.get(&identity) {
-            let Some(target) = result.as_ref().copied() else {
-                for path_identity in &path {
-                    memo.insert(*path_identity, None);
-                }
-                return None;
-            };
-            for path_identity in &path {
-                memo.insert(*path_identity, Some(target));
-            }
-            break target;
-        }
-        if positions.insert(identity, path.len()).is_some()
-            || invalid_alias_targets.contains(current)
-        {
-            for identity in path {
-                memo.insert(identity, None);
-            }
-            return None;
-        }
-        path.push(identity);
-        let Some((next_module, next_name)) =
-            direct_schema_alias_target_identity_with_index(current, imports)
-        else {
-            memoize_schema_alias_failure(&path, memo);
-            return None;
-        };
-        if schemas.contains_key(&(next_module, next_name))
-            && aliases.contains_key(&(next_module, next_name))
-        {
-            for identity in &path {
-                memo.insert(*identity, None);
-            }
-            return None;
-        }
-        if let Some(targets) = schemas.get(&(next_module, next_name)) {
-            let [target] = targets.as_slice() else {
-                for identity in &path {
-                    memo.insert(*identity, None);
-                }
-                return None;
-            };
-            if target.visibility != Visibility::Public {
-                for identity in &path {
-                    memo.insert(*identity, None);
-                }
-                return None;
-            }
-            for identity in &path {
-                memo.insert(*identity, Some(*target));
-            }
-            break *target;
-        }
-        let Some(candidates) = aliases.get(&(next_module, next_name)) else {
-            memoize_schema_alias_failure(&path, memo);
-            return None;
-        };
-        let [target_alias] = candidates.as_slice() else {
-            memoize_schema_alias_failure(&path, memo);
-            return None;
-        };
-        current = target_alias;
-    };
-    Some((
-        target,
-        direct_target_module.map(str::to_string),
-        direct_target_name.to_string(),
-        direct_target_is_alias,
-    ))
-}
-
-fn memoize_schema_alias_failure<'a>(
-    path: &[(Option<&'a str>, &'a str)],
-    memo: &mut BTreeMap<(Option<&'a str>, &'a str), Option<&'a SchemaDecl>>,
-) {
-    for identity in path {
-        memo.insert(*identity, None);
-    }
 }
 
 fn direct_public_schema_alias_target_with_index<'a>(
