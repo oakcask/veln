@@ -88,6 +88,18 @@ pub fn schema_repeat_count_expression_is_valid(text: &str) -> bool {
 
 pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlias> {
     let imports = SchemaAliasTargetImportIndex::new(module);
+    let alias_counts = schema_alias_counts(module);
+    let schemas = schemas_by_identity(module);
+    module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Schema)
+        .filter(|alias| schema_alias_is_unique(alias, &alias_counts, &schemas))
+        .filter_map(|alias| resolved_schema_alias(module, alias, &schemas, &imports))
+        .collect()
+}
+
+fn schema_alias_counts(module: &SurfaceModule) -> BTreeMap<(Option<&str>, &str), usize> {
     let mut alias_counts = BTreeMap::new();
     for alias in module
         .aliases
@@ -101,6 +113,10 @@ pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlia
             .entry((alias.module_name.as_deref(), name))
             .or_insert(0usize) += 1;
     }
+    alias_counts
+}
+
+fn schemas_by_identity(module: &SurfaceModule) -> BTreeMap<(Option<&str>, &str), Vec<&SchemaDecl>> {
     let mut schemas = BTreeMap::<_, Vec<_>>::new();
     for schema in &module.schemas {
         let Some(name) = schema.name.as_deref() else {
@@ -111,37 +127,38 @@ pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlia
             .or_default()
             .push(schema);
     }
-    module
-        .aliases
-        .iter()
-        .filter(|alias| alias.kind == PublicAliasKind::Schema)
-        .filter(|alias| {
-            alias.name.as_deref().is_some_and(|name| {
-                alias_counts.get(&(alias.module_name.as_deref(), name)) == Some(&1)
-            })
-        })
-        .filter(|alias| {
-            alias
-                .name
-                .as_deref()
-                .is_some_and(|name| !schemas.contains_key(&(alias.module_name.as_deref(), name)))
-        })
-        .filter_map(|alias| {
-            let target =
-                direct_public_schema_alias_target_with_index(module, alias, &schemas, &imports)?;
-            Some(ResolvedSchemaAlias {
-                alias_span: alias.span.clone(),
-                alias_module: alias.module_name.clone(),
-                alias_name: alias.name.clone()?,
-                target_span: target.span.clone(),
-                target_module: target.module_name.clone(),
-                target_name: target.name.clone()?,
-                direct_target_module: target.module_name.clone(),
-                direct_target_name: target.name.clone()?,
-                direct_target_is_alias: false,
-            })
-        })
-        .collect()
+    schemas
+}
+
+fn schema_alias_is_unique(
+    alias: &PublicAlias,
+    alias_counts: &BTreeMap<(Option<&str>, &str), usize>,
+    schemas: &BTreeMap<(Option<&str>, &str), Vec<&SchemaDecl>>,
+) -> bool {
+    alias.name.as_deref().is_some_and(|name| {
+        let identity = (alias.module_name.as_deref(), name);
+        alias_counts.get(&identity) == Some(&1) && !schemas.contains_key(&identity)
+    })
+}
+
+fn resolved_schema_alias(
+    module: &SurfaceModule,
+    alias: &PublicAlias,
+    schemas: &BTreeMap<(Option<&str>, &str), Vec<&SchemaDecl>>,
+    imports: &SchemaAliasTargetImportIndex<'_>,
+) -> Option<ResolvedSchemaAlias> {
+    let target = direct_public_schema_alias_target_with_index(module, alias, schemas, imports)?;
+    Some(ResolvedSchemaAlias {
+        alias_span: alias.span.clone(),
+        alias_module: alias.module_name.clone(),
+        alias_name: alias.name.clone()?,
+        target_span: target.span.clone(),
+        target_module: target.module_name.clone(),
+        target_name: target.name.clone()?,
+        direct_target_module: target.module_name.clone(),
+        direct_target_name: target.name.clone()?,
+        direct_target_is_alias: false,
+    })
 }
 
 fn direct_public_schema_alias_target_with_index<'a>(
