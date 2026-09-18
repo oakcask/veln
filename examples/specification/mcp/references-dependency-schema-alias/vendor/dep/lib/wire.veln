@@ -9,7 +9,7 @@ pub type Packet
 end
 
 pub schema IntermediatePacket = core::Packet
-pub schema WirePacket = IntermediatePacket
+pub schema WirePacket = lib::core::FacadePacket
 pub schema SiblingPacket = core::Packet
 pub schema PrivateTarget = private::Packet
 pub schema InvalidImport = Core::Packet

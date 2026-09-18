@@ -58,3 +58,8 @@ fn chain_negative_boundaries(view: ByteView) -> ()
   let chain_cycle = decode lib::wire::ChainCycle from view at byte_offset(0)?
   let deep_private = decode lib::wire::DeepPrivate from view at byte_offset(0)?
 end
+
+fn chain_identity_boundaries(view: ByteView) -> ()
+  decode lib::wire::IntermediatePacket from view at byte_offset(0)?
+  decode lib::core::Packet from view at byte_offset(0)?
+end

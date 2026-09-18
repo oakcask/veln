@@ -31,3 +31,7 @@
 {"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":57,"column":38}}}
 {"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":58,"column":39}}}
 {"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":59,"column":40}}}
+{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":9,"column":46,"page_size":4}}}
+{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"references","arguments":{"cursor":"$mcp_cursor:40"}}}
+{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":63,"column":21}}}
+{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":64,"column":21}}}

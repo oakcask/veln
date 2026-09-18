@@ -560,11 +560,12 @@ workspace module identity follow the shared rules in
 syntax-recovered dependency imports do not grant dependency alias visibility. The
 set excludes the alias and target declarations, alias-target expressions,
 package sources, sibling aliases, and direct target-schema
-uses. The direct target can be a same-module bare schema or a qualified schema
-resolved through a valid package-local full or implicit-leaf import. The
-qualified target can resolve to the alias module or another module.
-Consumer imports do not affect target resolution. A public schema alias may
-resolve through a finite, acyclic chain in the same retained direct dependency.
+uses. At each hop, a bare target resolves in that hop's module, and a qualified
+target resolves through a valid package-local full or implicit-leaf import with
+that hop's explicit module identity. The qualified target can resolve to the
+alias module or another module. Consumer imports do not affect target
+resolution. A public schema alias may resolve through a finite, acyclic chain
+in the same retained direct dependency.
 Each non-terminal hop must resolve to one eligible public schema alias, and the
 final hop must resolve to one eligible public schema. Every hop and the
 terminal schema must be declared in an exported source. The existing
@@ -592,7 +593,10 @@ descendant project contains the same qualified alias use and remains outside
 the selected root project's exact result. Every positive
 composition, decode, and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
-alias declaration. The
+alias declaration. The paired cases also select the top alias, an intermediate
+alias, and the terminal schema separately. The MCP case requests the top-alias
+result in a bounded page and a cursor continuation; concatenating those pages
+gives the same exact set as the LSP result. The
 `references-dependency-schema-operation-boundaries` case requires successful
 empty results when a target name is ambiguous because a schema and schema alias
 share that name, and for invalid,

@@ -54,7 +54,9 @@ mod dependencies_schema_references_tests {
             }
             for index in 0..count {
                 dependency_source.push_str(&format!(
-                    "pub schema Left{index} = Shared0\npub schema Right{index} = Shared0\n"
+                    "pub schema Left{index} = Shared{}\npub schema Right{index} = Shared{}\n",
+                    count - 1,
+                    count - 1
                 ));
             }
             dependency_source.push_str(
@@ -1012,6 +1014,67 @@ mod dependencies_schema_references_tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn dependency_schema_aliases_with_same_module_and_name_keep_package_identity() {
+        let alias_source = concat!(
+            "mod shared\n\n",
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Mid = Packet\n",
+            "pub schema Alias = Mid\n",
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "first-import.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "use shared from \"first/dep\"\n",
+                    ),
+                ),
+                source(
+                    "first.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode shared::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "second-import.veln",
+                    concat!(
+                        "mod other\n\n",
+                        "use shared from \"second/dep\"\n",
+                    ),
+                ),
+                source(
+                    "second.veln",
+                    concat!(
+                        "mod other\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode shared::Alias from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![
+                dependency_snapshot("first/dep", &[("wire.veln", alias_source)], ["wire.veln"]),
+                dependency_snapshot(
+                    "second/dep",
+                    &[("wire.veln", alias_source)],
+                    ["wire.veln"],
+                ),
+            ],
+        );
+
+        let first = query_snapshot(&snapshot, "first.veln", 4, 18).unwrap();
+        assert_eq!(first.selected_symbol.name, "Alias");
+        assert_eq!(locations(&first.references), [("first.veln", 4, 18)]);
+        let second = query_snapshot(&snapshot, "second.veln", 4, 18).unwrap();
+        assert_eq!(second.selected_symbol.name, "Alias");
+        assert_eq!(locations(&second.references), [("second.veln", 4, 18)]);
     }
 
     #[test]

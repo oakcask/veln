@@ -62,8 +62,8 @@ fn schema_alias_chain_shared_suffix_and_disconnected_cycle_stay_bounded() {
             source.push_str(&format!("pub schema Shared{index} = Shared{}\n", index - 1));
         }
         for index in 0..count {
-            source.push_str(&format!("pub schema Left{index} = Shared0\n"));
-            source.push_str(&format!("pub schema Right{index} = Shared0\n"));
+            source.push_str(&format!("pub schema Left{index} = Shared{}\n", count - 1));
+            source.push_str(&format!("pub schema Right{index} = Shared{}\n", count - 1));
         }
         source.push_str("pub schema CycleA = CycleB\npub schema CycleB = CycleA\n");
 

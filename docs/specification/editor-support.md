@@ -311,7 +311,9 @@ edits empty for the supported package alias leaf. Shared navigation tests and
 the MCP dependency-schema boundary case cover schema/schema-alias name
 collisions, recovered duplicate declarations, invalid imports, invalid-cased
 targets, cross-module target success, other-package target rejection, and
-graph-ineligible alias selections.
+graph-ineligible alias selections. The paired executable cases select the top
+alias, an intermediate alias, and the terminal schema separately. Their exact
+URI/range sets prove that chain identity does not merge these selections.
 An ineligible direct-dependency schema alias selected from a direct field, a
 valid `Repeat` payload, or an array payload also returns a successful empty
 reference set and does not enter any eligible alias union. The
