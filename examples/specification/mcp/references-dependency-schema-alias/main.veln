@@ -1,6 +1,6 @@
 use lib::wire from "example/dep"
 use other::lib from "other/dep"
-
+use lib::core from "example/dep"
 fn keep(note: String, packet: {value: Int}) -> {value: Int}
   packet
 end
@@ -44,7 +44,7 @@ schema IneligibleFrame
   array: [lib::wire::PrivateTarget; count]
 end
 
-use lib::core from "example/dep"
+# Target schema uses keep a distinct identity from the alias.
 
 fn target_identity_boundaries(view: ByteView, packet: {value: Int}) -> ()
   decode lib::core::Packet from view at byte_offset(0)?
