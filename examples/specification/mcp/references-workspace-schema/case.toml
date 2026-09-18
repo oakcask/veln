@@ -144,7 +144,17 @@ equals = false
 [[mcp_assert]]
 id = 10
 path = "/result/structuredContent/references"
-length = 1
+length = 2
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":7,"column":24},"end":{"line":7,"column":30}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":8,"column":24},"end":{"line":8,"column":30}}
 
 [[mcp_assert]]
 id = 10
@@ -153,18 +163,8 @@ contains = "."
 
 [[mcp_assert]]
 id = 11
-path = "/result/isError"
-equals = true
-
-[[mcp_assert]]
-id = 11
-path = "/result/structuredContent/code"
-equals = "invalid_cursor"
-
-[[mcp_assert]]
-id = 11
-path = "/result/structuredContent/details"
-equals = {}
+path = "/error/code"
+equals = -32602
 
 [[mcp_assert]]
 id = 12
@@ -174,7 +174,7 @@ equals = false
 [[mcp_assert]]
 id = 12
 path = "/result/structuredContent/references"
-length = 4
+length = 2
 
 [[mcp_assert]]
 id = 12
@@ -187,9 +187,34 @@ path = "/result/structuredContent/next_cursor"
 missing = true
 
 [[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":9,"column":31},"end":{"line":9,"column":37}}
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":10,"column":30},"end":{"line":10,"column":36}}
+
+[[mcp_assert]]
 id = 13
-path = "/error/code"
-equals = -32602
+path = "/result/structuredContent/code"
+equals = "invalid_cursor"
+
+[[mcp_assert]]
+id = 13
+path = "/result/structuredContent/details"
+equals = {}
 
 [[mcp_assert]]
 id = 14

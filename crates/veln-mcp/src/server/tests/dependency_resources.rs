@@ -475,13 +475,33 @@ fn references_capacity_failure_preserves_a_prior_live_cursor() {
     let boundary = (0..255)
         .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
         .collect::<Vec<_>>();
+    server
+        .language_resources
+        .admit_dependencies(&boundary[..254])
+        .unwrap();
+    let before_failure = all_resource_state(&mut server);
+    workspace.write("vendor/dep/dep.veln", &dependency_source("rejected digest"));
+    let initial_failure = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":8
+    }));
+    assert_eq!(initial_failure["isError"], true);
     assert_eq!(
-        server
-            .language_resources
-            .admit_dependencies(&boundary)
-            .unwrap_err(),
-        crate::language_resources::ResourceCapacityError
+        initial_failure["structuredContent"]["code"],
+        "resource_capacity"
     );
+    assert!(
+        !initial_failure["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("references")
+    );
+    assert!(
+        !initial_failure["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("scope")
+    );
+    assert_eq!(all_resource_state(&mut server), before_failure);
     let continuation = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(continuation["isError"], false);
     assert_eq!(

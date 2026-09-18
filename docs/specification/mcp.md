@@ -452,9 +452,10 @@ artifacts for these rules. The server transition tests check default and
 maximum page-size boundaries, exact ordered multi-file concatenation, cursor
 lifecycle, refresh, eviction, file-change capture, resource-capacity failure
 preservation, replay after final consumption, and failure preservation. The
-stdio case checks the advertised schemas, exact ordered multi-file results,
-repeated scope metadata, cursor-shape rejection and recovery, and rejected
-fractional, null, zero, and over-maximum page sizes.
+stdio case checks the advertised schemas, exact ordered multi-file page
+concatenation, repeated scope metadata, a valid cursor round trip, same-cursor
+invalid-shape recovery, replay rejection, and rejected fractional, null, zero,
+and over-maximum page sizes.
 
 Workspace schema references include schema path-leaf occurrences in `decode`
 and `encode` expressions and directly resolved schema-composition path leaves

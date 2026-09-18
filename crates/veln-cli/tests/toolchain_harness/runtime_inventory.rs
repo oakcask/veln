@@ -61,13 +61,29 @@ pub(super) fn run_case_with_guard_and_after_invocation(
         let stdin = manifest.invocation.materialized_stdin(&project.root);
         let output = CapturedOutput::read(
             &context,
-            project.veln_with_artifact(
-                &manifest.invocation.command,
-                manifest.invocation.cwd.as_deref(),
-                &manifest.invocation.env,
-                stdin.as_deref(),
-                artifact_path.as_deref(),
-            ),
+            if manifest.invocation.command.first().map(String::as_str) == Some("mcp")
+                && stdin
+                    .as_deref()
+                    .is_some_and(|input| input.contains("$mcp_cursor:"))
+            {
+                project.veln_with_interactive_mcp(
+                    &manifest.invocation.command,
+                    manifest.invocation.cwd.as_deref(),
+                    &manifest.invocation.env,
+                    stdin
+                        .as_deref()
+                        .expect("interactive MCP input should exist"),
+                    artifact_path.as_deref(),
+                )
+            } else {
+                project.veln_with_artifact(
+                    &manifest.invocation.command,
+                    manifest.invocation.cwd.as_deref(),
+                    &manifest.invocation.env,
+                    stdin.as_deref(),
+                    artifact_path.as_deref(),
+                )
+            },
         );
         collect_panic_failure(&mut run_failures, || {
             if let Some(artifact_path) = artifact_path.as_deref() {
