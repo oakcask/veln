@@ -3,6 +3,7 @@ mod lib::wire
 use lib::core
 use private
 use lib::Core
+use hidden
 
 pub type Packet
   pub Ready(Int)
@@ -18,6 +19,7 @@ pub schema ChainCycle = CycleTail
 pub schema CycleTail = ChainCycle
 pub schema DeepPrivate = DeepPrivateMid
 pub schema DeepPrivateMid = private::Packet
+pub schema DeepNonExported = hidden::Packet
 
 pub schema Hidden
   value: Int

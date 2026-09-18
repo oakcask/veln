@@ -726,7 +726,7 @@ equals = {"start":{"line":50,"character":15},"end":{"line":50,"character":21}}
 [[lsp_assert]]
 id = 33
 path = "/result/2/range"
-equals = {"start":{"line":63,"character":20},"end":{"line":63,"character":26}}
+equals = {"start":{"line":64,"character":20},"end":{"line":64,"character":26}}
 
 [[lsp_assert]]
 id = 33
@@ -751,7 +751,7 @@ equals = {"start":{"line":50,"character":15},"end":{"line":50,"character":21}}
 [[lsp_assert]]
 id = 34
 path = "/result/2/range"
-equals = {"start":{"line":63,"character":20},"end":{"line":63,"character":26}}
+equals = {"start":{"line":64,"character":20},"end":{"line":64,"character":26}}
 
 [[lsp_assert]]
 id = 34
@@ -837,6 +837,11 @@ path = "/result"
 equals = []
 
 [[lsp_assert]]
+id = 45
+path = "/result"
+equals = []
+
+[[lsp_assert]]
 id = 41
 path = "/result"
 length = 1
@@ -844,7 +849,7 @@ length = 1
 [[lsp_assert]]
 id = 41
 path = "/result/0/range"
-equals = {"start":{"line":62,"character":20},"end":{"line":62,"character":38}}
+equals = {"start":{"line":63,"character":20},"end":{"line":63,"character":38}}
 
 [[lsp_assert]]
 id = 41
@@ -869,7 +874,7 @@ equals = {"start":{"line":50,"character":15},"end":{"line":50,"character":21}}
 [[lsp_assert]]
 id = 42
 path = "/result/2/range"
-equals = {"start":{"line":63,"character":20},"end":{"line":63,"character":26}}
+equals = {"start":{"line":64,"character":20},"end":{"line":64,"character":26}}
 
 [[lsp_assert]]
 id = 42

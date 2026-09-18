@@ -342,9 +342,11 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   exact dependency import over a colliding implicit alias, and prevent a
   non-exported alias from falling back to a same-spelled exported schema. They
   also keep an alias whose target source is not exported, an alias with an
-  invalid-cased target import, cycles, and a chain ending at a private schema
-  empty. They exclude the same qualified alias use in an unselected descendant
-  project from the root project's exact result.
+  invalid-cased target import, cycles, a chain ending at a private schema in an
+  exported source, and a separate chain ending at a public schema in a
+  non-exported source; all such selections are empty. They exclude the same
+  qualified alias use in an unselected descendant project from the root
+  project's exact result.
 - MCP `references` boundary fixture shared by direct-dependency schema
   composition, schema-operation, and schema-alias composition-and-operation
   selections. Its
