@@ -800,3 +800,18 @@ equals = {"start":{"line":51,"character":21},"end":{"line":51,"character":27}}
 id = 36
 path = "/result/1/range"
 equals = {"start":{"line":52,"character":21},"end":{"line":52,"character":27}}
+
+[[lsp_assert]]
+id = 37
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 38
+path = "/result"
+equals = []
+
+[[lsp_assert]]
+id = 39
+path = "/result"
+equals = []

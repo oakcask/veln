@@ -264,11 +264,13 @@ injects a public standard-library schema and verifies that this unsupported
 selection returns an empty set with project-wide scope.
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace composition
-and operation leaves as MCP when declaration inclusion is false. The direct alias target
-must be a unique public schema declared by an exported source in the retained
-dependency. It can be a bare target in the alias module or a qualified target
-resolved through a valid local import from any retained package source with the
-alias's explicit module identity. Full written target modules and unique
+and operation leaves as MCP when declaration inclusion is false. Each
+non-terminal hop must resolve to one unique public schema alias, and the final
+hop must resolve to one unique public schema declared by an exported source in
+the retained dependency. The chain must be finite and acyclic. A bare target
+resolves in the alias module or the current hop's module. A qualified target
+resolves through a valid local import from any retained package source with the
+current hop's explicit module identity. Full written target modules and unique
 implicit leaf import aliases are accepted. Consumer imports do not affect
 target resolution. The qualified import can resolve to another module or back
 to the alias's own module. No schema alias in the resolved schema

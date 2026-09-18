@@ -13,6 +13,11 @@ pub schema WirePacket = IntermediatePacket
 pub schema SiblingPacket = core::Packet
 pub schema PrivateTarget = private::Packet
 pub schema InvalidImport = Core::Packet
+pub schema SelfCycle = SelfCycle
+pub schema ChainCycle = CycleTail
+pub schema CycleTail = ChainCycle
+pub schema DeepPrivate = DeepPrivateMid
+pub schema DeepPrivateMid = private::Packet
 
 pub schema Hidden
   value: Int

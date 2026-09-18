@@ -52,3 +52,9 @@ fn target_identity_boundaries(view: ByteView, packet: {value: Int}) -> ()
   decode other::lib::Packet from view at byte_offset(0)?
   encode other::lib::Packet from packet
 end
+
+fn chain_negative_boundaries(view: ByteView) -> ()
+  let self_cycle = decode lib::wire::SelfCycle from view at byte_offset(0)?
+  let chain_cycle = decode lib::wire::ChainCycle from view at byte_offset(0)?
+  let deep_private = decode lib::wire::DeepPrivate from view at byte_offset(0)?
+end

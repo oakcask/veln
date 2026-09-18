@@ -651,3 +651,18 @@ equals = {"start":{"line":52,"column":22},"end":{"line":52,"column":28}}
 id = 36
 path = "/result/structuredContent/references/1/range"
 equals = {"start":{"line":53,"column":22},"end":{"line":53,"column":28}}
+
+[[mcp_assert]]
+id = 37
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 38
+path = "/result/structuredContent/references"
+equals = []
+
+[[mcp_assert]]
+id = 39
+path = "/result/structuredContent/references"
+equals = []

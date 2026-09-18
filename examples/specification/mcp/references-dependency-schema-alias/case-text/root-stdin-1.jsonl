@@ -28,3 +28,6 @@
 {"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":51,"column":17}}}
 {"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":52,"column":23}}}
 {"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":53,"column":23}}}
+{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":57,"column":38}}}
+{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":58,"column":39}}}
+{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":59,"column":40}}}

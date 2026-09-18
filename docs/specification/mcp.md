@@ -562,10 +562,12 @@ uses. The direct target can be a same-module bare schema or a qualified schema
 resolved through a valid package-local full or implicit-leaf import. The
 qualified target can resolve to the alias module or another module.
 Consumer imports do not affect target resolution. A public schema alias may
-resolve through a finite, acyclic chain of public schema aliases in the same
-retained direct dependency when every hop and the terminal schema is declared
-in an exported source. Bare imported schema-alias composition and operation
-leaves, external-package targets,
+resolve through a finite, acyclic chain in the same retained direct dependency.
+Each non-terminal hop must resolve to one eligible public schema alias, and the
+final hop must resolve to one eligible public schema. Every hop and the
+terminal schema must be declared in an exported source. The existing
+direct-target module and import rules apply at every hop. Bare imported
+schema-alias composition and operation leaves, external-package targets,
 ambiguous or invalid aliases,
 targets, and target imports, standard-library and transitive aliases, non-exported
 modules, mismatched imports, and recovered schema-alias composition or operation

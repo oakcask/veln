@@ -136,6 +136,58 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn dependency_schema_alias_chain_rejects_self_cycle_chain_cycle_and_deep_terminal_blocker() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "dep.veln",
+                    concat!(
+                        "use private\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema Valid = Packet\n",
+                        "pub schema SelfCycle = SelfCycle\n",
+                        "pub schema ChainCycle = CycleTail\n",
+                        "pub schema CycleTail = ChainCycle\n",
+                        "pub schema DeepPrivate = DeepPrivateMid\n",
+                        "pub schema DeepPrivateMid = private::Packet\n",
+                    ),
+                ),
+                (
+                    "private.veln",
+                    "mod private\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+            ["dep.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::SelfCycle from view at byte_offset(0)?\n",
+                    "  decode dep::ChainCycle from view at byte_offset(0)?\n",
+                    "  decode dep::DeepPrivate from view at byte_offset(0)?\n",
+                    "  decode dep::Valid from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        for line in [4, 5, 6] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, 16).is_none(),
+                "chain blocker at line {line} must return the successful empty result",
+            );
+        }
+        let valid = query_snapshot(&snapshot, "main.veln", 7, 16).unwrap();
+        assert_eq!(valid.selected_symbol.name, "Valid");
+        assert_eq!(locations(&valid.references), [("main.veln", 7, 15)]);
+    }
+
+    #[test]
     fn dependency_schema_alias_chain_intermediate_blockers_return_empty() {
         let cases = [
             (
