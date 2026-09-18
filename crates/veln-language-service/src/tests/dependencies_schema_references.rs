@@ -202,6 +202,7 @@ mod dependencies_schema_references_tests {
                     ),
                 )],
                 vec!["facade.veln"],
+                "Top",
             ),
             (
                 "non-exported intermediate source",
@@ -220,6 +221,7 @@ mod dependencies_schema_references_tests {
                     ),
                 ],
                 vec!["packet.veln", "top.veln"],
+                "Top",
             ),
             (
                 "invalid-cased intermediate",
@@ -233,6 +235,7 @@ mod dependencies_schema_references_tests {
                     ),
                 )],
                 vec!["facade.veln"],
+                "Top",
             ),
             (
                 "duplicate intermediate aliases",
@@ -247,6 +250,7 @@ mod dependencies_schema_references_tests {
                     ),
                 )],
                 vec!["facade.veln"],
+                "Top",
             ),
             (
                 "wrong-kind intermediate",
@@ -260,6 +264,7 @@ mod dependencies_schema_references_tests {
                     ),
                 )],
                 vec!["facade.veln"],
+                "Top",
             ),
             (
                 "missing intermediate",
@@ -268,6 +273,7 @@ mod dependencies_schema_references_tests {
                     "mod facade\n\npub schema Top = Mid\n",
                 )],
                 vec!["facade.veln"],
+                "Top",
             ),
             (
                 "recovered schema collision",
@@ -290,6 +296,7 @@ mod dependencies_schema_references_tests {
                     ),
                 ],
                 vec!["packet.veln", "mid.veln", "top.veln"],
+                "Top",
             ),
             (
                 "dictionary-order non-exported intermediate",
@@ -303,21 +310,17 @@ mod dependencies_schema_references_tests {
                     ),
                 )],
                 vec!["facade.veln"],
+                "ATop",
             ),
         ];
 
-        for (name, sources, exported) in cases {
+        for (name, sources, exported, selected_alias) in cases {
             let dependency = dependency_snapshot("example/dep", &sources, exported);
+            let main_source = format!(
+                "use facade from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n  decode facade::{selected_alias} from view at byte_offset(0)?\nend\n"
+            );
             let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
-                vec![source(
-                    "main.veln",
-                    concat!(
-                        "use facade from \"example/dep\"\n\n",
-                        "fn read(view: ByteView) -> ()\n",
-                        "  decode facade::Top from view at byte_offset(0)?\n",
-                        "end\n",
-                    ),
-                )],
+                vec![source("main.veln", &main_source)],
                 vec![dependency],
             );
             assert!(
