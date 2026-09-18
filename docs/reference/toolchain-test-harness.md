@@ -349,11 +349,15 @@ use identical saved sources. Their decoded assertions cover the exact
 normalized workspace composition-and-operation union from full and implicit
 module paths, direct fields, `Repeat` payloads, and array payloads, alias and
 target identity separation, finite same-dependency alias-chain resolution,
-qualified cross-module target resolution, successful empty results for cycles
-and a chain ending at a private schema, unsupported target selections,
-descendant-project and dependency-package source exclusion, both LSP
-declaration-inclusion policies, and null definition and prepare-rename results
-plus an empty rename change set when a composition leaf is selected.
+qualified cross-module target resolution, separation of top-alias,
+intermediate-alias, and terminal-schema selections, and separation of
+same-spelled alias identities from different retained dependencies. They also
+cover successful empty results for cycles, a chain ending at a private schema,
+and a public target in a non-exported source; unsupported target selections;
+descendant-project and dependency-package source exclusion; both LSP
+declaration-inclusion policies; and null definition and prepare-rename results
+plus an empty rename change set when a composition leaf is selected. The MCP
+case additionally checks bounded result pagination and cursor continuation.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept

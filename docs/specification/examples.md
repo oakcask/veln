@@ -338,7 +338,9 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   alias spelling, include the exact dependency-alias composition union from
   full and implicit module paths, direct fields, `Repeat` payloads, and array
   payloads in the alias-specific union, resolve finite same-dependency alias
-  chains, prefer an
+  chains while keeping top-alias, intermediate-alias, and terminal-schema
+  selections separate, keep same-spelled aliases from different retained
+  dependencies separate, prefer an
   exact dependency import over a colliding implicit alias, and prevent a
   non-exported alias from falling back to a same-spelled exported schema. They
   also keep an alias whose target source is not exported, an alias with an
@@ -346,7 +348,8 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   exported source, and a separate chain ending at a public schema in a
   non-exported source; all such selections are empty. They exclude the same
   qualified alias use in an unselected descendant project from the root
-  project's exact result.
+  project's exact result. The MCP case also checks bounded pagination and
+  cursor continuation for the top-alias result.
 - MCP `references` boundary fixture shared by direct-dependency schema
   composition, schema-operation, and schema-alias composition-and-operation
   selections. Its
