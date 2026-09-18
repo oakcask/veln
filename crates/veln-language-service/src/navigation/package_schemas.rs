@@ -195,6 +195,8 @@ fn direct_dependency_exported_aliases(
         .iter()
         .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
     {
+        #[cfg(test)]
+        record_schema_alias_declaration_visit();
         if alias.exported {
             exported.insert((
                 alias.package.as_str(),

@@ -11,8 +11,8 @@ mod dependencies_schema_references_tests {
             let _ = snapshot.navigation_index();
             assert_eq!(
                 crate::navigation::schema_alias_declaration_visits(),
-                count * 3,
-                "eligibility must visit each resolved alias, alias declaration, and target once",
+                count * 4,
+                "eligibility must visit each resolved alias, alias declaration, export check, and target once",
             );
             let result = query_snapshot(&snapshot, "main.veln", 4, 19).unwrap();
             assert_eq!(result.selected_symbol.name, "Alias0");
@@ -405,6 +405,56 @@ mod dependencies_schema_references_tests {
         assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
     }
 
+    #[test]
+    fn dependency_schema_alias_recovered_deep_terminal_does_not_hide_valid_chain() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "packet.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema OtherPacket\n  value: Int\nend\n",
+                    ),
+                ),
+                (
+                    "chain.veln",
+                    concat!(
+                        "mod dep\n\n",
+                        "pub schema Mid = Packet\n",
+                        "pub schema Top = Mid\n",
+                        "pub schema OtherMid = OtherPacket\n",
+                        "pub schema OtherTop = OtherMid\n",
+                    ),
+                ),
+                (
+                    "recovered.veln",
+                    "mod dep\n\npub schema Packet\n  value: Int\n",
+                ),
+            ],
+            ["packet.veln", "chain.veln", "recovered.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Top from view at byte_offset(0)?\n",
+                    "  decode dep::OtherTop from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
+        let valid = query_snapshot(&snapshot, "main.veln", 5, 16).unwrap();
+        assert_eq!(valid.selected_symbol.name, "OtherTop");
+        assert_eq!(locations(&valid.references), [("main.veln", 5, 15)]);
+    }
+
     fn dependency_schema_alias_chain_snapshot(count: usize) -> EffectiveProjectSnapshot {
         let mut dependency_source = String::from("pub schema Packet\n  value: Int\nend\n\n");
         dependency_source.push_str("pub schema Alias0 = Packet\n");
@@ -567,8 +617,8 @@ mod dependencies_schema_references_tests {
             assert_eq!(schema_visits, count);
             assert_eq!(
                 crate::navigation::schema_alias_declaration_visits(),
-                count * 3,
-                "eligible aliases must be indexed once per declaration-resolution boundary",
+                count * 4,
+                "eligible aliases must be indexed once per declaration-resolution boundary, including export checks",
             );
             assert_eq!(field_token_visits % count, 0);
             let visits_per_field = field_token_visits / count;
@@ -2769,13 +2819,12 @@ mod dependencies_schema_references_tests {
             &[
                 (
                     "exported.veln",
-                    "mod dep\n\npub schema Alias\n  value: Int\nend\n",
+                    "mod dep\n\npub schema Packet\n  value: Int\nend\n",
                 ),
                 (
                     "hidden.veln",
                     concat!(
                         "mod dep\n\n",
-                        "pub schema Packet\n  value: Int\nend\n\n",
                         "pub schema Alias = Packet\n",
                     ),
                 ),

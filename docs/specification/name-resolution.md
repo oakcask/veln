@@ -58,16 +58,16 @@ ineligible. The executable evidence is the following language-service tests:
 - `dependency_schema_alias_requires_an_exported_cross_module_target_source`
 - `dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
 - `dependency_schema_alias_chain_intermediate_blockers_return_empty`
+- `dependency_schema_alias_recovered_deep_terminal_does_not_hide_valid_chain`
+- `non_exported_dependency_schema_alias_blocks_exported_schema_fallback`
 - `dependency_schema_alias_shared_suffix_and_disconnected_cycle_stay_bounded`
 
-The adjacent-size performance audit for the chain index stage measured 64,
-128, and 256 alias nodes at 5.30 ms, 5.47 ms, and 8.97 ms respectively in
-one guarded local run. The inspected hot path is dependency source indexing
-through `resolved_schema_alias_chains`, followed by the dependency alias
-reference index. There is no equivalent pre-chain implementation to use as a
-before baseline; the stable comparison is the adjacent-size sweep together
-with the existing linear visit-counter bound, which remains the CI guard.
-These timings are representative audit evidence, not a CI threshold.
+The chain index keeps its executable linear-work guard in
+`dependency_schema_alias_chains_resolve_with_bounded_index_work` and
+`dependency_schema_alias_eligibility_visits_declarations_once`. The guarded
+performance audit runs those tests for adjacent generated sizes and compares
+the declaration and eligibility visit counts; it does not publish
+machine-dependent wall-clock values as current behavior.
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module
