@@ -348,11 +348,12 @@ The paired `references-dependency-schema-alias` MCP and LSP specification cases
 use identical saved sources. Their decoded assertions cover the exact
 normalized workspace composition-and-operation union from full and implicit
 module paths, direct fields, `Repeat` payloads, and array payloads, alias and
-target identity separation, qualified cross-module target resolution,
-unsupported target selections, descendant-project and dependency-package
-source exclusion, both LSP declaration-inclusion policies, and null definition
-and prepare-rename results plus an empty rename change set when a composition
-leaf is selected.
+target identity separation, finite same-dependency alias-chain resolution,
+qualified cross-module target resolution, successful empty results for cycles
+and a chain ending at a private schema, unsupported target selections,
+descendant-project and dependency-package source exclusion, both LSP
+declaration-inclusion policies, and null definition and prepare-rename results
+plus an empty rename change set when a composition leaf is selected.
 
 Use `[[json_assert]]`, `[[result_value_assert]]`, and `[[diagnostics]]` for
 semantic checks inside JSON stdout. JSON and result-value assertions accept

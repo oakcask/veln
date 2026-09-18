@@ -808,8 +808,8 @@ selection parity with both LSP declaration policies. The
 `references-dependency-schema-operation-boundaries` case checks private,
 non-exported, mismatched-import, transitive, invalid-casing, unresolved,
 invalid-cased and other-package alias targets; its package-alias-chain case
-checks successful selected-alias identity.
-duplicate-import, recovered-import, recovered-declaration, syntax-recovered
+checks successful selected-alias identity. Duplicate-import, recovered-import,
+recovered-declaration, syntax-recovered
 composition, dependency exact and implicit collisions in both import orders,
 module-qualifier, and recovery selections as successful empty results. Its
 mismatched import names a retained direct
