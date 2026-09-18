@@ -56,28 +56,13 @@ pub(super) fn collect_expr_effect_dependencies(
     .collect(expr);
 }
 
-trait ExprEffectTraversal {
-    fn collect(&mut self, expr: &Expr);
-
-    fn collect_pair(&mut self, first: &Expr, second: &Expr) {
-        self.collect(first);
-        self.collect(second);
-    }
-
-    fn collect_all(&mut self, expressions: &[Expr]) {
-        for expression in expressions {
-            self.collect(expression);
-        }
-    }
-}
-
 struct ExprEffectDependencyCollector<'context, 'data, 'output> {
     context: &'context ExprEffectContext<'data>,
     dependencies: &'output mut BTreeSet<EffectDependencyNode>,
 }
 
 impl ExprEffectDependencyCollector<'_, '_, '_> {
-    fn collect_expr(&mut self, expr: &Expr) {
+    fn collect(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
             ExprKind::Handle {
@@ -86,51 +71,14 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
                 args,
                 ..
             } => self.collect_handle(body, handler, args),
-            ExprKind::SchemaDecode { input, base, .. } => self.collect_pair(input, base),
-            ExprKind::Perform { args, .. } => self.collect_all(args),
-            ExprKind::SchemaEncode { value, .. } => self.collect(value),
-            ExprKind::FieldAccess { base, .. }
-            | ExprKind::Try(base)
-            | ExprKind::TypeApply { callee: base, .. }
-            | ExprKind::Prefix { expr: base, .. } => self.collect(base),
-            ExprKind::Record(fields) => {
-                for field in fields {
-                    self.collect(&field.expr);
-                }
-            }
-            ExprKind::Dict(entries) => {
-                for entry in entries {
-                    self.collect_pair(&entry.key, &entry.value);
-                }
-            }
-            ExprKind::List(items) => self.collect_all(items),
-            ExprKind::Match { scrutinee, arms } => {
-                self.collect(scrutinee);
-                for arm in arms {
-                    self.collect(&arm.expr);
-                }
-            }
-            ExprKind::If {
-                condition,
-                then_branch,
-                else_if_branches,
-                else_branch,
-            } => {
-                self.collect_pair(condition, then_branch);
-                for branch in else_if_branches {
-                    self.collect_pair(&branch.condition, &branch.expr);
-                }
-                self.collect(else_branch);
-            }
-            ExprKind::Binary { left, right, .. } => self.collect_pair(left, right),
             ExprKind::NamePath { segments, .. } => self.collect_name_path(segments),
-            ExprKind::Missing
-            | ExprKind::Hole { .. }
-            | ExprKind::StringLiteral(_)
-            | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
-            | ExprKind::BoolLiteral(_)
-            | ExprKind::Unit => {}
+            _ => expr.for_each_child(&mut |child| self.collect(child)),
+        }
+    }
+
+    fn collect_all(&mut self, expressions: &[Expr]) {
+        for expression in expressions {
+            self.collect(expression);
         }
     }
 
@@ -185,12 +133,6 @@ impl ExprEffectDependencyCollector<'_, '_, '_> {
     }
 }
 
-impl ExprEffectTraversal for ExprEffectDependencyCollector<'_, '_, '_> {
-    fn collect(&mut self, expr: &Expr) {
-        self.collect_expr(expr);
-    }
-}
-
 pub(super) fn collect_expr_effects(
     expr: &Expr,
     context: &ExprEffectContext<'_>,
@@ -205,10 +147,9 @@ struct ExprEffectCollector<'context, 'data, 'output> {
 }
 
 impl ExprEffectCollector<'_, '_, '_> {
-    fn collect_expr(&mut self, expr: &Expr) {
+    fn collect(&mut self, expr: &Expr) {
         match &expr.kind {
             ExprKind::Call { callee, args } => self.collect_call(callee, args),
-            ExprKind::SchemaDecode { input, base, .. } => self.collect_pair(input, base),
             ExprKind::Perform { effect, args, .. } => self.collect_perform(effect, args),
             ExprKind::Handle {
                 body,
@@ -216,30 +157,13 @@ impl ExprEffectCollector<'_, '_, '_> {
                 args,
                 ..
             } => self.collect_handle(body, handler, args),
-            ExprKind::SchemaEncode { value, .. } => self.collect(value),
-            ExprKind::FieldAccess { base, .. }
-            | ExprKind::Try(base)
-            | ExprKind::TypeApply { callee: base, .. }
-            | ExprKind::Prefix { expr: base, .. } => self.collect(base),
-            ExprKind::Record(fields) => self.collect_record_fields(fields),
-            ExprKind::Dict(entries) => self.collect_dict_entries(entries),
-            ExprKind::List(items) => self.collect_all(items),
-            ExprKind::Match { scrutinee, arms } => self.collect_match(scrutinee, arms),
-            ExprKind::If {
-                condition,
-                then_branch,
-                else_if_branches,
-                else_branch,
-            } => self.collect_if(condition, then_branch, else_if_branches, else_branch),
-            ExprKind::Binary { left, right, .. } => self.collect_pair(left, right),
-            ExprKind::Missing
-            | ExprKind::Hole { .. }
-            | ExprKind::NamePath { .. }
-            | ExprKind::StringLiteral(_)
-            | ExprKind::IntLiteral(_)
-            | ExprKind::FloatLiteral(_)
-            | ExprKind::BoolLiteral(_)
-            | ExprKind::Unit => {}
+            _ => expr.for_each_child(&mut |child| self.collect(child)),
+        }
+    }
+
+    fn collect_all(&mut self, expressions: &[Expr]) {
+        for expression in expressions {
+            self.collect(expression);
         }
     }
 
@@ -325,48 +249,9 @@ impl ExprEffectCollector<'_, '_, '_> {
         self.push_all(&handler_effects);
     }
 
-    fn collect_record_fields(&mut self, fields: &[RecordField]) {
-        for field in fields {
-            self.collect(&field.expr);
-        }
-    }
-
-    fn collect_dict_entries(&mut self, entries: &[DictEntry]) {
-        for entry in entries {
-            self.collect_pair(&entry.key, &entry.value);
-        }
-    }
-
-    fn collect_match(&mut self, scrutinee: &Expr, arms: &[MatchArm]) {
-        self.collect(scrutinee);
-        for arm in arms {
-            self.collect(&arm.expr);
-        }
-    }
-
-    fn collect_if(
-        &mut self,
-        condition: &Expr,
-        then_branch: &Expr,
-        else_if_branches: &[IfBranch],
-        else_branch: &Expr,
-    ) {
-        self.collect_pair(condition, then_branch);
-        for branch in else_if_branches {
-            self.collect_pair(&branch.condition, &branch.expr);
-        }
-        self.collect(else_branch);
-    }
-
     fn push_all(&mut self, effects: &[String]) {
         for effect in effects {
             push_unique_effect(self.inferred, effect);
         }
-    }
-}
-
-impl ExprEffectTraversal for ExprEffectCollector<'_, '_, '_> {
-    fn collect(&mut self, expr: &Expr) {
-        self.collect_expr(expr);
     }
 }
