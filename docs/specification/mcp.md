@@ -498,9 +498,10 @@ identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries.
 
 An eligible public schema alias declared in an exported module of a retained
-direct dependency has a separate operation-reference identity. Its written
-target must resolve uniquely to a public schema declared by an exported source
-in the retained dependency. A bare target resolves in the alias module. A
+direct dependency has a separate composition-and-operation reference
+identity. Its written target must resolve uniquely to a public schema declared
+by an exported source in the retained dependency. A bare target resolves in
+the alias module. A
 qualified target resolves through a valid package-local import from any
 retained package source with the alias's explicit module identity, including a
 full module path or a unique implicit leaf alias. Consumer imports do not
