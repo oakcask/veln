@@ -42,10 +42,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use veln_ast::{
-    BodyLineKind, DictEntry, EffectDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl,
-    IfBranch, InvalidName, MatchArm, PublicAlias, PublicAliasKind, RecordField, SchemaDecl,
-    SchemaField, SurfaceModule, TypeDecl, UseDecl, Visibility,
-    lower_surface_ast_with_module_identity,
+    BodyLineKind, EffectDecl, Expr, ExprKind, Function, FunctionKind, HandlerDecl, InvalidName,
+    PublicAlias, PublicAliasKind, SchemaDecl, SchemaField, SurfaceModule, TypeDecl, UseDecl,
+    Visibility, lower_surface_ast_with_module_identity,
 };
 use veln_project::{classify_companion_source, companion_access_target};
 use veln_source::{SourceFile, SourceSpan, TextRange};
