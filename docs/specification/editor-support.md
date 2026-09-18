@@ -273,8 +273,9 @@ resolves through a valid local import from any retained package source with the
 current hop's explicit module identity. Full written target modules and unique
 implicit leaf import aliases are accepted. Consumer imports do not affect
 target resolution. The qualified import can resolve to another module or back
-to the alias's own module. No schema alias in the resolved schema
-namespace may share the target name. Same-spelled declarations in unrelated
+to the alias's own module. At each hop, the declaration kind must match the
+expected kind: a non-terminal target is one public schema alias, and the final
+target is one public schema. Same-spelled declarations in unrelated
 namespaces do not affect target resolution. Alias identity includes the
 dependency and alias declaration, so
 target-schema uses, sibling aliases, and same-spelled aliases from other
@@ -307,8 +308,8 @@ An unselected descendant project with
 the same qualified alias use remains outside the selected root project's
 result. The LSP case also keeps definition and prepare-rename null and rename
 edits empty for the supported package alias leaf. Shared navigation tests and
-the MCP dependency-schema boundary case cover target-name schema alias
-collisions, recovered duplicate declarations, invalid imports, invalid-cased
+the MCP dependency-schema boundary case cover final-target schema-alias
+wrong-kind collisions, recovered duplicate declarations, invalid imports, invalid-cased
 targets, cross-module target success, other-package target rejection, and
 graph-ineligible alias selections.
 An ineligible direct-dependency schema alias selected from a direct field, a

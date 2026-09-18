@@ -291,6 +291,19 @@ mod dependencies_schema_references_tests {
                 ],
                 vec!["packet.veln", "mid.veln", "top.veln"],
             ),
+            (
+                "dictionary-order non-exported intermediate",
+                vec![ (
+                    "facade.veln",
+                    concat!(
+                        "mod facade\n\n",
+                        "pub schema Packet\n  value: Int\nend\n\n",
+                        "pub schema ATop = ZMid\n",
+                        "schema ZMid = Packet\n",
+                    ),
+                )],
+                vec!["facade.veln"],
+            ),
         ];
 
         for (name, sources, exported) in cases {
@@ -312,6 +325,79 @@ mod dependencies_schema_references_tests {
                 "ineligible chain must be empty: {name}"
             );
         }
+    }
+
+    #[test]
+    fn dependency_schema_alias_chain_deep_terminal_blockers_return_empty() {
+        let cases = [
+            (
+                "missing terminal",
+                "pub schema Mid = Missing\npub schema Top = Mid\n",
+                ["dep.veln"],
+            ),
+            (
+                "invalid-cased terminal",
+                "pub schema badPacket\n  value: Int\nend\npub schema Mid = badPacket\npub schema Top = Mid\n",
+                ["dep.veln"],
+            ),
+            (
+                "wrong-kind terminal",
+                "pub type Packet\n  Ready(Int)\nend\npub schema Mid = Packet\npub schema Top = Mid\n",
+                ["dep.veln"],
+            ),
+            (
+                "recovered terminal",
+                "pub schema Packet\n  value: Int\npub schema Mid = Packet\npub schema Top = Mid\n",
+                ["dep.veln"],
+            ),
+        ];
+
+        for (name, source_text, exported) in cases {
+            let dependency =
+                dependency_snapshot("example/dep", &[("dep.veln", source_text)], exported);
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source(
+                    "main.veln",
+                    concat!(
+                        "use dep from \"example/dep\"\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode dep::Top from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                )],
+                vec![dependency],
+            );
+            assert!(
+                query_snapshot(&snapshot, "main.veln", 4, 16).is_none(),
+                "deep terminal blocker must be empty: {name}"
+            );
+        }
+
+        let duplicate = dependency_snapshot(
+            "example/dep",
+            &[
+                ("first.veln", "pub schema Packet\n  value: Int\nend\n"),
+                ("second.veln", "pub schema Packet\n  other: Int\nend\n"),
+                (
+                    "chain.veln",
+                    "pub schema Mid = Packet\npub schema Top = Mid\n",
+                ),
+            ],
+            ["first.veln", "second.veln", "chain.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode dep::Top from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![duplicate],
+        );
+        assert!(query_snapshot(&snapshot, "main.veln", 4, 16).is_none());
     }
 
     fn dependency_schema_alias_chain_snapshot(count: usize) -> EffectiveProjectSnapshot {
@@ -1405,6 +1491,7 @@ mod dependencies_schema_references_tests {
                     ("b.veln", "mod app\nuse dep from \"first/dep\"\n"),
                 ],
                 "dep",
+                "Alias",
                 16,
                 15,
             ),
@@ -1415,6 +1502,7 @@ mod dependencies_schema_references_tests {
                     "mod app\nuse dep from \"first/dep\" unexpected\n",
                 )],
                 "dep",
+                "Alias",
                 16,
                 15,
             ),
@@ -1429,6 +1517,7 @@ mod dependencies_schema_references_tests {
                     ),
                 ],
                 "shared",
+                "Packet",
                 19,
                 18,
             ),
@@ -1445,12 +1534,13 @@ mod dependencies_schema_references_tests {
                     ),
                 ],
                 "wire",
+                "Alias",
                 17,
                 16,
             ),
         ];
 
-        for (name, imports, qualifier, composition_column, operation_column) in cases {
+        for (name, imports, qualifier, target, composition_column, operation_column) in cases {
             for reverse in [false, true] {
                 let mut sources = imports
                     .iter()
@@ -1462,13 +1552,14 @@ mod dependencies_schema_references_tests {
                         concat!(
                             "mod app\n",
                             "schema Host\n",
-                            "  nested: {0}::Packet\n",
+                            "  nested: {0}::{1}\n",
                             "end\n",
                             "fn read(view: ByteView) -> ()\n",
-                            "  decode {0}::Packet from view at byte_offset(0)?\n",
+                            "  decode {0}::{1} from view at byte_offset(0)?\n",
                             "end\n",
                         ),
                         qualifier,
+                        target,
                     ),
                 ));
                 if reverse {
@@ -1482,11 +1573,11 @@ mod dependencies_schema_references_tests {
                             &[
                                 (
                                     "dep.veln",
-                                    "mod dep\npub schema Packet\n  value: Int\nend\n",
+                                    "mod dep\npub schema Packet\n  value: Int\nend\npub schema Mid = Packet\npub schema Alias = Mid\n",
                                 ),
                                 (
                                     "shared.veln",
-                                    "mod shared\npub schema Packet\n  value: Int\nend\n",
+                                    "mod shared\npub schema Packet\n  value: Int\nend\npub schema Mid = Packet\npub schema Alias = Mid\n",
                                 ),
                                 (
                                     "fallback/shared.veln",
@@ -1494,7 +1585,7 @@ mod dependencies_schema_references_tests {
                                 ),
                                 (
                                     "alpha/wire.veln",
-                                    "mod alpha::wire\npub schema Packet\n  value: Int\nend\n",
+                                    "mod alpha::wire\npub schema Packet\n  value: Int\nend\npub schema Mid = Packet\npub schema Alias = Mid\n",
                                 ),
                             ],
                             [
@@ -1513,7 +1604,7 @@ mod dependencies_schema_references_tests {
                                 ),
                                 (
                                     "beta/wire.veln",
-                                    "mod beta::wire\npub schema Packet\n  value: Int\nend\n",
+                                    "mod beta::wire\npub schema Packet\n  value: Int\nend\npub schema Mid = Packet\npub schema Alias = Mid\n",
                                 ),
                             ],
                             ["shared.veln", "beta/wire.veln"],

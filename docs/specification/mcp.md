@@ -533,17 +533,19 @@ boundaries.
 
 An eligible public schema alias declared in an exported module of a retained
 direct dependency has a separate composition-and-operation reference
-identity. Its written target must resolve uniquely to a public schema declared
-by an exported source in the retained dependency. A bare target resolves in
+identity. Its written target must resolve through a finite, acyclic chain whose
+non-terminal hops each resolve uniquely to a public schema alias and whose
+final hop resolves uniquely to a public schema declared by an exported source
+in the retained dependency. A bare target resolves in
 the alias module. A
 qualified target resolves through a valid package-local import from any
 retained package source with the alias's explicit module identity, including a
 full module path or a unique implicit leaf alias. Consumer imports do not
 participate in target resolution. The qualified import can resolve to another
-module or back to the alias's own module. No schema alias in
-the resolved schema namespace may have the target name. A declaration in an
-unrelated namespace, such as a type with the target name, does not affect
-eligibility.
+module or back to the alias's own module. At each hop, the declaration kind
+must match the expected kind: a non-terminal target is one public schema alias,
+and the final target is one public schema. A declaration in an unrelated
+namespace, such as a type with the target name, does not affect eligibility.
 Selecting a saved composition, `decode`, or `encode` alias leaf through the
 full imported module path or its valid implicit leaf alias returns every
 composition and operation leaf with the same dependency and alias-declaration
@@ -592,7 +594,8 @@ composition, decode, and encode response binds each range to its workspace URI.
 The LSP case also verifies that declaration inclusion does not add the package
 alias declaration. The
 `references-dependency-schema-operation-boundaries` case requires successful
-empty results when a schema alias shares the target name and for invalid,
+empty results when a final target name resolves to a schema alias (the wrong
+declaration kind) and for invalid,
 non-exported, mismatched-import, duplicate-import, recovered-import,
 invalid-cased-target, valid other-package-target,
 and transitive alias selections. Focused MCP tests cover

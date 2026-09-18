@@ -44,8 +44,9 @@ alias's module. Imports from all retained package sources with that explicit
 module identity participate, including full module paths and unique implicit
 leaf aliases. The imported target can resolve to another module or back to the
 alias's own module.
-Consumer imports do not participate in target resolution. No schema alias may
-share the target name in the resolved schema namespace. Same-spelled
+Consumer imports do not participate in target resolution. At each hop, the
+declaration kind must match the expected kind: a non-terminal target is one
+public schema alias, and the final target is one public schema. Same-spelled
 declarations in unrelated namespaces do not affect eligibility. A finite,
 acyclic chain of public schema aliases in the same retained direct dependency
 is eligible when every hop and the terminal schema are in exported sources.

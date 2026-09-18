@@ -9,7 +9,8 @@ use crate::analysis::boundary::schema_composition::{
 };
 use crate::analysis::boundary::schema_repeat_resolution::companion_private_schema_access_allowed;
 use crate::name_recovery::{
-    public_alias_has_invalid_target_leaf, schema_composition_imported_use_for_path,
+    InvalidAliasTargetIndex, public_alias_has_invalid_target_leaf,
+    schema_composition_imported_use_for_path,
 };
 use crate::schema::primitives::{
     SchemaRepeatPayload, repeat_schema_primitive, schema_length_expression,
@@ -158,6 +159,7 @@ pub fn resolved_schema_aliases(module: &SurfaceModule) -> Vec<ResolvedSchemaAlia
 /// navigation opts into the bounded chain behavior explicitly.
 pub fn resolved_schema_alias_chains(module: &SurfaceModule) -> Vec<ResolvedSchemaAlias> {
     let imports = SchemaAliasTargetImportIndex::new(module);
+    let invalid_alias_targets = InvalidAliasTargetIndex::new(module);
     let mut aliases = BTreeMap::new();
     for alias in module
         .aliases
@@ -196,7 +198,14 @@ pub fn resolved_schema_alias_chains(module: &SurfaceModule) -> Vec<ResolvedSchem
             continue;
         };
         let Some((target, direct_target_module, direct_target_name, direct_target_is_alias)) =
-            resolve_schema_alias_chain(module, alias, &imports, &aliases, &schemas, &mut memo)
+            resolve_schema_alias_chain(
+                alias,
+                &imports,
+                &invalid_alias_targets,
+                &aliases,
+                &schemas,
+                &mut memo,
+            )
         else {
             continue;
         };
@@ -216,18 +225,21 @@ pub fn resolved_schema_alias_chains(module: &SurfaceModule) -> Vec<ResolvedSchem
 }
 
 fn resolve_schema_alias_chain<'a>(
-    module: &'a SurfaceModule,
     alias: &'a PublicAlias,
     imports: &SchemaAliasTargetImportIndex<'a>,
+    invalid_alias_targets: &InvalidAliasTargetIndex,
     aliases: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a PublicAlias>>,
     schemas: &BTreeMap<(Option<&'a str>, &'a str), Vec<&'a SchemaDecl>>,
     memo: &mut BTreeMap<(Option<&'a str>, &'a str), Option<&'a SchemaDecl>>,
 ) -> Option<(&'a SchemaDecl, Option<String>, String, bool)> {
     alias.name.as_deref()?;
+    let (direct_target_module, direct_target_name) =
+        direct_schema_alias_target_identity_with_index(alias, imports)?;
+    let direct_target_is_alias = aliases.contains_key(&(direct_target_module, direct_target_name));
     let mut path = Vec::new();
     let mut positions = BTreeMap::new();
     let mut current = alias;
-    let (target, target_module, target_name, direct_target_is_alias) = loop {
+    let target = loop {
         #[cfg(test)]
         record_schema_alias_chain_resolution_visit();
         let identity = (current.module_name.as_deref(), current.name.as_deref()?);
@@ -241,18 +253,10 @@ fn resolve_schema_alias_chain<'a>(
             for path_identity in &path {
                 memo.insert(*path_identity, Some(target));
             }
-            let (target_module, target_name) =
-                direct_schema_alias_target_identity_with_index(alias, imports)?;
-            let direct_target_is_alias = aliases.contains_key(&(target_module, target_name));
-            break (
-                target,
-                target_module.map(str::to_string),
-                target_name.to_string(),
-                direct_target_is_alias,
-            );
+            break target;
         }
         if positions.insert(identity, path.len()).is_some()
-            || public_alias_has_invalid_target_leaf(module, current, None)
+            || invalid_alias_targets.contains(current)
         {
             for identity in path {
                 memo.insert(identity, None);
@@ -290,12 +294,7 @@ fn resolve_schema_alias_chain<'a>(
             for identity in &path {
                 memo.insert(*identity, Some(*target));
             }
-            break (
-                *target,
-                next_module.map(str::to_string),
-                next_name.to_string(),
-                false,
-            );
+            break *target;
         }
         let Some(candidates) = aliases.get(&(next_module, next_name)) else {
             memoize_schema_alias_failure(&path, memo);
@@ -307,7 +306,12 @@ fn resolve_schema_alias_chain<'a>(
         };
         current = target_alias;
     };
-    Some((target, target_module, target_name, direct_target_is_alias))
+    Some((
+        target,
+        direct_target_module.map(str::to_string),
+        direct_target_name.to_string(),
+        direct_target_is_alias,
+    ))
 }
 
 fn memoize_schema_alias_failure<'a>(
