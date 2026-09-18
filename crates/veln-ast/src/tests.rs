@@ -3,6 +3,7 @@ use veln_source::SourceFile;
 use veln_syntax::parse;
 
 mod node_id_inventory;
+mod traversal;
 
 use node_id_inventory::collect_module_node_ids;
 
