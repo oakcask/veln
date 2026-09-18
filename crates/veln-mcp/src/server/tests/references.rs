@@ -145,7 +145,10 @@ fn references_pages_preserve_order_scope_and_captured_locations() {
     );
 
     let captured_first = first["structuredContent"]["references"][0].clone();
-    fs::remove_file(workspace.path("main.veln")).unwrap();
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
     let second = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(second["structuredContent"]["scope"], expected_scope);
     assert_eq!(
@@ -166,6 +169,96 @@ fn references_pages_preserve_order_scope_and_captured_locations() {
     assert_eq!(
         server.references_tool(&json!({"cursor": cursor}))["structuredContent"]["code"],
         "invalid_cursor"
+    );
+}
+
+#[test]
+fn references_continuation_survives_source_removal() {
+    let workspace = TempWorkspace::new("references-source-removal-continuation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  helper(value - 1)\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+
+    let mut server = initialized_server(&workspace);
+    let complete = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4,
+        "page_size": 1000
+    }));
+    let expected = complete["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .clone();
+    let expected_scope = complete["structuredContent"]["scope"].clone();
+
+    let first = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 4,
+        "page_size": 1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    fs::remove_file(workspace.path("main.veln")).unwrap();
+
+    let continuation = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
+    assert_eq!(continuation["structuredContent"]["scope"], expected_scope);
+    assert_eq!(
+        continuation["structuredContent"]["references"],
+        json!([expected[1].clone()])
+    );
+    assert!(
+        !continuation["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("next_cursor")
+    );
+}
+
+#[test]
+fn references_initial_empty_and_final_pages_omit_next_cursor() {
+    let workspace = TempWorkspace::new("references-initial-final-cursor-omission");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  helper(value - 1)\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+
+    let mut server = initialized_server(&workspace);
+    let empty = server.references_tool(&json!({
+        "source": "main.veln", "line": 1, "column": 1, "page_size": 1
+    }));
+    assert_eq!(empty["isError"], false, "{empty:#}");
+    assert_eq!(empty["structuredContent"]["references"], json!([]));
+    assert!(
+        !empty["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("next_cursor")
+    );
+
+    let final_page = server.references_tool(&json!({
+        "source": "main.veln", "line": 6, "column": 4, "page_size": 1000
+    }));
+    assert_eq!(final_page["isError"], false, "{final_page:#}");
+    assert_eq!(
+        final_page["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert!(
+        !final_page["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("next_cursor")
     );
 }
 
@@ -394,6 +487,49 @@ fn references_server_eviction_marks_the_oldest_live_cursor_stale() {
             .unwrap()
             .len(),
         1
+    );
+}
+
+#[test]
+fn references_continuation_admission_order_remains_fifo_after_progress() {
+    let workspace = TempWorkspace::new("references-continuation-eviction-order");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  helper(value - 1)\nend\n\nfn main() -> Int\n  helper(1)\n  helper(2)\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+
+    let first = server.references_tool(&json!({
+        "source": "main.veln", "line": 6, "column": 4, "page_size": 1
+    }));
+    let first_cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let successor = server.references_tool(&json!({"cursor": first_cursor}));
+    let successor_cursor = successor["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    for _ in 0..64 {
+        let page = server.references_tool(&json!({
+            "source": "main.veln", "line": 6, "column": 4, "page_size": 1
+        }));
+        assert!(page["structuredContent"].get("next_cursor").is_some());
+    }
+
+    let evicted_successor = server.references_tool(&json!({"cursor": successor_cursor}));
+    assert_eq!(
+        evicted_successor["structuredContent"]["code"],
+        "stale_snapshot"
+    );
+    let replayed_first =
+        server.references_tool(&json!({"cursor": first["structuredContent"]["next_cursor"]}));
+    assert_eq!(
+        replayed_first["structuredContent"]["code"],
+        "invalid_cursor"
     );
 }
 
