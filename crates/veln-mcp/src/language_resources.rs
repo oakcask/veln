@@ -87,7 +87,7 @@ impl LanguageResources {
         let mut resources = CHECKED.get_or_init(Self::build_checked).clone()?;
         // The checked resource payload is shared as a cache, but continuation
         // state belongs to the server instance that receives the cursor.
-        resources.reference_pagination = ReferencePagination::new();
+        resources.reference_pagination = ReferencePagination::new()?;
         Ok(resources)
     }
 
@@ -119,7 +119,7 @@ impl LanguageResources {
             None,
             EffectiveProjectSnapshot::new(Vec::new()),
         )
-        .expect("test resources should be unique")
+        .expect("test resources should build")
     }
 
     #[cfg(test)]
@@ -229,7 +229,7 @@ impl LanguageResources {
             standard_library_navigation,
             dependency_navigation: None,
             workspace_navigation: None,
-            reference_pagination: ReferencePagination::new(),
+            reference_pagination: ReferencePagination::new()?,
         })
     }
 

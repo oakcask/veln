@@ -137,7 +137,7 @@ fn references_pages_preserve_order_scope_and_captured_locations() {
     );
 
     let captured_first = first["structuredContent"]["references"][0].clone();
-    workspace.write("main.veln", "fn helper(value: Int) -> Int\n  value\nend\n");
+    fs::remove_file(workspace.path("main.veln")).unwrap();
     let second = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(second["structuredContent"]["scope"], expected_scope);
     assert_eq!(
@@ -211,6 +211,60 @@ fn failed_refresh_and_invalid_continuation_requests_preserve_live_state() {
             .len(),
         1
     );
+}
+
+#[test]
+fn references_page_size_defaults_to_100_and_rejects_all_invalid_boundaries() {
+    let workspace = TempWorkspace::new("references-page-size-boundaries");
+    workspace.write("veln.toml", "");
+    let calls = (0..101)
+        .map(|index| format!("  helper({index})\n"))
+        .collect::<String>();
+    workspace.write(
+        "main.veln",
+        &format!(
+            "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n{calls}  0\nend\n"
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let default_page = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 1,
+        "column": 4
+    }));
+    assert_eq!(default_page["isError"], false, "{default_page:#}");
+    assert_eq!(
+        default_page["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        100
+    );
+    let cursor = default_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let final_page = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(
+        final_page["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    for page_size in [json!(0), json!(1001), json!(1.5), Value::Null] {
+        let response = server
+            .handle_request(json!({
+                "jsonrpc":"2.0", "id":"invalid-page-size", "method":"tools/call",
+                "params":{"name":"references","arguments":{
+                    "source":"main.veln", "line":1, "column":4, "page_size":page_size
+                }}
+            }))
+            .unwrap();
+        assert_eq!(response["error"]["code"], -32602, "{response:#}");
+    }
 }
 
 struct WorkspaceSymbolCase {

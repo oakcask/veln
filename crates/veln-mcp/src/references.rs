@@ -109,7 +109,7 @@ struct RetainedReferences {
 }
 
 impl ReferencePagination {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new() -> Result<Self, String> {
         let tick = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |duration| duration.as_nanos() as u64);
@@ -117,20 +117,33 @@ impl ReferencePagination {
         let counter = NEXT_PAGINATION_SECRET.fetch_add(1, Ordering::Relaxed);
         let mut secret = Sha256::new();
         let mut entropy = [0_u8; 32];
-        let _ = rustix::rand::getrandom(&mut entropy, rustix::rand::GetRandomFlags::empty());
+        let mut filled = 0;
+        while filled < entropy.len() {
+            let read = rustix::rand::getrandom(
+                &mut entropy[filled..],
+                rustix::rand::GetRandomFlags::empty(),
+            )
+            .map_err(|error| format!("reference cursor secret initialization failed: {error}"))?;
+            if read == 0 {
+                return Err(
+                    "reference cursor secret initialization returned a short read".to_owned(),
+                );
+            }
+            filled += read;
+        }
         secret.update(entropy);
         secret.update(tick.to_le_bytes());
         secret.update(address.to_le_bytes());
         secret.update(counter.to_le_bytes());
         let secret: [u8; 32] = secret.finalize().into();
-        Self {
+        Ok(Self {
             secret,
             next_result_id: 0,
             next_token_id: 0,
             retained: HashMap::new(),
             order: VecDeque::new(),
             stale: HashSet::new(),
-        }
+        })
     }
 
     pub(crate) fn clear(&mut self) {
@@ -440,7 +453,7 @@ mod tests {
 
     #[test]
     fn pagination_sorts_and_concatenates_without_repeating_locations() {
-        let mut pagination = ReferencePagination::new();
+        let mut pagination = ReferencePagination::new().unwrap();
         let first = pagination.initial_page(
             vec![
                 location("file://b", 1, 1),
@@ -471,7 +484,7 @@ mod tests {
 
     #[test]
     fn terminal_results_leave_capacity_for_the_next_unfinished_result() {
-        let mut pagination = ReferencePagination::new();
+        let mut pagination = ReferencePagination::new().unwrap();
         let mut cursors = Vec::new();
         for index in 0..64 {
             cursors.push(
@@ -503,7 +516,7 @@ mod tests {
 
     #[test]
     fn refresh_and_eviction_mark_live_cursors_stale() {
-        let mut pagination = ReferencePagination::new();
+        let mut pagination = ReferencePagination::new().unwrap();
         let cursor = pagination
             .initial_page(
                 vec![location("file://a", 1, 1), location("file://b", 1, 1)],
@@ -514,7 +527,7 @@ mod tests {
         pagination.clear();
         assert_eq!(pagination.continue_page(&cursor).code(), "stale_snapshot");
 
-        let mut pagination = ReferencePagination::new();
+        let mut pagination = ReferencePagination::new().unwrap();
         let mut cursors = Vec::new();
         for index in 0..65 {
             cursors.push(
@@ -539,7 +552,7 @@ mod tests {
 
     #[test]
     fn every_invalidated_cursor_remains_stale_across_repeated_invalidation() {
-        let mut pagination = ReferencePagination::new();
+        let mut pagination = ReferencePagination::new().unwrap();
         let mut cursors = Vec::new();
         for index in 0..256 {
             let cursor = pagination

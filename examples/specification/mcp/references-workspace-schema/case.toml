@@ -185,3 +185,13 @@ equals = -32602
 id = 14
 path = "/error/code"
 equals = -32602
+
+[[mcp_assert]]
+id = 15
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 16
+path = "/error/code"
+equals = -32602

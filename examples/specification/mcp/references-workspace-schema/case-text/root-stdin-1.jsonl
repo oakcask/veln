@@ -12,3 +12,5 @@
 {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1000}}}
 {"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":0}}}
 {"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":null}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1.5}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1001}}}
