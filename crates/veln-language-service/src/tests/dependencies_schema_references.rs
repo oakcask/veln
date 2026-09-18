@@ -1513,6 +1513,9 @@ mod dependencies_schema_references_tests {
                     "read.veln",
                     concat!(
                         "mod app\n\n",
+                        "schema Frame\n",
+                        "  value: wire::Alias\n",
+                        "end\n\n",
                         "fn read(view: ByteView) -> ()\n",
                         "  decode wire::Alias from view at byte_offset(0)?\n",
                         "end\n",
@@ -1539,7 +1542,11 @@ mod dependencies_schema_references_tests {
             );
             assert_eq!(
                 locations(&result.references),
-                [("read.veln", 4, 16), ("write.veln", 4, 16)]
+                [
+                    ("read.veln", 4, 16),
+                    ("read.veln", 8, 16),
+                    ("write.veln", 4, 16),
+                ]
             );
         }
     }
@@ -1575,6 +1582,9 @@ mod dependencies_schema_references_tests {
                     "operation.veln",
                     concat!(
                         "mod app\n\n",
+                        "schema Frame\n",
+                        "  value: wire::Alias\n",
+                        "end\n\n",
                         "fn read(view: ByteView) -> ()\n",
                         "  decode wire::Alias from view at byte_offset(0)?\n",
                         "end\n",
@@ -1666,6 +1676,9 @@ mod dependencies_schema_references_tests {
                     concat!(
                         "mod app\n\n",
                         "use b::wire from \"example/schema\"\n\n",
+                        "schema Frame\n",
+                        "  value: wire::Alias\n",
+                        "end\n\n",
                         "fn read(view: ByteView) -> ()\n",
                         "  decode wire::Alias from view at byte_offset(0)?\n",
                         "end\n",
@@ -1729,6 +1742,9 @@ mod dependencies_schema_references_tests {
                 "operation.veln",
                 concat!(
                     "mod app\n\n",
+                    "schema Frame\n",
+                    "  value: dep::Alias\n",
+                    "end\n\n",
                     "fn read(view: ByteView) -> ()\n",
                     "  decode dep::Alias from view at byte_offset(0)?\n",
                     "end\n",
@@ -1740,7 +1756,7 @@ mod dependencies_schema_references_tests {
             );
 
             assert!(
-                query_snapshot(&snapshot, "operation.veln", 4, 16).is_none(),
+                query_snapshot(&snapshot, "operation.veln", 4, 15).is_none(),
                 "{name} must block dependency alias fallback across module sources"
             );
         }

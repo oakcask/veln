@@ -456,7 +456,7 @@ and supported repeated-payload leaves without the declaration or alias-target
 expression. A bare alias resolves only in its declaring module. A valid
 qualified workspace import can expose the alias in another owned source.
 Ineligible workspace aliases, package alias selections outside the eligible
-direct-dependency operation boundary, module qualifiers, and recovery or
+direct-dependency composition-and-operation boundary, module qualifiers, and recovery or
 invalid-casing selections remain successful empty results. Definition and
 rename behavior do not change.
 

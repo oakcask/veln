@@ -67,7 +67,10 @@ schema imported only by the leaf's source. The
 `dependency_alias_and_schema_imports_collide_across_module_sources`,
 `invalid_dependency_schema_alias_imports_block_across_module_sources`, and
 `direct_dependency_schema_alias_references_keep_alias_identity`
-language-service tests are the executable evidence for these outcomes.
+language-service tests execute composition leaves as well as operation leaves;
+the positive cross-source case joins them in one alias identity, and the
+collision, duplicate-import, and recovered-import cases keep composition
+selection unresolved.
 
 A multi-segment schema composition target resolves through either the full
 written import module path or its implicit leaf alias. An exact full import
