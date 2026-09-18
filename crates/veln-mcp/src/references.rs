@@ -22,7 +22,7 @@ pub(crate) fn references(
     language_resources: &mut LanguageResources,
     arguments: &Value,
 ) -> ToolOutcome {
-    let request = ReferenceArguments::new(arguments);
+    let request = ReferenceArguments::parse(arguments);
     match request {
         ReferenceRequest::Continuation(cursor) => language_resources
             .reference_pagination()
@@ -66,7 +66,7 @@ struct ReferenceArguments<'a> {
 }
 
 impl<'a> ReferenceArguments<'a> {
-    fn new(arguments: &'a Value) -> ReferenceRequest<'a> {
+    fn parse(arguments: &'a Value) -> ReferenceRequest<'a> {
         if let Some(cursor) = arguments.get("cursor").and_then(Value::as_str) {
             return ReferenceRequest::Continuation(cursor);
         }
@@ -173,14 +173,13 @@ impl ReferencePagination {
             };
         };
         let result_id = retained.result_id;
-        let page = self.page(
+        self.page(
             retained.references,
             retained.scope,
             retained.page_size,
             retained.offset,
             Some(result_id),
-        );
-        page
+        )
     }
 
     fn page(
@@ -216,18 +215,18 @@ impl ReferencePagination {
                     offset: end,
                 },
             );
-            if self.order.len() > MAX_RETAINED_RESULTS {
-                if let Some(evicted) = self.order.pop_front() {
-                    let evicted_tokens = self
-                        .retained
-                        .iter()
-                        .filter(|(_, value)| value.result_id == evicted)
-                        .map(|(token, _)| token.clone())
-                        .collect::<Vec<_>>();
-                    for token in evicted_tokens {
-                        self.retained.remove(&token);
-                        self.mark_stale(token);
-                    }
+            if self.order.len() > MAX_RETAINED_RESULTS
+                && let Some(evicted) = self.order.pop_front()
+            {
+                let evicted_tokens = self
+                    .retained
+                    .iter()
+                    .filter(|(_, value)| value.result_id == evicted)
+                    .map(|(token, _)| token.clone())
+                    .collect::<Vec<_>>();
+                for token in evicted_tokens {
+                    self.retained.remove(&token);
+                    self.mark_stale(token);
                 }
             }
             result["next_cursor"] = Value::String(token);

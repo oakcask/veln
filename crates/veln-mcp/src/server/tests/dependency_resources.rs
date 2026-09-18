@@ -456,6 +456,43 @@ fn saved_project_capacity_failures_match_advertised_result_schemas() {
     }
 }
 
+#[test]
+fn references_capacity_failure_preserves_a_prior_live_cursor() {
+    let workspace = TempWorkspace::new("references-capacity-preservation");
+    write_workspace_with_dependency(&workspace, "overflow");
+    workspace.write(
+        "main.veln",
+        "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::value()\n  dep::value()\nend\n",
+    );
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+    let first = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":8, "page_size":1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let boundary = (0..255)
+        .map(|index| synthetic_dependency_project(&format!("example/full{index}"), "body"))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        server
+            .language_resources
+            .admit_dependencies(&boundary)
+            .unwrap_err(),
+        crate::language_resources::ResourceCapacityError
+    );
+    let continuation = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
 fn exercise_resource_state_preserving_operations(server: &mut Server) {
     refresh_workspace(server);
     check_project(server);

@@ -205,3 +205,18 @@ equals = -32602
 id = 16
 path = "/error/code"
 equals = -32602
+
+[[mcp_assert]]
+id = 17
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 18
+path = "/result/structuredContent/scope/project_wide"
+equals = true

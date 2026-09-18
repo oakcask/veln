@@ -86,6 +86,12 @@ fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware()
     assert_eq!(refreshed["isError"], false);
     let stale = first.references_tool(&json!({"cursor": refresh_cursor}));
     assert_eq!(stale["structuredContent"]["code"], "stale_snapshot");
+    workspace.write(
+        "main.veln",
+        "fn helper(value: Int) -> Int\n  value\nend\n\nfn main() -> Int\n  helper(1)\nend\n",
+    );
+    let restored = first.references_tool(&json!({"cursor": refresh_cursor}));
+    assert_eq!(restored["structuredContent"]["code"], "stale_snapshot");
     let consumed_after_refresh = first.references_tool(&json!({"cursor": cursor}));
     assert_eq!(
         consumed_after_refresh["structuredContent"]["code"],
@@ -156,6 +162,10 @@ fn references_pages_preserve_order_scope_and_captured_locations() {
             .as_object()
             .unwrap()
             .contains_key("next_cursor")
+    );
+    assert_eq!(
+        server.references_tool(&json!({"cursor": cursor}))["structuredContent"]["code"],
+        "invalid_cursor"
     );
 }
 

@@ -10,7 +10,15 @@ fn checked_tool_schemas_are_the_advertised_schemas() {
         assert_eq!(declaration["outputSchema"], tool.result_schema());
         assert_eq!(declaration["inputSchema"]["type"], "object");
         assert_eq!(declaration["outputSchema"]["type"], "object");
-        assert_eq!(declaration["inputSchema"]["additionalProperties"], false);
+        if tool.name == "references" {
+            assert!(
+                declaration["inputSchema"]
+                    .get("additionalProperties")
+                    .is_none()
+            );
+        } else {
+            assert_eq!(declaration["inputSchema"]["additionalProperties"], false);
+        }
     }
 }
 
@@ -90,6 +98,7 @@ fn definition_input_requires_closed_positive_coordinates() {
 #[test]
 fn references_input_requires_closed_positive_coordinates() {
     let tool = tool("references").unwrap();
+    assert!(tool.input_schema().get("additionalProperties").is_none());
     assert_position_input_schema(tool);
     assert!(tool.accepts_input(&serde_json::json!({
         "source": "main.veln",
@@ -113,6 +122,27 @@ fn references_input_requires_closed_positive_coordinates() {
     ] {
         assert!(!tool.accepts_input(&value), "{value}");
     }
+}
+
+#[test]
+fn references_input_branches_are_closed_under_draft_2020_12_composition() {
+    let schema = tool("references").unwrap().input_schema();
+    assert!(matches_schema(
+        &schema,
+        &serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":1000})
+    ));
+    assert!(matches_schema(
+        &schema,
+        &serde_json::json!({"cursor":"opaque"})
+    ));
+    assert!(!matches_schema(
+        &schema,
+        &serde_json::json!({"source":"main.veln","line":1,"column":1,"unknown":true})
+    ));
+    assert!(!matches_schema(
+        &schema,
+        &serde_json::json!({"cursor":"opaque","page_size":1})
+    ));
 }
 
 fn assert_position_input_schema(tool: ToolSchema) {
