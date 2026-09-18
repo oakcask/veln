@@ -36,3 +36,10 @@ fn identity_boundaries(view: ByteView, packet: {value: Int}) -> ()
   decode lib::wire::SiblingPacket from view at byte_offset(0)?
   encode other::lib::WirePacket from packet
 end
+
+schema IneligibleFrame
+  count: UInt8
+  direct: lib::wire::PrivateTarget
+  repeated: Repeat(count, lib::wire::PrivateTarget)
+  array: [lib::wire::PrivateTarget; count]
+end

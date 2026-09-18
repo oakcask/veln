@@ -543,3 +543,18 @@ equals = {"start":{"line":36,"column":21},"end":{"line":36,"column":34}}
 id = 29
 path = "/result/structuredContent/references/0/uri"
 workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 30
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 31
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 32
+path = "/result/structuredContent/references"
+length = 0

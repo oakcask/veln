@@ -1999,6 +1999,50 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn ineligible_dependency_schema_alias_composition_leaves_stay_empty() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[
+                (
+                    "lib/wire.veln",
+                    concat!(
+                        "mod lib::wire\n",
+                        "use private\n\n",
+                        "pub schema PrivateTarget = private::Packet\n",
+                    ),
+                ),
+                (
+                    "private.veln",
+                    "mod private\n\npub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+            ["lib/wire.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use lib::wire from \"example/dep\"\n\n",
+                    "schema Frame\n",
+                    "  count: UInt8\n",
+                    "  direct: lib::wire::PrivateTarget\n",
+                    "  repeated: Repeat(count, lib::wire::PrivateTarget)\n",
+                    "  array: [lib::wire::PrivateTarget; count]\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        );
+
+        for (line, column) in [(5, 24), (6, 40), (7, 23)] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "ineligible alias composition leaf at {line}:{column} must not be selectable"
+            );
+        }
+    }
+
+    #[test]
     fn recovered_dependency_schema_alias_blocks_same_module_schema_fallback() {
         let dependency = dependency_snapshot(
             "example/dep",

@@ -780,6 +780,9 @@ union, including every URI and range for direct, `Repeat`, and array
 composition leaves, as well as
 decode/encode selection parity, dependency-and-declaration identity,
 project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
+An ineligible alias selected from a direct field, a valid `Repeat` payload, or
+an array payload returns a successful empty reference set and does not enter
+an eligible alias union.
 It also excludes a same-spelled workspace type and an unselected descendant
 project from the exact result. Import, comment, string, non-exported-target,
 and invalid-target-import selections produce successful empty results. Its

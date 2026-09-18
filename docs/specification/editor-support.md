@@ -305,6 +305,9 @@ the MCP dependency-schema boundary case cover target-name schema alias
 collisions, recovered duplicate declarations, invalid imports, invalid-cased
 targets, cross-module target success, other-package target rejection, and
 graph-ineligible alias selections.
+An ineligible direct-dependency schema alias selected from a direct field, a
+valid `Repeat` payload, or an array payload also returns a successful empty
+reference set and does not enter any eligible alias union.
 For accepted source, definition selection for same-spelled schema, effect,
 handler, effect-operation, type, constructor, function, and value-binding
 occurrences stays in the namespace fixed by the selected source position.

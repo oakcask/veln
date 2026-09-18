@@ -692,3 +692,18 @@ equals = {"start":{"line":35,"character":20},"end":{"line":35,"character":33}}
 id = 28
 path = "/result/0/uri"
 workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 30
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 31
+path = "/result"
+length = 0
+
+[[lsp_assert]]
+id = 32
+path = "/result"
+length = 0

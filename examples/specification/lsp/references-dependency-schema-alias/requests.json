@@ -26,6 +26,9 @@
   {"jsonrpc":"2.0","id":15,"method":"textDocument/rename","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":26,"character":22},"newName":"RenamedPacket"}},
   {"jsonrpc":"2.0","id":17,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":15,"character":44},"context":{"includeDeclaration":false}}},
   {"jsonrpc":"2.0","id":18,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":16,"character":44},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":30,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":41,"character":22},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":31,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":42,"character":38},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":32,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":43,"character":21},"context":{"includeDeclaration":false}}},
   {"jsonrpc":"2.0","id":16,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]
