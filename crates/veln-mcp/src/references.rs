@@ -31,6 +31,7 @@ pub(crate) fn references(
             let references = match collect_references(
                 captured,
                 &captured_source,
+                &scope,
                 &request,
                 language_resources,
             ) {
@@ -89,6 +90,7 @@ impl<'a> ReferenceArguments<'a> {
 fn collect_references(
     captured: CapturedProject,
     captured_source: &str,
+    scope: &crate::check_project::NavigationScope,
     request: &ReferenceArguments<'_>,
     language_resources: &mut LanguageResources,
 ) -> Result<Vec<Value>, ToolOutcome> {
@@ -115,7 +117,7 @@ fn collect_references(
             .iter()
             .map(|span| location_json(&root, span))
             .collect::<Vec<_>>();
-        if request.include_declaration && declaration_eligible(&result) {
+        if request.include_declaration && declaration_eligible(&result, scope) {
             locations.push(navigation_location_json(&root, &result.definition));
         }
         locations
@@ -123,7 +125,17 @@ fn collect_references(
     .unwrap_or_default())
 }
 
-fn declaration_eligible(result: &NavigationResult) -> bool {
+fn declaration_eligible(
+    result: &NavigationResult,
+    scope: &crate::check_project::NavigationScope,
+) -> bool {
+    if matches!(
+        scope,
+        crate::check_project::NavigationScope::SingleFile { .. }
+    ) && !matches!(result.definition.source, NavigationSource::Workspace)
+    {
+        return false;
+    }
     !matches!(result.definition.source, NavigationSource::Package { .. })
         || !matches!(
             (

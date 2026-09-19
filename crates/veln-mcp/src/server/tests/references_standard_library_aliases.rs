@@ -14,6 +14,16 @@ fn install_alias_standard_library(server: &mut Server, source: &str) {
     );
 }
 
+fn install_prelude_alias_standard_library(server: &mut Server, source: &str) {
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            source.as_bytes(),
+        )],
+    );
+}
+
 fn install_type_alias_standard_library(server: &mut Server, sources: &[(&str, &str)]) {
     install_type_alias_standard_library_with_exports(
         server,
@@ -94,6 +104,54 @@ fn references_return_standard_library_function_alias_locations() {
         5,
         15,
         "standard library function alias declaration inclusion",
+    );
+}
+
+#[test]
+fn references_exclude_standard_library_declarations_from_anonymous_sources() {
+    let workspace = TempWorkspace::new("references-anonymous-standard-library-alias");
+    workspace.write("app/veln.toml", "");
+    workspace.write("app/main.veln", "fn selected() -> Int\n  1\nend\n");
+    workspace.write(
+        "loose.veln",
+        "fn selected(value: Int) -> Int\n  byte_chunk_len(value)\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    install_prelude_alias_standard_library(
+        &mut server,
+        "pub fn target(value: Int) -> Int\n  value\nend\n\npub fn byte_chunk_len = target\n",
+    );
+
+    let result = server.references_tool(&json!({
+        "source": "loose.veln",
+        "line": 2,
+        "column": 3,
+        "include_declaration": true
+    }));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "loose.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[("loose.veln", 2, 3, 2, 17)],
+        "anonymous standard-library alias references",
+    );
+    assert!(
+        result["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|location| !location["uri"].as_str().unwrap().starts_with("veln-pkg:")),
+        "{result:#}"
     );
 }
 

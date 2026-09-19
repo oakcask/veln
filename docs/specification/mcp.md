@@ -774,7 +774,10 @@ reference sites remain workspace `file:` locations. A valid position without a
 supported reference symbol succeeds with an empty `references` array.
 Selected manifest sources report project scope metadata with
 `project_wide: true`. Sources outside the selected project-owned source set
-report single-file scope metadata with `project_wide: false`.
+report single-file scope metadata with `project_wide: false`. In single-file
+scope, declaration inclusion is limited to a workspace declaration in the
+captured source; it never adds a direct-dependency or standard-library
+`veln-pkg:` declaration.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
