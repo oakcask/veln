@@ -923,12 +923,15 @@ standard-library schema alias and requires a successful empty result with
 project-wide scope.
 The `references-dependency-schema-alias` MCP specification case checks
 direct-dependency public schema-alias composition and operation references
-through full written and implicit leaf module paths. It fixes the complete
-exact workspace-only
-union, including every URI and range for direct, `Repeat`, and array
-composition leaves, as well as
-decode/encode selection parity, dependency-and-declaration identity,
-project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
+through full written and implicit leaf module paths. With declaration
+inclusion disabled, it fixes the complete exact workspace-only union,
+including every URI and range for direct, `Repeat`, and array composition
+leaves, as well as decode/encode selection parity, dependency-and-declaration
+identity, project-wide scope, non-BMP coordinates, and the bare imported-name
+boundary. With declaration inclusion enabled, the same union adds only the
+selected eligible alias's canonical `veln-pkg:` declaration before sorting and
+pagination; schema targets, package-source uses, and other ineligible package
+uses remain excluded.
 An ineligible alias selected from a direct field, a valid `Repeat` payload, or
 an array payload returns a successful empty reference set and does not enter
 an eligible alias union.

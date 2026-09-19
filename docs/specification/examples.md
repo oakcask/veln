@@ -341,8 +341,11 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   public schema-alias composition, `decode`, and `encode` leaves:
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
   `../../examples/specification/lsp/references-dependency-schema-alias/`. The
-  paired cases resolve a qualified schema-alias target exported from another
-  module through an implicit leaf import shared by retained package sources
+  MCP case checks the declaration-disabled workspace-only union and the
+  declaration-enabled addition of only the selected alias's canonical
+  `veln-pkg:` declaration; both cases preserve package-source and schema-target
+  exclusion. The paired cases resolve a qualified schema-alias target exported
+  from another module through an implicit leaf import shared by retained package sources
   with the alias's explicit module identity, keep schema-target lookup isolated
   from a same-spelled type declaration, exclude a workspace type with the
   alias spelling, include the exact dependency-alias composition union from
