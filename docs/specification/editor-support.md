@@ -637,10 +637,12 @@ immutable locations:
 `textDocument/rename` returns no workspace edits for them. `textDocument/references`
 returns no package locations for dependency or standard-library declarations
 in this slice. Supported direct-dependency and standard-library public
-function aliases return only selected-project workspace `file:` locations for
-references. Supported direct-dependency and standard-library public type
-aliases return only selected-project workspace `file:` locations for
-references. Unsupported schema-alias origins or scopes, public function aliases with unresolved,
+function aliases return selected-project workspace `file:` locations for LSP
+references. MCP returns those same workspace locations and, when
+`include_declaration` is true, also includes the eligible canonical
+`veln-pkg:` declaration. Supported direct-dependency and standard-library
+public type aliases follow the same LSP and MCP declaration policy.
+Unsupported schema-alias origins or scopes, public function aliases with unresolved,
 non-function, or invalid-cased targets, and public type aliases with
 transitive, unresolved, non-type, or invalid-cased targets do not produce
 definition or reference locations.
@@ -862,11 +864,15 @@ Implemented:
   functions in explicitly imported exported `std` sources, with exact
   `veln/virtualDocument` reads from the embedded standard snapshot.
 - Stdio references responses for supported direct-dependency and
-  standard-library public function aliases. Results include only
-  selected-project workspace `file:` locations.
+  standard-library public function aliases. LSP results include only
+  selected-project workspace `file:` locations. MCP results also include the
+  eligible canonical `veln-pkg:` declaration when declaration inclusion is
+  enabled.
 - Shared navigation and MCP evidence for supported direct-dependency and
-  standard-library public type aliases. Results include only selected-project
-  workspace `file:` locations and stay separate from the target type identity.
+  standard-library public type aliases. LSP and declaration-disabled MCP
+  results include only selected-project workspace `file:` locations and stay
+  separate from the target type identity; declaration-enabled MCP results
+  also include the eligible canonical `veln-pkg:` declaration.
 - Paired LSP and MCP evidence for direct-dependency public schema composition,
   `decode`, and `encode` references. Results include only selected-project
   workspace `file:` locations for LSP and declaration-disabled MCP requests.

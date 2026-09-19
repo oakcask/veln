@@ -952,6 +952,9 @@ function-value occurrence. The same case checks alias and target-function
 identity separation, package and workspace collisions, field exclusion,
 unsupported alias-chain selection, unresolved, wrong-kind, and invalid-casing
 alias targets, project-wide scope, and dependency source resource admission.
+Declaration-disabled results contain only workspace `file:` locations;
+declaration-enabled results also contain the eligible canonical `veln-pkg:`
+alias declaration.
 The `references-dependency-type-alias` MCP specification case checks the same
 result shape for a visible direct-dependency public type alias selected
 through a qualified type occurrence. The same case checks type annotation,
@@ -962,7 +965,9 @@ workspace same-spelling constructor
 qualifier boundary, unsupported private, alias-chain, wrong-kind, and
 invalid-casing alias selections, project isolation, project-wide scope, and
 dependency source resource admission. Its reference assertions bind every
-returned range to the source workspace file URI.
+returned range to the source workspace file URI. Declaration-disabled results
+contain only workspace `file:` locations; declaration-enabled results also
+contain the eligible canonical `veln-pkg:` alias declaration.
 The `references-dependency-type-alias-identity-boundaries` MCP specification
 case checks that a multi-segment written module path and its implicit leaf
 import alias select the same public type-alias identity, that alias and target
@@ -992,12 +997,18 @@ the same successful result shape for the shipped `std::prelude`
 function-value occurrences, and `prelude::`-qualified calls. It also checks
 unsupported alias-chain selection plus unresolved, wrong-kind, and
 invalid-casing alias targets.
+Declaration-disabled results contain only workspace `file:` locations;
+declaration-enabled results also contain the eligible canonical `veln-pkg:`
+alias declaration.
 The `references-standard-library-type-alias` MCP specification case checks
 the same successful result shape for the shipped `std::prelude` `ByteCount`
 alias selected through bare and `prelude::`-qualified type occurrences,
 including alias-bound constructor qualifier type segments. Its reference
 assertions bind every returned range to the source workspace file URI and
 exclude same-spelled record fields, strings, comments, and field selections.
+Declaration-disabled results contain only workspace `file:` locations;
+declaration-enabled results also contain the eligible canonical `veln-pkg:`
+alias declaration.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes

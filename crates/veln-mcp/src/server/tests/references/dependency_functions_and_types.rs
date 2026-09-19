@@ -41,6 +41,19 @@ fn references_include_eligible_package_declaration_after_workspace_references() 
     write_dependency_reference_workspace(&workspace, "path", "vendor/dep", None);
     let mut server = initialized_server(&workspace);
 
+    let complete = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 10,
+        "page_size": 1000,
+        "include_declaration": true
+    }));
+    assert_eq!(complete["isError"], false, "{complete:#}");
+    let expected = complete["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .clone();
+
     let first = server.references_tool(&json!({
         "source": "main.veln",
         "line": 4,
@@ -83,6 +96,21 @@ fn references_include_eligible_package_declaration_after_workspace_references() 
 
     let second = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(second["isError"], false, "{second:#}");
+    let mut concatenated = first["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .clone();
+    concatenated.extend(
+        second["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .cloned(),
+    );
+    assert_eq!(
+        concatenated, expected,
+        "paged result differs from unpaged result"
+    );
     let package_declaration = second["structuredContent"]["references"]
         .as_array()
         .unwrap()
@@ -104,6 +132,24 @@ fn references_include_eligible_package_declaration_after_workspace_references() 
     assert_eq!(
         package_declaration["range"]["start"],
         json!({"line": 1, "column": 8})
+    );
+    assert_eq!(
+        second["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "declaration must be the complete terminal page"
+    );
+    assert!(
+        !second["structuredContent"]
+            .as_object()
+            .unwrap()
+            .contains_key("next_cursor")
+    );
+    assert_eq!(
+        server.references_tool(&json!({"cursor": cursor}))["structuredContent"]["code"],
+        "invalid_cursor"
     );
 }
 
