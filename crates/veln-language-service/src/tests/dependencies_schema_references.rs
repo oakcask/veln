@@ -788,6 +788,46 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn direct_dependency_schema_operations_do_not_index_the_standard_library() {
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[(
+                "wire.veln",
+                "pub schema Packet\n  format binary\n  value: UInt8\nend\n",
+            )],
+            ["wire.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[("prelude.veln", "pub fn identity(value: Int) -> Int\n  value\nend\n")],
+            ["prelude.veln"],
+        );
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use wire from \"example/dep\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode wire::Packet from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency],
+        )
+        .with_standard_library(standard_library);
+
+        reset_dependency_source_indexes();
+        let result = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
+
+        assert_eq!(result.selected_symbol.kind, SymbolKind::Schema);
+        assert_eq!(locations(&result.references), [("main.veln", 4, 16)]);
+        assert_eq!(
+            dependency_source_indexes(),
+            1,
+            "direct dependency schema operations do not need standard-library symbols",
+        );
+    }
+
+    #[test]
     fn exact_dependency_schema_qualifier_precedes_workspace_implicit_alias() {
         let dependency = dependency_snapshot(
             "example/dep",

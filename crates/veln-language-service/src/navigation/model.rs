@@ -225,9 +225,47 @@ pub fn navigate(
     snapshot: &EffectiveProjectSnapshot,
     position: SourcePosition,
 ) -> Option<NavigationResult> {
-    let request = snapshot
-        .navigation_index()
-        .symbol_at_position(position.source.as_str(), &position)?;
+    if !snapshot.navigation_index_is_prepared()
+        && schema_operation_path_leaf_candidate(snapshot, &position)
+        && let Some(result) = navigate_in_index(
+            snapshot.direct_dependency_navigation_index(),
+            &position,
+        )
+        && result.selected_symbol.kind == SymbolKind::Schema
+        && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
+    {
+        return Some(result);
+    }
+    navigate_in_index(snapshot.navigation_index(), &position)
+}
+
+fn schema_operation_path_leaf_candidate(
+    snapshot: &EffectiveProjectSnapshot,
+    position: &SourcePosition,
+) -> bool {
+    let Some(source) = snapshot.workspace_source(&position.source) else {
+        return false;
+    };
+    let Some(line) = source.text().lines().nth(position.line.saturating_sub(1)) else {
+        return false;
+    };
+    if !(line.contains("decode") || line.contains("encode")) || !line.contains("from") {
+        return false;
+    }
+    let tokens = lex(source).tokens;
+    let Some(offset) = offset_for_position(source.text(), position) else {
+        return false;
+    };
+    identifier_token_at(&tokens, offset).is_some_and(|(token_index, _)| {
+        is_schema_operation_path_leaf_candidate_token(&tokens, token_index)
+    })
+}
+
+fn navigate_in_index(
+    index: Arc<SymbolIndex>,
+    position: &SourcePosition,
+) -> Option<NavigationResult> {
+    let request = index.symbol_at_position(position.source.as_str(), position)?;
     let definition = request.symbol.definition();
     let selected_symbol = request.symbol.selected_symbol(definition.clone());
     let mut references = if request.references_supported {

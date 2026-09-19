@@ -1,4 +1,12 @@
 impl IndexedDependencies {
+    pub(crate) fn empty() -> Self {
+        Self {
+            files: Vec::new(),
+            declarations: FileDeclarations::default(),
+            module: empty_surface_module(),
+        }
+    }
+
     pub(crate) fn new_direct(dependencies: Vec<DirectDependencySnapshot>) -> Self {
         let mut indexed = Self::index(dependencies);
         attach_classified_path_segments(&mut indexed.files, &indexed.module, &indexed.module);
