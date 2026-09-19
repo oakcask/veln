@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The remaining package-navigation, declaration-inclusion, cross-adapter-conformance, published-reference, client-plugin, agent-skill, or conformance-gate scope changes.
+update-when: The remaining package-navigation, cross-adapter-conformance, published-reference, client-plugin, agent-skill, or conformance-gate scope changes.
 ---
 
 # Agent Language Services
@@ -26,6 +26,12 @@ Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
 
+[MCP Reference Declaration Inclusion](mcp-reference-declaration-inclusion.md)
+owns the independently selectable declaration-inclusion slice. Its acceptance
+table and completion boundary take precedence over this inventory for that
+slice. Broader navigation coverage and cross-adapter conformance do not block
+it.
+
 ## Remaining acceptance model
 
 The following rows are the umbrella's remaining planning contract. They are
@@ -34,7 +40,6 @@ its evidence is added to the named current specification and checked route.
 
 | Requirement | Observable acceptance | Required evidence |
 | --- | --- | --- |
-| Declaration inclusion | A reference request with declaration inclusion returns only the declaration kinds explicitly admitted by the selected symbol class; package-source implementation uses remain excluded. | Paired language-service, LSP, and MCP cases over the same saved snapshot, including positive, private, and package-source boundaries. |
 | Cross-adapter equality | LSP and MCP requests over the same saved project produce the same filesystem identities and normalized locations after declaration-policy and pagination normalization. | A paired adapter matrix with exact URI/range comparison, including Unicode coordinates, empty results, and an MCP continuation page. |
 | Coordinate matrix | Empty, LF, CRLF, terminal-newline, non-BMP, end-position, token-end, all negotiated LSP encodings, and MCP Unicode-scalar positions preserve the documented half-open selection rules. | Cross-adapter matrix with exact ranges and invalid-position/protocol-invalid cases. |
 | Published reference generation | The generated catalog contains only checked language inputs and compiler-owned records; proposal text, maintenance routes, repository paths, and unpublished implementation prose are absent. Generation is deterministic and rejects stale or malformed inputs. | Generated artifact freshness, content-policy, input-schema, and deterministic digest checks. |
