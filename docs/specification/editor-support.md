@@ -288,12 +288,15 @@ union. Its eligibility companion checks private, non-exported,
 invalid-cased, alias-blocked, and ambiguous-import empty results. The shared
 language-service origin-isolation companion selects the same spelling from workspace,
 direct-dependency, and standard-library origins and checks each exact set
-without cross-origin locations. The LSP overlay companion first fixes the
-saved result set, then verifies that only the overlay adds its new leaf.
-The tests `standard_library_schema_references_use_the_injected_snapshot` and
-`standard_library_schema_references_use_the_lsp_overlay_over_saved_sources`
-cover adapter ranges and overlay precedence; MCP covers pagination and
-stable-capture failure for the same injected standard-library origin.
+without cross-origin locations. The paired adapter cases use the same
+five-location saved source shape as their baseline. The LSP overlay companion
+first fixes that saved result set, then verifies that only the overlay adds its
+new leaf; the MCP case continues to return the five saved locations. The tests
+`standard_library_schema_references_use_the_injected_snapshot` and
+`standard_library_schema_references_pair_saved_baseline_with_lsp_overlay`
+cover adapter ranges, saved-baseline parity, and overlay precedence; MCP
+covers pagination and stable-capture failure for the same injected
+standard-library origin.
 The LSP test `standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders`
 also verifies that exact import precedence is independent of declaration order
 and selects the `Packet` leaf itself. The shared matrix includes a same-spelled
@@ -855,8 +858,10 @@ Implemented:
   `decode`, and `encode` references. Results include only selected-project
   workspace `file:` locations and never include the package declaration.
 - Paired LSP and MCP evidence for eligible public standard-library schema
-  composition, `decode`, and `encode` references. Results remain isolated by
-  package identity and selected project.
+  composition, `decode`, and `encode` references. The adapters use the same
+  saved source shape; LSP additionally observes an open-document overlay,
+  while MCP remains on the saved baseline. Results remain isolated by package
+  identity and selected project.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
   direct, valid `Repeat`, and array-payload composition, `decode`, and `encode`
   references. Results preserve alias identity and include only selected-project

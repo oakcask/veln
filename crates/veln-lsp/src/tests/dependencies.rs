@@ -121,7 +121,7 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
 }
 
 #[test]
-fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
+fn standard_library_schema_references_pair_saved_baseline_with_lsp_overlay() {
     let standard_manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
     let standard_snapshot = capture_embedded_package_snapshot(
         standard_manifest.as_bytes(),
@@ -142,11 +142,22 @@ fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
         "main.veln",
         concat!(
             "use wire from \"std\"\n\n",
+            "// 🙂\n",
             "schema Host\n",
             "  count: UInt8\n",
             "  nested🙂: wire::Packet\n",
             "  repeated: Repeat(count, wire::Packet)\n",
             "  array: [wire::Packet; count]\n",
+            "end\n",
+            "\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+            "\n",
+            "fn noise() -> String\n",
+            "  // 🙂 wire::Packet\n",
+            "  \"wire::Packet\"\n",
             "end\n",
         ),
     );
@@ -154,18 +165,22 @@ fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let saved = server.handle_message(&references_request(&main_uri, 4, 18));
-    assert!(saved[0].contains(r#""line":4,"character":18"#), "{}", saved[0]);
-    assert!(!saved[0].contains(r#""line":5,"character":16"#), "{}", saved[0]);
-    assert_eq!(saved[0].matches(r#""uri":"#).count(), 3, "{}", saved[0]);
+    let saved = server.handle_message(&references_request(&main_uri, 5, 18));
+    assert!(saved[0].contains(r#""line":5,"character":18"#), "{}", saved[0]);
+    assert!(saved[0].contains(r#""line":6,"character":32"#), "{}", saved[0]);
+    assert!(saved[0].contains(r#""line":7,"character":16"#), "{}", saved[0]);
+    assert!(saved[0].contains(r#""line":11,"character":15"#), "{}", saved[0]);
+    assert!(saved[0].contains(r#""line":12,"character":15"#), "{}", saved[0]);
+    assert!(!saved[0].contains(r#""line":8,"character":15"#), "{}", saved[0]);
+    assert_eq!(saved[0].matches(r#""uri":"#).count(), 5, "{}", saved[0]);
 
     server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  count: UInt8\n  nested🙂: wire::Packet\n  repeated: Repeat(count, wire::Packet)\n  array: [wire::Packet; count]\n  extra: wire::Packet\nend\n"}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\n// 🙂\nschema Host\n  count: UInt8\n  nested🙂: wire::Packet\n  repeated: Repeat(count, wire::Packet)\n  array: [wire::Packet; count]\n  extra: wire::Packet\nend\n\nfn read(view: ByteView, packet: {{value: Int}}) -> ()\n  decode wire::Packet from view at byte_offset(0)?\n  encode wire::Packet from packet\nend\n\nfn noise() -> String\n  // 🙂 wire::Packet\n  \"wire::Packet\"\nend\n"}}}}}}"#
     ));
-    let overlay = server.handle_message(&references_request(&main_uri, 4, 18));
-    assert!(overlay[0].contains(r#""line":4,"character":18"#), "{}", overlay[0]);
-    assert!(overlay[0].contains(r#""line":7,"character":15"#), "{}", overlay[0]);
-    assert_eq!(overlay[0].matches(r#""uri":"#).count(), 4, "{}", overlay[0]);
+    let overlay = server.handle_message(&references_request(&main_uri, 5, 18));
+    assert!(overlay[0].contains(r#""line":5,"character":18"#), "{}", overlay[0]);
+    assert!(overlay[0].contains(r#""line":8,"character":15"#), "{}", overlay[0]);
+    assert_eq!(overlay[0].matches(r#""uri":"#).count(), 6, "{}", overlay[0]);
 }
 
 #[test]

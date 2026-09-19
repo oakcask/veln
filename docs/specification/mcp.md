@@ -563,9 +563,10 @@ lexical exclusions, origin isolation, and eligibility/import failures. Its
 focused exclusion case selects an import token, module qualifier, and
 standard-library alias-target expression and confirms that none enters the
 normal reference union. The
-paired adapter assertions keep the saved LSP result set unchanged as the
-baseline for MCP's saved-file behavior; only LSP observes the added overlay
-leaf. The origin matrix selects workspace, direct-dependency, and
+paired adapter cases use the same five-location saved source shape. The LSP
+case keeps that saved result set as its baseline, then observes one added
+overlay leaf; MCP continues to return the five saved locations. The origin
+matrix selects workspace, direct-dependency, and
 standard-library identities independently, so each returned set excludes the
 other two origins.
 MCP `references_paginate_standard_library_schema_uses_without_changing_scope`
