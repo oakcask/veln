@@ -1633,12 +1633,10 @@ mod dependencies_schema_references_tests {
                 "standard-library schema exclusion at main.veln:{line}:{column}"
             );
         }
-        let alias_target = query_snapshot(&snapshot, "wire.veln", 4, 19);
+        let alias_target = query_snapshot(&snapshot, "wire.veln", 4, 20);
         assert!(
-            alias_target
-                .as_ref()
-                .is_none_or(|result| result.references.is_empty()),
-            "standard-library alias target must not enter schema reference results: {alias_target:#?}"
+            alias_target.is_none(),
+            "standard-library alias target must be an unsupported selection: {alias_target:#?}"
         );
     }
 
