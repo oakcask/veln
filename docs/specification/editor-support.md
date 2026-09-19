@@ -276,6 +276,11 @@ tests `standard_library_schema_references_use_the_injected_snapshot` and
 `standard_library_schema_references_use_the_lsp_overlay_over_saved_sources`
 cover adapter ranges and overlay precedence; MCP covers pagination and
 stable-capture failure for the same injected standard-library origin.
+The paired adapter rejection tests
+`standard_library_schema_import_collisions_are_successful_empty_results` and
+`references_reject_standard_library_schema_import_collisions_in_both_orders`
+keep duplicate, conflicting, and recovered standard-library imports as
+successful empty results.
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace composition
 and operation leaves as MCP when declaration inclusion is false. Each

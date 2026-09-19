@@ -166,6 +166,67 @@ fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
 }
 
 #[test]
+fn standard_library_schema_import_collisions_are_successful_empty_results() {
+    let cases = [
+        (
+            "duplicate",
+            "use alpha::wire from \"std\"\nuse alpha::wire from \"std\"\n\n",
+            "wire::Packet",
+        ),
+        (
+            "conflicting",
+            "use alpha::wire from \"std\"\nuse beta::wire from \"std\"\n\n",
+            "wire::Packet",
+        ),
+        (
+            "recovered",
+            "use alpha::wire from \"std\" broken\n\n",
+            "wire::Packet",
+        ),
+    ];
+    for (name, imports, selected) in cases {
+        let standard_manifest = concat!(
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"alpha/wire.veln\", \"beta/wire.veln\"]\n"
+        );
+        let standard_snapshot = capture_embedded_package_snapshot(
+            standard_manifest.as_bytes(),
+            [
+                PackageSnapshotSource::new(
+                    "alpha/wire.veln",
+                    b"pub schema Packet\n  value: Int\nend\n",
+                ),
+                PackageSnapshotSource::new(
+                    "beta/wire.veln",
+                    b"pub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+        )
+        .unwrap();
+        let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+            standard_snapshot,
+            parse_manifest_text("veln.toml", standard_manifest),
+        )
+        .unwrap();
+        let mut server = Server::default().with_standard_library(standard_library);
+        let project = TempProject::new(&format!("standard-library-schema-{name}"));
+        let source = format!(
+            "{imports}fn read(view: ByteView) -> ()\n  decode {selected} from view at byte_offset(0)?\nend\n"
+        );
+        project.write(
+            "main.veln",
+            &source,
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let references = server.handle_message(&references_request(&main_uri, 3, 9));
+        assert_eq!(references.len(), 1, "{name}");
+        assert!(references[0].contains(r#""result":[]"#), "{name}: {}", references[0]);
+    }
+}
+
+#[test]
 fn invalid_handler_bindings_use_lsp_recovery_navigation() {
     let mut server = Server::default();
     let project = TempProject::new("invalid-handler-binding-navigation");

@@ -536,6 +536,11 @@ composition, `decode`, and `encode` locations with the selected project scope.
 Its pagination case compares the complete ordered set with the concatenated
 pages, and its capture-failure case verifies that a changing saved source
 returns no partial references or scope.
+The paired adapter rejection tests
+`standard_library_schema_import_collisions_are_successful_empty_results` and
+`references_reject_standard_library_schema_import_collisions_in_both_orders`
+also cover duplicate, conflicting, and recovered standard-library imports in
+both exact-import orders as successful empty results.
 Standard-library schema aliases remain excluded and block same-named schema
 fallback. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture

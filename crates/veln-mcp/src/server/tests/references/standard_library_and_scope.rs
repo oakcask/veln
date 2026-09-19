@@ -138,6 +138,113 @@ fn references_paginate_standard_library_schema_uses_without_changing_scope() {
 }
 
 #[test]
+fn references_reject_standard_library_schema_import_collisions_in_both_orders() {
+    let cases = [
+        (
+            "duplicate",
+            "use alpha::wire from \"std\"\nuse alpha::wire from \"std\"\n\n",
+            "wire::Packet",
+        ),
+        (
+            "conflicting",
+            "use alpha::wire from \"std\"\nuse beta::wire from \"std\"\n\n",
+            "wire::Packet",
+        ),
+        (
+            "recovered",
+            "use alpha::wire from \"std\" broken\n\n",
+            "wire::Packet",
+        ),
+    ];
+
+    for (name, imports, selected) in cases {
+        for reverse in [false, true] {
+            let workspace = TempWorkspace::new(&format!(
+                "references-standard-library-schema-{name}-{}",
+                if reverse { "reverse" } else { "forward" }
+            ));
+            workspace.write("veln.toml", "");
+            let imports = if reverse && name == "conflicting" {
+                "use beta::wire from \"std\"\nuse alpha::wire from \"std\"\n\n"
+            } else {
+                imports
+            };
+            let source = format!(
+                "{imports}fn read(view: ByteView) -> ()\n  decode {selected} from view at byte_offset(0)?\nend\n"
+            );
+            workspace.write("main.veln", &source);
+            let mut server = initialized_server(&workspace);
+            server.language_resources.replace_test_standard_library(
+                "[package]\nname = \"std\"\n\n[lib]\nexports = [\"alpha/wire.veln\", \"beta/wire.veln\"]\n",
+                [
+                    PackageSnapshotSource::new(
+                        "alpha/wire.veln",
+                        b"pub schema Packet\n  value: Int\nend\n",
+                    ),
+                    PackageSnapshotSource::new(
+                        "beta/wire.veln",
+                        b"pub schema Packet\n  value: Int\nend\n",
+                    ),
+                ],
+            );
+
+            let result = server.references_tool(&json!({
+                "source": "main.veln",
+                "line": if name == "recovered" { 4 } else { 5 },
+                "column": 16
+            }));
+            assert_eq!(result["isError"], false, "{name} {reverse}: {result:#}");
+            assert_eq!(
+                result["structuredContent"]["references"],
+                json!([]),
+                "{name} {reverse}: {result:#}"
+            );
+        }
+    }
+}
+
+#[test]
+fn references_keep_standard_library_schema_uses_inside_selected_project() {
+    let workspace = TempWorkspace::new("references-standard-library-schema-project-scope");
+    for project in ["app_a", "app_b", "app_a/nested"] {
+        workspace.write(&format!("{project}/veln.toml"), "");
+        workspace.write(
+            &format!("{project}/main.veln"),
+            "use wire from \"std\"\n\nschema Host\n  nested: wire::Packet\nend\n",
+        );
+    }
+    workspace.write(
+        "app_a/worker.veln",
+        "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    );
+
+    let result = server.references_tool(&json!({
+        "project": "app_a",
+        "source": "app_a/main.veln",
+        "line": 4,
+        "column": 18
+    }));
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[
+            ("app_a/main.veln", 4, 17, 4, 23),
+            ("app_a/worker.veln", 4, 16, 4, 22),
+        ],
+        "standard library selected project scope",
+    );
+    assert_eq!(result["structuredContent"]["scope"]["project"], "app_a");
+}
+
+#[test]
 fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");
