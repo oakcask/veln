@@ -196,7 +196,9 @@ fn references_keep_invalid_standard_library_function_alias_targets_empty() {
         ("wrong-kind target", 5),
         ("invalid-casing target", 6),
     ] {
-        let result = server.references_tool(&json!({"source":"main.veln","line":line,"column":9}));
+        let result = server.references_tool(
+            &json!({"source":"main.veln","line":line,"column":9,"include_declaration":true}),
+        );
         assert_eq!(result["isError"], false, "{case}: {result:#}");
         assert_eq!(
             result["structuredContent"]["references"],
@@ -465,8 +467,9 @@ fn references_keep_invalid_standard_library_type_alias_targets_empty() {
         ("wrong-kind target", 39),
         ("alias-chain target", 57),
     ] {
-        let result =
-            server.references_tool(&json!({"source":"main.veln","line":1,"column":column}));
+        let result = server.references_tool(
+            &json!({"source":"main.veln","line":1,"column":column,"include_declaration":true}),
+        );
         assert_eq!(result["isError"], false, "{case}: {result:#}");
         assert_eq!(
             result["structuredContent"]["references"],

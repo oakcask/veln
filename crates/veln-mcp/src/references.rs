@@ -181,6 +181,10 @@ fn supports_package_references(result: &NavigationResult) -> bool {
     supports_package_reference_kind(result)
         && supports_package_reference_origin(result)
         && supports_package_reference_declaration(result)
+        && (!matches!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        ) || !result.references.is_empty())
 }
 
 fn supports_package_reference_kind(result: &NavigationResult) -> bool {

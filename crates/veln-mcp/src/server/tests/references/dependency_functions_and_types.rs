@@ -654,7 +654,12 @@ fn references_reject_type_alias_targets_that_do_not_resolve_semantically() {
             workspace.write(&format!("vendor/dep/{path}"), text);
         }
 
-        let result = references_result(&workspace, "main.veln", 3, 23);
+        let result = initialized_server(&workspace).references_tool(&json!({
+            "source": "main.veln",
+            "line": 3,
+            "column": 23,
+            "include_declaration": true
+        }));
 
         assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
         assert_eq!(

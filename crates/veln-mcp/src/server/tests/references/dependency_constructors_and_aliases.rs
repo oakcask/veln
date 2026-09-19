@@ -503,8 +503,9 @@ fn references_keep_invalid_direct_dependency_function_alias_targets_empty() {
         ("wrong-kind target", 5),
         ("invalid-casing target", 6),
     ] {
-        let alias_references =
-            alias_server.references_tool(&json!({"source":"main.veln","line":line,"column":8}));
+        let alias_references = alias_server.references_tool(
+            &json!({"source":"main.veln","line":line,"column":8,"include_declaration":true}),
+        );
         assert_eq!(
             alias_references["isError"], false,
             "{case}: {alias_references:#}"
