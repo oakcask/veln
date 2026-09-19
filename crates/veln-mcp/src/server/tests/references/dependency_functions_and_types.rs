@@ -305,6 +305,22 @@ fn references_return_direct_dependency_type_locations_from_saved_project() {
             && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
             && !reference["uri"].as_str().unwrap().contains("vendor/dep")
     }));
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 13,
+        "column": 23,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/model.veln",
+        1,
+        10,
+        1,
+        14,
+        "direct dependency type declaration inclusion",
+    );
 }
 
 #[test]

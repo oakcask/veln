@@ -48,6 +48,21 @@ fn references_return_standard_library_function_locations() {
         ],
         "standard library function",
     );
+    let with_declaration = std_server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 9,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/math.veln",
+        1,
+        8,
+        1,
+        16,
+        "standard library function declaration inclusion",
+    );
 }
 
 #[test]
@@ -172,6 +187,21 @@ fn references_return_standard_library_type_locations() {
         ],
         "standard library type",
     );
+    let with_declaration = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 1,
+        "column": 17,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/prelude.veln",
+        1,
+        10,
+        1,
+        13,
+        "standard library type declaration inclusion",
+    );
 }
 
 #[test]
@@ -216,6 +246,21 @@ fn references_return_standard_library_constructor_locations() {
             ("other.veln", 2, 12, 2, 16),
         ],
         "standard library constructor",
+    );
+    let with_declaration = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 3,
+        "column": 6,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/prelude.veln",
+        2,
+        7,
+        2,
+        11,
+        "standard library constructor declaration inclusion",
     );
 }
 

@@ -93,3 +93,37 @@ pub(super) fn assert_reference_ranges(
         );
     }
 }
+
+pub(super) fn assert_package_declaration(
+    result: &Value,
+    path_suffix: &str,
+    start_line: usize,
+    start_column: usize,
+    end_line: usize,
+    end_column: usize,
+    name: &str,
+) {
+    let declaration = result["structuredContent"]["references"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{name}: references must be an array: {result:#}"))
+        .iter()
+        .find(|location| {
+            location["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-pkg:///")
+        })
+        .unwrap_or_else(|| panic!("{name}: package declaration missing: {result:#}"));
+    assert!(
+        declaration["uri"].as_str().unwrap().ends_with(path_suffix),
+        "{name}: {declaration:#}"
+    );
+    assert_eq!(
+        declaration["range"],
+        json!({
+            "start": {"line": start_line, "column": start_column},
+            "end": {"line": end_line, "column": end_column}
+        }),
+        "{name}: {declaration:#}"
+    );
+}

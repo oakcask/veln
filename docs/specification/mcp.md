@@ -574,8 +574,7 @@ language-service tests additionally prove that an exact standard-library
 import beats a colliding implicit workspace leaf alias for composition and
 operation selections, while a colliding exact workspace import makes both
 selections ambiguous, independently of source order.
-Standard-library schema aliases remain excluded and block same-named schema
-fallback. Ineligible aliases and aliases with unresolved, wrong-kind, or
+Ineligible standard-library aliases and aliases with unresolved, wrong-kind, or
 invalid-cased targets remain excluded. Eligible public aliases from retained
 direct dependencies remain supported reference selections and can include
 their canonical declaration location. Focused language-service and MCP tests also cover

@@ -458,6 +458,27 @@ fn references_return_workspace_schema_composition_locations_and_scope() {
         "workspace schema composition references",
     );
 
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "app/wire.veln",
+        "line": 1,
+        "column": 12,
+        "include_declaration": true
+    }));
+    assert_reference_ranges(
+        &with_declaration,
+        &[
+            ("app/wire.veln", 1, 12, 1, 18),
+            ("app/wire.veln", 9, 11, 9, 17),
+            ("app/wire.veln", 10, 27, 10, 33),
+            ("app/wire.veln", 11, 15, 11, 21),
+            ("other.veln", 6, 25, 6, 31),
+            ("other.veln", 7, 26, 7, 32),
+            ("other.veln", 8, 38, 8, 44),
+            ("other.veln", 9, 21, 9, 27),
+        ],
+        "workspace schema declaration inclusion",
+    );
+
     for (name, source, line, column) in [
         ("ordinary type collision", "app/wire.veln", 14, 12),
         ("unresolved composition path", "other.veln", 11, 24),
