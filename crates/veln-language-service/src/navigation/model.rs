@@ -769,6 +769,7 @@ pub(crate) struct SymbolIndex {
     schema_aliases: Vec<NeutralSymbol>,
     schema_alias_declarations: Vec<NeutralSymbol>,
     package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
+    package_schemas: BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
     operations: Vec<EffectOperationSymbol>,

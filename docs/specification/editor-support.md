@@ -269,13 +269,21 @@ cannot inject a synthetic standard-library snapshot, so these adapter tests are
 the executable evidence route for this case. The injected fixture is test-only;
 the shipped standard-library bundle remains unchanged. Standard-library schema aliases
 remain excluded while their names block schema fallback.
+If a clean package schema and a syntax-recovered schema share the same package,
+module, and declaration identity, all five leaf roles are ineligible: selecting
+composition, `decode`, or `encode` returns the same successful empty result.
+The paired adapter regression cases
+`standard_library_schema_recovery_collision_keeps_all_reference_roles_empty`
+and
+`references_keep_standard_library_schema_recovery_collisions_empty_for_all_roles`
+verify this fail-closed identity rule.
 The language-service matrix
 `standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`
 also checks full and unique implicit module paths, valid `Repeat` and array
 counts, package-origin isolation, lexical exclusions, and selected-project
 boundaries. Its eligibility companion checks private, non-exported,
-invalid-cased, alias-blocked, and ambiguous-import empty results. The LSP
-origin-isolation companion selects the same spelling from workspace,
+invalid-cased, alias-blocked, and ambiguous-import empty results. The shared
+language-service origin-isolation companion selects the same spelling from workspace,
 direct-dependency, and standard-library origins and checks each exact set
 without cross-origin locations. The LSP overlay companion first fixes the
 saved result set, then verifies that only the overlay adds its new leaf.

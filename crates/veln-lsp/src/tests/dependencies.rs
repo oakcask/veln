@@ -60,7 +60,7 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
         standard_manifest.as_bytes(),
         [PackageSnapshotSource::new(
             "wire.veln",
-            b"pub schema Packet\n  value: Int\nend\n",
+            b"pub schema Packet\n  value: Int\nend\n\nfn package_internal(view: ByteView) -> ()\n  decode Packet from view at byte_offset(0)?\nend\n",
         )],
     )
     .unwrap();
@@ -78,7 +78,7 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
             "// 🙂\n",
             "schema Host\n",
             "  count: UInt8\n",
-            "  nested: wire::Packet\n",
+            "  nested🙂: wire::Packet\n",
             "  repeated: Repeat(count, wire::Packet)\n",
             "  array: [wire::Packet; count]\n",
             "end\n\n",
@@ -96,19 +96,20 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let definition = server.handle_message(&definition_request(&main_uri, 5, 16));
+    let definition = server.handle_message(&definition_request(&main_uri, 5, 18));
     assert!(definition[0].contains("veln-pkg:///std/snapshot/"), "{}", definition[0]);
     for include_declaration in [false, true] {
         let references = server.handle_message(&references_request_with_declaration(
             &main_uri,
             5,
-            16,
+            18,
             include_declaration,
         ));
         assert_eq!(references.len(), 1);
         assert_eq!(references[0].matches(r#""uri":"#).count(), 5, "{}", references[0]);
+        assert!(!references[0].contains("veln-pkg:///std/snapshot/"), "{}", references[0]);
         for location in [
-            r#""line":5,"character":16"#,
+            r#""line":5,"character":18"#,
             r#""line":6,"character":32"#,
             r#""line":7,"character":16"#,
             r#""line":11,"character":15"#,
@@ -143,7 +144,7 @@ fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
             "use wire from \"std\"\n\n",
             "schema Host\n",
             "  count: UInt8\n",
-            "  nested: wire::Packet\n",
+            "  nested🙂: wire::Packet\n",
             "  repeated: Repeat(count, wire::Packet)\n",
             "  array: [wire::Packet; count]\n",
             "end\n",
@@ -153,16 +154,16 @@ fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let saved = server.handle_message(&references_request(&main_uri, 4, 16));
-    assert!(saved[0].contains(r#""line":4,"character":16"#), "{}", saved[0]);
+    let saved = server.handle_message(&references_request(&main_uri, 4, 18));
+    assert!(saved[0].contains(r#""line":4,"character":18"#), "{}", saved[0]);
     assert!(!saved[0].contains(r#""line":5,"character":16"#), "{}", saved[0]);
     assert_eq!(saved[0].matches(r#""uri":"#).count(), 3, "{}", saved[0]);
 
     server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  count: UInt8\n  nested: wire::Packet\n  repeated: Repeat(count, wire::Packet)\n  array: [wire::Packet; count]\n  extra: wire::Packet\nend\n"}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  count: UInt8\n  nested🙂: wire::Packet\n  repeated: Repeat(count, wire::Packet)\n  array: [wire::Packet; count]\n  extra: wire::Packet\nend\n"}}}}}}"#
     ));
-    let overlay = server.handle_message(&references_request(&main_uri, 4, 16));
-    assert!(overlay[0].contains(r#""line":4,"character":16"#), "{}", overlay[0]);
+    let overlay = server.handle_message(&references_request(&main_uri, 4, 18));
+    assert!(overlay[0].contains(r#""line":4,"character":18"#), "{}", overlay[0]);
     assert!(overlay[0].contains(r#""line":7,"character":15"#), "{}", overlay[0]);
     assert_eq!(overlay[0].matches(r#""uri":"#).count(), 4, "{}", overlay[0]);
 }
@@ -288,6 +289,57 @@ fn standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders()
         let definition = server.handle_message(&definition_request(&main_uri, 4, 15));
         assert!(definition[0].contains(r#"/wire.veln"#), "{name}: {}", definition[0]);
         assert!(!definition[0].contains(r#"/alpha/wire.veln"#), "{name}: {}", definition[0]);
+    }
+}
+
+#[test]
+fn standard_library_schema_recovery_collision_keeps_all_reference_roles_empty() {
+    let manifest = concat!(
+        "[package]\nname = \"std\"\n\n",
+        "[lib]\nexports = [\"wire.veln\", \"recovered.veln\"]\n",
+    );
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [
+            PackageSnapshotSource::new(
+                "wire.veln",
+                b"mod wire\npub schema Packet\n  value: Int\nend\n",
+            ),
+            PackageSnapshotSource::new(
+                "recovered.veln",
+                b"mod wire\npub schema Packet\n  value: Int\n",
+            ),
+        ],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let project = TempProject::new("standard-library-schema-recovery-collision");
+    project.write(
+        "main.veln",
+        concat!(
+            "use wire from \"std\"\n\n",
+            "schema Host\n",
+            "  nested: wire::Packet\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for (line, column) in [(3, 17), (7, 15), (8, 15)] {
+        let references = server.handle_message(&references_request(&main_uri, line, column));
+        assert_eq!(references.len(), 1, "line {line}");
+        assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
     }
 }
 

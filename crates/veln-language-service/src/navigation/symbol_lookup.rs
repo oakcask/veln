@@ -148,7 +148,7 @@ impl SymbolIndex {
                 .get(&file.module)?
                 .valid_external_route(qualifier)?;
             let mut candidates = self.schemas.iter().filter(|symbol| {
-                    matches!(
+                matches!(
                         symbol.package_origin,
                         Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
                     )

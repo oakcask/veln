@@ -116,7 +116,15 @@ impl SymbolIndex {
                     .name
                     .chars()
                     .next()
-                    .is_some_and(|initial| initial.is_ascii_uppercase()))
+                    .is_some_and(|initial| initial.is_ascii_uppercase())
+                && symbol.package.as_ref().is_some_and(|package| {
+                    self.package_schemas.contains_key(&(
+                        symbol.package_origin.expect("package schema has an origin"),
+                        package.clone(),
+                        symbol.module.clone(),
+                        symbol.name.clone(),
+                    ))
+                }))
     }
 
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {

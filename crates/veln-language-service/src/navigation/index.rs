@@ -92,6 +92,7 @@ impl SymbolIndex {
             schema_aliases,
             schema_alias_declarations,
             package_schema_alias_declarations: declarations.package_schema_alias_declarations,
+            package_schemas,
             effects: declarations.effects,
             handlers: declarations.handlers,
             operations: declarations.operations,

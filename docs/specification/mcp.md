@@ -538,6 +538,12 @@ non-BMP saved input, and assert the same five normalized saved locations.
 The checked examples harness cannot inject the synthetic standard-library
 snapshot required by this boundary, so the injected adapter tests are the
 executable evidence route rather than an `examples/specification/` case.
+When a clean and syntax-recovered standard-library schema share one package,
+module, and declaration identity, the eligibility gate applies to every leaf
+role. Composition, `decode`, and `encode` selections therefore each return a
+successful empty result; an eligible clean declaration cannot supply operation
+references around the recovered collision. The paired LSP and MCP regression
+tests named below verify this invariant.
 The LSP test additionally asserts its overlay boundary; these are paired
 executable cases rather than a prose-only parity claim.
 Its pagination case compares the complete ordered set with the concatenated

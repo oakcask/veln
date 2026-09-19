@@ -12,7 +12,7 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
             "// 🙂\n",
             "schema Host\n",
             "  count: UInt8\n",
-            "  nested: wire::Packet\n",
+            "  nested🙂: wire::Packet\n",
             "  repeated: Repeat(count, wire::Packet)\n",
             "  array: [wire::Packet; count]\n",
             "end\n\n",
@@ -32,11 +32,11 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
         [PackageSnapshotSource::new(
             "wire.veln",
-            b"pub schema Packet\n  value: Int\nend\n",
+            b"pub schema Packet\n  value: Int\nend\n\nfn package_internal(view: ByteView) -> ()\n  decode Packet from view at byte_offset(0)?\nend\n",
         )],
     );
 
-    for (line, column) in [(6, 17), (7, 33), (8, 17), (12, 16), (13, 16)] {
+    for (line, column) in [(6, 18), (7, 33), (8, 17), (12, 16), (13, 16)] {
         let result =
             server.references_tool(&json!({"source":"main.veln","line":line,"column":column}));
 
@@ -44,13 +44,17 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         assert_reference_ranges(
             &result,
             &[
-                ("main.veln", 6, 17, 6, 23),
+                ("main.veln", 6, 18, 6, 24),
                 ("main.veln", 7, 33, 7, 39),
                 ("main.veln", 8, 17, 8, 23),
                 ("main.veln", 12, 16, 12, 22),
                 ("main.veln", 13, 16, 13, 22),
             ],
             "standard library schema",
+        );
+        assert!(
+            !result.to_string().contains("veln-pkg:///std/snapshot/"),
+            "{result:#}"
         );
         assert_eq!(
             result["structuredContent"]["scope"],
@@ -60,6 +64,53 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
                 "project": ".",
                 "project_wide": true
             })
+        );
+    }
+}
+
+#[test]
+fn references_keep_standard_library_schema_recovery_collisions_empty_for_all_roles() {
+    let workspace = TempWorkspace::new("references-standard-library-schema-recovery-collision");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use wire from \"std\"\n\n",
+            "schema Host\n",
+            "  nested: wire::Packet\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\", \"recovered.veln\"]\n",
+        [
+            PackageSnapshotSource::new(
+                "wire.veln",
+                b"mod wire\npub schema Packet\n  value: Int\nend\n",
+            ),
+            PackageSnapshotSource::new(
+                "recovered.veln",
+                b"mod wire\npub schema Packet\n  value: Int\n",
+            ),
+        ],
+    );
+
+    for (line, column) in [(4, 18), (8, 16), (9, 16)] {
+        let result = server.references_tool(&json!({
+            "source": "main.veln",
+            "line": line,
+            "column": column
+        }));
+        assert_eq!(result["isError"], false, "{result:#}");
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{result:#}"
         );
     }
 }
