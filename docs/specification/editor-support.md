@@ -264,6 +264,16 @@ and verifies the same selected-project reference set, including composition,
 `decode`, and `encode` leaves. The injected fixture is test-only; the shipped
 standard-library bundle remains unchanged. Standard-library schema aliases
 remain excluded while their names block schema fallback.
+The language-service matrix
+`standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`
+also checks full and unique implicit module paths, valid `Repeat` and array
+counts, package-origin isolation, lexical exclusions, and selected-project
+boundaries. Its eligibility companion checks private, non-exported,
+invalid-cased, alias-blocked, and ambiguous-import empty results. The LSP
+tests `standard_library_schema_references_use_the_injected_snapshot` and
+`standard_library_schema_references_use_the_lsp_overlay_over_saved_sources`
+cover adapter ranges and overlay precedence; MCP covers pagination and
+stable-capture failure for the same injected standard-library origin.
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace composition
 and operation leaves as MCP when declaration inclusion is false. Each

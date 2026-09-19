@@ -54,6 +54,80 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
 }
 
 #[test]
+fn references_paginate_standard_library_schema_uses_without_changing_scope() {
+    let workspace = TempWorkspace::new("references-standard-library-schema-pagination");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use wire from \"std\"\n\n",
+            "schema Host\n",
+            "  nested: wire::Packet\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    );
+
+    let complete = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 19,
+        "page_size": 100
+    }));
+    let first = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 19,
+        "page_size": 1
+    }));
+    assert_eq!(complete["isError"], false, "{complete:#}");
+    assert_eq!(first["isError"], false, "{first:#}");
+    assert_eq!(
+        first["structuredContent"]["scope"],
+        complete["structuredContent"]["scope"]
+    );
+
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .expect("standard schema result should paginate")
+        .to_owned();
+    let second = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(second["isError"], false, "{second:#}");
+    let mut paged = first["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .clone();
+    paged.extend(
+        second["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .clone(),
+    );
+    if let Some(cursor) = second["structuredContent"].get("next_cursor") {
+        let third = server.references_tool(&json!({"cursor": cursor}));
+        assert_eq!(third["isError"], false, "{third:#}");
+        paged.extend(
+            third["structuredContent"]["references"]
+                .as_array()
+                .unwrap()
+                .clone(),
+        );
+    }
+    assert_eq!(json!(paged), complete["structuredContent"]["references"]);
+}
+
+#[test]
 fn references_return_standard_library_function_locations() {
     let std_workspace = TempWorkspace::new("references-standard-library-boundary");
     std_workspace.write("veln.toml", "");

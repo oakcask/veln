@@ -98,6 +98,49 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
 }
 
 #[test]
+fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
+    let standard_manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
+    let standard_snapshot = capture_embedded_package_snapshot(
+        standard_manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        standard_snapshot,
+        parse_manifest_text("veln.toml", standard_manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let project = TempProject::new("standard-library-schema-reference-overlay");
+    project.write(
+        "main.veln",
+        concat!(
+            "use wire from \"std\"\n\n",
+            "schema Host\n",
+            "  nested: wire::Packet\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let saved = server.handle_message(&references_request(&main_uri, 3, 16));
+    assert!(saved[0].contains(r#""line":3,"character":16"#), "{}", saved[0]);
+    assert!(!saved[0].contains(r#""line":4,"character":16"#), "{}", saved[0]);
+
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  nested: wire::Packet\n  extra: wire::Packet\nend\n"}}}}}}"#
+    ));
+    let overlay = server.handle_message(&references_request(&main_uri, 3, 16));
+    assert!(overlay[0].contains(r#""line":3,"character":16"#), "{}", overlay[0]);
+    assert!(overlay[0].contains(r#""line":4,"character":15"#), "{}", overlay[0]);
+}
+
+#[test]
 fn invalid_handler_bindings_use_lsp_recovery_navigation() {
     let mut server = Server::default();
     let project = TempProject::new("invalid-handler-binding-navigation");

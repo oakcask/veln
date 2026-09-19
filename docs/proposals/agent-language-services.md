@@ -39,8 +39,8 @@ schema-alias composition and operation leaves,
 Broader definition navigation, package reference navigation beyond the
 implemented function, function-alias, direct-dependency type-alias, type,
 constructor, recovery and casing-neutral reference navigation, other dependency
-schema-alias scopes, standard-library
-schema and schema-alias references, conformance completion, and client plugin
+schema-alias scopes, standard-library schema-alias references, conformance
+completion, and client plugin
 work in this proposal remain planned.
 
 The remaining first-capability work includes:
@@ -49,7 +49,7 @@ The remaining first-capability work includes:
   set;
 - package reference lookup for symbol classes other than the implemented
   direct-dependency and standard-library functions, function aliases, public
-  type aliases, types, and constructors;
+  type aliases, types, constructors, and standard-library schemas;
 - other dependency schema-alias scopes and standard-library schema-alias
   references;
 - plugin packaging for Codex and Claude Code.
@@ -57,12 +57,12 @@ The remaining first-capability work includes:
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
-Current direct-dependency schema composition and eligible schema-alias behavior
+Current direct-dependency and standard-library schema composition and eligible schema-alias behavior
 is specified by
 [Editor Support](../specification/editor-support.md) and
 [MCP Navigation](../specification/mcp.md). The remaining inventory does not
 expand that behavior to other dependency origins or scopes,
-standard-library schemas or aliases, recovery or casing-neutral navigation,
+standard-library schema aliases, recovery or casing-neutral navigation,
 or the umbrella's remaining declaration-inclusion and related
 contract work.
 
@@ -887,8 +887,8 @@ remain planned and do not imply that the behavior is already implemented.
 | --- | --- | --- |
 | Analyze a saved project with errors. | `check_project` returns structured Veln diagnostics without transport failure, including compiler-owned related notes that do not carry spans. | Implemented MCP diagnostic fixture and `veln-mcp` structured diagnostic tests. |
 | Resolve a workspace declaration. | `definition` returns a `file:` location with MCP coordinates. | Implemented language-service symbol cases, table-driven MCP cases, and MCP stdio definition case for the bounded workspace symbol set. |
-| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Executable language-service and MCP tests cover the implemented workspace and package symbol classes, including workspace schema operations, composition targets, public schema aliases, direct-dependency schema composition and operations, and eligible direct-dependency schema-alias composition and operation leaves. Other dependency schema-alias scopes, standard-library schema and schema aliases, transitive-dependency, recovery, casing-neutral, and unsupported package rows remain planned. |
-| Search references to a direct-dependency or standard-library function, type, constructor, public function alias, public type alias, or implemented direct-dependency schema or eligible schema-alias composition or operation leaf from one selected project. | Consumer uses are returned; other projects and package-internal uses are excluded, and the scope is explicit. | Executable language-service and MCP tests cover visible direct-dependency and standard-library functions, public aliases, types, constructors, direct-dependency schema composition and operation leaves without declaration or package-source inclusion. Other dependency schema-alias scopes, standard-library schema and schema aliases, transitive-dependency, recovery, and casing-neutral package reference rows remain planned. |
+| Resolve references for every symbol in the closed v1 navigation matrix, including shadowing and same-spelled fields. | Only references with the selected symbol identity are returned in deterministic order. | Executable language-service and MCP tests cover the implemented workspace and package symbol classes, including workspace schema operations, composition targets, public schema aliases, direct-dependency schema composition and operations, eligible direct-dependency schema-alias composition and operation leaves, and eligible standard-library schema composition and operation leaves. Other dependency schema-alias scopes, standard-library schema aliases, transitive-dependency, recovery, casing-neutral, and unsupported package rows remain planned. |
+| Search references to a direct-dependency or standard-library function, type, constructor, public function alias, public type alias, or implemented direct-dependency or standard-library schema composition or operation leaf from one selected project. | Consumer uses are returned; other projects and package-internal uses are excluded, and the scope is explicit. | Executable language-service and MCP tests cover visible direct-dependency and standard-library functions, public aliases, types, constructors, direct-dependency and standard-library schema composition and operation leaves without declaration or package-source inclusion. Other dependency schema-alias scopes, standard-library schema aliases, transitive-dependency, recovery, and casing-neutral package reference rows remain planned. |
 | Resolve an exported dependency declaration. | `definition` returns a `veln-pkg:` location and documentation link. | Path-dependency MCP case. |
 | Resolve a private dependency declaration from a consumer. | No definition is returned. | Dependency visibility case. |
 | Resolve a standard-library declaration. | The result points to matching `veln-pkg:` source and `veln-doc:` documentation snapshots. | Embedded standard-package case. |

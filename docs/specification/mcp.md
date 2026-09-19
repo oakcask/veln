@@ -536,7 +536,14 @@ composition, `decode`, and `encode` result with the selected project scope.
 Standard-library schema aliases remain excluded and block same-named schema
 fallback. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
-boundaries.
+boundaries. The language-service standard-library matrix additionally covers
+full and unique implicit module paths, valid repeated and array counts,
+lexical exclusions, origin isolation, and eligibility/import failures. The
+MCP `references_paginate_standard_library_schema_uses_without_changing_scope`
+case proves that pagination concatenates to the unpaged result, while
+`references_project_capture_exhausts_retries_for_standard_library_schema_selection`
+proves that stable-capture exhaustion returns `snapshot_changed` without
+partial references or scope.
 
 An eligible public schema alias declared in an exported module of a retained
 direct dependency has a separate composition-and-operation reference
