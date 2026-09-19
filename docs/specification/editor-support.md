@@ -869,16 +869,22 @@ Implemented:
   workspace `file:` locations and stay separate from the target type identity.
 - Paired LSP and MCP evidence for direct-dependency public schema composition,
   `decode`, and `encode` references. Results include only selected-project
-  workspace `file:` locations and never include the package declaration.
+  workspace `file:` locations for LSP and declaration-disabled MCP requests.
+  Declaration-enabled MCP requests also include the eligible canonical
+  `veln-pkg:` package declaration.
 - Paired LSP and MCP evidence for eligible public standard-library schema
   composition, `decode`, and `encode` references. The adapters use the same
   saved source shape; LSP additionally observes an open-document overlay,
   while MCP remains on the saved baseline. Results remain isolated by package
-  identity and selected project.
+  identity and selected project. LSP and declaration-disabled MCP requests
+  contain only selected-project workspace `file:` locations; declaration-enabled
+  MCP requests also include the eligible canonical `veln-pkg:` declaration.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
   direct, valid `Repeat`, and array-payload composition, `decode`, and `encode`
-  references. Results preserve alias identity and include only selected-project
-  workspace `file:` locations.
+  references. Results preserve alias identity. LSP and declaration-disabled MCP
+  requests include only selected-project workspace `file:` locations;
+  declaration-enabled MCP requests also include the eligible canonical
+  `veln-pkg:` package declaration.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
