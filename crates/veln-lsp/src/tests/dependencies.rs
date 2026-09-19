@@ -98,24 +98,19 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
 
     let definition = server.handle_message(&definition_request(&main_uri, 5, 18));
     assert!(definition[0].contains("veln-pkg:///std/snapshot/"), "{}", definition[0]);
-    for include_declaration in [false, true] {
-        let references = server.handle_message(&references_request_with_declaration(
-            &main_uri,
-            5,
-            18,
-            include_declaration,
-        ));
-        assert_eq!(references.len(), 1);
-        assert_eq!(references[0].matches(r#""uri":"#).count(), 5, "{}", references[0]);
-        assert!(!references[0].contains("veln-pkg:///std/snapshot/"), "{}", references[0]);
-        for location in [
-            r#""line":5,"character":18"#,
-            r#""line":6,"character":32"#,
-            r#""line":7,"character":16"#,
-            r#""line":11,"character":15"#,
-            r#""line":12,"character":15"#,
-        ] {
-            assert!(references[0].contains(location), "{}", references[0]);
+    let expected_lsp = format!(
+        r#"{{"jsonrpc":"2.0","id":2,"result":[{{"uri":"{uri}","range":{{"start":{{"line":5,"character":18}},"end":{{"line":5,"character":24}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":6,"character":32}},"end":{{"line":6,"character":38}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":7,"character":16}},"end":{{"line":7,"character":22}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":11,"character":15}},"end":{{"line":11,"character":21}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":12,"character":15}},"end":{{"line":12,"character":21}}}}}}]}}"#,
+        uri = escape_json(&main_uri),
+    );
+    for (line, character) in [(5, 18), (6, 32), (7, 16), (11, 15), (12, 15)] {
+        for include_declaration in [false, true] {
+            let references = server.handle_message(&references_request_with_declaration(
+                &main_uri,
+                line,
+                character,
+                include_declaration,
+            ));
+            assert_eq!(references, [expected_lsp.clone()], "{line}:{character}");
         }
     }
 }
