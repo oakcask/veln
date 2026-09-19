@@ -433,8 +433,9 @@ equivalent to `false`. Initial requests accept `page_size` from 1 through
 workspace selection adds its one `file:` declaration location, while an
 eligible direct-dependency or standard-library selection adds its canonical
 `veln-pkg:` declaration location. The declaration is added before the normal
-URI-and-range sort and pagination. Package implementation sources, aliases,
-ineligible symbols, and unsupported selections remain excluded. A
+URI-and-range sort and pagination. Package implementation sources, alias
+targets, ineligible aliases and symbols, and unsupported selections remain
+excluded; eligible public aliases remain supported selections. A
 continuation contains only `cursor`, so the captured declaration policy
 cannot change between pages. The result is
 sorted by URI UTF-8 bytes, then numeric start line, start column, end line, and

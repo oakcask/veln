@@ -624,3 +624,18 @@ length = 0
 id = 11
 path = "/result/structuredContent/scope"
 equals = {"mode":"project","generation":0,"project":".","project_wide":true}
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references"
+length = 8
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "aliases.veln"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":4,"column":12},"end":{"line":4,"column":22}}

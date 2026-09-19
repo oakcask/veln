@@ -140,3 +140,18 @@ length = 3
 id = 7
 path = "/result/structuredContent/references/2/range"
 equals = {"start":{"line":16,"column":66},"end":{"line":16,"column":79}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references"
+length = 4
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/3/uri"
+contains = "veln-pkg:///std/snapshot/"
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/3/range"
+equals = {"start":{"line":124,"column":8},"end":{"line":124,"column":22}}
