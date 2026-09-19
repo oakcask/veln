@@ -115,12 +115,23 @@ fn collect_references(
             .iter()
             .map(|span| location_json(&root, span))
             .collect::<Vec<_>>();
-        if request.include_declaration {
+        if request.include_declaration && declaration_eligible(&result) {
             locations.push(navigation_location_json(&root, &result.definition));
         }
         locations
     })
     .unwrap_or_default())
+}
+
+fn declaration_eligible(result: &NavigationResult) -> bool {
+    !matches!(result.definition.source, NavigationSource::Package { .. })
+        || !matches!(
+            (
+                result.selected_symbol.kind,
+                result.selected_symbol.declaration_kind
+            ),
+            (SymbolKind::Constructor, SymbolDeclarationKind::PublicAlias)
+        )
 }
 
 fn validate_reference_position(

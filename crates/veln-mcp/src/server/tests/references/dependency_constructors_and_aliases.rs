@@ -266,6 +266,18 @@ fn references_keep_package_constructor_alias_boundary_empty() {
         json!([]),
         "{dependency_references:#}"
     );
+    let dependency_references_with_declaration = dependency_server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":17, "include_declaration":true
+    }));
+    assert_eq!(
+        dependency_references_with_declaration["isError"], false,
+        "{dependency_references_with_declaration:#}"
+    );
+    assert_eq!(
+        dependency_references_with_declaration["structuredContent"]["references"],
+        json!([]),
+        "{dependency_references_with_declaration:#}"
+    );
 
     let standard_workspace = TempWorkspace::new("references-standard-constructor-alias");
     standard_workspace.write(
@@ -303,6 +315,18 @@ fn references_keep_package_constructor_alias_boundary_empty() {
         standard_references["structuredContent"]["references"],
         json!([]),
         "{standard_references:#}"
+    );
+    let standard_references_with_declaration = standard_server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":19, "include_declaration":true
+    }));
+    assert_eq!(
+        standard_references_with_declaration["isError"], false,
+        "{standard_references_with_declaration:#}"
+    );
+    assert_eq!(
+        standard_references_with_declaration["structuredContent"]["references"],
+        json!([]),
+        "{standard_references_with_declaration:#}"
     );
 }
 
