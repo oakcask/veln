@@ -27,10 +27,8 @@ also states it.
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory for
   broader dependency and standard-library schema-alias references beyond the
-  implemented same-dependency chain slice, plus
-  documentation, conformance, and plugin work. Do not select the umbrella
-  directly. Its independently ready standard-library schema reference slice
-  is listed above:
+  implemented same-dependency chain slice, plus documentation, conformance,
+  and plugin work. Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

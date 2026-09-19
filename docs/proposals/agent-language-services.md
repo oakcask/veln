@@ -57,8 +57,8 @@ The remaining first-capability work includes:
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
 
-Current direct-dependency and standard-library schema composition and eligible schema-alias behavior
-is specified by
+Current direct-dependency schema-alias composition and standard-library schema
+composition (but not standard-library schema aliases) is specified by
 [Editor Support](../specification/editor-support.md) and
 [MCP Navigation](../specification/mcp.md). The remaining inventory does not
 expand that behavior to other dependency origins or scopes,

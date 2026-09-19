@@ -75,12 +75,20 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
         "main.veln",
         concat!(
             "use wire from \"std\"\n\n",
+            "// 🙂\n",
             "schema Host\n",
+            "  count: UInt8\n",
             "  nested: wire::Packet\n",
+            "  repeated: Repeat(count, wire::Packet)\n",
+            "  array: [wire::Packet; count]\n",
             "end\n\n",
             "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode wire::Packet from view at byte_offset(0)?\n",
             "  encode wire::Packet from packet\n",
+            "end\n\n",
+            "fn noise() -> String\n",
+            "  // 🙂 wire::Packet\n",
+            "  \"wire::Packet\"\n",
             "end\n",
         ),
     );
@@ -88,13 +96,27 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let definition = server.handle_message(&definition_request(&main_uri, 3, 16));
+    let definition = server.handle_message(&definition_request(&main_uri, 5, 16));
     assert!(definition[0].contains("veln-pkg:///std/snapshot/"), "{}", definition[0]);
-    let references = server.handle_message(&references_request(&main_uri, 3, 16));
-    assert_eq!(references.len(), 1);
-    assert!(references[0].contains(r#""line":3,"character":16"#), "{}", references[0]);
-    assert!(references[0].contains(r#""line":7,"character":15"#), "{}", references[0]);
-    assert!(references[0].contains(r#""line":8,"character":15"#), "{}", references[0]);
+    for include_declaration in [false, true] {
+        let references = server.handle_message(&references_request_with_declaration(
+            &main_uri,
+            5,
+            16,
+            include_declaration,
+        ));
+        assert_eq!(references.len(), 1);
+        assert_eq!(references[0].matches(r#""uri":"#).count(), 5, "{}", references[0]);
+        for location in [
+            r#""line":5,"character":16"#,
+            r#""line":6,"character":32"#,
+            r#""line":7,"character":16"#,
+            r#""line":11,"character":15"#,
+            r#""line":12,"character":15"#,
+        ] {
+            assert!(references[0].contains(location), "{}", references[0]);
+        }
+    }
 }
 
 #[test]
@@ -120,7 +142,10 @@ fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
         concat!(
             "use wire from \"std\"\n\n",
             "schema Host\n",
+            "  count: UInt8\n",
             "  nested: wire::Packet\n",
+            "  repeated: Repeat(count, wire::Packet)\n",
+            "  array: [wire::Packet; count]\n",
             "end\n",
         ),
     );
@@ -128,16 +153,16 @@ fn standard_library_schema_references_use_the_lsp_overlay_over_saved_sources() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let saved = server.handle_message(&references_request(&main_uri, 3, 16));
-    assert!(saved[0].contains(r#""line":3,"character":16"#), "{}", saved[0]);
-    assert!(!saved[0].contains(r#""line":4,"character":16"#), "{}", saved[0]);
+    let saved = server.handle_message(&references_request(&main_uri, 4, 16));
+    assert!(saved[0].contains(r#""line":4,"character":16"#), "{}", saved[0]);
+    assert!(!saved[0].contains(r#""line":5,"character":16"#), "{}", saved[0]);
 
     server.handle_message(&format!(
-        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  nested: wire::Packet\n  extra: wire::Packet\nend\n"}}}}}}"#
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  count: UInt8\n  nested: wire::Packet\n  repeated: Repeat(count, wire::Packet)\n  array: [wire::Packet; count]\n  extra: wire::Packet\nend\n"}}}}}}"#
     ));
-    let overlay = server.handle_message(&references_request(&main_uri, 3, 16));
-    assert!(overlay[0].contains(r#""line":3,"character":16"#), "{}", overlay[0]);
-    assert!(overlay[0].contains(r#""line":4,"character":15"#), "{}", overlay[0]);
+    let overlay = server.handle_message(&references_request(&main_uri, 4, 16));
+    assert!(overlay[0].contains(r#""line":4,"character":16"#), "{}", overlay[0]);
+    assert!(overlay[0].contains(r#""line":7,"character":15"#), "{}", overlay[0]);
 }
 
 #[test]

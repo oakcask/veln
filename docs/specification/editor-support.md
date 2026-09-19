@@ -261,7 +261,9 @@ ranges, non-BMP saved input, and parity with the MCP case. The existing
 `references-dependency-schema-operation` case preserves operation behavior.
 Focused LSP and MCP adapter coverage injects a public standard-library schema
 and verifies the same selected-project reference set, including composition,
-`decode`, and `encode` leaves. The injected fixture is test-only; the shipped
+`decode`, and `encode` leaves. The LSP case checks both declaration policies,
+the exact five saved locations, and a non-BMP character in the preceding
+source. The injected fixture is test-only; the shipped
 standard-library bundle remains unchanged. Standard-library schema aliases
 remain excluded while their names block schema fallback.
 The language-service matrix

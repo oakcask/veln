@@ -531,8 +531,11 @@ transitive imports, invalid casing, schema aliases, recovered declarations and
 leaves, dependency import collisions in both orders, and requires successful
 empty results. Focused language-service tests cover malformed repeated counts,
 schema-alias blockers, and lexical-noise exclusion. A focused MCP server test
-injects a public standard-library schema and verifies the selected-project
-composition, `decode`, and `encode` result with the selected project scope.
+injects a public standard-library schema and verifies the exact selected-project
+composition, `decode`, and `encode` locations with the selected project scope.
+Its pagination case compares the complete ordered set with the concatenated
+pages, and its capture-failure case verifies that a changing saved source
+returns no partial references or scope.
 Standard-library schema aliases remain excluded and block same-named schema
 fallback. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture

@@ -8,26 +8,34 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
     workspace.write(
         "main.veln",
         concat!(
-            "use schemas from \"std\"\n\n",
-            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode schemas::Packet from view at byte_offset(0)?\n",
-            "  encode schemas::Packet from packet\n",
-            "end\n\n",
+            "use wire from \"std\"\n\n",
             "schema Host\n",
-            "  nested: schemas::Packet\n",
+            "  count: UInt8\n",
+            "  nested: wire::Packet\n",
+            "  repeated: Repeat(count, wire::Packet)\n",
+            "  array: [wire::Packet; count]\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+            "\n",
+            "fn noise() -> String\n",
+            "  // 🙂 wire::Packet\n",
+            "  \"wire::Packet\"\n",
             "end\n",
         ),
     );
     let mut server = initialized_server(&workspace);
     server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"schemas.veln\"]\n",
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
         [PackageSnapshotSource::new(
-            "schemas.veln",
+            "wire.veln",
             b"pub schema Packet\n  value: Int\nend\n",
         )],
     );
 
-    for (line, column) in [(4, 19), (5, 19), (9, 20)] {
+    for (line, column) in [(5, 17), (6, 33), (7, 17), (11, 16), (12, 16)] {
         let result =
             server.references_tool(&json!({"source":"main.veln","line":line,"column":column}));
 
@@ -35,9 +43,11 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         assert_reference_ranges(
             &result,
             &[
-                ("main.veln", 4, 19, 4, 25),
-                ("main.veln", 5, 19, 5, 25),
-                ("main.veln", 9, 20, 9, 26),
+                ("main.veln", 5, 17, 5, 23),
+                ("main.veln", 6, 33, 6, 39),
+                ("main.veln", 7, 17, 7, 23),
+                ("main.veln", 11, 16, 11, 22),
+                ("main.veln", 12, 16, 12, 22),
             ],
             "standard library schema",
         );
