@@ -88,6 +88,60 @@ fn references_return_sorted_project_function_locations_and_scope() {
 }
 
 #[test]
+fn references_keep_ineligible_workspace_function_aliases_empty_with_declaration_inclusion() {
+    let cases = [
+        (
+            "unresolved target",
+            "pub fn missing_fn = missing\n",
+            1usize,
+            12usize,
+        ),
+        (
+            "wrong-kind target",
+            "pub type Target\nend\n\npub fn wrong_kind = Target\n",
+            4,
+            12,
+        ),
+        (
+            "alias-chain target",
+            "pub fn target = missing\npub fn chained = target\n",
+            2,
+            12,
+        ),
+        (
+            "invalid-cased target",
+            "fn Target() -> Int\n  0\nend\n\npub fn invalid = Target\n",
+            5,
+            12,
+        ),
+    ];
+
+    for (name, source_text, line, column) in cases {
+        let workspace = TempWorkspace::new(name);
+        workspace.write("veln.toml", "");
+        workspace.write("main.veln", source_text);
+
+        for include_declaration in [None, Some(false), Some(true)] {
+            let mut arguments = json!({
+                "source": "main.veln",
+                "line": line,
+                "column": column
+            });
+            if let Some(include_declaration) = include_declaration {
+                arguments["include_declaration"] = json!(include_declaration);
+            }
+            let result = initialized_server(&workspace).references_tool(&arguments);
+            assert_eq!(result["isError"], false, "{name}: {result:#}");
+            assert_eq!(
+                result["structuredContent"]["references"],
+                json!([]),
+                "{name}, include_declaration={include_declaration:?}: {result:#}"
+            );
+        }
+    }
+}
+
+#[test]
 fn references_resolve_types_and_constructors() {
     let cases = [
         WorkspaceSymbolCase {

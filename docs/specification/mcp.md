@@ -525,13 +525,16 @@ Full written module paths and their valid unique implicit leaf aliases resolve
 to the same identity. Exact dependency imports take precedence; conflicting
 exact dependency imports, duplicate dependency imports, and syntax-recovered
 dependency imports resolve no dependency identity. Results contain
-only workspace `file:` locations and exclude the declaration, package sources,
-aliases and alias targets, import tokens, module qualifiers, comments, and
-strings. A clean or syntax-recovered package schema alias with the selected
-name blocks fallback to a same-spelled package schema. A `Repeat` or array
-payload resolves only when its count is a valid schema count expression;
-another count shape does not select the payload and does not enter its
-reference set.
+only workspace `file:` locations and, when `include_declaration` is omitted or
+false, exclude the declaration, package sources, aliases and alias targets,
+import tokens, module qualifiers, comments, and strings. When
+`include_declaration` is true, the eligible package declaration is added as
+its canonical `veln-pkg:` location before sorting and pagination; package
+sources, aliases, and alias targets remain excluded. A clean or
+syntax-recovered package schema alias with the selected name blocks fallback
+to a same-spelled package schema. A `Repeat` or array payload resolves only
+when its count is a valid schema count expression; another count shape does
+not select the payload and does not enter its reference set.
 The same identity, eligibility, import, leaf-role, and selected-project scope
 rules apply to a public schema in an exported module of the retained standard
 library snapshot. The standard-library package origin remains distinct from
@@ -738,8 +741,9 @@ separate from the aliased target type's results, including when the alias and
 target type have the same spelling.
 Package reference results include only occurrences in the selected project's
 captured owned sources.
-They exclude the package declaration, package source bodies, other selected
-projects, equal spellings with different package or module identity,
+With `include_declaration` omitted or false, they exclude the package
+declaration. They always exclude package source bodies, other selected projects,
+equal spellings with different package or module identity,
 import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
@@ -756,12 +760,15 @@ with an empty `references` array.
 handler, or effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
-reference sites only, excluding the selected declaration, plus scope metadata.
-Package function, type, and constructor references never return `veln-pkg:`
-locations. A valid position without a supported reference symbol succeeds with
-an empty `references` array. Selected manifest sources report project scope
-metadata with `project_wide: true`. Sources outside the selected project-owned
-source set report single-file scope metadata with `project_wide: false`.
+reference sites, excluding the selected declaration when
+`include_declaration` is omitted or false, plus scope metadata. When it is true,
+an eligible direct-dependency or standard-library declaration is included as
+one canonical `veln-pkg:` location; package function, type, and constructor
+reference sites remain workspace `file:` locations. A valid position without a
+supported reference symbol succeeds with an empty `references` array.
+Selected manifest sources report project scope metadata with
+`project_wide: true`. Sources outside the selected project-owned source set
+report single-file scope metadata with `project_wide: false`.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -865,8 +872,10 @@ schema-invalid coordinates over stdio.
 The `references-workspace-schema` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for `decode` and
 `encode` schema path leaves that resolve to a selected workspace schema,
-preserves project-wide scope, excludes the schema declaration, and excludes a
-same-spelled local schema use that shadows an imported target. It also checks
+preserves project-wide scope, and, when declaration inclusion is omitted,
+excludes the schema declaration and a same-spelled local schema use that
+shadows an imported target. Its declaration-enabled request checks the
+eligible workspace declaration as a `file:` location. It also checks
 that compiler-rejected bare `decode` and `encode` paths in a module that only
 imports the selected schema's module do not appear as references. The same
 case keeps decode and encode module-qualifier selections successful and empty

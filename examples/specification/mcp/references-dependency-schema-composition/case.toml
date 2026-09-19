@@ -77,7 +77,7 @@ equals = {"mode":"project","generation":0,"project":".","project_wide":true}
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references"
-length = 6
+length = 7
 
 [[mcp_assert]]
 id = 3
@@ -138,6 +138,16 @@ equals = {"start":{"line":5,"column":17},"end":{"line":5,"column":23}}
 id = 3
 path = "/result/structuredContent/references/5/uri"
 workspace_file_uri = "other.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/6/range"
+equals = {"start":{"line":1,"column":12},"end":{"line":1,"column":18}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/6/uri"
+contains = "veln-pkg:///example%2Fdep/snapshot/"
 
 [[mcp_assert]]
 id = 4

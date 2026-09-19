@@ -174,7 +174,10 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
             | SymbolKind::ValueBinding
             | SymbolKind::HandlerContextParameter
             | SymbolKind::HandlerOperationClauseParameter
-    )
+    ) && (!matches!(
+        result.selected_symbol.declaration_kind,
+        SymbolDeclarationKind::PublicAlias
+    ) || !result.references.is_empty())
 }
 
 fn supports_package_references(result: &NavigationResult) -> bool {
