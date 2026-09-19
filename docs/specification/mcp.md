@@ -504,7 +504,8 @@ workspace schema declaration is included as its `file:` location before
 sorting and pagination. Module qualifiers, package schemas, schema-alias
 leaves, alias traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
-strings, comments, and schema uses that resolve to another declaration.
+strings, comments, and schema uses that resolve to another declaration
+remain excluded.
 
 Eligible workspace public schema aliases have a separate reference identity
 from their target schema and from every other alias. An alias is eligible when
