@@ -1,4 +1,4 @@
-type PackageSchemaIdentity<'a> = (&'a str, &'a str, &'a str);
+type PackageSchemaIdentity<'a> = (PackageOrigin, &'a str, &'a str, &'a str);
 type PackageSchemaAliasIdentity<'a> = PackageSchemaIdentity<'a>;
 
 struct PackageSchemaDeclarations<'a> {
@@ -15,10 +15,10 @@ impl<'a> PackageSchemaDeclarations<'a> {
         recovered_targets: &'a [PackageSchemaTarget],
     ) -> Self {
         Self {
-            alias_counts: direct_dependency_alias_counts(aliases),
-            exported_aliases: direct_dependency_exported_aliases(aliases),
-            recovered_targets: direct_dependency_recovered_targets(recovered_targets),
-            target_counts: direct_dependency_target_counts(targets),
+            alias_counts: package_alias_counts(aliases),
+            exported_aliases: package_exported_aliases(aliases),
+            recovered_targets: package_recovered_targets(recovered_targets),
+            target_counts: package_target_counts(targets),
         }
     }
 
@@ -50,11 +50,18 @@ impl<'a> PackageSchemaAliasEligibility<'a> {
     }
 
     fn contains(&self, alias: &NeutralSymbol) -> bool {
-        let Some(package) = alias.package.as_deref() else {
+        let (Some(package), Some(package_origin)) =
+            (alias.package.as_deref(), alias.package_origin)
+        else {
             return false;
         };
         self.eligible_aliases
-            .contains(&(package, alias.module.as_str(), alias.name.as_str()))
+            .contains(&(
+                package_origin,
+                package,
+                alias.module.as_str(),
+                alias.name.as_str(),
+            ))
     }
 }
 
@@ -135,7 +142,12 @@ fn package_schema_alias_step<'a>(
     let Some(target_module) = current.direct_target_module.as_deref() else {
         return PackageAliasStep::Invalid;
     };
-    let target = (identity.0, target_module, current.direct_target_name.as_str());
+    let target = (
+        identity.0,
+        identity.1,
+        target_module,
+        current.direct_target_name.as_str(),
+    );
     if current.direct_target_is_alias {
         PackageAliasStep::Alias(target)
     } else {
@@ -156,6 +168,7 @@ fn resolved_package_schema_alias_index(
             record_schema_alias_declaration_visit();
             Some((
                 (
+                    candidate.package_origin,
                     candidate.package.as_str(),
                     candidate.alias_module.as_deref()?,
                     candidate.alias_name.as_str(),
@@ -166,18 +179,18 @@ fn resolved_package_schema_alias_index(
         .collect()
 }
 
-fn direct_dependency_alias_counts(
+fn package_alias_counts(
     aliases: &[PackageSchemaAliasDeclaration],
 ) -> BTreeMap<PackageSchemaIdentity<'_>, usize> {
     let mut counts = BTreeMap::new();
     for alias in aliases
         .iter()
-        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
         *counts
             .entry((
+                alias.package_origin,
                 alias.package.as_str(),
                 alias.module.as_str(),
                 alias.name.as_str(),
@@ -187,18 +200,18 @@ fn direct_dependency_alias_counts(
     counts
 }
 
-fn direct_dependency_exported_aliases(
+fn package_exported_aliases(
     aliases: &[PackageSchemaAliasDeclaration],
 ) -> BTreeSet<PackageSchemaIdentity<'_>> {
     let mut exported = BTreeSet::new();
     for alias in aliases
         .iter()
-        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
         if alias.exported {
             exported.insert((
+                alias.package_origin,
                 alias.package.as_str(),
                 alias.module.as_str(),
                 alias.name.as_str(),
@@ -208,16 +221,16 @@ fn direct_dependency_exported_aliases(
     exported
 }
 
-fn direct_dependency_recovered_targets(
+fn package_recovered_targets(
     targets: &[PackageSchemaTarget],
 ) -> BTreeSet<PackageSchemaIdentity<'_>> {
     targets
         .iter()
-        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
         .map(|target| {
             #[cfg(test)]
             record_schema_alias_declaration_visit();
             (
+                target.package_origin,
                 target.package.as_str(),
                 target.module.as_str(),
                 target.name.as_str(),
@@ -226,18 +239,18 @@ fn direct_dependency_recovered_targets(
         .collect()
 }
 
-fn direct_dependency_target_counts(
+fn package_target_counts(
     targets: &[PackageSchemaTarget],
 ) -> BTreeMap<PackageSchemaIdentity<'_>, (usize, bool)> {
     let mut counts = BTreeMap::new();
     for target in targets
         .iter()
-        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
         let entry = counts
             .entry((
+                target.package_origin,
                 target.package.as_str(),
                 target.module.as_str(),
                 target.name.as_str(),
@@ -247,4 +260,52 @@ fn direct_dependency_target_counts(
         entry.1 |= target.public && target.exported;
     }
     counts
+}
+
+#[cfg(test)]
+mod package_schema_identity_tests {
+    use super::*;
+
+    #[test]
+    fn package_schema_identity_keeps_package_origins_separate() {
+        let aliases = [PackageSchemaAliasDeclaration {
+            module: "wire".to_string(),
+            name: "Packet".to_string(),
+            package: "same/name".to_string(),
+            package_origin: PackageOrigin::DirectDependency,
+            exported: true,
+        }];
+        let targets = [
+            PackageSchemaTarget {
+                module: "wire".to_string(),
+                name: "Packet".to_string(),
+                package: "same/name".to_string(),
+                package_origin: PackageOrigin::DirectDependency,
+                public: true,
+                exported: true,
+            },
+            PackageSchemaTarget {
+                module: "wire".to_string(),
+                name: "Packet".to_string(),
+                package: "same/name".to_string(),
+                package_origin: PackageOrigin::StandardLibrary,
+                public: true,
+                exported: true,
+            },
+        ];
+        let declarations = PackageSchemaDeclarations::new(&aliases, &targets, &[]);
+
+        assert!(!declarations.contains_schema(&(
+            PackageOrigin::DirectDependency,
+            "same/name",
+            "wire",
+            "Packet",
+        )));
+        assert!(declarations.contains_schema(&(
+            PackageOrigin::StandardLibrary,
+            "same/name",
+            "wire",
+            "Packet",
+        )));
+    }
 }

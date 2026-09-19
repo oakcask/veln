@@ -427,7 +427,10 @@ pub(crate) fn references_json(
     include_declaration: bool,
 ) -> String {
     let package_schema_operations = result.selected_symbol.kind == SymbolKind::Schema
-        && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
+        && matches!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        )
         && matches!(
             result.selected_symbol.declaration_kind,
             SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias

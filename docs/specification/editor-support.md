@@ -224,14 +224,14 @@ declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 
 Same-module bare schema and alias paths can resolve to their selected identity.
-Imported-module uses must be named by an accepted qualified path. Composition
-paths also accept a unique implicit leaf import alias. For composition paths,
-an exact full written import path takes
+Imported-module uses must be named by an accepted qualified path. Schema
+composition and operation paths also accept a unique implicit leaf import
+alias. For those paths, an exact full written import path takes
 precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
-leaf alias selects a composition schema identity only when it is unique across
+leaf alias selects a schema identity only when it is unique across
 workspace and package imports. Conflicting exact imports select no identity.
 Duplicate and syntax-recovered dependency imports do not grant dependency
-composition visibility. A written import does not make the
+schema visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
 module-qualifier, recovery, or rename behavior for
 schemas.
@@ -250,18 +250,68 @@ schema alias with the selected name blocks fallback to a same-spelled package
 schema. A repeated payload is selected only when its `Repeat` count or array
 count is a valid schema count expression. Comments, strings, import tokens,
 and module qualifiers are not schema
-references. Standard-library schemas,
+references. Standard-library schema aliases,
 ineligible package schema aliases, transitive dependencies, recovery records,
 and syntax-recovered leaves remain unsupported. An invalid-cased schema
-declaration in an otherwise eligible direct-dependency source retains its
-package definition location, but its reference set is empty. The
+declaration in an otherwise eligible direct-dependency or standard-library
+source retains its package definition location, but its reference set is
+empty. The
 `references-dependency-schema-composition` LSP case covers the unified set,
 both declaration policies, full and implicit module paths, workspace-only exact
 ranges, non-BMP saved input, and parity with the MCP case. The existing
 `references-dependency-schema-operation` case preserves operation behavior.
-Focused MCP server coverage
-injects a public standard-library schema and verifies that this unsupported
-selection returns an empty set with project-wide scope.
+Focused LSP coverage injects a public standard-library schema and checks its
+selected-project composition, `decode`, and `encode` leaves. The LSP case
+checks both declaration policies, the exact five saved locations, and a non-BMP
+character in the saved input. The checked examples harness cannot inject a
+synthetic standard-library snapshot, so the focused server tests are the
+executable LSP evidence route for this case. The injected fixture is test-only;
+the shipped standard-library bundle remains unchanged. Standard-library schema
+aliases remain excluded while their names block schema fallback.
+If a clean package schema and a syntax-recovered schema share the same package,
+module, and declaration identity, all five leaf roles are ineligible: selecting
+direct composition, `Repeat`, array, `decode`, or `encode` returns the same
+successful empty result.
+The LSP regression case
+`standard_library_schema_recovery_collision_keeps_all_reference_roles_empty`
+verifies this fail-closed identity rule.
+The language-service matrix
+`standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`
+also checks full and unique implicit module paths, valid `Repeat` and array
+counts, package-origin isolation, and lexical exclusions. The focused exclusion
+test checks import-token, module-qualifier, and standard-library alias-target
+selections remain outside the reference union. Its eligibility companion checks
+private, non-exported, invalid-cased, alias-blocked, and ambiguous-import empty
+results. The shared language-service origin-isolation companion selects the
+same spelling from workspace, direct-dependency, and standard-library origins
+and checks each exact set without cross-origin locations. The LSP
+selected-project test excludes another selected root and an unselected
+descendant. The tests
+`standard_library_schema_references_use_the_injected_snapshot` and
+`standard_library_schema_references_pair_saved_baseline_with_lsp_overlay`
+cover UTF-16 ranges, the five-location saved baseline, the complete
+six-location overlay result including URI, range, and order, and overlay
+precedence.
+The LSP test `standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders`
+also verifies on a `decode` leaf that exact import precedence is independent of
+declaration order. The shared language-service tests apply the same rule to
+composition and operation leaves, include a same-spelled workspace schema,
+and reject conflicting exact workspace and standard-library imports in either
+source order. The eligibility cases include a recovered alias beside a valid
+schema; neither can contaminate the standard-library reference set.
+The LSP test
+`standard_library_schema_unique_implicit_nested_module_path_matches_full_path`
+separately proves that a nested exported module has a unique implicit leaf
+alias: its full `alpha::wire::Packet` path and `wire::Packet` path resolve to
+the same package-origin identity and exact saved reference union.
+The LSP test
+`standard_library_schema_import_collisions_are_successful_empty_results` keeps
+duplicate, conflicting, and recovered standard-library imports as successful
+empty results. The shared language-service matrix, rather than this LSP case,
+owns the exact workspace-versus-standard-library origin comparison and its
+source-order cases. MCP behavior and its independent pagination,
+selected-project, and stable-capture evidence are specified by
+[MCP Workspace Projects, Resources, And Navigation](mcp.md#saved-workspace-navigation).
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace composition
 and operation leaves as MCP when declaration inclusion is false. Each
@@ -812,6 +862,11 @@ Implemented:
 - Paired LSP and MCP evidence for direct-dependency public schema composition,
   `decode`, and `encode` references. Results include only selected-project
   workspace `file:` locations and never include the package declaration.
+- Paired LSP and MCP evidence for eligible public standard-library schema
+  composition, `decode`, and `encode` references. The adapters use the same
+  saved source shape; LSP additionally observes an open-document overlay,
+  while MCP remains on the saved baseline. Results remain isolated by package
+  identity and selected project.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
   direct, valid `Repeat`, and array-payload composition, `decode`, and `encode`
   references. Results preserve alias identity and include only selected-project
@@ -829,8 +884,9 @@ Not implemented:
 
 - LSP range and delta semantic token requests.
 - Completion and hover.
-- Dependency reference search outside the implemented direct-dependency schema
-  composition-and-operation boundary, schema-alias composition-and-operation boundary, and
+- Dependency reference search outside the implemented direct-dependency and
+  standard-library schema composition-and-operation boundaries,
+  schema-alias composition-and-operation boundary, and
   direct-dependency and standard-library public function, public
   function-alias, public type-alias, public type, and public constructor
   reference boundaries.

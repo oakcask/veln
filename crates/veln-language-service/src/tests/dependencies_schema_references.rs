@@ -566,6 +566,11 @@ mod dependencies_schema_references_tests {
             // Declaration eligibility is shared with alias indexing; composition only
             // visits its schema candidates.
             assert_eq!(declaration_visits, count);
+            assert_eq!(
+                crate::navigation::schema_composition_target_lookups(),
+                count,
+                "each composition leaf must use one indexed target lookup"
+            );
             assert_eq!(crate::navigation::schema_alias_declaration_visits(), count);
             assert_eq!(field_token_visits % count, 0);
             let visits_per_schema = field_token_visits / count;
@@ -1499,7 +1504,7 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
-    fn standard_library_schema_composition_is_not_a_dependency_reference() {
+    fn standard_library_schema_composition_is_a_project_reference() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             concat!(
@@ -1512,7 +1517,456 @@ mod dependencies_schema_references_tests {
             ["wire.veln"],
         ));
 
-        assert!(query_snapshot(&snapshot, "main.veln", 4, 19).is_none());
+        let selected = query_snapshot(&snapshot, "main.veln", 4, 19).unwrap();
+        assert_eq!(locations(&selected.references), [("main.veln", 4, 17)]);
+        assert!(matches!(
+            selected.definition.source,
+            NavigationSource::Package { .. }
+        ));
+    }
+
+    #[test]
+    fn standard_library_schema_exact_import_precedes_workspace_alias_in_either_source_order() {
+        for workspace_import_first in [true, false] {
+            let workspace_import = source(
+                "workspace_import.veln",
+                "mod app\nuse workspace::wire\n",
+            );
+            let standard_import = source("standard_import.veln", "mod app\nuse wire from \"std\"\n");
+            let imports = if workspace_import_first {
+                vec![workspace_import, standard_import]
+            } else {
+                vec![standard_import, workspace_import]
+            };
+            let mut sources = vec![source(
+                "workspace/wire.veln",
+                "pub schema Packet\n  value: Bool\nend\n",
+            )];
+            sources.extend(imports);
+            sources.push(source(
+                "uses.veln",
+                concat!(
+                    "mod app\n\n",
+                    "schema Host\n",
+                    "  nested: wire::Packet\n",
+                    "end\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode wire::Packet from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ));
+            let snapshot = EffectiveProjectSnapshot::new(sources).with_standard_library(
+                standard_library_snapshot(
+                    &[("wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+                    ["wire.veln"],
+                ),
+            );
+
+            for (line, column) in [(4, 19), (8, 16)] {
+                let selected = query_snapshot(&snapshot, "uses.veln", line, column)
+                    .unwrap_or_else(|| panic!("missing standard schema selection at {line}:{column}"));
+                assert_eq!(
+                    locations(&selected.references),
+                    [("uses.veln", 4, 17), ("uses.veln", 8, 16)]
+                );
+                assert_eq!(
+                    selected.selected_symbol.package_origin,
+                    Some(PackageOrigin::StandardLibrary)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn standard_library_schema_exact_import_conflicts_with_exact_workspace_import() {
+        for workspace_import_first in [true, false] {
+            let imports = if workspace_import_first {
+                "use wire\nuse wire from \"std\"\n\n"
+            } else {
+                "use wire from \"std\"\nuse wire\n\n"
+            };
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source("wire.veln", "pub schema Packet\n  value: Bool\nend\n"),
+                source(
+                    "main.veln",
+                    &format!(
+                        "{imports}schema Host\n  nested: wire::Packet\nend\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n"
+                    ),
+                ),
+            ])
+            .with_standard_library(standard_library_snapshot(
+                &[("wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+                ["wire.veln"],
+            ));
+
+            for (line, column) in [(3, 19), (7, 16)] {
+                let selected = query_snapshot(&snapshot, "main.veln", line, column);
+                assert!(
+                    selected.is_none() || selected.unwrap().references.is_empty(),
+                    "exact workspace and std imports must be ambiguous: {line}:{column}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "workspace/wire.veln",
+                    "pub schema Packet\n  value: Bool\nend\n",
+                ),
+                source("workspace_import.veln", "mod app\nuse workspace::wire\n"),
+                source(
+                    "imports.veln",
+                    "mod app\nuse wire from \"std\"\n",
+                ),
+                source(
+                    "dependency.veln",
+                    "mod dependency\nuse lib::wire from \"example/dep\"\n\nschema Host\n  nested: lib::wire::Packet\nend\n",
+                ),
+                source(
+                    "lib/wire.veln",
+                    "pub schema Packet\n  value: String\nend\n",
+                ),
+                source(
+                    "uses.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "schema Host\n",
+                        "  count: UInt8\n",
+                        "  direct: wire::Packet\n",
+                        "  repeated: Repeat(count, wire::Packet)\n",
+                        "  array: [wire::Packet; count]\n",
+                        "end\n\n",
+                        "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+                        "  decode wire::Packet from view at byte_offset(0)?\n",
+                        "  encode wire::Packet from packet\n",
+                        "end\n\n",
+                        "fn noise() -> String\n",
+                        "  // wire::Packet\n",
+                        "  \"wire::Packet\"\n",
+                        "end\n",
+                    ),
+                ),
+                source(
+                    "other.veln",
+                    "mod other\n\nschema Host\n  nested: wire::Packet\nend\n",
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("lib/wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+                ["lib/wire.veln"],
+            )],
+        )
+        .with_standard_library(standard_library_snapshot(
+            &[("wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["wire.veln"],
+        ));
+
+        let expected = [
+            ("uses.veln", 5, 17),
+            ("uses.veln", 6, 33),
+            ("uses.veln", 7, 17),
+            ("uses.veln", 11, 16),
+            ("uses.veln", 12, 16),
+        ];
+        for (line, column) in [(5, 20), (6, 34), (7, 18), (11, 16), (12, 19)] {
+            let result = query_snapshot(&snapshot, "uses.veln", line, column)
+                .unwrap_or_else(|| panic!("missing standard schema selection at {line}:{column}"));
+            assert_eq!(locations(&result.references), expected);
+            assert!(matches!(result.definition.source, NavigationSource::Package { .. }));
+        }
+
+        // Import tokens and module qualifiers are lexical selections rather
+        // than references to the schema identity.
+        for (path, line, column) in [
+            ("imports.veln", 1, 8),
+            ("uses.veln", 5, 12),
+            ("uses.veln", 5, 16),
+        ] {
+            assert!(
+                query_snapshot(&snapshot, path, line, column).is_none(),
+                "standard-library schema exclusion at {path}:{line}:{column}"
+            );
+        }
+        assert!(query_snapshot(&snapshot, "uses.veln", 16, 8).is_none());
+        assert!(query_snapshot(&snapshot, "uses.veln", 17, 4).is_none());
+        assert!(query_snapshot(&snapshot, "other.veln", 4, 20).is_none());
+    }
+
+    #[test]
+    fn standard_library_schema_reference_exclusions_cover_import_module_and_alias_target_tokens() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use wire from \"std\"\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode wire::Packet from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "wire.veln",
+                "pub schema Base\n  value: Int\nend\n\npub schema Packet = Base\n",
+            )],
+            ["wire.veln"],
+        ));
+
+        for (line, column) in [(0, 4), (3, 10)] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "standard-library schema exclusion at main.veln:{line}:{column}"
+            );
+        }
+        let alias_target = query_snapshot(&snapshot, "wire.veln", 4, 20);
+        assert!(
+            alias_target.is_none(),
+            "standard-library alias target must be an unsupported selection: {alias_target:#?}"
+        );
+    }
+
+    #[test]
+    fn standard_library_schema_origin_isolation_is_symmetric() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "model.veln",
+                    "pub schema Packet\n  value: Int\nend\n\nschema Host\n  nested: Packet\nend\n",
+                ),
+                source(
+                    "dependency-use.veln",
+                    "use model from \"example/dep\"\n\nschema Host\n  nested: model::Packet\nend\n",
+                ),
+                source(
+                    "standard-use.veln",
+                    "use model from \"std\"\n\nschema Host\n  nested: model::Packet\nend\n",
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("model.veln", "pub schema Packet\n  value: Int\nend\n")],
+                ["model.veln"],
+            )],
+        )
+        .with_standard_library(standard_library_snapshot(
+            &[("model.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["model.veln"],
+        ));
+
+        let cases = [
+            ("model.veln", 1, 12, None, "model.veln", 6, 11),
+            (
+                "dependency-use.veln",
+                4,
+                18,
+                Some(PackageOrigin::DirectDependency),
+                "dependency-use.veln",
+                4,
+                18,
+            ),
+            (
+                "standard-use.veln",
+                4,
+                18,
+                Some(PackageOrigin::StandardLibrary),
+                "standard-use.veln",
+                4,
+                18,
+            ),
+        ];
+        for (path, line, column, origin, reference_path, reference_line, reference_column) in cases {
+            let selected = query_snapshot(&snapshot, path, line, column)
+                .unwrap_or_else(|| panic!("missing {origin:?} selection in {path}"));
+            assert_eq!(selected.selected_symbol.package_origin, origin);
+            assert_eq!(
+                locations(&selected.references),
+                [(reference_path, reference_line, reference_column)]
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_schema_eligibility_and_import_failures_are_empty() {
+        let cases: &[(&str, &str, &[&str])] = &[
+            (
+                "wire.veln",
+                "schema Packet\n  value: Int\nend\n",
+                &["wire.veln"],
+            ),
+            (
+                "wire.veln",
+                "pub schema Packet\n  value: Int\nend\n",
+                &[],
+            ),
+            (
+                "wire.veln",
+                "pub schema packet\n  value: Int\nend\n",
+                &["wire.veln"],
+            ),
+            (
+                "wire.veln",
+                "pub schema Base\n  value: Int\nend\n\npub schema Packet = Base\n",
+                &["wire.veln"],
+            ),
+            (
+                "wire.veln",
+                "pub schema Packet =\n",
+                &["wire.veln"],
+            ),
+        ];
+        for (path, body, exports) in cases {
+            let snapshot = EffectiveProjectSnapshot::new(vec![source(
+                "main.veln",
+                "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n",
+            )])
+            .with_standard_library(standard_library_snapshot(
+                &[(path, body)],
+                exports.iter().copied(),
+            ));
+            let result = query_snapshot(&snapshot, "main.veln", 4, 16);
+            assert!(result.is_none() || result.unwrap().references.is_empty(), "{path}");
+        }
+
+        let ambiguous = EffectiveProjectSnapshot::new(vec![
+            source("workspace_import.veln", "mod app\nuse workspace::wire\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "mod app\n",
+                    "use alpha::wire from \"std\"\n",
+                    "use beta::wire from \"std\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode wire::Packet from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ),
+        ])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                ("alpha/wire.veln", "pub schema Packet\n  value: Int\nend\n"),
+                ("beta/wire.veln", "pub schema Packet\n  value: Int\nend\n"),
+            ],
+            ["alpha/wire.veln", "beta/wire.veln"],
+        ));
+        assert!(query_snapshot(&ambiguous, "main.veln", 5, 16).is_none());
+
+        let exact = EffectiveProjectSnapshot::new(vec![
+            source(
+                "imports.veln",
+                "mod app\nuse alpha::wire from \"std\"\nuse beta::wire from \"std\"\n",
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "mod app\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode alpha::wire::Packet from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            ),
+        ])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                ("alpha/wire.veln", "pub schema Packet\n  value: Int\nend\n"),
+                ("beta/wire.veln", "pub schema Packet\n  value: Int\nend\n"),
+            ],
+            ["alpha/wire.veln", "beta/wire.veln"],
+        ));
+        let selected = query_snapshot(&exact, "main.veln", 4, 23)
+            .expect("an exact standard-library import must beat an implicit collision");
+        assert_eq!(locations(&selected.references), [("main.veln", 4, 23)]);
+    }
+
+    #[test]
+    fn standard_library_schema_invalid_casing_alias_blockers_and_recovered_leaves_are_empty() {
+        let invalid_casing = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use wire from \"std\"\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode wire::packet from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[("wire.veln", "pub schema packet\n  value: Int\nend\n")],
+            ["wire.veln"],
+        ));
+        let invalid = query_snapshot(&invalid_casing, "main.veln", 4, 16)
+            .expect("invalid-cased standard schema should retain its definition");
+        assert!(matches!(invalid.definition.source, NavigationSource::Package { .. }));
+        assert!(invalid.references.is_empty());
+
+        let alias_collision = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n",
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                (
+                    "alias/wire.veln",
+                    "mod wire\npub schema Base\n  value: Int\nend\npub schema Packet = Base\n",
+                ),
+                (
+                    "fallback/wire.veln",
+                    "mod wire\npub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+            ["alias/wire.veln", "fallback/wire.veln"],
+        ));
+        assert!(query_snapshot(&alias_collision, "main.veln", 4, 16)
+            .is_none_or(|result| result.references.is_empty()));
+
+        let recovered_alias_collision = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n",
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                (
+                    "wire/valid.veln",
+                    "mod wire\npub schema Packet\n  value: Int\nend\n",
+                ),
+                ("wire/recovered.veln", "mod wire\npub schema Packet =\n"),
+            ],
+            ["wire/valid.veln", "wire/recovered.veln"],
+        ));
+        assert!(query_snapshot(&recovered_alias_collision, "main.veln", 4, 16)
+            .is_none_or(|result| result.references.is_empty()));
+
+        let recovered_leaves = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use wire from \"std\"\n\n",
+                "schema Host\n",
+                "  count: UInt8\n",
+                "  direct: wire::Packet\n",
+                "  bad_repeat: Repeat(, wire::Packet)\n",
+                "  bad_array: [wire::Packet;]\n",
+                "end\n\n",
+                "fn broken(view: ByteView) -> ()\n",
+                "  decode wire::Packet junk from view at byte_offset(0)?\n",
+                "  encode wire::Packet junk from {value: 1}\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[("wire.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["wire.veln"],
+        ));
+        let valid = query_snapshot(&recovered_leaves, "main.veln", 5, 20)
+            .expect("the valid composition leaf should remain navigable");
+        assert_eq!(locations(&valid.references), [("main.veln", 5, 17)]);
+        for (line, column) in [(6, 31), (7, 25), (11, 16), (12, 16)] {
+            if let Some(result) = query_snapshot(&recovered_leaves, "main.veln", line, column)
+            {
+                assert!(result.references.is_empty(), "recovered leaf at {line}:{column}");
+            }
+        }
     }
 
     #[test]
@@ -2450,7 +2904,7 @@ mod dependencies_schema_references_tests {
         assert!(query_snapshot(&snapshot, "main.veln", 8, 19).is_none());
         assert!(query_snapshot(&snapshot, "main.veln", 9, 18).is_none());
         let standard = query_snapshot(&snapshot, "main.veln", 10, 16).unwrap();
-        assert!(standard.references.is_empty());
+        assert_eq!(locations(&standard.references), [("main.veln", 10, 16)]);
         let invalid_casing = query_snapshot(&snapshot, "main.veln", 11, 18).unwrap();
         assert!(matches!(
             invalid_casing.definition.source,

@@ -16,9 +16,6 @@ also states it.
 
 ## Ready
 
-- Standard-library schema composition and operation references, using the
-  existing package snapshots and shared navigation adapters:
-  [standard-library-schema-references.md](standard-library-schema-references.md).
 
 ## Blocked
 
@@ -28,12 +25,10 @@ also states it.
 - MCP rename casing mapping is blocked until an owning proposal defines the MCP
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
-- The agent-language-services umbrella remains a planning inventory for
-  broader dependency and standard-library schema-alias references beyond the
-  implemented same-dependency chain slice, plus
-  documentation, conformance, and plugin work. Do not select the umbrella
-  directly. Its independently ready standard-library schema reference slice
-  is listed above:
+- The agent-language-services umbrella remains a planning inventory only for
+  the unimplemented declaration-inclusion, alias, transitive-dependency,
+  recovery, casing-neutral, cross-adapter conformance, published-reference,
+  and plugin work. Do not select the umbrella directly:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule

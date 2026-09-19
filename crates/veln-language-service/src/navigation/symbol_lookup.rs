@@ -19,7 +19,10 @@ impl SymbolIndex {
             }
             QualifiedWorkspaceModule::External | QualifiedWorkspaceModule::Unresolved => {
                 self.package_schema_alias_declarations.iter().any(|alias| {
-                    alias.package_origin == PackageOrigin::DirectDependency
+                    matches!(
+                        alias.package_origin,
+                        PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary
+                    )
                         && alias.name == name
                         && self.schema_alias_external_import_blocks_fallback(
                             file,
@@ -75,7 +78,10 @@ impl SymbolIndex {
                         | QualifiedWorkspaceModule::Unresolved,
                         Some(package),
                     ) => {
-                        symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                        matches!(
+                            symbol.package_origin,
+                            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                        )
                             && self.valid_schema_alias_external_import(
                                 file,
                                 qualifier,
@@ -142,7 +148,10 @@ impl SymbolIndex {
                 .get(&file.module)?
                 .valid_external_route(qualifier)?;
             let mut candidates = self.schemas.iter().filter(|symbol| {
-                symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                matches!(
+                        symbol.package_origin,
+                        Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                    )
                     && symbol.package.as_deref() == Some(package.as_str())
                     && symbol.module == module
                     && symbol.name == name
@@ -1028,41 +1037,6 @@ enum QualifiedWorkspaceModule {
     External,
     Ambiguous,
     Unresolved,
-}
-
-fn qualified_workspace_module(file: &IndexedFile, qualifier: &str) -> QualifiedWorkspaceModule {
-    if file.uses.contains(qualifier) || file.module == qualifier {
-        return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
-    }
-    let exact_external_count = file
-        .external_uses
-        .iter()
-        .filter(|(module, _)| module == qualifier)
-        .count();
-    if exact_external_count == 1 {
-        return QualifiedWorkspaceModule::External;
-    }
-    if exact_external_count > 1 {
-        return QualifiedWorkspaceModule::Ambiguous;
-    }
-
-    let workspace_modules = file
-        .uses
-        .iter()
-        .filter(|module| module.rsplit("::").next() == Some(qualifier))
-        .cloned()
-        .collect::<Vec<_>>();
-    let external_module_count = file
-        .external_uses
-        .iter()
-        .filter(|(module, _)| module.rsplit("::").next() == Some(qualifier))
-        .count();
-    match (workspace_modules.as_slice(), external_module_count) {
-        ([module], 0) => QualifiedWorkspaceModule::Workspace(module.clone()),
-        ([], 1) => QualifiedWorkspaceModule::External,
-        ([], 0) => QualifiedWorkspaceModule::Unresolved,
-        _ => QualifiedWorkspaceModule::Ambiguous,
-    }
 }
 
 fn constructor_selected_through_public_alias(mut symbol: ConstructorSymbol) -> ConstructorSymbol {

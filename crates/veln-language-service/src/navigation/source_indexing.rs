@@ -557,9 +557,9 @@ fn workspace_schema_composition_references(
         .collect()
 }
 
-fn direct_dependency_schema_composition_references(
+fn package_schema_composition_references(
     files: &[IndexedFile],
-    schema_index: &BTreeMap<(String, String, String), NeutralSymbol>,
+    schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     schema_aliases: &[NeutralSymbol],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Vec<SchemaCompositionReference> {
@@ -608,7 +608,7 @@ fn direct_dependency_schema_composition_reference(
     file: &IndexedFile,
     span: &SourceSpan,
     token_cursor: &mut usize,
-    schema_index: &BTreeMap<(String, String, String), NeutralSymbol>,
+    schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     alias_index: &BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Option<SchemaCompositionReference> {
@@ -638,13 +638,21 @@ fn direct_dependency_schema_composition_reference(
     let (module, package) = module_imports
         .get(&file.module)?
         .valid_external_route(&qualifier)?;
-    let key = (package, module, token.text.clone());
-    let target = match alias_index.get(&key) {
+    let package_origin = if package == "std" {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    let alias_key = (package.clone(), module.clone(), token.text.clone());
+    let key = (package_origin, package, module, token.text.clone());
+    let target = match alias_index.get(&alias_key) {
         Some(candidates) if candidates.len() == 1 => {
             SchemaReferenceTarget::Alias(candidates[0].clone())
         }
         Some(_) => return None,
-        None => SchemaReferenceTarget::Schema(schema_index.get(&key)?.clone()),
+        None => {
+            SchemaReferenceTarget::Schema(package_schema_target(schema_index, &key)?.clone())
+        }
     };
     Some(SchemaCompositionReference {
         span: span.clone(),
@@ -652,14 +660,30 @@ fn direct_dependency_schema_composition_reference(
     })
 }
 
-fn direct_dependency_schema_index(
+fn package_schema_target<'a>(
+    schema_index: &'a BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
+    key: &(PackageOrigin, String, String, String),
+) -> Option<&'a NeutralSymbol> {
+    #[cfg(test)]
+    {
+        SCHEMA_COMPOSITION_TARGET_LOOKUPS.set(SCHEMA_COMPOSITION_TARGET_LOOKUPS.get() + 1);
+    }
+    schema_index.get(key)
+}
+
+fn package_schema_index(
     schemas: &[NeutralSymbol],
     declarations: &PackageSchemaDeclarations<'_>,
-) -> BTreeMap<(String, String, String), NeutralSymbol> {
+) -> BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol> {
     let mut candidates = BTreeMap::new();
     for schema in schemas
         .iter()
-        .filter(|schema| schema.package_origin == Some(PackageOrigin::DirectDependency))
+        .filter(|schema| {
+            matches!(
+                schema.package_origin,
+                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+            )
+        })
     {
         #[cfg(test)]
         record_schema_composition_declaration_visit();
@@ -667,7 +691,12 @@ fn direct_dependency_schema_index(
             continue;
         };
         candidates
-            .entry((package.clone(), schema.module.clone(), schema.name.clone()))
+            .entry((
+                schema.package_origin.expect("package schema has an origin"),
+                package.clone(),
+                schema.module.clone(),
+                schema.name.clone(),
+            ))
             .or_insert_with(Vec::new)
             .push(schema);
     }
@@ -676,7 +705,12 @@ fn direct_dependency_schema_index(
         .into_iter()
         .filter_map(|(identity, candidates)| {
             (candidates.len() == 1
-                && declarations.contains_schema(&(&identity.0, &identity.1, &identity.2)))
+                && declarations.contains_schema(&(
+                    identity.0,
+                    &identity.1,
+                    &identity.2,
+                    &identity.3,
+                )))
             .then(|| (identity, candidates[0].clone()))
         })
         .collect()

@@ -388,8 +388,8 @@ visible import or implicit standard-library prelude path required by name
 resolution. Invalid-casing recovery records, private declarations,
 non-exported sources, mismatched package imports, unsupported symbol classes,
 and package module-segment selections succeed with `definition: null`. An
-invalid-cased schema declaration in an otherwise eligible direct-dependency
-source retains its package definition location.
+invalid-cased schema declaration in an otherwise eligible direct-dependency or
+standard-library source retains its package definition location.
 MCP only exposes the recovery record source range through `definition`.
 Prepare-rename, rename edits, and package reference locations are outside the
 MCP definition result.
@@ -469,13 +469,13 @@ requested source. They include same-module bare occurrences and qualified
 occurrences, including import-alias-qualified paths, that resolve to the
 selected workspace schema under ordinary import, visibility, exact
 test-companion, and shadowing rules. A written import does not put that
-imported module's schemas in the bare schema namespace. For composition
-references, an exact full written import path takes precedence over a
-same-spelled implicit leaf alias. Otherwise, a composition alias resolves only
-when exactly one workspace or package import provides that alias. Conflicting
-exact imports resolve no composition identity. Duplicate and syntax-recovered
-dependency imports resolve no dependency composition identity. A selected
-workspace schema's set excludes the
+imported module's schemas in the bare schema namespace. For schema composition
+and operation references, an exact full written import path takes precedence
+over a same-spelled implicit leaf alias. Otherwise, an implicit leaf alias
+resolves only when exactly one workspace or package import provides it.
+Conflicting exact imports resolve no schema identity. Duplicate and
+syntax-recovered dependency imports resolve no dependency schema identity. A
+selected workspace schema's set excludes the
 declaration, module qualifiers, package schemas, schema-alias leaves, alias
 traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
@@ -509,7 +509,12 @@ name blocks fallback to a same-spelled package schema. A `Repeat` or array
 payload resolves only when its count is a valid schema count expression;
 another count shape does not select the payload and does not enter its
 reference set.
-Standard-library schemas, private or non-exported schemas,
+The same identity, eligibility, import, leaf-role, and selected-project scope
+rules apply to a public schema in an exported module of the retained standard
+library snapshot. The standard-library package origin remains distinct from
+workspace and direct-dependency schemas with the same module and declaration
+spelling.
+Standard-library schema aliases, private or non-exported schemas,
 transitive dependencies, recovery records, invalid-cased schema declarations,
 and unresolved or mismatched imports succeed with an empty reference set. An
 invalid-cased schema declaration can retain its package definition location;
@@ -525,11 +530,63 @@ leaves. It covers private and non-exported declarations, mismatched and
 transitive imports, invalid casing, schema aliases, recovered declarations and
 leaves, dependency import collisions in both orders, and requires successful
 empty results. Focused language-service tests cover malformed repeated counts,
-schema-alias blockers, and lexical-noise exclusion. A focused MCP server test injects
-a public standard-library schema and verifies the successful empty result with
-the selected project scope. Focused language-service and MCP tests also cover
+schema-alias blockers, and lexical-noise exclusion. A focused MCP server test
+injects a public standard-library schema and verifies the exact selected-project
+composition, `decode`, and `encode` locations with the selected project scope.
+Its fixture also contains a package-internal `decode Packet` use; the returned
+union remains exactly the workspace five-location set, proving that package
+implementation source is excluded. The companion
+`references_include_unique_implicit_nested_standard_library_module_path` case
+proves that a unique nested `alpha::wire` module supports both the full
+`alpha::wire::Packet` path and the implicit `wire::Packet` leaf with the same
+workspace-only union.
+The corresponding LSP and MCP tests use the same saved source shape, including
+non-BMP saved input, and assert the same five normalized saved locations.
+The checked examples harness cannot inject the synthetic standard-library
+snapshot required by this boundary, so the injected adapter tests are the
+executable evidence route rather than an `examples/specification/` case.
+When a clean and syntax-recovered standard-library schema share one package,
+module, and declaration identity, the eligibility gate applies to every leaf
+role. Composition, `decode`, and `encode` selections therefore each return a
+successful empty result; an eligible clean declaration cannot supply operation
+references around the recovered collision. The paired LSP and MCP regression
+tests named below verify this invariant.
+The LSP test separately asserts its overlay boundary. The adapter tests use
+matching hand-authored source shapes, but they do not mechanically compare
+cross-adapter results. The MCP pagination case compares the complete ordered
+set with the concatenated pages. The MCP capture-failure case verifies that a
+changing saved source returns no partial references or scope.
+The paired adapter rejection tests
+`standard_library_schema_import_collisions_are_successful_empty_results` and
+`references_reject_standard_library_schema_import_collisions_in_both_orders`
+also cover duplicate, conflicting, and recovered standard-library imports in
+both exact-import orders as successful empty results. The shared
+language-service tests additionally prove that an exact standard-library
+import beats a colliding implicit workspace leaf alias for composition and
+operation selections, while a colliding exact workspace import makes both
+selections ambiguous, independently of source order.
+Standard-library schema aliases remain excluded and block same-named schema
+fallback. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
-boundaries.
+boundaries. The language-service standard-library matrix additionally covers
+full and unique implicit module paths, valid repeated and array counts,
+lexical exclusions, origin isolation, and eligibility/import failures. Its
+focused exclusion case selects an import token, module qualifier, and
+standard-library alias-target expression and confirms that none enters the
+normal reference union. The adapter cases independently use the same
+five-location saved source shape. The LSP case keeps that saved result set as
+its baseline, then observes one added
+overlay leaf. The MCP case independently returns the five saved locations. The
+origin matrix selects workspace, direct-dependency, and
+standard-library identities independently, so each returned set excludes the
+other two origins.
+MCP `references_paginate_standard_library_schema_uses_without_changing_scope`
+case proves that every continuation page preserves the original project scope,
+the final page omits `next_cursor`, and pagination concatenates to the unpaged
+result, while
+`references_project_capture_exhausts_retries_for_standard_library_schema_selection`
+proves that stable-capture exhaustion returns `snapshot_changed` without
+partial references or scope.
 
 An eligible public schema alias declared in an exported module of a retained
 direct dependency has a separate composition-and-operation reference
@@ -978,8 +1035,9 @@ function-shaped recovery exclusion, invalid positions,
 path failures, bounded stable-capture retry exhaustion without partial
 reference locations, scope metadata, or package resource mutation for package
 function, function-alias, type-alias, type, constructor, and direct-dependency
-schema selections, direct-dependency schema source-kind and scope boundaries, and
-accepted success and domain-failure result schemas.
+or standard-library schema selections; direct-dependency and standard-library
+schema source-kind and scope boundaries; and accepted success and domain-failure
+result schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 checked package-documentation bundle loading, catalog construction failure
 propagation, bidirectional completeness between the embedded bundle and MCP

@@ -75,13 +75,13 @@ impl SymbolIndex {
             &schema_aliases,
             veln_sema::resolved_schema_composition_references(&workspace_module),
         );
-        let direct_dependency_schemas = direct_dependency_schema_index(
+        let package_schemas = package_schema_index(
             &declarations.schemas,
             &package_schemas,
         );
-        schema_composition_references.extend(direct_dependency_schema_composition_references(
+        schema_composition_references.extend(package_schema_composition_references(
             &files,
-            &direct_dependency_schemas,
+            &package_schemas,
             &schema_aliases,
             &schema_alias_module_imports,
         ));
@@ -92,6 +92,7 @@ impl SymbolIndex {
             schema_aliases,
             schema_alias_declarations,
             package_schema_alias_declarations: declarations.package_schema_alias_declarations,
+            package_schemas,
             effects: declarations.effects,
             handlers: declarations.handlers,
             operations: declarations.operations,
@@ -153,13 +154,19 @@ impl SymbolIndex {
         let references_supported = !matches!(
             &selected.symbol,
             Symbol::Schema(symbol)
-                if symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                if matches!(
+                    symbol.package_origin,
+                    Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                )
                     && is_schema_operation_path_leaf_candidate_token(tokens, token_index)
                     && !is_schema_operation_path_leaf_token(file, token_index)
         ) && !matches!(
             &selected.symbol,
             Symbol::SchemaAlias(symbol)
-                if symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                if matches!(
+                    symbol.package_origin,
+                    Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                )
                     && is_schema_operation_path_leaf_candidate_token(tokens, token_index)
                     && !is_schema_operation_path_leaf_token(file, token_index)
         );
@@ -405,7 +412,7 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
-            return match qualified_workspace_module(file, &qualifier) {
+            return match self.schema_alias_qualified_workspace_module(file, &qualifier) {
                 QualifiedWorkspaceModule::Workspace(module) => self
                     .schemas
                     .iter()

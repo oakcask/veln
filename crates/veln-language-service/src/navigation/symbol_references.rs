@@ -11,7 +11,10 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && if symbol.package_origin == Some(PackageOrigin::DirectDependency) {
+                            && if matches!(
+                                symbol.package_origin,
+                                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                            ) {
                                 is_schema_operation_path_leaf_token(file, *index)
                             } else {
                                 is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
@@ -30,7 +33,10 @@ impl SymbolIndex {
             })
             .collect::<Vec<_>>();
         if symbol.package.is_none()
-            || symbol.package_origin == Some(PackageOrigin::DirectDependency)
+            || matches!(
+                symbol.package_origin,
+                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+            )
         {
             references.extend(
                 self.schema_composition_references
@@ -62,7 +68,10 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && if symbol.package_origin == Some(PackageOrigin::DirectDependency) {
+                            && if matches!(
+                                symbol.package_origin,
+                                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                            ) {
                                 is_schema_operation_path_leaf_token(file, *index)
                             } else {
                                 is_schema_operation_path_leaf_candidate_token(&file.tokens, *index)
@@ -76,7 +85,10 @@ impl SymbolIndex {
             })
             .collect::<Vec<_>>();
         if symbol.package.is_none()
-            || symbol.package_origin == Some(PackageOrigin::DirectDependency)
+            || matches!(
+                symbol.package_origin,
+                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+            )
         {
             references.extend(
                 self.schema_composition_references
@@ -96,12 +108,23 @@ impl SymbolIndex {
 
     fn schema_references_supported(&self, symbol: &NeutralSymbol) -> bool {
         symbol.package.is_none()
-            || (symbol.package_origin == Some(PackageOrigin::DirectDependency)
+            || (matches!(
+                symbol.package_origin,
+                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+            )
                 && symbol
                     .name
                     .chars()
                     .next()
-                    .is_some_and(|initial| initial.is_ascii_uppercase()))
+                    .is_some_and(|initial| initial.is_ascii_uppercase())
+                && symbol.package.as_ref().is_some_and(|package| {
+                    self.package_schemas.contains_key(&(
+                        symbol.package_origin.expect("package schema has an origin"),
+                        package.clone(),
+                        symbol.module.clone(),
+                        symbol.name.clone(),
+                    ))
+                }))
     }
 
     fn local_references(&self, symbol: &LocalSymbol, include_declaration: bool) -> Vec<SourceSpan> {

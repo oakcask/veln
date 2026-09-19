@@ -179,7 +179,10 @@ fn supports_package_reference_kind(result: &NavigationResult) -> bool {
         result.selected_symbol.kind,
         SymbolKind::Function | SymbolKind::Type | SymbolKind::Constructor
     ) || (result.selected_symbol.kind == SymbolKind::Schema
-        && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
+        && matches!(
+            result.selected_symbol.package_origin,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        )
         && matches!(
             result.selected_symbol.declaration_kind,
             SymbolDeclarationKind::Declaration | SymbolDeclarationKind::PublicAlias
