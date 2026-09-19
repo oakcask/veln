@@ -223,10 +223,10 @@ the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 
-For LSP, declaration inclusion remains the request's `includeDeclaration`
-policy: eligible workspace declarations are included when it is true, and
-package declarations remain excluded. MCP applies its own
-`include_declaration` policy over the same shared navigation result; it
+For both adapters, an eligible workspace declaration is included when the
+request enables declaration inclusion and is excluded when it does not. LSP
+uses `includeDeclaration` and always excludes package declarations. MCP uses
+`include_declaration` over the same shared navigation result and additionally
 includes the canonical `veln-pkg:` declaration for an eligible direct
 dependency or standard-library selection. This adapter difference does not
 change the shared symbol identity or workspace reference set.
