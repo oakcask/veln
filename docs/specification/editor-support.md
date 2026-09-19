@@ -259,54 +259,47 @@ package definition location, but its reference set is empty. The
 both declaration policies, full and implicit module paths, workspace-only exact
 ranges, non-BMP saved input, and parity with the MCP case. The existing
 `references-dependency-schema-operation` case preserves operation behavior.
-Focused LSP and MCP adapter coverage injects a public standard-library schema
-and checks the selected-project reference set independently in each adapter,
-including composition, `decode`, and `encode` leaves. The LSP case checks both
-declaration policies, the exact five saved locations, and a non-BMP character
-in the saved input; the MCP case checks the same five expected saved
-locations, pagination, and capture stability. The checked examples harness
-cannot inject a synthetic standard-library snapshot, so these adapter tests are
-the executable evidence route for this case. The injected fixture is test-only;
-the shipped standard-library bundle remains unchanged. Standard-library schema aliases
-remain excluded while their names block schema fallback.
+Focused LSP coverage injects a public standard-library schema and checks its
+selected-project composition, `decode`, and `encode` leaves. The LSP case
+checks both declaration policies, the exact five saved locations, and a non-BMP
+character in the saved input. The checked examples harness cannot inject a
+synthetic standard-library snapshot, so the focused server tests are the
+executable LSP evidence route for this case. The injected fixture is test-only;
+the shipped standard-library bundle remains unchanged. Standard-library schema
+aliases remain excluded while their names block schema fallback.
 If a clean package schema and a syntax-recovered schema share the same package,
 module, and declaration identity, all five leaf roles are ineligible: selecting
 direct composition, `Repeat`, array, `decode`, or `encode` returns the same
 successful empty result.
-The paired adapter regression cases
+The LSP regression case
 `standard_library_schema_recovery_collision_keeps_all_reference_roles_empty`
-and
-`references_keep_standard_library_schema_recovery_collisions_empty_for_all_roles`
-verify this fail-closed identity rule.
+verifies this fail-closed identity rule.
 The language-service matrix
 `standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`
 also checks full and unique implicit module paths, valid `Repeat` and array
-counts, package-origin isolation, lexical exclusions, and selected-project
-boundaries. The focused exclusion test checks import-token, module-qualifier,
-and standard-library alias-target selections remain outside the reference
-union. Its eligibility companion checks private, non-exported,
-invalid-cased, alias-blocked, and ambiguous-import empty results. The shared
-language-service origin-isolation companion selects the same spelling from workspace,
-direct-dependency, and standard-library origins and checks each exact set
-without cross-origin locations. The paired adapter cases use the same
-five-location saved source shape as their baseline. The LSP overlay companion
-first fixes that saved result set, then verifies that only the overlay adds its
-new leaf; the MCP case continues to return the five saved locations. The tests
+counts, package-origin isolation, and lexical exclusions. The focused exclusion
+test checks import-token, module-qualifier, and standard-library alias-target
+selections remain outside the reference union. Its eligibility companion checks
+private, non-exported, invalid-cased, alias-blocked, and ambiguous-import empty
+results. The shared language-service origin-isolation companion selects the
+same spelling from workspace, direct-dependency, and standard-library origins
+and checks each exact set without cross-origin locations. The LSP
+selected-project test excludes another selected root and an unselected
+descendant. The tests
 `standard_library_schema_references_use_the_injected_snapshot` and
 `standard_library_schema_references_pair_saved_baseline_with_lsp_overlay`
-cover adapter ranges, saved-baseline parity, and overlay precedence; MCP
-covers pagination and stable-capture failure for the same injected
-standard-library origin.
+cover UTF-16 ranges, the five-location saved baseline, and overlay precedence.
 The LSP test `standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders`
 also verifies that exact import precedence is independent of declaration order
 and selects the `Packet` leaf itself. The shared matrix includes a same-spelled
 workspace schema, and the eligibility cases include a recovered alias beside a
 valid schema; neither can contaminate the standard-library reference set.
-The paired adapter rejection tests
-`standard_library_schema_import_collisions_are_successful_empty_results` and
-`references_reject_standard_library_schema_import_collisions_in_both_orders`
-keep duplicate, conflicting, and recovered standard-library imports as
-successful empty results.
+The LSP test
+`standard_library_schema_import_collisions_are_successful_empty_results` keeps
+duplicate, conflicting, and recovered standard-library imports as successful
+empty results. MCP behavior and its independent pagination,
+selected-project, and stable-capture evidence are specified by
+[MCP Workspace Projects, Resources, And Navigation](mcp.md#saved-workspace-navigation).
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace composition
 and operation leaves as MCP when declaration inclusion is false. Each

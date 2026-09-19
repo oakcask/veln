@@ -544,11 +544,11 @@ role. Composition, `decode`, and `encode` selections therefore each return a
 successful empty result; an eligible clean declaration cannot supply operation
 references around the recovered collision. The paired LSP and MCP regression
 tests named below verify this invariant.
-The LSP test additionally asserts its overlay boundary; these are paired
-executable cases rather than a prose-only parity claim.
-Its pagination case compares the complete ordered set with the concatenated
-pages, and its capture-failure case verifies that a changing saved source
-returns no partial references or scope.
+The LSP test separately asserts its overlay boundary. The adapter tests use
+matching hand-authored source shapes, but they do not mechanically compare
+cross-adapter results. The MCP pagination case compares the complete ordered
+set with the concatenated pages. The MCP capture-failure case verifies that a
+changing saved source returns no partial references or scope.
 The paired adapter rejection tests
 `standard_library_schema_import_collisions_are_successful_empty_results` and
 `references_reject_standard_library_schema_import_collisions_in_both_orders`
@@ -562,11 +562,11 @@ full and unique implicit module paths, valid repeated and array counts,
 lexical exclusions, origin isolation, and eligibility/import failures. Its
 focused exclusion case selects an import token, module qualifier, and
 standard-library alias-target expression and confirms that none enters the
-normal reference union. The
-paired adapter cases use the same five-location saved source shape. The LSP
-case keeps that saved result set as its baseline, then observes one added
-overlay leaf; MCP continues to return the five saved locations. The origin
-matrix selects workspace, direct-dependency, and
+normal reference union. The adapter cases independently use the same
+five-location saved source shape. The LSP case keeps that saved result set as
+its baseline, then observes one added
+overlay leaf. The MCP case independently returns the five saved locations. The
+origin matrix selects workspace, direct-dependency, and
 standard-library identities independently, so each returned set excludes the
 other two origins.
 MCP `references_paginate_standard_library_schema_uses_without_changing_scope`
@@ -1022,8 +1022,9 @@ function-shaped recovery exclusion, invalid positions,
 path failures, bounded stable-capture retry exhaustion without partial
 reference locations, scope metadata, or package resource mutation for package
 function, function-alias, type-alias, type, constructor, and direct-dependency
-schema selections, direct-dependency schema source-kind and scope boundaries, and
-accepted success and domain-failure result schemas.
+or standard-library schema selections; direct-dependency and standard-library
+schema source-kind and scope boundaries; and accepted success and domain-failure
+result schemas.
 `veln-mcp` unit tests check embedded standard-library startup validation,
 checked package-documentation bundle loading, catalog construction failure
 propagation, bidirectional completeness between the embedded bundle and MCP
