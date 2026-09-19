@@ -111,7 +111,19 @@ targets, plus
 `dependency_schema_composition_respects_import_identity_boundaries`,
 `dependency_schema_composition_import_collisions_are_order_independent`, and
 `dependency_schema_imports_unify_all_leaf_roles_across_explicit_module_sources`
-for retained direct-dependency targets. The
+for retained direct-dependency targets. Retained standard-library schema
+targets use the same full-path and unique implicit-leaf resolution, exact-path
+precedence, import-collision, repeated-count, and lexical-exclusion rules.
+Their package origin keeps them distinct from same-spelled workspace and
+direct-dependency schemas. Standard-library schema aliases remain unsupported
+selection targets and block fallback to a same-spelled schema. The
+`standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`,
+`standard_library_schema_origin_isolation_is_symmetric`,
+`standard_library_schema_eligibility_and_import_failures_are_empty`,
+`standard_library_schema_reference_exclusions_cover_import_module_and_alias_target_tokens`,
+and
+`standard_library_schema_invalid_casing_alias_blockers_and_recovered_leaves_are_empty`
+language-service tests cover these standard-library boundaries. The
 `dependency_schema_alias_declarations_block_composition_schema_fallback`,
 `malformed_dependency_schema_repeats_do_not_select_or_enter_reference_sets`,
 and `dependency_schema_composition_reference_sets_exclude_lexical_noise`

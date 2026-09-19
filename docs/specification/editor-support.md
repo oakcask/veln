@@ -253,8 +253,9 @@ and module qualifiers are not schema
 references. Standard-library schema aliases,
 ineligible package schema aliases, transitive dependencies, recovery records,
 and syntax-recovered leaves remain unsupported. An invalid-cased schema
-declaration in an otherwise eligible direct-dependency source retains its
-package definition location, but its reference set is empty. The
+declaration in an otherwise eligible direct-dependency or standard-library
+source retains its package definition location, but its reference set is
+empty. The
 `references-dependency-schema-composition` LSP case covers the unified set,
 both declaration policies, full and implicit module paths, workspace-only exact
 ranges, non-BMP saved input, and parity with the MCP case. The existing

@@ -388,8 +388,8 @@ visible import or implicit standard-library prelude path required by name
 resolution. Invalid-casing recovery records, private declarations,
 non-exported sources, mismatched package imports, unsupported symbol classes,
 and package module-segment selections succeed with `definition: null`. An
-invalid-cased schema declaration in an otherwise eligible direct-dependency
-source retains its package definition location.
+invalid-cased schema declaration in an otherwise eligible direct-dependency or
+standard-library source retains its package definition location.
 MCP only exposes the recovery record source range through `definition`.
 Prepare-rename, rename edits, and package reference locations are outside the
 MCP definition result.
