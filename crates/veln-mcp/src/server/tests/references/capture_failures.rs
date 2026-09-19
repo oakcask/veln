@@ -493,13 +493,7 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_selec
         ),
     );
     let mut server = initialized_server(&workspace);
-    server.language_resources.replace_test_standard_library(
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
-        [PackageSnapshotSource::new(
-            "wire.veln",
-            b"pub schema Packet\n  value: Int\nend\n",
-        )],
-    );
+    replace_test_standard_library_with_wire_schema(&mut server);
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
@@ -530,6 +524,16 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_selec
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
+}
+
+fn replace_test_standard_library_with_wire_schema(server: &mut Server) {
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    );
 }
 
 #[test]

@@ -10,6 +10,7 @@ mod dependency_constructors_and_aliases;
 mod dependency_functions_and_types;
 mod dependency_schemas;
 mod local_bindings;
+mod scope_and_symbol_boundaries;
 mod standard_library_and_scope;
 mod unsupported_and_coordinates;
 mod workspace_symbols;

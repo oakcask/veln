@@ -1,3 +1,20 @@
+fn packet_standard_library() -> DirectDependencySnapshot {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    )
+    .unwrap();
+    DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap()
+}
+
 #[test]
 fn handler_context_parameter_does_not_bind_same_named_operation_heading() {
     let mut server = Server::default();
@@ -117,21 +134,7 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
 
 #[test]
 fn standard_library_schema_references_pair_saved_baseline_with_lsp_overlay() {
-    let standard_manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
-    let standard_snapshot = capture_embedded_package_snapshot(
-        standard_manifest.as_bytes(),
-        [PackageSnapshotSource::new(
-            "wire.veln",
-            b"pub schema Packet\n  value: Int\nend\n",
-        )],
-    )
-    .unwrap();
-    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
-        standard_snapshot,
-        parse_manifest_text("veln.toml", standard_manifest),
-    )
-    .unwrap();
-    let mut server = Server::default().with_standard_library(standard_library);
+    let mut server = Server::default().with_standard_library(packet_standard_library());
     let project = TempProject::new("standard-library-schema-reference-overlay");
     project.write(
         "main.veln",
@@ -182,22 +185,7 @@ fn standard_library_schema_references_pair_saved_baseline_with_lsp_overlay() {
 
 #[test]
 fn standard_library_schema_references_keep_the_selected_project_boundary() {
-    let standard_manifest =
-        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
-    let standard_snapshot = capture_embedded_package_snapshot(
-        standard_manifest.as_bytes(),
-        [PackageSnapshotSource::new(
-            "wire.veln",
-            b"pub schema Packet\n  value: Int\nend\n",
-        )],
-    )
-    .unwrap();
-    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
-        standard_snapshot,
-        parse_manifest_text("veln.toml", standard_manifest),
-    )
-    .unwrap();
-    let mut server = Server::default().with_standard_library(standard_library);
+    let mut server = Server::default().with_standard_library(packet_standard_library());
     let workspace = TempProject::new("standard-library-schema-project-scope");
     for project in ["app_a", "app_b", "app_a/nested"] {
         workspace.write(&format!("{project}/veln.toml"), "");
