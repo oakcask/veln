@@ -351,6 +351,49 @@ fn standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders()
 }
 
 #[test]
+fn standard_library_schema_unique_implicit_nested_module_path_matches_full_path() {
+    let manifest =
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"alpha/wire.veln\"]\n";
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "alpha/wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let project = TempProject::new("standard-library-schema-unique-implicit");
+    project.write(
+        "main.veln",
+        concat!(
+            "use alpha::wire from \"std\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode alpha::wire::Packet from view at byte_offset(0)?\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let expected = format!(
+        r#"{{"jsonrpc":"2.0","id":2,"result":[{{"uri":"{uri}","range":{{"start":{{"line":3,"character":22}},"end":{{"line":3,"character":28}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":4,"character":15}},"end":{{"line":4,"character":21}}}}}}]}}"#,
+        uri = escape_json(&main_uri),
+    );
+    for (line, character) in [(3, 22), (4, 15)] {
+        let references = server.handle_message(&references_request(&main_uri, line, character));
+        assert_eq!(references, std::slice::from_ref(&expected), "{line}:{character}");
+    }
+}
+
+#[test]
 fn standard_library_schema_recovery_collision_keeps_all_reference_roles_empty() {
     let manifest = concat!(
         "[package]\nname = \"std\"\n\n",

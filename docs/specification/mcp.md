@@ -533,6 +533,13 @@ empty results. Focused language-service tests cover malformed repeated counts,
 schema-alias blockers, and lexical-noise exclusion. A focused MCP server test
 injects a public standard-library schema and verifies the exact selected-project
 composition, `decode`, and `encode` locations with the selected project scope.
+Its fixture also contains a package-internal `decode Packet` use; the returned
+union remains exactly the workspace five-location set, proving that package
+implementation source is excluded. The companion
+`references_include_unique_implicit_nested_standard_library_module_path` case
+proves that a unique nested `alpha::wire` module supports both the full
+`alpha::wire::Packet` path and the implicit `wire::Packet` leaf with the same
+workspace-only union.
 The corresponding LSP and MCP tests use the same saved source shape, including
 non-BMP saved input, and assert the same five normalized saved locations.
 The checked examples harness cannot inject the synthetic standard-library

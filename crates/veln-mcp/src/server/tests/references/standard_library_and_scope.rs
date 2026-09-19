@@ -32,7 +32,7 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
         [PackageSnapshotSource::new(
             "wire.veln",
-            b"pub schema Packet\n  value: Int\nend\n",
+            b"pub schema Packet\n  value: Int\nend\n\nfn package_internal(view: ByteView) -> ()\n  decode Packet from view at byte_offset(0)?\nend\n",
         )],
     );
 
@@ -65,6 +65,45 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
                 "project_wide": true
             })
         );
+    }
+}
+
+#[test]
+fn references_include_unique_implicit_nested_standard_library_module_path() {
+    let workspace = TempWorkspace::new("references-standard-library-schema-implicit-nested");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use alpha::wire from \"std\"\n\n",
+            "fn read(view: ByteView) -> ()\n",
+            "  decode alpha::wire::Packet from view at byte_offset(0)?\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"alpha/wire.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "alpha/wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    );
+
+    for (line, column) in [(4, 23), (5, 16)] {
+        let result = server.references_tool(&json!({
+            "source": "main.veln",
+            "line": line,
+            "column": column,
+        }));
+        assert_eq!(result["isError"], false, "{result:#}");
+        assert_reference_ranges(
+            &result,
+            &[("main.veln", 4, 23, 4, 29), ("main.veln", 5, 16, 5, 22)],
+            "unique implicit nested standard-library schema",
+        );
+        assert!(!result.to_string().contains("veln-pkg:///std/snapshot/"));
     }
 }
 

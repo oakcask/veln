@@ -298,10 +298,16 @@ and selects the `Packet` leaf itself. The shared matrix includes a same-spelled
 workspace schema, and the eligibility cases include a recovered alias beside a
 valid schema; neither can contaminate the standard-library reference set.
 The LSP test
+`standard_library_schema_unique_implicit_nested_module_path_matches_full_path`
+separately proves that a nested exported module has a unique implicit leaf
+alias: its full `alpha::wire::Packet` path and `wire::Packet` path resolve to
+the same package-origin identity and exact saved reference union.
+The LSP test
 `standard_library_schema_import_collisions_are_successful_empty_results` keeps
 duplicate, conflicting, and recovered standard-library imports as successful
-empty results, including exact workspace and exact standard-library imports in
-both source orders. MCP behavior and its independent pagination,
+empty results. The shared language-service matrix, rather than this LSP case,
+owns the exact workspace-versus-standard-library origin comparison and its
+source-order cases. MCP behavior and its independent pagination,
 selected-project, and stable-capture evidence are specified by
 [MCP Workspace Projects, Resources, And Navigation](mcp.md#saved-workspace-navigation).
 For an eligible public schema alias in an exported retained direct-dependency
