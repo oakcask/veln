@@ -427,7 +427,16 @@ following supported workspace symbols and eligible package selections:
 
 The `references` input is either an initial source-coordinate request or a
 continuation request containing only a non-empty `cursor`. Initial requests
-accept `page_size` from 1 through 1,000 and default it to 100. The result is
+may also set the optional boolean `include_declaration`; omission is
+equivalent to `false`. Initial requests accept `page_size` from 1 through
+1,000 and default it to 100. When `include_declaration` is true, an eligible
+workspace selection adds its one `file:` declaration location, while an
+eligible direct-dependency or standard-library selection adds its canonical
+`veln-pkg:` declaration location. The declaration is added before the normal
+URI-and-range sort and pagination. Package implementation sources, aliases,
+ineligible symbols, and unsupported selections remain excluded. A
+continuation contains only `cursor`, so the captured declaration policy
+cannot change between pages. The result is
 sorted by URI UTF-8 bytes, then numeric start line, start column, end line, and
 end column before paging. A nonfinal page has exactly the requested size and
 contains `next_cursor`; an empty or final page omits that field. Every page

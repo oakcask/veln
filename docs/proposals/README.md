@@ -14,12 +14,6 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
-## Ready
-
-- MCP reference declaration inclusion, using the existing navigation result,
-  package-location, and pagination contracts:
-  [mcp-reference-declaration-inclusion.md](mcp-reference-declaration-inclusion.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

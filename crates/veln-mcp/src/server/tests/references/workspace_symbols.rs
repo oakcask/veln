@@ -60,6 +60,22 @@ fn references_return_sorted_project_function_locations_and_scope() {
         &[("main.veln", 14, 3, 14, 9)],
         "constructor support",
     );
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 10,
+        "column": 4,
+        "include_declaration": true
+    }));
+    assert_reference_ranges(
+        &with_declaration,
+        &[
+            ("main.veln", 5, 4, 5, 10),
+            ("main.veln", 6, 3, 6, 9),
+            ("main.veln", 10, 3, 10, 9),
+        ],
+        "workspace function declaration inclusion",
+    );
 }
 
 #[test]

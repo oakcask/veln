@@ -223,6 +223,14 @@ the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 
+For LSP, declaration inclusion remains the request's `includeDeclaration`
+policy: eligible workspace declarations are included when it is true, and
+package declarations remain excluded. MCP applies its own
+`include_declaration` policy over the same shared navigation result; it may
+include the canonical `veln-pkg:` declaration for an eligible direct
+dependency or standard-library selection. This adapter difference does not
+change the shared symbol identity or workspace reference set.
+
 Same-module bare schema and alias paths can resolve to their selected identity.
 Imported-module uses must be named by an accepted qualified path. Schema
 composition and operation paths also accept a unique implicit leaf import
