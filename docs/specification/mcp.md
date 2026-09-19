@@ -468,6 +468,19 @@ stdio case checks the advertised schemas, exact ordered multi-file page
 concatenation, repeated scope metadata, a valid cursor round trip, same-cursor
 invalid-shape recovery, replay rejection, and rejected fractional, null, zero,
 and over-maximum page sizes.
+The checked input-schema tests additionally accept a boolean
+`include_declaration` only on an initial request. The focused server reference
+tests cover omission and explicit `false` equivalence, declaration sorting and
+pagination, every supported workspace symbol class, eligible dependency and
+standard-library declarations and aliases, anonymous-file scope, ineligible
+selections, capture failure, cursor invalidation, and resource-capacity
+failure. The `references-workspace-schema`,
+`references-workspace-schema-alias`,
+`references-standard-library-function-alias`, and
+`references-standard-library-type-alias` MCP stdio cases provide exact
+protocol-level declaration locations. The matching workspace-schema-alias LSP
+case checks the adapter-specific declaration policy over the same saved source
+shape.
 
 Workspace schema references include schema path-leaf occurrences in `decode`
 and `encode` expressions and directly resolved schema-composition path leaves

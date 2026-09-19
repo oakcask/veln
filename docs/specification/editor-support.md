@@ -226,8 +226,8 @@ and rename support do not expand to schema aliases.
 For LSP, declaration inclusion remains the request's `includeDeclaration`
 policy: eligible workspace declarations are included when it is true, and
 package declarations remain excluded. MCP applies its own
-`include_declaration` policy over the same shared navigation result; it may
-include the canonical `veln-pkg:` declaration for an eligible direct
+`include_declaration` policy over the same shared navigation result; it
+includes the canonical `veln-pkg:` declaration for an eligible direct
 dependency or standard-library selection. This adapter difference does not
 change the shared symbol identity or workspace reference set.
 

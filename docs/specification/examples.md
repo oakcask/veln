@@ -315,9 +315,19 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `references` for embedded standard-library prelude
   functions:
   `../../examples/specification/mcp/references-standard-library-function/`.
+- MCP saved workspace `references` declaration inclusion for embedded
+  standard-library public function aliases, with the exact canonical package
+  declaration URI and range:
+  `../../examples/specification/mcp/references-standard-library-function-alias/`.
 - MCP saved workspace `references` for embedded standard-library public type
-  aliases:
+  aliases, including the exact canonical package declaration URI and range
+  when declaration inclusion is enabled:
   `../../examples/specification/mcp/references-standard-library-type-alias/`.
+- MCP saved workspace schema and schema-alias declaration inclusion, plus the
+  matching LSP schema-alias declaration policy over the same saved sources:
+  `../../examples/specification/mcp/references-workspace-schema/`,
+  `../../examples/specification/mcp/references-workspace-schema-alias/`, and
+  `../../examples/specification/lsp/references-workspace-schema-alias/`.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
 - MCP and LSP saved workspace `references` for direct-dependency public schema
