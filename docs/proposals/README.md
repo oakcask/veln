@@ -16,6 +16,9 @@ also states it.
 
 ## Ready
 
+- MCP reference declaration inclusion, using the existing navigation result,
+  package-location, and pagination contracts:
+  [mcp-reference-declaration-inclusion.md](mcp-reference-declaration-inclusion.md).
 
 ## Blocked
 
@@ -26,9 +29,10 @@ also states it.
   rename tool contract:
   [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory only for
-  the unimplemented declaration-inclusion, alias, transitive-dependency,
-  recovery, casing-neutral, cross-adapter conformance, published-reference,
-  and plugin work. Do not select the umbrella directly:
+  the unimplemented alias, transitive-dependency, recovery, casing-neutral,
+  cross-adapter conformance, published-reference, and plugin work. Do not
+  select the umbrella directly. Its independently ready MCP reference
+  declaration-inclusion slice is listed above:
   [agent-language-services.md](agent-language-services.md).
 
 ## Selection Rule
