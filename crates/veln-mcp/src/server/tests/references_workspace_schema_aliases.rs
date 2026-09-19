@@ -77,6 +77,29 @@ fn references_keep_workspace_schema_aliases_inside_selected_project() {
 }
 
 #[test]
+fn references_include_unused_eligible_workspace_schema_alias_declaration() {
+    let workspace = TempWorkspace::new("references-unused-workspace-schema-alias");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+    );
+
+    let result = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 5,
+        "column": 12,
+        "include_declaration": true
+    }));
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[("main.veln", 5, 12, 5, 23)],
+        "unused eligible workspace schema alias declaration",
+    );
+}
+
+#[test]
 fn references_keep_anonymous_sources_isolated_for_workspace_schema_alias_selections() {
     let workspace = TempWorkspace::new("references-anonymous-schema-isolation");
     workspace.write("app/veln.toml", "");
@@ -410,26 +433,62 @@ fn references_keep_ineligible_workspace_schema_aliases_empty_with_project_scope(
         for (path, text) in case.files {
             workspace.write(path, text);
         }
-        let result = references_result(&workspace, case.source, case.line, case.column);
-        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
-        assert_eq!(
-            result["structuredContent"]["references"],
-            json!([]),
-            "{}: {result:#}",
-            case.name
-        );
-        assert_eq!(
-            result["structuredContent"]["scope"],
-            json!({
-                "mode": "project",
-                "generation": 0,
-                "project": ".",
-                "project_wide": true
-            }),
-            "{}: {result:#}",
-            case.name
-        );
+        for include_declaration in [false, true] {
+            let result = initialized_server(&workspace).references_tool(&json!({
+                "source": case.source,
+                "line": case.line,
+                "column": case.column,
+                "include_declaration": include_declaration
+            }));
+            assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+            assert_eq!(
+                result["structuredContent"]["references"],
+                json!([]),
+                "{}, include_declaration={include_declaration}: {result:#}",
+                case.name
+            );
+            assert_eq!(
+                result["structuredContent"]["scope"],
+                json!({
+                    "mode": "project",
+                    "generation": 0,
+                    "project": ".",
+                    "project_wide": true
+                }),
+                "{}, include_declaration={include_declaration}: {result:#}",
+                case.name
+            );
+        }
     }
+}
+
+#[test]
+fn references_keep_file_declaration_for_an_independently_selected_workspace_project() {
+    let workspace = TempWorkspace::new("references-workspace-project-identity");
+    workspace.write(
+        "app/veln.toml",
+        "[dependencies]\nlibrary = { path = \"../library\" }\n",
+    );
+    workspace.write("app/main.veln", "fn main() -> Int\n  0\nend\n");
+    workspace.write("library/veln.toml", "");
+    workspace.write(
+        "library/main.veln",
+        "pub schema Packet\n  value: Int\nend\n",
+    );
+
+    let result = initialized_server(&workspace).references_tool(&json!({
+        "source": "library/main.veln",
+        "line": 1,
+        "column": 12,
+        "include_declaration": true
+    }));
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[("library/main.veln", 1, 12, 1, 18)],
+        "independently selected workspace project declaration",
+    );
+    assert_eq!(result["structuredContent"]["scope"]["project"], "library");
 }
 
 #[test]

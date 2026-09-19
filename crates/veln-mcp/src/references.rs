@@ -177,7 +177,10 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
     ) && (!matches!(
         result.selected_symbol.declaration_kind,
         SymbolDeclarationKind::PublicAlias
-    ) || !result.references.is_empty())
+    ) || (result.selected_symbol.kind == SymbolKind::Schema
+        && result.reference_eligible)
+        || (result.selected_symbol.kind != SymbolKind::Schema
+            && !result.references.is_empty()))
 }
 
 fn supports_package_references(result: &NavigationResult) -> bool {

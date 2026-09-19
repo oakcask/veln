@@ -498,9 +498,11 @@ over a same-spelled implicit leaf alias. Otherwise, an implicit leaf alias
 resolves only when exactly one workspace or package import provides it.
 Conflicting exact imports resolve no schema identity. Duplicate and
 syntax-recovered dependency imports resolve no dependency schema identity. A
-selected workspace schema's set excludes the
-declaration, module qualifiers, package schemas, schema-alias leaves, alias
-traversal, recovery symbols, invalid-casing records, and
+selected workspace schema's set excludes the declaration when
+`include_declaration` is omitted or false. When it is true, the eligible
+workspace schema declaration is included as its `file:` location before
+sorting and pagination. Module qualifiers, package schemas, schema-alias
+leaves, alias traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
 strings, comments, and schema uses that resolve to another declaration.
 
@@ -509,8 +511,10 @@ from their target schema and from every other alias. An alias is eligible when
 its direct target resolves to a public schema in the selected workspace; alias
 chains and package targets are not eligible. Selecting the alias declaration
 or a resolved alias leaf returns its `decode`, `encode`, direct-composition,
-and supported repeated-payload leaves without the declaration or alias-target
-expression. A bare alias resolves only in its declaring module. A valid
+and supported repeated-payload leaves without the alias-target expression.
+When `include_declaration` is true, the eligible alias declaration is included
+as its `file:` location before sorting and pagination. A bare alias resolves
+only in its declaring module. A valid
 qualified workspace import can expose the alias in another owned source.
 Ineligible workspace aliases, package alias selections outside the eligible
 direct-dependency composition-and-operation boundary, module qualifiers, and recovery or
