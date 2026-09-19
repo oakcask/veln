@@ -16,3 +16,4 @@
 {"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1.5}}}
 {"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1001}}}
 {"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"page_size":1}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":1,"column":12,"include_declaration":true}}}

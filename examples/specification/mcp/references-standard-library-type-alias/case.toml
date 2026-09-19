@@ -120,3 +120,18 @@ equals = {"start":{"line":8,"column":23},"end":{"line":8,"column":32}}
 id = 7
 path = "/result/structuredContent/references/7/range"
 equals = {"start":{"line":1,"column":17},"end":{"line":1,"column":26}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references"
+length = 10
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/9/uri"
+contains = "veln-pkg:///std/snapshot/"
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/9/range"
+equals = {"start":{"line":7,"column":10},"end":{"line":7,"column":19}}

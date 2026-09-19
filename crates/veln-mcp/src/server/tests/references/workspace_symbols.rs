@@ -60,6 +60,31 @@ fn references_return_sorted_project_function_locations_and_scope() {
         &[("main.veln", 14, 3, 14, 9)],
         "constructor support",
     );
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 10,
+        "column": 4,
+        "include_declaration": true
+    }));
+    assert_reference_ranges(
+        &with_declaration,
+        &[
+            ("main.veln", 5, 4, 5, 10),
+            ("main.veln", 6, 3, 6, 9),
+            ("main.veln", 10, 3, 10, 9),
+        ],
+        "workspace function declaration inclusion",
+    );
+
+    let omitted = references_result(&workspace, "main.veln", 10, 4);
+    let explicit_false = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 10,
+        "column": 4,
+        "include_declaration": false
+    }));
+    assert_eq!(omitted, explicit_false);
 }
 
 #[test]
@@ -431,6 +456,27 @@ fn references_return_workspace_schema_composition_locations_and_scope() {
             ("other.veln", 9, 21, 9, 27),
         ],
         "workspace schema composition references",
+    );
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "app/wire.veln",
+        "line": 1,
+        "column": 12,
+        "include_declaration": true
+    }));
+    assert_reference_ranges(
+        &with_declaration,
+        &[
+            ("app/wire.veln", 1, 12, 1, 18),
+            ("app/wire.veln", 9, 11, 9, 17),
+            ("app/wire.veln", 10, 27, 10, 33),
+            ("app/wire.veln", 11, 15, 11, 21),
+            ("other.veln", 6, 25, 6, 31),
+            ("other.veln", 7, 26, 7, 32),
+            ("other.veln", 8, 38, 8, 44),
+            ("other.veln", 9, 21, 9, 27),
+        ],
+        "workspace schema declaration inclusion",
     );
 
     for (name, source, line, column) in [

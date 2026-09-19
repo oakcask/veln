@@ -48,6 +48,21 @@ fn references_return_standard_library_function_locations() {
         ],
         "standard library function",
     );
+    let with_declaration = std_server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 9,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/math.veln",
+        1,
+        8,
+        1,
+        16,
+        "standard library function declaration inclusion",
+    );
 }
 
 #[test]
@@ -172,6 +187,21 @@ fn references_return_standard_library_type_locations() {
         ],
         "standard library type",
     );
+    let with_declaration = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 1,
+        "column": 17,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/prelude.veln",
+        1,
+        10,
+        1,
+        13,
+        "standard library type declaration inclusion",
+    );
 }
 
 #[test]
@@ -217,6 +247,21 @@ fn references_return_standard_library_constructor_locations() {
         ],
         "standard library constructor",
     );
+    let with_declaration = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 3,
+        "column": 6,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/prelude.veln",
+        2,
+        7,
+        2,
+        11,
+        "standard library constructor declaration inclusion",
+    );
 }
 
 #[test]
@@ -252,6 +297,33 @@ fn references_keep_anonymous_sources_isolated_for_new_symbol_classes() {
         &result,
         &[("loose.veln", 4, 18, 4, 22), ("loose.veln", 4, 27, 4, 31)],
         "anonymous type isolation",
+    );
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "loose.veln",
+        "line": 4,
+        "column": 19,
+        "include_declaration": true
+    }));
+    assert_eq!(with_declaration["isError"], false, "{with_declaration:#}");
+    assert_eq!(
+        with_declaration["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "loose.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &with_declaration,
+        &[
+            ("loose.veln", 1, 6, 1, 10),
+            ("loose.veln", 4, 18, 4, 22),
+            ("loose.veln", 4, 27, 4, 31),
+        ],
+        "anonymous type declaration inclusion",
     );
 }
 
@@ -421,7 +493,7 @@ fn references_keep_descendant_package_sources_isolated_for_workspace_schema_sele
 }
 
 #[test]
-fn references_exclude_declarations_for_new_workspace_symbol_classes() {
+fn references_include_declarations_for_new_workspace_symbol_classes() {
     struct Case {
         name: &'static str,
         line: usize,
@@ -459,42 +531,55 @@ fn references_exclude_declarations_for_new_workspace_symbol_classes() {
             name: "type declaration",
             line: 1,
             column: 6,
-            ranges: vec![("main.veln", 5, 16, 5, 20), ("main.veln", 11, 24, 11, 28)],
+            ranges: vec![
+                ("main.veln", 1, 6, 1, 10),
+                ("main.veln", 5, 16, 5, 20),
+                ("main.veln", 11, 24, 11, 28),
+            ],
         },
         Case {
             name: "constructor use",
             line: 12,
             column: 4,
-            ranges: vec![("main.veln", 12, 3, 12, 7)],
+            ranges: vec![("main.veln", 2, 3, 2, 7), ("main.veln", 12, 3, 12, 7)],
         },
         Case {
             name: "function parameter use",
             line: 6,
             column: 21,
-            ranges: vec![("main.veln", 6, 20, 6, 25), ("main.veln", 7, 17, 7, 22)],
+            ranges: vec![
+                ("main.veln", 5, 9, 5, 14),
+                ("main.veln", 6, 20, 6, 25),
+                ("main.veln", 7, 17, 7, 22),
+            ],
         },
         Case {
             name: "result binding use",
             line: 6,
             column: 11,
-            ranges: vec![("main.veln", 6, 10, 6, 16)],
+            ranges: vec![("main.veln", 5, 25, 5, 31), ("main.veln", 6, 10, 6, 16)],
         },
         Case {
             name: "handler context parameter use",
             line: 19,
             column: 20,
-            ranges: vec![("main.veln", 20, 19, 20, 27)],
+            ranges: vec![("main.veln", 19, 13, 19, 21), ("main.veln", 20, 19, 20, 27)],
         },
         Case {
             name: "handler operation clause parameter use",
             line: 20,
             column: 29,
-            ranges: vec![("main.veln", 20, 28, 20, 34)],
+            ranges: vec![("main.veln", 20, 8, 20, 14), ("main.veln", 20, 28, 20, 34)],
         },
     ];
 
     for case in cases {
-        let result = references_result(&workspace, "main.veln", case.line, case.column);
+        let result = initialized_server(&workspace).references_tool(&json!({
+            "source": "main.veln",
+            "line": case.line,
+            "column": case.column,
+            "include_declaration": true
+        }));
         assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
         assert_reference_ranges(&result, &case.ranges, case.name);
     }

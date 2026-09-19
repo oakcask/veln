@@ -14,12 +14,6 @@ also states it.
 
 - Current behavior: [Language Specification](../specification/README.md).
 
-## Ready
-
-- MCP reference declaration inclusion, using the existing navigation result,
-  package-location, and pagination contracts:
-  [mcp-reference-declaration-inclusion.md](mcp-reference-declaration-inclusion.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
@@ -31,9 +25,7 @@ also states it.
 - The agent-language-services umbrella remains a planning inventory only for
   the unimplemented alias, transitive-dependency, recovery, casing-neutral,
   cross-adapter conformance, published-reference, and plugin work. Do not
-  select the umbrella directly. Its independently ready MCP reference
-  declaration-inclusion slice is listed above:
-  [agent-language-services.md](agent-language-services.md).
+  select the umbrella directly.
 
 ## Selection Rule
 

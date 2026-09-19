@@ -427,7 +427,17 @@ following supported workspace symbols and eligible package selections:
 
 The `references` input is either an initial source-coordinate request or a
 continuation request containing only a non-empty `cursor`. Initial requests
-accept `page_size` from 1 through 1,000 and default it to 100. The result is
+may also set the optional boolean `include_declaration`; omission is
+equivalent to `false`. Initial requests accept `page_size` from 1 through
+1,000 and default it to 100. When `include_declaration` is true, an eligible
+workspace selection adds its one `file:` declaration location, while an
+eligible direct-dependency or standard-library selection adds its canonical
+`veln-pkg:` declaration location. The declaration is added before the normal
+URI-and-range sort and pagination. Package implementation sources, alias
+targets, ineligible aliases and symbols, and unsupported selections remain
+excluded; eligible public aliases remain supported selections. A
+continuation contains only `cursor`, so the captured declaration policy
+cannot change between pages. The result is
 sorted by URI UTF-8 bytes, then numeric start line, start column, end line, and
 end column before paging. A nonfinal page has exactly the requested size and
 contains `next_cursor`; an empty or final page omits that field. Every page
@@ -458,6 +468,19 @@ stdio case checks the advertised schemas, exact ordered multi-file page
 concatenation, repeated scope metadata, a valid cursor round trip, same-cursor
 invalid-shape recovery, replay rejection, and rejected fractional, null, zero,
 and over-maximum page sizes.
+The checked input-schema tests additionally accept a boolean
+`include_declaration` only on an initial request. The focused server reference
+tests cover omission and explicit `false` equivalence, declaration sorting and
+pagination, every supported workspace symbol class, eligible dependency and
+standard-library declarations and aliases, anonymous-file scope, ineligible
+selections, capture failure, cursor invalidation, and resource-capacity
+failure. The `references-workspace-schema`,
+`references-workspace-schema-alias`,
+`references-standard-library-function-alias`, and
+`references-standard-library-type-alias` MCP stdio cases provide exact
+protocol-level declaration locations. The matching workspace-schema-alias LSP
+case checks the adapter-specific declaration policy over the same saved source
+shape.
 
 Workspace schema references include schema path-leaf occurrences in `decode`
 and `encode` expressions and directly resolved schema-composition path leaves
@@ -565,8 +588,10 @@ language-service tests additionally prove that an exact standard-library
 import beats a colliding implicit workspace leaf alias for composition and
 operation selections, while a colliding exact workspace import makes both
 selections ambiguous, independently of source order.
-Standard-library schema aliases remain excluded and block same-named schema
-fallback. Focused language-service and MCP tests also cover
+Ineligible standard-library aliases and aliases with unresolved, wrong-kind, or
+invalid-cased targets remain excluded. Eligible public aliases from retained
+direct dependencies remain supported reference selections and can include
+their canonical declaration location. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries. The language-service standard-library matrix additionally covers
 full and unique implicit module paths, valid repeated and array counts,

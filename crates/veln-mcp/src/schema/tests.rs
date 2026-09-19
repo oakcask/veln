@@ -112,12 +112,26 @@ fn references_input_requires_closed_positive_coordinates() {
         "column": 1,
         "page_size": 1000
     })));
+    assert!(tool.accepts_input(&serde_json::json!({
+        "source": "main.veln",
+        "line": 1,
+        "column": 1,
+        "include_declaration": true
+    })));
+    assert_eq!(
+        tool.input_schema()["oneOf"][0]["properties"]["include_declaration"],
+        serde_json::json!({"type": "boolean"})
+    );
     assert!(tool.accepts_input(&serde_json::json!({"cursor": "opaque"})));
     for value in [
         serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":0}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":1001}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":null}),
         serde_json::json!({"cursor":"opaque","page_size":1}),
+        serde_json::json!({"cursor":"opaque","include_declaration":true}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":null}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":"true"}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":false,"cursor":"opaque"}),
         serde_json::json!({"cursor":""}),
     ] {
         assert!(!tool.accepts_input(&value), "{value}");
@@ -142,6 +156,10 @@ fn references_input_branches_are_closed_under_draft_2020_12_composition() {
     assert!(!matches_schema(
         &schema,
         &serde_json::json!({"cursor":"opaque","page_size":1})
+    ));
+    assert!(!matches_schema(
+        &schema,
+        &serde_json::json!({"cursor":"opaque","include_declaration":true})
     ));
 }
 

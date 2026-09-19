@@ -606,3 +606,18 @@ workspace_file_uri = "main.veln"
 id = 4
 path = "/result/6/range"
 equals = {"start":{"line":4,"character":32},"end":{"line":4,"character":42}}
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+length = 8
+
+[[lsp_assert]]
+id = 20
+path = "/result/0/uri"
+workspace_file_uri = "aliases.veln"
+
+[[lsp_assert]]
+id = 20
+path = "/result/0/range"
+equals = {"start":{"line":3,"character":11},"end":{"line":3,"character":21}}

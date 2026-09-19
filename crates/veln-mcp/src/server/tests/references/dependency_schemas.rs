@@ -518,6 +518,22 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         "direct dependency schema composition",
     );
 
+    let composition_with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 26,
+        "column": 19,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &composition_with_declaration,
+        "/public.veln",
+        4,
+        12,
+        4,
+        18,
+        "direct dependency schema declaration inclusion",
+    );
+
     let alias = references_result(&workspace, "main.veln", 14, 18);
     assert_eq!(alias["isError"], false, "{alias:#}");
     assert_reference_ranges(

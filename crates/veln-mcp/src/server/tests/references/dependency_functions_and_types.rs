@@ -36,6 +36,78 @@ fn references_return_direct_dependency_function_locations_from_saved_project() {
 }
 
 #[test]
+fn references_include_eligible_package_declaration_after_workspace_references() {
+    let workspace = TempWorkspace::new("references-package-declaration-inclusion");
+    write_dependency_reference_workspace(&workspace, "path", "vendor/dep", None);
+    let mut server = initialized_server(&workspace);
+
+    let first = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 10,
+        "page_size": 3,
+        "include_declaration": true
+    }));
+    assert_eq!(first["isError"], false, "{first:#}");
+    assert_eq!(
+        first["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert!(
+        first["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|location| location["uri"].as_str().unwrap().starts_with("file://"))
+    );
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let invalid_continuation = server
+        .handle_request(json!({
+            "jsonrpc": "2.0",
+            "id": "invalid-continuation",
+            "method": "tools/call",
+            "params": {
+                "name": "references",
+                "arguments": {"cursor": cursor, "include_declaration": true}
+            }
+        }))
+        .unwrap();
+    assert_eq!(invalid_continuation["error"]["code"], -32602);
+
+    let second = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(second["isError"], false, "{second:#}");
+    let package_declaration = second["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|location| {
+            location["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-pkg:///")
+        })
+        .unwrap_or_else(|| panic!("package declaration missing: {second:#}"));
+    assert!(
+        package_declaration["uri"]
+            .as_str()
+            .unwrap()
+            .ends_with("/lib/math.veln"),
+        "{second:#}"
+    );
+    assert_eq!(
+        package_declaration["range"]["start"],
+        json!({"line": 1, "column": 8})
+    );
+}
+
+#[test]
 fn references_accept_direct_dependency_function_source_forms() {
     struct Case {
         name: &'static str,
@@ -233,6 +305,22 @@ fn references_return_direct_dependency_type_locations_from_saved_project() {
             && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
             && !reference["uri"].as_str().unwrap().contains("vendor/dep")
     }));
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 13,
+        "column": 23,
+        "include_declaration": true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/model.veln",
+        1,
+        10,
+        1,
+        14,
+        "direct dependency type declaration inclusion",
+    );
 }
 
 #[test]
@@ -582,7 +670,12 @@ fn references_reject_type_alias_targets_that_do_not_resolve_semantically() {
             workspace.write(&format!("vendor/dep/{path}"), text);
         }
 
-        let result = references_result(&workspace, "main.veln", 3, 23);
+        let result = initialized_server(&workspace).references_tool(&json!({
+            "source": "main.veln",
+            "line": 3,
+            "column": 23,
+            "include_declaration": true
+        }));
 
         assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
         assert_eq!(

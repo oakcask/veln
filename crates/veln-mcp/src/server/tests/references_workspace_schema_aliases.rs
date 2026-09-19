@@ -57,6 +57,23 @@ fn references_keep_workspace_schema_aliases_inside_selected_project() {
             "workspace schema alias project isolation",
         );
     }
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "app_a/main.veln",
+        "line": 5,
+        "column": 12,
+        "include_declaration": true
+    }));
+    assert_eq!(with_declaration["isError"], false, "{with_declaration:#}");
+    assert_reference_ranges(
+        &with_declaration,
+        &[
+            ("app_a/main.veln", 5, 12, 5, 23),
+            ("app_a/main.veln", 8, 10, 8, 21),
+            ("app_a/worker.veln", 4, 16, 4, 27),
+        ],
+        "workspace schema alias declaration inclusion",
+    );
 }
 
 #[test]

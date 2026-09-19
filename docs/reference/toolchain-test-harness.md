@@ -319,7 +319,8 @@ and prepare-rename results for unique compatible invalid declarations,
 lexical bindings, and handler bindings, empty navigation results for
 ambiguous, incompatible-role, shadowed, qualified, and out-of-scope recovery
 rejection rows, valid bare
-nullary constructor precedence over recovery navigation, rename invalid-case
+nullary constructor precedence over recovery navigation, workspace schema-alias
+declaration inclusion, rename invalid-case
 and conflict errors, edit-free rename failures, and shutdown responses. Raw
 LSP cases remain only where protocol framing or an as-yet-unmigrated
 representation is still part of the fixture.
@@ -335,7 +336,12 @@ same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.
 The `references-workspace-schema-alias` MCP specification case uses that model
 for exact alias reference locations, alias and target identity separation,
-empty unsupported-selection results, and project scope.
+empty unsupported-selection results, project scope, and exact workspace
+declaration inclusion. The `references-workspace-schema` case also pins its
+exact workspace declaration location. The
+`references-standard-library-function-alias` and
+`references-standard-library-type-alias` cases pin the canonical package
+declaration URI and range when declaration inclusion is enabled.
 The `references-dependency-schema-composition` MCP specification case uses that
 model for exact workspace-only composition and operation reference locations,
 selection parity, and project scope. The

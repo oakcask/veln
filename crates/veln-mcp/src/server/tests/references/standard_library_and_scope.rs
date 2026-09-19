@@ -66,6 +66,51 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
             })
         );
     }
+
+    let with_declaration = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 6,
+        "column": 18,
+        "include_declaration": true
+    }));
+    let declaration = with_declaration["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|location| {
+            location["uri"]
+                .as_str()
+                .unwrap()
+                .starts_with("veln-pkg:///std/")
+        })
+        .unwrap_or_else(|| panic!("standard-library declaration missing: {with_declaration:#}"));
+    assert!(declaration["uri"].as_str().unwrap().ends_with("/wire.veln"));
+    assert_eq!(
+        declaration["range"]["start"],
+        json!({"line": 1, "column": 12})
+    );
+    let locations = with_declaration["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(locations.len(), 6, "{with_declaration:#}");
+    assert_eq!(
+        locations[..5]
+            .iter()
+            .map(|location| location["range"].clone())
+            .collect::<Vec<_>>(),
+        vec![
+            json!({"start":{"line":6,"column":18},"end":{"line":6,"column":24}}),
+            json!({"start":{"line":7,"column":33},"end":{"line":7,"column":39}}),
+            json!({"start":{"line":8,"column":17},"end":{"line":8,"column":23}}),
+            json!({"start":{"line":12,"column":16},"end":{"line":12,"column":22}}),
+            json!({"start":{"line":13,"column":16},"end":{"line":13,"column":22}}),
+        ]
+    );
+    assert!(
+        locations[..5]
+            .iter()
+            .all(|location| location["uri"].as_str().unwrap().starts_with("file://"))
+    );
 }
 
 #[test]

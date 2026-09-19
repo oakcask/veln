@@ -56,6 +56,7 @@ struct ReferenceArguments<'a> {
     line: Coordinate,
     column: Coordinate,
     page_size: usize,
+    include_declaration: bool,
     raw_line: &'a Value,
     raw_column: &'a Value,
 }
@@ -75,6 +76,10 @@ impl<'a> ReferenceArguments<'a> {
                 .get("page_size")
                 .and_then(crate::schema::json_integer_usize)
                 .unwrap_or(100),
+            include_declaration: arguments
+                .get("include_declaration")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
             raw_line: &arguments["line"],
             raw_column: &arguments["column"],
         })
@@ -105,11 +110,15 @@ fn collect_references(
     )
     .filter(|result| supported_reference_symbol(result) && !result.is_recovery)
     .map(|result| {
-        result
+        let mut locations = result
             .references
             .iter()
             .map(|span| location_json(&root, span))
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        if request.include_declaration {
+            locations.push(navigation_location_json(&root, &result.definition));
+        }
+        locations
     })
     .unwrap_or_default())
 }
@@ -172,6 +181,10 @@ fn supports_package_references(result: &NavigationResult) -> bool {
     supports_package_reference_kind(result)
         && supports_package_reference_origin(result)
         && supports_package_reference_declaration(result)
+        && (!matches!(
+            result.selected_symbol.declaration_kind,
+            SymbolDeclarationKind::PublicAlias
+        ) || !result.references.is_empty())
 }
 
 fn supports_package_reference_kind(result: &NavigationResult) -> bool {
@@ -220,6 +233,29 @@ fn location_json(root: &std::path::Path, span: &SourceSpan) -> Value {
             "end": {
                 "line": span.end.line,
                 "column": span.end.column
+            }
+        }
+    })
+}
+
+fn navigation_location_json(
+    root: &std::path::Path,
+    location: &veln_language_service::NavigationLocation,
+) -> Value {
+    let uri = match &location.source {
+        NavigationSource::Workspace => path_to_uri(&root.join(location.span.file.as_str())),
+        NavigationSource::Package { uri } => uri.clone(),
+    };
+    json!({
+        "uri": uri,
+        "range": {
+            "start": {
+                "line": location.span.start.line,
+                "column": location.span.start.column
+            },
+            "end": {
+                "line": location.span.end.line,
+                "column": location.span.end.column
             }
         }
     })
