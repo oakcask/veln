@@ -510,6 +510,22 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         );
     }
 
+    let invalid_casing_with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 12,
+        "column": 18,
+        "include_declaration": true
+    }));
+    assert_eq!(
+        invalid_casing_with_declaration["isError"], false,
+        "invalid casing with declaration inclusion: {invalid_casing_with_declaration:#}"
+    );
+    assert_eq!(
+        invalid_casing_with_declaration["structuredContent"]["references"],
+        json!([]),
+        "invalid casing with declaration inclusion: {invalid_casing_with_declaration:#}"
+    );
+
     let composition = references_result(&workspace, "main.veln", 26, 19);
     assert_eq!(composition["isError"], false, "{composition:#}");
     assert_reference_ranges(

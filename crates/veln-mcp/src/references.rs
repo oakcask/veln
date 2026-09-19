@@ -183,6 +183,8 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
 
 fn supports_package_references(result: &NavigationResult) -> bool {
     supports_package_reference_kind(result)
+        && (!matches!(result.selected_symbol.kind, SymbolKind::Schema)
+            || (!result.references.is_empty() && result.reference_eligible))
         && supports_package_reference_origin(result)
         && supports_package_reference_declaration(result)
         && (!matches!(
