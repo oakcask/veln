@@ -9,6 +9,7 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         "main.veln",
         concat!(
             "use wire from \"std\"\n\n",
+            "// 🙂\n",
             "schema Host\n",
             "  count: UInt8\n",
             "  nested: wire::Packet\n",
@@ -35,7 +36,7 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         )],
     );
 
-    for (line, column) in [(5, 17), (6, 33), (7, 17), (11, 16), (12, 16)] {
+    for (line, column) in [(6, 17), (7, 33), (8, 17), (12, 16), (13, 16)] {
         let result =
             server.references_tool(&json!({"source":"main.veln","line":line,"column":column}));
 
@@ -43,11 +44,11 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         assert_reference_ranges(
             &result,
             &[
-                ("main.veln", 5, 17, 5, 23),
-                ("main.veln", 6, 33, 6, 39),
-                ("main.veln", 7, 17, 7, 23),
-                ("main.veln", 11, 16, 11, 22),
+                ("main.veln", 6, 17, 6, 23),
+                ("main.veln", 7, 33, 7, 39),
+                ("main.veln", 8, 17, 8, 23),
                 ("main.veln", 12, 16, 12, 22),
+                ("main.veln", 13, 16, 13, 22),
             ],
             "standard library schema",
         );

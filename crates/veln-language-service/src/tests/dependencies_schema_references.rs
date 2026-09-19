@@ -566,6 +566,11 @@ mod dependencies_schema_references_tests {
             // Declaration eligibility is shared with alias indexing; composition only
             // visits its schema candidates.
             assert_eq!(declaration_visits, count);
+            assert_eq!(
+                crate::navigation::schema_composition_target_lookups(),
+                count,
+                "each composition leaf must use one indexed target lookup"
+            );
             assert_eq!(crate::navigation::schema_alias_declaration_visits(), count);
             assert_eq!(field_token_visits % count, 0);
             let visits_per_schema = field_token_visits / count;
@@ -1533,6 +1538,10 @@ mod dependencies_schema_references_tests {
                     "mod dependency\nuse lib::wire from \"example/dep\"\n\nschema Host\n  nested: lib::wire::Packet\nend\n",
                 ),
                 source(
+                    "lib/wire.veln",
+                    "pub schema Packet\n  value: String\nend\n",
+                ),
+                source(
                     "uses.veln",
                     concat!(
                         "mod app\n\n",
@@ -1713,6 +1722,20 @@ mod dependencies_schema_references_tests {
             ["alias/wire.veln", "fallback/wire.veln"],
         ));
         assert!(query_snapshot(&alias_collision, "main.veln", 4, 16)
+            .is_none_or(|result| result.references.is_empty()));
+
+        let recovered_alias_collision = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n",
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                ("wire/valid.veln", "pub schema Packet\n  value: Int\nend\n"),
+                ("wire/recovered.veln", "pub schema Packet =\n"),
+            ],
+            ["wire/valid.veln", "wire/recovered.veln"],
+        ));
+        assert!(query_snapshot(&recovered_alias_collision, "main.veln", 4, 16)
             .is_none_or(|result| result.references.is_empty()));
 
         let recovered_leaves = EffectiveProjectSnapshot::new(vec![source(

@@ -638,29 +638,37 @@ fn direct_dependency_schema_composition_reference(
     let (module, package) = module_imports
         .get(&file.module)?
         .valid_external_route(&qualifier)?;
-    let key_prefix = (package, module, token.text.clone());
-    let target = match alias_index.get(&key_prefix) {
+    let package_origin = if package == "std" {
+        PackageOrigin::StandardLibrary
+    } else {
+        PackageOrigin::DirectDependency
+    };
+    let alias_key = (package.clone(), module.clone(), token.text.clone());
+    let key = (package_origin, package, module, token.text.clone());
+    let target = match alias_index.get(&alias_key) {
         Some(candidates) if candidates.len() == 1 => {
             SchemaReferenceTarget::Alias(candidates[0].clone())
         }
         Some(_) => return None,
         None => {
-            let mut candidates = schema_index.iter().filter(|((_, candidate_package, candidate_module, candidate_name), _)| {
-                candidate_package == &key_prefix.0
-                    && candidate_module == &key_prefix.1
-                    && candidate_name == &key_prefix.2
-            });
-            let (_, schema) = candidates.next()?;
-            if candidates.next().is_some() {
-                return None;
-            }
-            SchemaReferenceTarget::Schema(schema.clone())
+            SchemaReferenceTarget::Schema(package_schema_target(schema_index, &key)?.clone())
         }
     };
     Some(SchemaCompositionReference {
         span: span.clone(),
         target,
     })
+}
+
+fn package_schema_target<'a>(
+    schema_index: &'a BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
+    key: &(PackageOrigin, String, String, String),
+) -> Option<&'a NeutralSymbol> {
+    #[cfg(test)]
+    {
+        SCHEMA_COMPOSITION_TARGET_LOOKUPS.set(SCHEMA_COMPOSITION_TARGET_LOOKUPS.get() + 1);
+    }
+    schema_index.get(key)
 }
 
 fn package_schema_index(

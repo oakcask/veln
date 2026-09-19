@@ -185,9 +185,8 @@ fn standard_library_schema_import_collisions_are_successful_empty_results() {
         ),
     ];
     for (name, imports, selected) in cases {
-        let standard_manifest = concat!(
-            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"alpha/wire.veln\", \"beta/wire.veln\"]\n"
-        );
+        let standard_manifest =
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"alpha/wire.veln\", \"beta/wire.veln\"]\n";
         let standard_snapshot = capture_embedded_package_snapshot(
             standard_manifest.as_bytes(),
             [
@@ -220,9 +219,68 @@ fn standard_library_schema_import_collisions_are_successful_empty_results() {
         let main_uri = path_to_uri(&project.root.join("main.veln"));
         server.handle_message(&initialize_request(&root_uri));
 
-        let references = server.handle_message(&references_request(&main_uri, 3, 9));
+        let references = server.handle_message(&references_request(
+            &main_uri,
+            if name == "recovered" { 3 } else { 4 },
+            15,
+        ));
         assert_eq!(references.len(), 1, "{name}");
         assert!(references[0].contains(r#""result":[]"#), "{name}: {}", references[0]);
+    }
+}
+
+#[test]
+fn standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders() {
+    for (name, imports) in [
+        (
+            "exact-first",
+            "use wire from \"std\"\nuse alpha::wire from \"std\"\n\n",
+        ),
+        (
+            "implicit-first",
+            "use alpha::wire from \"std\"\nuse wire from \"std\"\n\n",
+        ),
+    ] {
+        let manifest =
+            "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\", \"alpha/wire.veln\"]\n";
+        let snapshot = capture_embedded_package_snapshot(
+            manifest.as_bytes(),
+            [
+                PackageSnapshotSource::new(
+                    "wire.veln",
+                    b"pub schema Packet\n  value: Int\nend\n",
+                ),
+                PackageSnapshotSource::new(
+                    "alpha/wire.veln",
+                    b"pub schema Packet\n  value: Int\nend\n",
+                ),
+            ],
+        )
+        .unwrap();
+        let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+            snapshot,
+            parse_manifest_text("veln.toml", manifest),
+        )
+        .unwrap();
+        let mut server = Server::default().with_standard_library(standard_library);
+        let project = TempProject::new(&format!("standard-library-schema-exact-{name}"));
+        project.write(
+            "main.veln",
+            &format!(
+                "{imports}fn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n"
+            ),
+        );
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&initialize_request(&root_uri));
+
+        let references = server.handle_message(&references_request(&main_uri, 4, 15));
+        assert_eq!(references.len(), 1, "{name}");
+        assert!(references[0].contains(r#""line":4,"character":15"#), "{name}: {}", references[0]);
+        assert!(!references[0].contains(r#"/alpha/wire.veln"#), "{name}: {}", references[0]);
+        let definition = server.handle_message(&definition_request(&main_uri, 4, 15));
+        assert!(definition[0].contains(r#"/wire.veln"#), "{name}: {}", definition[0]);
+        assert!(!definition[0].contains(r#"/alpha/wire.veln"#), "{name}: {}", definition[0]);
     }
 }
 

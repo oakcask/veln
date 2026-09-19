@@ -260,11 +260,12 @@ both declaration policies, full and implicit module paths, workspace-only exact
 ranges, non-BMP saved input, and parity with the MCP case. The existing
 `references-dependency-schema-operation` case preserves operation behavior.
 Focused LSP and MCP adapter coverage injects a public standard-library schema
-and verifies the same selected-project reference set, including composition,
-`decode`, and `encode` leaves. The LSP case checks both declaration policies,
-the exact five saved locations, and a non-BMP character in the preceding
-source. The injected fixture is test-only; the shipped
-standard-library bundle remains unchanged. Standard-library schema aliases
+and checks the selected-project reference set independently in each adapter,
+including composition, `decode`, and `encode` leaves. The LSP case checks both
+declaration policies, the exact five saved locations, and a non-BMP character
+in the preceding source; the MCP case checks the same five expected saved
+locations, pagination, and capture stability. The injected fixture is test-only;
+the shipped standard-library bundle remains unchanged. Standard-library schema aliases
 remain excluded while their names block schema fallback.
 The language-service matrix
 `standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`
@@ -276,6 +277,11 @@ tests `standard_library_schema_references_use_the_injected_snapshot` and
 `standard_library_schema_references_use_the_lsp_overlay_over_saved_sources`
 cover adapter ranges and overlay precedence; MCP covers pagination and
 stable-capture failure for the same injected standard-library origin.
+The LSP test `standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders`
+also verifies that exact import precedence is independent of declaration order
+and selects the `Packet` leaf itself. The shared matrix includes a same-spelled
+workspace schema, and the eligibility cases include a recovered alias beside a
+valid schema; neither can contaminate the standard-library reference set.
 The paired adapter rejection tests
 `standard_library_schema_import_collisions_are_successful_empty_results` and
 `references_reject_standard_library_schema_import_collisions_in_both_orders`
