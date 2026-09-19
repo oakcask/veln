@@ -81,6 +81,11 @@ fn references_include_eligible_package_declaration_after_workspace_references() 
         .unwrap()
         .to_owned();
 
+    assert_declaration_continuation_is_cursor_only(&mut server, &cursor);
+    assert_terminal_package_declaration_page(&mut server, &first, &expected, &cursor);
+}
+
+fn assert_declaration_continuation_is_cursor_only(server: &mut Server, cursor: &str) {
     let invalid_continuation = server
         .handle_request(json!({
             "jsonrpc": "2.0",
@@ -93,7 +98,14 @@ fn references_include_eligible_package_declaration_after_workspace_references() 
         }))
         .unwrap();
     assert_eq!(invalid_continuation["error"]["code"], -32602);
+}
 
+fn assert_terminal_package_declaration_page(
+    server: &mut Server,
+    first: &Value,
+    expected: &[Value],
+    cursor: &str,
+) {
     let second = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(second["isError"], false, "{second:#}");
     let mut concatenated = first["structuredContent"]["references"]

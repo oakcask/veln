@@ -322,6 +322,13 @@ fn references_exclude_unselected_descendant_sources_from_parent_project_scope() 
 #[test]
 fn references_return_empty_for_dependency_schema_operation_boundaries() {
     let workspace = TempWorkspace::new("references-dependency-schema-boundaries");
+    write_dependency_schema_boundary_workspace(&workspace);
+    assert_ineligible_dependency_schema_boundaries(&workspace);
+    assert_ineligible_schema_declaration_is_excluded(&workspace);
+    assert_eligible_dependency_schema_boundaries(&workspace);
+}
+
+fn write_dependency_schema_boundary_workspace(workspace: &TempWorkspace) {
     workspace.write(
         "veln.toml",
         concat!(
@@ -461,7 +468,9 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "end\n",
         ),
     );
+}
 
+fn assert_ineligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
     for (name, source, line, column) in [
         ("private", "main.veln", 8, 19),
         ("non-exported", "main.veln", 9, 18),
@@ -483,7 +492,7 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         ("module qualifier", "main.veln", 12, 10),
         ("recovery", "recovery.veln", 4, 10),
     ] {
-        let result = references_result(&workspace, source, line, column);
+        let result = references_result(workspace, source, line, column);
         assert_eq!(result["isError"], false, "{name}: {result:#}");
         assert_eq!(
             result["structuredContent"]["scope"],
@@ -509,8 +518,10 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
             "{name}: {result:#}"
         );
     }
+}
 
-    let invalid_casing_with_declaration = initialized_server(&workspace).references_tool(&json!({
+fn assert_ineligible_schema_declaration_is_excluded(workspace: &TempWorkspace) {
+    let invalid_casing_with_declaration = initialized_server(workspace).references_tool(&json!({
         "source": "main.veln",
         "line": 12,
         "column": 18,
@@ -525,8 +536,10 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         json!([]),
         "invalid casing with declaration inclusion: {invalid_casing_with_declaration:#}"
     );
+}
 
-    let composition = references_result(&workspace, "main.veln", 26, 19);
+fn assert_eligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
+    let composition = references_result(workspace, "main.veln", 26, 19);
     assert_eq!(composition["isError"], false, "{composition:#}");
     assert_reference_ranges(
         &composition,
@@ -534,7 +547,7 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         "direct dependency schema composition",
     );
 
-    let composition_with_declaration = initialized_server(&workspace).references_tool(&json!({
+    let composition_with_declaration = initialized_server(workspace).references_tool(&json!({
         "source": "main.veln",
         "line": 26,
         "column": 19,
@@ -550,7 +563,7 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         "direct dependency schema declaration inclusion",
     );
 
-    let alias = references_result(&workspace, "main.veln", 14, 18);
+    let alias = references_result(workspace, "main.veln", 14, 18);
     assert_eq!(alias["isError"], false, "{alias:#}");
     assert_reference_ranges(
         &alias,
@@ -558,7 +571,7 @@ fn references_return_empty_for_dependency_schema_operation_boundaries() {
         "direct dependency schema alias operation",
     );
 
-    let cross_module_alias = references_result(&workspace, "main.veln", 22, 18);
+    let cross_module_alias = references_result(workspace, "main.veln", 22, 18);
     assert_eq!(
         cross_module_alias["isError"], false,
         "{cross_module_alias:#}"
