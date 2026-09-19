@@ -16,9 +16,6 @@ also states it.
 
 ## Ready
 
-- Standard-library schema composition and operation references, using the
-  existing package snapshots and shared navigation adapters:
-  [standard-library-schema-references.md](standard-library-schema-references.md).
 
 ## Blocked
 

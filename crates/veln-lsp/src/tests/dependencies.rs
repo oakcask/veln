@@ -54,6 +54,50 @@ fn handler_context_parameter_does_not_bind_same_named_operation_heading() {
 }
 
 #[test]
+fn standard_library_schema_references_use_the_injected_snapshot() {
+    let standard_manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
+    let standard_snapshot = capture_embedded_package_snapshot(
+        standard_manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        standard_snapshot,
+        parse_manifest_text("veln.toml", standard_manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let project = TempProject::new("standard-library-schema-references");
+    project.write(
+        "main.veln",
+        concat!(
+            "use wire from \"std\"\n\n",
+            "schema Host\n",
+            "  nested: wire::Packet\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::Packet from view at byte_offset(0)?\n",
+            "  encode wire::Packet from packet\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let definition = server.handle_message(&definition_request(&main_uri, 3, 16));
+    assert!(definition[0].contains("veln-pkg:///std/snapshot/"), "{}", definition[0]);
+    let references = server.handle_message(&references_request(&main_uri, 3, 16));
+    assert_eq!(references.len(), 1);
+    assert!(references[0].contains(r#""line":3,"character":16"#), "{}", references[0]);
+    assert!(references[0].contains(r#""line":7,"character":15"#), "{}", references[0]);
+    assert!(references[0].contains(r#""line":8,"character":15"#), "{}", references[0]);
+}
+
+#[test]
 fn invalid_handler_bindings_use_lsp_recovery_navigation() {
     let mut server = Server::default();
     let project = TempProject::new("invalid-handler-binding-navigation");

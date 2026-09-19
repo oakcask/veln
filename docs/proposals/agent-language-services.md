@@ -50,18 +50,12 @@ The remaining first-capability work includes:
 - package reference lookup for symbol classes other than the implemented
   direct-dependency and standard-library functions, function aliases, public
   type aliases, types, and constructors;
-- other dependency schema-alias scopes,
-  and standard-library schema and schema-alias references;
+- other dependency schema-alias scopes and standard-library schema-alias
+  references;
 - plugin packaging for Codex and Claude Code.
 
 This umbrella remains planning input for later navigation, documentation,
 conformance, and plugin work. It is not itself selectable.
-
-[Standard-Library Schema References](standard-library-schema-references.md)
-owns the independently selectable standard-library schema composition and
-operation reference slice. Its acceptance table and completion boundary take
-precedence over this inventory for that slice. Standard-library schema aliases
-and the remaining conformance and plugin work do not block it.
 
 Current direct-dependency schema composition and eligible schema-alias behavior
 is specified by
@@ -979,9 +973,9 @@ and constructor reference search, plus public function-alias and type-alias
 reference search for the implemented direct-dependency and standard-library
 boundaries, public schema-alias reference search for the implemented workspace
 boundary, direct-dependency schema composition and operation reference search,
-and eligible direct-dependency schema-alias composition and operation reference
-search. It does not implement
-standard-library schema, other dependency schema-alias classes,
+eligible direct-dependency schema-alias composition and operation reference
+search, and standard-library schema composition and operation reference search.
+It does not implement other dependency schema-alias classes,
 transitive-dependency, recovery, or casing-neutral reference search.
 The MCP workspace-definition slice reuses the saved capture boundary and
 returns `file:` locations for functions, type constructors, handler context
@@ -994,16 +988,15 @@ Dependency and standard-library definition locations for the bounded package
 symbol set are specified by
 [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md#saved-workspace-navigation).
 Package constructor, workspace schema operation, workspace schema composition,
-workspace public schema-alias, and direct-dependency schema and eligible
-schema-alias composition and operation reference search are covered by executable
-language-service and MCP tests.
+workspace public schema-alias, direct-dependency schema and eligible
+schema-alias composition and operation reference search, and standard-library
+schema composition and operation reference search are covered by executable
+language-service, LSP, and MCP tests.
 Remaining package reference work includes other dependency schema-alias scopes,
-standard-library schemas and schema aliases, transitive dependencies,
+standard-library schema aliases, transitive dependencies,
 recovery, and casing-neutral references.
 Later umbrella slices are:
 
-1. Implement the bounded
-   [standard-library schema reference slice](standard-library-schema-references.md).
 1. Extend package navigation with broader dependency
    and standard-library public schema aliases, and
    other remaining package symbol references, recovery

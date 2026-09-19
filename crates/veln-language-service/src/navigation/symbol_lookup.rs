@@ -19,7 +19,10 @@ impl SymbolIndex {
             }
             QualifiedWorkspaceModule::External | QualifiedWorkspaceModule::Unresolved => {
                 self.package_schema_alias_declarations.iter().any(|alias| {
-                    alias.package_origin == PackageOrigin::DirectDependency
+                    matches!(
+                        alias.package_origin,
+                        PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary
+                    )
                         && alias.name == name
                         && self.schema_alias_external_import_blocks_fallback(
                             file,
@@ -75,7 +78,10 @@ impl SymbolIndex {
                         | QualifiedWorkspaceModule::Unresolved,
                         Some(package),
                     ) => {
-                        symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                        matches!(
+                            symbol.package_origin,
+                            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                        )
                             && self.valid_schema_alias_external_import(
                                 file,
                                 qualifier,
@@ -142,7 +148,10 @@ impl SymbolIndex {
                 .get(&file.module)?
                 .valid_external_route(qualifier)?;
             let mut candidates = self.schemas.iter().filter(|symbol| {
-                symbol.package_origin == Some(PackageOrigin::DirectDependency)
+                    matches!(
+                        symbol.package_origin,
+                        Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+                    )
                     && symbol.package.as_deref() == Some(package.as_str())
                     && symbol.module == module
                     && symbol.name == name

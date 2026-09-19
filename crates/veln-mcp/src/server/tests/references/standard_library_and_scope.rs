@@ -2,7 +2,7 @@ use super::*;
 use veln_project::PackageSnapshotSource;
 
 #[test]
-fn references_keep_standard_library_schema_uses_empty_with_project_scope() {
+fn references_include_standard_library_schema_uses_with_project_scope() {
     let workspace = TempWorkspace::new("references-standard-library-schema-operation");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -31,7 +31,11 @@ fn references_keep_standard_library_schema_uses_empty_with_project_scope() {
             server.references_tool(&json!({"source":"main.veln","line":line,"column":column}));
 
         assert_eq!(result["isError"], false, "{result:#}");
-        assert_eq!(result["structuredContent"]["references"], json!([]));
+        assert_reference_ranges(
+            &result,
+            &[("main.veln", 4, 19, 4, 25), ("main.veln", 8, 20, 8, 26)],
+            "standard library schema",
+        );
         assert_eq!(
             result["structuredContent"]["scope"],
             json!({

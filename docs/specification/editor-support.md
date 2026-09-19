@@ -250,7 +250,7 @@ schema alias with the selected name blocks fallback to a same-spelled package
 schema. A repeated payload is selected only when its `Repeat` count or array
 count is a valid schema count expression. Comments, strings, import tokens,
 and module qualifiers are not schema
-references. Standard-library schemas,
+references. Standard-library schema aliases,
 ineligible package schema aliases, transitive dependencies, recovery records,
 and syntax-recovered leaves remain unsupported. An invalid-cased schema
 declaration in an otherwise eligible direct-dependency source retains its
@@ -259,9 +259,11 @@ package definition location, but its reference set is empty. The
 both declaration policies, full and implicit module paths, workspace-only exact
 ranges, non-BMP saved input, and parity with the MCP case. The existing
 `references-dependency-schema-operation` case preserves operation behavior.
-Focused MCP server coverage
-injects a public standard-library schema and verifies that this unsupported
-selection returns an empty set with project-wide scope.
+Focused LSP and MCP adapter coverage injects a public standard-library schema
+and verifies the same selected-project reference set, including composition,
+`decode`, and `encode` leaves. The injected fixture is test-only; the shipped
+standard-library bundle remains unchanged. Standard-library schema aliases
+remain excluded while their names block schema fallback.
 For an eligible public schema alias in an exported retained direct-dependency
 module, `textDocument/references` returns the same saved workspace composition
 and operation leaves as MCP when declaration inclusion is false. Each
@@ -812,6 +814,9 @@ Implemented:
 - Paired LSP and MCP evidence for direct-dependency public schema composition,
   `decode`, and `encode` references. Results include only selected-project
   workspace `file:` locations and never include the package declaration.
+- Paired LSP and MCP evidence for eligible public standard-library schema
+  composition, `decode`, and `encode` references. Results remain isolated by
+  package identity and selected project.
 - Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
   direct, valid `Repeat`, and array-payload composition, `decode`, and `encode`
   references. Results preserve alias identity and include only selected-project

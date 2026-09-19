@@ -509,7 +509,12 @@ name blocks fallback to a same-spelled package schema. A `Repeat` or array
 payload resolves only when its count is a valid schema count expression;
 another count shape does not select the payload and does not enter its
 reference set.
-Standard-library schemas, private or non-exported schemas,
+The same identity, eligibility, import, leaf-role, and selected-project scope
+rules apply to a public schema in an exported module of the retained standard
+library snapshot. The standard-library package origin remains distinct from
+workspace and direct-dependency schemas with the same module and declaration
+spelling.
+Standard-library schema aliases, private or non-exported schemas,
 transitive dependencies, recovery records, invalid-cased schema declarations,
 and unresolved or mismatched imports succeed with an empty reference set. An
 invalid-cased schema declaration can retain its package definition location;
@@ -525,9 +530,11 @@ leaves. It covers private and non-exported declarations, mismatched and
 transitive imports, invalid casing, schema aliases, recovered declarations and
 leaves, dependency import collisions in both orders, and requires successful
 empty results. Focused language-service tests cover malformed repeated counts,
-schema-alias blockers, and lexical-noise exclusion. A focused MCP server test injects
-a public standard-library schema and verifies the successful empty result with
-the selected project scope. Focused language-service and MCP tests also cover
+schema-alias blockers, and lexical-noise exclusion. A focused MCP server test
+injects a public standard-library schema and verifies the selected-project
+composition, `decode`, and `encode` result with the selected project scope.
+Standard-library schema aliases remain excluded and block same-named schema
+fallback. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries.
 

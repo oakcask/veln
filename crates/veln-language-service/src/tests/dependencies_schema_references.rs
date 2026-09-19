@@ -1499,7 +1499,7 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
-    fn standard_library_schema_composition_is_not_a_dependency_reference() {
+    fn standard_library_schema_composition_is_a_project_reference() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             concat!(
@@ -1512,7 +1512,12 @@ mod dependencies_schema_references_tests {
             ["wire.veln"],
         ));
 
-        assert!(query_snapshot(&snapshot, "main.veln", 4, 19).is_none());
+        let selected = query_snapshot(&snapshot, "main.veln", 4, 19).unwrap();
+        assert_eq!(locations(&selected.references), [("main.veln", 4, 17)]);
+        assert!(matches!(
+            selected.definition.source,
+            NavigationSource::Package { .. }
+        ));
     }
 
     #[test]
@@ -2450,7 +2455,7 @@ mod dependencies_schema_references_tests {
         assert!(query_snapshot(&snapshot, "main.veln", 8, 19).is_none());
         assert!(query_snapshot(&snapshot, "main.veln", 9, 18).is_none());
         let standard = query_snapshot(&snapshot, "main.veln", 10, 16).unwrap();
-        assert!(standard.references.is_empty());
+        assert_eq!(locations(&standard.references), [("main.veln", 10, 16)]);
         let invalid_casing = query_snapshot(&snapshot, "main.veln", 11, 18).unwrap();
         assert!(matches!(
             invalid_casing.definition.source,

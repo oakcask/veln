@@ -557,7 +557,7 @@ fn workspace_schema_composition_references(
         .collect()
 }
 
-fn direct_dependency_schema_composition_references(
+fn package_schema_composition_references(
     files: &[IndexedFile],
     schema_index: &BTreeMap<(String, String, String), NeutralSymbol>,
     schema_aliases: &[NeutralSymbol],
@@ -652,14 +652,19 @@ fn direct_dependency_schema_composition_reference(
     })
 }
 
-fn direct_dependency_schema_index(
+fn package_schema_index(
     schemas: &[NeutralSymbol],
     declarations: &PackageSchemaDeclarations<'_>,
 ) -> BTreeMap<(String, String, String), NeutralSymbol> {
     let mut candidates = BTreeMap::new();
     for schema in schemas
         .iter()
-        .filter(|schema| schema.package_origin == Some(PackageOrigin::DirectDependency))
+        .filter(|schema| {
+            matches!(
+                schema.package_origin,
+                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+            )
+        })
     {
         #[cfg(test)]
         record_schema_composition_declaration_visit();

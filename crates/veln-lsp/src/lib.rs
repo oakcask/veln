@@ -101,9 +101,17 @@ struct Server {
     project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
     overlaid_project_snapshots: BTreeMap<PathBuf, Arc<EffectiveProjectSnapshot>>,
     should_exit: bool,
+    #[cfg(test)]
+    test_standard_library: Option<DirectDependencySnapshot>,
 }
 
 impl Server {
+    #[cfg(test)]
+    fn with_standard_library(mut self, standard_library: DirectDependencySnapshot) -> Self {
+        self.test_standard_library = Some(standard_library);
+        self
+    }
+
     fn run(&mut self, input: impl Read, mut output: impl Write) -> io::Result<()> {
         let mut input = BufReader::new(input);
         while !self.should_exit {
@@ -432,7 +440,11 @@ impl Server {
         self.project_snapshots.clear();
         self.overlaid_project_snapshots.clear();
         for root in self.workspace_roots.clone() {
-            if let Some(snapshot) = retained_project_snapshot(&root) {
+            if let Some(snapshot) = retained_project_snapshot(
+                &root,
+                #[cfg(test)]
+                self.test_standard_library.clone(),
+            ) {
                 self.project_snapshots
                     .insert(root.clone(), Arc::new(snapshot));
                 self.refresh_overlaid_project_snapshot(&root);
@@ -507,14 +519,28 @@ impl Server {
     }
 }
 
-fn retained_project_snapshot(root: &Path) -> Option<EffectiveProjectSnapshot> {
+fn retained_project_snapshot(
+    root: &Path,
+    #[cfg(test)] test_standard_library: Option<DirectDependencySnapshot>,
+) -> Option<EffectiveProjectSnapshot> {
     let project = Project::discover(root.to_path_buf(), &[]).ok()?;
     let direct_dependencies = project
         .manifest
         .as_ref()
         .map(|manifest| retained_direct_dependencies(root, manifest))
         .unwrap_or_default();
-    let standard_library = retained_standard_library()?;
+    let standard_library = {
+        #[cfg(test)]
+        if let Some(standard_library) = test_standard_library {
+            standard_library
+        } else {
+            retained_standard_library()?
+        }
+        #[cfg(not(test))]
+        {
+            retained_standard_library()?
+        }
+    };
     Some(
         EffectiveProjectSnapshot::with_direct_dependencies(project.files, direct_dependencies)
             .with_standard_library(standard_library),

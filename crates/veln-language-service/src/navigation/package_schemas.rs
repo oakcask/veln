@@ -15,10 +15,10 @@ impl<'a> PackageSchemaDeclarations<'a> {
         recovered_targets: &'a [PackageSchemaTarget],
     ) -> Self {
         Self {
-            alias_counts: direct_dependency_alias_counts(aliases),
-            exported_aliases: direct_dependency_exported_aliases(aliases),
-            recovered_targets: direct_dependency_recovered_targets(recovered_targets),
-            target_counts: direct_dependency_target_counts(targets),
+            alias_counts: package_alias_counts(aliases),
+            exported_aliases: package_exported_aliases(aliases),
+            recovered_targets: package_recovered_targets(recovered_targets),
+            target_counts: package_target_counts(targets),
         }
     }
 
@@ -166,13 +166,12 @@ fn resolved_package_schema_alias_index(
         .collect()
 }
 
-fn direct_dependency_alias_counts(
+fn package_alias_counts(
     aliases: &[PackageSchemaAliasDeclaration],
 ) -> BTreeMap<PackageSchemaIdentity<'_>, usize> {
     let mut counts = BTreeMap::new();
     for alias in aliases
         .iter()
-        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
@@ -187,13 +186,12 @@ fn direct_dependency_alias_counts(
     counts
 }
 
-fn direct_dependency_exported_aliases(
+fn package_exported_aliases(
     aliases: &[PackageSchemaAliasDeclaration],
 ) -> BTreeSet<PackageSchemaIdentity<'_>> {
     let mut exported = BTreeSet::new();
     for alias in aliases
         .iter()
-        .filter(|alias| alias.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
@@ -208,12 +206,11 @@ fn direct_dependency_exported_aliases(
     exported
 }
 
-fn direct_dependency_recovered_targets(
+fn package_recovered_targets(
     targets: &[PackageSchemaTarget],
 ) -> BTreeSet<PackageSchemaIdentity<'_>> {
     targets
         .iter()
-        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
         .map(|target| {
             #[cfg(test)]
             record_schema_alias_declaration_visit();
@@ -226,13 +223,12 @@ fn direct_dependency_recovered_targets(
         .collect()
 }
 
-fn direct_dependency_target_counts(
+fn package_target_counts(
     targets: &[PackageSchemaTarget],
 ) -> BTreeMap<PackageSchemaIdentity<'_>, (usize, bool)> {
     let mut counts = BTreeMap::new();
     for target in targets
         .iter()
-        .filter(|target| target.package_origin == PackageOrigin::DirectDependency)
     {
         #[cfg(test)]
         record_schema_alias_declaration_visit();
