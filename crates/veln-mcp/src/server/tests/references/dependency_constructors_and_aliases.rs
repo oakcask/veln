@@ -220,7 +220,7 @@ fn references_keep_ambiguous_package_constructor_leaf_empty() {
 }
 
 #[test]
-fn references_keep_package_constructor_alias_boundary_empty() {
+fn references_keep_dependency_constructor_alias_boundary_empty() {
     let dependency_workspace = TempWorkspace::new("references-dependency-constructor-alias");
     dependency_workspace.write(
         "veln.toml",
@@ -278,7 +278,10 @@ fn references_keep_package_constructor_alias_boundary_empty() {
         json!([]),
         "{dependency_references_with_declaration:#}"
     );
+}
 
+#[test]
+fn references_keep_standard_library_constructor_alias_boundary_empty() {
     let standard_workspace = TempWorkspace::new("references-standard-constructor-alias");
     standard_workspace.write(
         "main.veln",
@@ -376,11 +379,25 @@ fn references_return_direct_dependency_function_alias_locations_from_saved_proje
         "column": 8,
         "include_declaration": true
     }));
-    assert_eq!(
-        alias_with_declaration["isError"], false,
-        "{alias_with_declaration:#}"
+    assert_dependency_function_alias_declaration_resource(
+        &mut alias_server,
+        &alias_with_declaration,
     );
-    let declaration = alias_with_declaration["structuredContent"]["references"]
+
+    let target_references =
+        alias_server.references_tool(&json!({"source":"main.veln","line":9,"column":38}));
+    assert_eq!(target_references["isError"], false, "{target_references:#}");
+    assert_reference_ranges(
+        &target_references,
+        &[("main.veln", 9, 38, 9, 44)],
+        "dependency function target references",
+    );
+    assert_eq!(crate::language_resources::dependency_snapshot_captures(), 1);
+}
+
+fn assert_dependency_function_alias_declaration_resource(server: &mut Server, result: &Value) {
+    assert_eq!(result["isError"], false, "{result:#}");
+    let declaration = result["structuredContent"]["references"]
         .as_array()
         .unwrap()
         .iter()
@@ -392,7 +409,7 @@ fn references_return_direct_dependency_function_alias_locations_from_saved_proje
         })
         .expect("eligible package alias declaration");
     let declaration_uri = declaration["uri"].as_str().unwrap();
-    let read = alias_server
+    let read = server
         .handle_request(json!({
             "jsonrpc": "2.0",
             "id": "package-declaration",
@@ -405,16 +422,6 @@ fn references_return_direct_dependency_function_alias_locations_from_saved_proje
         read["result"]["contents"][0]["text"],
         "pub fn target() -> Int\n  1\nend\n\npub fn renamed = target\n"
     );
-
-    let target_references =
-        alias_server.references_tool(&json!({"source":"main.veln","line":9,"column":38}));
-    assert_eq!(target_references["isError"], false, "{target_references:#}");
-    assert_reference_ranges(
-        &target_references,
-        &[("main.veln", 9, 38, 9, 44)],
-        "dependency function target references",
-    );
-    assert_eq!(crate::language_resources::dependency_snapshot_captures(), 1);
 }
 
 fn dependency_function_alias_workspace() -> TempWorkspace {

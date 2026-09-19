@@ -73,26 +73,23 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         "column": 18,
         "include_declaration": true
     }));
-    let declaration = with_declaration["structuredContent"]["references"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|location| {
-            location["uri"]
-                .as_str()
-                .unwrap()
-                .starts_with("veln-pkg:///std/")
-        })
-        .unwrap_or_else(|| panic!("standard-library declaration missing: {with_declaration:#}"));
-    assert!(declaration["uri"].as_str().unwrap().ends_with("/wire.veln"));
-    assert_eq!(
-        declaration["range"]["start"],
-        json!({"line": 1, "column": 12})
+    assert_standard_library_schema_declaration(&with_declaration);
+}
+
+fn assert_standard_library_schema_declaration(result: &Value) {
+    assert_package_declaration(
+        result,
+        "/wire.veln",
+        1,
+        12,
+        1,
+        18,
+        "standard-library schema declaration",
     );
-    let locations = with_declaration["structuredContent"]["references"]
+    let locations = result["structuredContent"]["references"]
         .as_array()
         .unwrap();
-    assert_eq!(locations.len(), 6, "{with_declaration:#}");
+    assert_eq!(locations.len(), 6, "{result:#}");
     assert_eq!(
         locations[..5]
             .iter()
