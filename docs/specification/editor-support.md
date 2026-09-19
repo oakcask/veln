@@ -879,8 +879,9 @@ Not implemented:
 
 - LSP range and delta semantic token requests.
 - Completion and hover.
-- Dependency reference search outside the implemented direct-dependency schema
-  composition-and-operation boundary, schema-alias composition-and-operation boundary, and
+- Dependency reference search outside the implemented direct-dependency and
+  standard-library schema composition-and-operation boundaries,
+  schema-alias composition-and-operation boundary, and
   direct-dependency and standard-library public function, public
   function-alias, public type-alias, public type, and public constructor
   reference boundaries.
