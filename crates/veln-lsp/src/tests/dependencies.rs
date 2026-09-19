@@ -110,7 +110,7 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
                 character,
                 include_declaration,
             ));
-            assert_eq!(references, [expected_lsp.clone()], "{line}:{character}");
+            assert_eq!(references, std::slice::from_ref(&expected_lsp), "{line}:{character}");
         }
     }
 }
@@ -176,6 +176,52 @@ fn standard_library_schema_references_pair_saved_baseline_with_lsp_overlay() {
     assert!(overlay[0].contains(r#""line":5,"character":18"#), "{}", overlay[0]);
     assert!(overlay[0].contains(r#""line":8,"character":15"#), "{}", overlay[0]);
     assert_eq!(overlay[0].matches(r#""uri":"#).count(), 6, "{}", overlay[0]);
+}
+
+#[test]
+fn standard_library_schema_references_keep_the_selected_project_boundary() {
+    let standard_manifest =
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
+    let standard_snapshot = capture_embedded_package_snapshot(
+        standard_manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "wire.veln",
+            b"pub schema Packet\n  value: Int\nend\n",
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        standard_snapshot,
+        parse_manifest_text("veln.toml", standard_manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let workspace = TempProject::new("standard-library-schema-project-scope");
+    for project in ["app_a", "app_b", "app_a/nested"] {
+        workspace.write(&format!("{project}/veln.toml"), "");
+        workspace.write(
+            &format!("{project}/main.veln"),
+            "use wire from \"std\"\n\nschema Host\n  nested: wire::Packet\nend\n",
+        );
+    }
+    workspace.write(
+        "app_a/worker.veln",
+        "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n",
+    );
+    let app_a_uri = path_to_uri(&workspace.root.join("app_a"));
+    let app_b_uri = path_to_uri(&workspace.root.join("app_b"));
+    let main_uri = path_to_uri(&workspace.root.join("app_a/main.veln"));
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{app_a_uri}","name":"app_a"}},{{"uri":"{app_b_uri}","name":"app_b"}}]}}}}"#
+    ));
+
+    let references = server.handle_message(&references_request(&main_uri, 3, 17));
+    assert_eq!(references.len(), 1);
+    assert!(references[0].contains(&path_to_uri(&workspace.root.join("app_a/main.veln"))));
+    assert!(references[0].contains(&path_to_uri(&workspace.root.join("app_a/worker.veln"))));
+    assert!(!references[0].contains("app_b/main.veln"), "{}", references[0]);
+    assert!(!references[0].contains("app_a/nested/main.veln"), "{}", references[0]);
+    assert_eq!(references[0].matches(r#""uri":"#).count(), 2, "{}", references[0]);
 }
 
 #[test]
@@ -348,7 +394,7 @@ fn standard_library_schema_recovery_collision_keeps_all_reference_roles_empty() 
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    for (line, column) in [(3, 17), (4, 26), (5, 10), (9, 15), (10, 15)] {
+    for (line, column) in [(3, 17), (4, 32), (5, 16), (9, 15), (10, 15)] {
         let references = server.handle_message(&references_request(&main_uri, line, column));
         assert_eq!(references.len(), 1, "line {line}");
         assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);

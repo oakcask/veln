@@ -102,7 +102,7 @@ fn references_keep_standard_library_schema_recovery_collisions_empty_for_all_rol
         ],
     );
 
-    for (line, column) in [(4, 18), (5, 26), (6, 10), (10, 16), (11, 16)] {
+    for (line, column) in [(4, 18), (5, 33), (6, 17), (10, 16), (11, 16)] {
         let result = server.references_tool(&json!({
             "source": "main.veln",
             "line": line,
