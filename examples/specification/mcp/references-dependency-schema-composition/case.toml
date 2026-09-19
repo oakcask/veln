@@ -147,7 +147,7 @@ equals = {"start":{"line":1,"column":12},"end":{"line":1,"column":18}}
 [[mcp_assert]]
 id = 3
 path = "/result/structuredContent/references/6/uri"
-contains = "veln-pkg:///example%2Fdep/snapshot/"
+equals = "veln-pkg:///example%2Fdep/snapshot/058b79b5312597def988d16b9736438c4e6a5a1cd4fe8547b0fc8f0aae704804/lib/wire.veln"
 
 [[mcp_assert]]
 id = 4

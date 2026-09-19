@@ -22,6 +22,28 @@ fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware()
 
     let mut first = initialized_server(&workspace);
     let cursor = first_reference_cursor(&mut first);
+    let invalid_initial = first
+        .handle_request(json!({
+            "jsonrpc": "2.0",
+            "id": "invalid-initial",
+            "method": "tools/call",
+            "params": {
+                "name": "references",
+                "arguments": {
+                    "source": "main.veln",
+                    "line": 6,
+                    "column": 4,
+                    "page_size": 0,
+                    "include_declaration": true
+                }
+            }
+        }))
+        .unwrap();
+    assert_eq!(invalid_initial["error"]["code"], -32602);
+    assert_eq!(
+        invalid_initial["error"]["message"],
+        "Tool input does not match its schema"
+    );
     assert_cursor_authentication_rejections(&workspace, &mut first, &cursor);
     assert_cursor_uses_captured_locations(&workspace, &mut first, &cursor);
     write_recursive_reference_source(&workspace);

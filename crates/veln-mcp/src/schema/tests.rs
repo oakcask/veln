@@ -131,6 +131,7 @@ fn references_input_requires_closed_positive_coordinates() {
         serde_json::json!({"cursor":"opaque","include_declaration":true}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":null}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":"true"}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"page_size":0,"include_declaration":true}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"include_declaration":false,"cursor":"opaque"}),
         serde_json::json!({"cursor":""}),
     ] {
