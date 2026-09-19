@@ -1,26 +1,16 @@
 use super::*;
 
-#[test]
-fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
+fn assert_reserved_prefix_group_boundaries(
+    schema_name: &str,
+    prefix_width: u8,
+    prefix_value: u64,
+    high_width: u8,
+    low_width: u8,
+) {
     let source = SourceFile::new(
         "main.veln",
-        concat!(
-            "schema TwoBytePrefixReservedGroupHeader\n",
-            "  format binary\n",
-            "\n",
-            "  prefix: ReservedBits(10, 682)\n",
-            "  high: UInt3\n",
-            "  low: UInt3\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  decode TwoBytePrefixReservedGroupHeader from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode TwoBytePrefixReservedGroupHeader from packet\n",
-            "end\n",
+        format!(
+            "schema {schema_name}\n  format binary\n\n  prefix: ReservedBits({prefix_width}, {prefix_value})\n  high: UInt{high_width}\n  low: UInt{low_width}\nend\n\n\npub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{{high: Int, low: Int}}>\n  decode {schema_name} from view at base\nend\n\npub fn write_header(packet: {{high: Int, low: Int}}) -> Result<ByteChunk, EncodeError>\n  encode {schema_name} from packet\nend\n",
         ),
     );
     let parsed = parse(&source);
@@ -43,7 +33,7 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
         CoreExprKind::Call {
             target: CoreCallTarget::SchemaDecodeStep(name),
             ..
-        } if name == "TwoBytePrefixReservedGroupHeader"
+        } if name == schema_name
     ));
 
     let write_header = core
@@ -59,7 +49,7 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
         CoreExprKind::Call {
             target: CoreCallTarget::SchemaEncode(name),
             ..
-        } if name == "TwoBytePrefixReservedGroupHeader"
+        } if name == schema_name
     ));
 
     let ir = lowered.ir.expect("typed IR should be built");
@@ -76,7 +66,7 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
         IrExprKind::Call {
             target: IrCallTarget::SchemaDecodeStep(name),
             ..
-        } if name == "TwoBytePrefixReservedGroupHeader"
+        } if name == schema_name
     ));
 
     let write_header = ir
@@ -92,392 +82,51 @@ fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
         IrExprKind::Call {
             target: IrCallTarget::SchemaEncode(name),
             ..
-        } if name == "TwoBytePrefixReservedGroupHeader"
+        } if name == schema_name
     ));
+}
+
+#[test]
+fn codec_derive_resolves_two_byte_prefix_reserved_group_boundaries() {
+    assert_reserved_prefix_group_boundaries("TwoBytePrefixReservedGroupHeader", 10, 682, 3, 3);
 }
 
 #[test]
 fn codec_derive_resolves_three_byte_prefix_reserved_group_boundaries() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema ThreeBytePrefixReservedGroupHeader\n",
-            "  format binary\n",
-            "\n",
-            "  prefix: ReservedBits(17, 87381)\n",
-            "  high: UInt4\n",
-            "  low: UInt3\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  decode ThreeBytePrefixReservedGroupHeader from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode ThreeBytePrefixReservedGroupHeader from packet\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let read_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be lowered");
-    let CoreStmtKind::Return { expr } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "ThreeBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be lowered");
-    let CoreStmtKind::Return { expr } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "ThreeBytePrefixReservedGroupHeader"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let read_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be in IR");
-    let IrStmtKind::Return { value } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "ThreeBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be in IR");
-    let IrStmtKind::Return { value } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "ThreeBytePrefixReservedGroupHeader"
-    ));
+    assert_reserved_prefix_group_boundaries("ThreeBytePrefixReservedGroupHeader", 17, 87_381, 4, 3);
 }
 
 #[test]
 fn codec_derive_resolves_four_byte_prefix_reserved_group_boundaries() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema FourBytePrefixReservedGroupHeader\n",
-            "  format binary\n",
-            "\n",
-            "  prefix: ReservedBits(25, 22369621)\n",
-            "  high: UInt4\n",
-            "  low: UInt3\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  decode FourBytePrefixReservedGroupHeader from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode FourBytePrefixReservedGroupHeader from packet\n",
-            "end\n",
-        ),
+    assert_reserved_prefix_group_boundaries(
+        "FourBytePrefixReservedGroupHeader",
+        25,
+        22_369_621,
+        4,
+        3,
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let read_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be lowered");
-    let CoreStmtKind::Return { expr } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "FourBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be lowered");
-    let CoreStmtKind::Return { expr } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "FourBytePrefixReservedGroupHeader"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let read_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be in IR");
-    let IrStmtKind::Return { value } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "FourBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be in IR");
-    let IrStmtKind::Return { value } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "FourBytePrefixReservedGroupHeader"
-    ));
 }
 
 #[test]
 fn codec_derive_resolves_five_byte_prefix_reserved_group_boundaries() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema FiveBytePrefixReservedGroupHeader\n",
-            "  format binary\n",
-            "\n",
-            "  prefix: ReservedBits(33, 5726623061)\n",
-            "  high: UInt3\n",
-            "  low: UInt4\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  decode FiveBytePrefixReservedGroupHeader from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode FiveBytePrefixReservedGroupHeader from packet\n",
-            "end\n",
-        ),
+    assert_reserved_prefix_group_boundaries(
+        "FiveBytePrefixReservedGroupHeader",
+        33,
+        5_726_623_061,
+        3,
+        4,
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let read_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be lowered");
-    let CoreStmtKind::Return { expr } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "FiveBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be lowered");
-    let CoreStmtKind::Return { expr } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "FiveBytePrefixReservedGroupHeader"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let read_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be in IR");
-    let IrStmtKind::Return { value } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "FiveBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be in IR");
-    let IrStmtKind::Return { value } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "FiveBytePrefixReservedGroupHeader"
-    ));
 }
 
 #[test]
 fn codec_derive_resolves_six_byte_prefix_reserved_group_boundaries() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "schema SixBytePrefixReservedGroupHeader\n",
-            "  format binary\n",
-            "\n",
-            "  prefix: ReservedBits(41, 1466015503701)\n",
-            "  high: UInt3\n",
-            "  low: UInt4\n",
-            "end\n",
-            "\n",
-            "\n",
-            "pub fn read_header(view: ByteView, base: ByteOffset) -> DecodeStep<{high: Int, low: Int}>\n",
-            "  decode SixBytePrefixReservedGroupHeader from view at base\n",
-            "end\n",
-            "\n",
-            "pub fn write_header(packet: {high: Int, low: Int}) -> Result<ByteChunk, EncodeError>\n",
-            "  encode SixBytePrefixReservedGroupHeader from packet\n",
-            "end\n",
-        ),
+    assert_reserved_prefix_group_boundaries(
+        "SixBytePrefixReservedGroupHeader",
+        41,
+        1_466_015_503_701,
+        3,
+        4,
     );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
-
-    let lowered = lower_checked_surface_module(&module);
-
-    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
-    let core = lowered.core.as_ref().expect("checked core should be built");
-    let read_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be lowered");
-    let CoreStmtKind::Return { expr } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "SixBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = core
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be lowered");
-    let CoreStmtKind::Return { expr } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as return");
-    };
-    assert!(matches!(
-        &expr.kind,
-        CoreExprKind::Call {
-            target: CoreCallTarget::SchemaEncode(name),
-            ..
-        } if name == "SixBytePrefixReservedGroupHeader"
-    ));
-
-    let ir = lowered.ir.expect("typed IR should be built");
-    let read_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "read_header")
-        .expect("read_header should be in IR");
-    let IrStmtKind::Return { value } = &read_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaDecodeStep(name),
-            ..
-        } if name == "SixBytePrefixReservedGroupHeader"
-    ));
-
-    let write_header = ir
-        .functions
-        .iter()
-        .find(|function| function.name == "write_header")
-        .expect("write_header should be in IR");
-    let IrStmtKind::Return { value } = &write_header.body[0].kind else {
-        panic!("tail expression should lower as IR return");
-    };
-    assert!(matches!(
-        &value.kind,
-        IrExprKind::Call {
-            target: IrCallTarget::SchemaEncode(name),
-            ..
-        } if name == "SixBytePrefixReservedGroupHeader"
-    ));
 }
 
 #[test]
