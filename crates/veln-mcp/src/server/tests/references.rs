@@ -348,7 +348,8 @@ fn failed_refresh_and_invalid_continuation_requests_preserve_live_state() {
     let initial_failure = server.references_tool(&json!({
         "source": "missing.veln",
         "line": 1,
-        "column": 1
+        "column": 1,
+        "include_declaration": true
     }));
     assert_eq!(initial_failure["isError"], true);
     assert_eq!(initial_failure["structuredContent"]["code"], "invalid_path");

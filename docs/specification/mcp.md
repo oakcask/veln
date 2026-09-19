@@ -575,7 +575,9 @@ import beats a colliding implicit workspace leaf alias for composition and
 operation selections, while a colliding exact workspace import makes both
 selections ambiguous, independently of source order.
 Standard-library schema aliases remain excluded and block same-named schema
-fallback. Focused language-service and MCP tests also cover
+fallback; eligible public aliases from retained direct dependencies remain
+supported reference selections and can include their canonical declaration
+location. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries. The language-service standard-library matrix additionally covers
 full and unique implicit module paths, valid repeated and array counts,

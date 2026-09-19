@@ -253,6 +253,33 @@ fn references_keep_anonymous_sources_isolated_for_new_symbol_classes() {
         &[("loose.veln", 4, 18, 4, 22), ("loose.veln", 4, 27, 4, 31)],
         "anonymous type isolation",
     );
+
+    let with_declaration = initialized_server(&workspace).references_tool(&json!({
+        "source": "loose.veln",
+        "line": 4,
+        "column": 19,
+        "include_declaration": true
+    }));
+    assert_eq!(with_declaration["isError"], false, "{with_declaration:#}");
+    assert_eq!(
+        with_declaration["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "loose.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &with_declaration,
+        &[
+            ("loose.veln", 1, 6, 1, 10),
+            ("loose.veln", 4, 18, 4, 22),
+            ("loose.veln", 4, 27, 4, 31),
+        ],
+        "anonymous type declaration inclusion",
+    );
 }
 
 #[test]

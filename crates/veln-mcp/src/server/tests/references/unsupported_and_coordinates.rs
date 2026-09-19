@@ -350,6 +350,23 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             "{}: {result:#}",
             case.name
         );
+        let with_declaration = initialized_server(&workspace).references_tool(&json!({
+            "source": case.source,
+            "line": case.line,
+            "column": case.column,
+            "include_declaration": true
+        }));
+        assert_eq!(
+            with_declaration["isError"], false,
+            "{}: {with_declaration:#}",
+            case.name
+        );
+        assert_eq!(
+            with_declaration["structuredContent"]["references"],
+            json!([]),
+            "{}: {with_declaration:#}",
+            case.name
+        );
     }
 }
 

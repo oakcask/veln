@@ -76,6 +76,15 @@ fn references_return_sorted_project_function_locations_and_scope() {
         ],
         "workspace function declaration inclusion",
     );
+
+    let omitted = references_result(&workspace, "main.veln", 10, 4);
+    let explicit_false = initialized_server(&workspace).references_tool(&json!({
+        "source": "main.veln",
+        "line": 10,
+        "column": 4,
+        "include_declaration": false
+    }));
+    assert_eq!(omitted, explicit_false);
 }
 
 #[test]
