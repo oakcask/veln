@@ -224,14 +224,14 @@ declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 
 Same-module bare schema and alias paths can resolve to their selected identity.
-Imported-module uses must be named by an accepted qualified path. Composition
-paths also accept a unique implicit leaf import alias. For composition paths,
-an exact full written import path takes
+Imported-module uses must be named by an accepted qualified path. Schema
+composition and operation paths also accept a unique implicit leaf import
+alias. For those paths, an exact full written import path takes
 precedence over a same-spelled implicit leaf alias. Otherwise, an implicit
-leaf alias selects a composition schema identity only when it is unique across
+leaf alias selects a schema identity only when it is unique across
 workspace and package imports. Conflicting exact imports select no identity.
 Duplicate and syntax-recovered dependency imports do not grant dependency
-composition visibility. A written import does not make the
+schema visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
 module-qualifier, recovery, or rename behavior for
 schemas.
@@ -293,10 +293,12 @@ cover UTF-16 ranges, the five-location saved baseline, the complete
 six-location overlay result including URI, range, and order, and overlay
 precedence.
 The LSP test `standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders`
-also verifies that exact import precedence is independent of declaration order
-and selects the `Packet` leaf itself. The shared matrix includes a same-spelled
-workspace schema, and the eligibility cases include a recovered alias beside a
-valid schema; neither can contaminate the standard-library reference set.
+also verifies on a `decode` leaf that exact import precedence is independent of
+declaration order. The shared language-service tests apply the same rule to
+composition and operation leaves, include a same-spelled workspace schema,
+and reject conflicting exact workspace and standard-library imports in either
+source order. The eligibility cases include a recovered alias beside a valid
+schema; neither can contaminate the standard-library reference set.
 The LSP test
 `standard_library_schema_unique_implicit_nested_module_path_matches_full_path`
 separately proves that a nested exported module has a unique implicit leaf

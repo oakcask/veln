@@ -469,13 +469,13 @@ requested source. They include same-module bare occurrences and qualified
 occurrences, including import-alias-qualified paths, that resolve to the
 selected workspace schema under ordinary import, visibility, exact
 test-companion, and shadowing rules. A written import does not put that
-imported module's schemas in the bare schema namespace. For composition
-references, an exact full written import path takes precedence over a
-same-spelled implicit leaf alias. Otherwise, a composition alias resolves only
-when exactly one workspace or package import provides that alias. Conflicting
-exact imports resolve no composition identity. Duplicate and syntax-recovered
-dependency imports resolve no dependency composition identity. A selected
-workspace schema's set excludes the
+imported module's schemas in the bare schema namespace. For schema composition
+and operation references, an exact full written import path takes precedence
+over a same-spelled implicit leaf alias. Otherwise, an implicit leaf alias
+resolves only when exactly one workspace or package import provides it.
+Conflicting exact imports resolve no schema identity. Duplicate and
+syntax-recovered dependency imports resolve no dependency schema identity. A
+selected workspace schema's set excludes the
 declaration, module qualifiers, package schemas, schema-alias leaves, alias
 traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
@@ -560,7 +560,11 @@ The paired adapter rejection tests
 `standard_library_schema_import_collisions_are_successful_empty_results` and
 `references_reject_standard_library_schema_import_collisions_in_both_orders`
 also cover duplicate, conflicting, and recovered standard-library imports in
-both exact-import orders as successful empty results.
+both exact-import orders as successful empty results. The shared
+language-service tests additionally prove that an exact standard-library
+import beats a colliding implicit workspace leaf alias for composition and
+operation selections, while a colliding exact workspace import makes both
+selections ambiguous, independently of source order.
 Standard-library schema aliases remain excluded and block same-named schema
 fallback. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
