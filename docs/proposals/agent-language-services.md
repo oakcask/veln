@@ -62,6 +62,12 @@ conformance, and plugin work. It is not itself selectable.
 The completed standard-library schema composition and operation slice is owned
 by the current specification and its adapter tests. Standard-library schema
 aliases and the remaining conformance and plugin work do not block that slice.
+Its evidence includes the injected language-service origin-isolation matrix,
+paired LSP and MCP adapter tests for the saved reference set and overlay
+boundary, MCP pagination, and stable-capture failure coverage. The matrix
+selects workspace, direct-dependency, and standard-library identities
+independently; standard-library schema aliases remain a separate planned
+boundary.
 
 Current direct-dependency schema composition and eligible schema-alias behavior
 is specified by

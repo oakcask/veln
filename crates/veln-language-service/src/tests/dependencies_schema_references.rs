@@ -1597,6 +1597,66 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn standard_library_schema_origin_isolation_is_symmetric() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source(
+                    "model.veln",
+                    "pub schema Packet\n  value: Int\nend\n\nschema Host\n  nested: Packet\nend\n",
+                ),
+                source(
+                    "dependency-use.veln",
+                    "use model from \"example/dep\"\n\nschema Host\n  nested: model::Packet\nend\n",
+                ),
+                source(
+                    "standard-use.veln",
+                    "use model from \"std\"\n\nschema Host\n  nested: model::Packet\nend\n",
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("model.veln", "pub schema Packet\n  value: Int\nend\n")],
+                ["model.veln"],
+            )],
+        )
+        .with_standard_library(standard_library_snapshot(
+            &[("model.veln", "pub schema Packet\n  value: Int\nend\n")],
+            ["model.veln"],
+        ));
+
+        let cases = [
+            ("model.veln", 1, 12, None, "model.veln", 6, 11),
+            (
+                "dependency-use.veln",
+                4,
+                18,
+                Some(PackageOrigin::DirectDependency),
+                "dependency-use.veln",
+                4,
+                18,
+            ),
+            (
+                "standard-use.veln",
+                4,
+                18,
+                Some(PackageOrigin::StandardLibrary),
+                "standard-use.veln",
+                4,
+                18,
+            ),
+        ];
+        for (path, line, column, origin, reference_path, reference_line, reference_column) in cases {
+            let selected = query_snapshot(&snapshot, path, line, column)
+                .unwrap_or_else(|| panic!("missing {origin:?} selection in {path}"));
+            assert_eq!(selected.selected_symbol.package_origin, origin);
+            assert_eq!(
+                locations(&selected.references),
+                [(reference_path, reference_line, reference_column)]
+            );
+        }
+    }
+
+    #[test]
     fn standard_library_schema_eligibility_and_import_failures_are_empty() {
         let cases: &[(&str, &str, &[&str])] = &[
             (

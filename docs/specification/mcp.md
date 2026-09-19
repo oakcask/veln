@@ -554,6 +554,11 @@ identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries. The language-service standard-library matrix additionally covers
 full and unique implicit module paths, valid repeated and array counts,
 lexical exclusions, origin isolation, and eligibility/import failures. The
+paired adapter assertions keep the saved LSP result set unchanged as the
+baseline for MCP's saved-file behavior; only LSP observes the added overlay
+leaf. The origin matrix selects workspace, direct-dependency, and
+standard-library identities independently, so each returned set excludes the
+other two origins.
 MCP `references_paginate_standard_library_schema_uses_without_changing_scope`
 case proves that pagination concatenates to the unpaged result, while
 `references_project_capture_exhausts_retries_for_standard_library_schema_selection`

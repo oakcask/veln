@@ -275,7 +275,11 @@ also checks full and unique implicit module paths, valid `Repeat` and array
 counts, package-origin isolation, lexical exclusions, and selected-project
 boundaries. Its eligibility companion checks private, non-exported,
 invalid-cased, alias-blocked, and ambiguous-import empty results. The LSP
-tests `standard_library_schema_references_use_the_injected_snapshot` and
+origin-isolation companion selects the same spelling from workspace,
+direct-dependency, and standard-library origins and checks each exact set
+without cross-origin locations. The LSP overlay companion first fixes the
+saved result set, then verifies that only the overlay adds its new leaf.
+The tests `standard_library_schema_references_use_the_injected_snapshot` and
 `standard_library_schema_references_use_the_lsp_overlay_over_saved_sources`
 cover adapter ranges and overlay precedence; MCP covers pagination and
 stable-capture failure for the same injected standard-library origin.
