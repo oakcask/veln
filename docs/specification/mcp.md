@@ -534,7 +534,10 @@ schema-alias blockers, and lexical-noise exclusion. A focused MCP server test
 injects a public standard-library schema and verifies the exact selected-project
 composition, `decode`, and `encode` locations with the selected project scope.
 The corresponding LSP and MCP tests use the same saved source shape, including
-the non-BMP preceding line, and assert the same five normalized saved locations.
+non-BMP saved input, and assert the same five normalized saved locations.
+The checked examples harness cannot inject the synthetic standard-library
+snapshot required by this boundary, so the injected adapter tests are the
+executable evidence route rather than an `examples/specification/` case.
 The LSP test additionally asserts its overlay boundary; these are paired
 executable cases rather than a prose-only parity claim.
 Its pagination case compares the complete ordered set with the concatenated

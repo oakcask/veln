@@ -263,8 +263,10 @@ Focused LSP and MCP adapter coverage injects a public standard-library schema
 and checks the selected-project reference set independently in each adapter,
 including composition, `decode`, and `encode` leaves. The LSP case checks both
 declaration policies, the exact five saved locations, and a non-BMP character
-in the preceding source; the MCP case checks the same five expected saved
-locations, pagination, and capture stability. The injected fixture is test-only;
+in the saved input; the MCP case checks the same five expected saved
+locations, pagination, and capture stability. The checked examples harness
+cannot inject a synthetic standard-library snapshot, so these adapter tests are
+the executable evidence route for this case. The injected fixture is test-only;
 the shipped standard-library bundle remains unchanged. Standard-library schema aliases
 remain excluded while their names block schema fallback.
 The language-service matrix

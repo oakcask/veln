@@ -179,6 +179,11 @@ fn standard_library_schema_import_collisions_are_successful_empty_results() {
             "wire::Packet",
         ),
         (
+            "conflicting-reverse",
+            "use beta::wire from \"std\"\nuse alpha::wire from \"std\"\n\n",
+            "wire::Packet",
+        ),
+        (
             "recovered",
             "use alpha::wire from \"std\" broken\n\n",
             "wire::Packet",

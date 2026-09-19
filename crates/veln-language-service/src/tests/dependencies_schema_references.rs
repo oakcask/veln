@@ -1730,8 +1730,11 @@ mod dependencies_schema_references_tests {
         )])
         .with_standard_library(standard_library_snapshot(
             &[
-                ("wire/valid.veln", "pub schema Packet\n  value: Int\nend\n"),
-                ("wire/recovered.veln", "pub schema Packet =\n"),
+                (
+                    "wire/valid.veln",
+                    "mod wire\npub schema Packet\n  value: Int\nend\n",
+                ),
+                ("wire/recovered.veln", "mod wire\npub schema Packet =\n"),
             ],
             ["wire/valid.veln", "wire/recovered.veln"],
         ));
