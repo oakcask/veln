@@ -271,7 +271,8 @@ the shipped standard-library bundle remains unchanged. Standard-library schema a
 remain excluded while their names block schema fallback.
 If a clean package schema and a syntax-recovered schema share the same package,
 module, and declaration identity, all five leaf roles are ineligible: selecting
-composition, `decode`, or `encode` returns the same successful empty result.
+direct composition, `Repeat`, array, `decode`, or `encode` returns the same
+successful empty result.
 The paired adapter regression cases
 `standard_library_schema_recovery_collision_keeps_all_reference_roles_empty`
 and
@@ -281,7 +282,9 @@ The language-service matrix
 `standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`
 also checks full and unique implicit module paths, valid `Repeat` and array
 counts, package-origin isolation, lexical exclusions, and selected-project
-boundaries. Its eligibility companion checks private, non-exported,
+boundaries. The focused exclusion test checks import-token, module-qualifier,
+and standard-library alias-target selections remain outside the reference
+union. Its eligibility companion checks private, non-exported,
 invalid-cased, alias-blocked, and ambiguous-import empty results. The shared
 language-service origin-isolation companion selects the same spelling from workspace,
 direct-dependency, and standard-library origins and checks each exact set

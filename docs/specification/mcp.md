@@ -559,7 +559,10 @@ fallback. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries. The language-service standard-library matrix additionally covers
 full and unique implicit module paths, valid repeated and array counts,
-lexical exclusions, origin isolation, and eligibility/import failures. The
+lexical exclusions, origin isolation, and eligibility/import failures. Its
+focused exclusion case selects an import token, module qualifier, and
+standard-library alias-target expression and confirms that none enters the
+normal reference union. The
 paired adapter assertions keep the saved LSP result set unchanged as the
 baseline for MCP's saved-file behavior; only LSP observes the added overlay
 leaf. The origin matrix selects workspace, direct-dependency, and

@@ -1591,9 +1591,55 @@ mod dependencies_schema_references_tests {
             assert!(matches!(result.definition.source, NavigationSource::Package { .. }));
         }
 
+        // Import tokens and module qualifiers are lexical selections rather
+        // than references to the schema identity.
+        for (path, line, column) in [
+            ("imports.veln", 1, 8),
+            ("uses.veln", 5, 12),
+            ("uses.veln", 5, 16),
+        ] {
+            assert!(
+                query_snapshot(&snapshot, path, line, column).is_none(),
+                "standard-library schema exclusion at {path}:{line}:{column}"
+            );
+        }
         assert!(query_snapshot(&snapshot, "uses.veln", 16, 8).is_none());
         assert!(query_snapshot(&snapshot, "uses.veln", 17, 4).is_none());
         assert!(query_snapshot(&snapshot, "other.veln", 4, 20).is_none());
+    }
+
+    #[test]
+    fn standard_library_schema_reference_exclusions_cover_import_module_and_alias_target_tokens() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use wire from \"std\"\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode wire::Packet from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "wire.veln",
+                "pub schema Base\n  value: Int\nend\n\npub schema Packet = Base\n",
+            )],
+            ["wire.veln"],
+        ));
+
+        for (line, column) in [(0, 4), (3, 10)] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "standard-library schema exclusion at main.veln:{line}:{column}"
+            );
+        }
+        let alias_target = query_snapshot(&snapshot, "wire.veln", 4, 19);
+        assert!(
+            alias_target
+                .as_ref()
+                .is_none_or(|result| result.references.is_empty()),
+            "standard-library alias target must not enter schema reference results: {alias_target:#?}"
+        );
     }
 
     #[test]

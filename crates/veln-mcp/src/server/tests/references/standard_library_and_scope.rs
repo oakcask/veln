@@ -32,7 +32,7 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n",
         [PackageSnapshotSource::new(
             "wire.veln",
-            b"pub schema Packet\n  value: Int\nend\n\nfn package_internal(view: ByteView) -> ()\n  decode Packet from view at byte_offset(0)?\nend\n",
+            b"pub schema Packet\n  value: Int\nend\n",
         )],
     );
 
@@ -78,6 +78,8 @@ fn references_keep_standard_library_schema_recovery_collisions_empty_for_all_rol
             "use wire from \"std\"\n\n",
             "schema Host\n",
             "  nested: wire::Packet\n",
+            "  repeated: Repeat(count, wire::Packet)\n",
+            "  array: [wire::Packet; count]\n",
             "end\n\n",
             "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode wire::Packet from view at byte_offset(0)?\n",
@@ -100,7 +102,7 @@ fn references_keep_standard_library_schema_recovery_collisions_empty_for_all_rol
         ],
     );
 
-    for (line, column) in [(4, 18), (8, 16), (9, 16)] {
+    for (line, column) in [(4, 18), (5, 26), (6, 10), (10, 16), (11, 16)] {
         let result = server.references_tool(&json!({
             "source": "main.veln",
             "line": line,

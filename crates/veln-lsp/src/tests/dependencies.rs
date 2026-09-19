@@ -325,6 +325,8 @@ fn standard_library_schema_recovery_collision_keeps_all_reference_roles_empty() 
             "use wire from \"std\"\n\n",
             "schema Host\n",
             "  nested: wire::Packet\n",
+            "  repeated: Repeat(count, wire::Packet)\n",
+            "  array: [wire::Packet; count]\n",
             "end\n\n",
             "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode wire::Packet from view at byte_offset(0)?\n",
@@ -336,7 +338,7 @@ fn standard_library_schema_recovery_collision_keeps_all_reference_roles_empty() 
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    for (line, column) in [(3, 17), (7, 15), (8, 15)] {
+    for (line, column) in [(3, 17), (4, 26), (5, 10), (9, 15), (10, 15)] {
         let references = server.handle_message(&references_request(&main_uri, line, column));
         assert_eq!(references.len(), 1, "line {line}");
         assert!(references[0].contains(r#""result":[]"#), "{}", references[0]);
