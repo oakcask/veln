@@ -736,7 +736,8 @@ type-alias right-hand sides, and the type segment used as a constructor
 qualifier, including when a package constructor has the same spelling as its
 owning type. Package constructor results include qualified calls, constructor
 patterns, and accepted bare constructor forms. A package constructor selection
-through a public type alias succeeds but returns an empty `references` array.
+through a public type alias succeeds but returns an empty `references` array,
+including when `include_declaration` is true.
 Supported package type-alias results include type annotations, type arguments,
 return types, type occurrences in type-alias right-hand sides, and the alias
 type segment used as a constructor qualifier. They include occurrences
@@ -1032,7 +1033,8 @@ keeps unsupported import-alias segment selection successful and empty, and
 keeps an ambiguous module-qualified package constructor leaf successful and
 empty. The same case checks that an alias-qualified constructor call can be
 used as a definition position while remaining outside package constructor
-reference results.
+reference results. Focused MCP tests keep that alias-route result empty when
+declaration inclusion is enabled.
 Language service and MCP server package constructor-reference tests check
 package identity, standard-library prelude identity, qualification, collision
 exclusion, module-qualified constructor-leaf ambiguity, type-qualified
