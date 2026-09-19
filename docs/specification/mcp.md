@@ -570,7 +570,9 @@ origin matrix selects workspace, direct-dependency, and
 standard-library identities independently, so each returned set excludes the
 other two origins.
 MCP `references_paginate_standard_library_schema_uses_without_changing_scope`
-case proves that pagination concatenates to the unpaged result, while
+case proves that every continuation page preserves the original project scope,
+the final page omits `next_cursor`, and pagination concatenates to the unpaged
+result, while
 `references_project_capture_exhausts_retries_for_standard_library_schema_selection`
 proves that stable-capture exhaustion returns `snapshot_changed` without
 partial references or scope.

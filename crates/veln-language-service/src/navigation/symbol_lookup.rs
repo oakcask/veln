@@ -1039,41 +1039,6 @@ enum QualifiedWorkspaceModule {
     Unresolved,
 }
 
-fn qualified_workspace_module(file: &IndexedFile, qualifier: &str) -> QualifiedWorkspaceModule {
-    if file.uses.contains(qualifier) || file.module == qualifier {
-        return QualifiedWorkspaceModule::Workspace(qualifier.to_string());
-    }
-    let exact_external_count = file
-        .external_uses
-        .iter()
-        .filter(|(module, _)| module == qualifier)
-        .count();
-    if exact_external_count == 1 {
-        return QualifiedWorkspaceModule::External;
-    }
-    if exact_external_count > 1 {
-        return QualifiedWorkspaceModule::Ambiguous;
-    }
-
-    let workspace_modules = file
-        .uses
-        .iter()
-        .filter(|module| module.rsplit("::").next() == Some(qualifier))
-        .cloned()
-        .collect::<Vec<_>>();
-    let external_module_count = file
-        .external_uses
-        .iter()
-        .filter(|(module, _)| module.rsplit("::").next() == Some(qualifier))
-        .count();
-    match (workspace_modules.as_slice(), external_module_count) {
-        ([module], 0) => QualifiedWorkspaceModule::Workspace(module.clone()),
-        ([], 1) => QualifiedWorkspaceModule::External,
-        ([], 0) => QualifiedWorkspaceModule::Unresolved,
-        _ => QualifiedWorkspaceModule::Ambiguous,
-    }
-}
-
 fn constructor_selected_through_public_alias(mut symbol: ConstructorSymbol) -> ConstructorSymbol {
     symbol.declaration_kind = SymbolDeclarationKind::PublicAlias;
     symbol

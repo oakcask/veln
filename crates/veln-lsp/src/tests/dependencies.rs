@@ -173,9 +173,11 @@ fn standard_library_schema_references_pair_saved_baseline_with_lsp_overlay() {
         r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\n// 🙂\nschema Host\n  count: UInt8\n  nested🙂: wire::Packet\n  repeated: Repeat(count, wire::Packet)\n  array: [wire::Packet; count]\n  extra: wire::Packet\nend\n\nfn read(view: ByteView, packet: {{value: Int}}) -> ()\n  decode wire::Packet from view at byte_offset(0)?\n  encode wire::Packet from packet\nend\n\nfn noise() -> String\n  // 🙂 wire::Packet\n  \"wire::Packet\"\nend\n"}}}}}}"#
     ));
     let overlay = server.handle_message(&references_request(&main_uri, 5, 18));
-    assert!(overlay[0].contains(r#""line":5,"character":18"#), "{}", overlay[0]);
-    assert!(overlay[0].contains(r#""line":8,"character":15"#), "{}", overlay[0]);
-    assert_eq!(overlay[0].matches(r#""uri":"#).count(), 6, "{}", overlay[0]);
+    let expected_overlay = format!(
+        r#"{{"jsonrpc":"2.0","id":2,"result":[{{"uri":"{uri}","range":{{"start":{{"line":5,"character":18}},"end":{{"line":5,"character":24}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":6,"character":32}},"end":{{"line":6,"character":38}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":7,"character":16}},"end":{{"line":7,"character":22}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":8,"character":15}},"end":{{"line":8,"character":21}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":12,"character":15}},"end":{{"line":12,"character":21}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":13,"character":15}},"end":{{"line":13,"character":21}}}}}}]}}"#,
+        uri = escape_json(&main_uri),
+    );
+    assert_eq!(overlay, std::slice::from_ref(&expected_overlay));
 }
 
 #[test]

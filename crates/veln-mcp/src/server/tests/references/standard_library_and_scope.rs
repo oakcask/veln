@@ -166,27 +166,32 @@ fn references_paginate_standard_library_schema_uses_without_changing_scope() {
         .as_str()
         .expect("standard schema result should paginate")
         .to_owned();
-    let second = server.references_tool(&json!({"cursor": cursor}));
-    assert_eq!(second["isError"], false, "{second:#}");
     let mut paged = first["structuredContent"]["references"]
         .as_array()
         .unwrap()
         .clone();
-    paged.extend(
-        second["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .clone(),
-    );
-    if let Some(cursor) = second["structuredContent"].get("next_cursor") {
-        let third = server.references_tool(&json!({"cursor": cursor}));
-        assert_eq!(third["isError"], false, "{third:#}");
+    let mut continuation = cursor;
+    loop {
+        let page = server.references_tool(&json!({"cursor": continuation}));
+        assert_eq!(page["isError"], false, "{page:#}");
+        assert_eq!(
+            page["structuredContent"]["scope"],
+            complete["structuredContent"]["scope"]
+        );
         paged.extend(
-            third["structuredContent"]["references"]
+            page["structuredContent"]["references"]
                 .as_array()
                 .unwrap()
                 .clone(),
         );
+        let Some(next) = page["structuredContent"].get("next_cursor") else {
+            assert!(page["structuredContent"].get("next_cursor").is_none());
+            break;
+        };
+        continuation = next
+            .as_str()
+            .expect("continuation cursor should be a string")
+            .to_owned();
     }
     assert_eq!(json!(paged), complete["structuredContent"]["references"]);
 }

@@ -289,7 +289,9 @@ selected-project test excludes another selected root and an unselected
 descendant. The tests
 `standard_library_schema_references_use_the_injected_snapshot` and
 `standard_library_schema_references_pair_saved_baseline_with_lsp_overlay`
-cover UTF-16 ranges, the five-location saved baseline, and overlay precedence.
+cover UTF-16 ranges, the five-location saved baseline, the complete
+six-location overlay result including URI, range, and order, and overlay
+precedence.
 The LSP test `standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders`
 also verifies that exact import precedence is independent of declaration order
 and selects the `Packet` leaf itself. The shared matrix includes a same-spelled
@@ -298,7 +300,8 @@ valid schema; neither can contaminate the standard-library reference set.
 The LSP test
 `standard_library_schema_import_collisions_are_successful_empty_results` keeps
 duplicate, conflicting, and recovered standard-library imports as successful
-empty results. MCP behavior and its independent pagination,
+empty results, including exact workspace and exact standard-library imports in
+both source orders. MCP behavior and its independent pagination,
 selected-project, and stable-capture evidence are specified by
 [MCP Workspace Projects, Resources, And Navigation](mcp.md#saved-workspace-navigation).
 For an eligible public schema alias in an exported retained direct-dependency

@@ -412,7 +412,7 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
-            return match qualified_workspace_module(file, &qualifier) {
+            return match self.schema_alias_qualified_workspace_module(file, &qualifier) {
                 QualifiedWorkspaceModule::Workspace(module) => self
                     .schemas
                     .iter()
