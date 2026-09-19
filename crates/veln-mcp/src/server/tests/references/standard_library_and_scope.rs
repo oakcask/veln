@@ -9,8 +9,9 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         "main.veln",
         concat!(
             "use schemas from \"std\"\n\n",
-            "fn read(view: ByteView) -> ()\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
             "  decode schemas::Packet from view at byte_offset(0)?\n",
+            "  encode schemas::Packet from packet\n",
             "end\n\n",
             "schema Host\n",
             "  nested: schemas::Packet\n",
@@ -26,14 +27,18 @@ fn references_include_standard_library_schema_uses_with_project_scope() {
         )],
     );
 
-    for (line, column) in [(4, 19), (8, 20)] {
+    for (line, column) in [(4, 19), (5, 19), (9, 20)] {
         let result =
             server.references_tool(&json!({"source":"main.veln","line":line,"column":column}));
 
         assert_eq!(result["isError"], false, "{result:#}");
         assert_reference_ranges(
             &result,
-            &[("main.veln", 4, 19, 4, 25), ("main.veln", 8, 20, 8, 26)],
+            &[
+                ("main.veln", 4, 19, 4, 25),
+                ("main.veln", 5, 19, 5, 25),
+                ("main.veln", 9, 20, 9, 26),
+            ],
             "standard library schema",
         );
         assert_eq!(
