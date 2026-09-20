@@ -198,6 +198,101 @@
         }
     }
 
+    #[test]
+    fn dependency_schema_operation_lookup_uses_qualified_target_index() {
+        for count in [100, 200, 400] {
+            let mut declarations = String::new();
+            for index in 0..count {
+                declarations.push_str(&format!(
+                    "pub schema Packet{index}\n  value: Int\nend\n\n"
+                ));
+            }
+            let mut operations = String::from(
+                "use dep from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n",
+            );
+            for _ in 0..count {
+                operations.push_str(
+                    "  decode dep::Packet0 from view at byte_offset(0)?\n",
+                );
+            }
+            operations.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("main.veln", &operations)],
+                vec![dependency_snapshot(
+                    "example/dep",
+                    &[("dep.veln", &declarations)],
+                    ["dep.veln"],
+                )],
+            );
+
+            let _ = snapshot.navigation_index();
+            crate::navigation::reset_schema_operation_qualified_lookup_work();
+            let started = std::time::Instant::now();
+            let selected = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
+            let elapsed = started.elapsed();
+            assert_eq!(selected.references.len(), count);
+            let (candidate_visits, target_lookups) =
+                crate::navigation::schema_operation_qualified_lookup_work();
+            assert_eq!(
+                target_lookups,
+                count + 2,
+                "selection probes the alias and schema indexes, then each reference probes the schema index once",
+            );
+            assert!(
+                candidate_visits <= count + 1,
+                "qualified lookup must not rescan all declarations: {candidate_visits}",
+            );
+            eprintln!(
+                "qualified schema operation lookup: declarations={count} occurrences={count} elapsed={elapsed:?} target_lookups={target_lookups} candidate_visits={candidate_visits}"
+            );
+        }
+    }
+
+    #[test]
+    fn dependency_schema_alias_operation_lookup_uses_qualified_target_index() {
+        for count in [100, 200, 400] {
+            let mut declarations =
+                String::from("pub schema Packet\n  value: Int\nend\n\n");
+            for index in 0..count {
+                declarations.push_str(&format!(
+                    "pub schema Noise{index} = Packet\n"
+                ));
+            }
+            declarations.push_str("pub schema Target = Packet\n");
+            let mut operations = String::from(
+                "use dep from \"example/dep\"\n\nfn read(view: ByteView) -> ()\n",
+            );
+            for _ in 0..count {
+                operations.push_str(
+                    "  decode dep::Target from view at byte_offset(0)?\n",
+                );
+            }
+            operations.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![source("main.veln", &operations)],
+                vec![dependency_snapshot(
+                    "example/dep",
+                    &[("dep.veln", &declarations)],
+                    ["dep.veln"],
+                )],
+            );
+
+            let _ = snapshot.navigation_index();
+            crate::navigation::reset_schema_operation_qualified_lookup_work();
+            let started = std::time::Instant::now();
+            let selected = query_snapshot(&snapshot, "main.veln", 4, 16).unwrap();
+            let elapsed = started.elapsed();
+            assert_eq!(selected.references.len(), count);
+            let (candidate_visits, target_lookups) =
+                crate::navigation::schema_operation_qualified_lookup_work();
+            assert_eq!(target_lookups, count + 1);
+            assert_eq!(candidate_visits, count + 1);
+            eprintln!(
+                "qualified schema-alias operation lookup: declarations={count} occurrences={count} elapsed={elapsed:?} target_lookups={target_lookups} candidate_visits={candidate_visits}"
+            );
+        }
+    }
+
     fn dependency_schema_alias_reference_work(count: usize) -> (usize, usize) {
         let mut consumer = String::from("use schema0 from \"example/dep\"\n");
         for index in 1..count {
