@@ -48,7 +48,6 @@ env:
   NEXTEST_VERSION: "0.9.145"
   # renovate: datasource=github-releases depName=taiki-e/cargo-llvm-cov
   LLVM_COV_VERSION: "0.9.1"
-  LCOV_VERSION: "2.0-4ubuntu2"
   # Keep test execution near twice the clean-build cost so extra shards still repay their build overhead.
   NEXTEST_TARGET_SECONDS: "90"
   NEXTEST_FALLBACK_SHARDS: "4"
@@ -126,7 +125,7 @@ jobs:
   coverage:
     name: merge Rust test coverage
     needs: test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -138,7 +137,7 @@ jobs:
       - name: Install LCOV and merge every Rust coverage shard
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends "lcov=${LCOV_VERSION}"
+          sudo apt-get install --yes --no-install-recommends lcov
           mkdir -p target/coverage
           lcov --branch-coverage \
             --add-tracefile 'target/coverage-shards/*/lcov.info' \
