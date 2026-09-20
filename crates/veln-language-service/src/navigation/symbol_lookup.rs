@@ -29,39 +29,27 @@ impl SymbolIndex {
         };
         match self.schema_alias_qualified_workspace_module(file, &qualifier) {
             QualifiedWorkspaceModule::Workspace(module) => {
-                self.schema_alias_declarations.iter().any(|symbol| {
-                    symbol.package.is_none() && symbol.module == module && symbol.name == name
-                })
+                self.bare_schema_alias_index
+                    .workspace_alias_declarations
+                    .contains(&(module, name.to_string()))
             }
             QualifiedWorkspaceModule::External | QualifiedWorkspaceModule::Unresolved => {
-                self.package_schema_alias_declarations.iter().any(|alias| {
-                    matches!(
-                        alias.package_origin,
-                        PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary
-                    )
-                        && alias.name == name
-                        && self.schema_alias_external_import_blocks_fallback(
-                            file,
-                            &qualifier,
-                            &alias.module,
-                            &alias.package,
-                        )
-                })
+                self.schema_alias_module_imports
+                    .get(&file.module)
+                    .is_some_and(|imports| {
+                        imports.raw_external_route_matches_any(&qualifier, |module, package| {
+                            self.schema_operation_lookup_index
+                                .package_alias_declarations
+                                .contains(&(
+                                    package.to_string(),
+                                    module.to_string(),
+                                    name.to_string(),
+                                ))
+                        })
+                    })
             }
             QualifiedWorkspaceModule::Ambiguous => true,
         }
-    }
-
-    fn schema_alias_external_import_blocks_fallback(
-        &self,
-        file: &IndexedFile,
-        qualifier: &str,
-        module: &str,
-        package: &str,
-    ) -> bool {
-        self.schema_alias_module_imports
-            .get(&file.module)
-            .is_some_and(|imports| imports.raw_external_route_matches(qualifier, module, package))
     }
 
     fn visible_schema_alias_for_bare_reference(
@@ -106,50 +94,38 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<NeutralSymbol> {
         let qualification = self.schema_alias_qualified_workspace_module(file, qualifier);
-        let mut candidates = self.schema_aliases.iter().filter(|symbol| {
-            symbol.name == name
-                && match (&qualification, &symbol.package) {
-                    (QualifiedWorkspaceModule::External, Some(package)) => {
-                        matches!(
-                            symbol.package_origin,
-                            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
-                        )
-                            && self.valid_schema_alias_external_import(
-                                file,
-                                qualifier,
-                                &symbol.module,
-                                package,
-                            )
-                    }
-                    (QualifiedWorkspaceModule::Unresolved, Some(_)) => {
-                        symbol.standard_prelude && qualifier == "prelude"
-                    }
-                    (QualifiedWorkspaceModule::Workspace(module), None) => {
-                        symbol.module == *module
-                    }
-                    (QualifiedWorkspaceModule::Ambiguous, _)
-                    | (QualifiedWorkspaceModule::Workspace(_), Some(_))
-                    | (QualifiedWorkspaceModule::External, None)
-                    | (QualifiedWorkspaceModule::Unresolved, None) => false,
-                }
-        });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
-    }
-
-    fn valid_schema_alias_external_import(
-        &self,
-        file: &IndexedFile,
-        qualifier: &str,
-        module: &str,
-        package: &str,
-    ) -> bool {
-        self.schema_alias_module_imports
-            .get(&file.module)
-            .and_then(|imports| imports.valid_external_route(qualifier))
-            .is_some_and(|(resolved, candidate_package)| {
-                resolved == module && candidate_package == package
-            })
+        #[cfg(test)]
+        record_schema_operation_qualified_target_lookup();
+        let candidates = match qualification {
+            QualifiedWorkspaceModule::External => {
+                let (module, package) = self
+                    .schema_alias_module_imports
+                    .get(&file.module)?
+                    .valid_external_route(qualifier)?;
+                self.schema_operation_lookup_index.package_aliases.get(&(
+                    package,
+                    module,
+                    name.to_string(),
+                ))?
+            }
+            QualifiedWorkspaceModule::Unresolved if qualifier == "prelude" => self
+                .bare_schema_alias_index
+                .standard_prelude_aliases
+                .get(name)?,
+            QualifiedWorkspaceModule::Workspace(module) => self
+                .schema_operation_lookup_index
+                .workspace_aliases
+                .get(&(module, name.to_string()))?,
+            QualifiedWorkspaceModule::Ambiguous | QualifiedWorkspaceModule::Unresolved => {
+                return None;
+            }
+        };
+        let [candidate] = candidates.as_slice() else {
+            return None;
+        };
+        #[cfg(test)]
+        record_schema_operation_qualified_candidate_visit();
+        Some(candidate.clone())
     }
 
     fn schema_alias_qualified_workspace_module(
@@ -170,52 +146,34 @@ impl SymbolIndex {
         }).cloned()
     }
 
-    fn visible_schema_for_qualified_reference(
+    fn visible_external_schema_for_qualified_reference(
         &self,
         file: &IndexedFile,
         qualifier: &str,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        let qualification = self.schema_alias_qualified_workspace_module(file, qualifier);
-        if matches!(qualification, QualifiedWorkspaceModule::External) {
-            let (module, package) = self
-                .schema_alias_module_imports
-                .get(&file.module)?
-                .valid_external_route(qualifier)?;
-            let mut candidates = self.schemas.iter().filter(|symbol| {
-                matches!(
-                        symbol.package_origin,
-                        Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
-                    )
-                    && symbol.package.as_deref() == Some(package.as_str())
-                    && symbol.module == module
-                    && symbol.name == name
-            });
-            if let Some(candidate) = candidates.next() {
-                return candidates.next().is_none().then(|| candidate.clone());
-            }
-            return self
-                .schemas
-                .iter()
-                .find(|symbol| {
-                    symbol.package_origin == Some(PackageOrigin::StandardLibrary)
-                        && symbol.package.as_deref() == Some(package.as_str())
-                        && symbol.module == module
-                        && symbol.name == name
-                })
-                .cloned();
+        let (module, package) = self
+            .schema_alias_module_imports
+            .get(&file.module)?
+            .valid_external_route(qualifier)?;
+        #[cfg(test)]
+        record_schema_operation_qualified_target_lookup();
+        let candidates = self.schema_operation_lookup_index.package_schemas.get(&(
+            package,
+            module,
+            name.to_string(),
+        ))?;
+        #[cfg(test)]
+        for _ in candidates {
+            record_schema_operation_qualified_candidate_visit();
         }
-        let QualifiedWorkspaceModule::Workspace(module) = qualification else {
-            return None;
-        };
-        let mut candidates = self.schemas.iter().filter(|symbol| {
-            symbol.package.is_none()
-                && symbol.name == name
-                && symbol.module == module
-                && visible_schema_from_workspace_module(file, symbol)
-        });
-        let candidate = candidates.next()?;
-        candidates.next().is_none().then(|| candidate.clone())
+        if let [candidate] = candidates.as_slice() {
+            return Some(candidate.clone());
+        }
+        candidates
+            .iter()
+            .find(|symbol| symbol.package_origin == Some(PackageOrigin::StandardLibrary))
+            .cloned()
     }
 
     fn visible_type_for_reference(
@@ -993,24 +951,20 @@ impl SchemaAliasModuleImports {
         unique_external_route(self.valid_external_imports_by_alias.get(alias)?, suffix)
     }
 
-    fn raw_external_route_matches(
+    fn raw_external_route_matches_any(
         &self,
         qualifier: &str,
-        expected_module: &str,
-        expected_package: &str,
+        mut predicate: impl FnMut(&str, &str) -> bool,
     ) -> bool {
         if let Some(routes) = self.external_imports_by_module.get(qualifier) {
-            return routes
-                .iter()
-                .any(|(module, package)| module == expected_module && package == expected_package);
+            return routes.iter().any(|(module, package)| predicate(module, package));
         }
         let (alias, suffix) = split_import_qualifier(qualifier);
         self.external_imports_by_alias
             .get(alias)
             .is_some_and(|routes| {
                 routes.iter().any(|(module, package)| {
-                    append_module_suffix(module, suffix) == expected_module
-                        && package == expected_package
+                    predicate(&append_module_suffix(module, suffix), package)
                 })
             })
     }

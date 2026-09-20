@@ -753,6 +753,15 @@ struct BareSchemaAliasIndex {
     standard_prelude_alias_declarations: BTreeSet<String>,
 }
 
+#[derive(Clone, Debug, Default)]
+struct SchemaOperationLookupIndex {
+    workspace_schemas: BTreeMap<(String, String), Vec<NeutralSymbol>>,
+    package_schemas: BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
+    workspace_aliases: BTreeMap<(String, String), Vec<NeutralSymbol>>,
+    package_aliases: BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
+    package_alias_declarations: BTreeSet<(String, String, String)>,
+}
+
 #[derive(Clone, Debug)]
 struct SchemaCompositionReference {
     span: SourceSpan,
@@ -830,8 +839,6 @@ pub(crate) struct SymbolIndex {
     files: Vec<IndexedFile>,
     schemas: Vec<NeutralSymbol>,
     schema_aliases: Vec<NeutralSymbol>,
-    schema_alias_declarations: Vec<NeutralSymbol>,
-    package_schema_alias_declarations: Vec<PackageSchemaAliasDeclaration>,
     package_schemas: BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     effects: Vec<NeutralSymbol>,
     handlers: Vec<NeutralSymbol>,
@@ -846,6 +853,7 @@ pub(crate) struct SymbolIndex {
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     bare_schema_alias_index: BareSchemaAliasIndex,
+    schema_operation_lookup_index: SchemaOperationLookupIndex,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
 

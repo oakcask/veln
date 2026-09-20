@@ -584,10 +584,10 @@ fn package_schema_composition_references(
     files: &[IndexedFile],
     workspace: WorkspaceSchemaCompositionDeclarations<'_>,
     schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
+    alias_index: &BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
     schema_aliases: &[NeutralSymbol],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Vec<SchemaCompositionReference> {
-    let alias_index = direct_dependency_schema_alias_index(schema_aliases);
     let prelude_alias_index = standard_prelude_schema_alias_index(schema_aliases);
     let workspace_schema_blockers = workspace_schema_blocker_index(workspace.schemas);
     let workspace_schema_alias_blockers =
@@ -596,7 +596,7 @@ fn package_schema_composition_references(
         workspace_type_blocker_index(workspace.types, workspace.type_aliases);
     let context = SchemaCompositionNavigationContext {
         schema_index,
-        alias_index: &alias_index,
+        alias_index,
         prelude_alias_index: &prelude_alias_index,
         workspace_schema_blockers: &workspace_schema_blockers,
         workspace_schema_alias_blockers: &workspace_schema_alias_blockers,
@@ -699,25 +699,63 @@ fn bare_schema_alias_index(
     }
 }
 
-fn direct_dependency_schema_alias_index(
+fn schema_operation_lookup_index(
+    schemas: &[NeutralSymbol],
     schema_aliases: &[NeutralSymbol],
-) -> BTreeMap<(String, String, String), Vec<NeutralSymbol>> {
-    let mut alias_index = BTreeMap::new();
-    for alias in schema_aliases.iter().filter(|alias| {
-        matches!(
-            alias.package_origin,
-            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
-        )
-    }) {
-        let Some(package) = alias.package.as_ref() else {
-            continue;
-        };
-        alias_index
-            .entry((package.clone(), alias.module.clone(), alias.name.clone()))
-            .or_insert_with(Vec::new)
-            .push(alias.clone());
+    alias_declarations: &[PackageSchemaAliasDeclaration],
+) -> SchemaOperationLookupIndex {
+    let mut index = SchemaOperationLookupIndex::default();
+    for schema in schemas {
+        if let Some(package) = &schema.package {
+            if matches!(
+                schema.package_origin,
+                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+            ) {
+                index
+                    .package_schemas
+                    .entry((package.clone(), schema.module.clone(), schema.name.clone()))
+                    .or_default()
+                    .push(schema.clone());
+            }
+        } else {
+            index
+                .workspace_schemas
+                .entry((schema.module.clone(), schema.name.clone()))
+                .or_default()
+                .push(schema.clone());
+        }
     }
-    alias_index
+    for alias in schema_aliases {
+        if let Some(package) = &alias.package {
+            if matches!(
+                alias.package_origin,
+                Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+            ) {
+                index
+                    .package_aliases
+                    .entry((package.clone(), alias.module.clone(), alias.name.clone()))
+                    .or_default()
+                    .push(alias.clone());
+            }
+        } else {
+            index
+                .workspace_aliases
+                .entry((alias.module.clone(), alias.name.clone()))
+                .or_default()
+                .push(alias.clone());
+        }
+    }
+    index.package_alias_declarations = alias_declarations
+        .iter()
+        .filter(|alias| {
+            matches!(
+                alias.package_origin,
+                PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary
+            )
+        })
+        .map(|alias| (alias.package.clone(), alias.module.clone(), alias.name.clone()))
+        .collect();
+    index
 }
 
 struct SchemaCompositionNavigationContext<'a> {

@@ -96,6 +96,11 @@ impl SymbolIndex {
             &schema_aliases,
             &schema_alias_declarations,
         );
+        let schema_operation_lookup_index = schema_operation_lookup_index(
+            &declarations.schemas,
+            &schema_aliases,
+            &declarations.package_schema_alias_declarations,
+        );
         let mut schema_composition_references = workspace_schema_composition_references(
             &files,
             &declarations.schemas,
@@ -116,6 +121,7 @@ impl SymbolIndex {
                 type_aliases: &declarations.type_aliases,
             },
             &package_schemas,
+            &schema_operation_lookup_index.package_aliases,
             &schema_aliases,
             &schema_alias_module_imports,
         ));
@@ -124,8 +130,6 @@ impl SymbolIndex {
         Self {
             schemas: declarations.schemas,
             schema_aliases,
-            schema_alias_declarations,
-            package_schema_alias_declarations: declarations.package_schema_alias_declarations,
             package_schemas,
             effects: declarations.effects,
             handlers: declarations.handlers,
@@ -140,6 +144,7 @@ impl SymbolIndex {
             schema_composition_references,
             schema_alias_module_imports,
             bare_schema_alias_index,
+            schema_operation_lookup_index,
             files,
             function_rename_index: OnceLock::new(),
         }
@@ -454,20 +459,17 @@ impl SymbolIndex {
         if let Some(qualifier) = qualifier_for_token(tokens, token_index) {
             return match self.schema_alias_qualified_workspace_module(file, &qualifier) {
                 QualifiedWorkspaceModule::Workspace(module) => self
-                    .schemas
+                    .schema_operation_lookup_index
+                    .workspace_schemas
+                    .get(&(module, name.to_string()))?
                     .iter()
-                    .find(|symbol| {
-                        symbol.name == name
-                            && symbol.module == module
-                            && symbol.package.is_none()
-                            && visible_schema_from_workspace_module(file, symbol)
-                    })
+                    .find(|symbol| visible_schema_from_workspace_module(file, symbol))
                     .cloned(),
                 QualifiedWorkspaceModule::Ambiguous => None,
-                QualifiedWorkspaceModule::External
-                | QualifiedWorkspaceModule::Unresolved => {
-                    self.visible_schema_for_qualified_reference(file, &qualifier, name)
+                QualifiedWorkspaceModule::External => {
+                    self.visible_external_schema_for_qualified_reference(file, &qualifier, name)
                 }
+                QualifiedWorkspaceModule::Unresolved => None,
             };
         }
         self.visible_schema_for_bare_reference(file, name)

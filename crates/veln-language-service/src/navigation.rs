@@ -60,6 +60,8 @@ thread_local! {
     static SCHEMA_OPERATION_PRELUDE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_BLOCKER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_LEAF_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_OPERATION_QUALIFIED_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -171,6 +173,32 @@ pub(crate) fn schema_operation_bare_lookup_work() -> (usize, usize, usize) {
 #[cfg(test)]
 fn record_schema_operation_leaf_lookup() {
     SCHEMA_OPERATION_LEAF_LOOKUPS.set(SCHEMA_OPERATION_LEAF_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_schema_operation_qualified_candidate_visit() {
+    SCHEMA_OPERATION_QUALIFIED_CANDIDATE_VISITS
+        .set(SCHEMA_OPERATION_QUALIFIED_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_schema_operation_qualified_target_lookup() {
+    SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS
+        .set(SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_schema_operation_qualified_lookup_work() {
+    SCHEMA_OPERATION_QUALIFIED_CANDIDATE_VISITS.set(0);
+    SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn schema_operation_qualified_lookup_work() -> (usize, usize) {
+    (
+        SCHEMA_OPERATION_QUALIFIED_CANDIDATE_VISITS.get(),
+        SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]
