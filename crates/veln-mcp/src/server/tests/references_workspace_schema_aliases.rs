@@ -595,6 +595,16 @@ fn references_paginate_bare_standard_library_schema_aliases_stably() {
         .expect("non-final alias page cursor")
         .to_owned();
 
+    assert_bare_standard_alias_continuation(&workspace, &mut server, &first, &unpaged, &cursor);
+}
+
+fn assert_bare_standard_alias_continuation(
+    workspace: &TempWorkspace,
+    server: &mut Server,
+    first: &Value,
+    unpaged: &Value,
+    cursor: &str,
+) {
     workspace.write("main.veln", "fn changed() -> Int\n  1\nend\n");
     let second = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(second["isError"], false, "{second:#}");

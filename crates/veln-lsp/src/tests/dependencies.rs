@@ -170,23 +170,36 @@ fn standard_library_prelude_schema_alias_references_keep_lsp_ranges() {
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let saved = server.handle_message(&references_request(&main_uri, 4, 20));
+    assert_saved_standard_alias_ranges(&mut server, &main_uri);
+    assert_standard_alias_overlay_range(&mut server, &main_uri);
+    assert_standard_alias_references_exclude_package_declarations(&mut server, &main_uri);
+}
+
+fn assert_saved_standard_alias_ranges(server: &mut Server, main_uri: &str) {
+    let saved = server.handle_message(&references_request(main_uri, 4, 20));
     let expected_saved = format!(
         r#"{{"jsonrpc":"2.0","id":2,"result":[{{"uri":"{uri}","range":{{"start":{{"line":4,"character":20}},"end":{{"line":4,"character":31}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":5,"character":32}},"end":{{"line":5,"character":43}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":6,"character":16}},"end":{{"line":6,"character":27}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":10,"character":15}},"end":{{"line":10,"character":26}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":11,"character":15}},"end":{{"line":11,"character":26}}}}}}]}}"#,
-        uri = escape_json(&main_uri),
+        uri = escape_json(main_uri),
     );
     assert_eq!(saved, std::slice::from_ref(&expected_saved));
+}
 
+fn assert_standard_alias_overlay_range(server: &mut Server, main_uri: &str) {
     server.handle_message(&format!(
         r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  count: UInt8\n  direct🙂🙂: wire::AliasPacket\n  repeated: Repeat(count, wire::AliasPacket)\n  array: [wire::AliasPacket; count]\nend\n\nfn read(view: ByteView, packet: {{value: Int}}) -> ()\n  decode wire::AliasPacket from view at byte_offset(0)?\n  encode wire::AliasPacket from packet\nend\n\nfn overlay(view: ByteView) -> ()\n  decode wire::AliasPacket from view at byte_offset(0)?\nend\n"}}}}}}"#
     ));
-    let overlay = server.handle_message(&references_request(&main_uri, 4, 20));
+    let overlay = server.handle_message(&references_request(main_uri, 4, 20));
     assert_eq!(overlay[0].matches(&format!("\"uri\":\"{main_uri}\"" )).count(), 6);
     assert!(overlay[0].contains("\"line\":15,\"character\":15"), "{}", overlay[0]);
+}
 
+fn assert_standard_alias_references_exclude_package_declarations(
+    server: &mut Server,
+    main_uri: &str,
+) {
     for include_declaration in [false, true] {
         let references = server.handle_message(&references_request_with_declaration(
-            &main_uri,
+            main_uri,
             4,
             20,
             include_declaration,

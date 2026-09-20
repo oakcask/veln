@@ -737,30 +737,30 @@ impl SchemaCompositionNavigationContext<'_> {
         span: &SourceSpan,
         token_cursor: &mut usize,
     ) -> Option<SchemaCompositionReference> {
-    while *token_cursor < file.tokens.len()
-        && file.tokens[*token_cursor].range.end <= span.start.offset
-    {
-        *token_cursor += 1;
-    }
-    let token = file.tokens.get(*token_cursor)?;
-    if token.range.start != span.start.offset
-        || token.range.end != span.end.offset
-        || !token
-            .text
-            .chars()
-            .next()
-            .is_some_and(|initial| initial.is_ascii_uppercase())
-    {
-        return None;
-    }
-    let Some(qualifier) = qualifier_for_token(&file.tokens, *token_cursor) else {
-        #[cfg(test)]
-        record_schema_composition_prelude_lookup();
-        let candidates = self.prelude_alias_index.get(&token.text)?;
-        let [alias] = candidates.as_slice() else {
-            return None;
+        let token = schema_composition_token(file, span, token_cursor)?;
+        let Some(qualifier) = qualifier_for_token(&file.tokens, *token_cursor) else {
+            return self.bare_prelude_schema_composition_reference(file, span, &token.text);
         };
-        let blocker = (file.module.clone(), token.text.clone());
+        match schema_qualified_workspace_module(file, &qualifier, self.module_imports) {
+            QualifiedWorkspaceModule::Unresolved if qualifier == "prelude" => {
+                self.prelude_schema_composition_reference(span, &token.text)
+            }
+            QualifiedWorkspaceModule::External => {
+                self.imported_schema_composition_reference(file, span, &qualifier, &token.text)
+            }
+            QualifiedWorkspaceModule::Workspace(_)
+            | QualifiedWorkspaceModule::Ambiguous
+            | QualifiedWorkspaceModule::Unresolved => None,
+        }
+    }
+
+    fn bare_prelude_schema_composition_reference(
+        &self,
+        file: &IndexedFile,
+        span: &SourceSpan,
+        name: &str,
+    ) -> Option<SchemaCompositionReference> {
+        let blocker = (file.module.clone(), name.to_string());
         #[cfg(test)]
         record_schema_composition_blocker_lookup();
         if self.workspace_schema_blockers.contains(&blocker)
@@ -769,54 +769,78 @@ impl SchemaCompositionNavigationContext<'_> {
         {
             return None;
         }
-        return Some(SchemaCompositionReference {
+        self.prelude_schema_composition_reference(span, name)
+    }
+
+    fn prelude_schema_composition_reference(
+        &self,
+        span: &SourceSpan,
+        name: &str,
+    ) -> Option<SchemaCompositionReference> {
+        #[cfg(test)]
+        record_schema_composition_prelude_lookup();
+        let [alias] = self.prelude_alias_index.get(name)?.as_slice() else {
+            return None;
+        };
+        Some(SchemaCompositionReference {
             span: span.clone(),
             target: SchemaReferenceTarget::Alias(alias.clone()),
-        });
-    };
-    match schema_qualified_workspace_module(file, &qualifier, self.module_imports) {
-        QualifiedWorkspaceModule::Unresolved if qualifier == "prelude" => {
-            #[cfg(test)]
-            record_schema_composition_prelude_lookup();
-            let candidates = self.prelude_alias_index.get(&token.text)?;
-            let [alias] = candidates.as_slice() else {
-                return None;
-            };
-            return Some(SchemaCompositionReference {
-                span: span.clone(),
-                target: SchemaReferenceTarget::Alias(alias.clone()),
-            });
-        }
-        QualifiedWorkspaceModule::External => {}
-        QualifiedWorkspaceModule::Workspace(_)
-        | QualifiedWorkspaceModule::Ambiguous
-        | QualifiedWorkspaceModule::Unresolved => return None,
+        })
     }
-    let (module, package) = self
-        .module_imports
-        .get(&file.module)?
-        .valid_external_route(&qualifier)?;
-    let package_origin = if package == "std" {
-        PackageOrigin::StandardLibrary
-    } else {
-        PackageOrigin::DirectDependency
-    };
-    let alias_key = (package.clone(), module.clone(), token.text.clone());
-    let key = (package_origin, package, module, token.text.clone());
-    let target = match self.alias_index.get(&alias_key) {
-        Some(candidates) if candidates.len() == 1 => {
-            SchemaReferenceTarget::Alias(candidates[0].clone())
-        }
-        Some(_) => return None,
-        None => {
-            SchemaReferenceTarget::Schema(package_schema_target(self.schema_index, &key)?.clone())
-        }
-    };
-    Some(SchemaCompositionReference {
-        span: span.clone(),
-        target,
-    })
+
+    fn imported_schema_composition_reference(
+        &self,
+        file: &IndexedFile,
+        span: &SourceSpan,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<SchemaCompositionReference> {
+        let (module, package) = self
+            .module_imports
+            .get(&file.module)?
+            .valid_external_route(qualifier)?;
+        let package_origin = if package == "std" {
+            PackageOrigin::StandardLibrary
+        } else {
+            PackageOrigin::DirectDependency
+        };
+        let alias_key = (package.clone(), module.clone(), name.to_string());
+        let key = (package_origin, package, module, name.to_string());
+        let target = match self.alias_index.get(&alias_key) {
+            Some(candidates) if candidates.len() == 1 => {
+                SchemaReferenceTarget::Alias(candidates[0].clone())
+            }
+            Some(_) => return None,
+            None => SchemaReferenceTarget::Schema(
+                package_schema_target(self.schema_index, &key)?.clone(),
+            ),
+        };
+        Some(SchemaCompositionReference {
+            span: span.clone(),
+            target,
+        })
     }
+}
+
+fn schema_composition_token<'a>(
+    file: &'a IndexedFile,
+    span: &SourceSpan,
+    token_cursor: &mut usize,
+) -> Option<&'a Token> {
+    while *token_cursor < file.tokens.len()
+        && file.tokens[*token_cursor].range.end <= span.start.offset
+    {
+        *token_cursor += 1;
+    }
+    let token = file.tokens.get(*token_cursor)?;
+    (token.range.start == span.start.offset
+        && token.range.end == span.end.offset
+        && token
+            .text
+            .chars()
+            .next()
+            .is_some_and(|initial| initial.is_ascii_uppercase()))
+    .then_some(token)
 }
 
 fn package_schema_target<'a>(

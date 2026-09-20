@@ -121,9 +121,11 @@ leaves. The explicit qualifier uses a standard-library alias only when
 `prelude` selects that package alias. If both imports provide the exact name,
 the qualifier remains unresolved in either import order and does not fall back
 to the standard library. These rules apply consistently to direct, `Repeat`,
-array-payload, `decode`, and `encode` leaves. For a bare name, a same-named
-local schema, schema alias, type, or type alias blocks implicit prelude
-fallback in composition. In `decode` and
+array-payload, `decode`, and `encode` leaves. Written `prelude` imports still
+report `name.reserved`; a parse-clean reserved import participates in
+navigation precedence, while a syntax-recovered import does not. For a bare
+name, a same-named local schema, schema alias, type, or type alias blocks
+implicit prelude fallback in composition. In `decode` and
 `encode`, which select only the schema namespace, a local schema or schema
 alias blocks fallback while a local type or type alias does not. An ineligible
 declaration in the applicable namespace also blocks fallback. A same-named

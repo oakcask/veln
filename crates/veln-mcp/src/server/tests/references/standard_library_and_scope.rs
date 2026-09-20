@@ -192,6 +192,14 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
         23,
         "standard-library schema alias declaration",
     );
+    assert_standard_alias_package_resource(&mut server, &with_declaration, standard_source);
+}
+
+fn assert_standard_alias_package_resource(
+    server: &mut Server,
+    with_declaration: &Value,
+    standard_source: &str,
+) {
     let declaration_uri = with_declaration["structuredContent"]["references"]
         .as_array()
         .unwrap()
@@ -390,25 +398,7 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_alias
         &mut server,
         "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
     );
-    let seeded = server.references_tool(&json!({
-        "source": "main.veln",
-        "line": 2,
-        "column": 12,
-        "page_size": 1,
-    }));
-    assert_eq!(seeded["isError"], false, "{seeded:#}");
-    assert_eq!(
-        seeded["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1,
-        "{seeded:#}"
-    );
-    let prior_cursor = seeded["structuredContent"]["next_cursor"]
-        .as_str()
-        .expect("seed selection must create a continuation cursor")
-        .to_owned();
+    let prior_cursor = seed_standard_alias_reference_cursor(&mut server);
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
@@ -442,6 +432,32 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_alias
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
+    assert_standard_alias_cursor_remains_valid(&mut server, &prior_cursor);
+}
+
+fn seed_standard_alias_reference_cursor(server: &mut Server) -> String {
+    let seeded = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 2,
+        "column": 12,
+        "page_size": 1,
+    }));
+    assert_eq!(seeded["isError"], false, "{seeded:#}");
+    assert_eq!(
+        seeded["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "{seeded:#}"
+    );
+    seeded["structuredContent"]["next_cursor"]
+        .as_str()
+        .expect("seed selection must create a continuation cursor")
+        .to_owned()
+}
+
+fn assert_standard_alias_cursor_remains_valid(server: &mut Server, prior_cursor: &str) {
     let continuation = server.references_tool(&json!({"cursor": prior_cursor}));
     assert_eq!(continuation["isError"], false, "{continuation:#}");
     assert_eq!(
