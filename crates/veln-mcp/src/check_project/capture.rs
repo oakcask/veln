@@ -1,11 +1,23 @@
 use super::*;
 #[cfg(test)]
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 
 #[cfg(test)]
 thread_local! {
     static AFTER_FIRST_STABLE_CAPTURE_HOOK: RefCell<Option<Box<dyn FnMut()>>> =
         RefCell::new(None);
+    static CAPTURE_FILE_READS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_capture_file_reads() {
+    CAPTURE_FILE_READS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn capture_file_reads() -> usize {
+    CAPTURE_FILE_READS.get()
 }
 
 pub(super) enum CaptureError {
@@ -13,17 +25,57 @@ pub(super) enum CaptureError {
     Io,
 }
 
-pub(super) fn capture_stable_project(target: &Target) -> Result<CapturedProject, CaptureError> {
-    capture_stable_project_with(|| capture_once(target))
+#[derive(Default)]
+pub(crate) struct CaptureCache {
+    files: BTreeMap<PathBuf, CachedFile>,
+    total_bytes: usize,
+}
+
+struct CachedFile {
+    identity: FileIdentity,
+    bytes: Vec<u8>,
+}
+
+const CAPTURE_CACHE_MAX_FILES: usize = 1024;
+const CAPTURE_CACHE_MAX_BYTES: usize = 16 * 1024 * 1024;
+
+impl CaptureCache {
+    fn insert(&mut self, path: PathBuf, file: CachedFile) {
+        if file.bytes.len() > CAPTURE_CACHE_MAX_BYTES {
+            if let Some(previous) = self.files.remove(&path) {
+                self.total_bytes = self.total_bytes.saturating_sub(previous.bytes.len());
+            }
+            return;
+        }
+        if let Some(previous) = self.files.remove(&path) {
+            self.total_bytes = self.total_bytes.saturating_sub(previous.bytes.len());
+        }
+        if self.files.len() >= CAPTURE_CACHE_MAX_FILES
+            || self.total_bytes.saturating_add(file.bytes.len()) > CAPTURE_CACHE_MAX_BYTES
+        {
+            self.files.clear();
+            self.total_bytes = 0;
+        }
+        self.total_bytes += file.bytes.len();
+        self.files.insert(path, file);
+    }
+}
+
+pub(super) fn capture_stable_project(
+    target: &Target,
+    cache: &mut CaptureCache,
+) -> Result<CapturedProject, CaptureError> {
+    capture_stable_project_with(|| capture_once(target, cache))
 }
 
 pub(crate) fn capture_navigation_source(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
+    cache: &mut CaptureCache,
 ) -> Result<(CapturedProject, String, NavigationScope), ToolOutcome> {
     let source = validate_source_path(base, source)?;
-    stable_navigation_capture_or_failure(base, selection, &source)
+    stable_navigation_capture_or_failure(base, selection, &source, cache)
         .map(|captured| (captured.project, captured.source, captured.scope))
 }
 
@@ -64,9 +116,10 @@ fn stable_navigation_capture_or_failure(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
+    cache: &mut CaptureCache,
 ) -> Result<CapturedNavigationSource, ToolOutcome> {
     capture_stable_navigation_source_with(|| {
-        capture_navigation_source_once(base, selection, source)
+        capture_navigation_source_once(base, selection, source, cache)
     })
     .map_err(|_| {
         domain_failure(
@@ -87,6 +140,7 @@ fn capture_navigation_source_once(
     base: &WorkspaceBase,
     selection: &Selection,
     source: &str,
+    cache: &mut CaptureCache,
 ) -> io::Result<CapturedNavigationSource> {
     let mut inspected_project = None;
     for root in selection.roots() {
@@ -104,7 +158,7 @@ fn capture_navigation_source_once(
             selection.root_identity(root).cloned(),
         )
         .map_err(navigation_domain_as_io)?;
-        let captured = capture_once(&target)?;
+        let captured = capture_once(&target, cache)?;
         if captured
             .project
             .files
@@ -143,7 +197,7 @@ fn capture_navigation_source_once(
         require_manifest: false,
         selected_root_identity: None,
     };
-    let captured = capture_once(&target)?;
+    let captured = capture_once(&target, cache)?;
     Ok(CapturedNavigationSource {
         key: json!({
             "mode": "single_file",
@@ -244,11 +298,11 @@ pub(crate) struct CapturedProject {
     pub(crate) key: Value,
 }
 
-fn capture_once(target: &Target) -> io::Result<CapturedProject> {
+fn capture_once(target: &Target, cache: &mut CaptureCache) -> io::Result<CapturedProject> {
     validate_base_identity(target)?;
     validate_selected_root_identity(target)?;
     let (project, boundary_manifests) = if target.require_manifest {
-        let captured = capture_manifest_project(target)?;
+        let captured = capture_manifest_project(target, cache)?;
         (captured.project, captured.boundary_manifests)
     } else {
         let input = target.input.as_ref().ok_or_else(|| {
@@ -261,7 +315,7 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
         (
             Project {
                 root: target.root.clone(),
-                files: vec![read_source_file(&root, &target.root, input)?],
+                files: vec![read_source_file(cache, &root, &target.root, input)?],
                 manifest: None,
             },
             Vec::new(),
@@ -273,7 +327,7 @@ fn capture_once(target: &Target) -> io::Result<CapturedProject> {
             "selected manifest project no longer has a manifest",
         ));
     }
-    let dependencies = dependency_snapshots(&project)?;
+    let dependencies = dependency_snapshots(&project, cache)?;
     let key = snapshot_key(&project, &dependencies, &boundary_manifests)?;
     Ok(CapturedProject {
         project,
@@ -293,10 +347,13 @@ struct BoundaryManifest {
     bytes: Vec<u8>,
 }
 
-fn capture_manifest_project(target: &Target) -> io::Result<ManifestCapture> {
+fn capture_manifest_project(
+    target: &Target,
+    cache: &mut CaptureCache,
+) -> io::Result<ManifestCapture> {
     validate_manifest_root(&target.root)?;
     let root = open_checked_root(target)?;
-    let manifest_text = read_text_beneath(&root, &target.root, Path::new("veln.toml"))?;
+    let manifest_text = read_text_beneath(cache, &root, &target.root, Path::new("veln.toml"))?;
     let manifest = parse_manifest_text("veln.toml", &manifest_text);
     let mut source_paths = Vec::new();
     let mut boundary_manifests = Vec::new();
@@ -306,13 +363,14 @@ fn capture_manifest_project(target: &Target) -> io::Result<ManifestCapture> {
         Path::new("."),
         &mut source_paths,
         &mut boundary_manifests,
+        cache,
     )?;
     source_paths.sort();
     source_paths.dedup();
     boundary_manifests.sort_by(|left, right| left.path.cmp(&right.path));
     let files = source_paths
         .iter()
-        .map(|path| read_source_file(&root, &target.root, path))
+        .map(|path| read_source_file(cache, &root, &target.root, path))
         .collect::<io::Result<Vec<_>>>()?;
     Ok(ManifestCapture {
         project: Project {
@@ -355,17 +413,69 @@ fn open_child_dir_beneath(parent: &File, path: &Path) -> io::Result<File> {
     open_directory_at(parent, path)
 }
 
-fn read_source_file(root: &File, root_path: &Path, path: &Path) -> io::Result<SourceFile> {
-    let text = read_text_beneath(root, root_path, path)?;
+fn read_source_file(
+    cache: &mut CaptureCache,
+    root: &File,
+    root_path: &Path,
+    path: &Path,
+) -> io::Result<SourceFile> {
+    let text = read_text_beneath(cache, root, root_path, path)?;
     Ok(SourceFile::new(display_relative_path(path), text))
 }
 
 #[cfg(target_os = "linux")]
-fn read_text_beneath(root: &File, _root_path: &Path, path: &Path) -> io::Result<String> {
+fn read_text_beneath(
+    cache: &mut CaptureCache,
+    root: &File,
+    root_path: &Path,
+    path: &Path,
+) -> io::Result<String> {
+    let bytes = read_bytes_beneath(cache, root, root_path, path)?;
+    String::from_utf8(bytes)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.utf8_error()))
+}
+
+#[cfg(target_os = "linux")]
+fn read_bytes_beneath(
+    cache: &mut CaptureCache,
+    root: &File,
+    root_path: &Path,
+    path: &Path,
+) -> io::Result<Vec<u8>> {
+    read_bytes_and_identity_beneath(cache, root, root_path, path).map(|(bytes, _)| bytes)
+}
+
+#[cfg(target_os = "linux")]
+fn read_bytes_and_identity_beneath(
+    cache: &mut CaptureCache,
+    root: &File,
+    root_path: &Path,
+    path: &Path,
+) -> io::Result<(Vec<u8>, FileIdentity)> {
     let mut file = open_regular_file_beneath(root, path, "captured path is not a regular file")?;
-    let mut text = String::new();
-    file.read_to_string(&mut text)?;
-    Ok(text)
+    let identity = FileIdentity::from_metadata(&file.metadata()?)?;
+    let cache_path = root_path.join(path);
+    if let Some(cached) = cache.files.get(&cache_path)
+        && cached.identity == identity
+    {
+        return Ok((cached.bytes.clone(), identity));
+    }
+    let mut bytes = Vec::new();
+    #[cfg(test)]
+    CAPTURE_FILE_READS.set(CAPTURE_FILE_READS.get() + 1);
+    file.read_to_end(&mut bytes)?;
+    let after = FileIdentity::from_metadata(&file.metadata()?)?;
+    if identity != after {
+        return Err(io::Error::other("captured file changed while reading"));
+    }
+    cache.insert(
+        cache_path,
+        CachedFile {
+            identity,
+            bytes: bytes.clone(),
+        },
+    );
+    Ok((bytes, after))
 }
 
 #[cfg(target_os = "linux")]
@@ -389,7 +499,12 @@ fn open_regular_file_beneath(
 }
 
 #[cfg(not(target_os = "linux"))]
-fn read_text_beneath(_root: &File, _root_path: &Path, _path: &Path) -> io::Result<String> {
+fn read_text_beneath(
+    _cache: &mut CaptureCache,
+    _root: &File,
+    _root_path: &Path,
+    _path: &Path,
+) -> io::Result<String> {
     Err(no_handle_relative_capture_support())
 }
 
@@ -400,6 +515,7 @@ fn collect_veln_files_beneath(
     relative_dir: &Path,
     paths: &mut Vec<PathBuf>,
     boundary_manifests: &mut Vec<BoundaryManifest>,
+    cache: &mut CaptureCache,
 ) -> io::Result<()> {
     let mut children = Vec::new();
     let mut buffer = Vec::with_capacity(8192);
@@ -427,10 +543,10 @@ fn collect_veln_files_beneath(
     for (name, child) in children {
         let dir = open_child_dir_beneath(dir, &name)?;
         if has_regular_file_beneath(&dir, Path::new("veln.toml"))? {
-            boundary_manifests.push(read_boundary_manifest(&dir, &child)?);
+            boundary_manifests.push(read_boundary_manifest(cache, &dir, _root_path, &child)?);
             continue;
         }
-        collect_veln_files_beneath(&dir, _root_path, &child, paths, boundary_manifests)?;
+        collect_veln_files_beneath(&dir, _root_path, &child, paths, boundary_manifests, cache)?;
     }
     Ok(())
 }
@@ -442,22 +558,27 @@ fn collect_veln_files_beneath(
     _relative_dir: &Path,
     _paths: &mut Vec<PathBuf>,
     _boundary_manifests: &mut Vec<BoundaryManifest>,
+    _cache: &mut CaptureCache,
 ) -> io::Result<()> {
     Err(no_handle_relative_capture_support())
 }
 
 #[cfg(target_os = "linux")]
-fn read_boundary_manifest(dir: &File, relative_dir: &Path) -> io::Result<BoundaryManifest> {
-    let mut file = open_regular_file_beneath(
+fn read_boundary_manifest(
+    cache: &mut CaptureCache,
+    dir: &File,
+    root_path: &Path,
+    relative_dir: &Path,
+) -> io::Result<BoundaryManifest> {
+    let relative_path = relative_dir.join("veln.toml");
+    let (bytes, identity) = read_bytes_and_identity_beneath(
+        cache,
         dir,
+        &root_path.join(relative_dir),
         Path::new("veln.toml"),
-        "nested manifest boundary is not a regular file",
     )?;
-    let identity = FileIdentity::from_metadata(&file.metadata()?)?;
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
     Ok(BoundaryManifest {
-        path: display_relative_path(&relative_dir.join("veln.toml")),
+        path: display_relative_path(&relative_path),
         identity,
         bytes,
     })
@@ -536,7 +657,10 @@ fn snapshot_key(
     }))
 }
 
-fn dependency_snapshots(project: &Project) -> io::Result<Vec<CapturedDependencyProject>> {
+fn dependency_snapshots(
+    project: &Project,
+    cache: &mut CaptureCache,
+) -> io::Result<Vec<CapturedDependencyProject>> {
     let Some(manifest) = &project.manifest else {
         return Ok(Vec::new());
     };
@@ -554,7 +678,7 @@ fn dependency_snapshots(project: &Project) -> io::Result<Vec<CapturedDependencyP
                 continue;
             }
         };
-        let Ok(dependency_project) = Project::discover(dependency_root, &[]) else {
+        let Ok(dependency_project) = discover_cached_project(&dependency_root, cache) else {
             snapshots.push(CapturedDependencyProject {
                 package: dependency.package.clone(),
                 source,
@@ -571,6 +695,62 @@ fn dependency_snapshots(project: &Project) -> io::Result<Vec<CapturedDependencyP
     snapshots
         .sort_by(|left, right| (&left.package, &left.source).cmp(&(&right.package, &right.source)));
     Ok(snapshots)
+}
+
+fn discover_cached_project(root: &Path, cache: &mut CaptureCache) -> io::Result<Project> {
+    let root = veln_project::normalize_lexical_path(root);
+    let paths = veln_project::companion_analysis_inputs(&root, &[])?;
+    let files = paths
+        .iter()
+        .map(|path| {
+            let text = read_cached_path(cache, path)?;
+            let relative = path
+                .strip_prefix(&root)
+                .map_or_else(|_| path.to_path_buf(), PathBuf::from);
+            Ok(SourceFile::new(
+                relative.to_string_lossy().replace('\\', "/"),
+                text,
+            ))
+        })
+        .collect::<io::Result<Vec<_>>>()?;
+    let manifest_path = root.join("veln.toml");
+    let manifest = match fs::symlink_metadata(&manifest_path) {
+        Ok(metadata) if metadata.file_type().is_file() => Some(parse_manifest_text(
+            "veln.toml",
+            &read_cached_path(cache, &manifest_path)?,
+        )),
+        Ok(_) => None,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error),
+    };
+    Ok(Project {
+        root,
+        files,
+        manifest,
+    })
+}
+
+fn read_cached_path(cache: &mut CaptureCache, path: &Path) -> io::Result<String> {
+    let mut file = File::open(path)?;
+    let identity = FileIdentity::from_metadata(&file.metadata()?)?;
+    if let Some(cached) = cache.files.get(path)
+        && cached.identity == identity
+    {
+        return String::from_utf8(cached.bytes.clone())
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.utf8_error()));
+    }
+    let mut bytes = Vec::new();
+    #[cfg(test)]
+    CAPTURE_FILE_READS.set(CAPTURE_FILE_READS.get() + 1);
+    file.read_to_end(&mut bytes)?;
+    let after = FileIdentity::from_metadata(&file.metadata()?)?;
+    if identity != after {
+        return Err(io::Error::other("captured file changed while reading"));
+    }
+    let text = String::from_utf8(bytes.clone())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.utf8_error()))?;
+    cache.insert(path.to_path_buf(), CachedFile { identity, bytes });
+    Ok(text)
 }
 
 fn dependency_snapshot_source(dependency: &veln_project::ManifestDependency) -> String {

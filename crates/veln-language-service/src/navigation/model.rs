@@ -227,20 +227,45 @@ pub fn navigate(
     position: SourcePosition,
 ) -> Option<NavigationResult> {
     if !snapshot.navigation_index_is_prepared()
-        && schema_operation_path_leaf_candidate(snapshot, &position)
-        && let Some(result) = navigate_in_index(
-            snapshot.direct_dependency_navigation_index(),
-            &position,
-        )
-        && result.selected_symbol.kind == SymbolKind::Schema
-        && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
+        && navigation_selection_is_unsupported(snapshot, &position)
     {
-        return Some(result);
+        return None;
+    }
+    let schema_candidate = schema_navigation_candidate(snapshot, &position);
+    if !snapshot.navigation_index_is_prepared() && schema_candidate {
+        if let Some(result) = navigate_in_index(
+            snapshot.direct_dependency_schema_navigation_index(),
+            &position,
+        ) && result.selected_symbol.kind == SymbolKind::Schema
+            && result.selected_symbol.package_origin == Some(PackageOrigin::DirectDependency)
+        {
+            return Some(result);
+        }
+        return navigate_in_index(snapshot.schema_navigation_index(), &position);
     }
     navigate_in_index(snapshot.navigation_index(), &position)
 }
 
-fn schema_operation_path_leaf_candidate(
+fn navigation_selection_is_unsupported(
+    snapshot: &EffectiveProjectSnapshot,
+    position: &SourcePosition,
+) -> bool {
+    let Some(source) = snapshot.workspace_source(&position.source) else {
+        return false;
+    };
+    let tokens = lex(source).tokens;
+    let Some(offset) = offset_for_position(source.text(), position) else {
+        return true;
+    };
+    let Some((token_index, _)) = identifier_token_at(&tokens, offset) else {
+        return true;
+    };
+    line_tokens_before(&tokens, token_index)
+        .iter()
+        .any(|token| token.kind == TokenKind::Use)
+}
+
+fn schema_navigation_candidate(
     snapshot: &EffectiveProjectSnapshot,
     position: &SourcePosition,
 ) -> bool {
@@ -250,16 +275,43 @@ fn schema_operation_path_leaf_candidate(
     let Some(line) = source.text().lines().nth(position.line.saturating_sub(1)) else {
         return false;
     };
-    if !(line.contains("decode") || line.contains("encode")) || !line.contains("from") {
+    let likely_operation =
+        (line.contains("decode") || line.contains("encode")) && line.contains("from");
+    if !likely_operation && !line.contains(':') {
         return false;
     }
     let tokens = lex(source).tokens;
     let Some(offset) = offset_for_position(source.text(), position) else {
         return false;
     };
-    identifier_token_at(&tokens, offset).is_some_and(|(token_index, _)| {
-        is_schema_operation_path_leaf_candidate_token(&tokens, token_index)
-    })
+    let inside_schema = position_inside_schema_declaration(source, position.line);
+    let Some((token_index, _)) = identifier_token_at(&tokens, offset) else {
+        return likely_operation || (line.contains(':') && inside_schema);
+    };
+    let mut leaf_index = token_index;
+    while let Some(next) = next_path_segment_index(&tokens, leaf_index) {
+        leaf_index = next;
+    }
+    is_schema_operation_path_leaf_candidate_token(&tokens, leaf_index)
+        || (inside_schema && is_schema_composition_path_leaf_token(&tokens, leaf_index))
+        || (line.contains(':')
+            && (inside_schema_declaration(&tokens, leaf_index) || inside_schema))
+}
+
+fn position_inside_schema_declaration(source: &SourceFile, line: usize) -> bool {
+    source
+        .text()
+        .lines()
+        .take(line)
+        .filter(|line| {
+            !line.trim().is_empty()
+                && !line.starts_with(char::is_whitespace)
+                && !line.trim_start().starts_with('#')
+        })
+        .last()
+        .is_some_and(|line| {
+            line.starts_with("schema ") || line.starts_with("pub schema ")
+        })
 }
 
 fn navigate_in_index(

@@ -43,7 +43,8 @@ pub struct EffectiveProjectSnapshot {
     standard_library: Option<DirectDependencySnapshot>,
     indexed_direct_dependencies: Arc<OnceLock<Arc<IndexedDependencies>>>,
     indexed_standard_library: Arc<OnceLock<Arc<IndexedDependencies>>>,
-    direct_dependency_navigation_index: OnceLock<Arc<SymbolIndex>>,
+    direct_dependency_schema_navigation_index: OnceLock<Arc<SymbolIndex>>,
+    schema_navigation_index: OnceLock<Arc<SymbolIndex>>,
     navigation_index: OnceLock<Arc<SymbolIndex>>,
 }
 
@@ -55,7 +56,8 @@ impl EffectiveProjectSnapshot {
             standard_library: None,
             indexed_direct_dependencies: Arc::new(OnceLock::new()),
             indexed_standard_library: Arc::new(OnceLock::new()),
-            direct_dependency_navigation_index: OnceLock::new(),
+            direct_dependency_schema_navigation_index: OnceLock::new(),
+            schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
         }
     }
@@ -70,7 +72,8 @@ impl EffectiveProjectSnapshot {
             standard_library: None,
             indexed_direct_dependencies: Arc::new(OnceLock::new()),
             indexed_standard_library: Arc::new(OnceLock::new()),
-            direct_dependency_navigation_index: OnceLock::new(),
+            direct_dependency_schema_navigation_index: OnceLock::new(),
+            schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
         }
     }
@@ -92,7 +95,8 @@ impl EffectiveProjectSnapshot {
             standard_library: self.standard_library.clone(),
             indexed_direct_dependencies: Arc::new(OnceLock::new()),
             indexed_standard_library: Arc::clone(&self.indexed_standard_library),
-            direct_dependency_navigation_index: OnceLock::new(),
+            direct_dependency_schema_navigation_index: OnceLock::new(),
+            schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
         }
     }
@@ -117,23 +121,46 @@ impl EffectiveProjectSnapshot {
             standard_library: self.standard_library.clone(),
             indexed_direct_dependencies: Arc::clone(&self.indexed_direct_dependencies),
             indexed_standard_library: Arc::clone(&self.indexed_standard_library),
-            direct_dependency_navigation_index: OnceLock::new(),
+            direct_dependency_schema_navigation_index: OnceLock::new(),
+            schema_navigation_index: OnceLock::new(),
             navigation_index: OnceLock::new(),
         }
     }
 
-    fn direct_dependency_navigation_index(&self) -> Arc<SymbolIndex> {
-        self.direct_dependency_navigation_index
+    fn direct_dependency_schema_navigation_index(&self) -> Arc<SymbolIndex> {
+        self.direct_dependency_schema_navigation_index
             .get_or_init(|| {
                 let direct_dependencies = self.indexed_direct_dependencies.get_or_init(|| {
                     Arc::new(IndexedDependencies::new_direct(
                         self.direct_dependencies.clone(),
                     ))
                 });
-                Arc::new(SymbolIndex::new(
+                Arc::new(SymbolIndex::new_for_schema_navigation(
                     self.sources.clone(),
                     direct_dependencies,
                     &IndexedDependencies::empty(),
+                ))
+            })
+            .clone()
+    }
+
+    fn schema_navigation_index(&self) -> Arc<SymbolIndex> {
+        self.schema_navigation_index
+            .get_or_init(|| {
+                let direct_dependencies = self.indexed_direct_dependencies.get_or_init(|| {
+                    Arc::new(IndexedDependencies::new_direct(
+                        self.direct_dependencies.clone(),
+                    ))
+                });
+                let standard_library = self.indexed_standard_library.get_or_init(|| {
+                    Arc::new(IndexedDependencies::new_standard_library(
+                        self.standard_library.clone(),
+                    ))
+                });
+                Arc::new(SymbolIndex::new_for_schema_navigation(
+                    self.sources.clone(),
+                    direct_dependencies,
+                    standard_library,
                 ))
             })
             .clone()

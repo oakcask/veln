@@ -75,6 +75,7 @@ fn initialize_requires_the_declared_wire_shape() {
         selection,
         initialized: false,
         language_resources: minimal_language_resources(),
+        capture_cache: CaptureCache::default(),
     };
     let valid = json!({
         "jsonrpc": "2.0",
@@ -121,6 +122,7 @@ fn lifecycle_rejects_operations_before_initialize() {
         selection,
         initialized: false,
         language_resources: minimal_language_resources(),
+        capture_cache: CaptureCache::default(),
     };
 
     let response = server

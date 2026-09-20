@@ -6,7 +6,7 @@ use std::os::unix::ffi::OsStrExt;
 use veln_language_service::{NavigationSource, SourcePosition, definition_at};
 use veln_source::SourcePath;
 
-use crate::check_project::capture_navigation_source;
+use crate::check_project::{CaptureCache, capture_navigation_source};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
 use crate::workspace::{Selection, WorkspaceBase};
@@ -21,6 +21,7 @@ pub(crate) fn definition(
     base: &WorkspaceBase,
     selection: &Selection,
     language_resources: &mut LanguageResources,
+    capture_cache: &mut CaptureCache,
     arguments: &Value,
 ) -> ToolOutcome {
     let source = arguments["source"]
@@ -28,10 +29,11 @@ pub(crate) fn definition(
         .expect("definition input schema requires a string source");
     let line = coordinate(&arguments["line"]);
     let column = coordinate(&arguments["column"]);
-    let (captured, captured_source, _) = match capture_navigation_source(base, selection, source) {
-        Ok(captured) => captured,
-        Err(failure) => return failure,
-    };
+    let (captured, captured_source, _) =
+        match capture_navigation_source(base, selection, source, capture_cache) {
+            Ok(captured) => captured,
+            Err(failure) => return failure,
+        };
     let source_file = captured
         .project
         .files

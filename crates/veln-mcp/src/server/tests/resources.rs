@@ -10,6 +10,7 @@ fn initialize_advertises_immutable_resources() {
         selection,
         initialized: false,
         language_resources: LanguageResources::checked().unwrap(),
+        capture_cache: CaptureCache::default(),
     };
     let response = server
         .handle_request(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}))

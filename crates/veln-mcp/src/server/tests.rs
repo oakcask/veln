@@ -36,6 +36,7 @@ fn initialized_server(workspace: &TempWorkspace) -> Server {
         selection,
         initialized: true,
         language_resources: minimal_language_resources(),
+        capture_cache: CaptureCache::default(),
     }
 }
 

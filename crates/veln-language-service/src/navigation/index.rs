@@ -56,6 +56,33 @@ impl SymbolIndex {
         direct_dependencies: &IndexedDependencies,
         standard_library: &IndexedDependencies,
     ) -> Self {
+        Self::new_with_path_classification(
+            sources,
+            direct_dependencies,
+            standard_library,
+            true,
+        )
+    }
+
+    pub(crate) fn new_for_schema_navigation(
+        sources: Vec<SourceFile>,
+        direct_dependencies: &IndexedDependencies,
+        standard_library: &IndexedDependencies,
+    ) -> Self {
+        Self::new_with_path_classification(
+            sources,
+            direct_dependencies,
+            standard_library,
+            false,
+        )
+    }
+
+    fn new_with_path_classification(
+        sources: Vec<SourceFile>,
+        direct_dependencies: &IndexedDependencies,
+        standard_library: &IndexedDependencies,
+        classify_workspace_paths: bool,
+    ) -> Self {
         let mut files = Vec::new();
         let mut declarations = FileDeclarations::default();
         let mut workspace_module = empty_surface_module();
@@ -67,7 +94,8 @@ impl SymbolIndex {
         }
         declarations.extend(direct_dependencies.declarations.clone());
         declarations.extend(standard_library.declarations.clone());
-        if workspace_needs_path_classification(&files, &workspace_module) {
+        if classify_workspace_paths && workspace_needs_path_classification(&files, &workspace_module)
+        {
             let mut module = workspace_module.clone();
             append_surface_module(&mut module, direct_dependencies.module.clone());
             append_surface_module(&mut module, standard_library.module.clone());

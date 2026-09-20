@@ -546,15 +546,23 @@ fn repeated_workspace_definitions_reuse_navigation() {
     );
     let mut server = initialized_server(&workspace);
     crate::language_resources::reset_workspace_navigation_builds();
+    crate::check_project::reset_capture_file_reads();
 
-    for (line, column) in [(1, 4), (6, 4)] {
-        let result =
-            server.definition_tool(&json!({"source":"main.veln","line":line,"column":column}));
-        assert_eq!(result["isError"], false, "{result:#}");
-        assert!(result["structuredContent"]["definition"].is_object());
-    }
+    let first = server.definition_tool(&json!({"source":"main.veln","line":1,"column":4}));
+    assert_eq!(first["isError"], false, "{first:#}");
+    assert!(first["structuredContent"]["definition"].is_object());
+    let reads_after_first = crate::check_project::capture_file_reads();
+
+    let second = server.definition_tool(&json!({"source":"main.veln","line":6,"column":4}));
+    assert_eq!(second["isError"], false, "{second:#}");
+    assert!(second["structuredContent"]["definition"].is_object());
 
     assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
+    assert_eq!(
+        crate::check_project::capture_file_reads(),
+        reads_after_first,
+        "reused navigation must not reread unchanged source contents"
+    );
 }
 
 #[test]
@@ -577,17 +585,25 @@ fn repeated_definitions_reuse_dependency_resources_and_navigation() {
     crate::language_resources::reset_dependency_snapshot_captures();
     crate::language_resources::reset_dependency_navigation_builds();
     crate::language_resources::reset_workspace_navigation_builds();
+    crate::check_project::reset_capture_file_reads();
 
-    for (line, column) in [(3, 25), (13, 19)] {
-        let result =
-            server.definition_tool(&json!({"source":"main.veln","line":line,"column":column}));
-        assert_eq!(result["isError"], false, "{result:#}");
-        assert!(result["structuredContent"]["definition"].is_object());
-    }
+    let first = server.definition_tool(&json!({"source":"main.veln","line":3,"column":25}));
+    assert_eq!(first["isError"], false, "{first:#}");
+    assert!(first["structuredContent"]["definition"].is_object());
+    let reads_after_first = crate::check_project::capture_file_reads();
+
+    let second = server.definition_tool(&json!({"source":"main.veln","line":13,"column":19}));
+    assert_eq!(second["isError"], false, "{second:#}");
+    assert!(second["structuredContent"]["definition"].is_object());
 
     assert_eq!(crate::language_resources::dependency_snapshot_captures(), 1);
     assert_eq!(crate::language_resources::dependency_navigation_builds(), 1);
     assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
+    assert_eq!(
+        crate::check_project::capture_file_reads(),
+        reads_after_first,
+        "reused navigation must not reread unchanged dependency contents"
+    );
 }
 
 #[test]
@@ -1067,6 +1083,7 @@ fn definition_rejects_paths_and_changed_workspace_identity() {
         selection,
         initialized: true,
         language_resources: minimal_language_resources(),
+        capture_cache: CaptureCache::default(),
     };
     let result = server.definition_tool(&json!({"source":"main.veln","line":2,"column":4}));
     assert_eq!(result["isError"], true);
@@ -1115,6 +1132,7 @@ fn server_from_workspace_base_alias(alias: &Path) -> Server {
         selection,
         initialized: true,
         language_resources: minimal_language_resources(),
+        capture_cache: CaptureCache::default(),
     }
 }
 

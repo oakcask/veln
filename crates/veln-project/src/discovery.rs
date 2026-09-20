@@ -182,7 +182,7 @@ fn absolute_lexical_path(path: &Path) -> io::Result<PathBuf> {
     }
 }
 
-pub(crate) fn normalize_lexical_path(path: &Path) -> PathBuf {
+pub fn normalize_lexical_path(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {

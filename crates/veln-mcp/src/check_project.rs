@@ -24,15 +24,19 @@ use crate::workspace::{
 
 mod capture;
 
-#[cfg(test)]
-pub(crate) use capture::set_after_first_stable_capture_hook;
+pub(crate) use capture::{
+    CaptureCache, CapturedProject, NavigationScope, capture_navigation_source,
+};
 use capture::{CaptureError, capture_stable_project};
 #[cfg(test)]
 use capture::{
     CapturedNavigationSource, capture_stable_navigation_source_with, capture_stable_project_with,
     dependency_snapshot_key,
 };
-pub(crate) use capture::{CapturedProject, NavigationScope, capture_navigation_source};
+#[cfg(test)]
+pub(crate) use capture::{
+    capture_file_reads, reset_capture_file_reads, set_after_first_stable_capture_hook,
+};
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 
@@ -40,6 +44,7 @@ pub(crate) fn check_project(
     base: &WorkspaceBase,
     selection: &Selection,
     language_resources: &mut LanguageResources,
+    capture_cache: &mut CaptureCache,
     arguments: &Value,
 ) -> ToolOutcome {
     let project = arguments.get("project").and_then(Value::as_str);
@@ -49,7 +54,7 @@ pub(crate) fn check_project(
         Ok(target) => target,
         Err(failure) => return failure,
     };
-    let captured = match capture_stable_project(&target) {
+    let captured = match capture_stable_project(&target, capture_cache) {
         Ok(project) => project,
         Err(CaptureError::Changed | CaptureError::Io) => {
             return domain_failure(

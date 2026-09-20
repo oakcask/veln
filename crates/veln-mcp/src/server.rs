@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use serde_json::{Value, json};
 
 use crate::check_project;
+use crate::check_project::CaptureCache;
 use crate::definition;
 use crate::language_resources::{LanguageResources, ResourceCapacityError};
 use crate::language_tools;
@@ -21,6 +22,7 @@ pub(crate) fn run(base: PathBuf, reader: impl BufRead, mut writer: impl Write) -
         base,
         initialized: false,
         language_resources: LanguageResources::checked().map_err(io::Error::other)?,
+        capture_cache: CaptureCache::default(),
     };
     for line in reader.lines() {
         if let Some(response) = server.handle_line(&line?) {
@@ -37,6 +39,7 @@ struct Server {
     selection: Selection,
     initialized: bool,
     language_resources: LanguageResources,
+    capture_cache: CaptureCache,
 }
 
 impl Server {
@@ -201,6 +204,7 @@ impl Server {
                 &self.base,
                 &self.selection,
                 &mut self.language_resources,
+                &mut self.capture_cache,
                 arguments,
             ),
         )
@@ -213,6 +217,7 @@ impl Server {
                 &self.base,
                 &self.selection,
                 &mut self.language_resources,
+                &mut self.capture_cache,
                 arguments,
             ),
         )
@@ -225,6 +230,7 @@ impl Server {
                 &self.base,
                 &self.selection,
                 &mut self.language_resources,
+                &mut self.capture_cache,
                 arguments,
             ),
         )

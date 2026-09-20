@@ -5,7 +5,7 @@ use veln_language_service::{
 };
 use veln_source::{SourcePath, SourceSpan};
 
-use crate::check_project::{CapturedProject, capture_navigation_source};
+use crate::check_project::{CaptureCache, CapturedProject, capture_navigation_source};
 use crate::definition::{Coordinate, coordinate, path_to_uri, valid_position};
 use crate::language_resources::LanguageResources;
 use crate::outcome::{ToolOutcome, domain_failure};
@@ -15,6 +15,7 @@ pub(crate) fn references(
     base: &WorkspaceBase,
     selection: &Selection,
     language_resources: &mut LanguageResources,
+    capture_cache: &mut CaptureCache,
     arguments: &Value,
 ) -> ToolOutcome {
     let request = ReferenceArguments::parse(arguments);
@@ -24,7 +25,7 @@ pub(crate) fn references(
             .continue_page(cursor),
         ReferenceRequest::Initial(request) => {
             let (captured, captured_source, scope) =
-                match capture_navigation_source(base, selection, request.source) {
+                match capture_navigation_source(base, selection, request.source, capture_cache) {
                     Ok(captured) => captured,
                     Err(failure) => return failure,
                 };
