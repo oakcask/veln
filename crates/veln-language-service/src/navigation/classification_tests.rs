@@ -83,6 +83,31 @@ fn dependency_schema_composition_uses_schema_navigation_index() {
 }
 
 #[test]
+fn dependency_type_annotation_uses_general_navigation_index() {
+    let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+        vec![SourceFile::new(
+            "main.veln",
+            concat!(
+                "use model from \"example/dep\"\n\n",
+                "fn read(input: model::Shared) -> model::Shared\n",
+                "  input\n",
+                "end\n",
+            ),
+        )],
+        vec![crate::tests::dependency_snapshot(
+            "example/dep",
+            &[("model.veln", "pub type Shared\nend\n")],
+            ["model.veln"],
+        )],
+    );
+
+    let result = navigate_at(&snapshot, 3, 23).expect("dependency type should resolve");
+
+    assert_eq!(result.selected_symbol.kind, SymbolKind::Type);
+    assert!(snapshot.navigation_index_is_prepared());
+}
+
+#[test]
 fn invalid_schema_composition_does_not_prepare_general_navigation() {
     let snapshot =
         schema_dependency_snapshot("schema Broken\n  packet: wire::Packet unexpected\nend\n");

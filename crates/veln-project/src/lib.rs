@@ -16,7 +16,7 @@ pub use companion::{
     companion_analysis_inputs, explicit_companion_inputs, is_companion_source_path,
     production_analysis_inputs,
 };
-pub use discovery::discover_source_paths;
+pub use discovery::{discover_source_paths, normalize_lexical_path};
 pub use lockfile::{
     LockfileGitSelector, LockfilePackage, LockfileSource, LowerHexBytes, ProjectLockfile,
     normalize_lockfile_path, source_tree_checksum, write_lockfile,

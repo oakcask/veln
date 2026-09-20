@@ -698,13 +698,14 @@ fn dependency_snapshots(
 }
 
 fn discover_cached_project(root: &Path, cache: &mut CaptureCache) -> io::Result<Project> {
-    let paths = veln_project::companion_analysis_inputs(root, &[])?;
+    let root = veln_project::normalize_lexical_path(root);
+    let paths = veln_project::companion_analysis_inputs(&root, &[])?;
     let files = paths
         .iter()
         .map(|path| {
             let text = read_cached_path(cache, path)?;
             let relative = path
-                .strip_prefix(root)
+                .strip_prefix(&root)
                 .map_or_else(|_| path.to_path_buf(), PathBuf::from);
             Ok(SourceFile::new(
                 relative.to_string_lossy().replace('\\', "/"),
@@ -723,7 +724,7 @@ fn discover_cached_project(root: &Path, cache: &mut CaptureCache) -> io::Result<
         Err(error) => return Err(error),
     };
     Ok(Project {
-        root: root.to_path_buf(),
+        root,
         files,
         manifest,
     })

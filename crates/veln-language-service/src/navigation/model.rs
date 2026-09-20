@@ -293,7 +293,7 @@ fn schema_navigation_candidate(
         leaf_index = next;
     }
     is_schema_operation_path_leaf_candidate_token(&tokens, leaf_index)
-        || is_schema_composition_path_leaf_token(&tokens, leaf_index)
+        || (inside_schema && is_schema_composition_path_leaf_token(&tokens, leaf_index))
         || (line.contains(':')
             && (inside_schema_declaration(&tokens, leaf_index) || inside_schema))
 }
