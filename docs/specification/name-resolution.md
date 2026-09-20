@@ -128,8 +128,9 @@ name, a same-named local schema, schema alias, type, or type alias blocks
 implicit prelude fallback in composition. In `decode` and
 `encode`, which select only the schema namespace, a local schema or schema
 alias blocks fallback while a local type or type alias does not. An ineligible
-declaration in the applicable namespace also blocks fallback. A same-named
-local declaration does not block an explicit `prelude::` qualifier.
+declaration in the applicable namespace also blocks fallback. This includes a
+syntax-recovered local schema alias whose target is missing. A same-named local
+declaration does not block an explicit `prelude::` qualifier.
 Standard-library package-source occurrences are not selectable. Lexical noise,
 malformed repeats, invalid casing, and ineligible aliases do not enter a
 reference set.

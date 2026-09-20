@@ -439,7 +439,9 @@ library, regardless of import order. A parse-clean written import named
 a same-named local schema, schema alias, type, or type alias blocks implicit
 prelude fallback in composition. In `decode` and
 `encode`, a local schema or schema alias blocks fallback while a local type or
-type alias does not. A local declaration does not block the explicit qualifier.
+type alias does not. A syntax-recovered local schema alias with no target also
+blocks bare fallback in every leaf. A local declaration does not block the
+explicit qualifier.
 
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias

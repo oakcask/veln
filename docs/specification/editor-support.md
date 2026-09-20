@@ -226,7 +226,9 @@ library, regardless of import order. For a bare name, a same-named local
 schema or schema alias blocks implicit prelude fallback in every leaf. Because
 composition also admits the type namespace, a same-named local type or type
 alias additionally blocks the fallback there, but does not block it in
-`decode` or `encode`. A local declaration does not block the explicit qualifier.
+`decode` or `encode`. A syntax-recovered local schema alias with no target also
+blocks bare fallback in every leaf. A local declaration does not block the
+explicit qualifier.
 Although a written import named `prelude` reports `name.reserved`, a
 parse-clean reserved import still participates in this navigation precedence.
 Syntax-recovered imports remain excluded.
