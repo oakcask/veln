@@ -139,13 +139,13 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
             "use math from \"std\"\n\n",
             "schema Host\n",
             "  count: UInt8\n",
-            "  direct: math::Top\n",
-            "  repeated: Repeat(count, math::Top)\n",
-            "  array: [math::Top; count]\n",
+            "  direct🙂: math::AliasPacket\n",
+            "  repeated: Repeat(count, math::AliasPacket)\n",
+            "  array: [math::AliasPacket; count]\n",
             "end\n\n",
             "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
-            "  decode math::Top from view at byte_offset(0)?\n",
-            "  encode math::Top from packet\n",
+            "  decode math::AliasPacket from view at byte_offset(0)?\n",
+            "  encode math::AliasPacket from packet\n",
             "end\n",
         ),
     );
@@ -155,7 +155,7 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
         concat!(
             "pub schema Packet\n  value: Int\nend\n\n",
             "pub schema Mid = Packet\n",
-            "pub schema Top = Mid\n",
+            "pub schema AliasPacket = Mid\n",
         ),
     );
 
@@ -168,11 +168,11 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
     assert_reference_ranges(
         &result,
         &[
-            ("main.veln", 5, 17, 5, 20),
-            ("main.veln", 6, 33, 6, 36),
-            ("main.veln", 7, 17, 7, 20),
-            ("main.veln", 11, 16, 11, 19),
-            ("main.veln", 12, 16, 12, 19),
+            ("main.veln", 5, 18, 5, 29),
+            ("main.veln", 6, 33, 6, 44),
+            ("main.veln", 7, 17, 7, 28),
+            ("main.veln", 11, 16, 11, 27),
+            ("main.veln", 12, 16, 12, 27),
         ],
         "standard-library schema alias",
     );
@@ -182,7 +182,7 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
     let with_declaration = server.references_tool(&json!({
         "source": "main.veln",
         "line": 5,
-        "column": 17,
+        "column": 18,
         "include_declaration": true,
     }));
     assert_package_declaration(
@@ -191,7 +191,7 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
         6,
         12,
         6,
-        15,
+        23,
         "standard-library schema alias declaration",
     );
 }

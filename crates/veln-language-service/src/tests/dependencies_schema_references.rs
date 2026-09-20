@@ -1705,6 +1705,91 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn standard_library_schema_alias_import_paths_precedence_and_collisions_are_explicit() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+                ),
+                (
+                    "alpha/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+                ),
+            ],
+            ["wire.veln", "alpha/wire.veln"],
+        );
+
+        let implicit = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use alpha::wire from \"std\"\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode alpha::wire::AliasPacket from view at byte_offset(0)?\n",
+                "  decode wire::AliasPacket from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library.clone());
+        for (line, column) in [(4, 25), (5, 18)] {
+            let result = query_snapshot(&implicit, "main.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.name, "AliasPacket");
+            assert_eq!(
+                result.selected_symbol.declaration_kind,
+                SymbolDeclarationKind::PublicAlias
+            );
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(locations(&result.references), [("main.veln", 4, 23), ("main.veln", 5, 16)]);
+        }
+
+        for imports in [
+            "mod app\nuse workspace::wire\nuse wire from \"std\"\n\n",
+            "mod app\nuse wire from \"std\"\nuse workspace::wire\n\n",
+        ] {
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source(
+                    "workspace/wire.veln",
+                    "pub schema Packet\n  value: Bool\nend\n\npub schema AliasPacket = Packet\n",
+                ),
+                source("imports.veln", imports),
+                source(
+                    "uses.veln",
+                    concat!(
+                        "mod app\n\n",
+                        "fn read(view: ByteView) -> ()\n",
+                        "  decode wire::AliasPacket from view at byte_offset(0)?\n",
+                        "end\n",
+                    ),
+                ),
+            ])
+            .with_standard_library(standard_library.clone());
+            let result = query_snapshot(&snapshot, "uses.veln", 4, 18).unwrap();
+            assert_eq!(result.selected_symbol.name, "AliasPacket");
+            assert_eq!(
+                result.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(locations(&result.references), [("uses.veln", 4, 16)]);
+        }
+
+        let collision = EffectiveProjectSnapshot::new(vec![
+            source(
+                "wire.veln",
+                "pub schema Packet\n  value: Bool\nend\n\npub schema AliasPacket = Packet\n",
+            ),
+            source(
+                "main.veln",
+                "use wire\nuse wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::AliasPacket from view at byte_offset(0)?\nend\n",
+            ),
+        ])
+        .with_standard_library(standard_library);
+        assert!(query_snapshot(&collision, "main.veln", 5, 18).is_none());
+    }
+
+    #[test]
     fn standard_library_schema_exact_import_precedes_workspace_alias_in_either_source_order() {
         for workspace_import_first in [true, false] {
             let workspace_import = source(

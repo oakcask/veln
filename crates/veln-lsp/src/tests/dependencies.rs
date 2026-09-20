@@ -134,11 +134,11 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
 
 #[test]
 fn standard_library_prelude_schema_alias_references_keep_lsp_ranges() {
-    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n";
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"wire.veln\"]\n";
     let snapshot = capture_embedded_package_snapshot(
         manifest.as_bytes(),
         [PackageSnapshotSource::new(
-            "prelude.veln",
+            "wire.veln",
             b"pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
         )],
     )
@@ -149,28 +149,50 @@ fn standard_library_prelude_schema_alias_references_keep_lsp_ranges() {
     )
     .unwrap();
     let mut server = Server::default().with_standard_library(standard_library);
-    let project = TempProject::new("standard-library-prelude-schema-alias-references");
+    let project = TempProject::new("standard-library-schema-alias-references");
     project.write(
         "main.veln",
-        "// 🙂\nfn read(view: ByteView, packet: {value: Int}) -> ()\n  decode AliasPacket from view at byte_offset(0)?\n  encode AliasPacket from packet\nend\n",
+        concat!(
+            "use wire from \"std\"\n\n",
+            "schema Host\n",
+            "  count: UInt8\n",
+            "  direct🙂: wire::AliasPacket\n",
+            "  repeated: Repeat(count, wire::AliasPacket)\n",
+            "  array: [wire::AliasPacket; count]\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode wire::AliasPacket from view at byte_offset(0)?\n",
+            "  encode wire::AliasPacket from packet\n",
+            "end\n",
+        ),
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
+    let saved = server.handle_message(&references_request(&main_uri, 4, 18));
+    let expected_saved = format!(
+        r#"{{"jsonrpc":"2.0","id":2,"result":[{{"uri":"{uri}","range":{{"start":{{"line":4,"character":18}},"end":{{"line":4,"character":29}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":5,"character":32}},"end":{{"line":5,"character":43}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":6,"character":16}},"end":{{"line":6,"character":27}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":10,"character":15}},"end":{{"line":10,"character":26}}}}}},{{"uri":"{uri}","range":{{"start":{{"line":11,"character":15}},"end":{{"line":11,"character":26}}}}}}]}}"#,
+        uri = escape_json(&main_uri),
+    );
+    assert_eq!(saved, std::slice::from_ref(&expected_saved));
+
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"use wire from \"std\"\n\nschema Host\n  count: UInt8\n  direct🙂: wire::AliasPacket\n  repeated: Repeat(count, wire::AliasPacket)\n  array: [wire::AliasPacket; count]\nend\n\nfn read(view: ByteView, packet: {{value: Int}}) -> ()\n  decode wire::AliasPacket from view at byte_offset(0)?\n  encode wire::AliasPacket from packet\nend\n\nfn overlay(view: ByteView) -> ()\n  decode wire::AliasPacket from view at byte_offset(0)?\nend\n"}}}}}}"#
+    ));
+    let overlay = server.handle_message(&references_request(&main_uri, 4, 18));
+    assert_eq!(overlay[0].matches(&format!("\"uri\":\"{main_uri}\"" )).count(), 6);
+    assert!(overlay[0].contains("\"line\":15,\"character\":15"), "{}", overlay[0]);
+
     for include_declaration in [false, true] {
         let references = server.handle_message(&references_request_with_declaration(
             &main_uri,
-            2,
-            9,
+            4,
+            18,
             include_declaration,
         ));
         assert_eq!(references.len(), 1);
         let response = &references[0];
-        assert!(response.contains(&format!("\"uri\":\"{main_uri}\"")), "{response}");
-        assert!(response.contains("\"start\":{\"line\":2,\"character\":9}"), "{response}");
-        assert!(response.contains("\"start\":{\"line\":3,\"character\":9}"), "{response}");
-        assert_eq!(response.matches("\"uri\":").count(), 2, "{response}");
         assert!(!response.contains("veln-pkg:"), "{response}");
     }
 }

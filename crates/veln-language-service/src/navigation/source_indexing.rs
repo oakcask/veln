@@ -567,6 +567,14 @@ fn package_schema_composition_references(
 ) -> Vec<SchemaCompositionReference> {
     let alias_index = direct_dependency_schema_alias_index(schema_aliases);
     let prelude_alias_index = standard_prelude_schema_alias_index(schema_aliases);
+    let context = SchemaCompositionNavigationContext {
+        workspace_schemas,
+        workspace_schema_aliases,
+        schema_index,
+        alias_index: &alias_index,
+        prelude_alias_index: &prelude_alias_index,
+        module_imports,
+    };
     files
         .iter()
         .filter(|file| workspace_navigation_file(file))
@@ -575,16 +583,10 @@ fn package_schema_composition_references(
             file.schema_composition_leaf_spans
                 .iter()
                 .filter_map(|span| {
-                    direct_dependency_schema_composition_reference(
+                    context.direct_dependency_schema_composition_reference(
                         file,
                         span,
                         &mut token_cursor,
-                        workspace_schemas,
-                        workspace_schema_aliases,
-                        schema_index,
-                        &alias_index,
-                        &prelude_alias_index,
-                        module_imports,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -626,17 +628,22 @@ fn direct_dependency_schema_alias_index(
     alias_index
 }
 
-fn direct_dependency_schema_composition_reference(
-    file: &IndexedFile,
-    span: &SourceSpan,
-    token_cursor: &mut usize,
-    workspace_schemas: &[NeutralSymbol],
-    workspace_schema_aliases: &[NeutralSymbol],
-    schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
-    alias_index: &BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
-    prelude_alias_index: &BTreeMap<String, Vec<NeutralSymbol>>,
-    module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
-) -> Option<SchemaCompositionReference> {
+struct SchemaCompositionNavigationContext<'a> {
+    workspace_schemas: &'a [NeutralSymbol],
+    workspace_schema_aliases: &'a [NeutralSymbol],
+    schema_index: &'a BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
+    alias_index: &'a BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
+    prelude_alias_index: &'a BTreeMap<String, Vec<NeutralSymbol>>,
+    module_imports: &'a BTreeMap<String, SchemaAliasModuleImports>,
+}
+
+impl SchemaCompositionNavigationContext<'_> {
+    fn direct_dependency_schema_composition_reference(
+        &self,
+        file: &IndexedFile,
+        span: &SourceSpan,
+        token_cursor: &mut usize,
+    ) -> Option<SchemaCompositionReference> {
     while *token_cursor < file.tokens.len()
         && file.tokens[*token_cursor].range.end <= span.start.offset
     {
@@ -654,17 +661,17 @@ fn direct_dependency_schema_composition_reference(
         return None;
     }
     let Some(qualifier) = qualifier_for_token(&file.tokens, *token_cursor) else {
-        if workspace_schemas.iter().any(|schema| {
+        if self.workspace_schemas.iter().any(|schema| {
             schema.package.is_none() && schema.module == file.module && schema.name == token.text
         }) {
             return None;
         }
-        if workspace_schema_aliases.iter().any(|alias| {
+        if self.workspace_schema_aliases.iter().any(|alias| {
             alias.package.is_none() && alias.module == file.module && alias.name == token.text
         }) {
             return None;
         }
-        let candidates = prelude_alias_index.get(&token.text)?;
+        let candidates = self.prelude_alias_index.get(&token.text)?;
         let [alias] = candidates.as_slice() else {
             return None;
         };
@@ -674,12 +681,13 @@ fn direct_dependency_schema_composition_reference(
         });
     };
     if !matches!(
-        schema_qualified_workspace_module(file, &qualifier, module_imports),
+        schema_qualified_workspace_module(file, &qualifier, self.module_imports),
         QualifiedWorkspaceModule::External
     ) {
         return None;
     }
-    let (module, package) = module_imports
+    let (module, package) = self
+        .module_imports
         .get(&file.module)?
         .valid_external_route(&qualifier)?;
     let package_origin = if package == "std" {
@@ -689,19 +697,20 @@ fn direct_dependency_schema_composition_reference(
     };
     let alias_key = (package.clone(), module.clone(), token.text.clone());
     let key = (package_origin, package, module, token.text.clone());
-    let target = match alias_index.get(&alias_key) {
+    let target = match self.alias_index.get(&alias_key) {
         Some(candidates) if candidates.len() == 1 => {
             SchemaReferenceTarget::Alias(candidates[0].clone())
         }
         Some(_) => return None,
         None => {
-            SchemaReferenceTarget::Schema(package_schema_target(schema_index, &key)?.clone())
+            SchemaReferenceTarget::Schema(package_schema_target(self.schema_index, &key)?.clone())
         }
     };
     Some(SchemaCompositionReference {
         span: span.clone(),
         target,
     })
+    }
 }
 
 fn package_schema_target<'a>(
