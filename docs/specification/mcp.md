@@ -429,8 +429,9 @@ same-spelled aliases in other package origins. An eligible alias in the
 standard-library `prelude` module is also selectable by its bare name in
 composition, `decode`, and `encode` leaves, or by an explicit `prelude::`
 qualifier. For a bare name, a same-named local schema, schema alias, type, or
-type alias takes precedence and blocks implicit prelude fallback. A local
-declaration does not block the explicit qualifier.
+type alias blocks implicit prelude fallback in composition. In `decode` and
+`encode`, a local schema or schema alias blocks fallback while a local type or
+type alias does not. A local declaration does not block the explicit qualifier.
 
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias

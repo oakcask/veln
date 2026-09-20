@@ -116,9 +116,11 @@ package origin stays distinct from workspace and dependency origins. An
 eligible alias in the standard-library `prelude` module is also visible by its
 bare name or an explicit `prelude::` qualifier for composition and operation
 leaves. For a bare name, a same-named local schema, schema alias, type, or type
-alias takes precedence; an ineligible local declaration blocks implicit
-prelude fallback. A same-named local declaration does not block an explicit
-`prelude::` qualifier.
+alias blocks implicit prelude fallback in composition. In `decode` and
+`encode`, which select only the schema namespace, a local schema or schema
+alias blocks fallback while a local type or type alias does not. An ineligible
+declaration in the applicable namespace also blocks fallback. A same-named
+local declaration does not block an explicit `prelude::` qualifier.
 Standard-library package-source occurrences are not selectable. Lexical noise,
 malformed repeats, invalid casing, and ineligible aliases do not enter a
 reference set.

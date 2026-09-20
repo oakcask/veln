@@ -679,6 +679,43 @@ mod dependencies_schema_references_tests {
         }
     }
 
+    #[test]
+    fn standard_library_bare_schema_alias_operation_lookup_is_adjacent_linear() {
+        for count in [200, 400] {
+            let mut standard_body =
+                String::from("pub schema Packet\n  value: Int\nend\n");
+            let mut operations = String::from("fn read(view: ByteView) -> ()\n");
+            for index in 0..count {
+                standard_body.push_str(&format!("pub schema Noise{index} = Packet\n"));
+                operations.push_str(
+                    "  decode AliasPacket from view at byte_offset(0)?\n",
+                );
+            }
+            standard_body.push_str("pub schema AliasPacket = Packet\n");
+            operations.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &operations)])
+                .with_standard_library(standard_library_snapshot(
+                    &[("prelude.veln", &standard_body)],
+                    ["prelude.veln"],
+                ));
+
+            let _ = snapshot.navigation_index();
+            crate::navigation::reset_schema_operation_bare_lookup_work();
+            let started = std::time::Instant::now();
+            let selected = query_snapshot(&snapshot, "main.veln", 2, 10).unwrap();
+            let elapsed = started.elapsed();
+            assert_eq!(selected.references.len(), count);
+            let (prelude_lookups, blocker_lookups, leaf_lookups) =
+                crate::navigation::schema_operation_bare_lookup_work();
+            assert_eq!(prelude_lookups, count + 1);
+            assert_eq!(blocker_lookups, count + 1);
+            assert_eq!(leaf_lookups, count + 1);
+            eprintln!(
+                "bare operation lookup: aliases={count} occurrences={count} elapsed={elapsed:?} prelude_lookups={prelude_lookups} blocker_lookups={blocker_lookups} leaf_lookups={leaf_lookups}"
+            );
+        }
+    }
+
     fn dependency_schema_alias_reference_work(count: usize) -> (usize, usize) {
         let mut consumer = String::from("use schema0 from \"example/dep\"\n");
         for index in 1..count {
@@ -1763,7 +1800,7 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
-    fn standard_library_schema_alias_package_source_occurrences_are_not_selectable() {
+    fn standard_library_schema_alias_package_source_occurrences_are_not_project_references() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
             "fn read(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n",
@@ -1776,18 +1813,32 @@ mod dependencies_schema_references_tests {
             ["prelude.veln"],
         ));
 
+        let selected = query_snapshot(&snapshot, "main.veln", 2, 10).unwrap();
+        assert_eq!(selected.selected_symbol.name, "AliasPacket");
+        assert_eq!(
+            selected.selected_symbol.package_origin,
+            Some(PackageOrigin::StandardLibrary)
+        );
+        assert_eq!(locations(&selected.references), [("main.veln", 2, 10)]);
         assert!(query_snapshot(&snapshot, "prelude.veln", 8, 10).is_none());
     }
 
     #[test]
-    fn local_type_names_block_bare_standard_library_schema_alias_fallback() {
+    fn local_type_names_block_bare_prelude_alias_only_in_composition() {
         for local_declaration in [
             "type AliasPacket\n  Value\nend\n\n",
             "type Packet\n  Value\nend\npub type AliasPacket = Packet\n\n",
         ] {
-            let source_text = format!(
-                "{local_declaration}schema Host\n  nested: AliasPacket\nend\n"
-            );
+            let source_text = format!(concat!(
+                "{local_declaration}",
+                "schema Host\n",
+                "  nested: AliasPacket\n",
+                "end\n\n",
+                "fn operations(view: ByteView, packet: {{value: Int}}) -> ()\n",
+                "  decode AliasPacket from view at byte_offset(0)?\n",
+                "  encode AliasPacket from packet\n",
+                "end\n",
+            ), local_declaration = local_declaration);
             let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)])
                 .with_standard_library(standard_library_snapshot(
                     &[(
@@ -1796,8 +1847,26 @@ mod dependencies_schema_references_tests {
                     )],
                     ["prelude.veln"],
                 ));
-            assert!(query_snapshot(&snapshot, "main.veln", local_declaration.lines().count() + 2, 12)
-                .is_none());
+            let declaration_lines = local_declaration.lines().count();
+            assert!(query_snapshot(&snapshot, "main.veln", declaration_lines + 2, 12).is_none());
+            let decode_line = declaration_lines + 6;
+            let encode_line = declaration_lines + 7;
+            let selected = query_snapshot(&snapshot, "main.veln", decode_line, 10).unwrap();
+            assert_eq!(
+                selected.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(
+                locations(&selected.references),
+                [("main.veln", decode_line, 10), ("main.veln", encode_line, 10)]
+            );
+            assert_eq!(
+                query_snapshot(&snapshot, "main.veln", encode_line, 10)
+                    .unwrap()
+                    .selected_symbol
+                    .package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
         }
     }
 

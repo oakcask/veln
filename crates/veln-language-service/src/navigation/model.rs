@@ -718,7 +718,7 @@ struct IndexedFile {
     schema_alias_external_imports: Vec<ExternalImport>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
-    schema_operation_leaf_spans: Vec<SourceSpan>,
+    schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
@@ -742,6 +742,15 @@ struct SchemaAliasModuleImports {
     external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
     valid_external_imports_by_module: BTreeMap<String, BTreeSet<(String, String)>>,
     valid_external_imports_by_alias: BTreeMap<String, BTreeSet<(String, String)>>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct BareSchemaAliasIndex {
+    workspace_aliases: BTreeMap<(String, String), NeutralSymbol>,
+    workspace_schemas: BTreeSet<(String, String)>,
+    workspace_alias_declarations: BTreeSet<(String, String)>,
+    standard_prelude_aliases: BTreeMap<String, Vec<NeutralSymbol>>,
+    standard_prelude_alias_declarations: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -836,6 +845,7 @@ pub(crate) struct SymbolIndex {
     type_aliases: Vec<TypeAliasSymbol>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
+    bare_schema_alias_index: BareSchemaAliasIndex,
     function_rename_index: OnceLock<FunctionRenameIndex>,
 }
 

@@ -218,8 +218,10 @@ acyclic chain of public aliases to an exported public schema in the same
 package. An eligible alias in the standard-library `prelude` module is also
 selectable by its bare name or an explicit `prelude::` qualifier in
 composition, `decode`, and `encode` leaves. For a bare name, a same-named local
-schema, schema alias, type, or type alias takes precedence and blocks implicit
-prelude fallback. A local declaration does not block the explicit qualifier.
+schema or schema alias blocks implicit prelude fallback in every leaf. Because
+composition also admits the type namespace, a same-named local type or type
+alias additionally blocks the fallback there, but does not block it in
+`decode` or `encode`. A local declaration does not block the explicit qualifier.
 Package aliases do not enter the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.

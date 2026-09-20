@@ -7,21 +7,25 @@ impl SymbolIndex {
         name: &str,
     ) -> bool {
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
-            if self.schema_alias_declarations.iter().any(|symbol| {
-                symbol.name == name
-                    && symbol.package.is_none()
-                    && symbol.module == file.module
-            }) {
+            let key = (file.module.clone(), name.to_string());
+            #[cfg(test)]
+            record_schema_operation_blocker_lookup();
+            if self
+                .bare_schema_alias_index
+                .workspace_alias_declarations
+                .contains(&key)
+            {
                 return true;
             }
-            if self.schemas.iter().any(|symbol| {
-                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            }) {
+            if self.bare_schema_alias_index.workspace_schemas.contains(&key) {
                 return false;
             }
-            return self.schema_alias_declarations.iter().any(|symbol| {
-                symbol.name == name && symbol.standard_prelude
-            });
+            #[cfg(test)]
+            record_schema_operation_prelude_lookup();
+            return self
+                .bare_schema_alias_index
+                .standard_prelude_alias_declarations
+                .contains(name);
         };
         match self.schema_alias_qualified_workspace_module(file, &qualifier) {
             QualifiedWorkspaceModule::Workspace(module) => {
@@ -65,27 +69,34 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<NeutralSymbol> {
-        if let Some(alias) = self.schema_aliases.iter().find(|symbol| {
-            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-        }) {
+        let key = (file.module.clone(), name.to_string());
+        #[cfg(test)]
+        record_schema_operation_blocker_lookup();
+        if let Some(alias) = self.bare_schema_alias_index.workspace_aliases.get(&key) {
             return Some(alias.clone());
         }
         // The standard-library prelude is a fallback. A same-named workspace
         // schema must remain visible instead of being replaced by the prelude alias.
-        if self.schemas.iter().any(|symbol| {
-            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-        }) {
+        if self.bare_schema_alias_index.workspace_schemas.contains(&key) {
             return None;
         }
-        if self.schema_alias_declarations.iter().any(|symbol| {
-            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-        }) {
+        if self
+            .bare_schema_alias_index
+            .workspace_alias_declarations
+            .contains(&key)
+        {
             return None;
         }
-        self.schema_aliases
-            .iter()
-            .find(|symbol| symbol.name == name && symbol.standard_prelude)
-            .cloned()
+        #[cfg(test)]
+        record_schema_operation_prelude_lookup();
+        let candidates = self
+            .bare_schema_alias_index
+            .standard_prelude_aliases
+            .get(name)?;
+        let [alias] = candidates.as_slice() else {
+            return None;
+        };
+        Some(alias.clone())
     }
 
     fn visible_schema_alias_for_qualified_reference(

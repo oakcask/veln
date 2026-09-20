@@ -14,7 +14,10 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let schema_alias_external_imports = schema_alias_external_imports(&parsed);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source).tokens;
-    let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
+    let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
+        .into_iter()
+        .map(|span| (span.start.offset, span.end.offset))
+        .collect();
     let schema_composition_leaf_spans =
         valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
     let recovery_symbols = workspace_recovery_symbols(
@@ -36,7 +39,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         schema_alias_external_imports,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
-        schema_operation_leaf_spans,
+        schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
@@ -208,7 +211,10 @@ fn indexed_dependency_source(
     let parsed = parse(&source_file);
     let invalid_declaration_names = invalid_declaration_names(&parsed);
     let tokens = lex(&source_file).tokens;
-    let schema_operation_leaf_spans = valid_schema_operation_leaf_spans(&parsed.tree);
+    let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
+        .into_iter()
+        .map(|span| (span.start.offset, span.end.offset))
+        .collect();
     let schema_composition_leaf_spans =
         valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
     let file = IndexedFile {
@@ -223,7 +229,7 @@ fn indexed_dependency_source(
         schema_alias_external_imports: Vec::new(),
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
-        schema_operation_leaf_spans,
+        schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
@@ -648,6 +654,33 @@ fn standard_prelude_schema_alias_index(
             .push(alias.clone());
     }
     aliases
+}
+
+fn bare_schema_alias_index(
+    schemas: &[NeutralSymbol],
+    eligible_aliases: &[NeutralSymbol],
+    alias_declarations: &[NeutralSymbol],
+) -> BareSchemaAliasIndex {
+    let mut workspace_aliases = BTreeMap::new();
+    for alias in eligible_aliases
+        .iter()
+        .filter(|alias| alias.package.is_none())
+    {
+        workspace_aliases
+            .entry((alias.module.clone(), alias.name.clone()))
+            .or_insert_with(|| alias.clone());
+    }
+    BareSchemaAliasIndex {
+        workspace_aliases,
+        workspace_schemas: workspace_schema_blocker_index(schemas),
+        workspace_alias_declarations: workspace_schema_alias_blocker_index(alias_declarations),
+        standard_prelude_aliases: standard_prelude_schema_alias_index(eligible_aliases),
+        standard_prelude_alias_declarations: alias_declarations
+            .iter()
+            .filter(|alias| alias.standard_prelude)
+            .map(|alias| alias.name.clone())
+            .collect(),
+    }
 }
 
 fn direct_dependency_schema_alias_index(
