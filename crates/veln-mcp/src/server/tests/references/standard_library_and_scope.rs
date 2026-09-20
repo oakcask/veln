@@ -1,5 +1,24 @@
 use super::*;
+use std::cell::Cell;
+use std::rc::Rc;
 use veln_project::PackageSnapshotSource;
+
+fn install_alias_standard_library(server: &mut Server, source: &str) {
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
+        [PackageSnapshotSource::new("math.veln", source.as_bytes())],
+    );
+}
+
+fn install_prelude_alias_standard_library(server: &mut Server, source: &str) {
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            source.as_bytes(),
+        )],
+    );
+}
 
 #[test]
 fn references_include_standard_library_schema_uses_with_project_scope() {
@@ -107,6 +126,73 @@ fn assert_standard_library_schema_declaration(result: &Value) {
         locations[..5]
             .iter()
             .all(|location| location["uri"].as_str().unwrap().starts_with("file://"))
+    );
+}
+
+#[test]
+fn references_return_standard_library_schema_alias_locations_and_canonical_declaration() {
+    let workspace = TempWorkspace::new("references-standard-library-schema-alias");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use math from \"std\"\n\n",
+            "schema Host\n",
+            "  count: UInt8\n",
+            "  direct: math::Top\n",
+            "  repeated: Repeat(count, math::Top)\n",
+            "  array: [math::Top; count]\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode math::Top from view at byte_offset(0)?\n",
+            "  encode math::Top from packet\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    install_alias_standard_library(
+        &mut server,
+        concat!(
+            "pub schema Packet\n  value: Int\nend\n\n",
+            "pub schema Mid = Packet\n",
+            "pub schema Top = Mid\n",
+        ),
+    );
+
+    let result = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 5,
+        "column": 19,
+    }));
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_reference_ranges(
+        &result,
+        &[
+            ("main.veln", 5, 17, 5, 20),
+            ("main.veln", 6, 33, 6, 36),
+            ("main.veln", 7, 17, 7, 20),
+            ("main.veln", 11, 16, 11, 19),
+            ("main.veln", 12, 16, 12, 19),
+        ],
+        "standard-library schema alias",
+    );
+    assert_eq!(result["structuredContent"]["scope"]["project_wide"], true);
+    assert!(!result.to_string().contains("veln-pkg:///std/snapshot/"));
+
+    let with_declaration = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 5,
+        "column": 17,
+        "include_declaration": true,
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/math.veln",
+        6,
+        12,
+        6,
+        15,
+        "standard-library schema alias declaration",
     );
 }
 
@@ -239,6 +325,79 @@ fn references_paginate_standard_library_schema_uses_without_changing_scope() {
     let paged =
         collect_reference_pages(&mut server, &first, &complete["structuredContent"]["scope"]);
     assert_eq!(json!(paged), complete["structuredContent"]["references"]);
+}
+
+#[test]
+fn references_paginate_bare_standard_library_schema_aliases_stably() {
+    let workspace = TempWorkspace::new("references-standard-library-bare-schema-alias-pagination");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "schema Host\n  nested: AliasPacket\nend\n\nfn read(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    install_prelude_alias_standard_library(
+        &mut server,
+        "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+    );
+
+    let first = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 2,
+        "column": 12,
+        "page_size": 1,
+    }));
+    let scope = first["structuredContent"]["scope"].clone();
+    let paged = collect_reference_pages(&mut server, &first, &scope);
+    assert_eq!(paged.len(), 2, "{first:#}");
+    assert!(
+        paged
+            .iter()
+            .all(|location| location["uri"].as_str().unwrap().starts_with("file://"))
+    );
+}
+
+#[test]
+fn references_project_capture_exhausts_retries_for_standard_library_schema_alias_selection() {
+    let workspace = TempWorkspace::new("references-standard-library-schema-alias-capture-retry");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn main(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    install_prelude_alias_standard_library(
+        &mut server,
+        "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+    );
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        fs::write(
+            root.join("main.veln"),
+            format!(
+                "fn main(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\n  let changed = {}\nend\n",
+                attempt
+            ),
+        )
+        .unwrap();
+    });
+
+    let result = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 2,
+        "column": 10,
+    }));
+
+    assert_snapshot_changed_without_references_or_scope(&result);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
 }
 
 fn collect_reference_pages(

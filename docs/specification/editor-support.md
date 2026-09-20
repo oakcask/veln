@@ -216,8 +216,10 @@ not eligible. An eligible public package alias in an exported retained
 direct-dependency or standard-library module can resolve through a finite,
 acyclic chain of public aliases to an exported public schema in the same
 package. An eligible alias in the standard-library `prelude` module is also
-selectable by its bare name in composition, `decode`, and `encode` leaves.
-Package aliases do not enter the workspace alias identity. Alias
+selectable by its bare name in composition, `decode`, and `encode` leaves. A
+same-named local schema or schema alias takes precedence; an ineligible local
+alias blocks implicit prelude fallback. Package aliases do not enter the
+workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 

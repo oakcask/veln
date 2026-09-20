@@ -1630,6 +1630,81 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn local_schema_aliases_shadow_or_block_bare_standard_library_prelude_aliases() {
+        let blocked = EffectiveProjectSnapshot::new(vec![source(
+            "blocked.veln",
+            concat!(
+                "pub schema AliasPacket = Missing\n\n",
+                "schema Host\n",
+                "  nested: AliasPacket\n",
+                "end\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode AliasPacket from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub schema Packet\n  value: Bool\nend\n\npub schema AliasPacket = Packet\n",
+            )],
+            ["prelude.veln"],
+        ));
+        for (line, column) in [(4, 11), (9, 10)] {
+            assert!(query_snapshot(&blocked, "blocked.veln", line, column).is_none_or(|result| {
+                result.selected_symbol.package_origin != Some(PackageOrigin::StandardLibrary)
+            }));
+        }
+    }
+
+    #[test]
+    fn standard_library_schema_alias_chain_unifies_supported_leaves_and_keeps_target_identity_separate() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use wire from \"std\"\n\n",
+                "schema Host\n",
+                "  count: UInt8\n",
+                "  direct: wire::Top\n",
+                "  repeated: Repeat(count, wire::Top)\n",
+                "  array: [wire::Top; count]\n",
+                "end\n\n",
+                "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+                "  decode wire::Top from view at byte_offset(0)?\n",
+                "  encode wire::Top from packet\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "wire.veln",
+                concat!(
+                    "pub schema Packet\n  value: Int\nend\n\n",
+                    "pub schema Mid = Packet\npub schema Top = Mid\n",
+                ),
+            )],
+            ["wire.veln"],
+        ));
+
+        let expected = [
+            ("main.veln", 5, 17),
+            ("main.veln", 6, 33),
+            ("main.veln", 7, 17),
+            ("main.veln", 11, 16),
+            ("main.veln", 12, 16),
+        ];
+        for (line, column) in [(5, 17), (6, 33), (7, 18), (11, 16), (12, 16)] {
+            let selected = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
+            assert_eq!(selected.selected_symbol.name, "Top");
+            assert_eq!(selected.selected_symbol.package_origin, Some(PackageOrigin::StandardLibrary));
+            assert_eq!(locations(&selected.references), expected);
+        }
+        for (line, column) in [(5, 16), (6, 16)] {
+            assert!(query_snapshot(&snapshot, "wire.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
     fn standard_library_schema_exact_import_precedes_workspace_alias_in_either_source_order() {
         for workspace_import_first in [true, false] {
             let workspace_import = source(

@@ -427,7 +427,9 @@ public alias and the terminal hop is an exported public schema in the same
 retained package. The alias identity remains separate from its target and from
 same-spelled aliases in other package origins. An eligible alias in the
 standard-library `prelude` module is also selectable by its bare name in
-composition, `decode`, and `encode` leaves.
+composition, `decode`, and `encode` leaves. A same-named local schema or schema
+alias takes precedence; an ineligible local alias blocks implicit prelude
+fallback.
 
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias

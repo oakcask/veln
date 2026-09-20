@@ -72,6 +72,11 @@ impl SymbolIndex {
         }) {
             return None;
         }
+        if self.schema_alias_declarations.iter().any(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        }) {
+            return None;
+        }
         self.schema_aliases
             .iter()
             .find(|symbol| symbol.name == name && symbol.standard_prelude)

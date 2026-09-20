@@ -176,6 +176,43 @@ fn standard_library_prelude_schema_alias_references_keep_lsp_ranges() {
 }
 
 #[test]
+fn standard_library_prelude_schema_alias_overlay_adds_only_the_overlay_use() {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n";
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let project = TempProject::new("standard-library-prelude-schema-alias-overlay");
+    project.write(
+        "main.veln",
+        "fn read(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\n  encode AliasPacket from {value: 1}\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let saved = server.handle_message(&references_request(&main_uri, 1, 9));
+    assert_eq!(saved[0].matches(&format!("\"uri\":\"{main_uri}\"")).count(), 2, "{}", saved[0]);
+
+    server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"fn read(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\n  encode AliasPacket from {{value: 1}}\nend\n\nfn overlay(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n"}}}}}}"#
+    ));
+    let overlay = server.handle_message(&references_request(&main_uri, 1, 9));
+    assert_eq!(overlay[0].matches(&format!("\"uri\":\"{main_uri}\"")).count(), 3, "{}", overlay[0]);
+    assert!(!overlay[0].contains("veln-pkg:"), "{}", overlay[0]);
+}
+
+#[test]
 fn standard_library_schema_references_pair_saved_baseline_with_lsp_overlay() {
     let mut server = Server::default().with_standard_library(packet_standard_library());
     let project = TempProject::new("standard-library-schema-reference-overlay");

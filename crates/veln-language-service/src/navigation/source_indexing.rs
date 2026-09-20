@@ -560,6 +560,7 @@ fn workspace_schema_composition_references(
 fn package_schema_composition_references(
     files: &[IndexedFile],
     workspace_schemas: &[NeutralSymbol],
+    workspace_schema_aliases: &[NeutralSymbol],
     schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     schema_aliases: &[NeutralSymbol],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
@@ -579,6 +580,7 @@ fn package_schema_composition_references(
                         span,
                         &mut token_cursor,
                         workspace_schemas,
+                        workspace_schema_aliases,
                         schema_index,
                         &alias_index,
                         &prelude_alias_index,
@@ -629,6 +631,7 @@ fn direct_dependency_schema_composition_reference(
     span: &SourceSpan,
     token_cursor: &mut usize,
     workspace_schemas: &[NeutralSymbol],
+    workspace_schema_aliases: &[NeutralSymbol],
     schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     alias_index: &BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
     prelude_alias_index: &BTreeMap<String, Vec<NeutralSymbol>>,
@@ -653,6 +656,11 @@ fn direct_dependency_schema_composition_reference(
     let Some(qualifier) = qualifier_for_token(&file.tokens, *token_cursor) else {
         if workspace_schemas.iter().any(|schema| {
             schema.package.is_none() && schema.module == file.module && schema.name == token.text
+        }) {
+            return None;
+        }
+        if workspace_schema_aliases.iter().any(|alias| {
+            alias.package.is_none() && alias.module == file.module && alias.name == token.text
         }) {
             return None;
         }

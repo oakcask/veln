@@ -79,7 +79,7 @@ impl SymbolIndex {
             .iter()
             .chain(&declarations.schema_alias_blockers)
             .cloned()
-            .collect();
+            .collect::<Vec<_>>();
         let package_schemas = PackageSchemaDeclarations::new(
             &declarations.package_schema_alias_declarations,
             &declarations.package_schema_targets,
@@ -104,6 +104,7 @@ impl SymbolIndex {
         schema_composition_references.extend(package_schema_composition_references(
             &files,
             &declarations.schemas,
+            &schema_alias_declarations,
             &package_schemas,
             &schema_aliases,
             &schema_alias_module_imports,

@@ -110,8 +110,10 @@ direct-dependency schemas. Eligible standard-library schema aliases are
 separate selection targets and block fallback to a same-spelled schema. Their
 package origin stays distinct from workspace and dependency origins. An
 eligible alias in the standard-library `prelude` module is also visible by its
-bare name for composition and operation leaves. Lexical noise, malformed
-repeats, invalid casing, and ineligible aliases do not enter a reference set.
+bare name for composition and operation leaves. A same-named local schema or
+schema alias takes precedence; an ineligible local alias blocks implicit
+prelude fallback. Lexical noise, malformed repeats, invalid casing, and
+ineligible aliases do not enter a reference set.
 
 ### Value calls and shadowing
 
