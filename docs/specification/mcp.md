@@ -442,6 +442,10 @@ Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
 ambiguous aliases return successful empty reference results. These rules also
 exclude module qualifiers, alias-target expressions, package implementation
 sources, comments, strings, fields, and unrelated declarations.
+An ineligible standard-library alias blocks fallback to a same-spelled
+standard-library schema. It remains a distinct declaration rather than
+becoming or merging with the schema identity, so selecting it returns the
+existing successful empty reference result.
 
 When `include_declaration` is true, an eligible workspace declaration is
 added as a `file:` location. In project scope, an eligible direct-dependency
@@ -463,9 +467,11 @@ A later reuse of an admission slot can classify an old authenticated cursor as
 A successful refresh replaces roots, increments generation, and invalidates
 cursors. A failed refresh preserves roots, generation, diagnostics, and
 navigation. Stable capture retries are bounded; exhaustion returns
-`snapshot_changed` without success-only fields. If dependency admission
-would exceed the retained package capacity, definition and references return
-`resource_capacity` without partial locations, scope, or new resources.
+`snapshot_changed` without success-only fields. A failed initial references
+capture preserves published resources, the prior navigation selection, and
+all existing cursors; it neither creates nor consumes a cursor. If dependency
+admission would exceed the retained package capacity, definition and references
+return `resource_capacity` without partial locations, scope, or new resources.
 
 ## References
 

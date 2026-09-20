@@ -222,6 +222,10 @@ schema or schema alias blocks implicit prelude fallback in every leaf. Because
 composition also admits the type namespace, a same-named local type or type
 alias additionally blocks the fallback there, but does not block it in
 `decode` or `encode`. A local declaration does not block the explicit qualifier.
+When a selected standard-library alias is ineligible, references return the
+existing successful empty result. That declaration remains distinct from a
+same-spelled standard-library schema and blocks fallback to the schema instead
+of becoming or merging with its identity.
 Package aliases do not enter the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
