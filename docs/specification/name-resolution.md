@@ -57,10 +57,11 @@ unrelated namespaces may share a spelling.
 
 ### Schema navigation
 
-For saved composition-and-operation reference navigation, a direct-dependency
-public schema alias is eligible when each hop resolves to exactly one public
-schema alias or, at the final hop, one public schema declared by an exported
-source in the retained dependency. A bare target resolves in the alias
+For saved composition-and-operation reference navigation, a public schema
+alias in a retained direct dependency or the standard library is eligible when
+each hop resolves to exactly one public schema alias or, at the final hop, one
+public schema declared by an exported source in the retained package. A bare
+target resolves in the alias
 module. A qualified target resolves through a valid local import written in the
 alias's module. Imports from all retained package sources with that explicit
 module identity participate, including full module paths and unique implicit
@@ -70,20 +71,22 @@ Consumer imports do not participate in target resolution. At each hop, the
 declaration kind must match the expected kind: a non-terminal target is one
 public schema alias, and the final target is one public schema. Same-spelled
 declarations in unrelated namespaces do not affect eligibility. A finite,
-acyclic chain of public schema aliases in the same retained direct dependency
-is eligible when every hop and the terminal schema are in exported sources.
+acyclic chain of public schema aliases in the same retained package is eligible
+when every hop and the terminal schema are in exported sources.
 External-package targets, ambiguous imports, and recovered imports remain
-ineligible. Alias chains must be finite and acyclic; a cyclic chain is
-rejected, while a finite direct-dependency chain remains eligible when every
-hop and its exported terminal satisfy the rules above.
+ineligible. Alias chains must be finite and acyclic; a cyclic chain is rejected.
+Missing, ambiguous, invalid-cased, private, non-exported, wrong-kind, or
+syntax-recovered hops also make the package alias ineligible. Selecting an
+ineligible alias produces an empty reference result and does not fall back to a
+same-spelled schema.
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module
-identity. A valid dependency import in one such source can qualify a
+identity. A valid package import in one such source can qualify a
 composition or operation leaf in another.
-A colliding workspace import and dependency import, duplicate dependency
-imports, or a syntax-recovered dependency import in that module prevents the
-qualified leaf from selecting a dependency schema alias or falling back to a
+A colliding workspace import and package import, duplicate package imports, or
+a syntax-recovered package import in that module prevents the qualified leaf
+from selecting a package schema alias or falling back to a
 schema imported only by the leaf's source. The positive cross-source path
 keeps one alias identity; collision, duplicate, and recovered-import paths
 remain unresolved. Direct, `Repeat`, and array-payload leaves do not select an
@@ -107,10 +110,30 @@ standard-library schema
 targets use the same full-path and unique implicit-leaf resolution, exact-path
 precedence, import-collision, repeated-count, and lexical-exclusion rules.
 Their package origin keeps them distinct from same-spelled workspace and
-direct-dependency schemas. Standard-library schema aliases remain unsupported
-selection targets and block fallback to a same-spelled schema. Their package
-origin stays distinct from workspace and dependency origins, and lexical
-noise, malformed repeats, and invalid casing do not enter a reference set.
+direct-dependency schemas. Eligible standard-library schema aliases are
+separate selection targets and block fallback to a same-spelled schema. Their
+package origin stays distinct from workspace and dependency origins. An
+eligible alias in the standard-library `prelude` module is also visible by its
+bare name or an explicit `prelude::` qualifier for composition and operation
+leaves. The explicit qualifier uses a standard-library alias only when
+`prelude` does not resolve as a written import. An exact workspace import named
+`prelude` selects the workspace alias, and an exact package import named
+`prelude` selects that package alias. If both imports provide the exact name,
+the qualifier remains unresolved in either import order and does not fall back
+to the standard library. These rules apply consistently to direct, `Repeat`,
+array-payload, `decode`, and `encode` leaves. Written `prelude` imports still
+report `name.reserved`; a parse-clean reserved import participates in
+navigation precedence, while a syntax-recovered import does not. For a bare
+name, a same-named local schema, schema alias, type, or type alias blocks
+implicit prelude fallback in composition. In `decode` and
+`encode`, which select only the schema namespace, a local schema or schema
+alias blocks fallback while a local type or type alias does not. An ineligible
+declaration in the applicable namespace also blocks fallback. This includes a
+syntax-recovered local schema alias whose target is missing. A same-named local
+declaration does not block an explicit `prelude::` qualifier.
+Standard-library package-source occurrences are not selectable. Lexical noise,
+malformed repeats, invalid casing, and ineligible aliases do not enter a
+reference set.
 
 ### Value calls and shadowing
 
@@ -350,10 +373,13 @@ type-role reference selects only the visible type declaration or supported
 direct-dependency public type-alias identity owned by the written qualifier.
 The alias identity remains separate from the target type identity.
 Schema operation selection uses the schema namespace. A bare schema path in a
-`decode` or `encode` expression selects only a same-module schema declaration.
-A written import does not expose the imported module's schemas to bare schema
-operation paths. Imported schemas are selectable through accepted qualified
-schema paths, including import-alias-qualified paths.
+`decode` or `encode` expression selects a same-module schema declaration, or an
+eligible implicit standard-library schema alias when no same-spelled local
+schema or alias blocks that fallback. A written import does not expose the
+imported module's schemas to bare schema operation paths. Imported schemas are
+selectable through accepted qualified schema paths, including
+import-alias-qualified paths. An ineligible same-module public schema alias
+blocks fallback to a same-spelled schema declaration.
 
 When `veln.toml` contains manifest export data, `[modules]` is rejected and
 `[lib].exports` is checked as a list of public package-relative source files.

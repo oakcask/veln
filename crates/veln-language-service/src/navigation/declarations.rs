@@ -114,10 +114,11 @@ fn schema_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Neu
                     return None;
                 }
                 let mut symbol = neutral_declaration(file, name, span, Visibility::Public)?;
-                let (target_name, target_qualifier) = alias.target.split_last()?;
-                symbol.alias_target_module = (!target_qualifier.is_empty())
-                    .then(|| target_qualifier.join("::"));
-                symbol.alias_target_name = Some(target_name.clone());
+                if let Some((target_name, target_qualifier)) = alias.target.split_last() {
+                    symbol.alias_target_module = (!target_qualifier.is_empty())
+                        .then(|| target_qualifier.join("::"));
+                    symbol.alias_target_name = Some(target_name.clone());
+                }
                 Some(symbol)
             }
             _ => None,
@@ -289,6 +290,13 @@ fn neutral_declaration(
         package,
         package_origin,
         public,
+        standard_prelude: matches!(
+            &file.origin,
+            IndexedOrigin::Package {
+                standard_library: true,
+                ..
+            }
+        ) && file.module == "prelude",
         alias_target_module: None,
         alias_target_name: None,
     })
@@ -300,6 +308,7 @@ fn same_schema(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
         && left.name == right.name
         && left.package_origin == right.package_origin
         && left.public == right.public
+        && left.standard_prelude == right.standard_prelude
         && left.alias_target_module == right.alias_target_module
         && left.alias_target_name == right.alias_target_name
         && left.declaration == right.declaration

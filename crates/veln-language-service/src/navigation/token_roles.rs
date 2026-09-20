@@ -211,13 +211,15 @@ fn is_effect_operation_declaration_name(tokens: &[Token], index: usize) -> bool 
 }
 
 fn is_schema_operation_path_leaf_token(file: &IndexedFile, index: usize) -> bool {
+    #[cfg(test)]
+    record_schema_operation_leaf_lookup();
     is_schema_operation_path_leaf_candidate_token(&file.tokens, index)
         && next_non_layout_token(&file.tokens, index)
             .is_some_and(|next| next.kind == TokenKind::From)
-        && file.schema_operation_leaf_spans.iter().any(|span| {
-            span.start.offset == file.tokens[index].range.start
-                && span.end.offset == file.tokens[index].range.end
-        })
+        && file.schema_operation_leaf_ranges.contains(&(
+            file.tokens[index].range.start,
+            file.tokens[index].range.end,
+        ))
 }
 
 fn is_schema_operation_path_leaf_candidate_token(tokens: &[Token], index: usize) -> bool {

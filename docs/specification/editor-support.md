@@ -211,9 +211,32 @@ sources. Composition references include direct fields and both supported
 repeated-payload spellings. An eligible public schema alias has its own
 declaration identity and returns the `decode`, `encode`, direct-composition,
 `Repeat`, and array-payload leaves that resolve to that alias, without merging
-them into its direct public workspace schema target. Alias chains are not
-eligible, and package aliases do not enter
-the workspace alias identity. Alias
+them into its direct public workspace schema target. Workspace alias chains are
+not eligible. An eligible public package alias in an exported retained
+direct-dependency or standard-library module can resolve through a finite,
+acyclic chain of public aliases to an exported public schema in the same
+package. An eligible alias in the standard-library `prelude` module is also
+selectable by its bare name or an explicit `prelude::` qualifier in
+composition, `decode`, and `encode` leaves when `prelude` does not resolve as a
+written import. An exact workspace or package import named `prelude` instead
+selects that import's schema-alias identity across direct, `Repeat`, array,
+`decode`, and `encode` leaves. A collision between exact workspace and package
+imports selects neither identity and does not fall back to the standard
+library, regardless of import order. For a bare name, a same-named local
+schema or schema alias blocks implicit prelude fallback in every leaf. Because
+composition also admits the type namespace, a same-named local type or type
+alias additionally blocks the fallback there, but does not block it in
+`decode` or `encode`. A syntax-recovered local schema alias with no target also
+blocks bare fallback in every leaf. A local declaration does not block the
+explicit qualifier.
+Although a written import named `prelude` reports `name.reserved`, a
+parse-clean reserved import still participates in this navigation precedence.
+Syntax-recovered imports remain excluded.
+When a selected standard-library alias is ineligible, references return the
+existing successful empty result. That declaration remains distinct from a
+same-spelled standard-library schema and blocks fallback to the schema instead
+of becoming or merging with its identity.
+Package aliases do not enter the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 

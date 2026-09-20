@@ -173,6 +173,9 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<Symbol> {
         if is_schema_operation_path_leaf_candidate_token(tokens, token_index) {
+            if !workspace_navigation_file(file) {
+                return None;
+            }
             if let Some(alias) =
                 self.schema_alias_for_reference(file, tokens, token_index, name)
             {

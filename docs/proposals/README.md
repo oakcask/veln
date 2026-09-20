@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Standard-library schema-alias references, using the implemented package
-  schema, direct-dependency alias, and adapter navigation contracts:
-  [standard-library-schema-alias-references.md](standard-library-schema-alias-references.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
@@ -31,8 +27,7 @@ also states it.
 - The agent-language-services umbrella remains a planning inventory only for
   the unimplemented transitive-dependency, recovery, casing-neutral,
   cross-adapter conformance, agent-skill, conformance-gate, and plugin work. Do
-  not select the umbrella directly. Its independently ready standard-library
-  schema-alias slice is listed above.
+  not select the umbrella directly.
 
 ## Selection Rule
 

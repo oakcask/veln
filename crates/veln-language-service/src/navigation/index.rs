@@ -79,7 +79,7 @@ impl SymbolIndex {
             .iter()
             .chain(&declarations.schema_alias_blockers)
             .cloned()
-            .collect();
+            .collect::<Vec<_>>();
         let package_schemas = PackageSchemaDeclarations::new(
             &declarations.package_schema_alias_declarations,
             &declarations.package_schema_targets,
@@ -91,10 +91,16 @@ impl SymbolIndex {
             &declarations.resolved_package_schema_aliases,
             veln_sema::resolved_schema_aliases(&workspace_module),
         );
+        let bare_schema_alias_index = bare_schema_alias_index(
+            &declarations.schemas,
+            &schema_aliases,
+            &schema_alias_declarations,
+        );
         let mut schema_composition_references = workspace_schema_composition_references(
             &files,
             &declarations.schemas,
             &schema_aliases,
+            &schema_alias_module_imports,
             veln_sema::resolved_schema_composition_references(&workspace_module),
         );
         let package_schemas = package_schema_index(
@@ -103,6 +109,12 @@ impl SymbolIndex {
         );
         schema_composition_references.extend(package_schema_composition_references(
             &files,
+            WorkspaceSchemaCompositionDeclarations {
+                schemas: &declarations.schemas,
+                schema_aliases: &schema_alias_declarations,
+                types: &declarations.types,
+                type_aliases: &declarations.type_aliases,
+            },
             &package_schemas,
             &schema_aliases,
             &schema_alias_module_imports,
@@ -127,6 +139,7 @@ impl SymbolIndex {
             type_aliases: declarations.type_aliases,
             schema_composition_references,
             schema_alias_module_imports,
+            bare_schema_alias_index,
             files,
             function_rename_index: OnceLock::new(),
         }
@@ -366,6 +379,11 @@ impl SymbolIndex {
         self.schema_aliases
             .iter()
             .find(|symbol| {
+                // Package declarations are retained for canonical adapter
+                // declarations, but package-source occurrences are not
+                // navigable selections or reference-set members.
+                symbol.package.is_none()
+                    &&
                 declaration_matches(
                     name,
                     selection,

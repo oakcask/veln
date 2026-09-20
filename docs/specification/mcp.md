@@ -413,16 +413,35 @@ project_wide:false}` for anonymous source scope. The reference locations have
 start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
-Supported reference identities are schemas, eligible workspace and direct
-dependency schema aliases, functions, types, constructors, value bindings,
-handler context parameters, and handler operation-clause parameters. Schema
+Supported reference identities are schemas, eligible workspace,
+direct-dependency, and standard-library schema aliases, functions, types,
+constructors, value bindings, handler context parameters, and handler
+operation-clause parameters. Schema
 references include direct fields, `decode`, `encode`, `Repeat`, array
 payloads, and resolved composition leaves. Workspace aliases have a separate
 identity from their target and are eligible only when the direct target is a
 public workspace schema; alias chains and package targets are ineligible.
-Package schema aliases are eligible only in exported direct-dependency modules
-when every finite acyclic hop resolves through a public alias and the terminal
-hop is an exported public schema in the same retained dependency.
+Package schema aliases are eligible only in exported retained direct-dependency
+or standard-library modules when every finite acyclic hop resolves through a
+public alias and the terminal hop is an exported public schema in the same
+retained package. The alias identity remains separate from its target and from
+same-spelled aliases in other package origins. An eligible alias in the
+standard-library `prelude` module is also selectable by its bare name in
+composition, `decode`, and `encode` leaves, or by an explicit `prelude::`
+qualifier when `prelude` does not resolve as a written import. An exact
+workspace or package import named `prelude` instead selects that import's
+schema-alias identity across direct, `Repeat`, array, `decode`, and `encode`
+leaves. A collision between exact workspace and package imports returns a
+successful empty reference result and does not fall back to the standard
+library, regardless of import order. A parse-clean written import named
+`prelude` participates in this precedence even though analysis reports
+`name.reserved`; syntax-recovered imports do not participate. For a bare name,
+a same-named local schema, schema alias, type, or type alias blocks implicit
+prelude fallback in composition. In `decode` and
+`encode`, a local schema or schema alias blocks fallback while a local type or
+type alias does not. A syntax-recovered local schema alias with no target also
+blocks bare fallback in every leaf. A local declaration does not block the
+explicit qualifier.
 
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias
@@ -433,6 +452,10 @@ Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
 ambiguous aliases return successful empty reference results. These rules also
 exclude module qualifiers, alias-target expressions, package implementation
 sources, comments, strings, fields, and unrelated declarations.
+An ineligible standard-library alias blocks fallback to a same-spelled
+standard-library schema. It remains a distinct declaration rather than
+becoming or merging with the schema identity, so selecting it returns the
+existing successful empty reference result.
 
 When `include_declaration` is true, an eligible workspace declaration is
 added as a `file:` location. In project scope, an eligible direct-dependency
@@ -454,9 +477,11 @@ A later reuse of an admission slot can classify an old authenticated cursor as
 A successful refresh replaces roots, increments generation, and invalidates
 cursors. A failed refresh preserves roots, generation, diagnostics, and
 navigation. Stable capture retries are bounded; exhaustion returns
-`snapshot_changed` without success-only fields. If dependency admission
-would exceed the retained package capacity, definition and references return
-`resource_capacity` without partial locations, scope, or new resources.
+`snapshot_changed` without success-only fields. A failed initial references
+capture preserves published resources, the prior navigation selection, and
+all existing cursors; it neither creates nor consumes a cursor. If dependency
+admission would exceed the retained package capacity, definition and references
+return `resource_capacity` without partial locations, scope, or new resources.
 
 ## References
 

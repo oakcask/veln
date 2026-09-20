@@ -25,12 +25,6 @@ Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
 
-[Standard-Library Schema-Alias References](standard-library-schema-alias-references.md)
-owns the independently selectable standard-library schema-alias slice. Its
-acceptance table and completion boundary take precedence over this inventory
-for that slice. Transitive dependencies and broader cross-adapter conformance
-do not block it.
-
 ## Remaining acceptance model
 
 The following rows are the umbrella's remaining planning contract. They are
