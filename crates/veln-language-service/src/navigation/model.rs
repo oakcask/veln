@@ -246,6 +246,30 @@ pub fn navigate(
     navigate_in_index(snapshot.navigation_index(), &position)
 }
 
+pub fn navigate_for_rename(
+    snapshot: &EffectiveProjectSnapshot,
+    position: SourcePosition,
+) -> Option<NavigationResult> {
+    let index = snapshot.navigation_index();
+    if let Some(result) = navigate_in_index(Arc::clone(&index), &position) {
+        return Some(result);
+    }
+    let (alias, selection) = index.workspace_type_alias_for_rename(&position)?;
+    let definition = alias.declaration.clone();
+    let selected_symbol = Symbol::TypeAlias(alias.clone()).selected_symbol(definition.clone());
+    let mut references = index.workspace_type_alias_references(&alias);
+    sort_locations(&mut references);
+    Some(NavigationResult {
+        selected_symbol,
+        selection,
+        classified_path_segment: None,
+        definition,
+        references,
+        reference_eligible: true,
+        is_recovery: false,
+    })
+}
+
 fn navigation_selection_is_unsupported(
     snapshot: &EffectiveProjectSnapshot,
     position: &SourcePosition,
@@ -655,7 +679,7 @@ impl TypeConflictCandidate {
     fn is_selected_type(&self, selected: &TypeSymbol) -> bool {
         match self {
             Self::Type(symbol) => same_type(symbol, selected),
-            Self::Alias(_) => false,
+            Self::Alias(symbol) => symbol.declaration == selected.declaration,
         }
     }
 }

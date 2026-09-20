@@ -7,6 +7,7 @@ mod language_tools;
 mod outcome;
 mod reference_pagination;
 mod references;
+mod rename;
 mod schema;
 mod server;
 mod workspace;

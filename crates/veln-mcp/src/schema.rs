@@ -16,6 +16,8 @@ const DEFINITION_INPUT: &str = include_str!("../schemas/mcp/v1/definition-input.
 const DEFINITION_RESULT: &str = include_str!("../schemas/mcp/v1/definition-result.json");
 const REFERENCES_INPUT: &str = include_str!("../schemas/mcp/v1/references-input.json");
 const REFERENCES_RESULT: &str = include_str!("../schemas/mcp/v1/references-result.json");
+const RENAME_INPUT: &str = include_str!("../schemas/mcp/v1/rename-input.json");
+const RENAME_RESULT: &str = include_str!("../schemas/mcp/v1/rename-result.json");
 const SEARCH_DOCS_INPUT: &str = include_str!("../schemas/mcp/v1/search-docs-input.json");
 const SEARCH_DOCS_RESULT: &str = include_str!("../schemas/mcp/v1/search-docs-result.json");
 const READ_DOC_INPUT: &str = include_str!("../schemas/mcp/v1/read-doc-input.json");
@@ -49,7 +51,7 @@ impl ToolSchema {
                     && object.get("project").is_none_or(Value::is_string)
                     && object.get("source").is_none_or(Value::is_string)
             }
-            "definition" | "references" => matches_schema(&self.input_schema(), value),
+            "definition" | "references" | "rename" => matches_schema(&self.input_schema(), value),
             "search_docs" => {
                 matches_schema(&self.input_schema(), value)
                     && value["query"].as_str().is_some_and(|query| {
@@ -68,7 +70,7 @@ impl ToolSchema {
     }
 }
 
-pub(crate) const TOOLS: [ToolSchema; 7] = [
+pub(crate) const TOOLS: [ToolSchema; 8] = [
     ToolSchema {
         name: "workspace_projects",
         description: "Return the current workspace project selection without refreshing it",
@@ -98,6 +100,12 @@ pub(crate) const TOOLS: [ToolSchema; 7] = [
         description: "Return references for a supported symbol in one saved workspace source",
         input: REFERENCES_INPUT,
         result: REFERENCES_RESULT,
+    },
+    ToolSchema {
+        name: "rename",
+        description: "Compute workspace edits for a supported symbol in one saved workspace source",
+        input: RENAME_INPUT,
+        result: RENAME_RESULT,
     },
     ToolSchema {
         name: "search_docs",

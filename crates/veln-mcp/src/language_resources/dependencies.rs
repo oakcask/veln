@@ -78,6 +78,16 @@ fn dependency_resource(dependency: &CapturedDependencyProject) -> Option<Depende
     })
 }
 
+pub(super) fn captured_dependency_navigation(
+    dependency: &CapturedDependencyProject,
+) -> Option<DirectDependencySnapshot> {
+    let identity = PackageIdentity::new(&dependency.package).ok()?;
+    let project = dependency.project.as_ref()?;
+    let manifest = project.manifest.clone()?;
+    let snapshot = captured_dependency_snapshot(project, &manifest.source_bytes)?;
+    DirectDependencySnapshot::from_validated_manifest(&identity, snapshot, manifest).ok()
+}
+
 fn captured_dependency_snapshot(
     project: &veln_project::Project,
     manifest_source: &[u8],

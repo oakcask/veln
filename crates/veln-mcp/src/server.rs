@@ -10,6 +10,7 @@ use crate::language_resources::{LanguageResources, ResourceCapacityError};
 use crate::language_tools;
 use crate::outcome::ToolOutcome;
 use crate::references;
+use crate::rename;
 use crate::schema;
 use crate::workspace::{Selection, WorkspaceBase};
 
@@ -177,6 +178,7 @@ impl Server {
             "check_project" => self.check_project_tool(arguments),
             "definition" => self.definition_tool(arguments),
             "references" => self.references_tool(arguments),
+            "rename" => self.rename_tool(arguments),
             "search_docs" => self.search_docs_tool(arguments),
             "read_doc" => self.read_doc_tool(arguments),
             _ => unreachable!("tool name was checked against declarations"),
@@ -201,6 +203,19 @@ impl Server {
         render_tool_outcome(
             "references",
             references::references(
+                &self.base,
+                &self.selection,
+                &mut self.language_resources,
+                &mut self.capture_cache,
+                arguments,
+            ),
+        )
+    }
+
+    fn rename_tool(&mut self, arguments: &Value) -> Value {
+        render_tool_outcome(
+            "rename",
+            rename::rename(
                 &self.base,
                 &self.selection,
                 &mut self.language_resources,

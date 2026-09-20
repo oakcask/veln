@@ -15,7 +15,7 @@ The current MCP surface contains language-reference, standard-library source,
 standard-library package-documentation, admitted direct-dependency source,
 and admitted direct-dependency package-documentation resources plus the
 `workspace_projects`, `refresh_workspace`, `check_project`, `definition`,
-`references`, `search_docs`, and `read_doc` tools.
+`references`, `rename`, `search_docs`, and `read_doc` tools.
 Initialization advertises
 `resources` with
 `listChanged: false` and `subscribe: false`, and `tools` with
@@ -27,7 +27,9 @@ and the two analysis metadata shapes. Schema failures, unknown input fields,
 `null` in non-nullable fields, and non-object inputs produce a JSON-RPC
 invalid-params error. The `definition` input requires one source plus positive
 JSON integer line and column coordinates. An initial `references` input uses
-the same coordinate contract; a continuation uses only its cursor.
+the same coordinate contract; a continuation uses only its cursor. The
+`rename` input requires the same source and coordinate fields plus a non-empty
+`new_name` string.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -396,8 +398,62 @@ dependency. Invalid-cased package records, private or non-exported package
 declarations, mismatched imports, unsupported symbols, and package module
 segments return an empty definition. A public constructor selected through a
 visible type alias returns the constructor declaration, not the alias
-declaration. Definition exposes a recovery record's source range only;
-`references` excludes recovery records, and MCP provides no rename tool.
+declaration. Definition exposes a recovery record's source range only, and
+`references` excludes recovery records.
+
+### Rename
+
+`rename` computes edits for one saved workspace symbol. It does not apply the
+edits. The replacement is one ASCII identifier: its first character is an
+ASCII letter or `_`, and each remaining character is an ASCII letter, digit,
+or `_`. Reserved words pass this lexical check. A malformed non-empty name
+returns `rename.invalid_name` with exactly
+`details: {requested_name}`. An empty name is rejected by the input schema.
+
+The supported symbol set contains workspace types, type aliases,
+constructors, functions, function aliases, test declarations, exact-companion
+private functions, value bindings, handler context parameters, and handler
+operation-clause parameters. It also contains the unambiguous recovery
+records for those identities. A type or constructor replacement must start
+with an ASCII uppercase letter. A function or value-binding replacement must
+start with an ASCII lowercase letter. Recovery records retain their symbol
+class. A class mismatch returns `rename.invalid_case` with exactly
+`symbol_class`, `requested_name`, and `required_initial` in `details`.
+
+A successful result is `{"edits": [...]}`. Each edit contains only a canonical
+workspace `file:` URI, a one-based Unicode-scalar half-open range, and
+`new_text`. The result contains the workspace declaration and all linked
+workspace references. Exact duplicate locations appear once. Edits sort by URI
+UTF-8 bytes, then numeric start line, start column, end line, and end column.
+Replacing a symbol with its current name returns the same complete location
+set. Project capture can return edits from any saved source owned by that
+selected project. Anonymous capture returns edits only from the requested
+source.
+
+A valid selection that is not an unambiguous supported workspace symbol
+succeeds with an empty edit array. This includes schemas, effects, handlers,
+effect operations, module segments, package-backed occurrences, unsupported
+roles, and ambiguous recovery records. Rename does not reinterpret such a
+selection as a different symbol class.
+
+A predictable namespace or lexical collision returns `rename.conflict`. Its
+closed details object contains `symbol_class`, `requested_name`, the
+`conflicting_declaration` location, and `affected_scope`. A module scope is
+`{kind:"module", name}`. A lexical scope is
+`{kind:"lexical", file, start_offset, end_offset}`; its offsets are zero-based
+UTF-8 byte offsets into the saved workspace source and its end is exclusive.
+Invalid paths, invalid positions, and exhausted stable capture return the
+existing `invalid_path`, `invalid_position`, and `snapshot_changed` failure
+shapes. No failure contains edits.
+
+Rename constructs its language-service snapshot from one stable capture but
+does not admit dependency source or documentation resources. Retained package
+capacity therefore cannot change its result. Success, empty selection, and
+failure preserve filesystem bytes, workspace roots and generation, published
+diagnostics and resources, prior results, and reference cursors. Rename neither
+creates nor consumes a cursor. A later definition or references request still
+observes the unchanged saved workspace unless the client separately changes
+the files.
 
 An initial `references` request requires `source`, `line`, and `column`.
 It may set boolean `include_declaration` (default `false`) and `page_size`
@@ -487,6 +543,7 @@ return `resource_capacity` without partial locations, scope, or new resources.
 
 Closed input and result schemas are in `crates/veln-mcp/schemas/mcp/v1/`.
 Navigation serialization is implemented by `crates/veln-mcp/src/definition.rs`
-and `crates/veln-mcp/src/references.rs`; cursor retention is implemented by
+and `crates/veln-mcp/src/references.rs`; rename conversion is implemented by
+`crates/veln-mcp/src/rename.rs`; cursor retention is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
 `crates/veln-mcp/src/server/tests/`.

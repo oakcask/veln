@@ -1,4 +1,51 @@
 impl SymbolIndex {
+    fn workspace_type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {
+        self.files
+            .iter()
+            .filter(|file| workspace_navigation_file(file))
+            .flat_map(|file| {
+                let tokens = &file.tokens;
+                let mut spans = file
+                    .type_reference_spans(&symbol.name)
+                    .into_iter()
+                    .filter_map(|(token_index, span)| {
+                        self.workspace_type_alias_for_reference(
+                            file,
+                            tokens,
+                            token_index,
+                            &symbol.name,
+                        )
+                        .is_some_and(|candidate| same_type_alias(&candidate, symbol))
+                        .then_some(span)
+                    })
+                    .collect::<Vec<_>>();
+                spans.extend(
+                    tokens
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, token)| {
+                            token.kind == TokenKind::Ident && token.text == symbol.name
+                        })
+                        .filter(|(token_index, _)| {
+                            next_path_segment_index(tokens, *token_index).is_some()
+                                && self
+                                    .workspace_type_alias_for_reference(
+                                        file,
+                                        tokens,
+                                        *token_index,
+                                        &symbol.name,
+                                    )
+                                    .is_some_and(|candidate| {
+                                        same_type_alias(&candidate, symbol)
+                                    })
+                        })
+                        .map(|(_, token)| file.source.span(token.range)),
+                );
+                spans
+            })
+            .collect()
+    }
+
     fn schema_alias_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
         let mut references = self
             .files
@@ -420,8 +467,7 @@ impl SymbolIndex {
         matches!(
             symbol.package_origin,
             Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
-        )
-            && self.type_alias_target_resolves_to_type(symbol)
+        ) && self.type_alias_target_resolves_to_type(symbol)
     }
 
     fn type_alias_definition_supported(&self, symbol: &TypeAliasSymbol) -> bool {

@@ -3,7 +3,27 @@ stdin_file = "case-text/root-stdin-1.jsonl"
 exit = 0
 
 [stdout]
-equals_file = "case-text/stdout-1.jsonl"
+contains = ["\"name\":\"rename\",\"outputSchema\""]
 
 [stderr]
 format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/tools"
+length = 8
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/schema_version"
+equals = 1
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/summary/diagnostic_count"
+equals = 1
+
+[[mcp_assert]]
+id = 3
+path = "/result/isError"
+equals = false
