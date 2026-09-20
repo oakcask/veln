@@ -1705,6 +1705,64 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn qualified_prelude_schema_alias_ignores_local_bare_name_blockers() {
+        let main = concat!(
+            "schema Host\n",
+            "  count: UInt8\n",
+            "  direct: prelude::AliasPacket\n",
+            "  repeated: Repeat(count, prelude::AliasPacket)\n",
+            "  array: [prelude::AliasPacket; count]\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode prelude::AliasPacket from view at byte_offset(0)?\n",
+            "  encode prelude::AliasPacket from packet\n",
+            "end\n",
+        );
+        let expected = [
+            ("main.veln", 3, 20),
+            ("main.veln", 4, 36),
+            ("main.veln", 5, 20),
+            ("main.veln", 9, 19),
+            ("main.veln", 10, 19),
+        ];
+
+        for (name, blocker) in [
+            (
+                "schema",
+                "mod main\nschema AliasPacket\n  value: Int\nend\n",
+            ),
+            (
+                "schema alias",
+                "mod main\nschema LocalPacket\n  value: Int\nend\nschema AliasPacket = LocalPacket\n",
+            ),
+            ("type", "mod main\ntype AliasPacket\n  Value\nend\n"),
+            (
+                "type alias",
+                "mod main\ntype LocalPacket\n  Value\nend\npub type AliasPacket = LocalPacket\n",
+            ),
+        ] {
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source("main.veln", main),
+                source("blocker.veln", blocker),
+            ])
+            .with_standard_library(standard_library_snapshot(
+                &[(
+                    "prelude.veln",
+                    "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+                )],
+                ["prelude.veln"],
+            ));
+
+            for (line, column) in [(3, 20), (4, 36), (5, 20), (9, 19), (10, 19)] {
+                let selected = query_snapshot(&snapshot, "main.veln", line, column)
+                    .unwrap_or_else(|| panic!("{name} blocked qualified alias at {line}:{column}"));
+                assert_eq!(selected.selected_symbol.name, "AliasPacket", "{name}");
+                assert_eq!(locations(&selected.references), expected, "{name}");
+            }
+        }
+    }
+
+    #[test]
     fn standard_library_schema_alias_package_source_occurrences_are_not_selectable() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",
