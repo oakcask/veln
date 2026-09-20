@@ -368,6 +368,11 @@ impl SymbolIndex {
         self.schema_aliases
             .iter()
             .find(|symbol| {
+                // Package declarations are retained for canonical adapter
+                // declarations, but package-source occurrences are not
+                // navigable selections or reference-set members.
+                symbol.package.is_none()
+                    &&
                 declaration_matches(
                     name,
                     selection,

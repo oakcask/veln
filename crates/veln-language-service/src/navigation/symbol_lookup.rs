@@ -7,15 +7,20 @@ impl SymbolIndex {
         name: &str,
     ) -> bool {
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            if self.schema_alias_declarations.iter().any(|symbol| {
+                symbol.name == name
+                    && symbol.package.is_none()
+                    && symbol.module == file.module
+            }) {
+                return true;
+            }
             if self.schemas.iter().any(|symbol| {
                 symbol.name == name && symbol.module == file.module && symbol.package.is_none()
             }) {
                 return false;
             }
             return self.schema_alias_declarations.iter().any(|symbol| {
-                symbol.name == name
-                    && ((symbol.package.is_none() && symbol.module == file.module)
-                        || symbol.standard_prelude)
+                symbol.name == name && symbol.standard_prelude
             });
         };
         match self.schema_alias_qualified_workspace_module(file, &qualifier) {

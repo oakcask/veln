@@ -55,6 +55,8 @@ thread_local! {
     static SCHEMA_COMPOSITION_DECLARATION_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_COMPOSITION_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_COMPOSITION_PRELUDE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static SCHEMA_COMPOSITION_BLOCKER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
 }
 
 #[cfg(test)]
@@ -98,10 +100,22 @@ fn record_schema_composition_field_token_visits(count: usize) {
 }
 
 #[cfg(test)]
+fn record_schema_composition_prelude_lookup() {
+    SCHEMA_COMPOSITION_PRELUDE_LOOKUPS.set(SCHEMA_COMPOSITION_PRELUDE_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_schema_composition_blocker_lookup() {
+    SCHEMA_COMPOSITION_BLOCKER_LOOKUPS.set(SCHEMA_COMPOSITION_BLOCKER_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
 pub(crate) fn reset_schema_composition_index_work() {
     SCHEMA_COMPOSITION_DECLARATION_VISITS.set(0);
     SCHEMA_COMPOSITION_FIELD_TOKEN_VISITS.set(0);
     SCHEMA_COMPOSITION_TARGET_LOOKUPS.set(0);
+    SCHEMA_COMPOSITION_PRELUDE_LOOKUPS.set(0);
+    SCHEMA_COMPOSITION_BLOCKER_LOOKUPS.set(0);
 }
 
 #[cfg(test)]
@@ -115,6 +129,14 @@ pub(crate) fn schema_composition_index_work() -> (usize, usize) {
 #[cfg(test)]
 pub(crate) fn schema_composition_target_lookups() -> usize {
     SCHEMA_COMPOSITION_TARGET_LOOKUPS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn schema_composition_bare_lookup_work() -> (usize, usize) {
+    (
+        SCHEMA_COMPOSITION_PRELUDE_LOOKUPS.get(),
+        SCHEMA_COMPOSITION_BLOCKER_LOOKUPS.get(),
+    )
 }
 
 #[cfg(test)]

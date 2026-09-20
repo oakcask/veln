@@ -683,11 +683,15 @@ impl SchemaCompositionNavigationContext<'_> {
         return None;
     }
     let Some(qualifier) = qualifier_for_token(&file.tokens, *token_cursor) else {
+        #[cfg(test)]
+        record_schema_composition_prelude_lookup();
         let candidates = self.prelude_alias_index.get(&token.text)?;
         let [alias] = candidates.as_slice() else {
             return None;
         };
         let blocker = (file.module.clone(), token.text.clone());
+        #[cfg(test)]
+        record_schema_composition_blocker_lookup();
         if self.workspace_schema_blockers.contains(&blocker)
             || self.workspace_schema_alias_blockers.contains(&blocker)
         {

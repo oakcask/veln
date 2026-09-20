@@ -357,10 +357,13 @@ type-role reference selects only the visible type declaration or supported
 direct-dependency public type-alias identity owned by the written qualifier.
 The alias identity remains separate from the target type identity.
 Schema operation selection uses the schema namespace. A bare schema path in a
-`decode` or `encode` expression selects only a same-module schema declaration.
-A written import does not expose the imported module's schemas to bare schema
-operation paths. Imported schemas are selectable through accepted qualified
-schema paths, including import-alias-qualified paths.
+`decode` or `encode` expression selects a same-module schema declaration, or an
+eligible implicit standard-library schema alias when no same-spelled local
+schema or alias blocks that fallback. A written import does not expose the
+imported module's schemas to bare schema operation paths. Imported schemas are
+selectable through accepted qualified schema paths, including
+import-alias-qualified paths. An ineligible same-module public schema alias
+blocks fallback to a same-spelled schema declaration.
 
 When `veln.toml` contains manifest export data, `[modules]` is rejected and
 `[lib].exports` is checked as a list of public package-relative source files.
