@@ -264,7 +264,11 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Eof) {
                 break;
             }
+            let item_cursor = self.cursor;
             items.push(parse_item(self));
+            if self.cursor == item_cursor {
+                self.skip_to_next_line();
+            }
         }
         (items, false)
     }
