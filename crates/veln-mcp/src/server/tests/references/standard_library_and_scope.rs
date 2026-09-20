@@ -150,14 +150,12 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
         ),
     );
     let mut server = initialized_server(&workspace);
-    install_alias_standard_library(
-        &mut server,
-        concat!(
-            "pub schema Packet\n  value: Int\nend\n\n",
-            "pub schema Mid = Packet\n",
-            "pub schema AliasPacket = Mid\n",
-        ),
+    let standard_source = concat!(
+        "pub schema Packet\n  value: Int\nend\n\n",
+        "pub schema Mid = Packet\n",
+        "pub schema AliasPacket = Mid\n",
     );
+    install_alias_standard_library(&mut server, standard_source);
 
     let result = server.references_tool(&json!({
         "source": "main.veln",
@@ -194,6 +192,28 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
         23,
         "standard-library schema alias declaration",
     );
+    let declaration_uri = with_declaration["structuredContent"]["references"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|location| {
+            location["uri"]
+                .as_str()
+                .filter(|uri| uri.starts_with("veln-pkg:///"))
+        })
+        .expect("standard-library schema alias declaration URI")
+        .to_owned();
+    let read = server
+        .handle_request(json!({
+            "jsonrpc": "2.0",
+            "id": "standard-library-schema-alias-resource",
+            "method": "resources/read",
+            "params": {"uri": declaration_uri}
+        }))
+        .unwrap();
+    assert_eq!(read["result"]["contents"][0]["uri"], declaration_uri);
+    assert_eq!(read["result"]["contents"][0]["text"], standard_source);
+    assert!(declaration_uri.starts_with("veln-pkg:///std/snapshot/"));
 }
 
 #[test]

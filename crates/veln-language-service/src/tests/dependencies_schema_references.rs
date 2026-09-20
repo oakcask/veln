@@ -1926,6 +1926,135 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn standard_library_schema_alias_qualified_target_resolution_matrix() {
+        let cases = [
+            (
+                "full written target path",
+                vec![
+                    (
+                        "nested/core.veln",
+                        "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "facade.veln",
+                        "mod facade\nuse nested::core\n\npub schema Mid = nested::core::Packet\npub schema Alias = Mid\n",
+                    ),
+                ],
+                true,
+            ),
+            (
+                "unique implicit target leaf",
+                vec![
+                    (
+                        "nested/core.veln",
+                        "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "facade.veln",
+                        "mod facade\nuse nested::core\n\npub schema Mid = core::Packet\npub schema Alias = Mid\n",
+                    ),
+                ],
+                true,
+            ),
+            (
+                "exact path precedes ambiguous implicit leaf",
+                vec![
+                    (
+                        "alpha/core.veln",
+                        "mod alpha::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "beta/core.veln",
+                        "mod beta::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "facade.veln",
+                        "mod facade\nuse alpha::core\nuse beta::core\n\npub schema Mid = alpha::core::Packet\npub schema Alias = Mid\n",
+                    ),
+                ],
+                true,
+            ),
+            (
+                "ambiguous target import",
+                vec![
+                    (
+                        "alpha/core.veln",
+                        "mod alpha::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "beta/core.veln",
+                        "mod beta::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "facade.veln",
+                        "mod facade\nuse alpha::core\nuse beta::core\n\npub schema Mid = core::Packet\npub schema Alias = Mid\n",
+                    ),
+                ],
+                false,
+            ),
+            (
+                "recovered target import",
+                vec![
+                    (
+                        "nested/core.veln",
+                        "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "facade.veln",
+                        "mod facade\nuse nested::core unexpected\n\npub schema Mid = core::Packet\npub schema Alias = Mid\n",
+                    ),
+                ],
+                false,
+            ),
+            (
+                "invalid-cased target import",
+                vec![
+                    (
+                        "nested/core.veln",
+                        "mod nested::core\n\npub schema Packet\n  value: Int\nend\n",
+                    ),
+                    (
+                        "facade.veln",
+                        "mod facade\nuse nested::Core\n\npub schema Mid = Core::Packet\npub schema Alias = Mid\n",
+                    ),
+                ],
+                false,
+            ),
+        ];
+
+        for (name, standard_sources, eligible) in cases {
+            let exports = standard_sources.iter().map(|(path, _)| *path);
+            let snapshot = EffectiveProjectSnapshot::new(vec![source(
+                "main.veln",
+                concat!(
+                    "use facade from \"std\"\n\n",
+                    "fn read(view: ByteView) -> ()\n",
+                    "  decode facade::Alias from view at byte_offset(0)?\n",
+                    "end\n",
+                ),
+            )])
+            .with_standard_library(standard_library_snapshot(&standard_sources, exports));
+
+            let selected = query_snapshot(&snapshot, "main.veln", 4, 19);
+            if eligible {
+                let selected = selected.unwrap_or_else(|| panic!("{name}"));
+                assert_eq!(
+                    selected.selected_symbol.declaration_kind,
+                    SymbolDeclarationKind::PublicAlias,
+                    "{name}"
+                );
+                assert_eq!(
+                    locations(&selected.references),
+                    [("main.veln", 4, 18)],
+                    "{name}"
+                );
+            } else {
+                assert!(selected.is_none(), "{name}");
+            }
+        }
+    }
+
+    #[test]
     fn standard_library_schema_alias_import_failures_cover_composition_and_operation_leaves() {
         let standard_library = standard_library_snapshot(
             &[
