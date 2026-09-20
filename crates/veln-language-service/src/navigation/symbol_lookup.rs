@@ -109,21 +109,20 @@ impl SymbolIndex {
         let mut candidates = self.schema_aliases.iter().filter(|symbol| {
             symbol.name == name
                 && match (&qualification, &symbol.package) {
-                    (
-                        QualifiedWorkspaceModule::External
-                        | QualifiedWorkspaceModule::Unresolved,
-                        Some(package),
-                    ) => {
+                    (QualifiedWorkspaceModule::External, Some(package)) => {
                         matches!(
                             symbol.package_origin,
                             Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
                         )
-                            && (self.valid_schema_alias_external_import(
+                            && self.valid_schema_alias_external_import(
                                 file,
                                 qualifier,
                                 &symbol.module,
                                 package,
-                            ) || (symbol.standard_prelude && qualifier == "prelude"))
+                            )
+                    }
+                    (QualifiedWorkspaceModule::Unresolved, Some(_)) => {
+                        symbol.standard_prelude && qualifier == "prelude"
                     }
                     (QualifiedWorkspaceModule::Workspace(module), None) => {
                         symbol.module == *module

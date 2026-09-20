@@ -1742,6 +1742,108 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn exact_prelude_imports_keep_one_schema_alias_identity_across_leaf_roles() {
+        let alias_source = concat!(
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  value: Int\n",
+            "end\n\n",
+            "pub schema AliasPacket = Packet\n",
+        );
+        let leaf_source = concat!(
+            "schema Host\n",
+            "  format binary\n",
+            "  count: UInt8\n",
+            "  direct: prelude::AliasPacket\n",
+            "  repeated: Repeat(count, prelude::AliasPacket)\n",
+            "  array: [prelude::AliasPacket; count]\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode prelude::AliasPacket from view at byte_offset(0)?\n",
+            "  encode prelude::AliasPacket from packet\n",
+            "end\n",
+        );
+        let dependency = dependency_snapshot(
+            "example/dep",
+            &[("prelude.veln", alias_source)],
+            ["prelude.veln"],
+        );
+        let standard_library = standard_library_snapshot(
+            &[("prelude.veln", alias_source)],
+            ["prelude.veln"],
+        );
+        let cases = [
+            ("workspace exact", "use prelude\n", Some(None)),
+            (
+                "external exact",
+                "use prelude from \"example/dep\"\n",
+                Some(Some(PackageOrigin::DirectDependency)),
+            ),
+            (
+                "workspace then external collision",
+                "use prelude\nuse prelude from \"example/dep\"\n",
+                None,
+            ),
+            (
+                "external then workspace collision",
+                "use prelude from \"example/dep\"\nuse prelude\n",
+                None,
+            ),
+        ];
+
+        for (name, imports, expected_identity) in cases {
+            let main = format!("{imports}\n{leaf_source}");
+            let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+                vec![
+                    source("main.veln", &main),
+                    source("prelude.veln", alias_source),
+                ],
+                vec![dependency.clone()],
+            )
+            .with_standard_library(standard_library.clone());
+            let leaf_lines = main
+                .lines()
+                .enumerate()
+                .filter(|(_, text)| text.contains("prelude::AliasPacket"))
+                .map(|(line, _)| line + 1)
+                .collect::<Vec<_>>();
+            assert_eq!(leaf_lines.len(), 5, "{name}");
+
+            let selections = leaf_lines
+                .iter()
+                .map(|&line| {
+                    let text = main.lines().nth(line - 1).unwrap();
+                    (0..text.len()).find_map(|column| {
+                        query_snapshot(&snapshot, "main.veln", line, column)
+                            .filter(|result| result.selected_symbol.name == "AliasPacket")
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            let Some(expected_origin) = expected_identity else {
+                assert!(selections.iter().all(Option::is_none), "{name}: {selections:#?}");
+                continue;
+            };
+            assert!(selections.iter().all(Option::is_some), "{name}: {selections:#?}");
+            let selections = selections.into_iter().flatten().collect::<Vec<_>>();
+            let expected_locations = selections
+                .iter()
+                .map(|result| {
+                    (
+                        "main.veln",
+                        result.selection.start.line,
+                        result.selection.start.column,
+                    )
+                })
+                .collect::<Vec<_>>();
+            for selected in selections {
+                assert_eq!(selected.selected_symbol.package_origin, expected_origin, "{name}");
+                assert_eq!(locations(&selected.references), expected_locations, "{name}");
+            }
+        }
+    }
+
+    #[test]
     fn qualified_prelude_schema_alias_ignores_local_bare_name_blockers() {
         let main = concat!(
             "schema Host\n",

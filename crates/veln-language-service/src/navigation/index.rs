@@ -100,6 +100,7 @@ impl SymbolIndex {
             &files,
             &declarations.schemas,
             &schema_aliases,
+            &schema_alias_module_imports,
             veln_sema::resolved_schema_composition_references(&workspace_module),
         );
         let package_schemas = package_schema_index(

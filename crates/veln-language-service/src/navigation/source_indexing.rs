@@ -521,6 +521,7 @@ fn workspace_schema_composition_references(
     files: &[IndexedFile],
     schemas: &[NeutralSymbol],
     schema_aliases: &[NeutralSymbol],
+    module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
     references: Vec<veln_sema::ResolvedSchemaCompositionReference>,
 ) -> Vec<SchemaCompositionReference> {
     references
@@ -546,12 +547,21 @@ fn workspace_schema_composition_references(
             let file = files
                 .iter()
                 .find(|file| file.source.path() == &reference.field_span.file)?;
-            let (_, token) = file.tokens.iter().enumerate().find(|(index, token)| {
+            let (token_index, token) = file.tokens.iter().enumerate().find(|(index, token)| {
                 token.range.start >= reference.field_span.start.offset
                     && token.range.end <= reference.field_span.end.offset
                     && token.text == *leaf
                     && is_schema_composition_path_leaf_token(&file.tokens, *index)
             })?;
+            let target_module = alias_target.map_or(schema_target, |alias| alias).module.as_str();
+            if qualifier_for_token(&file.tokens, token_index).is_some_and(|qualifier| {
+                !matches!(
+                    schema_qualified_workspace_module(file, &qualifier, module_imports),
+                    QualifiedWorkspaceModule::Workspace(module) if module == target_module
+                )
+            }) {
+                return None;
+            }
             Some(SchemaCompositionReference {
                 span: file.source.span(token.range),
                 target: alias_target.map_or_else(
@@ -764,23 +774,23 @@ impl SchemaCompositionNavigationContext<'_> {
             target: SchemaReferenceTarget::Alias(alias.clone()),
         });
     };
-    if qualifier == "prelude" {
-        #[cfg(test)]
-        record_schema_composition_prelude_lookup();
-        let candidates = self.prelude_alias_index.get(&token.text)?;
-        let [alias] = candidates.as_slice() else {
-            return None;
-        };
-        return Some(SchemaCompositionReference {
-            span: span.clone(),
-            target: SchemaReferenceTarget::Alias(alias.clone()),
-        });
-    }
-    if !matches!(
-        schema_qualified_workspace_module(file, &qualifier, self.module_imports),
-        QualifiedWorkspaceModule::External
-    ) {
-        return None;
+    match schema_qualified_workspace_module(file, &qualifier, self.module_imports) {
+        QualifiedWorkspaceModule::Unresolved if qualifier == "prelude" => {
+            #[cfg(test)]
+            record_schema_composition_prelude_lookup();
+            let candidates = self.prelude_alias_index.get(&token.text)?;
+            let [alias] = candidates.as_slice() else {
+                return None;
+            };
+            return Some(SchemaCompositionReference {
+                span: span.clone(),
+                target: SchemaReferenceTarget::Alias(alias.clone()),
+            });
+        }
+        QualifiedWorkspaceModule::External => {}
+        QualifiedWorkspaceModule::Workspace(_)
+        | QualifiedWorkspaceModule::Ambiguous
+        | QualifiedWorkspaceModule::Unresolved => return None,
     }
     let (module, package) = self
         .module_imports
