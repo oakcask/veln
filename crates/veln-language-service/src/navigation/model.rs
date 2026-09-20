@@ -640,6 +640,7 @@ struct NeutralSymbol {
     package: Option<String>,
     package_origin: Option<PackageOrigin>,
     public: bool,
+    standard_prelude: bool,
     alias_target_module: Option<String>,
     alias_target_name: Option<String>,
 }

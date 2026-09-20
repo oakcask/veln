@@ -289,6 +289,13 @@ fn neutral_declaration(
         package,
         package_origin,
         public,
+        standard_prelude: matches!(
+            &file.origin,
+            IndexedOrigin::Package {
+                standard_library: true,
+                ..
+            }
+        ) && file.module == "prelude",
         alias_target_module: None,
         alias_target_name: None,
     })
@@ -300,6 +307,7 @@ fn same_schema(left: &NeutralSymbol, right: &NeutralSymbol) -> bool {
         && left.name == right.name
         && left.package_origin == right.package_origin
         && left.public == right.public
+        && left.standard_prelude == right.standard_prelude
         && left.alias_target_module == right.alias_target_module
         && left.alias_target_name == right.alias_target_name
         && left.declaration == right.declaration

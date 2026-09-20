@@ -8,7 +8,9 @@ impl SymbolIndex {
     ) -> bool {
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
             return self.schema_alias_declarations.iter().any(|symbol| {
-                symbol.package.is_none() && symbol.module == file.module && symbol.name == name
+                symbol.name == name
+                    && ((symbol.package.is_none() && symbol.module == file.module)
+                        || symbol.standard_prelude)
             });
         };
         match self.schema_alias_qualified_workspace_module(file, &qualifier) {
@@ -57,8 +59,8 @@ impl SymbolIndex {
             .iter()
             .find(|symbol| {
                 symbol.name == name
-                    && symbol.module == file.module
-                    && symbol.package.is_none()
+                    && ((symbol.module == file.module && symbol.package.is_none())
+                        || symbol.standard_prelude)
             })
             .cloned()
     }

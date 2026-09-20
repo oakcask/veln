@@ -544,6 +544,85 @@ fn references_include_standard_library_schema_aliases_with_project_scope() {
     );
 }
 
+#[test]
+fn references_paginate_bare_standard_library_schema_aliases_stably() {
+    let workspace = TempWorkspace::new("references-bare-standard-library-schema-alias-pagination");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "schema Host\n",
+            "  nested: AliasPacket\n",
+            "end\n\n",
+            "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+            "  decode AliasPacket from view at byte_offset(0)?\n",
+            "  encode AliasPacket from packet\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+        )],
+    );
+
+    let first = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 2,
+        "column": 12,
+        "page_size": 2,
+        "include_declaration": true
+    }));
+    assert_eq!(first["isError"], false, "{first:#}");
+    assert_reference_ranges(
+        &first,
+        &[("main.veln", 2, 11, 2, 22), ("main.veln", 6, 10, 6, 21)],
+        "bare standard-library schema alias first page",
+    );
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .expect("non-final alias page cursor")
+        .to_owned();
+
+    workspace.write("main.veln", "fn changed() -> Int\n  1\nend\n");
+    let second = server.references_tool(&json!({"cursor": cursor}));
+    assert_eq!(second["isError"], false, "{second:#}");
+    let second_references = second["structuredContent"]["references"]
+        .as_array()
+        .expect("continuation references");
+    assert_eq!(second_references.len(), 2, "{second:#}");
+    assert!(
+        second_references[0]["uri"]
+            .as_str()
+            .unwrap()
+            .starts_with("file://")
+    );
+    assert_eq!(
+        second_references[0]["range"],
+        json!({
+            "start": {"line": 7, "column": 10},
+            "end": {"line": 7, "column": 21}
+        })
+    );
+    assert_package_declaration(
+        &second,
+        "/prelude.veln",
+        5,
+        12,
+        5,
+        23,
+        "bare standard-library schema alias paginated declaration",
+    );
+    assert_eq!(
+        second["structuredContent"]["scope"],
+        first["structuredContent"]["scope"]
+    );
+    assert!(second["structuredContent"].get("next_cursor").is_none());
+}
+
 fn admitted_server_with_captured_state(workspace: &TempWorkspace) -> (Server, Value, Value) {
     let mut server = initialized_server(workspace);
     let admitted = server.check_project_tool(&json!({"project":"."}));

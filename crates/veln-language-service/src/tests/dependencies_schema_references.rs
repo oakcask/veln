@@ -1566,6 +1566,40 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn standard_library_prelude_schema_alias_is_visible_by_bare_name() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "schema Host\n",
+                "  nested: AliasPacket\n",
+                "end\n\n",
+                "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+                "  decode AliasPacket from view at byte_offset(0)?\n",
+                "  encode AliasPacket from packet\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+            )],
+            ["prelude.veln"],
+        ));
+
+        for (line, column) in [(2, 12), (6, 10), (7, 10)] {
+            let selected = query_snapshot(&snapshot, "main.veln", line, column)
+                .unwrap_or_else(|| panic!("missing bare prelude alias at {line}:{column}"));
+            assert_eq!(selected.selected_symbol.name, "AliasPacket");
+            assert_eq!(selected.selected_symbol.package_origin, Some(PackageOrigin::StandardLibrary));
+            assert_eq!(
+                locations(&selected.references),
+                [("main.veln", 2, 11), ("main.veln", 6, 10), ("main.veln", 7, 10)]
+            );
+        }
+    }
+
+    #[test]
     fn standard_library_schema_exact_import_precedes_workspace_alias_in_either_source_order() {
         for workspace_import_first in [true, false] {
             let workspace_import = source(

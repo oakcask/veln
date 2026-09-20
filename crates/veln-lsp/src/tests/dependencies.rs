@@ -133,6 +133,49 @@ fn standard_library_schema_references_use_the_injected_snapshot() {
 }
 
 #[test]
+fn standard_library_prelude_schema_alias_references_keep_lsp_ranges() {
+    let manifest = "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n";
+    let snapshot = capture_embedded_package_snapshot(
+        manifest.as_bytes(),
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+        )],
+    )
+    .unwrap();
+    let standard_library = DirectDependencySnapshot::from_validated_standard_library(
+        snapshot,
+        parse_manifest_text("veln.toml", manifest),
+    )
+    .unwrap();
+    let mut server = Server::default().with_standard_library(standard_library);
+    let project = TempProject::new("standard-library-prelude-schema-alias-references");
+    project.write(
+        "main.veln",
+        "// 🙂\nfn read(view: ByteView, packet: {value: Int}) -> ()\n  decode AliasPacket from view at byte_offset(0)?\n  encode AliasPacket from packet\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    for include_declaration in [false, true] {
+        let references = server.handle_message(&references_request_with_declaration(
+            &main_uri,
+            2,
+            9,
+            include_declaration,
+        ));
+        assert_eq!(references.len(), 1);
+        let response = &references[0];
+        assert!(response.contains(&format!("\"uri\":\"{main_uri}\"")), "{response}");
+        assert!(response.contains("\"start\":{\"line\":2,\"character\":9}"), "{response}");
+        assert!(response.contains("\"start\":{\"line\":3,\"character\":9}"), "{response}");
+        assert_eq!(response.matches("\"uri\":").count(), 2, "{response}");
+        assert!(!response.contains("veln-pkg:"), "{response}");
+    }
+}
+
+#[test]
 fn standard_library_schema_references_pair_saved_baseline_with_lsp_overlay() {
     let mut server = Server::default().with_standard_library(packet_standard_library());
     let project = TempProject::new("standard-library-schema-reference-overlay");

@@ -564,6 +564,7 @@ fn package_schema_composition_references(
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Vec<SchemaCompositionReference> {
     let alias_index = direct_dependency_schema_alias_index(schema_aliases);
+    let prelude_alias_index = standard_prelude_schema_alias_index(schema_aliases);
     files
         .iter()
         .filter(|file| workspace_navigation_file(file))
@@ -578,12 +579,26 @@ fn package_schema_composition_references(
                         &mut token_cursor,
                         schema_index,
                         &alias_index,
+                        &prelude_alias_index,
                         module_imports,
                     )
                 })
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+fn standard_prelude_schema_alias_index(
+    schema_aliases: &[NeutralSymbol],
+) -> BTreeMap<String, Vec<NeutralSymbol>> {
+    let mut aliases = BTreeMap::new();
+    for alias in schema_aliases.iter().filter(|alias| alias.standard_prelude) {
+        aliases
+            .entry(alias.name.clone())
+            .or_insert_with(Vec::new)
+            .push(alias.clone());
+    }
+    aliases
 }
 
 fn direct_dependency_schema_alias_index(
@@ -613,6 +628,7 @@ fn direct_dependency_schema_composition_reference(
     token_cursor: &mut usize,
     schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     alias_index: &BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
+    prelude_alias_index: &BTreeMap<String, Vec<NeutralSymbol>>,
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
 ) -> Option<SchemaCompositionReference> {
     while *token_cursor < file.tokens.len()
@@ -631,7 +647,16 @@ fn direct_dependency_schema_composition_reference(
     {
         return None;
     }
-    let qualifier = qualifier_for_token(&file.tokens, *token_cursor)?;
+    let Some(qualifier) = qualifier_for_token(&file.tokens, *token_cursor) else {
+        let candidates = prelude_alias_index.get(&token.text)?;
+        let [alias] = candidates.as_slice() else {
+            return None;
+        };
+        return Some(SchemaCompositionReference {
+            span: span.clone(),
+            target: SchemaReferenceTarget::Alias(alias.clone()),
+        });
+    };
     if !matches!(
         schema_qualified_workspace_module(file, &qualifier, module_imports),
         QualifiedWorkspaceModule::External
