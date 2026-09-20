@@ -514,6 +514,7 @@ fn references_reject_paths_and_changed_workspace_identity() {
         selection,
         initialized: true,
         language_resources: minimal_language_resources(),
+        capture_cache: CaptureCache::default(),
     };
     let result = server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
     assert_eq!(result["isError"], true);
