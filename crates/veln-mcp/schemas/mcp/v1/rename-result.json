@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["line", "column"]
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      },
+      "required": ["start", "end"]
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uri": { "type": "string" },
+        "range": { "$ref": "#/$defs/range" }
+      },
+      "required": ["uri", "range"]
+    },
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uri": { "type": "string" },
+        "range": { "$ref": "#/$defs/range" },
+        "new_text": { "type": "string" }
+      },
+      "required": ["uri", "range", "new_text"]
+    },
+    "module_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "module" },
+        "name": { "type": "string" }
+      },
+      "required": ["kind", "name"]
+    },
+    "lexical_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "lexical" },
+        "file": { "type": "string" },
+        "start_offset": { "type": "integer", "minimum": 0 },
+        "end_offset": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["kind", "file", "start_offset", "end_offset"]
+    },
+    "invalid_name_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "requested_name": { "type": "string" } },
+      "required": ["requested_name"]
+    },
+    "invalid_case_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbol_class": { "enum": ["type", "constructor", "function", "value_binding"] },
+        "requested_name": { "type": "string" },
+        "required_initial": { "enum": ["ascii_uppercase", "ascii_lowercase"] }
+      },
+      "required": ["symbol_class", "requested_name", "required_initial"]
+    },
+    "conflict_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbol_class": { "enum": ["type", "constructor", "function", "value_binding"] },
+        "requested_name": { "type": "string" },
+        "conflicting_declaration": { "$ref": "#/$defs/location" },
+        "affected_scope": {
+          "oneOf": [
+            { "$ref": "#/$defs/module_scope" },
+            { "$ref": "#/$defs/lexical_scope" }
+          ]
+        }
+      },
+      "required": ["symbol_class", "requested_name", "conflicting_declaration", "affected_scope"]
+    },
+    "position_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string" },
+        "line": { "type": "integer" },
+        "column": { "type": "integer" }
+      },
+      "required": ["source", "line", "column"]
+    },
+    "empty_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  },
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "edits": { "type": "array", "items": { "$ref": "#/$defs/edit" } } },
+      "required": ["edits"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "const": "rename.invalid_name" },
+        "message": { "type": "string" },
+        "details": { "$ref": "#/$defs/invalid_name_details" }
+      },
+      "required": ["code", "message", "details"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "const": "rename.invalid_case" },
+        "message": { "type": "string" },
+        "details": { "$ref": "#/$defs/invalid_case_details" }
+      },
+      "required": ["code", "message", "details"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "const": "rename.conflict" },
+        "message": { "type": "string" },
+        "details": { "$ref": "#/$defs/conflict_details" }
+      },
+      "required": ["code", "message", "details"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "const": "invalid_position" },
+        "message": { "type": "string" },
+        "details": { "$ref": "#/$defs/position_details" }
+      },
+      "required": ["code", "message", "details"]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "enum": ["invalid_path", "snapshot_changed"] },
+        "message": { "type": "string" },
+        "details": { "$ref": "#/$defs/empty_details" }
+      },
+      "required": ["code", "message", "details"]
+    }
+  ]
+}

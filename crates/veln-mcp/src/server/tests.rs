@@ -14,6 +14,7 @@ mod references;
 mod references_standard_library_aliases;
 mod references_support;
 mod references_workspace_schema_aliases;
+mod rename;
 mod resources;
 
 fn parse_responses(output: Vec<u8>) -> Vec<Value> {

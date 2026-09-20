@@ -1,0 +1,7 @@
+fn target() -> Int
+  target()
+end
+
+schema Packet
+  value: Int
+end

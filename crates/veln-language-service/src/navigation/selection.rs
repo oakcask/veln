@@ -1,4 +1,34 @@
 impl SymbolIndex {
+    fn workspace_type_alias_for_rename(
+        &self,
+        position: &SourcePosition,
+    ) -> Option<(TypeAliasSymbol, SourceSpan)> {
+        let file = self
+            .files
+            .iter()
+            .find(|file| file.source.path() == &position.source)?;
+        if file.navigation_isolated {
+            return None;
+        }
+        let offset = offset_for_position(file.source.text(), position)?;
+        let (token_index, token) = identifier_token_at(&file.tokens, offset)?;
+        let selection = file.source.span(token.range);
+        let name = token.text.as_str();
+        let alias = self.type_alias_declared_at(name, &selection).or_else(|| {
+            is_type_reference_token(file, name, &selection)
+                .then(|| {
+                    self.workspace_type_alias_for_reference(
+                        file,
+                        &file.tokens,
+                        token_index,
+                        name,
+                    )
+                })
+                .flatten()
+        })?;
+        Some((alias, selection))
+    }
+
     fn symbol_for_selection(
         &self,
         file: &IndexedFile,

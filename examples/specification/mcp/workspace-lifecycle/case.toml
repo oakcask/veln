@@ -3,7 +3,37 @@ stdin_file = "case-text/root-stdin-1.jsonl"
 exit = 0
 
 [stdout]
-equals_file = "case-text/stdout-1.jsonl"
+contains = ["\"name\":\"rename\",\"outputSchema\""]
 
 [stderr]
 format = "empty"
+
+[[mcp_assert]]
+id = 0
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 2
+path = "/result/tools"
+length = 8
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/generation"
+equals = 0
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/generation"
+equals = 1
+
+[[mcp_assert]]
+id = 8
+path = "/error/code"
+equals = -32602
+
+[[mcp_assert]]
+id = 5
+path = "/error/code"
+equals = -32602

@@ -10,8 +10,8 @@ use uri_encoding::encoded_uri_segment;
 pub use navigation::{
     NavigationLocation, NavigationResult, NavigationSource, PackageOrigin, RenameAffectedScope,
     RenameFailure, RenameFailureKind, RenameNameClass, RenameRequiredInitial, SelectedSymbol,
-    SourcePosition, SymbolDeclarationKind, SymbolKind, definition_at, navigate, validate_rename,
-    validate_rename_in_snapshot,
+    SourcePosition, SymbolDeclarationKind, SymbolKind, definition_at, navigate,
+    navigate_for_rename, validate_rename, validate_rename_in_snapshot,
 };
 pub use package_documentation::{
     PACKAGE_DOCUMENTATION_MARKDOWN_MEDIA_TYPE, PackageDocAlias, PackageDocCatalog,

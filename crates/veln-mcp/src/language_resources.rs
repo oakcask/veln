@@ -10,7 +10,7 @@ use veln_language_service::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_project::PackageSnapshotSource;
 use veln_repo_language_reference::{RenderedResource, render_checked_language_reference};
 
-use self::dependencies::dependency_resources;
+use self::dependencies::{captured_dependency_navigation, dependency_resources};
 use self::package_resources::{PackageDocumentation, RetainedPackageKey};
 pub(crate) use self::package_resources::{
     PackageSearchCandidate, PackageSearchScope, PublishedResource,
@@ -408,6 +408,24 @@ impl LanguageResources {
         let snapshot = Arc::new(snapshot);
         self.workspace_navigation = Some((workspace_key, dependency_keys, Arc::clone(&snapshot)));
         Ok(snapshot)
+    }
+
+    pub(crate) fn read_only_navigation_snapshot(
+        &self,
+        files: Vec<veln_source::SourceFile>,
+        captured_dependencies: &[CapturedDependencyProject],
+    ) -> EffectiveProjectSnapshot {
+        let dependencies = captured_dependencies
+            .iter()
+            .filter_map(captured_dependency_navigation)
+            .collect::<Vec<_>>();
+        if dependencies.is_empty() {
+            self.with_standard_library_navigation(files)
+        } else {
+            self.standard_library_navigation
+                .with_direct_dependency_layer(dependencies)
+                .with_workspace_overlays(files)
+        }
     }
 
     pub(crate) fn package_documentation_uri_for(

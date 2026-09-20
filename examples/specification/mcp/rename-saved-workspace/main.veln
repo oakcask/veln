@@ -1,0 +1,7 @@
+fn target(value: Int) -> Int
+  target(value - 1)
+end
+
+fn main() -> Int
+  target(2)
+end

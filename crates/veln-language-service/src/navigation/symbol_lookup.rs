@@ -1,4 +1,27 @@
 impl SymbolIndex {
+    fn workspace_type_alias_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let qualifier = qualifier_for_token(tokens, token_index);
+        let qualified_modules = qualifier
+            .as_deref()
+            .map(|qualifier| self.qualified_module_candidates(file, qualifier));
+        let mut candidates = self.type_aliases.iter().filter(|symbol| {
+            symbol.package.is_none()
+                && symbol.name == name
+                && match &qualified_modules {
+                    Some(modules) => modules.iter().any(|module| module == &symbol.module),
+                    None => symbol.module == file.module || file.uses.contains(&symbol.module),
+                }
+        });
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then(|| candidate.clone())
+    }
+
     fn schema_alias_selection_blocks_schema_fallback(
         &self,
         file: &IndexedFile,

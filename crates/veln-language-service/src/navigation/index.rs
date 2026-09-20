@@ -255,6 +255,23 @@ impl SymbolIndex {
                     && symbol.declaration == result.selected_symbol.declaration
             })
             .cloned()
+            .or_else(|| {
+                self.type_aliases
+                    .iter()
+                    .find(|symbol| {
+                        symbol.package.is_none()
+                            && symbol.declaration == result.selected_symbol.declaration
+                    })
+                    .map(|symbol| TypeSymbol {
+                        module: symbol.module.clone(),
+                        name: symbol.name.clone(),
+                        declaration: symbol.declaration.clone(),
+                        package: None,
+                        package_origin: None,
+                        public: true,
+                        standard_prelude: symbol.standard_prelude,
+                    })
+            })
     }
 
     fn selected_constructor(&self, result: &NavigationResult) -> Option<ConstructorSymbol> {
@@ -424,6 +441,22 @@ impl SymbolIndex {
                     symbol.package.as_deref(),
                     &symbol.declaration.span,
                 )
+            })
+            .cloned()
+    }
+
+    fn type_alias_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<TypeAliasSymbol> {
+        self.type_aliases
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && declaration_matches(
+                        name,
+                        selection,
+                        &symbol.name,
+                        symbol.package.as_deref(),
+                        &symbol.declaration.span,
+                    )
             })
             .cloned()
     }

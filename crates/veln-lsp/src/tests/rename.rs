@@ -372,6 +372,34 @@ fn rename_accepts_same_class_replacements_for_cased_symbols() {
 }
 
 #[test]
+fn workspace_type_alias_rename_uses_shared_identity_and_conflicts() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-workspace-type-alias");
+    project.write(
+        "main.veln",
+        concat!(
+            "type Existing\n  Value\nend\n\n",
+            "pub type Alias = Existing\n\n",
+            "fn read(input: Alias) -> Alias\n  input\nend\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let renamed = server.handle_message(&rename_request(&main_uri, 4, 10, "Renamed"));
+    assert_eq!(renamed[0].matches(r#""newText":"Renamed""#).count(), 3);
+
+    let conflict = server.handle_message(&rename_request(&main_uri, 6, 16, "Existing"));
+    assert!(
+        conflict[0].contains(r#""code":"rename.conflict""#),
+        "{}",
+        conflict[0]
+    );
+    assert!(!conflict[0].contains(r#""changes""#), "{}", conflict[0]);
+}
+
+#[test]
 fn constructor_rename_keeps_cross_file_reference_at_declaration_offset() {
     let mut server = Server::default();
     let project = TempProject::new("rename-constructor-cross-file-offset");
