@@ -257,6 +257,35 @@ fn contract_predicate_too_wide_partial_case_split_or_requires_runtime_check() {
 }
 
 #[test]
+fn contract_predicate_too_wide_partial_case_split_or_with_true_branch_is_statically_proven() {
+    let fields = [
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n",
+    ];
+    let record_type = bool_record_type(&fields);
+    let predicate = partial_case_split_chain_predicate("value", &fields);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}}\nrequire {predicate} or true\n  value\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert_eq!(
+        contracts[0].obligation_status,
+        ContractObligationStatus::StaticallyProven
+    );
+}
+
+#[test]
 fn contract_predicate_negated_partial_case_split_and_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
