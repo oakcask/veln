@@ -649,3 +649,118 @@ mod navigation_qualified_and_package_tests {
             assert!(uri.ends_with(path), "{uri}");
         }
     }
+
+    #[test]
+    fn workspace_type_alias_rename_ignores_unimported_qualified_modules() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                "fn read(input: left::Alias) -> Int\n  input\nend\n",
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 22,
+            },
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_prefers_local_alias_over_imports() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n\n",
+                    "pub type Alias = Int\n\n",
+                    "fn read(input: Alias) -> Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column: 16,
+            },
+        )
+        .unwrap();
+
+        assert_location(&result.definition, "main.veln", 3, 10);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 5, 16), ("main.veln", 5, 26)]
+        );
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_rejects_ambiguous_imported_aliases() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source("right.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn read(input: Alias) -> Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 16,
+            },
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn workspace_type_alias_references_exclude_visible_type_occurrences() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("alias.veln", "pub type Alias = Int\n"),
+            source("types.veln", "pub type Alias\n  Value\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use alias\n",
+                    "use types\n\n",
+                    "fn read(input: Alias) -> types::Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("alias.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+
+        assert_location(&result.definition, "alias.veln", 1, 10);
+        assert!(result.references.is_empty(), "{:#?}", result.references);
+    }

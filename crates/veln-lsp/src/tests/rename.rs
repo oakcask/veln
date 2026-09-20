@@ -372,31 +372,92 @@ fn rename_accepts_same_class_replacements_for_cased_symbols() {
 }
 
 #[test]
-fn workspace_type_alias_rename_uses_shared_identity_and_conflicts() {
+fn rename_workspace_edit_locations_match_shared_navigation() {
     let mut server = Server::default();
-    let project = TempProject::new("rename-workspace-type-alias");
+    let project = TempProject::new("rename-shared-location-comparison");
+    let source = concat!(
+        "type Item\n",
+        "  Value(value: Int)\n",
+        "end\n\n",
+        "fn convert(input: Item) -> Item\n",
+        "  Value(input)\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let snapshot = EffectiveProjectSnapshot::new(vec![SourceFile::new("main.veln", source)]);
+
+    for (line, character, new_name) in [
+        (0usize, 5usize, "Entry"),
+        (1, 2, "Created"),
+        (4, 3, "adapt"),
+        (5, 8, "value"),
+    ] {
+        let shared = navigate(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: line + 1,
+                column: character + 1,
+            },
+        )
+        .unwrap();
+        let expected = std::iter::once(&shared.definition.span)
+            .chain(&shared.references)
+            .map(|span| {
+                (
+                    path_to_uri(&project.root.join(span.file.as_str())),
+                    span.start.line - 1,
+                    span.start.column - 1,
+                    span.end.line - 1,
+                    span.end.column - 1,
+                )
+            })
+            .collect::<BTreeSet<_>>();
+
+        let response = server.handle_message(&rename_request(
+            &main_uri,
+            line,
+            character,
+            new_name,
+        ));
+        assert_eq!(
+            response[0]
+                .matches(&format!(r#""newText":"{new_name}""#))
+                .count(),
+            expected.len(),
+            "{line}:{character} {}",
+            response[0]
+        );
+        for (uri, start_line, start_column, end_line, end_column) in expected {
+            assert!(response[0].contains(&escape_json(&uri)), "{}", response[0]);
+            let range = format!(
+                r#""range":{{"start":{{"line":{start_line},"character":{start_column}}},"end":{{"line":{end_line},"character":{end_column}}}}}"#
+            );
+            assert!(response[0].contains(&range), "{range}: {}", response[0]);
+        }
+    }
+}
+
+#[test]
+fn workspace_type_alias_prepare_and_rename_remain_unsupported_together() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-workspace-type-alias-boundary");
     project.write(
         "main.veln",
-        concat!(
-            "type Existing\n  Value\nend\n\n",
-            "pub type Alias = Existing\n\n",
-            "fn read(input: Alias) -> Alias\n  input\nend\n",
-        ),
+        "pub type Alias = Int\n\nfn read(input: Alias) -> Alias\n  input\nend\n",
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
     server.handle_message(&initialize_request(&root_uri));
 
-    let renamed = server.handle_message(&rename_request(&main_uri, 4, 10, "Renamed"));
-    assert_eq!(renamed[0].matches(r#""newText":"Renamed""#).count(), 3);
+    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 2, 15));
+    let renamed = server.handle_message(&rename_request(&main_uri, 2, 15, "Renamed"));
 
-    let conflict = server.handle_message(&rename_request(&main_uri, 6, 16, "Existing"));
-    assert!(
-        conflict[0].contains(r#""code":"rename.conflict""#),
-        "{}",
-        conflict[0]
-    );
-    assert!(!conflict[0].contains(r#""changes""#), "{}", conflict[0]);
+    assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+    assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
 }
 
 #[test]

@@ -15,13 +15,13 @@ length = 8
 
 [[mcp_assert]]
 id = 3
-path = "/result/structuredContent/schema_version"
-equals = 1
+path = "/result/structuredContent"
+equals_json_file = "case-text/check-project-result.json"
 
 [[mcp_assert]]
 id = 3
-path = "/result/structuredContent/summary/diagnostic_count"
-equals = 1
+path = "/result/content/0/text"
+contains = "\"id\":\"parse.integer_literal\""
 
 [[mcp_assert]]
 id = 3

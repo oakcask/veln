@@ -76,8 +76,22 @@ pub(crate) fn rename(
         return rename_failure(&root, failure);
     }
 
+    ToolOutcome::Success(json!({
+        "edits": edits_json(
+            &root,
+            std::iter::once(&result.definition.span).chain(&result.references),
+            requested_name,
+        )
+    }))
+}
+
+fn edits_json<'a>(
+    root: &std::path::Path,
+    spans: impl IntoIterator<Item = &'a SourceSpan>,
+    requested_name: &str,
+) -> Vec<Value> {
     let mut edits = BTreeMap::new();
-    for span in std::iter::once(&result.definition.span).chain(&result.references) {
+    for span in spans {
         let uri = path_to_uri(&root.join(span.file.as_str()));
         let key = (
             uri.clone(),
@@ -90,7 +104,7 @@ pub(crate) fn rename(
             .entry(key)
             .or_insert_with(|| edit_json(uri, span, requested_name));
     }
-    ToolOutcome::Success(json!({"edits": edits.into_values().collect::<Vec<_>>() }))
+    edits.into_values().collect()
 }
 
 fn invalid_position(source: &str, arguments: &Value) -> ToolOutcome {
@@ -175,7 +189,9 @@ fn affected_scope_json(scope: &RenameAffectedScope) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::is_identifier;
+    use super::{edits_json, is_identifier};
+    use serde_json::json;
+    use veln_source::{SourceFile, TextRange};
 
     #[test]
     fn replacement_identifier_uses_the_lsp_ascii_boundary() {
@@ -185,5 +201,23 @@ mod tests {
         for name in ["", "2value", "two words", "punct!", "café"] {
             assert!(!is_identifier(name), "{name}");
         }
+    }
+
+    #[test]
+    fn edit_serialization_sorts_and_removes_overlapping_locations() {
+        let source = SourceFile::new("main.veln", "target target\n");
+        let first = source.span(TextRange::new(0, 6));
+        let second = source.span(TextRange::new(7, 13));
+
+        let edits = edits_json(
+            std::path::Path::new("workspace"),
+            [&second, &first, &second, &first],
+            "next",
+        );
+
+        assert_eq!(edits.len(), 2);
+        assert_eq!(edits[0]["range"]["start"], json!({"line": 1, "column": 1}));
+        assert_eq!(edits[1]["range"]["start"], json!({"line": 1, "column": 8}));
+        assert!(edits.iter().all(|edit| edit["new_text"] == "next"));
     }
 }
