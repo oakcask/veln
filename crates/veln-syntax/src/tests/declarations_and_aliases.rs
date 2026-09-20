@@ -126,6 +126,28 @@ fn malformed_public_type_alias_does_not_stall_declaration_body_recovery() {
 }
 
 #[test]
+fn malformed_private_type_alias_does_not_stall_declaration_body_recovery() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use left\n\n",
+            "type Alias = Int\n\n",
+            "fn read(input: Alias) -> Alias\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.tree.items.len(), 1);
+    assert!(output.diagnostics.len() <= 6, "{:#?}", output.diagnostics);
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.parser_context == "type_variant" && diagnostic.unexpected.text == "fn"
+    }));
+}
+
+#[test]
 fn dispatches_mixed_public_and_private_top_level_declarations_in_source_order() {
     let source = SourceFile::new(
         "mixed.veln",
