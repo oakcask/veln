@@ -563,21 +563,27 @@ fn workspace_schema_composition_references(
         .collect()
 }
 
+struct WorkspaceSchemaCompositionDeclarations<'a> {
+    schemas: &'a [NeutralSymbol],
+    schema_aliases: &'a [NeutralSymbol],
+    types: &'a [TypeSymbol],
+    type_aliases: &'a [TypeAliasSymbol],
+}
+
 fn package_schema_composition_references(
     files: &[IndexedFile],
-    workspace_schemas: &[NeutralSymbol],
-    workspace_schema_aliases: &[NeutralSymbol],
+    workspace: WorkspaceSchemaCompositionDeclarations<'_>,
     schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     schema_aliases: &[NeutralSymbol],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
-    workspace_types: &[TypeSymbol],
-    workspace_type_aliases: &[TypeAliasSymbol],
 ) -> Vec<SchemaCompositionReference> {
     let alias_index = direct_dependency_schema_alias_index(schema_aliases);
     let prelude_alias_index = standard_prelude_schema_alias_index(schema_aliases);
-    let workspace_schema_blockers = workspace_schema_blocker_index(workspace_schemas);
-    let workspace_schema_alias_blockers = workspace_schema_alias_blocker_index(workspace_schema_aliases);
-    let workspace_type_blockers = workspace_type_blocker_index(workspace_types, workspace_type_aliases);
+    let workspace_schema_blockers = workspace_schema_blocker_index(workspace.schemas);
+    let workspace_schema_alias_blockers =
+        workspace_schema_alias_blocker_index(workspace.schema_aliases);
+    let workspace_type_blockers =
+        workspace_type_blocker_index(workspace.types, workspace.type_aliases);
     let context = SchemaCompositionNavigationContext {
         schema_index,
         alias_index: &alias_index,

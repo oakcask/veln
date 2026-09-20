@@ -2528,7 +2528,7 @@ mod dependencies_schema_references_tests {
                 "standard-library alias lexical exclusion at main.veln:{line}:{column}"
             );
         }
-        let field = query_snapshot(&snapshot, "main.veln", 2, 4);
+        let field = query_snapshot(&snapshot, "main.veln", 4, 4);
         assert!(
             field.is_none(),
             "standard-library alias field name must not select the alias: {field:#?}"
@@ -2874,10 +2874,18 @@ mod dependencies_schema_references_tests {
             ),
         ];
         for (name, sources, exports) in boundary_cases {
-            let main = "use wire from \"std\"\n\nschema Host\n  count: UInt8\n  direct: wire::Alias\n  repeated: Repeat(count, wire::Alias)\n  array: [wire::Alias; count]\nend\n\nfn read(view: ByteView, packet: {value: Int}) -> ()\n  decode wire::Alias from view at byte_offset(0)?\n  encode wire::Alias from packet\nend\n";
+            let alias_name = if name == "invalid-cased alias" {
+                "alias"
+            } else {
+                "Alias"
+            };
+            let alias_path = format!("wire::{alias_name}");
+            let main = format!(
+                "use wire from \"std\"\n\nschema Host\n  count: UInt8\n  direct: {alias_path}\n  repeated: Repeat(count, {alias_path})\n  array: [{alias_path}; count]\nend\n\nfn read(view: ByteView, packet: {{value: Int}}) -> ()\n  decode {alias_path} from view at byte_offset(0)?\n  encode {alias_path} from packet\nend\n"
+            );
             let snapshot = if name == "external-package target" {
                 EffectiveProjectSnapshot::with_direct_dependencies(
-                    vec![source("main.veln", main)],
+                    vec![source("main.veln", &main)],
                     vec![dependency_snapshot(
                         "example/external",
                         &[("external.veln", "pub schema Packet\n  value: Int\nend\n")],
@@ -2886,11 +2894,11 @@ mod dependencies_schema_references_tests {
                 )
                 .with_standard_library(standard_library_snapshot(&sources, exports))
             } else {
-                EffectiveProjectSnapshot::new(vec![source("main.veln", main)])
+                EffectiveProjectSnapshot::new(vec![source("main.veln", &main)])
                     .with_standard_library(standard_library_snapshot(&sources, exports))
             };
             for (line, text) in main.lines().enumerate() {
-                if let Some(column) = text.find("wire::Alias") {
+                if let Some(column) = text.find(&alias_path) {
                     let result = query_snapshot(&snapshot, "main.veln", line + 1, column + 6);
                     assert!(
                         result.as_ref().is_none_or(|selection| selection.references.is_empty()),
