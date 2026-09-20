@@ -1672,6 +1672,78 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn standard_library_prelude_schema_alias_is_visible_by_qualified_name() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "schema Host\n",
+                "  nested: prelude::AliasPacket\n",
+                "end\n\n",
+                "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+                "  decode prelude::AliasPacket from view at byte_offset(0)?\n",
+                "  encode prelude::AliasPacket from packet\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+            )],
+            ["prelude.veln"],
+        ));
+
+        for (line, column) in [(2, 20), (6, 19), (7, 19)] {
+            let selected = query_snapshot(&snapshot, "main.veln", line, column)
+                .unwrap_or_else(|| panic!("missing qualified prelude alias at {line}:{column}"));
+            assert_eq!(selected.selected_symbol.name, "AliasPacket");
+            assert_eq!(
+                locations(&selected.references),
+                [("main.veln", 2, 20), ("main.veln", 6, 19), ("main.veln", 7, 19)]
+            );
+        }
+    }
+
+    #[test]
+    fn standard_library_schema_alias_package_source_occurrences_are_not_selectable() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "fn read(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n",
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n\nfn read(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n",
+            )],
+            ["prelude.veln"],
+        ));
+
+        assert!(query_snapshot(&snapshot, "prelude.veln", 8, 10).is_none());
+    }
+
+    #[test]
+    fn local_type_names_block_bare_standard_library_schema_alias_fallback() {
+        for local_declaration in [
+            "type AliasPacket\n  Value\nend\n\n",
+            "type Packet\n  Value\nend\npub type AliasPacket = Packet\n\n",
+        ] {
+            let source_text = format!(
+                "{local_declaration}schema Host\n  nested: AliasPacket\nend\n"
+            );
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &source_text)])
+                .with_standard_library(standard_library_snapshot(
+                    &[(
+                        "prelude.veln",
+                        "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+                    )],
+                    ["prelude.veln"],
+                ));
+            assert!(query_snapshot(&snapshot, "main.veln", local_declaration.lines().count() + 2, 12)
+                .is_none());
+        }
+    }
+
+    #[test]
     fn local_schema_shadows_bare_standard_library_prelude_alias() {
         let snapshot = EffectiveProjectSnapshot::new(vec![source(
             "main.veln",

@@ -564,17 +564,21 @@ fn package_schema_composition_references(
     schema_index: &BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     schema_aliases: &[NeutralSymbol],
     module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
+    workspace_types: &[TypeSymbol],
+    workspace_type_aliases: &[TypeAliasSymbol],
 ) -> Vec<SchemaCompositionReference> {
     let alias_index = direct_dependency_schema_alias_index(schema_aliases);
     let prelude_alias_index = standard_prelude_schema_alias_index(schema_aliases);
     let workspace_schema_blockers = workspace_schema_blocker_index(workspace_schemas);
     let workspace_schema_alias_blockers = workspace_schema_alias_blocker_index(workspace_schema_aliases);
+    let workspace_type_blockers = workspace_type_blocker_index(workspace_types, workspace_type_aliases);
     let context = SchemaCompositionNavigationContext {
         schema_index,
         alias_index: &alias_index,
         prelude_alias_index: &prelude_alias_index,
         workspace_schema_blockers: &workspace_schema_blockers,
         workspace_schema_alias_blockers: &workspace_schema_alias_blockers,
+        workspace_type_blockers: &workspace_type_blockers,
         module_imports,
     };
     files
@@ -613,6 +617,23 @@ fn workspace_schema_alias_blocker_index(
         .iter()
         .filter(|alias| alias.package.is_none())
         .map(|alias| (alias.module.clone(), alias.name.clone()))
+        .collect()
+}
+
+fn workspace_type_blocker_index(
+    types: &[TypeSymbol],
+    type_aliases: &[TypeAliasSymbol],
+) -> BTreeSet<(String, String)> {
+    types
+        .iter()
+        .filter(|symbol| symbol.package.is_none())
+        .map(|symbol| (symbol.module.clone(), symbol.name.clone()))
+        .chain(
+            type_aliases
+                .iter()
+                .filter(|symbol| symbol.package.is_none())
+                .map(|symbol| (symbol.module.clone(), symbol.name.clone())),
+        )
         .collect()
 }
 
@@ -656,6 +677,7 @@ struct SchemaCompositionNavigationContext<'a> {
     prelude_alias_index: &'a BTreeMap<String, Vec<NeutralSymbol>>,
     workspace_schema_blockers: &'a BTreeSet<(String, String)>,
     workspace_schema_alias_blockers: &'a BTreeSet<(String, String)>,
+    workspace_type_blockers: &'a BTreeSet<(String, String)>,
     module_imports: &'a BTreeMap<String, SchemaAliasModuleImports>,
 }
 
@@ -694,6 +716,7 @@ impl SchemaCompositionNavigationContext<'_> {
         record_schema_composition_blocker_lookup();
         if self.workspace_schema_blockers.contains(&blocker)
             || self.workspace_schema_alias_blockers.contains(&blocker)
+            || self.workspace_type_blockers.contains(&blocker)
         {
             return None;
         }
@@ -702,6 +725,27 @@ impl SchemaCompositionNavigationContext<'_> {
             target: SchemaReferenceTarget::Alias(alias.clone()),
         });
     };
+    if qualifier == "prelude" {
+        #[cfg(test)]
+        record_schema_composition_prelude_lookup();
+        let candidates = self.prelude_alias_index.get(&token.text)?;
+        let [alias] = candidates.as_slice() else {
+            return None;
+        };
+        let blocker = (file.module.clone(), token.text.clone());
+        #[cfg(test)]
+        record_schema_composition_blocker_lookup();
+        if self.workspace_schema_blockers.contains(&blocker)
+            || self.workspace_schema_alias_blockers.contains(&blocker)
+            || self.workspace_type_blockers.contains(&blocker)
+        {
+            return None;
+        }
+        return Some(SchemaCompositionReference {
+            span: span.clone(),
+            target: SchemaReferenceTarget::Alias(alias.clone()),
+        });
+    }
     if !matches!(
         schema_qualified_workspace_module(file, &qualifier, self.module_imports),
         QualifiedWorkspaceModule::External

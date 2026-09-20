@@ -108,6 +108,8 @@ impl SymbolIndex {
             &package_schemas,
             &schema_aliases,
             &schema_alias_module_imports,
+            &declarations.types,
+            &declarations.type_aliases,
         ));
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());

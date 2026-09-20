@@ -107,12 +107,12 @@ impl SymbolIndex {
                             symbol.package_origin,
                             Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
                         )
-                            && self.valid_schema_alias_external_import(
+                            && (self.valid_schema_alias_external_import(
                                 file,
                                 qualifier,
                                 &symbol.module,
                                 package,
-                            )
+                            ) || (symbol.standard_prelude && qualifier == "prelude"))
                     }
                     (QualifiedWorkspaceModule::Workspace(module), None) => {
                         symbol.module == *module
