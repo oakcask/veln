@@ -1,0 +1,15 @@
+pub type Number
+end
+pub type Alias = Number
+
+fn use_alias(input: Alias) -> Alias
+  input
+end
+
+fn increment(value: Int) -> Int
+  value + 1
+end
+pub fn advance = increment
+fn use_advance() -> Int
+  advance(1)
+end

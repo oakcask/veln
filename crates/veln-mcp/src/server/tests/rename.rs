@@ -496,11 +496,11 @@ fn invalid_protocol_input_does_not_prevent_a_follow_up_rename() {
 }
 
 #[test]
-fn rename_name_length_bound_is_enforced_before_edit_construction() {
-    let workspace = TempWorkspace::new("rename-name-length-bound");
+fn rename_accepts_long_identifiers_before_edit_construction() {
+    let workspace = TempWorkspace::new("rename-long-identifier");
     workspace.write("main.veln", "fn target() -> Int\n  target()\nend\n");
     let mut server = initialized_server(&workspace);
-    let accepted_name = "a".repeat(256);
+    let accepted_name = "a".repeat(257);
     let accepted = server
         .handle_request(json!({
             "jsonrpc":"2.0",
@@ -525,24 +525,14 @@ fn rename_name_length_bound_is_enforced_before_edit_construction() {
         2,
         "{accepted:#}"
     );
-
-    let rejected = server
-        .handle_request(json!({
-            "jsonrpc":"2.0",
-            "id":1,
-            "method":"tools/call",
-            "params":{
-                "name":"rename",
-                "arguments":{
-                    "source":"main.veln",
-                    "line":1,
-                    "column":4,
-                    "new_name":"a".repeat(257)
-                }
-            }
-        }))
-        .unwrap();
-    assert_eq!(rejected["error"]["code"], -32602, "{rejected:#}");
+    assert!(
+        accepted["result"]["structuredContent"]["edits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|edit| edit["new_text"] == accepted_name),
+        "{accepted:#}"
+    );
 
     let follow_up = server.rename_tool(&json!({
         "source":"main.veln", "line":1, "column":4, "new_name":"next"
