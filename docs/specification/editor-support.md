@@ -211,9 +211,11 @@ sources. Composition references include direct fields and both supported
 repeated-payload spellings. An eligible public schema alias has its own
 declaration identity and returns the `decode`, `encode`, direct-composition,
 `Repeat`, and array-payload leaves that resolve to that alias, without merging
-them into its direct public workspace schema target. Alias chains are not
-eligible, and package aliases do not enter
-the workspace alias identity. Alias
+them into its direct public workspace schema target. Workspace alias chains are
+not eligible. An eligible public package alias in an exported retained
+direct-dependency or standard-library module can resolve through a finite,
+acyclic chain of public aliases to an exported public schema in the same
+package. Package aliases do not enter the workspace alias identity. Alias
 declarations are not included when declaration inclusion is false. Definition
 and rename support do not expand to schema aliases.
 

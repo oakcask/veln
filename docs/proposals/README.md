@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Standard-library schema-alias references, using the implemented package
-  schema, direct-dependency alias, and adapter navigation contracts:
-  [standard-library-schema-alias-references.md](standard-library-schema-alias-references.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

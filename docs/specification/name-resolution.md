@@ -57,10 +57,11 @@ unrelated namespaces may share a spelling.
 
 ### Schema navigation
 
-For saved composition-and-operation reference navigation, a direct-dependency
-public schema alias is eligible when each hop resolves to exactly one public
-schema alias or, at the final hop, one public schema declared by an exported
-source in the retained dependency. A bare target resolves in the alias
+For saved composition-and-operation reference navigation, a public schema
+alias in a retained direct dependency or the standard library is eligible when
+each hop resolves to exactly one public schema alias or, at the final hop, one
+public schema declared by an exported source in the retained package. A bare
+target resolves in the alias
 module. A qualified target resolves through a valid local import written in the
 alias's module. Imports from all retained package sources with that explicit
 module identity participate, including full module paths and unique implicit
@@ -70,20 +71,18 @@ Consumer imports do not participate in target resolution. At each hop, the
 declaration kind must match the expected kind: a non-terminal target is one
 public schema alias, and the final target is one public schema. Same-spelled
 declarations in unrelated namespaces do not affect eligibility. A finite,
-acyclic chain of public schema aliases in the same retained direct dependency
-is eligible when every hop and the terminal schema are in exported sources.
+acyclic chain of public schema aliases in the same retained package is eligible
+when every hop and the terminal schema are in exported sources.
 External-package targets, ambiguous imports, and recovered imports remain
-ineligible. Alias chains must be finite and acyclic; a cyclic chain is
-rejected, while a finite direct-dependency chain remains eligible when every
-hop and its exported terminal satisfy the rules above.
+ineligible. Alias chains must be finite and acyclic; a cyclic chain is rejected.
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module
-identity. A valid dependency import in one such source can qualify a
+identity. A valid package import in one such source can qualify a
 composition or operation leaf in another.
-A colliding workspace import and dependency import, duplicate dependency
-imports, or a syntax-recovered dependency import in that module prevents the
-qualified leaf from selecting a dependency schema alias or falling back to a
+A colliding workspace import and package import, duplicate package imports, or
+a syntax-recovered package import in that module prevents the qualified leaf
+from selecting a package schema alias or falling back to a
 schema imported only by the leaf's source. The positive cross-source path
 keeps one alias identity; collision, duplicate, and recovered-import paths
 remain unresolved. Direct, `Repeat`, and array-payload leaves do not select an
@@ -107,10 +106,11 @@ standard-library schema
 targets use the same full-path and unique implicit-leaf resolution, exact-path
 precedence, import-collision, repeated-count, and lexical-exclusion rules.
 Their package origin keeps them distinct from same-spelled workspace and
-direct-dependency schemas. Standard-library schema aliases remain unsupported
-selection targets and block fallback to a same-spelled schema. Their package
-origin stays distinct from workspace and dependency origins, and lexical
-noise, malformed repeats, and invalid casing do not enter a reference set.
+direct-dependency schemas. Eligible standard-library schema aliases are
+separate selection targets and block fallback to a same-spelled schema. Their
+package origin stays distinct from workspace and dependency origins. Lexical
+noise, malformed repeats, invalid casing, and ineligible aliases do not enter a
+reference set.
 
 ### Value calls and shadowing
 

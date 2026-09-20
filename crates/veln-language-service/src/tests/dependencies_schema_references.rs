@@ -1831,34 +1831,39 @@ mod dependencies_schema_references_tests {
 
     #[test]
     fn standard_library_schema_eligibility_and_import_failures_are_empty() {
-        let cases: &[(&str, &str, &[&str])] = &[
+        let cases: &[(&str, &str, &[&str], bool)] = &[
             (
                 "wire.veln",
                 "schema Packet\n  value: Int\nend\n",
                 &["wire.veln"],
+                false,
             ),
             (
                 "wire.veln",
                 "pub schema Packet\n  value: Int\nend\n",
                 &[],
+                false,
             ),
             (
                 "wire.veln",
                 "pub schema packet\n  value: Int\nend\n",
                 &["wire.veln"],
+                false,
             ),
             (
                 "wire.veln",
                 "pub schema Base\n  value: Int\nend\n\npub schema Packet = Base\n",
                 &["wire.veln"],
+                true,
             ),
             (
                 "wire.veln",
                 "pub schema Packet =\n",
                 &["wire.veln"],
+                false,
             ),
         ];
-        for (path, body, exports) in cases {
+        for (path, body, exports, eligible) in cases {
             let snapshot = EffectiveProjectSnapshot::new(vec![source(
                 "main.veln",
                 "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Packet from view at byte_offset(0)?\nend\n",
@@ -1868,7 +1873,14 @@ mod dependencies_schema_references_tests {
                 exports.iter().copied(),
             ));
             let result = query_snapshot(&snapshot, "main.veln", 4, 16);
-            assert!(result.is_none() || result.unwrap().references.is_empty(), "{path}");
+            if *eligible {
+                assert_eq!(
+                    locations(&result.expect("eligible standard-library alias").references),
+                    [("main.veln", 4, 16)]
+                );
+            } else {
+                assert!(result.is_none() || result.unwrap().references.is_empty(), "{path}");
+            }
         }
 
         let ambiguous = EffectiveProjectSnapshot::new(vec![

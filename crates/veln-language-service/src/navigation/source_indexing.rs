@@ -591,7 +591,10 @@ fn direct_dependency_schema_alias_index(
 ) -> BTreeMap<(String, String, String), Vec<NeutralSymbol>> {
     let mut alias_index = BTreeMap::new();
     for alias in schema_aliases.iter().filter(|alias| {
-        alias.package_origin == Some(PackageOrigin::DirectDependency)
+        matches!(
+            alias.package_origin,
+            Some(PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary)
+        )
     }) {
         let Some(package) = alias.package.as_ref() else {
             continue;
@@ -735,7 +738,7 @@ fn eligible_schema_aliases(
                         && alias.declaration.span.end.offset <= candidate.alias_span.end.offset
                 }),
             Some(PackageOrigin::DirectDependency) => package_eligibility.contains(alias),
-            Some(PackageOrigin::StandardLibrary) => false,
+            Some(PackageOrigin::StandardLibrary) => package_eligibility.contains(alias),
         })
         .cloned()
         .collect()

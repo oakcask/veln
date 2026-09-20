@@ -1,5 +1,5 @@
 use super::references_support::{
-    all_resource_state, assert_reference_ranges,
+    all_resource_state, assert_package_declaration, assert_reference_ranges,
     assert_snapshot_changed_without_references_or_scope, dependency_resource_is_listed,
     references_result, write_workspace_with_dependency_and_sources,
 };
@@ -492,7 +492,7 @@ fn references_keep_file_declaration_for_an_independently_selected_workspace_proj
 }
 
 #[test]
-fn references_keep_standard_library_schema_aliases_empty_with_project_scope() {
+fn references_include_standard_library_schema_aliases_with_project_scope() {
     let workspace = TempWorkspace::new("references-standard-library-schema-alias");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -511,7 +511,11 @@ fn references_keep_standard_library_schema_aliases_empty_with_project_scope() {
     let result = server.references_tool(&json!({"source":"main.veln","line":4,"column":19}));
 
     assert_eq!(result["isError"], false, "{result:#}");
-    assert_eq!(result["structuredContent"]["references"], json!([]));
+    assert_reference_ranges(
+        &result,
+        &[("main.veln", 4, 19, 4, 30)],
+        "standard-library schema alias",
+    );
     assert_eq!(
         result["structuredContent"]["scope"],
         json!({
@@ -520,6 +524,23 @@ fn references_keep_standard_library_schema_aliases_empty_with_project_scope() {
             "project": ".",
             "project_wide": true
         })
+    );
+
+    let with_declaration = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 4,
+        "column": 19,
+        "include_declaration": true
+    }));
+    assert_eq!(with_declaration["isError"], false, "{with_declaration:#}");
+    assert_package_declaration(
+        &with_declaration,
+        "/schemas.veln",
+        5,
+        12,
+        5,
+        23,
+        "standard-library schema alias declaration",
     );
 }
 

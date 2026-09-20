@@ -413,16 +413,19 @@ project_wide:false}` for anonymous source scope. The reference locations have
 start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
-Supported reference identities are schemas, eligible workspace and direct
-dependency schema aliases, functions, types, constructors, value bindings,
-handler context parameters, and handler operation-clause parameters. Schema
+Supported reference identities are schemas, eligible workspace,
+direct-dependency, and standard-library schema aliases, functions, types,
+constructors, value bindings, handler context parameters, and handler
+operation-clause parameters. Schema
 references include direct fields, `decode`, `encode`, `Repeat`, array
 payloads, and resolved composition leaves. Workspace aliases have a separate
 identity from their target and are eligible only when the direct target is a
 public workspace schema; alias chains and package targets are ineligible.
-Package schema aliases are eligible only in exported direct-dependency modules
-when every finite acyclic hop resolves through a public alias and the terminal
-hop is an exported public schema in the same retained dependency.
+Package schema aliases are eligible only in exported retained direct-dependency
+or standard-library modules when every finite acyclic hop resolves through a
+public alias and the terminal hop is an exported public schema in the same
+retained package. The alias identity remains separate from its target and from
+same-spelled aliases in other package origins.
 
 Bare schema names resolve in their declaring module. A full written import path
 takes precedence over a colliding implicit leaf alias; an implicit leaf alias

@@ -162,7 +162,12 @@ fn resolved_package_schema_alias_index(
 ) -> BTreeMap<PackageSchemaAliasIdentity<'_>, &ResolvedPackageSchemaAlias> {
     aliases
         .iter()
-        .filter(|candidate| candidate.package_origin == PackageOrigin::DirectDependency)
+        .filter(|candidate| {
+            matches!(
+                candidate.package_origin,
+                PackageOrigin::DirectDependency | PackageOrigin::StandardLibrary
+            )
+        })
         .filter_map(|candidate| {
             #[cfg(test)]
             record_schema_alias_declaration_visit();
