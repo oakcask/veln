@@ -114,10 +114,11 @@ fn schema_alias_declarations(file: &IndexedFile, syntax: &SyntaxTree) -> Vec<Neu
                     return None;
                 }
                 let mut symbol = neutral_declaration(file, name, span, Visibility::Public)?;
-                let (target_name, target_qualifier) = alias.target.split_last()?;
-                symbol.alias_target_module = (!target_qualifier.is_empty())
-                    .then(|| target_qualifier.join("::"));
-                symbol.alias_target_name = Some(target_name.clone());
+                if let Some((target_name, target_qualifier)) = alias.target.split_last() {
+                    symbol.alias_target_module = (!target_qualifier.is_empty())
+                        .then(|| target_qualifier.join("::"));
+                    symbol.alias_target_name = Some(target_name.clone());
+                }
                 Some(symbol)
             }
             _ => None,

@@ -315,6 +315,56 @@
     }
 
     #[test]
+    fn recovered_local_schema_alias_blocks_only_bare_standard_library_prelude_alias() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "main.veln",
+                concat!(
+                    "schema Host\n",
+                    "  bare: AliasPacket\n",
+                    "  qualified: prelude::AliasPacket\n",
+                    "end\n\n",
+                    "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
+                    "  decode AliasPacket from view at byte_offset(0)?\n",
+                    "  encode AliasPacket from packet\n",
+                    "  decode prelude::AliasPacket from view at byte_offset(0)?\n",
+                    "  encode prelude::AliasPacket from packet\n",
+                    "end\n",
+                ),
+            ),
+            source("blocker.veln", "mod main\n\npub schema AliasPacket =\n"),
+        ])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
+            )],
+            ["prelude.veln"],
+        ));
+
+        for (line, column) in [(2, 8), (7, 10), (8, 10)] {
+            assert!(query_snapshot(&snapshot, "main.veln", line, column).is_none_or(|result| {
+                result.selected_symbol.package_origin != Some(PackageOrigin::StandardLibrary)
+            }));
+        }
+
+        let expected = [
+            ("main.veln", 3, 23),
+            ("main.veln", 9, 19),
+            ("main.veln", 10, 19),
+        ];
+        for (line, column) in [(3, 23), (9, 19), (10, 19)] {
+            let selected = query_snapshot(&snapshot, "main.veln", line, column)
+                .unwrap_or_else(|| panic!("missing explicit prelude alias at {line}:{column}"));
+            assert_eq!(
+                selected.selected_symbol.package_origin,
+                Some(PackageOrigin::StandardLibrary)
+            );
+            assert_eq!(locations(&selected.references), expected);
+        }
+    }
+
+    #[test]
     fn standard_library_schema_alias_chain_unifies_supported_leaves_and_keeps_target_identity_separate() {
         let main = concat!(
                 "use wire from \"std\"\n\n",
