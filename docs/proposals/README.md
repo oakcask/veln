@@ -16,14 +16,15 @@ also states it.
 
 ## Ready
 
+- MCP saved-workspace rename, using the implemented shared rename selection,
+  casing, conflict, and saved-capture contracts:
+  [mcp-rename.md](mcp-rename.md).
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
   syntax and lookup contract:
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
-- MCP rename casing mapping is blocked until an owning proposal defines the MCP
-  rename tool contract:
-  [identifier-casing-mcp-rename.md](identifier-casing-mcp-rename.md).
 - The agent-language-services umbrella remains a planning inventory only for
   the unimplemented transitive-dependency, recovery, casing-neutral,
   cross-adapter conformance, agent-skill, conformance-gate, and plugin work. Do
