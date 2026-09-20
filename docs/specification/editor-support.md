@@ -201,6 +201,13 @@ ranges.
 Definition and references use the shared selected symbol and reference set.
 Prepare-rename and rename use the same selected-symbol model only for
 rename-supported symbol classes.
+Saved-workspace MCP rename uses the same shared declaration, reference,
+identifier-class, and conflict records for those classes. Workspace type
+aliases are an adapter boundary: MCP rename selects the alias declaration and
+the workspace type-reference occurrences that resolve to that alias, while LSP
+prepare-rename returns `null` and LSP rename returns an empty `changes` object
+for the same alias identity. [mcp.md](mcp.md) defines the saved-source capture,
+coordinates, edit serialization, and non-mutating tool behavior.
 Navigation requests convert zero-based UTF-16 LSP characters to the shared
 one-based Unicode-scalar positions. Navigation responses convert shared ranges
 back to zero-based UTF-16 LSP ranges using the retained source snapshot.

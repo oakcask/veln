@@ -342,6 +342,12 @@ exact workspace declaration location. The
 `references-standard-library-function-alias` and
 `references-standard-library-type-alias` cases pin the canonical package
 declaration URI and range when declaration inclusion is enabled.
+The `rename-supported-symbol-classes`, `rename-anonymous-boundaries`, and
+`rename-saved-workspace` cases use decoded MCP assertions to pin edit counts,
+workspace URIs, one-based ranges, replacement text, supported and unsupported
+selection boundaries, and successful non-mutating results. Their checked
+semantic baseline entries retain those assertion operands and the saved input
+streams.
 The `references-dependency-schema-composition` MCP specification case uses that
 model for exact workspace-only composition and operation reference locations,
 selection parity, and project scope. The
