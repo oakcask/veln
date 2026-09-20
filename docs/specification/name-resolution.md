@@ -75,6 +75,10 @@ acyclic chain of public schema aliases in the same retained package is eligible
 when every hop and the terminal schema are in exported sources.
 External-package targets, ambiguous imports, and recovered imports remain
 ineligible. Alias chains must be finite and acyclic; a cyclic chain is rejected.
+Missing, ambiguous, invalid-cased, private, non-exported, wrong-kind, or
+syntax-recovered hops also make the package alias ineligible. Selecting an
+ineligible alias produces an empty reference result and does not fall back to a
+same-spelled schema.
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module

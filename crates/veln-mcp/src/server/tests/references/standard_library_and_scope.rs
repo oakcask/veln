@@ -363,13 +363,23 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_alias
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "fn main(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n",
+        "schema Host\n  nested: AliasPacket\nend\n\nfn main(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\nend\n",
     );
     let mut server = initialized_server(&workspace);
     install_prelude_alias_standard_library(
         &mut server,
         "pub schema Packet\n  value: Int\nend\n\npub schema AliasPacket = Packet\n",
     );
+    let seeded = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 2,
+        "column": 12,
+        "page_size": 1,
+    }));
+    let prior_cursor = seeded["structuredContent"]["next_cursor"]
+        .as_str()
+        .expect("seed selection must create a continuation cursor")
+        .to_owned();
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
@@ -381,7 +391,7 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_alias
         fs::write(
             root.join("main.veln"),
             format!(
-                "fn main(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\n  let changed = {}\nend\n",
+                "schema Host\n  nested: AliasPacket\nend\n\nfn main(view: ByteView) -> ()\n  decode AliasPacket from view at byte_offset(0)?\n  let changed = {}\nend\n",
                 attempt
             ),
         )
@@ -395,9 +405,22 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_alias
     }));
 
     assert_snapshot_changed_without_references_or_scope(&result);
+    assert!(
+        result["structuredContent"].get("next_cursor").is_none(),
+        "{result:#}"
+    );
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
+    let continuation = server.references_tool(&json!({"cursor": prior_cursor}));
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 fn collect_reference_pages(

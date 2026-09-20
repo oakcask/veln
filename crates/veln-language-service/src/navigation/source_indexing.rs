@@ -567,12 +567,14 @@ fn package_schema_composition_references(
 ) -> Vec<SchemaCompositionReference> {
     let alias_index = direct_dependency_schema_alias_index(schema_aliases);
     let prelude_alias_index = standard_prelude_schema_alias_index(schema_aliases);
+    let workspace_schema_blockers = workspace_schema_blocker_index(workspace_schemas);
+    let workspace_schema_alias_blockers = workspace_schema_alias_blocker_index(workspace_schema_aliases);
     let context = SchemaCompositionNavigationContext {
-        workspace_schemas,
-        workspace_schema_aliases,
         schema_index,
         alias_index: &alias_index,
         prelude_alias_index: &prelude_alias_index,
+        workspace_schema_blockers: &workspace_schema_blockers,
+        workspace_schema_alias_blockers: &workspace_schema_alias_blockers,
         module_imports,
     };
     files
@@ -591,6 +593,26 @@ fn package_schema_composition_references(
                 })
                 .collect::<Vec<_>>()
         })
+        .collect()
+}
+
+fn workspace_schema_blocker_index(
+    schemas: &[NeutralSymbol],
+) -> BTreeSet<(String, String)> {
+    schemas
+        .iter()
+        .filter(|schema| schema.package.is_none())
+        .map(|schema| (schema.module.clone(), schema.name.clone()))
+        .collect()
+}
+
+fn workspace_schema_alias_blocker_index(
+    aliases: &[NeutralSymbol],
+) -> BTreeSet<(String, String)> {
+    aliases
+        .iter()
+        .filter(|alias| alias.package.is_none())
+        .map(|alias| (alias.module.clone(), alias.name.clone()))
         .collect()
 }
 
@@ -629,11 +651,11 @@ fn direct_dependency_schema_alias_index(
 }
 
 struct SchemaCompositionNavigationContext<'a> {
-    workspace_schemas: &'a [NeutralSymbol],
-    workspace_schema_aliases: &'a [NeutralSymbol],
     schema_index: &'a BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
     alias_index: &'a BTreeMap<(String, String, String), Vec<NeutralSymbol>>,
     prelude_alias_index: &'a BTreeMap<String, Vec<NeutralSymbol>>,
+    workspace_schema_blockers: &'a BTreeSet<(String, String)>,
+    workspace_schema_alias_blockers: &'a BTreeSet<(String, String)>,
     module_imports: &'a BTreeMap<String, SchemaAliasModuleImports>,
 }
 
@@ -661,20 +683,16 @@ impl SchemaCompositionNavigationContext<'_> {
         return None;
     }
     let Some(qualifier) = qualifier_for_token(&file.tokens, *token_cursor) else {
-        if self.workspace_schemas.iter().any(|schema| {
-            schema.package.is_none() && schema.module == file.module && schema.name == token.text
-        }) {
-            return None;
-        }
-        if self.workspace_schema_aliases.iter().any(|alias| {
-            alias.package.is_none() && alias.module == file.module && alias.name == token.text
-        }) {
-            return None;
-        }
         let candidates = self.prelude_alias_index.get(&token.text)?;
         let [alias] = candidates.as_slice() else {
             return None;
         };
+        let blocker = (file.module.clone(), token.text.clone());
+        if self.workspace_schema_blockers.contains(&blocker)
+            || self.workspace_schema_alias_blockers.contains(&blocker)
+        {
+            return None;
+        }
         return Some(SchemaCompositionReference {
             span: span.clone(),
             target: SchemaReferenceTarget::Alias(alias.clone()),
