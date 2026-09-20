@@ -1,6 +1,7 @@
 ---
 role: specification
 authority: normative
+specification-coverage: usage=#workspace-selection; behavior=#resources; limits=#selection-state
 update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, MCP resources, tool schemas, or executable MCP cases change.
 ---
 
@@ -365,776 +366,102 @@ partial diagnostics, summary, or analysis metadata.
 
 ## Saved Workspace Navigation
 
-`definition` and `references` read one saved workspace-relative regular
-`.veln` source and a one-based line and Unicode-scalar column. The line and
-column are positive JSON integer values; decimal and exponent spellings that
-denote an integer address the same source position as the equivalent plain
-integer. If the source is in a selected manifest project's captured
-owned-source set, the tool resolves symbols over that project. Any other
-accepted source uses anonymous single-file scope. A source below an unselected
-descendant manifest is therefore not analyzed with the outer project.
+`definition` and `references` read a saved workspace-relative regular
+`.veln` source at positive JSON integer `line` and `column` coordinates.
+Decimal or exponent JSON spellings that denote an integer address the same
+position as the plain integer. A selected manifest project's captured owned
+source uses project scope; another accepted source uses anonymous single-file
+scope. A source below an unselected descendant manifest is not analyzed as
+part of the outer project.
 
-The implemented symbol set is the shared language-service definition selection
-set for captured saved workspace sources. Workspace selections include
-functions, type constructors, handler context parameters, handler operation
-clause parameters, exact test-companion access to target-private functions, and
-unique class-compatible invalid source declaration or binding recovery records.
-Eligible package selections include public functions, types, constructors,
-schemas, and public function aliases in exported direct-dependency modules and
-the embedded standard library. They also include public type aliases from
-exported direct-dependency modules when the alias target resolves to a type
-declaration in the same retained dependency. The source must select the exact
-visible import or implicit standard-library prelude path required by name
-resolution. Invalid-casing recovery records, private declarations,
-non-exported sources, mismatched package imports, unsupported symbol classes,
-and package module-segment selections succeed with `definition: null`. An
-invalid-cased schema declaration in an otherwise eligible direct-dependency or
-standard-library source retains its package definition location.
-MCP only exposes the recovery record source range through `definition`.
-Prepare-rename, rename edits, and package reference locations are outside the
-MCP definition result.
-A supported workspace declaration returns one canonical `file:` URI based on
-the resolved workspace-base identity and a half-open range. A supported package
-declaration returns the canonical retained `veln-pkg:` URI from the package
-virtual-source catalog. The returned range is the one-based Unicode-scalar
-half-open declaration-token range in that retained source. A valid position
-without a supported symbol succeeds with `definition: null`.
-When a direct-dependency or embedded standard-library constructor is selected
-through a visible public type alias, `definition` returns the underlying
-constructor declaration location. It does not return the alias declaration
-location.
-If the package declaration resolves through the successful package-documentation
-result retained for the same admitted package snapshot, the same location
-object includes `packageDocumentationUri`. The value is the exact published
-`veln-doc:` declaration URI. A selected constructor uses the owning type
-declaration documentation URI. The field is omitted for workspace definitions,
-status-only package-documentation results, unpublished declarations,
-unsupported symbol classes, and any package location that does not match a
-retained package-documentation location for that snapshot.
+A definition result is either `{"definition": location|null}` or a failure.
+A location has `uri` and a half-open `range` with one-based line and
+Unicode-scalar column positions. Workspace locations use canonical `file:`
+URIs. Eligible package locations use same-snapshot `veln-pkg:` URIs and may
+include `packageDocumentationUri` for the retained declaration Markdown.
+Invalid paths return `invalid_path`; invalid coordinates return
+`invalid_position`; stable-capture exhaustion returns `snapshot_changed`;
+capacity exhaustion returns `resource_capacity`. These failures include
+`code`, `message`, and object `details`. Unsupported or valid-but-empty
+selections succeed with `definition: null`.
 
-`references` exposes the shared language-service reference result for the
-following supported workspace symbols and eligible package selections:
+The supported definition set includes workspace functions, types,
+constructors, handler context and operation-clause parameters, exact
+test-companion private-function access, and unique class-compatible invalid
+source recovery records. Eligible package selections include public functions,
+types, constructors, schemas, and public function aliases in exported direct
+dependencies and embedded `std`; exported direct-dependency public type
+aliases are eligible when their target resolves to a type in that retained
+dependency. Invalid-cased package records, private or non-exported package
+declarations, mismatched imports, unsupported symbols, and package module
+segments return an empty definition. A public constructor selected through a
+visible type alias returns the constructor declaration, not the alias
+declaration. Definition exposes a recovery record's source range only;
+`references` excludes recovery records, and MCP provides no rename tool.
 
-- schemas;
-- eligible workspace public schema aliases;
-- eligible direct-dependency public schema aliases;
-- functions;
-- types;
-- constructors;
-- value bindings;
-- handler context parameters;
-- handler operation clause parameters.
+An initial `references` request requires `source`, `line`, and `column`.
+It may set boolean `include_declaration` (default `false`) and `page_size`
+(integer default `100`, minimum `1`, maximum `1000`). Scope is derived from
+source capture; it is not an input field. A continuation request contains only
+a non-empty `cursor`.
+The result is either `references`, a `scope` object, and optional
+`next_cursor`, or the same failure object as definition. The scope is
+`{mode:"project", generation, project, project_wide:true}` for selected
+projects, or `{mode:"single_file", generation, project, source,
+project_wide:false}` for anonymous source scope. The reference locations have
+`uri` and half-open `range`; pages sort by URI UTF-8 bytes and numeric
+start line, start column, end line, and end column. A nonfinal page contains
+exactly `page_size` locations and `next_cursor`; the final page omits it.
 
-The `references` input is either an initial source-coordinate request or a
-continuation request containing only a non-empty `cursor`. Initial requests
-may also set the optional boolean `include_declaration`; omission is
-equivalent to `false`. Initial requests accept `page_size` from 1 through
-1,000 and default it to 100. When `include_declaration` is true, an eligible
-workspace selection adds its one `file:` declaration location, while an
-eligible direct-dependency or standard-library selection in project-wide scope
-adds its canonical `veln-pkg:` declaration location. Single-file scope never
-adds a package declaration. The declaration is added before the normal
-URI-and-range sort and pagination. Package implementation sources, alias
-targets, ineligible aliases and symbols, and unsupported selections remain
-excluded; eligible public aliases remain supported selections. A
-continuation contains only `cursor`, so the captured declaration policy
-cannot change between pages. The result is
-sorted by URI UTF-8 bytes, then numeric start line, start column, end line, and
-end column before paging. A nonfinal page has exactly the requested size and
-contains `next_cursor`; an empty or final page omits that field. Every page
-repeats the captured scope metadata. The complete captured locations and
-scope remain stable when files change until refresh or cursor invalidation.
+Supported reference identities are schemas, eligible workspace and direct
+dependency schema aliases, functions, types, constructors, value bindings,
+handler context parameters, and handler operation-clause parameters. Schema
+references include direct fields, `decode`, `encode`, `Repeat`, array
+payloads, and resolved composition leaves. Workspace aliases have a separate
+identity from their target and are eligible only when the direct target is a
+public workspace schema; alias chains and package targets are ineligible.
+Package schema aliases are eligible only in exported direct-dependency modules
+when every finite acyclic hop resolves through a public alias and the terminal
+hop is an exported public schema in the same retained dependency.
 
-Continuation state is authenticated to the server process and is single-use.
-The server retains at most 64 unfinished results in initial-admission FIFO
-order. A successful refresh invalidates live cursors with `stale_snapshot`.
-Evicted cursors also return `stale_snapshot`; malformed, tampered, foreign,
-post-restart, or already-consumed cursors return `invalid_cursor`. Invalid
-request shapes and failed initial captures do not consume cursor state. A
-continuation consumes its cursor before issuing a distinct cursor for a later
-nonfinal page. A final continuation releases its retained result and FIFO
-admission. There is no time-based cursor expiry. Refresh or eviction keeps an
-unconsumed cursor distinguishable as `stale_snapshot` while its bounded
-admission remains available; reusing that admission slot later may classify the
-old authenticated cursor as `invalid_cursor`, and never revives it when file
-bytes are restored. Continuation does not recapture sources or admit new
-package resources. Cursor failures use exactly `{}` for `details`.
-The checked schemas, focused server transition tests, and the
-`references-workspace-schema` MCP stdio case are the primary verification
-artifacts for these rules. The server transition tests check default and
-maximum page-size boundaries, exact ordered multi-file concatenation, cursor
-lifecycle, refresh, eviction, file-change capture, resource-capacity failure
-preservation, replay after final consumption, and failure preservation. The
-stdio case checks the advertised schemas, exact ordered multi-file page
-concatenation, repeated scope metadata, a valid cursor round trip, same-cursor
-invalid-shape recovery, replay rejection, and rejected fractional, null, zero,
-and over-maximum page sizes.
-The checked input-schema tests additionally accept a boolean
-`include_declaration` only on an initial request. The focused server reference
-tests cover omission and explicit `false` equivalence, declaration sorting and
-pagination, every supported workspace symbol class, eligible dependency and
-standard-library declarations and aliases, anonymous-file scope, ineligible
-selections, capture failure, cursor invalidation, and resource-capacity
-failure. The `references-workspace-schema`,
-`references-workspace-schema-alias`,
-`references-standard-library-function-alias`, and
-`references-standard-library-type-alias` MCP stdio cases provide exact
-protocol-level declaration locations. The matching workspace-schema-alias LSP
-case checks the adapter-specific declaration policy over the same saved source
-shape.
-
-Workspace schema references include schema path-leaf occurrences in `decode`
-and `encode` expressions and directly resolved schema-composition path leaves
-in direct fields and supported repeated payloads. They use the selected
-navigation scope. For
-selected project sources, that scope is the selected project's captured owned
-sources. For anonymous single-file selections, that scope is only the
-requested source. They include same-module bare occurrences and qualified
-occurrences, including import-alias-qualified paths, that resolve to the
-selected workspace schema under ordinary import, visibility, exact
-test-companion, and shadowing rules. A written import does not put that
-imported module's schemas in the bare schema namespace. For schema composition
-and operation references, an exact full written import path takes precedence
-over a same-spelled implicit leaf alias. Otherwise, an implicit leaf alias
+Bare schema names resolve in their declaring module. A full written import path
+takes precedence over a colliding implicit leaf alias; an implicit leaf alias
 resolves only when exactly one workspace or package import provides it.
-Conflicting exact imports resolve no schema identity. Duplicate and
-syntax-recovered dependency imports resolve no dependency schema identity. A
-selected workspace schema's set excludes the declaration when
-`include_declaration` is omitted or false. When it is true, the eligible
-workspace schema declaration is included as its `file:` location before
-sorting and pagination. Module qualifiers, package schemas, schema-alias
-leaves, alias traversal, recovery symbols, invalid-casing records, and
-same-spelled functions, types, constructors, values, fields, operations,
-strings, comments, and schema uses that resolve to another declaration
-remain excluded.
+Duplicate or syntax-recovered dependency imports resolve no dependency schema.
+Consumer imports do not participate in package-alias target resolution.
+Invalid-cased, unresolved, wrong-kind, transitive, non-exported, and
+ambiguous aliases return successful empty reference results. These rules also
+exclude module qualifiers, alias-target expressions, package implementation
+sources, comments, strings, fields, and unrelated declarations.
 
-Eligible workspace public schema aliases have a separate reference identity
-from their target schema and from every other alias. An alias is eligible when
-its direct target resolves to a public schema in the selected workspace; alias
-chains and package targets are not eligible. Selecting the alias declaration
-or a resolved alias leaf returns its `decode`, `encode`, direct-composition,
-and supported repeated-payload leaves without the alias-target expression.
-When `include_declaration` is true, the eligible alias declaration is included
-as its `file:` location before sorting and pagination. A bare alias resolves
-only in its declaring module. A valid
-qualified workspace import can expose the alias in another owned source.
-Ineligible workspace aliases, package alias selections outside the eligible
-direct-dependency composition-and-operation boundary, module qualifiers, and recovery or
-invalid-casing selections remain successful empty results. Definition and
-rename behavior do not change.
+When `include_declaration` is true, an eligible workspace declaration is
+added as a `file:` location. In project scope, an eligible direct-dependency
+or standard-library declaration is added as a `veln-pkg:` location; single-file
+scope never adds a package declaration. The declaration is inserted before
+sorting and paging. Package implementation locations remain excluded.
 
-A public schema declared in an exported module of a retained direct dependency
-has one reference identity across direct fields, `Repeat` payloads, array
-payloads, `decode`, and `encode`. Selecting any resolved leaf returns every
-leaf for that declaration in the selected project's captured owned sources.
-Full written module paths and their valid unique implicit leaf aliases resolve
-to the same identity. Exact dependency imports take precedence; conflicting
-exact dependency imports, duplicate dependency imports, and syntax-recovered
-dependency imports resolve no dependency identity. Results contain
-only workspace `file:` locations and, when `include_declaration` is omitted or
-false, exclude the declaration, package sources, aliases and alias targets,
-import tokens, module qualifiers, comments, and strings. When
-`include_declaration` is true, the eligible package declaration is added as
-its canonical `veln-pkg:` location before sorting and pagination; package
-sources, aliases, and alias targets remain excluded. A clean or
-syntax-recovered package schema alias with the selected name blocks fallback
-to a same-spelled package schema. A `Repeat` or array payload resolves only
-when its count is a valid schema count expression; another count shape does
-not select the payload and does not enter its reference set.
-The same identity, eligibility, import, leaf-role, and selected-project scope
-rules apply to a public schema in an exported module of the retained standard
-library snapshot. The standard-library package origin remains distinct from
-workspace and direct-dependency schemas with the same module and declaration
-spelling.
-Standard-library schema aliases, private or non-exported schemas,
-transitive dependencies, recovery records, invalid-cased schema declarations,
-and unresolved or mismatched imports succeed with an empty reference set. An
-invalid-cased schema declaration can retain its package definition location;
-that definition does not admit it to the reference set. The focused
-`package_schema_references_require_public_exported_direct_dependencies`
-language-service test covers this boundary. The
-`references-dependency-schema-composition` MCP case is the unified positive
-executable protocol contract. The existing
-`references-dependency-schema-operation` case preserves operation behavior. The
-`references-dependency-schema-operation-boundaries` MCP case selects the
-unsupported direct-dependency boundaries through operation and composition
-leaves. It covers private and non-exported declarations, mismatched and
-transitive imports, invalid casing, schema aliases, recovered declarations and
-leaves, dependency import collisions in both orders, and requires successful
-empty results. Focused language-service tests cover malformed repeated counts,
-schema-alias blockers, and lexical-noise exclusion. A focused MCP server test
-injects a public standard-library schema and verifies the exact selected-project
-composition, `decode`, and `encode` locations with the selected project scope.
-Its fixture also contains a package-internal `decode Packet` use; the returned
-union remains exactly the workspace five-location set, proving that package
-implementation source is excluded. The companion
-`references_include_unique_implicit_nested_standard_library_module_path` case
-proves that a unique nested `alpha::wire` module supports both the full
-`alpha::wire::Packet` path and the implicit `wire::Packet` leaf with the same
-workspace-only union.
-The corresponding LSP and MCP tests use the same saved source shape, including
-non-BMP saved input, and assert the same five normalized saved locations.
-The checked examples harness cannot inject the synthetic standard-library
-snapshot required by this boundary, so the injected adapter tests are the
-executable evidence route rather than an `examples/specification/` case.
-When a clean and syntax-recovered standard-library schema share one package,
-module, and declaration identity, the eligibility gate applies to every leaf
-role. Composition, `decode`, and `encode` selections therefore each return a
-successful empty result; an eligible clean declaration cannot supply operation
-references around the recovered collision. The paired LSP and MCP regression
-tests named below verify this invariant.
-The LSP test separately asserts its overlay boundary. The adapter tests use
-matching hand-authored source shapes, but they do not mechanically compare
-cross-adapter results. The MCP pagination case compares the complete ordered
-set with the concatenated pages. The MCP capture-failure case verifies that a
-changing saved source returns no partial references or scope.
-The paired adapter rejection tests
-`standard_library_schema_import_collisions_are_successful_empty_results` and
-`references_reject_standard_library_schema_import_collisions_in_both_orders`
-also cover duplicate, conflicting, and recovered standard-library imports in
-both exact-import orders as successful empty results. The shared
-language-service tests additionally prove that an exact standard-library
-import beats a colliding implicit workspace leaf alias for composition and
-operation selections, while a colliding exact workspace import makes both
-selections ambiguous, independently of source order.
-Ineligible standard-library aliases and aliases with unresolved, wrong-kind, or
-invalid-cased targets remain excluded. Eligible public aliases from retained
-direct dependencies remain supported reference selections and can include
-their canonical declaration location. Focused language-service and MCP tests also cover
-identity, package-source exclusion, scope, source-kind, and stable-capture
-boundaries. The language-service standard-library matrix additionally covers
-full and unique implicit module paths, valid repeated and array counts,
-lexical exclusions, origin isolation, and eligibility/import failures. Its
-focused exclusion case selects an import token, module qualifier, and
-standard-library alias-target expression and confirms that none enters the
-normal reference union. The adapter cases independently use the same
-five-location saved source shape. The LSP case keeps that saved result set as
-its baseline, then observes one added
-overlay leaf. The MCP case independently returns the five saved locations. The
-origin matrix selects workspace, direct-dependency, and
-standard-library identities independently, so each returned set excludes the
-other two origins.
-MCP `references_paginate_standard_library_schema_uses_without_changing_scope`
-case proves that every continuation page preserves the original project scope,
-the final page omits `next_cursor`, and pagination concatenates to the unpaged
-result, while
-`references_project_capture_exhausts_retries_for_standard_library_schema_selection`
-proves that stable-capture exhaustion returns `snapshot_changed` without
-partial references or scope.
+The cursor authenticates the process, generation, project, source selection,
+scope, declaration policy, and page size. It is single-use. The server retains
+at most 64 unfinished results in FIFO admission order. Refresh invalidates live
+cursors as `stale_snapshot`; eviction does the same. Malformed, tampered,
+foreign, post-restart, or consumed cursors return `invalid_cursor`, with
+`details: {}`. Invalid request shapes and failed initial captures do not
+consume a cursor. Continuation consumes its cursor before issuing a later one;
+the final page releases its retained result. There is no time-based expiry.
+A later reuse of an admission slot can classify an old authenticated cursor as
+`invalid_cursor`; it never revives.
 
-An eligible public schema alias declared in an exported module of a retained
-direct dependency has a separate composition-and-operation reference
-identity. Its written target must resolve through a finite, acyclic chain whose
-non-terminal hops each resolve uniquely to a public schema alias and whose
-final hop resolves uniquely to a public schema declared by an exported source
-in the retained dependency. A bare target resolves in
-the alias module. A
-qualified target resolves through a valid package-local import from any
-retained package source with the alias's explicit module identity, including a
-full module path or a unique implicit leaf alias. Consumer imports do not
-participate in target resolution. The qualified import can resolve to another
-module or back to the alias's own module. At each hop, the declaration kind
-must match the expected kind: a non-terminal target is one public schema alias,
-and the final target is one public schema. A declaration in an unrelated
-namespace, such as a type with the target name, does not affect eligibility.
-Selecting a saved composition, `decode`, or `encode` alias leaf through the
-full imported module path or its valid implicit leaf alias returns every
-composition and operation leaf with the same dependency and alias-declaration
-identity in the selected project's owned sources.
-An exact full written dependency import takes precedence over an unrelated
-import with a colliding implicit leaf alias. A clean alias declaration in a
-non-exported package source blocks fallback to a same-spelled exported schema
-without becoming a navigation target.
-Import visibility and blocking across owned sources with the same explicit
-workspace module identity follow the shared rules in
-[Name Resolution And Identifier Casing](name-resolution.md). Duplicate and
-syntax-recovered dependency imports do not grant dependency alias visibility. The
-set excludes the alias and target declarations, alias-target expressions,
-package sources, sibling aliases, and direct target-schema
-uses. At each hop, a bare target resolves in that hop's module, and a qualified
-target resolves through a valid package-local full or implicit-leaf import with
-that hop's explicit module identity. The qualified target can resolve to the
-alias module or another module. Consumer imports do not affect target
-resolution. A public schema alias may resolve through a finite, acyclic chain
-in the same retained direct dependency.
-Each non-terminal hop must resolve to one eligible public schema alias, and the
-final hop must resolve to one eligible public schema. Every hop and the
-terminal schema must be declared in an exported source. The existing
-direct-target module and import rules apply at every hop. Bare imported
-schema-alias composition and operation leaves, external-package targets,
-ambiguous or invalid aliases,
-targets, and target imports, standard-library and transitive aliases, non-exported
-modules, mismatched imports, and recovered schema-alias composition or operation
-leaves remain successful empty
-results. Definition and rename behavior does not expand to package schema
-aliases. The `references-dependency-schema-alias` MCP case is the exact-range
-protocol contract and has a paired LSP case over identical saved sources. The
-paired cases keep the alias eligible when its target schema is exported from a
-separate module, when a type in the alias module shares its target name, and
-when two retained dependencies export the same module and alias spelling,
-cover
-exact-import precedence, exclude import, comment, and string selections, and
-preserve successful empty results for a non-exported alias blocker, a target
-declared in a non-exported source, and an invalid-cased target import. They also
-exclude a same-spelled workspace type from the exact alias set. A successful
-dependency-alias composition selection returns the alias-specific union. The
-union is identical when selected from a full
-written module path, a unique implicit leaf path, a direct field, a valid
-`Repeat` payload, or an array payload. An unselected
-descendant project contains the same qualified alias use and remains outside
-the selected root project's exact result. Every positive
-composition, decode, and encode response binds each range to its workspace URI.
-The LSP case also verifies that declaration inclusion does not add the package
-alias declaration. The paired cases also select the top alias, an intermediate
-alias, and the terminal schema separately. The MCP case requests the top-alias
-result in a bounded page and a cursor continuation; concatenating those pages
-gives the same exact set as the LSP result. The
-`references-dependency-schema-operation-boundaries` case requires successful
-empty results when a target name is ambiguous because a schema and schema alias
-share that name, and for invalid,
-non-exported, mismatched-import, duplicate-import, recovered-import,
-invalid-cased-target, valid other-package-target,
-and transitive alias selections. Focused MCP tests cover
-cross-module target success, recovered aliases that duplicate otherwise eligible declarations, duplicate
-and recovered imports with a same-named schema fallback candidate,
-standard-library schema aliases, and package-source alias-target selection.
-Focused language-service tests also keep direct, `Repeat`, and array-payload
-composition leaves empty for external alias targets, recovered consumer
-imports, and otherwise ineligible aliases.
+A successful refresh replaces roots, increments generation, and invalidates
+cursors. A failed refresh preserves roots, generation, diagnostics, and
+navigation. Stable capture retries are bounded; exhaustion returns
+`snapshot_changed` without success-only fields. If dependency admission
+would exceed the retained package capacity, definition and references return
+`resource_capacity` without partial locations, scope, or new resources.
 
-It also exposes references to public function, type, and constructor
-declarations from
-exported modules of one retained direct dependency when the selected project
-source uses the exact visible external import required by name resolution. It
-exposes the same reference boundary for public function, type, and constructor
-declarations from exported embedded standard-library modules.
-Standard-library public function aliases whose target resolves to a
-standard-library function declaration use their alias identity and expose
-references through the same boundary. Standard-library prelude functions and
-supported prelude function aliases include the accepted bare implicit prelude
-calls plus bare function-value occurrences, qualified call targets, and
-qualified function-value occurrences.
-Standard-library prelude types include accepted bare implicit prelude type
-references plus qualified type references.
-Direct-dependency public function aliases whose target resolves to a function
-declaration in the same retained direct dependency also use their alias
-identity and expose references through the package function boundary.
-Direct-dependency public type aliases whose target resolves to a type
-declaration anywhere in the same retained direct dependency use their alias
-identity and expose references through the package type boundary. The target
-type may be private or may live in a retained non-exported source when the
-exported alias is visible to the selected project. Standard-library public
-type aliases whose target resolves uniquely to a standard-library type
-declaration also use their alias identity and expose references through the
-package type boundary.
+## References
 
-Package function results include qualified calls, qualified function-value
-occurrences, and occurrences qualified by an import alias. Supported package
-function-alias results include the same occurrence forms and remain separate
-from the aliased target function's results. Package type results
-include type annotations, type arguments, return types, type occurrences in
-type-alias right-hand sides, and the type segment used as a constructor
-qualifier, including when a package constructor has the same spelling as its
-owning type. Package constructor results include qualified calls, constructor
-patterns, and accepted bare constructor forms. A package constructor selection
-through a public type alias succeeds but returns an empty `references` array,
-including when `include_declaration` is true.
-Supported package type-alias results include type annotations, type arguments,
-return types, type occurrences in type-alias right-hand sides, and the alias
-type segment used as a constructor qualifier. They include occurrences
-qualified by the written package module path, an import alias, or an accepted
-implicit standard-library prelude form. Alias reference results remain
-separate from the aliased target type's results, including when the alias and
-target type have the same spelling.
-Package reference results include only occurrences in the selected project's
-captured owned sources.
-With `include_declaration` omitted or false, they exclude the package
-declaration. They always exclude package source bodies, other selected projects,
-equal spellings with different package or module identity,
-import-alias declaration segments, type-qualifier segments for constructor
-references, constructor-name segments for type references, values, fields,
-strings, comments, and lexical bindings. Transitive dependencies, private
-package types, functions, function aliases, type aliases, or constructors,
-non-exported package modules, invalid-casing records, recovery records,
-unsupported schema-alias origins or scopes, public function aliases with unresolved,
-non-function, or invalid-cased targets, public type aliases with transitive,
-unresolved, non-type, or invalid-cased targets, unsupported package public
-alias symbols, package schema classes outside direct-dependency declarations
-and eligible operation aliases, non-function, non-type, and
-non-constructor package symbols, and package module-segment selections succeed
-with an empty `references` array.
-`references` does not expose recovery, virtual, package-source, effect,
-handler, or effect-operation reference locations.
-
-A selected supported symbol returns sorted canonical `file:` locations for
-reference sites, excluding the selected declaration when
-`include_declaration` is omitted or false, plus scope metadata. When it is true,
-an eligible direct-dependency or standard-library declaration is included as
-one canonical `veln-pkg:` location; package function, type, and constructor
-reference sites remain workspace `file:` locations. A valid position without a
-supported reference symbol succeeds with an empty `references` array.
-Selected manifest sources report project scope metadata with
-`project_wide: true`. Sources outside the selected project-owned source set
-report single-file scope metadata with `project_wide: false`. In single-file
-scope, declaration inclusion is limited to a workspace declaration in the
-captured source; it never adds a direct-dependency or standard-library
-`veln-pkg:` declaration.
-
-LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
-addressable position. A line containing `N` Unicode scalars accepts columns 1
-through `N + 1`. A terminal newline creates a final empty line at column 1;
-an empty file accepts only `(1, 1)`. A token's end is excluded from its
-selection. A positive integer line or column that does not address one of these
-source positions, including a value larger than the implementation's native
-coordinate range, returns `invalid_position`.
-Definition and references capture use the same no-follow path checks,
-selected-root and workspace-base identity checks, stable double capture,
-bounded retry, and
-`snapshot_changed` failure as saved project diagnostics. When definition
-lookup falls back from a selected outer project to anonymous single-file scope
-for a source below a descendant manifest, the ownership decision and the
-anonymous source bytes belong to the same stable capture attempt.
-`snapshot_changed` definition failures publish no success-only `definition`
-member. After bounded retry exhaustion, `snapshot_changed` references failures
-publish no success-only `references` locations or scope member.
-If dependency resource admission exceeds retained package capacity for the
-operation, `definition` and `references` return `resource_capacity` and publish
-no success-only `definition`, `references`, or scope member.
-When `definition` returns a direct-dependency package URI, the same successful
-operation has admitted the dependency snapshot. `resources/read` for the exact
-returned URI returns the captured UTF-8 source text for that immutable package
-snapshot. A capacity failure or `snapshot_changed` failure does not publish a
-partial package definition or new package resource state.
-When `definition` returns `packageDocumentationUri`, `resources/read` for that
-exact URI returns the retained declaration Markdown for the same package
-snapshot and package-documentation digest. Later dependency changes can admit a
-new source URI and documentation URI for the same package identity. Earlier
-returned package source and documentation URIs remain immutable resources.
-
-## Executable Evidence
-
-The `../../examples/specification/mcp/workspace-lifecycle/` case checks
-initialization, resource capability advertisement, exact tool declarations,
-accepted request metadata, numeric request ID preservation, both tool calls,
-invalid tool input, initialization phase errors, invalid initialize
-parameters, invalid request IDs, malformed ID-less requests, protocol-only
-standard output, and clean end-of-file termination. The
-`language-reference-resources` MCP specification case checks resource list and
-read success, index and topic Markdown fragments, representative embedded
-standard-library source reads, malformed list and read parameters, and
-structured `resource_not_found` failures over stdio. It also checks standard
-library source metadata shape, private source readability, test-source
-exclusion, wrong-digest rejection, and noncanonical `veln-pkg:` rejection. It
-checks that every listed resource can be read and that every emitted
-language-reference topic URI resolves through `resources/read`. The same case
-checks `search_docs` and `read_doc` tool schema advertisement, a normalized
-bounded search, compatibility-folded query input, exponent-spelled integer
-limits, empty search results, search invalid params, exact `read_doc` index
-and topic text, and `read_doc`
-`resource_not_found` failures for wrong-digest, noncanonical, non-language,
-unknown-topic, and unknown URI classes over stdio. The
-`standard-library-package-documentation-resources` MCP specification case
-checks listed embedded `std` package-documentation index metadata,
-package-documentation resource templates, exact index read, exact
-index-linked module read, exact module-linked declaration read, hidden
-module and declaration exclusion from `resources/list`, and
-wrong-documentation-digest `resource_not_found` over stdio. The
-`check-project-diagnostics` MCP specification case checks the
-advertised `check_project` schema and a diagnostic result with a spanless
-compiler-owned related note over stdio. The `anonymous-single-file-isolation`
-case checks anonymous `check_project` analysis over only the requested source
-when another saved source in the same workspace contains a language error.
-The `definition-workspace` MCP specification case checks the advertised
-`definition` declaration plus representative definition, no-definition,
-decimal and exponent integer coordinate spellings, and invalid-position
-results plus non-integer decimal and negative-exponent coordinate schema
-rejection over stdio. Its response-local assertions bind response IDs 3
-through 11 to the expected JSON-RPC result, error, location, cardinality, and
-absence observations. Object member order inside those expected result objects
-is harness equality evidence, not an MCP output ordering contract.
-File-backed expected text and JSON sidecars in that case are harness
-reviewability evidence and do not add a distinct MCP response field contract.
-Response-local string containment checks in that case are harness evidence
-over selected JSON strings and do not add a distinct MCP response field
-contract.
-The `definition-package-navigation` MCP specification case checks that
-`definition` returns a canonical direct-dependency `veln-pkg:` URI and
-declaration range, that `definition` returns package-documentation declaration
-URIs for an ordinary package function and a constructor-to-type mapping, that
-`definition` omits `packageDocumentationUri` while retaining the package
-source location for a status-only package-documentation result, that
-unsupported package selections return no definition or documentation URI, that
-the advertised `definition` result schema includes the optional
-`packageDocumentationUri` location field, that the returned snapshot source is
-listed as an MCP resource in the same session, and that `resources/read`
-follows the returned package source and documentation URIs. It also preserves
-CRLF and non-ASCII UTF-8 text for the exact returned package URI.
-The `definition-dependency-type-alias` MCP specification case checks that a
-supported direct-dependency public type alias returns its package alias
-declaration location, while unresolved, wrong-kind, alias-chain, and
-transitive type-alias targets succeed with `definition: null`.
-The `references-workspace` MCP specification case checks the advertised
-`references` declaration plus declaration-position lookup, recursive calls,
-ordinary calls, workspace type references, workspace constructor references,
-workspace value-binding references, handler operation clause parameter
-references, function-shaped recovery exclusion, invalid positions, and
-schema-invalid coordinates over stdio.
-The `references-workspace-schema` MCP specification case checks that a saved
-selected project returns only workspace `file:` locations for `decode` and
-`encode` schema path leaves that resolve to a selected workspace schema,
-preserves project-wide scope, and, when declaration inclusion is omitted,
-excludes the schema declaration and a same-spelled local schema use that
-shadows an imported target. Its declaration-enabled request checks the
-eligible workspace declaration as a `file:` location. It also checks
-that compiler-rejected bare `decode` and `encode` paths in a module that only
-imports the selected schema's module do not appear as references. The same
-case keeps decode and encode module-qualifier selections successful and empty
-and checks the eligible alias identity added to its fixture.
-The `references-workspace-schema-composition` MCP specification case checks
-direct fields, both supported repeated-payload spellings, full import paths,
-implicit leaf import aliases, exact reference ranges, canonical ordering, and
-project-wide scope. It excludes ordinary-type collisions, unresolved paths,
-comments, strings, and same-spelled descendant-project composition targets.
-It also keeps bare imported paths, schema-alias traversal, module-qualifier
-selections, collision selections, and unresolved selections successful and
-empty, while its eligible alias declaration and leaf select the same reference
-set and a descendant-project selection retains single-file scope.
-The `references-workspace-schema-alias` MCP specification case is the focused
-executable contract for alias declaration and use selection, alias/target
-identity separation, direct and repeated composition, operation references,
-canonical ranges, Unicode-scalar coordinates, and project-wide saved scope.
-The `references-dependency-schema-operation` MCP specification case checks
-direct-dependency public schema operation references through full written and
-implicit leaf module paths, exact workspace-only ranges, selection parity,
-project-wide scope, and non-BMP saved input. The
-`references-dependency-schema-composition` case checks the declaration-specific
-union of direct, `Repeat`, array, decode, and encode leaves, exact range order,
-Unicode-scalar coordinates, project scope, package-source exclusion, and
-selection parity with both LSP declaration policies. The
-`references-dependency-schema-operation-boundaries` case checks private,
-non-exported, mismatched-import, transitive, invalid-casing, unresolved,
-invalid-cased and other-package alias targets; its package-alias-chain case
-checks successful selected-alias identity. Duplicate-import, recovered-import,
-recovered-declaration, syntax-recovered
-composition, dependency exact and implicit collisions in both import orders,
-module-qualifier, and recovery selections as successful empty results. Its
-mismatched import names a retained direct
-dependency whose exported module does not match, and its transitive package
-exists only through another retained dependency's manifest. The checked
-`codec-schema-references` case independently establishes qualified
-cross-module schema-alias target source syntax. A focused MCP server test
-checks cross-module reference success, while another injects a public
-standard-library schema alias and requires a successful empty result with
-project-wide scope.
-The `references-dependency-schema-alias` MCP specification case checks
-direct-dependency public schema-alias composition and operation references
-through full written and implicit leaf module paths. With declaration
-inclusion disabled, it fixes the complete exact workspace-only union,
-including every URI and range for direct, `Repeat`, and array composition
-leaves, as well as decode/encode selection parity, dependency-and-declaration
-identity, project-wide scope, non-BMP coordinates, and the bare imported-name
-boundary. With declaration inclusion enabled, the same union adds only the
-selected eligible alias's canonical `veln-pkg:` declaration before sorting and
-pagination; schema targets, package-source uses, and other ineligible package
-uses remain excluded.
-An ineligible alias selected from a direct field, a valid `Repeat` payload, or
-an array payload returns a successful empty reference set and does not enter
-an eligible alias union.
-It also excludes a same-spelled workspace type and an unselected descendant
-project from the exact result. Import, comment, string, non-exported-target,
-and invalid-target-import selections produce successful empty results. Its
-paired LSP case checks identical locations with
-declaration inclusion disabled and confirms that enabling declaration
-inclusion does not add a package-source declaration.
-The `references-dependency-function` MCP specification case checks that a
-saved selected project returns only workspace `file:` locations for a visible
-direct-dependency function selected through a qualified call or qualified
-function-value occurrence, excludes the dependency declaration and dependency
-source body, keeps unsupported import-alias segment selection successful and
-empty, reports project-wide scope, and admits the dependency source resource in
-the same session.
-The `references-dependency-function-alias` MCP specification case checks the
-same result shape for a visible direct-dependency public function alias
-selected through a qualified call, import-alias-qualified call, or qualified
-function-value occurrence. The same case checks alias and target-function
-identity separation, package and workspace collisions, field exclusion,
-unsupported alias-chain selection, unresolved, wrong-kind, and invalid-casing
-alias targets, project-wide scope, and dependency source resource admission.
-Declaration-disabled results contain only workspace `file:` locations;
-declaration-enabled results also contain the eligible canonical `veln-pkg:`
-alias declaration.
-The `references-dependency-type-alias` MCP specification case checks the same
-result shape for a visible direct-dependency public type alias selected
-through a qualified type occurrence. The same case checks type annotation,
-return type, type-alias right-hand-side, type argument, and constructor
-qualifier occurrences, alias and same-spelled target-type identity separation,
-package and lexical collisions, comment and string lexical-noise exclusion, a
-workspace same-spelling constructor
-qualifier boundary, unsupported private, alias-chain, wrong-kind, and
-invalid-casing alias selections, project isolation, project-wide scope, and
-dependency source resource admission. Its reference assertions bind every
-returned range to the source workspace file URI. Declaration-disabled results
-contain only workspace `file:` locations; declaration-enabled results also
-contain the eligible canonical `veln-pkg:` alias declaration.
-The `references-dependency-type-alias-identity-boundaries` MCP specification
-case checks that a multi-segment written module path and its implicit leaf
-import alias select the same public type-alias identity, that alias and target
-selections remain separate when their spellings differ, and that a
-transitive-dependency type-alias target succeeds with an empty `references`
-array instead of reinterpreting the selection as another package type. Its
-reference assertions bind every returned range to the source workspace file
-URI.
-The `references-dependency-type-alias-hidden-target` MCP specification case
-checks that an exported dependency type alias remains supported when its target
-type is private and lives in a retained non-exported dependency module. Its
-reference assertions bind every returned range to the source workspace file
-URI.
-The `references-dependency-type-alias-project-isolation` MCP specification
-case checks that a direct-dependency public type alias selected from one
-sibling selected project does not collect same-spelled occurrences from
-another selected sibling project.
-The `references-standard-library-function` MCP specification case checks that a
-saved selected project returns only workspace `file:` locations for an
-embedded standard-library prelude function selected through accepted bare,
-bare function-value, qualified-call, and qualified function-value forms while
-reporting project-wide scope, and excludes workspace, dependency, field,
-string, comment, declaration, package-source, and import-alias collisions.
-The `references-standard-library-function-alias` MCP specification case checks
-the same successful result shape for the shipped `std::prelude`
-`byte_chunk_len` and `byte_view_len` aliases selected through bare calls, bare
-function-value occurrences, and `prelude::`-qualified calls. It also checks
-unsupported alias-chain selection plus unresolved, wrong-kind, and
-invalid-casing alias targets.
-Declaration-disabled results contain only workspace `file:` locations;
-declaration-enabled results also contain the eligible canonical `veln-pkg:`
-alias declaration.
-The `references-standard-library-type-alias` MCP specification case checks
-the same successful result shape for the shipped `std::prelude` `ByteCount`
-alias selected through bare and `prelude::`-qualified type occurrences,
-including alias-bound constructor qualifier type segments. Its reference
-assertions bind every returned range to the source workspace file URI and
-exclude same-spelled record fields, strings, comments, and field selections.
-Declaration-disabled results contain only workspace `file:` locations;
-declaration-enabled results also contain the eligible canonical `veln-pkg:`
-alias declaration.
-The `references-package-type` MCP specification case checks that a saved
-selected project returns only workspace `file:` locations for a visible
-direct-dependency type and a visible exported standard-library type, includes
-type annotations, return types, type-alias right-hand sides, type arguments,
-and constructor qualifier type segments, reports project-wide scope, excludes
-package source body occurrences, preserves canonical location order across
-project sources, and keeps unsupported import-alias segment selection
-successful and empty. Language-service package type-reference tests check
-same-package different-module collisions and constructor-name spelling
-collisions, including a package constructor with the same spelling as its
-owning type.
-The `references-package-constructor` MCP specification case checks that a
-saved selected project returns only workspace `file:` locations for a visible
-direct-dependency constructor, includes qualified calls, constructor patterns,
-and accepted bare forms, reports project-wide scope, excludes package source
-body occurrences, preserves canonical location order across project sources,
-keeps unsupported import-alias segment selection successful and empty, and
-keeps an ambiguous module-qualified package constructor leaf successful and
-empty. The same case checks that an alias-qualified constructor call can be
-used as a definition position while remaining outside package constructor
-reference results. Focused MCP tests keep that alias-route result empty when
-declaration inclusion is enabled.
-Language service and MCP server package constructor-reference tests check
-package identity, standard-library prelude identity, qualification, collision
-exclusion, module-qualified constructor-leaf ambiguity, type-qualified
-constructor disambiguation, alias-qualified constructor definition selection,
-alias-route reference exclusion, workspace source isolation, and retry
-boundaries.
-The `definition-recovery-navigation` MCP specification case checks
-`definition` over a unique invalid source declaration recovery record, an
-ambiguous invalid source declaration boundary, and valid-symbol precedence.
-The shared language-service selector supplies the same recovery boundary for
-retained invalid binding records.
-The `dependency-source-resources` MCP specification case checks successful
-saved-project admission, dependency metadata listing, exported and private
-source exact-byte reads, test-source rejection, omitted `nextCursor`, and
-structured `resource_not_found` failures over stdio. The
-`dependency-package-documentation-resources` MCP specification case checks
-successful and status-only direct-dependency documentation publication, listed
-index and status metadata, exact index read, exact index-linked module read,
-exact module-linked declaration read, package-documentation templates, omitted
-`nextCursor`, hidden module and declaration resources, package-scope
-`search_docs`, exact package-documentation `read_doc`, and
-`resource_not_found` failures for wrong-documentation-digest and unpublished
-direct-dependency documentation URIs over stdio.
-Table-driven tests in `veln-mcp` check discovery boundaries,
-client-root invariance, refresh transitions, failure state preservation,
-project/source decision rows, schema failures, path boundaries, anonymous
-isolation before refresh, companion-shaped anonymous source names, dependency
-snapshots for direct path and locally materialized git inputs, clean analysis,
-selected-root symlink and regular-directory replacement, and structured
-language diagnostics with spanless related notes and closed related-note
-schemas. They also check definition schema rejection, project inference,
-anonymous and descendant-manifest isolation, every implemented ordinary symbol
-kind, canonical URI spelling, path rejection, stable-capture failure,
-no-symbol success, invalid positions including oversized positive integers,
-half-open ranges, LF, CRLF, terminal-newline, empty-file, non-BMP scalar
-coordinates, extreme positive and negative exponent coordinates, and
-non-integer numeric coordinate schema rejection. They also check MCP
-definition conversion for unique invalid-name recovery records and unsupported
-ambiguous recovery selection.
-`veln-mcp` tests check references schema rejection, selected-project
-inference, single-file isolation outside selected projects, deterministic
-canonical locations, workspace schema operation and composition references,
-workspace schema-alias references, workspace type, constructor, value-binding,
-and handler parameter reference admission, unsupported-symbol success, recovery
-and package exclusion, direct-dependency and standard-library public function-alias
-selection, unsupported direct-dependency and standard-library function-alias
-chains, direct-dependency public type-alias selection, unsupported
-direct-dependency type-alias selections, standard-library public type-alias
-selection, unsupported standard-library type-alias selections,
-selected-project isolation for package type aliases including
-standard-library type aliases, standard-library function boundaries,
-function-shaped recovery exclusion, invalid positions,
-path failures, bounded stable-capture retry exhaustion without partial
-reference locations, scope metadata, or package resource mutation for package
-function, function-alias, type-alias, type, constructor, and direct-dependency
-or standard-library schema selections; direct-dependency and standard-library
-schema source-kind and scope boundaries; and accepted success and domain-failure
-result schemas.
-`veln-mcp` unit tests check embedded standard-library startup validation,
-checked package-documentation bundle loading, catalog construction failure
-propagation, bidirectional completeness between the embedded bundle and MCP
-source resources, exact-byte reads for every listed standard-library source,
-combined URI-byte ordering, duplicate prevention, lifecycle state preservation
-across refresh and analysis, private and non-exported source publication,
-absent test-source rejection, direct
-dependency admission, identity-and-digest deduplication, same-identity digest
-coexistence, retained-byte reads after refresh and dependency replacement,
-state preservation after invalid saved navigation, package snapshot capacity
-failure atomicity, and mapped `resource_not_found` behavior for unknown,
-wrong-digest, malformed, and noncanonical `veln-pkg:` URIs. They also check
-the embedded standard-library package-documentation Markdown renderer,
-status-only documentation publication, listed index metadata, template
-metadata, exact index-linked reads, module and declaration omission from
-`resources/list`, byte-for-byte read preservation, and `resource_not_found`
-mapping for unknown, noncanonical, wrong-snapshot,
-wrong-documentation-digest, and unpublished package-documentation URIs. They
-also check direct-dependency package-documentation resource generation from
-the admitted snapshot, renderer-equal bytes, listed success indexes,
-status-only failure publication, exact linked reads, module and declaration
-omission from `resources/list`, rejection of unknown, noncanonical,
-wrong-snapshot, wrong-documentation-digest, and unpublished documentation
-URIs, package documentation tool schema acceptance, standard-library,
-dependency, language, and all-scope search selection, package field ranking,
-URI byte ordering, exact `read_doc` equality with `resources/read`,
-status-only read boundaries, source-resource rejection, deduplication,
-same-identity snapshot coexistence, capacity atomicity, and retained reads
-across refresh and dependency replacement.
-The `veln-repo-mcp-standard-library-docs` freshness check regenerates the
-bundle from compiler, renderer, and standard-library inputs and rejects any
-byte or digest difference from the checked artifact.
-Unix-only `veln-mcp` tests also
-check canonical resolved-base URI spelling, definition path symlink rejection,
-anonymous workspace-base symlink replacement, and that selected
-manifest-project analysis does not consume source bytes through project-local
-file or directory symbolic links. Linux-only
-`veln-mcp` coverage checks that a symlinked descendant `veln.toml` is ignored
-as a nested package marker. A `veln-mcp` test also checks that a non-UTF-8
-descendant regular manifest still forms a nested package boundary. Non-Linux
-`veln-mcp` coverage checks the fail-closed saved snapshot boundary.
+Closed input and result schemas are in `crates/veln-mcp/schemas/mcp/v1/`.
+Navigation serialization is implemented by `crates/veln-mcp/src/definition.rs`
+and `crates/veln-mcp/src/references.rs`; cursor retention is implemented by
+`crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
+`crates/veln-mcp/src/server/tests/`.

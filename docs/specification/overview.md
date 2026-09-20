@@ -1,3 +1,10 @@
+---
+role: specification
+authority: normative
+specification-coverage: usage=#fixed-behavior; behavior=#fixed-behavior; limits=#outside-this-reference
+update-when: The implemented command loop, diagnostic envelope, source identity, or documented stability boundary changes.
+---
+
 # Language Specification Overview
 
 This file defines the stability boundary for behavior implemented in the

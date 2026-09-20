@@ -43,6 +43,8 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - name: Test workflow scripts
         run: node --test workflow-scripts/*.test.mjs
+      - name: Validate current specification explanations
+        run: node workflow-scripts/check-specification.mjs
       - name: Reject unbounded Rust test commands
         run: node workflow-scripts/check-rust-test-memory-guards.mjs .github/workflows .github/actions
       - name: Validate frontmatter in changed documentation

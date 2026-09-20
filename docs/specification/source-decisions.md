@@ -1,3 +1,8 @@
+---
+role: routing
+update-when: A source-decision category or its current specification route changes.
+---
+
 # Source Decisions
 
 These discussion results support the implemented language specification. Read

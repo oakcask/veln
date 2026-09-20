@@ -36,3 +36,6 @@ matches the command or shared command surface being changed.
 
 - Use this page only to choose the focused command page.
 - Keep command-specific contracts in the focused page, not in this route.
+
+The route does not define command behavior. Once the matching page is open,
+follow its focused JSON page only when the command is invoked with `--json`.

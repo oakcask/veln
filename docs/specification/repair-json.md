@@ -2,6 +2,7 @@
 role: specification
 authority: normative
 update-when: The `veln repair --json` output schema, candidate projection, source-path casing exclusion, verification record, or executable repair JSON evidence changes.
+specification-coverage: usage=#repair-json; behavior=#envelope; limits=#usage-and-limits
 ---
 
 # Repair JSON
@@ -15,7 +16,7 @@ boundary, [repair-application.md](repair-application.md) for apply gates, and
 
 `repair --json` emits one JSON object with:
 
-- `schema_version`: the command output schema version.
+- `schema_version`: always the JSON number `1`.
 - `tool`: object with `name` and `version`.
 - `command`: always `"repair"`.
 - `mode`: `"preview"` without `--apply`, or `"apply"` with `--apply`.
@@ -103,3 +104,15 @@ verification failure, and unsupported edit shapes.
 
 `summary.refusal_reason` carries a short stable-enough routing string for human
 and agent workflows. It is not a diagnostic id.
+
+## Usage and limits
+
+Use preview output to inspect candidates, then pass one `repair_id` (or the
+accepted preserved candidate id) to apply. Candidate edits are source-relative
+and are never partial: either the complete selected edit set verifies or every
+written file is restored. A saved JSON document is input data, not write
+authorization. The apply boundary, confirmation requirements, and rollback
+rules are specified by [repair-application.md](repair-application.md).
+
+The report implementation is `crates/veln-cli/src/commands/repair.rs`; focused
+JSON assertions are in `crates/veln-cli/tests/check_json/repair.rs`.

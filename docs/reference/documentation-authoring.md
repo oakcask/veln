@@ -184,8 +184,8 @@ Use the strongest practical verification medium:
 - use decision or truth tables for material rule combinations;
 - use benchmarks with a named workload, metric, comparison method, and noise
   policy for performance claims;
-- use concise prose for rationale, scope, non-goals, provenance, and genuinely
-  non-mechanical constraints.
+- use concise normative prose to explain usage, behavior, and limits; support
+  mechanically checkable claims with the applicable executable evidence.
 
 Do not use a benchmark to specify functional behavior or claim a stable
 threshold on an uncontrolled runner.
@@ -214,17 +214,82 @@ versions, digests, compatibility values, or expected outputs when no
 independent authority can establish them. Specify the evidence that must
 produce the value or keep the work explicitly incomplete.
 
-Current behavior must route to checked evidence when practical. Keep prose
-thin when executable evidence can own the detail. Name the authoritative
-artifact when prose, tables, diagrams, generated pages, and tests describe the
-same behavior. Copies of the same expected values can detect drift, but they do
-not independently establish correctness. Prefer generating secondary views
-from the authoritative artifact. Update all representations together when
-generation is impractical, and treat disagreement as a defect.
+### Current Specification Pages
 
-Give one-time transition evidence an explicit retirement path. If only prose
-can express a normative claim, state why stronger representation is not
-practical and make the prose falsifiable.
+`docs/specification/` is the authoritative explanation of current implemented
+behavior. Tests, fixtures, schemas, and executable grammar corroborate its
+claims. Readers must be able to understand a feature without opening its test
+suite. Do not substitute evidence inventories for the specification.
+
+A behavior page explains:
+
+- **Purpose and usage:** what the feature does and how to invoke it, supply its
+  inputs, or consume its output.
+- **Behavior:** the observable rules, results, defaults, and relevant state
+  transitions.
+- **Limits and errors:** supported boundaries, failure conditions, and preserved
+  state when an operation fails.
+
+Start with a short purpose statement. Organize the remaining explanation by
+subject; headings such as Usage, Behavior, and Limits and errors are useful but
+not prescribed. Use tables for comparable fields or alternatives. Choose short
+examples that teach a representative success and a material boundary or failure.
+Do not reproduce every test permutation or narrate test setup and assertions.
+A schema page can explain inputs through field tables; a command page can use
+an invocation; a routing page only needs to help readers choose a destination.
+
+Write clear normative sentences with observable inputs and outcomes. Use one
+term for one concept across pages. Put each rule in one subject authority and
+link to it from other pages. Keep source paths, test cases, and issues in a
+focused References section or beside the specific claim they support. A list
+of evidence paths alone does not explain a rule. Avoid long introductions,
+case-by-case implementation history, bare test function or case names used as
+a substitute for rules, and claims that a fixture proves behavior
+outside the fixture's scope.
+
+Before changing a current specification, inspect the implementation and relevant
+tests. Resolve discrepancies there; do not infer implemented behavior from
+proposals or silently describe an intended design as current behavior. For a
+documentation-only correction, describe the actual supported behavior without
+changing the language implementation. When behavior changes, update prose and
+executable evidence together. Copies of expected values do not independently
+establish correctness. If a claim has no practical mechanical check, make its
+inputs, outcomes, or invariant explicit and record the review basis.
+
+### Specification Coverage Check
+
+Each `role: specification` page under `docs/specification/` declares a
+single-line coverage map in frontmatter. This is an interface consumed by the
+checker, not a requirement for particular heading names or document layout:
+
+```yaml
+specification-coverage: usage=#invocation; behavior=#results; limits=#errors
+```
+
+Each value names a heading in that page where the concern is explained. Several
+concerns may point to the same section when the explanation covers them
+together. The section must contain explanatory prose, a behavior table, or a
+code example with explanation, rather than only links, fixture paths, or
+verification commands. Routing pages do not declare this map. Do not reclassify
+a behavior page as routing to avoid describing its contract.
+
+Run `node workflow-scripts/check-specification.mjs` to check all specification
+Markdown, frontmatter, coverage destinations, evidence-only destinations, and
+same-scope `*-full.md` pairs. It also rejects evidence-led lists, paragraphs, and
+table rows outside reference
+sections using case-directory names and Rust test function names discovered in
+the repository, including names written without links. Run `node workflow-scripts/check-doc-links.mjs`
+for documentation routes and `node --test workflow-scripts/*.test.mjs` for the
+guardrail regressions. CI runs these checks through the workflow-script suite.
+The checker deliberately does not score prose by word count, heading count, or
+preferred phrases. It cannot prove that a paragraph explains its declared
+concern or agrees with code: reviewers must verify those facts, representative
+examples, terminology, and the scope of evidence. A passing coverage map is
+navigation evidence, not proof of semantic completeness.
+
+Give one-time transition evidence an explicit retirement path. Keep migration
+inventories and review checkpoints outside durable documentation; retire them
+when the corresponding review is complete.
 
 ## Verification Outcomes
 
@@ -238,6 +303,8 @@ A documentation change is ready when:
   removes that pair and updates its internal links;
 - split documents have subject-based boundaries and do not duplicate one
   authority;
+- current specifications explain usage, behavior, and limits; their coverage
+  maps point to the actual explanations rather than evidence inventories;
 - normative claims have observable acceptance conditions;
 - prose and executable or mechanically checked evidence agree;
 - planned evidence is not presented as implemented;

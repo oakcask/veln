@@ -1,6 +1,7 @@
 ---
 role: specification
 authority: normative
+specification-coverage: usage=#filesystem-capture-and-exclusions; behavior=#digest-transcript; limits=#portable-package-identity
 update-when: The package snapshot identity, portable-domain, capture, digest, or executable-evidence contract changes.
 ---
 
@@ -12,7 +13,7 @@ digest from that immutable capture. Callers that only need identity can use
 the digest API directly. Duplicate source paths supplied to the digest API are
 rejected.
 
-## Portable Package Identity
+## Portable package identity
 
 `PackageIdentity` retains the exact validated identity spelling. An ordinary
 identity contains 1 through 255 Unicode scalars. It is Unicode Normalization
@@ -26,7 +27,7 @@ scalar limit, non-NFC input, an empty segment, a dot segment, a
 whitespace-bearing segment, and the reserved standard identity. Validation
 does not normalize or rewrite an accepted identity.
 
-## Filesystem Capture
+## Filesystem capture and exclusions
 
 `capture_package_snapshot` requires a regular `veln.toml` at the supplied
 package root. The returned capture retains the manifest's exact bytes, the
@@ -37,7 +38,7 @@ An owned source is a regular file whose package-relative path ends in `.veln`.
 The capture includes private, non-exported, on-disk generated, and ordinary
 `target` sources. It excludes these entries:
 
-- each `.git` directory and its descendants;
+- every entry named `.git`, including directory descendants;
 - each descendant directory that contains a regular `veln.toml` and all of
   that directory's descendants;
 - every symbolic link;
@@ -79,12 +80,13 @@ The digest is independent of filesystem enumeration order and the package's
 physical parent location. A change to the manifest bytes, an included source
 path, or included source bytes changes the digest.
 
-## Embedded Capture
+## Embedded capture
 
 `capture_embedded_package_snapshot` accepts exact manifest bytes and exact
 source path and byte pairs. It does not read or materialize a filesystem tree.
-It applies the same distribution source exclusions as filesystem capture before
-portable-path and source text validation. Therefore `.test.veln` companions,
+It filters distribution source suffixes before portable-path and source text
+validation. Embedded input does not discover directories, symbolic links, or
+descendant manifests; callers supply the distribution source list. Therefore `.test.veln` companions,
 `_test.veln` integration-test sources, and non-`.veln` inputs are not retained
 and cannot fail validation. It sorts retained sources and applies the same
 portable-path, UTF-8, case-fold collision, and digest contracts as filesystem
@@ -94,7 +96,7 @@ The language server uses this API for the toolchain's embedded `std` manifest
 and distribution sources. Therefore the standard package virtual-source
 catalog and its source reads refer to one exact retained capture.
 
-## Digest Transcript
+## Digest transcript
 
 SHA-256 consumes this exact compatibility transcript:
 
@@ -111,41 +113,20 @@ All lengths and the source count are unsigned 64-bit big-endian integers. The
 transcript has no terminal record. The result is exactly 64 lowercase
 hexadecimal digits without a prefix.
 
+The low-level `package_snapshot_digest(manifest_bytes, sources)` API preserves
+caller-supplied paths and bytes without validating portability or UTF-8 source
+text. Use capture for those validations. The digest API rejects duplicate exact
+paths and lengths or source counts that cannot fit its `u64` fields.
+
 The package snapshot digest is separate from the lockfile source-tree
 checksum. The lockfile checksum retains its `sha256:` prefix and its existing
 transcript.
 
-## Executable Evidence
+## References
 
-The `veln-project` snapshot unit tests are the authoritative executable
-evidence. `cargo test -p veln-project` checks the capture distribution matrix,
-exact-byte digest integration, deterministic path ordering, relocation,
-descendant package boundaries, symbolic links, non-UTF-8 path rejection,
-non-UTF-8 excluded symlinks and descendant package roots, non-regular source
-rejection, and these fixed digest vectors:
-
-| Manifest and sources | Digest |
-| --- | --- |
-| Empty manifest; no sources | `f0030b92642915b495c426a5b5185676e0306219a52c448a94fb5e8dccc494ad` |
-| Manifest `[package]\nname = "p"\n`; `a.veln` is `a\n`; `z.veln` is `z\n` | `77150b975c9bb56aab9e9b3c8899a81907abc9db535fdfbb6276d40bff9fa878` |
-| Empty manifest; `src/λ.veln` is `λ\n` | `f360e18455f6b7c90dd6c34cdec7a444082e003e44583dc8a7d99ae50cba713b` |
-
-The same tests check reversed source order, duplicate paths, isolated changes
-to the domain, record tags, byte order, manifest bytes, source path bytes, and
-source content bytes. They also prove that equivalent embedded and filesystem
-inputs produce identical retained snapshots, that embedded input applies the
-same distribution test-source exclusions as filesystem capture, and that
-embedded input uses the portable-source validation contract. A Veln source
-example is not added for the capture API itself because it is
-transport-independent. The editor-facing standard-package use is checked by
-the LSP example routed from
-[Editor Support](editor-support.md#lsp-navigation-formatting-and-rename).
-
-The same test target is the authoritative Q13 portable-domain matrix. It
-checks identity scalar boundaries, identity segments, Unicode whitespace,
-identity dot segments, reserved `std`, NFC, portable path segments, controls,
-forbidden separators, trailing spaces and dots, device spellings and aliases,
-non-UTF-8 source names and text, full default-case-fold collisions, exact
-accepted spellings and bytes, reserved device stems followed by ASCII
-whitespace before an extension separator, and validation exclusion for
-symbolic links, test sources, descendant packages, and `.git` entries.
+The capture and digest implementations are in
+`crates/veln-project/src/snapshot.rs` and
+`crates/veln-project/src/snapshot/digest.rs`; portable validation is in
+`crates/veln-project/src/portable.rs`. Snapshot tests under
+`crates/veln-project/src/snapshot/tests/` cover ordering, exclusions, immutable
+bytes, failure boundaries, and fixed digest vectors.

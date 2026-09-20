@@ -1,6 +1,7 @@
 ---
 role: specification
 authority: normative
+specification-coverage: usage=#usage; behavior=#current-contract; limits=#generation-gates
 update-when: The language-reference catalog schema, checked artifact, digest transcript, Markdown renderer, MCP publication, source authorities, freshness route, or executable catalog evidence changes.
 ---
 
@@ -13,20 +14,31 @@ artifact. MCP documentation search uses the checked catalog as specified by
 [MCP Workspace Projects, Resources, And Navigation](mcp.md#documentation-tools).
 Search pagination and plugin packaging remain outside the current behavior.
 
+## Usage
+
+Consumers read the checked catalog through `veln-repo-language-reference`;
+MCP clients discover its index and topic resources through `resources/list`
+and retrieve a listed URI with `resources/read`.
+
+From the repository root, run
+`cargo run -p veln-repo-language-reference -- . generate` to regenerate the
+catalog and digest files after changing their source authorities. `check`
+validates the checked digest; `check-fresh` regenerates in memory and compares
+the checked artifact and rendered resources. Failures exit with status `1`;
+invalid command arguments exit with status `2`.
+
 ## Current Contract
 
 The repository-maintenance package stores the checked schema-v1 JSON artifact,
 its checked digest, and the checked Markdown resource digest under its
 generated-output directory.
-Ordinary Cargo builds consume those checked files. Ordinary package tests
-validate the checked files, schema fixture, descriptor and example rejection
-rules, bidirectional token projection, canonicalization, digest transcript,
-Markdown rendering, resource byte limits, bundle exclusions, and selected
-example inputs without executing the source-surface grammar.
+Ordinary Cargo builds consume those checked files without executing the
+source-surface grammar.
 
 The artifact has `schema_version` `1` and `generator_contract_version` `1`.
-It contains exactly the topic identifiers listed by the executable
-language-reference contract fixture under `examples/specification`.
+Its topic identifiers are `lexical-structure`, `modules-imports-packages`,
+`declarations-aliases`, `expressions-patterns`, `types-inference-constructors`,
+`effects-handlers`, `contracts`, `schemas`, `holes`, and `tests-docs-doctests`.
 Each topic has validated descriptor text, normalized set-valued fields,
 validated related-topic identifiers, selected executable grammar productions,
 and selected displayed source files from specification case command inputs.
@@ -36,9 +48,8 @@ The lexical topic includes the normalized complete output of
 named productions in that same output. Keyword and punctuation tables come from
 compiler-owned public token records. The lexer uses the public keyword records
 for recognition and the public punctuation records for fixed punctuation
-recognition. Package tests validate every public fixed-spelling token record
-against lexer recognition and validate that every compiler-owned public
-fixed-spelling token appears in the catalog projection.
+recognition. Every compiler-owned public fixed-spelling token appears in the
+catalog projection.
 
 The digest is lowercase SHA-256 over this transcript:
 
@@ -91,10 +102,8 @@ maintenance commands, timestamps, build paths, or compiler binary versions.
 
 ## Verification
 
-Run `cargo test -p veln-repo-language-reference` to check the ordinary
-consumer path, schema closure, descriptor rejection cases, selected example
-inputs, token projection, canonicalization, digest vectors, Markdown
-rendering, resource byte limits, and bundle exclusions.
+The catalog and renderer tests are in
+`tools/veln-repo-language-reference/src/tests.rs`.
 
 Run `cargo run -p veln-repo-language-reference -- . check-fresh` to execute
 the source grammar and reject artifact, catalog digest, rendered-resource

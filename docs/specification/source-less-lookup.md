@@ -1,7 +1,8 @@
 ---
 role: specification
 authority: normative
-update-when: The compiler-provided source-less lookup descriptors, source-less registry failure details, publication boundary, focused veln-syntax parser evidence, or focused veln-sema registry tests change.
+update-when: The compiler-provided source-less lookup descriptors, registry failure details, or publication boundary change.
+specification-coverage: usage=#lookup-consumers; behavior=#source-less-lookup-registry; limits=#limits
 ---
 
 # Source-Less Lookup
@@ -62,6 +63,8 @@ compiler adapter descriptors to publish.
 | Built-in type-syntax descriptors reporting `type_syntax` | the built-in type constructor spelling |
 | Built-in ADT descriptors reporting `adt` | type and constructor lookup keys, such as `Option` and `Option::Some` |
 
+## Lookup Consumers
+
 Normal lookup consumers use the published source-less registry state. Qualified
 `prelude::name` helper lookup compares the qualifier against the published
 standard module key before selecting a prelude descriptor or classifying a
@@ -72,14 +75,16 @@ helpers and internal type annotation parsing check built-in type constructor
 arity through the published built-in type-syntax registry. Built-in ADT lookup
 seeds application registry state from the published built-in ADT registry.
 
-Focused `veln-syntax` and `veln-sema` tests are the executable evidence for
-parser interpretation of bare and qualified name paths, generated-table
-validation, injected invalid descriptors, invalid lookup keys, atomic failure,
-cross-provider publication failure, checked lookup, provider inventory, and
-lookup isolation. The injected-descriptor cases cover qualified separators,
-other non-identifier characters, and
-parser-level contextual literal spellings in runtime, prelude or
-compiler-adapter, built-in type-syntax, built-in ADT type, and built-in ADT
-constructor leaves. Public source fixtures cannot inject compiler descriptors,
-so this contract is verified by focused Rust tests rather than examples under
-`examples/specification/`.
+## Limits
+
+Registry publication is all-or-nothing: one invalid descriptor prevents every
+provider from becoming visible. Source-less descriptors cannot publish names
+that the parser cannot represent, and contextual literals remain unavailable
+through bare lookup. These failures use `toolchain.invalid_symbol_case` with
+provider details; they never masquerade as source `name.invalid_case` errors.
+
+## References
+
+- Registry validation and publication: `crates/veln-sema/src/source_less_lookup.rs`.
+- Descriptor providers: `crates/veln-sema/src/standard_symbols/` and
+  `crates/veln-syntax/src/`.
