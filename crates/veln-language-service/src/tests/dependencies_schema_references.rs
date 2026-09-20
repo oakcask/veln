@@ -2296,10 +2296,18 @@ mod dependencies_schema_references_tests {
             "main.veln",
             concat!(
                 "use wire from \"std\"\n\n",
+                "schema Host\n",
+                "  Packet: Int\n",
+                "end\n\n",
                 "fn read(view: ByteView) -> ()\n",
+                "  # wire::Packet\n",
+                "  \"wire::Packet\"\n",
                 "  decode wire::Packet from view at byte_offset(0)?\n",
                 "end\n",
             ),
+        ), source(
+            "noise.veln",
+            "type Packet\nend\n",
         )])
         .with_standard_library(standard_library_snapshot(
             &[(
@@ -2309,12 +2317,30 @@ mod dependencies_schema_references_tests {
             ["wire.veln"],
         ));
 
-        for (line, column) in [(1, 5), (4, 10)] {
+        for (line, column) in [(1, 5), (10, 10)] {
             assert!(
                 query_snapshot(&snapshot, "main.veln", line, column).is_none(),
                 "standard-library schema exclusion at main.veln:{line}:{column}"
             );
         }
+        for (line, column) in [(8, 6), (9, 6)] {
+            assert!(
+                query_snapshot(&snapshot, "main.veln", line, column).is_none(),
+                "standard-library alias lexical exclusion at main.veln:{line}:{column}"
+            );
+        }
+        let field = query_snapshot(&snapshot, "main.veln", 2, 4);
+        assert!(
+            field.is_none(),
+            "standard-library alias field name must not select the alias: {field:#?}"
+        );
+        let unrelated = query_snapshot(&snapshot, "noise.veln", 1, 6);
+        assert!(
+            unrelated.as_ref().is_none_or(|result| {
+                result.selected_symbol.package_origin != Some(PackageOrigin::StandardLibrary)
+            }),
+            "same-spelled unrelated declaration must not select the standard-library alias: {unrelated:#?}"
+        );
         let alias_target = query_snapshot(&snapshot, "wire.veln", 4, 20);
         assert!(
             alias_target.is_none(),

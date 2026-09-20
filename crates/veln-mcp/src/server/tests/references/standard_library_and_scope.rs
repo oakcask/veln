@@ -396,6 +396,15 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_alias
         "column": 12,
         "page_size": 1,
     }));
+    assert_eq!(seeded["isError"], false, "{seeded:#}");
+    assert_eq!(
+        seeded["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "{seeded:#}"
+    );
     let prior_cursor = seeded["structuredContent"]["next_cursor"]
         .as_str()
         .expect("seed selection must create a continuation cursor")
@@ -421,7 +430,8 @@ fn references_project_capture_exhausts_retries_for_standard_library_schema_alias
     let result = server.references_tool(&json!({
         "source": "main.veln",
         "line": 2,
-        "column": 10,
+        "column": 12,
+        "include_declaration": true,
     }));
 
     assert_snapshot_changed_without_references_or_scope(&result);
