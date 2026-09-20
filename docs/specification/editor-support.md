@@ -217,7 +217,12 @@ direct-dependency or standard-library module can resolve through a finite,
 acyclic chain of public aliases to an exported public schema in the same
 package. An eligible alias in the standard-library `prelude` module is also
 selectable by its bare name or an explicit `prelude::` qualifier in
-composition, `decode`, and `encode` leaves. For a bare name, a same-named local
+composition, `decode`, and `encode` leaves when `prelude` does not resolve as a
+written import. An exact workspace or package import named `prelude` instead
+selects that import's schema-alias identity across direct, `Repeat`, array,
+`decode`, and `encode` leaves. A collision between exact workspace and package
+imports selects neither identity and does not fall back to the standard
+library, regardless of import order. For a bare name, a same-named local
 schema or schema alias blocks implicit prelude fallback in every leaf. Because
 composition also admits the type namespace, a same-named local type or type
 alias additionally blocks the fallback there, but does not block it in

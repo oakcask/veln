@@ -428,8 +428,14 @@ retained package. The alias identity remains separate from its target and from
 same-spelled aliases in other package origins. An eligible alias in the
 standard-library `prelude` module is also selectable by its bare name in
 composition, `decode`, and `encode` leaves, or by an explicit `prelude::`
-qualifier. For a bare name, a same-named local schema, schema alias, type, or
-type alias blocks implicit prelude fallback in composition. In `decode` and
+qualifier when `prelude` does not resolve as a written import. An exact
+workspace or package import named `prelude` instead selects that import's
+schema-alias identity across direct, `Repeat`, array, `decode`, and `encode`
+leaves. A collision between exact workspace and package imports returns a
+successful empty reference result and does not fall back to the standard
+library, regardless of import order. For a bare name, a same-named local
+schema, schema alias, type, or type alias blocks implicit prelude fallback in
+composition. In `decode` and
 `encode`, a local schema or schema alias blocks fallback while a local type or
 type alias does not. A local declaration does not block the explicit qualifier.
 
