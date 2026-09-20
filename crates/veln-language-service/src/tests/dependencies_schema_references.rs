@@ -1664,14 +1664,16 @@ mod dependencies_schema_references_tests {
             concat!(
                 "use wire from \"std\"\n\n",
                 "schema Host\n",
-                "  count: UInt8\n",
-                "  direct: wire::Top\n",
-                "  repeated: Repeat(count, wire::Top)\n",
-                "  array: [wire::Top; count]\n",
+                "  top: wire::Top\n",
+                "  mid: wire::Mid\n",
+                "  packet: wire::Packet\n",
+                "  sibling: wire::Sibling\n",
                 "end\n\n",
                 "fn read(view: ByteView, packet: {value: Int}) -> ()\n",
                 "  decode wire::Top from view at byte_offset(0)?\n",
-                "  encode wire::Top from packet\n",
+                "  decode wire::Mid from view at byte_offset(0)?\n",
+                "  decode wire::Packet from view at byte_offset(0)?\n",
+                "  decode wire::Sibling from view at byte_offset(0)?\n",
                 "end\n",
             ),
         )])
@@ -1681,26 +1683,26 @@ mod dependencies_schema_references_tests {
                 concat!(
                     "pub schema Packet\n  value: Int\nend\n\n",
                     "pub schema Mid = Packet\npub schema Top = Mid\n",
+                    "pub schema Sibling = Packet\n",
                 ),
             )],
             ["wire.veln"],
         ));
 
-        let expected = [
-            ("main.veln", 5, 17),
-            ("main.veln", 6, 33),
-            ("main.veln", 7, 17),
-            ("main.veln", 11, 16),
-            ("main.veln", 12, 16),
-        ];
-        for (line, column) in [(5, 17), (6, 33), (7, 18), (11, 16), (12, 16)] {
-            let selected = query_snapshot(&snapshot, "main.veln", line, column).unwrap();
-            assert_eq!(selected.selected_symbol.name, "Top");
+        for name in ["Top", "Mid", "Packet", "Sibling"] {
+            let selected = (0..20)
+                .flat_map(|line| (0..32).map(move |column| (line, column)))
+                .find_map(|(line, column)| {
+                    query_snapshot(&snapshot, "main.veln", line, column)
+                        .filter(|result| result.selected_symbol.name == name)
+                })
+                .unwrap_or_else(|| panic!("missing standard-library identity for {name}"));
             assert_eq!(selected.selected_symbol.package_origin, Some(PackageOrigin::StandardLibrary));
-            assert_eq!(locations(&selected.references), expected);
-        }
-        for (line, column) in [(5, 16), (6, 16)] {
-            assert!(query_snapshot(&snapshot, "wire.veln", line, column).is_none());
+            assert_eq!(selected.references.len(), 2, "{name} must keep its own two uses");
+            assert!(selected
+                .references
+                .iter()
+                .all(|span| span.file.as_str() == "main.veln"));
         }
     }
 
@@ -1787,6 +1789,59 @@ mod dependencies_schema_references_tests {
         ])
         .with_standard_library(standard_library);
         assert!(query_snapshot(&collision, "main.veln", 5, 18).is_none());
+    }
+
+    #[test]
+    fn standard_library_schema_alias_import_failures_cover_composition_and_operation_leaves() {
+        let standard_library = standard_library_snapshot(
+            &[
+                (
+                    "alpha/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\npub schema AliasPacket = Packet\n",
+                ),
+                (
+                    "beta/wire.veln",
+                    "pub schema Packet\n  value: Int\nend\npub schema AliasPacket = Packet\n",
+                ),
+            ],
+            ["alpha/wire.veln", "beta/wire.veln"],
+        );
+        let cases = [
+            (
+                "duplicate",
+                "use alpha::wire from \"std\"\nuse alpha::wire from \"std\"\n\n",
+                "wire::AliasPacket",
+            ),
+            (
+                "conflicting",
+                "use alpha::wire from \"std\"\nuse beta::wire from \"std\"\n\n",
+                "wire::AliasPacket",
+            ),
+            ("recovered", "use alpha::wire from \"std\" broken\n\n", "wire::AliasPacket"),
+            (
+                "mismatched",
+                "use alpha::wire from \"std\"\n\n",
+                "beta::wire::AliasPacket",
+            ),
+        ];
+        for (name, imports, selected) in cases {
+            let snapshot = EffectiveProjectSnapshot::new(vec![source(
+                "main.veln",
+                &format!(
+                    "{imports}schema Host\n  nested: {selected}\nend\n\nfn read(view: ByteView) -> ()\n  decode {selected} from view at byte_offset(0)?\nend\n"
+                ),
+            )])
+            .with_standard_library(standard_library.clone());
+            let selections: Vec<_> = (0..16)
+                .flat_map(|line| (0..32).map(move |column| (line, column)))
+                .filter_map(|(line, column)| query_snapshot(&snapshot, "main.veln", line, column))
+                .filter(|result| result.selected_symbol.name == "AliasPacket")
+                .collect();
+            assert!(
+                selections.iter().all(|result| result.references.is_empty()),
+                "{name} import must block both schema leaf roles: {selections:#?}"
+            );
+        }
     }
 
     #[test]
@@ -2155,6 +2210,71 @@ mod dependencies_schema_references_tests {
         let selected = query_snapshot(&exact, "main.veln", 4, 23)
             .expect("an exact standard-library import must beat an implicit collision");
         assert_eq!(locations(&selected.references), [("main.veln", 4, 23)]);
+    }
+
+    #[test]
+    fn standard_library_schema_alias_eligibility_matrix_rejects_target_boundaries() {
+        let cases = [
+            (
+                "private alias",
+                "pub schema Packet\n  value: Int\nend\nschema Alias = Packet\n",
+                ["wire.veln"].as_slice(),
+            ),
+            (
+                "unresolved target",
+                "pub schema Alias = Missing\n",
+                ["wire.veln"].as_slice(),
+            ),
+            (
+                "wrong-kind target",
+                "pub type Wrong\n  Ready(Int)\nend\npub schema Alias = Wrong\n",
+                ["wire.veln"].as_slice(),
+            ),
+            (
+                "private target",
+                "schema Hidden\n  value: Int\nend\npub schema Alias = Hidden\n",
+                ["wire.veln"].as_slice(),
+            ),
+            (
+                "cycle",
+                "pub schema Alias = Other\npub schema Other = Alias\n",
+                ["wire.veln"].as_slice(),
+            ),
+            (
+                "non-exported source",
+                "pub schema Packet\n  value: Int\nend\npub schema Alias = Packet\n",
+                [].as_slice(),
+            ),
+        ];
+
+        for (name, body, exports) in cases {
+            let snapshot = EffectiveProjectSnapshot::new(vec![source(
+                "main.veln",
+                "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Alias from view at byte_offset(0)?\nend\n",
+            )])
+            .with_standard_library(standard_library_snapshot(
+                &[("wire.veln", body)],
+                exports.iter().copied(),
+            ));
+            let result = query_snapshot(&snapshot, "main.veln", 4, 16);
+            assert!(
+                result.as_ref().is_none_or(|selection| selection.references.is_empty()),
+                "{name} must remain a successful empty selection: {result:#?}"
+            );
+        }
+
+        let ambiguous = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            "use wire from \"std\"\n\nfn read(view: ByteView) -> ()\n  decode wire::Alias from view at byte_offset(0)?\nend\n",
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[
+                ("alpha/wire.veln", "pub schema Packet\n  value: Int\nend\npub schema Alias = Packet\n"),
+                ("beta/wire.veln", "pub schema Packet\n  value: Int\nend\npub schema Alias = Packet\n"),
+            ],
+            ["alpha/wire.veln", "beta/wire.veln"],
+        ));
+        assert!(query_snapshot(&ambiguous, "main.veln", 4, 16).is_none());
     }
 
     #[test]
