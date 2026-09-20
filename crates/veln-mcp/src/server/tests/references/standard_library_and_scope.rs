@@ -139,7 +139,7 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
             "use math from \"std\"\n\n",
             "schema Host\n",
             "  count: UInt8\n",
-            "  direct🙂: math::AliasPacket\n",
+            "  direct🙂🙂: math::AliasPacket\n",
             "  repeated: Repeat(count, math::AliasPacket)\n",
             "  array: [math::AliasPacket; count]\n",
             "end\n\n",
@@ -166,7 +166,7 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
     assert_reference_ranges(
         &result,
         &[
-            ("main.veln", 5, 18, 5, 29),
+            ("main.veln", 5, 19, 5, 30),
             ("main.veln", 6, 33, 6, 44),
             ("main.veln", 7, 17, 7, 28),
             ("main.veln", 11, 16, 11, 27),
@@ -180,7 +180,7 @@ fn references_return_standard_library_schema_alias_locations_and_canonical_decla
     let with_declaration = server.references_tool(&json!({
         "source": "main.veln",
         "line": 5,
-        "column": 18,
+        "column": 19,
         "include_declaration": true,
     }));
     assert_package_declaration(

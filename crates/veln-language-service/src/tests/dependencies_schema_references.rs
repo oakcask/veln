@@ -2404,7 +2404,12 @@ mod dependencies_schema_references_tests {
                     .lines()
                     .enumerate()
                     .filter_map(|(line, text)| {
-                        text.find(selected).map(|column| (line + 1, column + 6))
+                        text.find(selected).map(|column| {
+                            let alias_column = selected
+                                .rfind("::")
+                                .map_or(0, |separator| separator + 2);
+                            (line + 1, column + alias_column + 1)
+                        })
                     })
                     .collect();
                 assert_eq!(leaf_positions.len(), 5, "{name} {reverse}");
@@ -2898,12 +2903,12 @@ mod dependencies_schema_references_tests {
                 ));
             for (line, text) in main.lines().enumerate() {
                 if let Some(column) = text.find("wire::Alias") {
-                    let result = query_snapshot(&snapshot, "main.veln", line + 1, column + 6);
+                    let result = query_snapshot(&snapshot, "main.veln", line + 1, column + 7);
                     assert!(
                         result.as_ref().is_none_or(|selection| selection.references.is_empty()),
                         "{name} must remain a successful empty selection at {}:{}: {result:#?}",
                         line + 1,
-                        column + 6
+                        column + 7
                     );
                 }
             }
@@ -2921,11 +2926,11 @@ mod dependencies_schema_references_tests {
         for (line, text) in ambiguous_main.lines().enumerate() {
             if let Some(column) = text.find("wire::Alias") {
                 assert!(
-                    query_snapshot(&ambiguous, "main.veln", line + 1, column + 6)
+                    query_snapshot(&ambiguous, "main.veln", line + 1, column + 7)
                         .is_none_or(|result| result.references.is_empty()),
                     "ambiguous alias must be empty at {}:{}",
                     line + 1,
-                    column + 6
+                    column + 7
                 );
             }
         }
@@ -3001,12 +3006,12 @@ mod dependencies_schema_references_tests {
             };
             for (line, text) in main.lines().enumerate() {
                 if let Some(column) = text.find(&alias_path) {
-                    let result = query_snapshot(&snapshot, "main.veln", line + 1, column + 6);
+                    let result = query_snapshot(&snapshot, "main.veln", line + 1, column + 7);
                     assert!(
                         result.as_ref().is_none_or(|selection| selection.references.is_empty()),
                         "{name} must remain a successful empty selection at {}:{}: {result:#?}",
                         line + 1,
-                        column + 6
+                        column + 7
                     );
                 }
             }
