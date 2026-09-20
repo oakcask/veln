@@ -1,5 +1,5 @@
 use super::references_support::{
-    all_resource_state, assert_reference_ranges,
+    all_resource_state, assert_package_declaration, assert_reference_ranges,
     assert_snapshot_changed_without_references_or_scope, dependency_resource_is_listed,
     references_result, write_workspace_with_dependency_and_sources,
 };
@@ -9,10 +9,12 @@ mod capture_failures;
 mod dependency_constructors_and_aliases;
 mod dependency_functions_and_types;
 mod dependency_schemas;
+mod dependency_types_and_aliases;
 mod local_bindings;
 mod scope_and_symbol_boundaries;
 mod standard_library_and_scope;
 mod unsupported_and_coordinates;
+mod workspace_schemas;
 mod workspace_symbols;
 
 #[test]
@@ -22,6 +24,28 @@ fn references_cursor_transitions_are_server_bound_single_use_and_refresh_aware()
 
     let mut first = initialized_server(&workspace);
     let cursor = first_reference_cursor(&mut first);
+    let invalid_initial = first
+        .handle_request(json!({
+            "jsonrpc": "2.0",
+            "id": "invalid-initial",
+            "method": "tools/call",
+            "params": {
+                "name": "references",
+                "arguments": {
+                    "source": "main.veln",
+                    "line": 6,
+                    "column": 4,
+                    "page_size": 0,
+                    "include_declaration": true
+                }
+            }
+        }))
+        .unwrap();
+    assert_eq!(invalid_initial["error"]["code"], -32602);
+    assert_eq!(
+        invalid_initial["error"]["message"],
+        "Tool input does not match its schema"
+    );
     assert_cursor_authentication_rejections(&workspace, &mut first, &cursor);
     assert_cursor_uses_captured_locations(&workspace, &mut first, &cursor);
     write_recursive_reference_source(&workspace);
@@ -48,7 +72,8 @@ fn write_recursive_reference_source(workspace: &TempWorkspace) {
 
 fn first_reference_cursor(server: &mut Server) -> String {
     server.references_tool(&json!({
-        "source": "main.veln", "line": 6, "column": 4, "page_size": 1
+        "source": "main.veln", "line": 6, "column": 4, "page_size": 1,
+        "include_declaration": true
     }))["structuredContent"]["next_cursor"]
         .as_str()
         .unwrap()
@@ -267,12 +292,14 @@ fn references_server_pages_concatenate_ordered_multi_file_results() {
     write_multi_file_schema_reference_workspace(&workspace);
     let mut server = initialized_server(&workspace);
     let complete = server.references_tool(&json!({
-        "source":"app/wire.veln", "line":1, "column":12, "page_size":1000
+        "source":"app/wire.veln", "line":1, "column":12, "page_size":1000,
+        "include_declaration": true
     }));
     let expected = complete["structuredContent"]["references"].clone();
     let expected_scope = complete["structuredContent"]["scope"].clone();
     let first = server.references_tool(&json!({
-        "source":"app/wire.veln", "line":1, "column":12, "page_size":2
+        "source":"app/wire.veln", "line":1, "column":12, "page_size":3,
+        "include_declaration": true
     }));
     let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
     let second = server.references_tool(&json!({"cursor": cursor}));
@@ -348,7 +375,8 @@ fn failed_refresh_and_invalid_continuation_requests_preserve_live_state() {
     let initial_failure = server.references_tool(&json!({
         "source": "missing.veln",
         "line": 1,
-        "column": 1
+        "column": 1,
+        "include_declaration": true
     }));
     assert_eq!(initial_failure["isError"], true);
     assert_eq!(initial_failure["structuredContent"]["code"], "invalid_path");

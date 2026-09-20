@@ -32,7 +32,7 @@ use capture::{
     CapturedNavigationSource, capture_stable_navigation_source_with, capture_stable_project_with,
     dependency_snapshot_key,
 };
-pub(crate) use capture::{CapturedProject, capture_navigation_source};
+pub(crate) use capture::{CapturedProject, NavigationScope, capture_navigation_source};
 
 const SNAPSHOT_ATTEMPTS: usize = 3;
 

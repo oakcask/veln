@@ -427,7 +427,18 @@ following supported workspace symbols and eligible package selections:
 
 The `references` input is either an initial source-coordinate request or a
 continuation request containing only a non-empty `cursor`. Initial requests
-accept `page_size` from 1 through 1,000 and default it to 100. The result is
+may also set the optional boolean `include_declaration`; omission is
+equivalent to `false`. Initial requests accept `page_size` from 1 through
+1,000 and default it to 100. When `include_declaration` is true, an eligible
+workspace selection adds its one `file:` declaration location, while an
+eligible direct-dependency or standard-library selection in project-wide scope
+adds its canonical `veln-pkg:` declaration location. Single-file scope never
+adds a package declaration. The declaration is added before the normal
+URI-and-range sort and pagination. Package implementation sources, alias
+targets, ineligible aliases and symbols, and unsupported selections remain
+excluded; eligible public aliases remain supported selections. A
+continuation contains only `cursor`, so the captured declaration policy
+cannot change between pages. The result is
 sorted by URI UTF-8 bytes, then numeric start line, start column, end line, and
 end column before paging. A nonfinal page has exactly the requested size and
 contains `next_cursor`; an empty or final page omits that field. Every page
@@ -458,6 +469,19 @@ stdio case checks the advertised schemas, exact ordered multi-file page
 concatenation, repeated scope metadata, a valid cursor round trip, same-cursor
 invalid-shape recovery, replay rejection, and rejected fractional, null, zero,
 and over-maximum page sizes.
+The checked input-schema tests additionally accept a boolean
+`include_declaration` only on an initial request. The focused server reference
+tests cover omission and explicit `false` equivalence, declaration sorting and
+pagination, every supported workspace symbol class, eligible dependency and
+standard-library declarations and aliases, anonymous-file scope, ineligible
+selections, capture failure, cursor invalidation, and resource-capacity
+failure. The `references-workspace-schema`,
+`references-workspace-schema-alias`,
+`references-standard-library-function-alias`, and
+`references-standard-library-type-alias` MCP stdio cases provide exact
+protocol-level declaration locations. The matching workspace-schema-alias LSP
+case checks the adapter-specific declaration policy over the same saved source
+shape.
 
 Workspace schema references include schema path-leaf occurrences in `decode`
 and `encode` expressions and directly resolved schema-composition path leaves
@@ -475,19 +499,24 @@ over a same-spelled implicit leaf alias. Otherwise, an implicit leaf alias
 resolves only when exactly one workspace or package import provides it.
 Conflicting exact imports resolve no schema identity. Duplicate and
 syntax-recovered dependency imports resolve no dependency schema identity. A
-selected workspace schema's set excludes the
-declaration, module qualifiers, package schemas, schema-alias leaves, alias
-traversal, recovery symbols, invalid-casing records, and
+selected workspace schema's set excludes the declaration when
+`include_declaration` is omitted or false. When it is true, the eligible
+workspace schema declaration is included as its `file:` location before
+sorting and pagination. Module qualifiers, package schemas, schema-alias
+leaves, alias traversal, recovery symbols, invalid-casing records, and
 same-spelled functions, types, constructors, values, fields, operations,
-strings, comments, and schema uses that resolve to another declaration.
+strings, comments, and schema uses that resolve to another declaration
+remain excluded.
 
 Eligible workspace public schema aliases have a separate reference identity
 from their target schema and from every other alias. An alias is eligible when
 its direct target resolves to a public schema in the selected workspace; alias
 chains and package targets are not eligible. Selecting the alias declaration
 or a resolved alias leaf returns its `decode`, `encode`, direct-composition,
-and supported repeated-payload leaves without the declaration or alias-target
-expression. A bare alias resolves only in its declaring module. A valid
+and supported repeated-payload leaves without the alias-target expression.
+When `include_declaration` is true, the eligible alias declaration is included
+as its `file:` location before sorting and pagination. A bare alias resolves
+only in its declaring module. A valid
 qualified workspace import can expose the alias in another owned source.
 Ineligible workspace aliases, package alias selections outside the eligible
 direct-dependency composition-and-operation boundary, module qualifiers, and recovery or
@@ -502,13 +531,16 @@ Full written module paths and their valid unique implicit leaf aliases resolve
 to the same identity. Exact dependency imports take precedence; conflicting
 exact dependency imports, duplicate dependency imports, and syntax-recovered
 dependency imports resolve no dependency identity. Results contain
-only workspace `file:` locations and exclude the declaration, package sources,
-aliases and alias targets, import tokens, module qualifiers, comments, and
-strings. A clean or syntax-recovered package schema alias with the selected
-name blocks fallback to a same-spelled package schema. A `Repeat` or array
-payload resolves only when its count is a valid schema count expression;
-another count shape does not select the payload and does not enter its
-reference set.
+only workspace `file:` locations and, when `include_declaration` is omitted or
+false, exclude the declaration, package sources, aliases and alias targets,
+import tokens, module qualifiers, comments, and strings. When
+`include_declaration` is true, the eligible package declaration is added as
+its canonical `veln-pkg:` location before sorting and pagination; package
+sources, aliases, and alias targets remain excluded. A clean or
+syntax-recovered package schema alias with the selected name blocks fallback
+to a same-spelled package schema. A `Repeat` or array payload resolves only
+when its count is a valid schema count expression; another count shape does
+not select the payload and does not enter its reference set.
 The same identity, eligibility, import, leaf-role, and selected-project scope
 rules apply to a public schema in an exported module of the retained standard
 library snapshot. The standard-library package origin remains distinct from
@@ -565,8 +597,10 @@ language-service tests additionally prove that an exact standard-library
 import beats a colliding implicit workspace leaf alias for composition and
 operation selections, while a colliding exact workspace import makes both
 selections ambiguous, independently of source order.
-Standard-library schema aliases remain excluded and block same-named schema
-fallback. Focused language-service and MCP tests also cover
+Ineligible standard-library aliases and aliases with unresolved, wrong-kind, or
+invalid-cased targets remain excluded. Eligible public aliases from retained
+direct dependencies remain supported reference selections and can include
+their canonical declaration location. Focused language-service and MCP tests also cover
 identity, package-source exclusion, scope, source-kind, and stable-capture
 boundaries. The language-service standard-library matrix additionally covers
 full and unique implicit module paths, valid repeated and array counts,
@@ -703,7 +737,8 @@ type-alias right-hand sides, and the type segment used as a constructor
 qualifier, including when a package constructor has the same spelling as its
 owning type. Package constructor results include qualified calls, constructor
 patterns, and accepted bare constructor forms. A package constructor selection
-through a public type alias succeeds but returns an empty `references` array.
+through a public type alias succeeds but returns an empty `references` array,
+including when `include_declaration` is true.
 Supported package type-alias results include type annotations, type arguments,
 return types, type occurrences in type-alias right-hand sides, and the alias
 type segment used as a constructor qualifier. They include occurrences
@@ -713,8 +748,9 @@ separate from the aliased target type's results, including when the alias and
 target type have the same spelling.
 Package reference results include only occurrences in the selected project's
 captured owned sources.
-They exclude the package declaration, package source bodies, other selected
-projects, equal spellings with different package or module identity,
+With `include_declaration` omitted or false, they exclude the package
+declaration. They always exclude package source bodies, other selected projects,
+equal spellings with different package or module identity,
 import-alias declaration segments, type-qualifier segments for constructor
 references, constructor-name segments for type references, values, fields,
 strings, comments, and lexical bindings. Transitive dependencies, private
@@ -731,12 +767,18 @@ with an empty `references` array.
 handler, or effect-operation reference locations.
 
 A selected supported symbol returns sorted canonical `file:` locations for
-reference sites only, excluding the selected declaration, plus scope metadata.
-Package function, type, and constructor references never return `veln-pkg:`
-locations. A valid position without a supported reference symbol succeeds with
-an empty `references` array. Selected manifest sources report project scope
-metadata with `project_wide: true`. Sources outside the selected project-owned
-source set report single-file scope metadata with `project_wide: false`.
+reference sites, excluding the selected declaration when
+`include_declaration` is omitted or false, plus scope metadata. When it is true,
+an eligible direct-dependency or standard-library declaration is included as
+one canonical `veln-pkg:` location; package function, type, and constructor
+reference sites remain workspace `file:` locations. A valid position without a
+supported reference symbol succeeds with an empty `references` array.
+Selected manifest sources report project scope metadata with
+`project_wide: true`. Sources outside the selected project-owned source set
+report single-file scope metadata with `project_wide: false`. In single-file
+scope, declaration inclusion is limited to a workspace declaration in the
+captured source; it never adds a direct-dependency or standard-library
+`veln-pkg:` declaration.
 
 LF and CRLF each end one logical line, and neither CRLF terminator scalar is an
 addressable position. A line containing `N` Unicode scalars accepts columns 1
@@ -840,8 +882,10 @@ schema-invalid coordinates over stdio.
 The `references-workspace-schema` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for `decode` and
 `encode` schema path leaves that resolve to a selected workspace schema,
-preserves project-wide scope, excludes the schema declaration, and excludes a
-same-spelled local schema use that shadows an imported target. It also checks
+preserves project-wide scope, and, when declaration inclusion is omitted,
+excludes the schema declaration and a same-spelled local schema use that
+shadows an imported target. Its declaration-enabled request checks the
+eligible workspace declaration as a `file:` location. It also checks
 that compiler-rejected bare `decode` and `encode` paths in a module that only
 imports the selected schema's module do not appear as references. The same
 case keeps decode and encode module-qualifier selections successful and empty
@@ -884,12 +928,15 @@ standard-library schema alias and requires a successful empty result with
 project-wide scope.
 The `references-dependency-schema-alias` MCP specification case checks
 direct-dependency public schema-alias composition and operation references
-through full written and implicit leaf module paths. It fixes the complete
-exact workspace-only
-union, including every URI and range for direct, `Repeat`, and array
-composition leaves, as well as
-decode/encode selection parity, dependency-and-declaration identity,
-project-wide scope, non-BMP coordinates, and the bare imported-name boundary.
+through full written and implicit leaf module paths. With declaration
+inclusion disabled, it fixes the complete exact workspace-only union,
+including every URI and range for direct, `Repeat`, and array composition
+leaves, as well as decode/encode selection parity, dependency-and-declaration
+identity, project-wide scope, non-BMP coordinates, and the bare imported-name
+boundary. With declaration inclusion enabled, the same union adds only the
+selected eligible alias's canonical `veln-pkg:` declaration before sorting and
+pagination; schema targets, package-source uses, and other ineligible package
+uses remain excluded.
 An ineligible alias selected from a direct field, a valid `Repeat` payload, or
 an array payload returns a successful empty reference set and does not enter
 an eligible alias union.
@@ -913,6 +960,9 @@ function-value occurrence. The same case checks alias and target-function
 identity separation, package and workspace collisions, field exclusion,
 unsupported alias-chain selection, unresolved, wrong-kind, and invalid-casing
 alias targets, project-wide scope, and dependency source resource admission.
+Declaration-disabled results contain only workspace `file:` locations;
+declaration-enabled results also contain the eligible canonical `veln-pkg:`
+alias declaration.
 The `references-dependency-type-alias` MCP specification case checks the same
 result shape for a visible direct-dependency public type alias selected
 through a qualified type occurrence. The same case checks type annotation,
@@ -923,7 +973,9 @@ workspace same-spelling constructor
 qualifier boundary, unsupported private, alias-chain, wrong-kind, and
 invalid-casing alias selections, project isolation, project-wide scope, and
 dependency source resource admission. Its reference assertions bind every
-returned range to the source workspace file URI.
+returned range to the source workspace file URI. Declaration-disabled results
+contain only workspace `file:` locations; declaration-enabled results also
+contain the eligible canonical `veln-pkg:` alias declaration.
 The `references-dependency-type-alias-identity-boundaries` MCP specification
 case checks that a multi-segment written module path and its implicit leaf
 import alias select the same public type-alias identity, that alias and target
@@ -953,12 +1005,18 @@ the same successful result shape for the shipped `std::prelude`
 function-value occurrences, and `prelude::`-qualified calls. It also checks
 unsupported alias-chain selection plus unresolved, wrong-kind, and
 invalid-casing alias targets.
+Declaration-disabled results contain only workspace `file:` locations;
+declaration-enabled results also contain the eligible canonical `veln-pkg:`
+alias declaration.
 The `references-standard-library-type-alias` MCP specification case checks
 the same successful result shape for the shipped `std::prelude` `ByteCount`
 alias selected through bare and `prelude::`-qualified type occurrences,
 including alias-bound constructor qualifier type segments. Its reference
 assertions bind every returned range to the source workspace file URI and
 exclude same-spelled record fields, strings, comments, and field selections.
+Declaration-disabled results contain only workspace `file:` locations;
+declaration-enabled results also contain the eligible canonical `veln-pkg:`
+alias declaration.
 The `references-package-type` MCP specification case checks that a saved
 selected project returns only workspace `file:` locations for a visible
 direct-dependency type and a visible exported standard-library type, includes
@@ -979,7 +1037,8 @@ keeps unsupported import-alias segment selection successful and empty, and
 keeps an ambiguous module-qualified package constructor leaf successful and
 empty. The same case checks that an alias-qualified constructor call can be
 used as a definition position while remaining outside package constructor
-reference results.
+reference results. Focused MCP tests keep that alias-route result empty when
+declaration inclusion is enabled.
 Language service and MCP server package constructor-reference tests check
 package identity, standard-library prelude identity, qualification, collision
 exclusion, module-qualified constructor-leaf ambiguity, type-qualified

@@ -1,5 +1,5 @@
 use super::references_support::{
-    all_resource_state, assert_reference_ranges,
+    all_resource_state, assert_package_declaration, assert_reference_ranges,
     assert_snapshot_changed_without_references_or_scope, dependency_resource_is_listed,
 };
 use super::*;
@@ -11,6 +11,16 @@ fn install_alias_standard_library(server: &mut Server, source: &str) {
     server.language_resources.replace_test_standard_library(
         "[package]\nname = \"std\"\n\n[lib]\nexports = [\"math.veln\"]\n",
         [PackageSnapshotSource::new("math.veln", source.as_bytes())],
+    );
+}
+
+fn install_prelude_alias_standard_library(server: &mut Server, source: &str) {
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            source.as_bytes(),
+        )],
     );
 }
 
@@ -81,6 +91,67 @@ fn references_return_standard_library_function_alias_locations() {
             ("main.veln", 9, 18, 9, 25),
         ],
         "standard library function alias",
+    );
+
+    let with_declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":9, "include_declaration":true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/math.veln",
+        5,
+        8,
+        5,
+        15,
+        "standard library function alias declaration inclusion",
+    );
+}
+
+#[test]
+fn references_exclude_standard_library_declarations_from_anonymous_sources() {
+    let workspace = TempWorkspace::new("references-anonymous-standard-library-alias");
+    workspace.write("app/veln.toml", "");
+    workspace.write("app/main.veln", "fn selected() -> Int\n  1\nend\n");
+    workspace.write(
+        "loose.veln",
+        "fn selected(value: Int) -> Int\n  byte_chunk_len(value)\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    install_prelude_alias_standard_library(
+        &mut server,
+        "pub fn target(value: Int) -> Int\n  value\nend\n\npub fn byte_chunk_len = target\n",
+    );
+
+    let result = server.references_tool(&json!({
+        "source": "loose.veln",
+        "line": 2,
+        "column": 3,
+        "include_declaration": true
+    }));
+
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(
+        result["structuredContent"]["scope"],
+        json!({
+            "mode": "single_file",
+            "generation": 0,
+            "project": ".",
+            "source": "loose.veln",
+            "project_wide": false
+        })
+    );
+    assert_reference_ranges(
+        &result,
+        &[("loose.veln", 2, 3, 2, 17)],
+        "anonymous standard-library alias references",
+    );
+    assert!(
+        result["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|location| !location["uri"].as_str().unwrap().starts_with("veln-pkg:")),
+        "{result:#}"
     );
 }
 
@@ -196,7 +267,9 @@ fn references_keep_invalid_standard_library_function_alias_targets_empty() {
         ("wrong-kind target", 5),
         ("invalid-casing target", 6),
     ] {
-        let result = server.references_tool(&json!({"source":"main.veln","line":line,"column":9}));
+        let result = server.references_tool(
+            &json!({"source":"main.veln","line":line,"column":9,"include_declaration":true}),
+        );
         assert_eq!(result["isError"], false, "{case}: {result:#}");
         assert_eq!(
             result["structuredContent"]["references"],
@@ -304,6 +377,19 @@ fn references_return_standard_library_type_alias_locations() {
         reference["uri"].as_str().unwrap().starts_with("file://")
             && !reference["uri"].as_str().unwrap().contains("veln-pkg:")
     }));
+
+    let with_declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":5, "column":25, "include_declaration":true
+    }));
+    assert_package_declaration(
+        &with_declaration,
+        "/facade.veln",
+        3,
+        10,
+        3,
+        15,
+        "standard library type alias declaration inclusion",
+    );
 }
 
 #[test]
@@ -465,8 +551,9 @@ fn references_keep_invalid_standard_library_type_alias_targets_empty() {
         ("wrong-kind target", 39),
         ("alias-chain target", 57),
     ] {
-        let result =
-            server.references_tool(&json!({"source":"main.veln","line":1,"column":column}));
+        let result = server.references_tool(
+            &json!({"source":"main.veln","line":1,"column":column,"include_declaration":true}),
+        );
         assert_eq!(result["isError"], false, "{case}: {result:#}");
         assert_eq!(
             result["structuredContent"]["references"],

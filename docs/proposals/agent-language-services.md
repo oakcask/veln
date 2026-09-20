@@ -26,12 +26,6 @@ Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
 
-[MCP Reference Declaration Inclusion](mcp-reference-declaration-inclusion.md)
-owns the independently selectable declaration-inclusion slice. Its acceptance
-table and completion boundary take precedence over this inventory for that
-slice. Broader navigation coverage and cross-adapter conformance do not block
-it.
-
 ## Remaining acceptance model
 
 The following rows are the umbrella's remaining planning contract. They are

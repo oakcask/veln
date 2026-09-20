@@ -81,7 +81,9 @@ fn each_successful_saved_project_tool_admits_dependency_resources() {
         Case {
             name: "references",
             call: |server| {
-                server.references_tool(&json!({"source":"main.veln","line":4,"column":8}))
+                server.references_tool(&json!({
+                    "source":"main.veln","line":4,"column":8,"include_declaration":true
+                }))
             },
         },
     ];
@@ -466,7 +468,8 @@ fn references_capacity_failure_preserves_a_prior_live_cursor() {
     );
     let mut server = initialized_server_with_embedded_resources(&workspace);
     let first = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":8, "page_size":1
+        "source":"main.veln", "line":4, "column":8, "page_size":1,
+        "include_declaration": true
     }));
     let cursor = first["structuredContent"]["next_cursor"]
         .as_str()
@@ -492,7 +495,7 @@ fn fill_dependency_resource_capacity(server: &mut Server) {
 
 fn assert_reference_capacity_failure(server: &mut Server) {
     let initial_failure = server.references_tool(&json!({
-        "source":"main.veln", "line":4, "column":8
+        "source":"main.veln", "line":4, "column":8, "include_declaration": true
     }));
     assert_eq!(initial_failure["isError"], true);
     assert_eq!(

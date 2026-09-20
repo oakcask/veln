@@ -37,6 +37,20 @@ impl IndexedDependencies {
 }
 
 impl SymbolIndex {
+    pub(crate) fn workspace_schema_alias_is_eligible(
+        &self,
+        module: &str,
+        name: &str,
+        declaration: &NavigationLocation,
+    ) -> bool {
+        self.schema_aliases.iter().any(|candidate| {
+            candidate.package.is_none()
+                && candidate.module == module
+                && candidate.name == name
+                && candidate.declaration == *declaration
+        })
+    }
+
     pub(crate) fn new(
         sources: Vec<SourceFile>,
         direct_dependencies: &IndexedDependencies,

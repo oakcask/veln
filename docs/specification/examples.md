@@ -315,9 +315,19 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
 - MCP saved workspace `references` for embedded standard-library prelude
   functions:
   `../../examples/specification/mcp/references-standard-library-function/`.
+- MCP saved workspace `references` declaration inclusion for embedded
+  standard-library public function aliases, with the exact canonical package
+  declaration URI and range:
+  `../../examples/specification/mcp/references-standard-library-function-alias/`.
 - MCP saved workspace `references` for embedded standard-library public type
-  aliases:
+  aliases, including the exact canonical package declaration URI and range
+  when declaration inclusion is enabled:
   `../../examples/specification/mcp/references-standard-library-type-alias/`.
+- MCP saved workspace schema and schema-alias declaration inclusion, plus the
+  matching LSP schema-alias declaration policy over the same saved sources:
+  `../../examples/specification/mcp/references-workspace-schema/`,
+  `../../examples/specification/mcp/references-workspace-schema-alias/`, and
+  `../../examples/specification/lsp/references-workspace-schema-alias/`.
 - MCP saved workspace `references` for visible direct-dependency functions:
   `../../examples/specification/mcp/references-dependency-function/`.
 - MCP and LSP saved workspace `references` for direct-dependency public schema
@@ -331,8 +341,11 @@ feeds to the CLI, including LSP JSON-RPC stdin streams.
   public schema-alias composition, `decode`, and `encode` leaves:
   `../../examples/specification/mcp/references-dependency-schema-alias/` and
   `../../examples/specification/lsp/references-dependency-schema-alias/`. The
-  paired cases resolve a qualified schema-alias target exported from another
-  module through an implicit leaf import shared by retained package sources
+  MCP case checks the declaration-disabled workspace-only union and the
+  declaration-enabled addition of only the selected alias's canonical
+  `veln-pkg:` declaration; both cases preserve package-source and schema-target
+  exclusion. The paired cases resolve a qualified schema-alias target exported
+  from another module through an implicit leaf import shared by retained package sources
   with the alias's explicit module identity, keep schema-target lookup isolated
   from a same-spelled type declaration, exclude a workspace type with the
   alias spelling, include the exact dependency-alias composition union from

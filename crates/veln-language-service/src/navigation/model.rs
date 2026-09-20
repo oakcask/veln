@@ -174,6 +174,7 @@ pub struct NavigationResult {
     pub classified_path_segment: Option<QualifiedPathSegment>,
     pub definition: NavigationLocation,
     pub references: Vec<SourceSpan>,
+    pub reference_eligible: bool,
     pub is_recovery: bool,
 }
 
@@ -280,6 +281,7 @@ fn navigate_in_index(
         classified_path_segment: request.classified_path_segment,
         definition,
         references,
+        reference_eligible: request.symbol.reference_eligible(&request.index),
         is_recovery: request.symbol.is_recovery(),
     })
 }
@@ -297,6 +299,19 @@ pub fn definition_at(
 }
 
 impl Symbol {
+    fn reference_eligible(&self, index: &SymbolIndex) -> bool {
+        match self {
+            Self::SchemaAlias(symbol) if symbol.package.is_none() => {
+                index.workspace_schema_alias_is_eligible(
+                    &symbol.module,
+                    &symbol.name,
+                    &symbol.declaration,
+                )
+            }
+            _ => true,
+        }
+    }
+
     fn definition_supported(&self, index: &SymbolIndex) -> bool {
         match self {
             Self::SchemaAlias(_) => false,

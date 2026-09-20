@@ -23,7 +23,12 @@ fn references_project_capture_exhausts_retries_after_owned_source_changes() {
         rewrite_owned_sources(&root, attempt);
     });
 
-    let result = server.references_tool(&json!({"source":"main.veln","line":2,"column":4}));
+    let result = server.references_tool(&json!({
+        "source":"main.veln",
+        "line":2,
+        "column":4,
+        "include_declaration":true
+    }));
 
     assert_snapshot_changed_without_references_or_scope(&result);
     assert_eq!(attempts.get(), 3);

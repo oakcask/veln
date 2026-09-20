@@ -8,7 +8,17 @@ format = "empty"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references"
-length = 7
+length = 8
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/7/range"
+equals = {"start":{"line":13,"column":12},"end":{"line":13,"column":22}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/7/uri"
+equals = "veln-pkg:///example%2Fdep/snapshot/4bd8dbc98493b6921bef63b4cd8f61a409198f616922412fdf1fca99595d7aaf/lib/wire.veln"
 
 [[mcp_assert]]
 id = 2

@@ -9,7 +9,8 @@
         "source": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 },
         "column": { "type": "integer", "minimum": 1 },
-        "page_size": { "type": "integer", "minimum": 1, "maximum": 1000 }
+        "page_size": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "include_declaration": { "type": "boolean" }
       },
       "required": ["source", "line", "column"]
     },

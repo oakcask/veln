@@ -8,6 +8,7 @@
   {"jsonrpc":"2.0","id":7,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":15,"character":32},"context":{"includeDeclaration":false}}},
   {"jsonrpc":"2.0","id":8,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":16,"character":23},"context":{"includeDeclaration":false}}},
   {"jsonrpc":"2.0","id":9,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":4,"character":32},"context":{"includeDeclaration":false}}},
+  {"jsonrpc":"2.0","id":20,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"aliases.veln"}},"position":{"line":3,"character":12},"context":{"includeDeclaration":true}}},
   {"jsonrpc":"2.0","id":10,"method":"shutdown","params":null},
   {"jsonrpc":"2.0","method":"exit","params":null}
 ]
