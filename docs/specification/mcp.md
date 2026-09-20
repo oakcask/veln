@@ -28,8 +28,8 @@ and the two analysis metadata shapes. Schema failures, unknown input fields,
 invalid-params error. The `definition` input requires one source plus positive
 JSON integer line and column coordinates. An initial `references` input uses
 the same coordinate contract; a continuation uses only its cursor. The
-`rename` input requires the same source and coordinate fields plus a `new_name`
-string containing from 1 through 256 Unicode scalars.
+`rename` input requires the same source and coordinate fields plus a non-empty
+`new_name` string.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -404,13 +404,11 @@ declaration. Definition exposes a recovery record's source range only, and
 ### Rename
 
 `rename` computes edits for one saved workspace symbol. It does not apply the
-edits. The replacement contains at most 256 Unicode scalars and is one ASCII
-identifier: its first character is an
+edits. The replacement is one ASCII identifier: its first character is an
 ASCII letter or `_`, and each remaining character is an ASCII letter, digit,
-or `_`. Reserved words pass this lexical check. A name outside the 1 through
-256 scalar input boundary fails with JSON-RPC invalid params. An in-bound name
-that fails the identifier rule returns `rename.invalid_name` with exactly
-`details: {requested_name}`. An empty name is rejected by the input schema.
+or `_`. Reserved words pass this lexical check. A malformed non-empty name
+returns `rename.invalid_name` with exactly `details: {requested_name}`. An
+empty name is rejected by the input schema.
 
 The supported symbol set contains workspace types, type aliases,
 constructors, functions, function aliases, test declarations, exact-companion

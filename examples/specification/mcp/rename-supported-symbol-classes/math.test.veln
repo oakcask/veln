@@ -1,0 +1,5 @@
+use math
+
+test companion() -> Int
+  math::increment(1)
+end
