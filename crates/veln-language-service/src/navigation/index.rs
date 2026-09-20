@@ -103,6 +103,7 @@ impl SymbolIndex {
         );
         schema_composition_references.extend(package_schema_composition_references(
             &files,
+            &declarations.schemas,
             &package_schemas,
             &schema_aliases,
             &schema_alias_module_imports,

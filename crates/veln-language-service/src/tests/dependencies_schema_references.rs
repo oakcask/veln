@@ -1600,6 +1600,36 @@ mod dependencies_schema_references_tests {
     }
 
     #[test]
+    fn local_schema_shadows_bare_standard_library_prelude_alias() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "pub schema AliasPacket\n",
+                "  value: Int\n",
+                "end\n\n",
+                "schema Host\n",
+                "  nested: AliasPacket\n",
+                "end\n\n",
+                "fn read(view: ByteView) -> ()\n",
+                "  decode AliasPacket from view at byte_offset(0)?\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+            &[(
+                "prelude.veln",
+                "pub schema Packet\n  value: Bool\nend\n\npub schema AliasPacket = Packet\n",
+            )],
+            ["prelude.veln"],
+        ));
+
+        let selected = query_snapshot(&snapshot, "main.veln", 10, 10).unwrap();
+        assert_eq!(selected.selected_symbol.name, "AliasPacket");
+        assert_eq!(selected.selected_symbol.package_origin, None);
+        assert_eq!(locations(&selected.references), [("main.veln", 6, 11), ("main.veln", 10, 10)]);
+    }
+
+    #[test]
     fn standard_library_schema_exact_import_precedes_workspace_alias_in_either_source_order() {
         for workspace_import_first in [true, false] {
             let workspace_import = source(

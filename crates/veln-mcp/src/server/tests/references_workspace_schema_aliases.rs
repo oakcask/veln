@@ -569,6 +569,14 @@ fn references_paginate_bare_standard_library_schema_aliases_stably() {
         )],
     );
 
+    let unpaged = server.references_tool(&json!({
+        "source": "main.veln",
+        "line": 2,
+        "column": 12,
+        "include_declaration": true
+    }));
+    assert_eq!(unpaged["isError"], false, "{unpaged:#}");
+
     let first = server.references_tool(&json!({
         "source": "main.veln",
         "line": 2,
@@ -594,6 +602,18 @@ fn references_paginate_bare_standard_library_schema_aliases_stably() {
         .as_array()
         .expect("continuation references");
     assert_eq!(second_references.len(), 2, "{second:#}");
+    let mut paged_references = first["structuredContent"]["references"]
+        .as_array()
+        .expect("first-page references")
+        .clone();
+    paged_references.extend(second_references.iter().cloned());
+    assert_eq!(
+        paged_references,
+        unpaged["structuredContent"]["references"]
+            .as_array()
+            .expect("unpaged references")
+            .clone()
+    );
     assert!(
         second_references[0]["uri"]
             .as_str()

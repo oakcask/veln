@@ -27,8 +27,7 @@ also states it.
 - The agent-language-services umbrella remains a planning inventory only for
   the unimplemented transitive-dependency, recovery, casing-neutral,
   cross-adapter conformance, agent-skill, conformance-gate, and plugin work. Do
-  not select the umbrella directly. Its independently ready standard-library
-  schema-alias slice is listed above.
+  not select the umbrella directly.
 
 ## Selection Rule
 

@@ -7,6 +7,11 @@ impl SymbolIndex {
         name: &str,
     ) -> bool {
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            if self.schemas.iter().any(|symbol| {
+                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+            }) {
+                return false;
+            }
             return self.schema_alias_declarations.iter().any(|symbol| {
                 symbol.name == name
                     && ((symbol.package.is_none() && symbol.module == file.module)
@@ -55,13 +60,21 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<NeutralSymbol> {
+        if let Some(alias) = self.schema_aliases.iter().find(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        }) {
+            return Some(alias.clone());
+        }
+        // The standard-library prelude is a fallback. A same-named workspace
+        // schema must remain visible instead of being replaced by the prelude alias.
+        if self.schemas.iter().any(|symbol| {
+            symbol.name == name && symbol.module == file.module && symbol.package.is_none()
+        }) {
+            return None;
+        }
         self.schema_aliases
             .iter()
-            .find(|symbol| {
-                symbol.name == name
-                    && ((symbol.module == file.module && symbol.package.is_none())
-                        || symbol.standard_prelude)
-            })
+            .find(|symbol| symbol.name == name && symbol.standard_prelude)
             .cloned()
     }
 
