@@ -70,6 +70,9 @@ pub(super) fn static_boolean_value_inner(
     if let Some(value) = static_boolean_top_level_tautology_value(predicate, options) {
         return value;
     }
+    if is_oversized_partial_case_split_ladder(predicate) {
+        return StaticBooleanValue::Unknown;
+    }
     if let Some(value) = static_boolean_or_value(predicate, options) {
         return value;
     }

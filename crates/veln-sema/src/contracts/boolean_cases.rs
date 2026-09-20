@@ -336,6 +336,64 @@ pub(super) fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
     )
 }
 
+pub(super) fn is_oversized_partial_case_split_ladder(predicate: &str) -> bool {
+    let outer_clauses = flattened_keyword_clauses(predicate, "or");
+    let Some((final_clause, decision_clauses)) = outer_clauses.split_last() else {
+        return false;
+    };
+    if decision_clauses.len() <= MAX_STATIC_BOOLEAN_ATOMS {
+        return false;
+    }
+
+    let Some(bases) = partial_case_split_ladder_bases(decision_clauses) else {
+        return false;
+    };
+    let final_conjuncts = non_static_conjuncts(final_clause);
+    clause_negates_bases(&final_conjuncts, &bases)
+}
+
+fn partial_case_split_ladder_bases<'a>(decision_clauses: &[&'a str]) -> Option<Vec<&'a str>> {
+    let mut bases = Vec::with_capacity(decision_clauses.len());
+    for decision_clause in decision_clauses {
+        let conjuncts = non_static_conjuncts(decision_clause);
+        let candidate = partial_case_split_ladder_candidate(&conjuncts, &bases)?;
+        bases.push(candidate);
+    }
+    Some(bases)
+}
+
+fn partial_case_split_ladder_candidate<'a>(
+    conjuncts: &[&'a str],
+    bases: &[&str],
+) -> Option<&'a str> {
+    if conjuncts.len() != bases.len() + 1 || !clause_negates_bases(&conjuncts[..bases.len()], bases)
+    {
+        return None;
+    }
+    let candidate = conjuncts[bases.len()];
+    if !is_single_boolean_atom(candidate)
+        || bases
+            .iter()
+            .any(|base| predicate_polarity_against(candidate, base).is_some())
+    {
+        return None;
+    }
+    Some(candidate)
+}
+
+fn clause_negates_bases(conjuncts: &[&str], bases: &[&str]) -> bool {
+    conjuncts.len() == bases.len()
+        && conjuncts
+            .iter()
+            .zip(bases)
+            .all(|(conjunct, base)| predicate_polarity_against(conjunct, base) == Some(false))
+}
+
+fn is_single_boolean_atom(predicate: &str) -> bool {
+    let mut atoms = Vec::new();
+    collect_boolean_formula_atoms(predicate, &mut atoms).is_some() && atoms.len() == 1
+}
+
 #[derive(Clone, Copy)]
 enum AssignmentPolarity {
     Matching,
