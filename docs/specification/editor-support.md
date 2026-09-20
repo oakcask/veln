@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln lsp` semantic-token, publish-diagnostic, navigation, formatting, rename, virtual-document, VSCode integration, or executable LSP evidence contract changes.
+update-when: The `veln lsp` semantic-token, publish-diagnostic, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
 ---
 
 # Editor Support
@@ -226,10 +226,12 @@ and rename support do not expand to schema aliases.
 For both adapters, an eligible workspace declaration is included when the
 request enables declaration inclusion and is excluded when it does not. LSP
 uses `includeDeclaration` and always excludes package declarations. MCP uses
-`include_declaration` over the same shared navigation result and additionally
-includes the canonical `veln-pkg:` declaration for an eligible direct
-dependency or standard-library selection. This adapter difference does not
-change the shared symbol identity or workspace reference set.
+`include_declaration` over the same shared navigation result. In project-wide
+scope, it additionally includes the canonical `veln-pkg:` declaration for an
+eligible direct-dependency or standard-library selection. In single-file
+scope, it can include only a workspace declaration in the captured source.
+This adapter difference does not change the shared symbol identity or
+workspace reference set.
 
 Same-module bare schema and alias paths can resolve to their selected identity.
 Imported-module uses must be named by an accepted qualified path. Schema
@@ -638,9 +640,10 @@ immutable locations:
 returns no package locations for dependency or standard-library declarations
 in this slice. Supported direct-dependency and standard-library public
 function aliases return selected-project workspace `file:` locations for LSP
-references. MCP returns those same workspace locations and, when
-`include_declaration` is true, also includes the eligible canonical
-`veln-pkg:` declaration. Supported direct-dependency and standard-library
+references. For a project-wide request, MCP returns those same workspace
+locations and, when `include_declaration` is true, also includes the eligible
+canonical `veln-pkg:` declaration. A single-file MCP request does not include
+that package declaration. Supported direct-dependency and standard-library
 public type aliases follow the same LSP and MCP declaration policy.
 Unsupported schema-alias origins or scopes, public function aliases with unresolved,
 non-function, or invalid-cased targets, and public type aliases with
