@@ -9,8 +9,9 @@ update-when: The language-reference catalog schema, checked artifact, digest tra
 The language-reference catalog is a checked, transport-independent schema-v1
 JSON artifact generated from implemented Veln authorities. The MCP server
 publishes deterministic Markdown resources rendered from this checked
-artifact. Documentation search, pagination, and plugin packaging remain
-outside the current behavior.
+artifact. MCP documentation search uses the checked catalog as specified by
+[MCP Workspace Projects, Resources, And Navigation](mcp.md#documentation-tools).
+Search pagination and plugin packaging remain outside the current behavior.
 
 ## Current Contract
 
