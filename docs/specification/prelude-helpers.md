@@ -1,10 +1,26 @@
 ---
 role: specification
 authority: normative
-update-when: The compiler-known descriptor table, prelude helper surface, or executable prelude-helper evidence changes.
+update-when: The compiler-known descriptor table, prelude helper surface, or helper behavior changes.
+specification-coverage: usage=#representative-usage; behavior=#value-semantics; limits=#diagnostics-and-limits
 ---
 
 # Prelude Helpers
+
+## Representative usage
+
+The following API signature excerpt names ordinary source functions exposed by
+the standard package; it is descriptive and not a standalone declaration:
+
+```veln
+pub fn byte(value: Int) -> Result<Byte, String>
+pub fn byte_chunk(bytes: Vec<Byte>) -> ByteChunk
+pub fn byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
+pub fn byte_view_to_chunk(view: ByteView) -> ByteChunk
+```
+
+`byte` rejects values outside `0..=255`; view constructors return `Err` for an
+invalid range.
 
 This page specifies compiler-known descriptor metadata and prelude helper behavior.
 
@@ -143,6 +159,9 @@ bytes with the byte-view helper functions; the runtime does not expose a
 source-visible borrow lifetime or zero-copy layout guarantee.
 
 ### Helper Signatures
+
+The following catalog is an API signature reference. Individual lines omit
+function bodies and are not standalone source declarations.
 
 ```veln
 byte(value: Int) -> Result<Byte, String>
@@ -284,9 +303,7 @@ functions that call those expressions.
 `byte_chunk_count` and `byte_view_count`. The aliases preserve the target
 parameter type, `ByteCount` result type, and returned value. Bare calls,
 `prelude::`-qualified calls, and function-value uses resolve with the ordinary
-public function-alias rules. The executable prelude-helper case under
-`examples/specification/run/prelude-helpers/` covers empty and non-empty
-`ByteChunk` and `ByteView` inputs for both aliases and target functions.
+public function-alias rules.
 
 ### Value Semantics
 
@@ -362,10 +379,7 @@ Schema-facing byte conversions are ordinary source-visible helper calls, not
 implicit schema coercions: source code uses `byte_view` when schema input or
 payload fields need bounded `ByteView` values over owned bytes, and
 `byte_view_to_chunk` when schema-decoded bounded bytes must be materialized as
-an owned `ByteChunk`. The checked cases
-`../../examples/specification/run/binary-schema-byte-conversion-boundary/` and
-`../../examples/specification/run/binary-schema-byte-conversion-range-json/`
-cover the successful boundary and the requested-range failure.
+an owned `ByteChunk`.
 `byte_view_count(view)` and `byte_view_len(view)` return the view length as
 `ByteCount`.
 `byte_view_take(view, count)`, `byte_view_drop(view, count)`, and
@@ -462,7 +476,7 @@ length names an earlier visible exact-width field,
 `ByteView(left_length - right_length)` fields whose operands both name earlier
 visible exact-width fields, closed dispatch fields, or extension-tolerant
 dispatch fields with earlier visible exact-width tag and length fields. Dispatch
-payload cases may be exact-width visible primitive payloads, including
+payload forms may be exact-width visible primitive payloads, including
 lowercase `uint...` spelling, or eligible nested binary schema
 payloads named as earlier same-module binary schemas or public imported binary
 schemas through written `use` paths. Those helpers
@@ -494,7 +508,7 @@ omit every reserved field and write visible and declared reserved values in
 declaration order in the shared storage unit. The closed
 dispatch encode layout selects the payload width from the earlier visible tag
 field and reports `schema.dispatch_unknown_tag` when no
-case matches. The extension dispatch encode layout writes `Known` selected
+tag matches. The extension dispatch encode layout writes `Known` selected
 payloads, preserves matching unknown raw payload bytes, reports
 `schema.dispatch_mismatch` for tag or variant disagreements, and reports
 `schema.dispatch_length_mismatch` when the explicit length field differs from
@@ -686,7 +700,7 @@ host vec size directly. The vec traversal helpers use
 `prelude_builtin::vec_fold`, and vec append support uses
 `prelude_builtin::vec_push`; their step helpers are implementation details, and
 this source placement does not expose or stabilize a public vec
-representation. Byte hex fixture decoding and byte slice helpers delegate
+representation. Byte hex decoding and byte slice helpers delegate
 through `prelude_builtin::byte_chunk_from_hex`,
 `prelude_builtin::byte_chunk_to_visible_ascii_string`,
 `prelude_builtin::byte_take`, and `prelude_builtin::byte_drop` because text
@@ -712,7 +726,7 @@ The private `std::compiler_support` module contains
 not a prelude export and receives the same-package implicit prelude import. It
 exercises Veln source checking and JVM execution through `fs::read_to_string`.
 
-### Diagnostics And Tests
+### Diagnostics And Limits
 
 When `vec_map` receives a callback whose return type is `Result`, the checker
 reports the ordinary callback type mismatch and adds a repair hint to use
@@ -721,6 +735,13 @@ reports the ordinary callback type mismatch and adds a repair hint to use
 The language specification does not promise asymptotic complexity, allocation
 counts, representation identity, structural sharing, hashing, or tree-balancing
 behavior for these helpers. Those are implementation details until a concrete
-container representation is specified. Tests should assert value semantics,
+container representation is specified. Consumers should rely on value semantics,
 source-order traversal, `Result` short-circuiting, diagnostics, and effect
 behavior rather than timings or allocation counts.
+
+## References
+
+- Embedded helper declarations: `crates/veln-stdlib/veln/prelude.veln` and
+  `crates/veln-stdlib/veln/bytes.veln`.
+- Descriptor and lookup metadata: `crates/veln-sema/src/standard_symbols/` and
+  `crates/veln-sema/src/source_less_lookup.rs`.

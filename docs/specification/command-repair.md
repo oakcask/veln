@@ -2,39 +2,52 @@
 role: specification
 authority: normative
 update-when: The veln repair command preview, apply, confirmation, verification, rollback, or JSON behavior changes.
+specification-coverage: usage=#repair-command; behavior=#apply-boundary; limits=#limits-and-errors
 ---
 
 # Repair Command
 
-`repair` uses the same source discovery and static analysis path as `check` to
-collect advisory hole repair candidates. Without `--apply`, the command is a
-preview: it prints command-level repair candidates and writes no source files.
-`--dry-run` is an explicit spelling of that default preview mode.
+Use `veln repair [PATH ...]` to collect advisory hole-repair candidates.
+The default mode and explicit `--dry-run` are previews; neither writes source
+files. Use `--json` for the machine record in [repair-json.md](repair-json.md).
 
-Candidate input is recomputed from the current source files unless one or more
-`*.json` inputs are present. A JSON input is treated as saved repair candidate
-input, not as a source file. Saved input may be a `repair --json` envelope, a
-command-level candidate object or array, a `check --json` envelope, or an
-advisory candidate object or array. Current-analysis candidate filtering is
-specified in [repair-candidates.md](repair-candidates.md) and projected into
-[repair-json.md](repair-json.md). Command-level candidate ids use the form
-`repair-N` and are assigned for the current invocation. The original advisory
-candidate id from diagnostic details is also preserved as
-`source_candidate_id`. `--candidate` may name either id, or a saved
-command-level id from a saved repair candidate, but application refuses
-ambiguous ids.
+## Candidate input and selection
 
-Application is deliberately narrow. `--apply` applies exactly one selected
-candidate; saved candidate input remains advisory rather than write
-authorization. Selection, safe application, confirmation, override, target
-validation, partial-application non-support, post-edit verification, and
-rollback are specified in
-[repair-application.md](repair-application.md).
+Candidates are recomputed from current source unless an input path ends in
+`.json`. A JSON input may be a repair envelope, command-level candidate,
+candidate array, `check --json` envelope, or advisory candidate object/array.
+Saved candidates remain advisory. Current candidates whose target source has a
+source-path-derived `name.invalid_case` are excluded. Current command ids are
+`repair-N`; the preserved advisory id is `source_candidate_id`.
 
-Human preview output lists candidate ids, summaries, a representative target
-span, replacement, and application policy. Human apply output reports the
-applied candidate and verification result. Human refusal output starts with
-`repair refused:` followed by the failed gate.
+Use `--candidate ID` to select a command-local, advisory, or accepted saved
+command-level id. A missing or ambiguous id refuses. Without an id, apply mode
+requires exactly one safe unapplied candidate.
 
-With `--json`, `repair` emits the repair JSON record described in
-[repair-json.md](repair-json.md).
+## Apply boundary
+
+Use `--apply` to apply exactly one candidate. Safe application requires
+`application_policy: "safe_repair_candidate"` and
+`application_status: "unapplied"`. Use `--confirm ID` to record explicit
+confirmation. `--override` requires `--confirm` and permits a
+`manual_review_required` candidate, but does not bypass target, overlap,
+freshness, or verification checks. Partial application is unsupported.
+
+After writing, the command reruns check analysis over the selected inputs. Any
+error diagnostic restores every written file and fails. Hint-only status and
+remaining unrelated holes do not roll back a successful edit. Refusals do not
+write files.
+
+## Limits and errors
+
+Saved JSON never authorizes a write by itself. Targets must remain
+source-relative, in bounds, on character boundaries, and non-overlapping;
+non-empty targets must still name holes. Explicit empty replacements are only
+current `satisfy` suffix removals. A single hole replacement also replaces
+that hole's suffix unless an explicit suffix-removal edit is supplied.
+
+## References
+
+Implementation: `crates/veln-cli/src/commands/repair.rs`. Application gates
+and rollback are specified in [repair-application.md](repair-application.md);
+candidate fields are specified in [repair-candidates.md](repair-candidates.md).

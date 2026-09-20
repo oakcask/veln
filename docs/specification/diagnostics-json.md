@@ -1,338 +1,127 @@
 ---
 role: specification
 authority: normative
-update-when: The `veln check --json` diagnostic schema, human diagnostic alignment, stable diagnostic detail fields, or executable diagnostic evidence changes.
+update-when: The `veln check --json` diagnostic schema, human diagnostic alignment, stable diagnostic detail fields, or diagnostic producers change.
+specification-coverage: usage=#usage; behavior=#diagnostic-families; limits=#limits
 ---
 
 # Check JSON And Diagnostics
 
-This page specifies implemented `veln check --json` output and human
-diagnostics that must stay aligned with structured diagnostic behavior.
+This page specifies the shared diagnostic envelope used by `veln check --json`
+and by static failures from `run --json`. Test reports reuse the diagnostic
+object shape within their own [test envelope](test-json.md).
 
-## Read First
+## Usage
 
-- Human primary messages: keep the primary message focused on the failed fact
-  at the reported span; put causes, provenance, repair hints, and other
-  locations in related notes.
-- Top-level envelope and status values are specified below.
-- Common diagnostic fields and span shape are specified below.
-- Stable `details` payloads by diagnostic family are specified below.
-- Companion source diagnostics distinguish missing targets from chained
-  companions and expose `details.companion_path` plus
-  `details.target_path`.
-- Source identifier casing diagnostics use `name.invalid_case` with stable
-  `details.phase`, `origin`, `occurrence`, `name`, `name_class`,
-  `required_initial`, and `observed_initial` fields. Written qualified path
-  segment diagnostics also include the zero-based `segment_index`.
-  Source-path-derived module segment diagnostics use `origin: source_path`,
-  `occurrence: path_segment`, and also include `source_path`, `source_kind`,
-  `segment`, and the zero-based `segment_index`. The `source_kind` value is
-  `regular`, `export`, `companion`, `doctest`, or `generated`. Selected
-  regular and companion sources can report these diagnostics even when parsing
-  also fails. Source path segments with a valid ASCII-lowercase initial but an
-  invalid module-identifier character remain `module.invalid_source_path`
-  diagnostics rather than source identifier casing diagnostics. The checked
-  `identifier-casing-*-json` cases, including
-  `identifier-casing-source-path-json`,
-  `identifier-casing-exported-source-path-json`,
-  `identifier-casing-import-path-json`,
-  `identifier-casing-import-missing-module-overlap-json`,
-  `identifier-casing-import-duplicate-overlap-json`,
-  `identifier-casing-import-alias-cascade-boundary-json`,
-  `identifier-casing-import-type-cascade-boundary-json`,
-  `identifier-casing-import-constructor-cascade-boundary-json`,
-  `identifier-casing-import-missing-type-control-json`,
-  `identifier-casing-import-missing-type-export-json`,
-  `identifier-casing-import-missing-constructor-control-json`,
-  `identifier-casing-import-schema-cascade-boundary-json`,
-  `identifier-casing-import-private-schema-boundary-json`, and
-  `identifier-casing-import-effect-cascade-boundary-json`,
-  `identifier-casing-import-handler-cascade-boundary-json`,
-  `identifier-casing-import-order-json`,
-  `identifier-casing-qualified-use-paths-json`,
-  `identifier-casing-declaration-type-carriers-json`,
-  `identifier-casing-qualified-use-recovery-controls-json`,
-  `identifier-casing-qualified-handler-boundaries-json`,
-  `identifier-casing-module-header-json`,
-  `identifier-casing-source-path-artifact-gate-json`, and
-  `identifier-casing-import-alias-run-boundary-json` define exact spans,
-  detail values, diagnostic ordering, and non-cascading recovery behavior.
-- Source-less compiler lookup registry validation failures use span-less
-  `toolchain.invalid_symbol_case` with stable `details.provider`, `name`,
-  `name_class`, and `required_initial` fields and diagnostic kind
-  `toolchain`. Invalid lookup-key failures use the same id and details as
-  invalid casing failures, and their human primary message states that the
-  source lookup key is invalid. Duplicate lookup-key failures also use the
-  same id and details, and their human primary message states that the lookup
-  key is duplicated. Focused `veln-sema` `standard_symbols`, `adt`, and
-  `source_less_lookup` tests define descriptor, atomic-failure,
-  cross-provider publication-failure, lookup-key, checked-lookup, and lookup
-  isolation behavior for runtime, prelude, `prelude_builtin`,
-  `standard_names`, `type_syntax`, and built-in ADT lookup descriptors.
-  Focused parser and registry tests cover contextual literal spellings that
-  cannot publish bare lookup routes.
-- Local inference diagnostic details:
-  [diagnostics-json.md#type-inference-diagnostics](diagnostics-json.md#type-inference-diagnostics).
-- Advisory repair candidate fields and application-policy routing:
-  [repair-candidates.md](repair-candidates.md).
+Run `veln check --json [INPUTS ...]` when a consumer needs structured analysis
+diagnostics. The command emits one JSON object on stdout. Use
+[commands.md](commands.md) for input discovery and exit behavior; use
+[run-json.md](run-json.md) and [test-json.md](test-json.md) for completed
+execution records.
 
-## Read When
+## Envelope and common fields
 
-- Adding, removing, or changing `check --json` fields.
-- Updating human diagnostics that also need structured output coverage.
-- Verifying whether diagnostic provenance, repair hints, or related notes are
-  stable machine-readable behavior.
-- Changing hole candidate `details` payloads, candidate edits, or
-  application-policy fields.
+The envelope has these fields:
 
-## Skip Unless Needed
+| Field | Contract |
+| --- | --- |
+| `schema_version` | Number `1`. |
+| `tool` | Object with string `name` and `version`. |
+| `status` | `error` if any diagnostic has severity `error`; `partial` if there is no error and at least one `hole` diagnostic; otherwise `ok`. |
+| `diagnostics` | Ordered array of diagnostic objects. |
+| `summary` | Object with `diagnostic_count`, `by_severity`, and `by_kind`; each map counts the corresponding strings. |
 
-- Start from the summary rows before reading the detailed catalog.
-- Use [json-output.md](json-output.md) when choosing between `check --json`,
-  `run --json`, and `test --json`.
-- Use [commands.md](commands.md) for CLI behavior and
-  [test-json.md](test-json.md) or [run-json.md](run-json.md) for other command
-  JSON surfaces.
+Each diagnostic has non-null string fields `id`, `severity`, `kind`, and
+`message`, plus `span`, `details`, and `related`. `span` is `null` for a
+spanless diagnostic or an object with `file`, `start`, and `end`. `file` is
+the source path. Each position has one-based `line` and Unicode-scalar
+`column`, and zero-based byte `offset`; the end position is exclusive.
+`details` is the producer's JSON
+value and may be `null`. `related` is always an array of producer-supplied
+JSON values.
 
-## Diagnostics
+The primary message names the failed fact at its reported span. Causes,
+provenance, repair hints, and other locations belong in `related` or
+structured `details`. Producers omit detail keys when the fact is unavailable;
+consumers must preserve diagnostic and related-note order.
 
-Executable diagnostic cases may use harness JSON assertions, including array
-length checks, to verify existing command JSON fields. Those assertions are
-fixture evidence and do not add a diagnostic JSON field.
+## Diagnostic families
 
-Malformed binary and hexadecimal integer coverage is executable in
-`examples/specification/check/integer-radix-diagnostics-json/` and the matching
-human-output case. The `parse.integer_literal` details retain the complete
+Malformed integer literals use `parse.integer_literal` with the complete
 numeric candidate, parser context, accepted form, and non-cascading recovery;
-related notes expose the accepted digit set or prefix where useful.
+related notes may identify the accepted digit set or prefix. Invalid literal
+shift counts use `type.invalid_shift_count` with `operator`, `actual_count`,
+`minimum_count`, and `maximum_count`; the span is the count expression.
 
-Invalid source identifier casing coverage is executable in the checked
-`identifier-casing-source-recovery-json`,
-`identifier-casing-binding-positions-json`,
-`identifier-casing-underscore-recovery-json`,
-`identifier-casing-import-recovery-isolation-json`,
-`identifier-casing-public-alias-recovery-isolation-json`,
-`identifier-casing-public-alias-targets-json`,
-`identifier-casing-public-alias-targets-human`,
-`identifier-casing-companion-target-recovery-isolation-json`,
-`identifier-casing-companion-source-recovery-isolation-json`,
-`identifier-casing-companion-target-binding-recovery-isolation-json`,
-`identifier-casing-companion-source-binding-recovery-isolation-json`,
-`identifier-casing-accepted-names-json`,
-`identifier-casing-valid-symbol-precedence-json`,
-`identifier-casing-implicit-prelude-boundary-json`,
-`identifier-casing-implicit-prelude-isolation-json`,
-`identifier-casing-ambiguous-recovery-json`,
-`identifier-casing-cross-class-ambiguous-recovery-json`,
-`identifier-casing-qualified-constructor-pattern-json`,
-`identifier-casing-qualified-constructor-pattern-human`,
-`identifier-casing-qualified-constructor-pattern-over-suppression-json`,
-`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`,
-`identifier-casing-qualified-constructor-pattern-type-mismatch-json`,
-`identifier-casing-import-path-json`, `identifier-casing-import-path-human`,
-`identifier-casing-import-missing-module-overlap-json`,
-`identifier-casing-import-duplicate-overlap-json`,
-`identifier-casing-import-alias-cascade-boundary-json`,
-`identifier-casing-import-type-cascade-boundary-json`,
-`identifier-casing-import-constructor-cascade-boundary-json`,
-`identifier-casing-import-missing-type-control-json`,
-`identifier-casing-import-missing-type-export-json`,
-`identifier-casing-import-missing-constructor-control-json`,
-`identifier-casing-import-schema-cascade-boundary-json`,
-`identifier-casing-import-private-schema-boundary-json`,
-`identifier-casing-import-effect-cascade-boundary-json`,
-`identifier-casing-import-handler-cascade-boundary-json`,
-`identifier-casing-import-order-json`,
-`identifier-casing-qualified-use-paths-json`,
-`identifier-casing-declaration-type-carriers-json`,
-`identifier-casing-qualified-use-recovery-controls-json`,
-`identifier-casing-qualified-handler-boundaries-json`,
-`identifier-casing-module-header-json`, and
-`identifier-casing-module-header-accepted-json` cases.
-Source-path-derived module
-identity casing is checked by `identifier-casing-source-path-json` and
-`identifier-casing-exported-source-path-json`; mixed direct-dependency export
-isolation is checked by `identifier-casing-mixed-dependency-export-json`.
-Parse-failure coexistence, human output, lowercase-initial structural
-failures, and chained companion structural isolation are checked by
-`identifier-casing-source-path-human` and
-`identifier-casing-chained-companion-boundary-json`. LSP span mapping for the
-same zero-width source-start diagnostics is checked by
-`identifier-casing-source-path-boundary`. Source-path graph isolation is
-checked by `identifier-casing-source-path-import-isolation-json`,
-`identifier-casing-source-path-duplicate-isolation-json`, and
-`identifier-casing-source-path-cycle-isolation-json`.
-The checked
-`identifier-casing-handler-binding-quarantine-json` case also fixes that
-invalid handler bindings do not appear in `hole.unfilled`
-`details.local_bindings` or hole repair candidate queries. Current source name-class
-behavior is specified by [names-effects.md](names-effects.md). Selected-entry
-`run --json` diagnostic-envelope evidence for source identifier casing is
-routed by [run-json.md](run-json.md), including direct-dependency selected
-loading and unloaded-manifest isolation.
+Source identifier casing uses `name.invalid_case` with `phase`, `origin`,
+`occurrence`, `name`, `name_class`, `required_initial`, and
+`observed_initial`. Qualified written paths add zero-based `segment_index`.
+Source-derived module paths use `origin: "source_path"`,
+`occurrence: "path_segment"`, `source_path`, `source_kind`, `segment`, and
+`segment_index`; `source_kind` is `regular`, `export`, `companion`,
+`doctest`, or `generated`. Selected regular and companion sources may report
+casing diagnostics alongside parse errors. A lowercase initial followed by an
+invalid module-identifier character uses `module.invalid_source_path`.
+Recovery diagnostics do not create cascaded unresolved-name records.
 
-Source-less compiler lookup registry validation failures use
-`toolchain.invalid_symbol_case` with no span. Details expose the descriptor
-`provider`, invalid `name`, `name_class`, and `required_initial`. The failure
-is a toolchain invariant failure with diagnostic kind `toolchain`, not source
-`name.invalid_case`; invalid source lookup keys, duplicate lookup keys, and
-standard-symbol class and lookup-namespace mismatches use the same id and
-details. Focused `veln-syntax` parser tests and `veln-sema`
-`standard_symbols`, `adt`, and `source_less_lookup` tests pin generated-table
-validation, injected invalid descriptors, invalid parser-unreachable lookup
-keys, duplicate lookup keys, atomic failure, cross-provider publication
-failure, checked lookup, production provider inventory, and lookup isolation
-for runtime, prelude, `prelude_builtin`, `standard_names`, `type_syntax`, and
-built-in ADT lookup descriptors.
+Companion diagnostics expose `details.companion_path` and
+`details.target_path` where applicable. Private companion effect and handler
+wrong-target failures use `effect.private_companion_target` or
+`handler.private_companion_target`; their details include companion and target
+module fields plus `reason: "companion_target_mismatch"`. Effect failures
+expose `companion_path`, `companion_target_module`, and `effect_module`; handler
+failures expose `companion_path`, `companion_target_module`, and
+`handler_module`. Public declarations use `module.companion_public_declaration`.
+Exporting a test companion uses
+`manifest.invalid_export` with `field: "lib.exports"`,
+`reason: "test_companion"`, `source_path`, and `companion_path`.
 
-Invalid literal shift counts use `type.invalid_shift_count` with the operator,
-actual count, and inclusive `0..63` bounds. Removed schema primitives, types,
-constructors, patterns, and helpers use focused removed-vocabulary diagnostics
-with replacement details instead of generic unresolved-name output.
-
-Companion source diagnostics are executable in
-`examples/specification/check/companion-missing-target-json/`,
-`examples/specification/check/companion-missing-target-human/`,
-`examples/specification/check/companion-chained-target-json/`,
-`examples/specification/check/companion-chained-target-human/`,
-`examples/specification/test/companion-missing-target-json/`,
-`examples/specification/test/companion-missing-target-human/`,
-`examples/specification/test/companion-chained-target-json/`, and
-`examples/specification/test/companion-chained-target-human/`.
-Companion private-function visibility and explicit-import failures reuse
-`name.unresolved`; JSON and human boundaries are checked by
-`examples/specification/check/companion-private-function-alias-boundary/`,
-`examples/specification/check/companion-private-function-value-boundary/`,
-`examples/specification/check/companion-private-function-wrong-target/`,
-`examples/specification/check/companion-private-function-wrong-target-human/`,
-`examples/specification/check/companion-private-function-non-transitive/`,
-`examples/specification/check/companion-private-function-non-transitive-human/`,
-`examples/specification/check/companion-private-function-bare-name/`, and
-`examples/specification/check/companion-private-function-missing-import/`.
-Companion private source ADT visibility and explicit-import failures also
-reuse `name.unresolved`; JSON and human boundaries are checked by
-`examples/specification/check/companion-private-source-adt-missing-import/`,
-`examples/specification/check/companion-private-source-adt-wrong-target-human/`,
-`examples/specification/check/companion-private-source-adt-integration-boundary/`,
-and
-`examples/specification/check/companion-private-source-adt-non-transitive/`.
-Companion private-function effect propagation is checked by
-`examples/specification/check/companion-private-function-established-effects/`
-and
-`examples/specification/check/companion-private-function-established-effects-missing/`;
-the missing-effect case exposes the inferred private target effect in
-diagnostic details.
-Companion private effect wrong-target access reports
-`effect.private_companion_target` instead of a generic unknown effect. The
-diagnostic exposes `details.companion_path`,
-`details.companion_target_module`, `details.effect_module`, and
-`details.reason = "companion_target_mismatch"`. JSON and human output are
-checked by
-`examples/specification/check/companion-private-effect-wrong-target-json/`
-and
-`examples/specification/check/companion-private-effect-wrong-target-human/`;
-declared handler effect list coverage also checks
-`details.boundary = "handler_declaration_effects"` in
-`examples/specification/check/companion-private-effect-handler-effects-wrong-target/`.
-Companion private handler wrong-target access reports
-`handler.private_companion_target` instead of a generic unknown handler. The
-diagnostic exposes `details.companion_path`,
-`details.companion_target_module`, `details.handler_module`, and
-`details.reason = "companion_target_mismatch"`. JSON and human output are
-checked by
-`examples/specification/check/companion-private-handler-wrong-target-json/`
-and
-`examples/specification/check/companion-private-handler-wrong-target-human/`.
-Companion public declaration diagnostics use
-`module.companion_public_declaration`. The diagnostic exposes
-`details.companion_path` and a stable `details.reason` that identifies the
-public declaration form. JSON and human output are checked by
-`examples/specification/check/companion-public-declaration-json/` and
-`examples/specification/check/companion-public-declaration-human/`.
-Manifest export diagnostics reject `.test.veln` companion paths with
-`manifest.invalid_export`, `details.field = "lib.exports"`,
-`details.reason = "test_companion"`, `details.source_path`, and
-`details.companion_path`. JSON and human output are checked by
-`examples/specification/check/manifest-companion-export-json/` and
-`examples/specification/check/manifest-companion-export-human/`; dependency
-publication boundaries are checked by
-`examples/specification/check/dependency-companion-export-boundary-json/`.
-
-## Detailed Contract
-
-[run-json.md](run-json.md), and [test-json.md](test-json.md).
-
-## Toolchain Invariant Diagnostics
-
-`toolchain.invalid_symbol_case` reports a span-less internal failure when a
-compiler-provided source lookup descriptor has casing that is invalid for its
-source-less name class, has an invalid source lookup key, has a duplicate
-lookup key, or declares a name class that does not match the standard-symbol
-function lookup namespace. Details contain `provider`, `name`, `name_class`,
-and `required_initial`. The diagnostic kind is `toolchain`. The failure is not
-converted to source `name.invalid_case`. Invalid lookup-key failures,
-duplicate lookup-key failures, and standard-symbol class and lookup-namespace
-mismatches use the same stable detail fields. Invalid-key human primary
-messages state that the source lookup key is invalid. Duplicate-key human
-primary messages state that the lookup key is duplicated. Focused
-`veln-syntax` parser tests and `veln-sema` `standard_symbols`, `adt`, and
-`source_less_lookup` tests pin the generated-table, injected-descriptor,
-parser-unreachable lookup-key, duplicate-key, class-mismatch, atomic-failure,
-cross-provider publication-failure, checked-lookup, and lookup-isolation
-evidence for runtime, prelude, `prelude_builtin`, `standard_names`,
-`type_syntax`, and built-in ADT lookup descriptors. The `source_less_lookup`
-tests also pin that public type-annotation reference lookup consumes the
-shared publication result instead of using independent type-syntax state.
-
-## Current Schema Diagnostic Boundary
+Source-less compiler lookup failures are spanless
+`toolchain.invalid_symbol_case` diagnostics with kind `toolchain` and details
+`provider`, `name`, `name_class`, and `required_initial`. Invalid or duplicate
+lookup keys and standard-symbol namespace mismatches use the same shape. They
+remain toolchain failures rather than source `name.invalid_case`; human
+messages identify invalid or duplicate lookup keys when applicable.
 
 Schema diagnostics cover parse rejection, primitive kind checks, field
 references, validation predicates, dispatch payload eligibility, explicit
-schema operation path resolution, and generated helper availability.
-Schema-level mapping diagnostics are not current behavior because mapping
-clauses are rejected by the parser.
+schema operation path resolution, and generated helper availability. Mapping
+clauses are rejected by the parser and therefore have no current schema
+mapping diagnostic.
 
-## Type Inference Diagnostics
+Type inference diagnostics include:
 
-`type.local_inference_incomplete` details identify the failed slot with
-`slot_kind = "local_binding"` and `binding`, and report the current
-`inferred_type` even when it still contains `unknown`.
+- `type.local_inference_incomplete`: `slot_kind: "local_binding"`,
+  `binding`, and the current `inferred_type`, including `unknown` when present.
+- `type.private_inference_incomplete`: `boundary: "private_function"`,
+  `slot_kind: "private_parameter"` with `parameter`, or
+  `slot_kind: "private_return"`, plus `missing_fact` and `inferred_type`.
+- `type.inference_ambiguous`: `slot_kind` is `constructor_type`,
+  `empty_collection`, or `match_scrutinee`. Constructor ambiguity adds
+  `constructor`, `inferred_type`, and `constraint: "constructor_type_context"`;
+  empty collection ambiguity adds `collection`, `inferred_type`, and
+  `constraint: "empty_collection_type_context"`; match scrutinee ambiguity
+  adds `candidates` and `constraint: "match_constructor_pattern_domain"`.
 
-`type.private_inference_incomplete` details identify the private function
-boundary with `boundary = "private_function"`, identify the failed slot with
-`slot_kind = "private_parameter"` and `parameter` or
-`slot_kind = "private_return"`, report `missing_fact`, and report the current
-`inferred_type` known at the failure point.
+Handler effect diagnostics use `phase: "effect"`, `boundary`, `handler`,
+`handled_effect`, nullable `operation`, and `reason`. Operation-clause
+diagnostics use `boundary: "handler_operation_clause"` and do not emit a
+`provider`. Unknown handled effects use
+`reason: "unknown_handled_effect"` and related notes containing candidate
+`effect` and `operations` declarations.
 
-`type.inference_ambiguous` details identify the ambiguity slot with
-`slot_kind`. Constructor type-context ambiguity uses
-`slot_kind = "constructor_type"`, `constructor`, `inferred_type`, and
-`constraint = "constructor_type_context"`. Empty collection ambiguity uses
-`slot_kind = "empty_collection"`, `collection`, `inferred_type`, and
-`constraint = "empty_collection_type_context"`. Match scrutinee domain
-ambiguity uses `slot_kind = "match_scrutinee"`, `candidates`, and
-`constraint = "match_constructor_pattern_domain"`.
+Advisory hole candidate and application-policy fields are specified by
+[repair-candidates.md](repair-candidates.md). Runtime result projections are
+specified by [run-json.md](run-json.md).
 
-Checked examples under `examples/specification/check/` pin these shapes for
-local bindings, private helper parameters and returns, constructor ambiguity,
-empty collection ambiguity, and match scrutinee ambiguity.
+## Limits
 
-## Handler Diagnostics
+The envelope reports the diagnostics produced for the selected analysis set;
+it does not include diagnostics from unselected sources or unloaded
+dependencies. A static diagnostic envelope has no captured program stdout or
+stderr fields. Human rendering may place related context in stderr while the
+JSON fields remain unchanged. Diagnostic details are extensible by family, so
+consumers must tolerate omitted and newly added detail keys.
 
-Handler effect diagnostics use `phase = "effect"` and include `boundary`,
-`handler`, `handled_effect`, nullable `operation`, and `reason`. Operation
-clause diagnostics use `boundary = "handler_operation_clause"` and do not
-emit a `provider` field. Unknown handled effects report `reason = "unknown_handled_effect"`
-and add visible candidate effect declarations as related notes with `effect`
-and `operations`.
-
-The checked examples `handler-operation-signatures` and
-`handler-operation-signatures-human` pin the structured and human related
-context for missing, duplicate, unknown, mismatched, and recursive operation
-clauses.
-
-## Integer Bitwise Diagnostics
-
-`type.invalid_shift_count` details contain `operator`, `actual_count`,
-`minimum_count`, and `maximum_count`. The reported span is the literal count
-expression.
+The envelope implementation is `crates/veln-diagnostics/src/envelope.rs`;
+family producers and focused CLI assertions provide the executable contract.

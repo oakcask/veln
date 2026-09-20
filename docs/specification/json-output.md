@@ -1,62 +1,21 @@
 ---
-role: specification
-authority: normative
-update-when: A command JSON schema, command-visible JSON output field, or command-specific JSON evidence route changes.
+role: routing
+update-when: A command JSON specification or its subject boundary changes.
 ---
 
 # JSON Output
 
-This file routes machine-readable command output changes to the smallest
-implemented specification page. Use it before opening command-specific JSON
-details.
+Choose the page for the command whose output you consume. Each page owns its
+envelope, field meanings, ordering, and failure behavior.
 
-## Read First
+| Command or subject | Specification |
+| --- | --- |
+| `check --json`, shared diagnostic objects, human diagnostic alignment | [Check JSON and diagnostics](diagnostics-json.md) |
+| `run --json`, captured output, runtime failure projections | [Run JSON](run-json.md) |
+| `test --json`, selection, cases, events, and suite results | [Test JSON](test-json.md) |
+| `repair --json`, preview, apply, refusal, and verification records | [Repair JSON](repair-json.md) |
+| `metrics --json`, policy checks, and baseline documents | [Metrics JSON](metrics-json.md) |
 
-- `check --json`, `metrics --json`, `run --json`, `test --json`, and
-  `repair --json` keep their command-specific envelopes while reusing the
-  relevant command analysis path described by [commands.md](commands.md).
-- Help output is human command output, not command JSON. Use
-  [commands.md](commands.md) for top-level and subcommand help behavior.
-- Human diagnostic wording, related notes, spans, or stable diagnostic details:
-  [diagnostics-json.md](diagnostics-json.md). Keep human output and structured
-  output aligned before checking command-specific behavior.
-- `check --json`: [diagnostics-json.md](diagnostics-json.md) for diagnostic
-  envelope, span, related note, and stable details fields.
-- `metrics --json`, `metrics --check --baseline PATH --json`, and
-  `metrics --write-baseline PATH`: [metrics-json.md](metrics-json.md) for
-  module dependency metrics, dependency edges, cycles, baseline documents, ABC
-  size subjects, experimental exact whole-body similarity records, project
-  identity, and summary fields.
-- `run --json`: [run-json.md](run-json.md) for run records, output events,
-  failures, and summary shape.
-  If parse, source, semantic, lowering, or run-entry effect diagnostics stop
-  execution before the backend starts, `run --json` uses the shared diagnostic
-  envelope routed by [diagnostics-json.md](diagnostics-json.md).
-  Runtime result failures that carry source-visible diagnostic payload values,
-  including `RuntimeDiagnostic(..., RuntimeByteDiagnostic(...))`, are specified
-  there.
-  HTTP/2 application-boundary cases that distinguish callback, unsupported
-  request, invalid action, and rejected core-action outcomes reuse the same
-  run envelope; their source-visible observations are routed from
-  [http2.md](http2.md).
-- `test --json`: [test-json.md](test-json.md) for selection, case, summary,
-  failure, and error records.
-- `repair --json`: [repair-json.md](repair-json.md) for preview, apply,
-  refusal, candidate, edit, verification, and summary records.
-
-## Read When
-
-- Adding, removing, or renaming machine-readable output fields.
-- Changing diagnostic details, provenance, related notes, or repair data that
-  must stay stable for tools.
-- Updating command behavior where human output and JSON output must stay
-  aligned.
-
-## Skip Unless Needed
-
-- Use [commands.md](commands.md) first when the task is about CLI gates,
-  source discovery, entry selection, or exit behavior.
-- Use [diagnostics-json.md](diagnostics-json.md) before a broader command page
-  when only diagnostic fields or related notes change.
-- Open broader command records only after the focused JSON page points to the
-  relevant subject.
+For source selection, command options, and execution gates, use
+[commands.md](commands.md). For source-level HTTP/2 behavior behind a runtime
+diagnostic projection, use [http2.md](http2.md).

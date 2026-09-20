@@ -29,14 +29,15 @@ the procedure for applying them.
 4. Identify an authority independent of the implementation being checked.
 5. Select the strongest practical verification medium using the authoring
    policy and an existing repository harness or artifact format.
-6. Write or update the primary artifact before expanding prose when practical.
+6. Inspect implementation and evidence before writing current-behavior prose.
+   For a behavior change, update the executable artifact and explanation together.
 7. Cover material success, boundary, failure, and state-preservation outcomes.
-8. Route nearby prose to the primary artifact without duplicating its cases as
-   another source of truth.
+8. Explain usage, observable behavior, and limits in the current specification.
+   Cite evidence without substituting a list of cases for the explanation.
 9. Record how the artifact is checked locally or by CI. If it is not checked,
    label its authority accurately and state what will verify it.
-10. If only prose is practical, state why and make the claim falsifiable with
-    explicit inputs, outcomes, boundaries, or invariants.
+10. Keep claims falsifiable with explicit inputs, outcomes, boundaries, or
+    invariants. If no mechanical check is practical, record the review basis.
 
 ## Review Procedure
 
@@ -53,3 +54,6 @@ the procedure for applying them.
 - Check that prose, executable evidence, generated views, and implementation do
   not disagree.
 - Confirm that verification commands or CI routes are discoverable.
+
+- Verify that each coverage-map destination explains its declared concern; a
+  passing structural check does not establish semantic completeness.

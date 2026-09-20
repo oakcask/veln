@@ -2,6 +2,7 @@
 role: specification
 authority: normative
 update-when: The `veln test --json` output schema, static gate behavior, case records, runtime failure details, expected-output details, stdio event fields, or executable test JSON evidence changes.
+specification-coverage: usage=#test-json; behavior=#selection; limits=#usage-and-limits
 ---
 
 # Test JSON
@@ -12,6 +13,7 @@ This file specifies the implemented JSON output for `veln test --json`.
 
 `veln test --json` emits schema version `veln-test-json/v0` with:
 
+- `schema_version`: always `"veln-test-json/v0"`
 - `command`
 - `status`: `passed`, `failed`, `blocked`, or `error`
 - `selection`
@@ -20,9 +22,10 @@ This file specifies the implemented JSON output for `veln test --json`.
 - `suite_errors`
 - `cases`
 
-The envelope keeps `cases`, captured `events`, `summary`, top-level `status`,
-diagnostics, and failures in discovered-case order for serial `--jobs 1`,
-explicit bounded `--jobs <JOBS>`, and automatic job modes.
+The `cases` array is ordered by discovered-case order for serial `--jobs 1`,
+explicit bounded `--jobs <JOBS>`, and automatic job modes, regardless of worker
+completion order. Summary counts and top-level status are computed from the
+finished case and suite records.
 
 ## Selection
 
@@ -75,15 +78,14 @@ Summary fields are:
 
 Each case has:
 
-- `id`
-- `name`
-- `kind`
-- `status`
-- `source`
-- `reason`
-- `failure`
-- `events`
-- `diagnostics`
+- `id`, `name`, and `kind`: non-null strings identifying the generated case.
+- `status`: `passed`, `failed`, `blocked`, or `error`.
+- `source`: object with non-null `file`, `node_id`, and `span`; `span` has
+  `start` and `end`, each containing `line`, `column`, and `offset`.
+- `reason`: nullable string.
+- `failure`: nullable failure object with `kind`, `message`, and `details`.
+- `events`: an array of serialized stdio events, empty when none were captured.
+- `diagnostics`: an array of diagnostic objects for the case.
 
 Source `test` declarations use `case.kind: "test"` and a `source.node_id`
 prefix of `test`. Ordinary functions use the `fn` prefix in other diagnostic
@@ -118,16 +120,6 @@ When the returned value is a source-visible `RuntimeDiagnostic(...)` payload,
 the details keep that rendered value and project contained byte, value, and
 protocol payload fields into the same structured diagnostic details used by
 `run --json`.
-
-Executable specification cases may use `[[result_value_assert]]` against a JSON
-string path that contains a returned result-failure value, such as
-`cases.*.failure.details.value`. The harness wraps that value as the outer
-`Err` and exposes path assertions over the returned value shape, including
-`RuntimeDiagnostic`, `RuntimeByteDiagnostic`, byte offset, field path,
-count/range/fixed-value/reason facts, and optional byte preview fields.
-Result-value containment assertions and result-value length assertions in
-executable payload cases are harness evidence over existing output fields.
-They do not add a separate `veln test --json` field shape.
 
 Doctests with runtime failure metadata pass when the runtime failure details
 match the expected contract, ensure, or result failure. The pass case omits a
@@ -229,10 +221,8 @@ suite before Java compilation or execution. The top-level status is `blocked`,
 and diagnostics are reported in the run-level `diagnostics` array. Source
 identifier casing diagnostics outside the selected test analysis set are not
 reported by that invocation and do not block the selected suite.
-The `identifier-casing-source-path-artifact-gate-json` and
-`identifier-casing-source-path-unselected-artifact-json` executable examples
-check this boundary for source-path-derived module identity casing and assert
-the no-Java-launch condition for the blocking case.
+Source-path-derived module identity casing follows the same gate; a blocking
+gate does not launch Java.
 
 An invalid source identifier casing recovery record in an exact `.test.veln`
 companion or its target does not resolve a cross-boundary use. The selected
@@ -247,83 +237,10 @@ When semantic diagnostics block execution, every discovered selected case is
 reported with `status: "blocked"` and `reason: "static_gate"`, including cases
 from other selected test files.
 
-## Evidence Routes
+## References
 
-- Companion discovery and explicit target selection:
-  `../../examples/specification/test/companion-discovery/`,
-  `../../examples/specification/test/companion-explicit-target-selection/`,
-  and
-  `../../examples/specification/test/companion-explicit-companion-selection/`.
-- Companion private-function execution, private source ADT execution, private
-  nominal effect operation execution, private handler execution, and
-  established target effect propagation:
-  `../../examples/specification/test/companion-private-function-access/`,
-  `../../examples/specification/test/companion-private-source-adt-access/`,
-  `../../examples/specification/test/companion-private-effect-operation/`,
-  `../../examples/specification/test/companion-private-handler-access/`,
-  `../../examples/specification/test/companion-private-function-established-effects/`,
-  and
-  `../../examples/specification/test/companion-private-handler-established-effects/`.
-- Source identifier casing static-gate and selected-suite isolation coverage:
-  `../../examples/specification/test/identifier-casing-selected-static-gate-json/`,
-  `../../examples/specification/test/identifier-casing-companion-target-recovery-isolation-json/`,
-  `../../examples/specification/test/identifier-casing-companion-source-recovery-isolation-json/`,
-  `../../examples/specification/test/identifier-casing-companion-target-binding-recovery-isolation-json/`,
-  `../../examples/specification/test/identifier-casing-companion-source-binding-recovery-isolation-json/`,
-  `../../examples/specification/test/identifier-casing-unselected-peer-json/`,
-  `../../examples/specification/test/identifier-casing-source-path-artifact-gate-json/`,
-  and
-  `../../examples/specification/test/identifier-casing-source-path-unselected-artifact-json/`.
-- Readable doctest runtime JSON coverage:
-  `../../examples/specification/test/doctest-runtime-contract-json/`,
-  `../../examples/specification/test/doctest-runtime-contract-blocked-json/`,
-  `../../examples/specification/test/doctest-runtime-ensure-json/`,
-  `../../examples/specification/test/doctest-runtime-ensure-blocked-json/`,
-  `../../examples/specification/test/doctest-runtime-result-json/`,
-  and
-  `../../examples/specification/test/doctest-runtime-result-blocked-json/`.
-- Readable coverage for runtime expectation plus output mismatch:
-  `../../examples/specification/test/doctest-runtime-output-mismatch-json/`.
-  The checked expected JSON payloads for doctest output-mismatch cases may live
-  in `case-text/` sidecars; that placement is harness evidence, not a
-  different `veln test --json` output shape.
-- Ordered parallel-job coverage:
-  `../../examples/specification/test/parallel-jobs-one-json/`,
-  `../../examples/specification/test/parallel-jobs-two-json/`, and
-  `../../examples/specification/test/parallel-jobs-auto-json/`.
-- Runtime diagnostic payload and helper-returned value-shape assertion
-  coverage:
-  `../../examples/specification/test/runtime-diagnostic-payload-json/`,
-  `../../examples/specification/run/runtime-diagnostic-payload-byte-json/`,
-  `../../examples/specification/run/runtime-diagnostic-payload-hpack-string-length-json/`,
-  `../../examples/specification/run/runtime-diagnostic-payload-hpack-raw-string-json/`,
-  `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-padding-json/`,
-  `../../examples/specification/run/runtime-diagnostic-payload-hpack-huffman-eos-json/`,
-  and
-  `../../examples/specification/run/runtime-diagnostic-payload-hpack-dynamic-index-json/`.
-  Large nested expected values in those executable cases may live in
-  `case-text/` JSON sidecars. That placement is harness evidence and does not
-  change the `veln test --json` field shape.
-- `RuntimeDiagnostic(...)` HTTP/2 protocol payload projection assertions:
-  `../../examples/specification/run/http2-protocol-core-ping-length-json/`,
-  `../../examples/specification/run/http2-protocol-core-goaway-length-json/`,
-  `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/`,
-  `../../examples/specification/run/http2-protocol-core-settings-item-length-json/`,
-  `../../examples/specification/run/http2-protocol-core-settings-enable-push-role-json/`,
-  `../../examples/specification/run/http2-protocol-core-rst-stream-length-json/`,
-  `../../examples/specification/run/http2-protocol-core-data-padding-json/`,
-  `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
-  `../../examples/specification/run/http2-protocol-core-flow-control-connection-json/`,
-  `../../examples/specification/run/http2-protocol-core-content-length-early-json/`,
-  `../../examples/specification/run/http2-protocol-core-content-length-over-json/`,
-  `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
-  `../../examples/specification/run/http2-protocol-core-invalid-stream-reference-json/`,
-  `../../examples/specification/run/http2-protocol-core-push-promise-json/`,
-  `../../examples/specification/run/runtime-diagnostic-http2-closed-helper-json/`,
-  `../../examples/specification/run/http2-protocol-core-stream-after-goaway-json/`,
-  and
-  `../../examples/specification/run/http2-protocol-core-local-stream-after-goaway-json/`.
+The command implementation and scheduler are in `crates/veln-cli/src/commands/test.rs` and `crates/veln-cli/src/commands/test_scheduler.rs`. CLI assertions under `crates/veln-cli/tests/check_json/test_command.rs` verify the serialized contract.
 
-Use [json-output.md](json-output.md) first when choosing between check, run,
-and test JSON pages. Use [diagnostics-json.md](diagnostics-json.md) for
-diagnostic object shape.
+## Usage and limits
+
+Read `selection` before `cases`: explicit targets may add companions or dependency-selected tests, and incomplete graph evidence widens selection with `confidence: "unknown"`. Static failures block execution; runtime expectations apply only to doctests. Output matching and runtime expectations are independent.

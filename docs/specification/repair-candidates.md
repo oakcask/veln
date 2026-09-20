@@ -1,116 +1,75 @@
 ---
 role: specification
 authority: normative
-update-when: The advisory repair candidate fields, repair application policy, command evidence, or repair JSON behavior changes.
+update-when: The advisory repair candidate fields, application policy, command inputs, or repair JSON behavior changes.
+specification-coverage: usage=#input-route; behavior=#current-boundary; limits=#limits
 ---
 
 # Repair Candidates
 
-This page is the entry point for the implemented boundary around advisory
-repair candidates. Start here when a task mentions repair candidates, safe
-repair, candidate edits, applying edits, or the repair command.
+Repair candidates are advisory replacement records. `veln check --json`
+reports them inside `candidate_queries`; checking never edits source. A query
+may contain ranked hole-fill candidates or concrete parse-repair edits. Each
+candidate remains unapplied and carries its source span, replacement, review
+policy, verification hint, known limits, and blocking obligations.
 
 ## Current Boundary
 
-- Candidate records may appear in `veln check --json` diagnostics. They are
-  advisory records, not an applying workflow.
-- Candidate edits are concrete replacement suggestions tied to source spans,
-  but `check` command execution leaves them unapplied.
-- Candidate application policy is evidence and review routing. Even
-  `safe_repair_candidate` means the implemented static subset has discharged;
-  it authorizes only the narrow `veln repair --apply` gate described below.
-- `veln repair` previews command-level repair records and can apply one safe
-  unapplied advisory candidate after rerunning check analysis. One selected
-  candidate may contain multiple replacement edits and may touch more than one
-  source file.
-- Current-analysis repair candidates are excluded before command-local
-  `repair-N` ids are assigned when any candidate edit targets a source whose
-  package-relative path has a source-path-derived `name.invalid_case`
-  diagnostic. Candidates from valid sibling sources remain eligible.
-- `veln repair --apply --override --confirm CANDIDATE_ID` can apply one
-  explicitly confirmed manual-review candidate while recording the override.
-  The override path does not skip target-shape, stale-span, overlap,
-  rollback, or post-edit verification gates.
-- The command can load candidate input from current source analysis or saved
-  repair JSON files. Saved inputs do not authorize writes by themselves; apply
-  still requires either a matching current safe candidate or explicit override
-  confirmation.
+`safe_repair_candidate` means that the implemented static matcher discharged
+the candidate's proof obligation. It is eligible for the ordinary apply gate,
+but it is still advisory until `veln repair` selects it and verification
+completes. Other candidates use `manual_review_required`. `application_status`
+is initially `"unapplied"`; `application_policy` never grants write access by
+itself.
 
-## Concept Map
+The command assigns local `repair-N` identifiers while preserving the original
+diagnostic candidate id as `source_candidate_id`. `--candidate` may select
+either id; ambiguous matches fail. A selected command candidate may contain
+multiple replacement edits across multiple source files.
 
-- `candidate_queries` are diagnostic `details` records that describe either
-  how to look for hole fills or a concrete parse repair.
-- `candidates` are source-backed replacement suggestions inside a query. Hole
-  fill candidates are ranked; parse repair candidates, when present, are
-  concrete source edits.
-- `application_policy` describes review and evidence state. It is not a write
-  authorization.
-- `application_status: "unapplied"` is the current behavior for emitted
-  candidate edits.
-- `repair_id` is the command-local id emitted by `veln repair`; the original
-  advisory candidate id is preserved as `source_candidate_id`. `--candidate`
-  can match either id, and ambiguous matches refuse.
-- Candidate selection chooses one command-level candidate. Candidate input
-  decides where the displayed command-level candidates come from.
-- Saved command-level repair JSON input is renumbered for the current
-  invocation, but selection may also match the saved command-level id.
-- `verification_hint` names the check to run after a human or command applies
-  candidate edits.
-- `--confirm` records the user-confirmed id that resolved to the selected
-  candidate.
-- `--override` accepts a non-safe manual-review policy only with explicit
-  confirmation and records the accepted policy, status, and advisory blocking
-  obligations.
+Candidates whose edits target a source with a source-path-derived
+`name.invalid_case` diagnostic are excluded before command ids are assigned.
+Valid sibling sources remain eligible. Legacy type delimiter spellings are not
+repair candidate classes.
 
 ## Input Route
 
-- Source input route: read source inputs, rerun analysis, normalize advisory
-  candidates into command-level repair candidates, then optionally select one
-  by id.
-- Saved input route: when one or more `*.json` inputs are present, load
-  candidates from saved repair JSON instead of using recomputed candidates as
-  the displayed candidate set. Source inputs still control project discovery
-  and verification.
-- Saved input may be a `repair --json` envelope, a command-level candidate
-  object or array, a `check --json` envelope, or an advisory candidate object or
-  array.
+With source inputs, `veln repair` reruns analysis, normalizes the advisory
+records into command candidates, and optionally selects one. If one or more
+JSON inputs are supplied, the displayed set comes from a repair envelope,
+command candidate object or array, `check --json` envelope, or advisory
+candidate object or array. Source inputs still determine project discovery and
+post-edit verification. Saved input is selection data; it never authorizes a
+write and is renumbered for the current invocation, although its saved command
+id remains selectable.
 
-## Choose Detail
+## Preview and Apply
 
-- Candidate fields, stable `check --json` envelope, diagnostic spans, and
-  `details` payload boundaries: [diagnostics-json.md](diagnostics-json.md).
-- Candidate ranking, `satisfy` repair constraints, safe-repair matching, and
-  exact examples: [holes.md](holes.md).
-- Legacy type delimiter spellings are not repair candidate classes.
-- Applying candidates, saved-input validation, confirmation, override, target
-  gates, verification, and rollback: [repair-application.md](repair-application.md).
-- Implemented command availability: [commands.md](commands.md).
-- `repair --json` output: [repair-json.md](repair-json.md).
-- Checked source-path casing isolation cases are routed from
-  `examples/specification/repair/README.md`.
-- Rationale for keeping advisory candidates separate from edit application:
-  [source-decisions.md](source-decisions.md).
+`veln repair` previews the normalized candidates and their edits. Applying a
+safe candidate requires an unapplied record, a matching current analysis, a
+valid target shape and source span, no overlapping edits, and successful
+post-edit verification with rollback on failure. `verification_hint` describes
+the check to run after the edit, and `--confirm` records the id selected by the
+user.
 
-## Read When
+`--override --confirm CANDIDATE_ID` permits one explicitly confirmed
+`manual_review_required` candidate and records the override, policy, status,
+and blocking obligations. Override applies only to the review policy: it never
+bypasses stale-input, target-shape, source-path, span, overlap, rollback, or
+post-edit verification gates. Saved or ambiguous candidates therefore remain
+unapplied until those independent checks pass.
 
-- Changing candidate record fields, ranking, edits, evidence, known limits,
-  blocking obligations, verification hints, or application policy.
-- Deciding whether repair-loop behavior belongs in implemented `check --json`
-  diagnostics or implemented `repair`.
-- Routing an applying-command task before opening
-  [repair-application.md](repair-application.md).
-- Auditing that proposal text stays subordinate to current implemented
-  behavior.
+## Limits
 
-## Skip Unless Needed
+Candidate generation is bounded by the current analysis result. Applying one
+candidate always rechecks current source identity, target spans, edit overlap,
+confirmation, rollback, and verification. A failed check leaves the source
+unchanged. Candidate ranking and `satisfy` matching are specified in
+[holes.md](holes.md); field and envelope schemas are specified in
+[diagnostics-json.md](diagnostics-json.md) and [repair-json.md](repair-json.md).
 
-- Use [holes-full.md](holes-full.md) only for exact candidate examples or
-  matching rules.
-- Use [diagnostics-json.md](diagnostics-json.md) only for the full
-  diagnostic field catalog.
-- Use [repair-application.md](repair-application.md) only after the task
-  touches write authorization, target validation, confirmation, override,
-  verification, or rollback.
-- Open
-  [../reference/source-decisions/records/result-safe-repair-candidate-boundary.md](../reference/source-decisions/records/result-safe-repair-candidate-boundary.md)
-  only when the advisory-versus-application rationale is needed.
+## References
+
+- Application validation and rollback: [repair-application.md](repair-application.md).
+- Command availability: [commands.md](commands.md).
+- Advisory/application rationale: [source-decisions.md](source-decisions.md).

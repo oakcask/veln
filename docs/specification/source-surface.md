@@ -1,16 +1,37 @@
 ---
 role: specification
 authority: normative
-update-when: The documented source surface or executable source evidence changes.
+specification-coverage: usage=#usage-and-declaration-forms; behavior=#schemas; limits=#diagnostics
+update-when: Veln declarations, expressions, literals, schema syntax, companion sources, or executable source grammar changes.
 ---
 
 # Source Surface
 
 This page specifies implemented source syntax. The executable grammar in
-[source-surface-executable.pl](source-surface-executable.pl) and checked cases
-under `../../examples/specification/` are the primary source-surface evidence.
+[source-surface-executable.pl](source-surface-executable.pl) corroborates the accepted and rejected source forms.
 
-## Read First
+## Usage and declaration forms
+
+This representative shape shows imports, a public effect row, and binary schema fields:
+
+```veln
+use stdio
+
+pub fn greet(name: String) -> () effects [stdio]
+	stdio::println(name)
+end
+
+schema Packet
+	format binary
+	length: UInt16be
+	kind: UInt8
+end
+```
+
+The sections below explain declarations and source boundaries. The grammar
+provides the production notation for these forms.
+
+### Declaration and expression inventory
 
 - Optional source-written `mod` headers, source path derived local module
   identity, local and external package imports, `.test.veln` test companion
@@ -34,119 +55,27 @@ under `../../examples/specification/` are the primary source-surface evidence.
 - Formatter layout and canonical comment spelling:
   [commands.md](commands.md).
 
-## Test Companion Sources
+## Test companion sources
 
-A source file whose path ends exactly in `.test.veln` is a test companion.
-The target source is the same-directory `.veln` path formed by removing the
-`.test` component. An exact companion has a distinct path-derived module
-identity from both the target source and the existing `_test.veln`
-integration-test convention. A chained path such as `math.test.test.veln` is
-rejected as a companion-target error instead of targeting `math.test.veln`,
-and it does not derive a source-visible module identity.
-Generated public documentation excludes exact `.test.veln` companions both
-when they are discovered recursively and when they are selected explicitly.
-The existing `_test.veln` integration-test convention does not use companion
-classification and remains ordinary for generated documentation.
+A path ending exactly in `.test.veln` is a test companion. Its target is the
+same-directory path formed by removing `.test`. It has its own path-derived
+module identity. Chained names such as `math.test.test.veln` are invalid and
+`_test.veln` integration modules remain ordinary sources. Documentation
+selection excludes exact companions, whether discovered or explicitly named.
 
-Checking or testing a companion requires the target source to exist in the
-same package. Missing and chained targets are executable diagnostics in
-`examples/specification/check/companion-missing-target-json/`,
-`examples/specification/check/companion-missing-target-human/`,
-`examples/specification/check/companion-chained-target-json/`,
-`examples/specification/check/companion-chained-target-human/`, and the
-matching `test/companion-*-target-*` cases.
+The target must exist in the same package for `check` and `test`. With an
+explicit `use` of that exact target, a companion may qualify private target
+functions, source ADT types and constructors, schemas in schema positions,
+nominal effects in effect positions, and handlers in `handle` expressions.
+The permission is exact-target and non-transitive: bare names, wrong targets,
+missing imports, integration modules, and external packages do not gain it.
 
-A test companion may call a private function declared by its exact target
-module when the companion writes an explicit `use` for that target and calls
-the function through a qualified path. A test companion may also use private
-source ADT type names and constructors declared by its exact target when it
-writes the explicit target `use` and refers to them through qualified target
-paths. The source ADT permission applies independently to private source ADT
-types and to private constructors of public source ADTs. A test companion may
-also reference private schema declarations from its exact target in source
-schema-reference positions, including explicit schema decode and encode
-expressions and schema composition fields, when the companion writes the
-explicit target `use` and uses a qualified target path. A test companion may
-also refer to a private nominal effect from its exact target in
-`perform X::Effect::operation(...)`, declaration `effects [X::Effect]` lists,
-function type annotation effect lists, and companion-local
-`handler ... handles X::Effect` declarations and
-`handler ... effects [X::Effect]` lists. A test companion may also use a
-private handler declared by its exact target in `handle Body with
-X::handler(...)` expressions when the companion writes the explicit target
-`use` and uses a qualified target path. These permissions are not transitive
-through modules imported by the target, and they do not add bare target-name
-lookup. The checked function cases are
-`examples/specification/check/companion-private-function-access/`,
-`examples/specification/check/companion-private-function-alias-boundary/`,
-`examples/specification/check/companion-private-function-value-boundary/`,
-`examples/specification/check/companion-private-function-wrong-target/`,
-`examples/specification/check/companion-private-function-wrong-target-human/`,
-`examples/specification/check/companion-private-function-integration-boundary/`,
-`examples/specification/check/companion-private-function-non-transitive/`,
-`examples/specification/check/companion-private-function-non-transitive-human/`,
-`examples/specification/check/companion-private-function-bare-name/`,
-`examples/specification/check/companion-private-function-missing-import/`,
-`examples/specification/check/companion-private-function-target-import-isolation/`,
-`examples/specification/check/companion-private-function-companion-import-isolation/`,
-`examples/specification/check/companion-private-function-production-inference/`, and
-`examples/specification/test/companion-private-function-access/`. Established
-private target function effects are exercised by
-`examples/specification/check/companion-private-function-established-effects/`,
-`examples/specification/check/companion-private-function-established-effects-missing/`,
-and
-`examples/specification/test/companion-private-function-established-effects/`.
-The checked source ADT cases are
-`examples/specification/check/companion-private-source-adt-access/`,
-`examples/specification/check/companion-private-source-adt-missing-import/`,
-`examples/specification/check/companion-private-source-adt-wrong-target-human/`,
-`examples/specification/check/companion-private-source-adt-integration-boundary/`,
-`examples/specification/check/companion-private-source-adt-non-transitive/`,
-and `examples/specification/test/companion-private-source-adt-access/`.
-The checked private schema cases are
-`examples/specification/check/companion-private-schema-access/`,
-`examples/specification/check/companion-private-schema-boundaries/`,
-`examples/specification/check/companion-private-schema-wrong-target-context/`,
-`examples/specification/check/companion-private-schema-wrong-target-context-human/`, and
-`examples/specification/test/companion-private-schema-access/`.
-The checked private effect cases are
-`examples/specification/test/companion-private-effect-operation/`,
-`examples/specification/check/companion-private-effect-types/`,
-`examples/specification/check/companion-private-effect-bare-name/`,
-`examples/specification/check/companion-private-effect-missing-import/`,
-`examples/specification/check/companion-private-effect-wrong-target-json/`,
-`examples/specification/check/companion-private-effect-wrong-target-human/`,
-`examples/specification/check/companion-private-effect-handler-effects-wrong-target/`,
-`examples/specification/check/companion-private-effect-non-transitive/`, and
-`examples/specification/check/companion-private-effect-integration-boundary/`.
-The checked private handler cases are
-`examples/specification/check/companion-private-handler-access/`,
-`examples/specification/check/companion-private-handler-missing-import/`,
-`examples/specification/check/companion-private-handler-bare-name/`,
-`examples/specification/check/companion-private-handler-integration-boundary/`,
-`examples/specification/check/companion-private-handler-wrong-target-json/`,
-`examples/specification/check/companion-private-handler-wrong-target-human/`,
-`examples/specification/check/companion-private-handler-non-transitive/`,
-`examples/specification/check/companion-private-handler-established-effects/`,
-`examples/specification/check/companion-private-handler-established-effects-missing/`,
-`examples/specification/test/companion-private-handler-access/`, and
-`examples/specification/test/companion-private-handler-established-effects/`.
-
-A test companion must not declare public source surface. `pub` functions,
-effects, handlers, types, public type variants, schemas, and public function,
-type, and schema aliases are rejected with
-`module.companion_public_declaration`. The checked diagnostic cases are
-`examples/specification/check/companion-public-declaration-json/` and
-`examples/specification/check/companion-public-declaration-human/`. Top-level
-`codec` and `pub codec` declarations remain rejected by
-`parse.codec_declaration_removed` before companion-specific module validation.
-
-Package manifests must not publish test companions through `[lib].exports`.
-The local checked cases are
-`examples/specification/check/manifest-companion-export-json/` and
-`examples/specification/check/manifest-companion-export-human/`. The dependency
-checked case is
-`examples/specification/check/dependency-companion-export-boundary-json/`.
+Companions cannot declare public functions, effects, handlers, types, public
+variants, schemas, or public aliases. A manifest `[lib].exports` cannot publish
+a companion. Top-level `codec` declarations remain rejected by
+`parse.codec_declaration_removed` before companion validation. Missing, chained,
+public-declaration, and manifest-export boundaries are diagnosed before
+execution. Public declarations report `module.companion_public_declaration`.
 
 ## Integer Literals
 
@@ -159,12 +88,8 @@ by formatting.
 Malformed prefixed candidates remain one token. Missing or invalid digits,
 uppercase prefixes, separators, prefixed float forms, and out-of-range values
 produce one `parse.integer_literal` diagnostic at the failed source fact. The
-checked expression and pattern behavior is in
-`examples/specification/run/integer-radix-equivalence/`; representative schema
-positions are in
-`examples/specification/check/integer-radix-schema-positions/`; formatter and
-human plus JSON diagnostics are checked by the matching `integer-radix-*`
-cases under `examples/specification/`.
+same rule applies in expression, pattern, schema, formatter, and diagnostic
+contexts.
 
 ## Integer Bitwise Tokens
 
@@ -175,235 +100,77 @@ generic types remain type delimiters rather than shift expressions.
 
 ## Schemas
 
-Top-level `schema Name` and `pub schema Name` declarations are source module
-items. A schema body may omit its `format` clause when every field uses
-format-neutral type text. Format-neutral generated decode helpers are exposed
-only when every field is a recursive format-neutral visible shape made from
-scalar leaves, anonymous record fields, `Option<T>`, `List<T>`, `Vec<T>`, and
-`Dict<String, T>`. `Result<Ok, Err>` is supported when both payloads are
-recursive format-neutral visible shapes. Same-module source ADT fields and
-public imported source ADT fields referenced through written `use` paths are
-supported when every constructor payload is a recursive format-neutral visible
-shape; private imported source ADTs, missing paths, non-ADT targets, and source
-ADTs with unsupported payloads remain unsupported helper fields and are
-declaration diagnostics.
-Format-neutral generated encode helpers are exposed only for schemas without a
-`format` clause whose fields are recursive visible shapes made from `Int`,
-`Bool`, `Float`, and `String` leaves, anonymous records, `Option<T>`, `List<T>`,
-`Vec<T>`, `Dict<String, T>`, `Result<Ok, Err>`, and eligible same-module or
-public imported source ADTs referenced through written `use` paths. Every
-recursively visited child or constructor payload must also be eligible. There
-is no separate container-depth limit.
-Decode and encode share that visible-shape vocabulary but preserve different
-recursive generic stopping rules. Decode may accept a repeated source ADT
-descriptor when its instantiated type arguments change. Encode still checks
-the newly introduced type arguments and rejects unsupported leaves found there.
-When present, the single `format binary` clause must appear before schema
-fields.
+A schema declaration is `schema Name ... end` or `pub schema Name ... end`.
+A single `format binary` clause, when present, precedes fields. Without that
+clause, fields use format-neutral types. A field has `name: Type` and may have a
+field-local `where` predicate; one schema-level `validate` predicate follows
+the fields.
 
-Schema field lines contain a field name, `:`, type text, and an optional
-field-local `where` predicate. One schema-level `validate` predicate may
-appear after fields. Binary schema field vocabulary includes the implemented
-exact-width unsigned primitives, lowercase `uint...` fields,
-`uint... reserves <value>`
-reserved-bit fields, `ReservedBits(width, value)`, `Repeat(count, Payload)`,
-canonical repeated fields `[Payload; count]`, direct nested binary schema
-fields, recursive anonymous record fields whose leaves are exact-width
-unsigned primitives,
-`ByteView(length)`, closed dispatch, and extension dispatch forms documented in
-[the executable grammar](#executable-grammar) and checked by
-`docs/specification/source-surface-executable.pl`. Canonical repeated fields
-write the payload field type before `;` and the count expression after it; the
-count expression may name an earlier visible count field or use implemented
-arithmetic forms over earlier count fields, and the payload may use an
-exact-width primitive, a lowercase exact-width primitive, a nested binary
-schema, `ByteView(length_field)`, or
-`ByteView(left_length - right_length)`.
-Nominal field type text resolves the ordinary type and schema namespaces
-independently. A unique schema or schema-alias target composes its schema-local
-visible record beneath the written field binding; target fields are never
-injected as unqualified fields. Same-module private or public targets and
-public targets or aliases reached through a written `use` path are supported.
-A multi-segment composition target may use the full imported module path or
-its implicit leaf import alias. An exact full written import path takes
-precedence over a same-spelled implicit leaf alias. When all implicit-leaf
-candidates are workspace imports, the alias resolves only when one written
-workspace import provides it; colliding workspace leaf aliases remain
-unresolved in either import order. This workspace uniqueness rule does not
-specify package-only or mixed workspace/package alias collisions. Focused
-semantic and language-service evidence is
-`schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`
-and the `colliding_implicit_schema_import_aliases_are_order_independent` and
-`exact_schema_import_path_precedes_colliding_implicit_leaf_alias` navigation
-cases.
-Format-neutral structural types and binary field primitives keep their existing
-grammar precedence when a local schema or schema alias has the same name. The
-checked collisions are under
-`examples/specification/check/schema-composition-grammar-precedence/`.
-Format-neutral schemas compose only format-neutral targets, and binary schemas
-compose only binary targets. Missing, private, wrong-kind, ambiguous,
-format-incompatible, cyclic, duplicate-binding, forward-reference, and
-direction-specific helper failures are declaration diagnostics.
-Later binary length, repeat, dispatch, field predicate, and schema validation
-expressions may reference an earlier composed `Int` through an explicit path
-such as `header.length`; the root binding must already be decoded. The checked
-surface is under
-`examples/specification/check/schema-composition-diagnostics/`, with executable
-decode and encode cases under
-`examples/specification/run/schema-composition-binary-nested-paths/` and
-`examples/specification/run/schema-composition-format-neutral/`. Nested
-format-neutral target validation failures in both directions and binary target
-decode and encode failures are checked by the matching
-`schema-composition-format-neutral-*-failure/` and
-`schema-composition-binary-*-failure/` cases. The success cases include local
-and imported aliases, a same-module public target, and nested paths in every
-supported later expression position.
-Anonymous record fields in `format binary` schemas expose a nested
-schema-local visible record at that field when every leaf is an implemented
-exact-width unsigned primitive. Anonymous records may contain sibling nested
-anonymous record fields at the same record level. The checked decode cases are
-`examples/specification/run/binary-schema-anonymous-record-decode/`,
-`examples/specification/run/binary-schema-nested-anonymous-record-decode/`,
-`examples/specification/run/binary-schema-sibling-nested-anonymous-record-decode/`,
-and
-`examples/specification/run/binary-schema-recursive-anonymous-record-decode/`.
-The checked nested truncation JSON cases are
-`examples/specification/run/binary-schema-anonymous-record-truncated-json/`,
-`examples/specification/run/binary-schema-nested-anonymous-record-truncated-json/`,
-`examples/specification/run/binary-schema-sibling-nested-anonymous-record-truncated-json/`,
-and
-`examples/specification/run/binary-schema-recursive-anonymous-record-truncated-json/`.
-The checked encode cases are
-`examples/specification/run/binary-schema-anonymous-record-encode/`,
-`examples/specification/run/binary-schema-anonymous-record-encode-out-of-range-json/`,
-and
-`examples/specification/check/binary-schema-anonymous-record-encode-boundary/`.
-Legacy `Repeat(count, Payload)` fields accept the same lowercase exact-width
-primitive payload spellings that are accepted by canonical repeated-field
-syntax. They also accept supported lowercase `uint... reserves <value>`
-payloads as representation-only repeated payloads.
-Closed and extension dispatch payload cases accept the same lowercase
-exact-width `uint...` spelling wherever the compatible upper-case exact-width
-primitive payload spelling is accepted. Byte-aligned
-lowercase `uint... reserves <value>` payloads are accepted wherever direct
-reserved-bit dispatch payloads are supported; direct dispatch payloads also
-accept subbyte spellings from `uint1 reserves 0` through
-`uint7 reserves 127` when the reserved value fits the declared width.
-Binary-only primitive
-vocabulary remains gated by `format binary`. In `format binary` schemas,
-`veln fmt` writes supported compatibility primitive spellings as the canonical
-lowercase schema vocabulary, including direct fields, supported reserved
-fields, repeated fields, and dispatch payload field text.
-Closed dispatch payload schemas may contain bounded repeated fields whose
-payload is an eligible nested binary schema; checked decode coverage is
-`examples/specification/run/binary-schema-dispatch-nested-repeat-decode/` and
-checked nested truncation output is
-`examples/specification/run/binary-schema-dispatch-nested-repeat-truncated-json/`.
+### Format-neutral fields
 
-Schema declarations return and accept schema-local visible record shapes
-through explicit schema operation expressions. The expression
-`decode SchemaName from view at base_offset`
-accepts eligible binary schemas, `ByteView`, and `ByteOffset` operands and
-returns a `DecodeStep<T>` for the schema-local visible record shape. The
-expression `encode SchemaName from value` accepts the schema-local visible
-record shape for eligible binary schemas and returns
-`Result<ByteChunk, EncodeError>`. For format-neutral schemas without a
-`format` clause, the same expression accepts and returns the schema-local
-visible record shape as `Result<T, String>` without producing binary bytes
-when every field is a recursive visible shape made from the supported scalar
-leaves, anonymous records, `Option<T>`, `List<T>`, `Vec<T>`,
-`Dict<String, T>`, `Result<Ok, Err>`, and eligible same-module or public
-imported source ADTs. Every recursively visited child or constructor payload
-must also be eligible.
-Bare schema operation paths resolve only to same-module schemas. Qualified
-public schema paths are accepted when the imported schema or public schema
-alias is visible, including through an import alias. A written import does not
-make the imported schema visible as a bare schema operation path.
-The executable coverage is
-`examples/specification/run/schema-decode-expression/` and
-`examples/specification/run/schema-encode-expression/`. Format-neutral encode
-coverage is
-`examples/specification/run/format-neutral-schema-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-option-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-list-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-list-option-encode/`,
-`examples/specification/run/format-neutral-schema-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-nested-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-option-vec-encode/`,
-`examples/specification/run/format-neutral-schema-recursive-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-option-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-list-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-option-dict-encode/`,
-`examples/specification/run/format-neutral-schema-option-list-encode/`,
-`examples/specification/run/format-neutral-schema-nested-container-encode/`,
-`examples/specification/run/format-neutral-schema-result-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-result-option-encode/`,
-`examples/specification/run/format-neutral-schema-recursive-result-encode/`,
-`examples/specification/run/format-neutral-schema-result-container-encode/`,
-`examples/specification/run/format-neutral-schema-source-adt-encode/`, and
-`examples/specification/run/format-neutral-schema-recursive-encode-shapes/`.
-The
-HTTP/2 frame header schema boundary is checked through explicit decode
-operations under
-`examples/specification/run/binary-schema-frame-header-decode/`,
-`examples/specification/run/binary-schema-frame-header-reserved-human/`,
-`examples/specification/run/binary-schema-frame-header-reserved-json/`,
-`examples/specification/run/binary-schema-frame-header-truncated-human/`, and
-`examples/specification/run/binary-schema-frame-header-truncated-json/`.
-Encode expression diagnostics are checked by
-`examples/specification/check/schema-encode-expression-diagnostics/` and
-runtime value failures by
-`examples/specification/run/schema-encode-expression-unrepresentable-human/`
-and
-`examples/specification/run/schema-encode-expression-unrepresentable-json/`.
-Projection into domain records is ordinary source code at the caller or
-schema-operation boundary. Generated schema helper names are compatibility
-implementation details, not the documented source API for applying schemas.
-The checked format-neutral generated helper cases are
-`examples/specification/run/format-neutral-schema-decode/`,
-`examples/specification/run/format-neutral-schema-option-list-decode/`,
-`examples/specification/run/format-neutral-schema-nested-option-list-decode/`,
-`examples/specification/run/format-neutral-schema-recursive-containers-decode/`,
-`examples/specification/run/format-neutral-schema-result-decode/`,
-`examples/specification/run/format-neutral-schema-source-adt-decode/`,
-`examples/specification/run/format-neutral-schema-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-option-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-list-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-list-option-encode/`,
-`examples/specification/run/format-neutral-schema-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-nested-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-option-vec-encode/`,
-`examples/specification/run/format-neutral-schema-recursive-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-option-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-list-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-dict-vec-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-option-dict-encode/`,
-`examples/specification/run/format-neutral-schema-option-list-encode/`,
-`examples/specification/run/format-neutral-schema-nested-container-encode/`,
-`examples/specification/run/format-neutral-schema-result-scalar-encode/`,
-`examples/specification/run/format-neutral-schema-result-option-encode/`,
-`examples/specification/run/format-neutral-schema-recursive-result-encode/`,
-`examples/specification/run/format-neutral-schema-result-container-encode/`,
-`examples/specification/run/format-neutral-schema-source-adt-encode/`,
-`examples/specification/run/format-neutral-schema-dict-vec-option-encode/`,
-`examples/specification/run/format-neutral-schema-recursive-encode-shapes/`,
-`examples/specification/check/format-neutral-schema-recursive-result-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-result-container-encode-fields/`,
-`examples/specification/check/format-neutral-schema-result-container-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-dict-scalar-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-option-dict-encode-boundary/`,
-`examples/specification/check/format-neutral-schema-vec-fields/`,
-`examples/specification/check/format-neutral-schema-source-adt-fields/`,
-`examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics/`,
-`examples/specification/check/format-neutral-schema-source-adt-helper-diagnostics-human/`,
-and
-`examples/specification/check/format-neutral-schema-decode-helper-diagnostics/`.
-Schema-level `map to` clauses, selected
-schema mappings, mapping assignments, and `inverse` projection annotations are
-not accepted source syntax.
+Decode and encode expose a schema-local visible record only when every
+recursively visited field and constructor payload is an eligible visible shape.
+The scalar leaves are `Int`, `Bool`, `Float`, and `String`. Containers are
+anonymous records, `Option<T>`, `List<T>`,
+`Vec<T>`, `Dict<String, T>`, and `Result<Ok, Err>`. Same-module source ADTs
+and public imported source ADTs are eligible when every constructor payload also
+has an eligible shape. Private imports, missing or wrong-kind targets, and
+unsupported ADT payloads are declaration errors. Decode and encode share this
+vocabulary but differ in recursive generic stopping: decode may accept a
+repeated source ADT descriptor with changed instantiated arguments; encode
+checks newly introduced arguments and rejects unsupported leaves. There is no
+separate container-depth limit.
+
+### Binary fields
+
+Binary fields use lowercase unsigned primitives such as `uint16be`,
+compatibility spellings such as `UInt16be`, and reserved-bit forms `uint... reserves <value>`
+and `ReservedBits(width, value)`. They also support legacy
+`Repeat(count, Payload)`, canonical `[Payload; count]`, nested binary schemas,
+recursive anonymous records whose leaves are exact-width unsigned primitives,
+`ByteView(length)`, and closed or extension dispatch. Binary-only forms are
+available only in `format binary` schemas.
+
+A canonical repeat writes the payload type before `;` and the count after it.
+The count may be an earlier visible count field or implemented arithmetic over
+earlier count fields. Payloads may be exact-width primitives, lowercase
+compatibility primitives, nested schemas, `ByteView(length_field)`, or
+`ByteView(left_length - right_length)`. Repeated and dispatch payloads accept
+the same lowercase primitive and supported reserved-bit spellings as direct
+fields. Direct dispatch accepts subbyte `uint1 reserves 0` through
+`uint7 reserves 127` when the value fits. `veln fmt` canonicalizes supported
+compatibility spellings to lowercase schema vocabulary.
+
+### Composition, records, and references
+
+Type text resolves ordinary type and schema namespaces independently. A unique
+schema or schema alias composes its schema-local record under the written field
+binding; target fields are not injected as unqualified names. Same-module
+private/public targets and public imported targets or aliases are supported.
+Full imported paths take precedence over an implicit leaf alias. Colliding
+workspace leaf aliases remain unresolved regardless of import order. Format-
+neutral schemas may compose only format-neutral targets; binary schemas only
+binary targets. Missing, private, wrong-kind, ambiguous, incompatible, cyclic,
+duplicate-binding, forward-reference, and direction-specific helper failures
+are declaration errors.
+
+Anonymous binary records expose nested schema-local records when every leaf is an
+exact-width unsigned primitive. Sibling nested records at one level are allowed.
+Later repeat counts, byte-view lengths, dispatch tags or lengths, field
+predicates, and schema validation may refer to an earlier decoded visible
+`Int`, including a composed path such as `header.length`. A root binding must
+already be decoded.
+
+### Schema operations
+
+`decode SchemaName from view at base_offset` accepts an eligible binary schema,
+`ByteView`, and `ByteOffset`, and returns `DecodeStep<T>` for the schema-local
+record. `encode SchemaName from value` accepts that record and returns
+`Result<ByteChunk, EncodeError>`. For format-neutral schemas the operations
+use `Result<T, String>` and do not produce binary bytes. Bare operation paths
+resolve only to same-module schemas; qualified public schemas and public aliases
+are available through written imports. A written import does not create a bare
+schema operation path. Generated helper names are implementation details.
 
 ## Codecs
 
@@ -416,34 +183,24 @@ expressions.
 
 ## Diagnostics
 
-The parser rejects schema-level `map to` with
-`parse.schema_mapping_removed` at the `map` token. The checked cases cover
-plain mapping clauses, selected mapping clauses, and inverse projection
-annotations under `examples/specification/check/schema-map-to-*-rejected/`.
-Mapping-only semantic and runtime diagnostics are not current behavior. The
-parser rejects top-level codec declarations with
-`parse.codec_declaration_removed`. Current schema diagnostics cover
-format placement, primitive kind checks, field-local and schema-level
-validation predicates, dispatch payload eligibility, explicit schema decode
-expression schema-path resolution, and helper availability. Binary schema
-field references for repeat counts, `ByteView` lengths and multiple
-constraints, dispatch tags, and extension-dispatch tags and lengths must name
-earlier decoded visible `Int` fields in the same schema. Invalid references
-use `schema.repeat_reference`, `schema.byte_view_reference`, or
-`schema.dispatch_reference`, with checked JSON and human output under
-`examples/specification/check/binary-schema-field-reference-diagnostics/` and
-`examples/specification/check/binary-schema-field-reference-human/`.
+Schema-level `map to` clauses, selected mappings, mapping assignments, and
+`inverse` projection annotations are not source syntax; the parser reports
+`parse.schema_mapping_removed` at `map`. Top-level `codec` declarations report
+`parse.codec_declaration_removed` at `codec` and callers use ordinary functions
+with explicit schema operations instead.
+
+Schema diagnostics cover format placement, primitive kind, field and schema
+predicates, dispatch payload eligibility, schema-path resolution, and helper
+availability. References for repeat counts, `ByteView` lengths, dispatch tags,
+and extension-dispatch tags or lengths must name earlier decoded visible
+`Int` fields in the same schema. Invalid references report
+`schema.repeat_reference`, `schema.byte_view_reference`, or
+`schema.dispatch_reference` at the failed reference.
 
 ## Executable Grammar
 
-The executable grammar checks its focused accepted and rejected fixtures. The
-`veln-repo-toolchain-cases` command also scans the toolchain harness for every
-successful source-command case that forbids source errors. It uses the
-toolchain inventory and project-discovery boundaries to enumerate the selected
-`.veln` files and requires the executable grammar to accept each file. The
-dedicated `test / source surface` workflow runs this command after installing
-SWI-Prolog. New accepted cases therefore extend the checked source patterns
-without adding paths to the Prolog specification or adding a Rust harness test.
+The grammar below is the compact source contract. Parser implementation and
+the source-surface grammar artifact must agree with these productions.
 
 <!-- source-surface-grammar:start -->
 ```text
@@ -539,7 +296,13 @@ MemberPath    ::= Name ("::" Name)*
 ```
 <!-- source-surface-grammar:end -->
 
-## Read When
+## References
+
+- Grammar artifact: [source-surface-executable.pl](source-surface-executable.pl).
+- Parser: `crates/veln-syntax/src/parser/` and `crates/veln-syntax/src/lexer.rs`.
+- Source identity and companion visibility: `crates/veln-analysis/src/surface/`.
+
+## Read by task
 
 - Updating parser behavior, AST source shape, source metadata, declaration
   rules, or formatter output.
@@ -547,7 +310,7 @@ MemberPath    ::= Name ("::" Name)*
 - Aligning examples, diagnostics, or command behavior with accepted source
   syntax.
 
-## Skip Unless Needed
+## Skip unless needed
 
 - Do not read proposal or phase history before this page.
 - Use [source-decisions.md](source-decisions.md) only when rationale is needed

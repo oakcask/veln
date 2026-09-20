@@ -17,9 +17,10 @@ against the built `veln` binary.
 - Treat these cases as executable specification evidence for user-visible
   language and CLI behavior. Keep matching prose in `../../docs/specification/`
   aligned with the observable expectations here.
-- Prefer adding or improving a case here over expanding prose when behavior is
-  observable through source, diagnostics, command output, JSON, formatter
-  output, generated docs, runtime output, LSP JSON-RPC, tests, or repair output.
+- Add or improve cases for observable source, diagnostic, command, formatting,
+  documentation, runtime, protocol, test, or repair behavior. Keep the matching
+  specification explanation of usage, behavior, and limits current; cases
+  corroborate that explanation rather than replace it.
 - Keep case names grouped by command surface: `check`, `doc`, `fmt`,
   `explain`, `lsp`, `mcp`, `metrics`, `run`, `test`, `repair`, and
   `package`.

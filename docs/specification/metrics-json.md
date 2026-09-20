@@ -2,6 +2,7 @@
 role: specification
 authority: normative
 update-when: The metrics command JSON schema or executable metrics cases change.
+specification-coverage: usage=#metrics-json; behavior=#report-fields-and-ordering; limits=#partial-reports
 ---
 
 # Metrics JSON
@@ -19,6 +20,8 @@ metric analysis errors fail without a clean metrics report. Type, effect, and
 contract errors are not reported as metrics diagnostics and do not block this
 syntax-and-module-graph report.
 
+## Partial reports
+
 When every source error is either `name.invalid_case` with `details.origin:
 "source_path"` or an unresolved import caused by excluding such an identity,
 the command emits a partial metrics report with `status: "incomplete"` and
@@ -31,6 +34,8 @@ Parse-clean excluded sources remain eligible for selected path-based ABC and
 whole-body similarity records. A parse error, unrelated unresolved import, or
 any other non-qualifying source error keeps the ordinary diagnostic envelope
 and emits no metrics report, completeness object, or check result.
+
+## Policy results and baselines
 
 With `--check`, `[tool.metrics] deny_cycles = "true"` enables dependency-cycle
 policy enforcement. Omitted `deny_cycles` and `deny_cycles = "false"` leave no
@@ -78,6 +83,8 @@ below, replacing only the top-level `schema_version` with
 absolute paths or source text. It refuses to overwrite an existing path and
 refuses to write an incomplete partial report.
 
+## Report fields and ordering
+
 The JSON document contains:
 
 - `tool.name`, `tool.version`, `command`, `status`, and `schema_version`;
@@ -118,6 +125,8 @@ produce the same ordered report. The report arrays remain complete when
 `human_output.truncated` is `true`. Baseline output does not include
 `human_output`, and baseline content is independent of the human-output limit.
 
+## Dependency graph
+
 Each module record includes `module`, `path`, `generated`, `fan_in`,
 `fan_out`, `dependency_pressure`, `external_dependency_count`, and `span`.
 `dependency_pressure` is `fan_in * fan_out`.
@@ -136,6 +145,8 @@ retain fan-in, fan-out, dependency pressure, and cycle membership calculated
 from the complete project-owned graph. Dependency edges are reported when the
 source or target module is selected.
 
+## ABC subjects
+
 Each ABC subject record describes one selected project-owned source function
 or test declaration. It includes `identity`, `path`, `name`, `kind`,
 `generated`, `contracts_included`, `abc`, and `span`. `kind` is `function` or
@@ -153,6 +164,8 @@ short-circuit `and` or `or`, and `?` expression increments `conditionals`.
 Nested expressions contribute to the containing declaration. Declaration
 signatures, result bindings, type and effect annotations, and contract text do
 not contribute. `contracts_included` is `false` for every ABC subject.
+
+## Similarity records
 
 Each similarity record describes one experimental exact whole-body similarity
 instance among selected project-owned source function or test declarations. It
@@ -176,81 +189,10 @@ Similarity analysis creates one declaration fingerprint for each selected
 eligible declaration whose normalized body has at least the effective
 `similarity_min_tokens` count. Each eligible declaration can appear in at most
 one similarity instance. For `N` such declarations, the report has at most `N`
-similarity regions and at most `floor(N / 2)` similarity instances. The
-explicit `scripts/benchmark-metrics-similarity` review command uses generated
-unrelated functions, repeated functions, and repeated token-prefix functions at
-adjacent sizes. It reports source token count, declaration fingerprint count,
-similarity instance count, reported region count, wall time, user CPU time,
-peak resident memory, medians, and adjacent-size ratios. The benchmark checks
-that median user CPU time and median peak resident memory do not grow by more
-than three times between adjacent sizes on the same machine and build profile;
-this timing check is review evidence, not a portable CI limit.
+similarity regions and at most `floor(N / 2)` similarity instances. Similarity
+is advisory and has no portable timing limit; the selection and normalization
+rules above define the public result.
 
-Executable evidence:
+## References
 
-- The metrics `dependency-report` and `dependency-report-json` cases check
-  advisory human and JSON output, graph counts, external dependency counts,
-  and cycle paths.
-- The metrics `path-selection` case checks JSON shape, selected subjects,
-  containing graph counts, dependency edges, and cycle membership.
-- The metrics `check-acyclic`, `check-cycle-human`, and `check-cycle-json`
-  cases check enabled dependency-cycle policy success and violation output.
-- The metrics `check-no-policy-human`, `check-no-policy-json`,
-  `check-invalid-policy-json`, and `check-unsupported-policy-json` cases check
-  configuration and manifest policy failures that do not return a clean check
-  report.
-- The metrics `human-output-truncated`,
-  `human-output-truncated-json`, `check-human-output-truncated`,
-  `check-human-output-truncated-json`, `invalid-max-findings-human`, and
-  `invalid-max-findings-json` cases check the shared human-output budget,
-  exact omitted counts, unchanged JSON evidence, failing checked status under
-  truncation, and invalid `max_findings` diagnostics. Their human-output
-  fixture fragments preserve report-section order even when inline assertions
-  and file-backed assertions are split in the case manifest.
-- The metrics `baseline-write` and `baseline-existing-file` cases check
-  baseline generation, baseline file shape, and overwrite refusal.
-- The metrics `baseline-check-pass-json`,
-  `baseline-check-regression-json`, `baseline-stale-human`, and
-  `baseline-unsupported-schema-json`, and
-  `baseline-unsupported-metric-model-json` cases check baseline-aware cycle
-  allowances, regressions, stale subject reporting, and unsupported version
-  comparison errors.
-- The metrics `partial-source-json`, `partial-source-human`,
-  `partial-source-hidden-cycle-json`, `partial-source-known-cycle-json`,
-  `partial-source-selection-json`, `partial-source-mixed-errors-json`,
-  `partial-baseline-write`, and `partial-baseline-check-json` cases check
-  partial source-path casing diagnostics, excluded graph identities,
-  retained path-based subjects, non-zero exits, hidden-cycle incompleteness,
-  retained-graph cycle precedence, ordinary error envelopes for mixed source
-  errors, baseline-write refusal, and excluded baseline subjects.
-- The `metrics_baseline_check_preserves_report_fields` CLI integration test
-  checks that a baseline check preserves the advisory ABC subjects, graph
-  measurements, ordering, and ordinary report fields from the matching
-  no-baseline JSON report.
-- The metrics `abc-constructs` case checks counted ABC constructs, annotation
-  and contract exclusion, and ABC summary fields.
-- The metrics `abc-subject-kinds` case checks function and test subject kinds
-  and excludes doctest-like documentation text from ABC subjects.
-- The metrics `similarity-formatted-equal`, `similarity-partial-body`,
-  `similarity-human-output`, and `check-similarity-baseline-advisory` cases
-  check exact whole-body similarity, identifier-sensitive exclusion,
-  partial-body exclusion, human output placement and locations, summary
-  counts, and advisory baseline behavior under `--check`.
-- The metrics `stable-ordering` and `stable-ordering-human` cases check
-  public CLI ordering for selected paths, modules, edges, cycles, ABC
-  subjects, same-token-count similarity instances, similarity declarations,
-  and the corresponding human prefix, with file-backed and inline expected
-  fragments kept in manifest order. The
-  `metrics_cli_output_is_stable_for_reversed_input_order` CLI integration test
-  checks byte-for-byte stable JSON and human output for reversed input order
-  when the detailed finding set is truncated.
-- The `canonical_path_ordering_survives_source_insertion_order_and_separators`
-  metrics crate test checks graph, ABC, similarity, baseline JSON, human
-  locations, and path-bearing identities across reversed source insertion
-  order and equivalent `/` or `\` project-relative path spellings. The
-  `renders_similarity_fingerprint_tiebreak_order_in_public_outputs` metrics
-  crate test checks the final fingerprint tie-break in JSON and human output.
-- The `generated_similarity_workload_preserves_pipeline_bounds` metrics crate
-  test checks the parsed source and report pipeline with unrelated bodies, one
-  large equivalence class, many two-declaration equivalence classes, and
-  repeated token prefixes.
+The metrics report is produced by `crates/veln-cli/src/commands/metrics.rs`; CLI metrics assertions verify field shapes, ordering, policy results, partial reports, and baselines.

@@ -7,7 +7,8 @@ update-when: A specification topic route is added, moved, renamed, or no longer 
 
 Use this page when you know the kind of behavior being changed but not the
 smallest specification page to read. Choose the narrowest subject route and
-stop when its authoritative page answers the task.
+stop when its authoritative page answers the task. The routes below are
+discovery guidance; the linked subject pages own behavior and evidence.
 
 ## Source Surface
 

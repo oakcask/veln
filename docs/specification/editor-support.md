@@ -1,6 +1,7 @@
 ---
 role: specification
 authority: normative
+specification-coverage: usage=#lsp-encoding; behavior=#semantic-token-records; limits=#boundaries
 update-when: The `veln lsp` semantic-token, publish-diagnostic, navigation, formatting, rename, virtual-document, VSCode integration, executable LSP evidence, or shared LSP/MCP navigation declaration-policy contract changes.
 ---
 
@@ -126,12 +127,7 @@ analysis starts.
 When no workspace folders are present, the server applies the same selection
 rules to `initialize.rootUri`. When the client sends no workspace identity, the
 server leaves workspace roots empty and publishes document-scoped diagnostics
-for open documents only. The executable LSP example is
-`../../examples/specification/lsp/workspace-package-root-selection/`. Direct
-`veln-lsp` tests cover manifest roots, branch selection, explicit nested roots,
-dependency isolation, filesystem-identity deduplication, directory symbolic
-links, symlink workspace document requests, `.git`, `target`, and anonymous
-fallback.
+for open documents only.
 
 For files inside a resolved workspace root, the server discovers project
 `.veln` files the same way `check` and `run` do. For each resolved root, a
@@ -189,9 +185,7 @@ compiler diagnostic contract routed by [diagnostics-json.md](diagnostics-json.md
 Unicode-scalar source position. It returns the selected symbol, its definition,
 and deterministic reference locations as Veln source identities and ranges.
 The result contains no URI serialization, JSON, JSON-RPC, or LSP coordinate
-representation. Its direct tests cover project functions, exact companion
-visibility, handler bindings, deterministic ordering, shadowing, field
-isolation, and positions without a supported symbol.
+representation.
 
 `veln-lsp` captures the workspace manifest, saved workspace sources, valid
 direct path, vendor, mirror, and locally available direct git dependency
@@ -245,169 +239,6 @@ schema visibility. A written import does not make the
 imported schema or alias available as a bare schema path. It does not add
 module-qualifier, recovery, or rename behavior for
 schemas.
-The executable evidence is the `references-workspace-schema-composition`,
-`references-dependency-schema-composition`, and
-`references-workspace-schema-alias` LSP cases under
-`examples/specification/lsp/` and the shared
-`navigation_schema_references` Rust test module.
-For a public schema in an exported retained direct-dependency module,
-`textDocument/references` returns the selected project's saved workspace
-direct-field, `Repeat`, array-payload, `decode`, and `encode` leaves that
-resolve to the same package declaration.
-It excludes the package declaration even when declaration inclusion is true,
-as well as package-source occurrences. A clean or syntax-recovered package
-schema alias with the selected name blocks fallback to a same-spelled package
-schema. A repeated payload is selected only when its `Repeat` count or array
-count is a valid schema count expression. Comments, strings, import tokens,
-and module qualifiers are not schema
-references. Standard-library schema aliases,
-ineligible package schema aliases, transitive dependencies, recovery records,
-and syntax-recovered leaves remain unsupported. An invalid-cased schema
-declaration in an otherwise eligible direct-dependency or standard-library
-source retains its package definition location, but its reference set is
-empty. The
-`references-dependency-schema-composition` LSP case covers the unified set,
-both declaration policies, full and implicit module paths, workspace-only exact
-ranges, non-BMP saved input, and parity with the MCP case. The existing
-`references-dependency-schema-operation` case preserves operation behavior.
-Focused LSP coverage injects a public standard-library schema and checks its
-selected-project composition, `decode`, and `encode` leaves. The LSP case
-checks both declaration policies, the exact five saved locations, and a non-BMP
-character in the saved input. The checked examples harness cannot inject a
-synthetic standard-library snapshot, so the focused server tests are the
-executable LSP evidence route for this case. The injected fixture is test-only;
-the shipped standard-library bundle remains unchanged. Standard-library schema
-aliases remain excluded while their names block schema fallback.
-If a clean package schema and a syntax-recovered schema share the same package,
-module, and declaration identity, all five leaf roles are ineligible: selecting
-direct composition, `Repeat`, array, `decode`, or `encode` returns the same
-successful empty result.
-The LSP regression case
-`standard_library_schema_recovery_collision_keeps_all_reference_roles_empty`
-verifies this fail-closed identity rule.
-The language-service matrix
-`standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`
-also checks full and unique implicit module paths, valid `Repeat` and array
-counts, package-origin isolation, and lexical exclusions. The focused exclusion
-test checks import-token, module-qualifier, and standard-library alias-target
-selections remain outside the reference union. Its eligibility companion checks
-private, non-exported, invalid-cased, alias-blocked, and ambiguous-import empty
-results. The shared language-service origin-isolation companion selects the
-same spelling from workspace, direct-dependency, and standard-library origins
-and checks each exact set without cross-origin locations. The LSP
-selected-project test excludes another selected root and an unselected
-descendant. The tests
-`standard_library_schema_references_use_the_injected_snapshot` and
-`standard_library_schema_references_pair_saved_baseline_with_lsp_overlay`
-cover UTF-16 ranges, the five-location saved baseline, the complete
-six-location overlay result including URI, range, and order, and overlay
-precedence.
-The LSP test `standard_library_schema_exact_import_precedes_implicit_alias_in_both_orders`
-also verifies on a `decode` leaf that exact import precedence is independent of
-declaration order. The shared language-service tests apply the same rule to
-composition and operation leaves, include a same-spelled workspace schema,
-and reject conflicting exact workspace and standard-library imports in either
-source order. The eligibility cases include a recovered alias beside a valid
-schema; neither can contaminate the standard-library reference set.
-The LSP test
-`standard_library_schema_unique_implicit_nested_module_path_matches_full_path`
-separately proves that a nested exported module has a unique implicit leaf
-alias: its full `alpha::wire::Packet` path and `wire::Packet` path resolve to
-the same package-origin identity and exact saved reference union.
-The LSP test
-`standard_library_schema_import_collisions_are_successful_empty_results` keeps
-duplicate, conflicting, and recovered standard-library imports as successful
-empty results. The shared language-service matrix, rather than this LSP case,
-owns the exact workspace-versus-standard-library origin comparison and its
-source-order cases. MCP behavior and its independent pagination,
-selected-project, and stable-capture evidence are specified by
-[MCP Workspace Projects, Resources, And Navigation](mcp.md#saved-workspace-navigation).
-For an eligible public schema alias in an exported retained direct-dependency
-module, `textDocument/references` returns the same saved workspace composition
-and operation leaves as MCP when declaration inclusion is false. Each
-non-terminal hop must resolve to one unique public schema alias, and the final
-hop must resolve to one unique public schema declared by an exported source in
-the retained dependency. The chain must be finite and acyclic. A bare target
-resolves in the declaring alias module of the current hop. A qualified target
-resolves through a valid local import from any retained package source with the
-current hop's explicit module identity. Full written target modules and unique
-implicit leaf import aliases are accepted. Consumer imports do not affect
-target resolution. The qualified import can resolve to another module or back
-to the current hop's declaring module. At each hop, the declaration kind must match the
-expected kind: a non-terminal target is one public schema alias, and the final
-target is one public schema. Same-spelled declarations in unrelated
-namespaces do not affect target resolution. Alias identity includes the
-dependency and alias declaration, so
-target-schema uses, sibling aliases, and same-spelled aliases from other
-dependencies remain separate. Full written module paths and valid implicit
-leaf aliases select that identity. An exact full written dependency import
-takes precedence over an unrelated import with a colliding implicit leaf
-alias. Imports and blockers are shared by owned sources with the same explicit
-workspace module identity as specified by
-[Name Resolution And Identifier Casing](name-resolution.md). Duplicate or
-syntax-recovered dependency imports do not grant dependency alias visibility.
-A clean alias in a non-exported package source blocks fallback to a
-same-spelled exported schema without becoming navigable. Public aliases may
-resolve through a finite, acyclic chain of public aliases in the same retained
-direct dependency, provided every hop and the terminal schema is declared in
-an exported source. Bare imported schema-alias composition and operation leaves,
-external-package targets, ambiguous or recovered target imports,
-package-source leaves, standard-library and transitive aliases,
-invalid or ambiguous declarations, and recovered schema-alias composition or
-operation leaves remain empty.
-Package declarations are never added when declaration
-inclusion is true, and definition and rename support do not expand. The
-`references-dependency-schema-alias` LSP case is paired with the MCP case and
-fixes their normalized URI and range parity over identical non-BMP saved input,
-including an alias and target schema exported from separate sources with
-different explicit modules, a same-spelled type in the alias module, and two
-retained dependencies exporting the same module and alias spelling. The
-paired cases also exclude a workspace type with the alias spelling from the
-exact result and include dependency-alias composition in the alias-specific
-union; non-exported-target and invalid-target-import selections remain empty.
-An unselected descendant project with
-the same qualified alias use remains outside the selected root project's
-result. The LSP case also keeps definition and prepare-rename null and rename
-edits empty for the supported package alias leaf. Shared navigation tests and
-the MCP dependency-schema boundary case cover schema/schema-alias name
-collisions, recovered duplicate declarations, invalid imports, invalid-cased
-targets, cross-module target success, other-package target rejection, and
-graph-ineligible alias selections. The paired executable cases select the top
-alias, an intermediate alias, and the terminal schema separately. Their exact
-URI/range sets prove that chain identity does not merge these selections.
-An ineligible direct-dependency schema alias selected from a direct field, a
-valid `Repeat` payload, or an array payload also returns a successful empty
-reference set and does not enter any eligible alias union. The
-`dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
-and `ineligible_dependency_schema_alias_composition_leaves_stay_empty`
-language-service tests cover these composition-selection boundaries.
-For accepted source, definition selection for same-spelled schema, effect,
-handler, effect-operation, type, constructor, function, and value-binding
-occurrences stays in the namespace fixed by the selected source position.
-Focused `veln-language-service` tests cover that namespace-by-use-role
-boundary, including lower-case exact spelling collisions where casing-neutral
-declarations coexist with accepted value names.
-Local binding selection starts after the binding declaration and initializer,
-so a function reference in `let name = name` remains a function reference
-while later same-scope `name` expressions select the local binding.
-For selected workspace type, constructor, function, and value-binding symbols,
-`textDocument/rename` first validates that the requested replacement stays in
-the selected symbol's existing identifier class. Type rename selection covers
-type declarations and syntax-retained type-role references. It does not select
-same-spelled effect names or effect operation names as type symbols. A bare
-type-role reference with multiple visible same-spelled imported type candidates
-has no selected symbol. A qualified type-role reference selects only the
-visible type identity named by its qualifier. Constructor declarations select
-the declared constructor identity, but they are not constructor reference
-sites. Constructor rename edits selected constructor declarations,
-constructor calls, and source-declared bare nullary constructor expression and
-pattern uses in workspace sources. Type and constructor replacement names
-start with an ASCII uppercase letter. Function and value-binding replacement
-names start with an ASCII lowercase letter. A class-changing replacement
-returns JSON-RPC invalid params with code `-32602`.
-The error payload preserves the shared `rename.invalid_case` code and includes
-the selected symbol class, requested name, and required initial class. The
-request returns no workspace edits in that failure response.
 
 A rename request that would create a same-namespace duplicate or a provable
 ambiguity in an affected module or lexical scope returns JSON-RPC invalid
@@ -474,122 +305,6 @@ complete edit.
 A rename request without a selected supported workspace symbol returns an empty
 workspace-edit `changes` object, and prepare-rename for the same position
 returns `null`.
-The executable
-`identifier-casing-rename-boundary` LSP example covers same-class edits and
-class-changing failures for the four supported rename classes, predictable
-duplicate and ambiguity conflict rejection, source-declared nullary
-constructor uses, legal unedited clause shadowing, inner clause parameter
-rename to an enclosing context parameter name, local binding declaration
-conflict reporting, declaration-only handler clause parameter conflict
-reporting, type alias conflict reporting, function-to-test duplicate rejection,
-same-spelled non-type namespace exclusion, qualified type identity preservation
-for type rename, ambiguous imported type rejection for edited and unedited
-requested-name occurrences, bare imported function ambiguity rejection for
-unedited requested-name call and function-value occurrences, constructor
-ambiguity rejection through public type-alias re-export visibility,
-effect operation role exclusion from constructor rename visibility and edits,
-and
-parameter and result-binding and handler parameter declaration locations for
-lexical function-rename conflicts.
-Focused language-service tests cover constructor ambiguity conflict rejection
-and legal qualified-function identity preservation that do not need separate
-transport-specific fixtures.
-The executable `identifier-casing-snapshot-boundary` and
-`identifier-casing-overlay-boundary` LSP examples cover selected-unit casing
-diagnostics, overlay replacement of saved source text, and unselected nested
-package isolation.
-The executable `identifier-casing-recovery-navigation` LSP example covers
-definition, references, prepare-rename, successful rename edits, edit-free
-invalid-case rename failure, and edit-free conflict rename failure for a
-unique class-compatible invalid source declaration or binding recovery record.
-It also checks valid-symbol precedence, ambiguous recovery rejection,
-incompatible-role rejection, shadowed occurrence rejection, qualified
-occurrence rejection, and lexical out-of-scope rejection at the LSP boundary.
-Focused language-service tests cover the same recovery decision table for
-source declarations, function parameters, result bindings, local and pattern
-bindings, satisfy candidate bindings, handler context parameters, and handler
-operation-clause parameters. The LSP example includes a callable parameter
-call target, and focused tests include callable parameter and local-binding
-call targets. Declaration-form cases cover invalid type declarations,
-constructor declarations, test declarations, public type aliases, and public
-function aliases. They also cover local-binding initializer exclusion before
-the binding starts. Recovery navigation and rename use the retained invalid
-declaration or binding range and the linked in-scope use ranges. A valid symbol
-takes precedence over recovery, including source-declared bare nullary
-constructor expression and pattern uses that share spelling with an invalid
-recovery candidate. Multiple compatible recovery records return no selected
-symbol, and incompatible, shadowed, qualified, initializer-before-binding, or
-out-of-scope occurrences do not link to the recovery record.
-The executable `identifier-casing-source-path-boundary`,
-`identifier-casing-source-path-snapshot-navigation`,
-`identifier-casing-source-path-overlay-navigation`, and
-`identifier-casing-source-path-overlay-reference-filtering` LSP examples cover
-workspace source-path-derived module segment diagnostics at the zero-width
-source-start range. `textDocument/prepareRename` returns `null` at that range.
-`textDocument/rename` returns an empty workspace-edit `changes` object without
-`documentChanges` or a resource operation at that range. The same example
-group checks that declarations in an invalid source-path-derived module
-identity and qualified type, constructor, function, and function-value
-selections through that invalid identity return no definition, references,
-prepare-rename range, or rename edits. It also checks that references collected
-for unrelated valid type, constructor, and function symbols do not include
-occurrences inside an invalid source identity, while an unrelated valid module
-still navigates normally.
-The executable `identifier-casing-handler-binding-navigation` LSP example
-covers invalid handler context and operation-clause binding recovery
-definition, references, prepare-rename, and rename edits for declaration
-positions and in-scope uses.
-The executable `identifier-casing-qualified-use-navigation` LSP example covers
-constructor-qualified type segments across definition, references,
-prepare-rename, and rename. The selected segment keeps the type rename casing
-class, and rename edits use the retained segment ranges in expression and
-pattern paths. The executable
-`identifier-casing-qualified-module-type-navigation` LSP example covers the
-same operations for imported module-and-type constructor paths. The module
-segment has no selected symbol, while the type segment selects the imported
-type, the constructor segment selects the imported constructor, and both keep
-their rename casing class. The executable
-`identifier-casing-qualified-prelude-navigation` LSP example covers
-`prelude`-qualified function and type paths. Standard-library package symbols
-return package definition locations, no prepare-rename range, and empty rename
-edits; their `prelude` module segment has no selected symbol.
-Supported direct-dependency and standard-library public function aliases whose
-targets resolve to package function declarations can still return workspace
-reference locations for selected-project uses through the shared navigation
-model. Public function-alias references use the alias identity, not the target
-function identity. Supported direct-dependency public type aliases whose
-targets resolve to package type declarations in the same retained direct
-dependency can return package definition locations and workspace reference
-locations for selected-project uses through the shared navigation model.
-Supported standard-library public type aliases whose targets resolve to
-standard-library type declarations can return workspace reference locations for
-selected-project uses through the shared navigation model, while their
-definition lookup remains unsupported.
-Public type-alias references use the alias identity, not the target type
-identity. Alias chains, transitive package targets, and unresolved or
-wrong-kind targets remain unsupported and produce no definition or reference
-locations. The
-executable
-`identifier-casing-qualified-function-navigation` LSP example covers a
-module-only qualified public function imported from another workspace source
-across definition, references, prepare-rename, rename, invalid replacement
-rejection, and no-symbol selection for the module segment. It covers both
-qualified function calls and qualified function value references; the value
-reference keeps its `value_binding` occurrence role while selecting the
-function declaration for navigation and rename validation. Qualified segment
-selections also resolve an implicit import alias to the same module identity
-used by checking. The executable
-`identifier-casing-qualified-import-alias-navigation` LSP example covers
-nested module import alias paths across definition, references,
-prepare-rename, and rename for qualified type, constructor, and function
-segments. Qualified segment
-selections use the semantic qualified-segment records that also drive
-qualified-use casing diagnostics. Definition, references, prepare-rename, and
-rename therefore use the same retained token range and role classification.
-For a workspace symbol, references and rename edits include only workspace
-source locations. Sources loaded only as dependency package snapshots do not
-produce `file:` locations for workspace references or workspace edits, even
-when their module path and symbol spelling match a workspace declaration.
 
 The retained dependency input contains the package identity, captured package
 snapshot, manifest export paths, and canonical virtual-source catalog derived
@@ -664,78 +379,6 @@ dependency definition therefore requests the exact returned URI through
 VSCode's URI object displays a different string for the same provider-backed
 document, the request still uses the canonical URI returned by the server.
 
-The `veln-language-service` tests are the executable evidence for dependency
-and standard visibility and transport-neutral package locations. The static
-LSP example
-`../../examples/specification/lsp/direct-dependency-virtual-document-boundary/`
-covers dependency definition boundaries without reading the dynamic digest.
-The `veln-lsp` dependency virtual-document test is the executable JSON-RPC
-evidence for the complete definition-to-read path, retained CRLF text, retained
-workspace and dependency sources, URI identity and digest, private declaration
-rejection, prepare-rename and rename rejection, exact import-path visibility,
-invalid export isolation with valid sibling visibility, and unknown or
-noncanonical URI rejection. The VSCode extension tests cover the corresponding
-definition request, exact-text read, location conversion,
-canonical URI lookup after VSCode URI parsing, and content-provider
-registration.
-The `veln-lsp` path, vendor, and mirror dependency virtual-URI test is the
-executable evidence that the returned URI omits physical placement and source
-kind while still reading the exact retained source text. The executable LSP
-example
-`../../examples/specification/lsp/direct-git-dependency-virtual-document/`
-checks a remote git source backed by an existing package-lock materialization,
-including direct git `subdir` definition-to-read round trip against a fixed
-snapshot URI and exact source text. The focused `veln-lsp` git dependency test
-checks physical-location independence, local `file:` URL source spelling,
-remote materialization, manifest-byte and source-byte URI changes, retained
-exact bytes after a physical edit, and private declaration rejection. The
-`veln-project` direct analysis source tests cover unique git selector
-rejection and escaping git `subdir` rejection.
-
-The executable LSP example
-`../../examples/specification/lsp/standard-library-virtual-document/` checks
-bare and qualified prelude definitions, an explicitly imported exported
-standard module, bare prelude shadowing by parameter and local bindings, a
-private prelude boundary, the exact standard snapshot URI, the complete
-embedded prelude read, and noncanonical URI rejection. The `veln-lsp`
-standard-package test additionally compares the returned virtual document with
-the exact embedded source value and checks package rename rejection.
-
-LSP executable examples use `stdin_jsonrpc_file` when the requested behavior is
-an ordered sequence of decoded JSON-RPC requests and notifications. Those
-fixtures can place document text in case-text sidecars and reference it with
-`$case_text`, or reference copied workspace source URIs with
-`$workspace_file_uri`. These directives keep source text and workspace URI
-evidence in fixture files without making manual `Content-Length` framing or
-temporary workspace paths part of the behavior under test. The
-`publish-diagnostics`, `semantic-tokens`, and
-`semantic-tokens-unsaved-change` examples use decoded `[[lsp_assert]]`
-selectors for initialize capabilities, diagnostic notifications,
-semantic-token data, and shutdown responses. When an assertion compares a
-complete JSON-RPC response object, member order belongs to the harness JSON
-equality model rather than to the LSP server contract.
-When decoded assertions use file-backed JSON operands, the sidecar placement
-is harness reviewability evidence and does not change the LSP message field
-contract.
-When a decoded assertion checks string containment, the containment operation
-is harness evidence over the selected JSON string and does not change the LSP
-message field contract.
-When a decoded assertion checks array length or a workspace file URI, the
-operation is harness evidence over the selected notification or response field.
-It does not add an LSP extension field or change URI serialization behavior.
-
-LSP executable examples still use ordered stdout fragments when JSON-RPC
-responses are interleaved with file-backed virtual-document text. Those
-fixture-manifest fragment boundaries are evidence placement, not a separate
-LSP response contract. Examples use `stdin_file` with `.raw` case-text
-sidecars only when the observable behavior depends on exact protocol bytes,
-such as CRLF header separators or invalid JSON-RPC framing.
-
-`textDocument/formatting` returns a single whole-document text edit containing
-the same canonical formatting produced by the formatter. Handler operation
-clauses are formatted as `operation(binding, ...) => expression`, with
-operation-clause bodies formatted as ordinary expressions.
-
 For a private target function reference written as `target::name` from the
 exact `.test.veln` companion, `textDocument/definition` returns the private
 function declaration location in the target `.veln` source when the companion
@@ -768,14 +411,7 @@ dependency do not receive private-function definition or rename results.
 
 Definition and rename use the same open-document overlays as workspace
 diagnostics. Unsaved target or companion text can provide the declaration and
-reference locations used in the response. The routed executable evidence is
-`../../examples/specification/lsp/companion-private-function-identity/`. The
-`veln-lsp` server tests also cover companion private-function definition,
-prepare rename, rename edits, source-scope isolation, target function-value
-references, target function-alias targets, companion function-value and alias
-rejection, callable shadowing, record field isolation, match-arm binding
-isolation, local-binding initializer references, rejected boundaries,
-request-origin filtering, and open-document overlays.
+reference locations used in the response.
 
 For a handler operation clause binding, `textDocument/definition` returns the
 binding location from the operation clause parameter list.
@@ -783,10 +419,7 @@ binding location from the operation clause parameter list.
 references inside the clause body. `textDocument/prepareRename` returns the
 binding range, and `textDocument/rename` edits the binding and references in the
 clause body. Record field labels and field accesses that use the same text are
-not binding references. The routed executable evidence is
-`../../examples/specification/lsp/handler-operation-editor/`. The `veln-lsp`
-server tests also cover handler operation clause function-call references and
-record field isolation for binding rename.
+not binding references.
 
 For a handler context parameter, `textDocument/definition` returns the binding
 location from the handler parameter list when an ordinary clause-body
@@ -800,12 +433,7 @@ same-named operation clause heading is not a handler context parameter
 reference and receives no context-parameter definition, references, or rename
 edits. A same-named operation clause parameter shadows the handler context
 parameter inside that operation clause and is renamed as a separate local
-binding. The routed executable evidence is
-`../../examples/specification/lsp/handler-context-callable-binding/` and
-`../../examples/specification/lsp/handler-context-operation-heading-isolation/`.
-The `veln-lsp` server tests also cover callable handler context parameter
-definition, references, rename, top-level function isolation, and operation
-clause parameter shadowing.
+binding.
 
 ## VSCode Integration
 
@@ -837,83 +465,35 @@ channel. `messages` logs compact request, notification, and response summaries.
 
 ## Boundaries
 
-Implemented:
+Implemented support includes:
 
-- TextMate fallback grammar for comments, strings, numbers, keywords,
-  operators, punctuation, unnamed and named holes, type-like identifiers, and
-  identifiers.
-- Editor-neutral semantic token records.
-- Full semantic-token legend and integer data generation for LSP clients.
-- Stdio JSON-RPC lifecycle for semantic highlighting and whole-document
-  formatting requests.
-- Stdio definition, prepare-rename, and rename responses for exact companion
-  qualified private-function references.
-- Stdio references responses for exact companion qualified private-function
-  references.
-- Stdio definition, references, prepare-rename, and rename responses for
-  handler operation clause bindings.
-- Stdio definition, references, prepare-rename, and rename responses for
-  handler context parameters selected from operation clause bodies.
-- Stdio diagnostic publication for discovered workspace Veln files across
-  resolved workspace roots, including unopened files, with unsaved open
-  document overlays.
-- Document-scoped diagnostic publication for Veln documents outside resolved
-  workspaces or when no workspace identity is initialized, including
-  parse-clean source identifier casing failures.
-- Stdio definition responses for public functions in exported direct `path`,
-  `vendor`, `mirror`, and locally available direct git dependency sources, and
-  `veln/virtualDocument` reads for the returned exact `veln-pkg:` URI.
-- Stdio definition responses for implicit prelude functions and public
-  functions in explicitly imported exported `std` sources, with exact
-  `veln/virtualDocument` reads from the embedded standard snapshot.
-- Stdio references responses for supported direct-dependency and
-  standard-library public function aliases. LSP results include only
-  selected-project workspace `file:` locations. MCP results also include the
-  eligible canonical `veln-pkg:` declaration when declaration inclusion is
-  enabled.
-- Shared navigation and MCP evidence for supported direct-dependency and
-  standard-library public type aliases. LSP and declaration-disabled MCP
-  results include only selected-project workspace `file:` locations and stay
-  separate from the target type identity; declaration-enabled MCP results
-  also include the eligible canonical `veln-pkg:` declaration.
-- Paired LSP and MCP evidence for direct-dependency public schema composition,
-  `decode`, and `encode` references. Results include only selected-project
-  workspace `file:` locations for LSP and declaration-disabled MCP requests.
-  Declaration-enabled MCP requests also include the eligible canonical
-  `veln-pkg:` package declaration.
-- Paired LSP and MCP evidence for eligible public standard-library schema
-  composition, `decode`, and `encode` references. The adapters use the same
-  saved source shape; LSP additionally observes an open-document overlay,
-  while MCP remains on the saved baseline. Results remain isolated by package
-  identity and selected project. LSP and declaration-disabled MCP requests
-  contain only selected-project workspace `file:` locations; declaration-enabled
-  MCP requests also include the eligible canonical `veln-pkg:` declaration.
-- Paired LSP and MCP evidence for eligible direct-dependency public schema-alias
-  direct, valid `Repeat`, and array-payload composition, `decode`, and `encode`
-  references. Results preserve alias identity. LSP and declaration-disabled MCP
-  requests include only selected-project workspace `file:` locations;
-  declaration-enabled MCP requests also include the eligible canonical
-  `veln-pkg:` package declaration.
-- VSCode startup for `.veln` files using the configured language-server
-  command.
-- VSCode Problems pane integration for Veln diagnostics.
-- VSCode `veln-pkg` virtual-document content provider backed by
-  `veln/virtualDocument`.
-- Rust tests for collector classification, LSP relative encoding, ordering, and
-  overlap handling, and server initialize/full-token/diagnostic/navigation
-  responses.
+- TextMate fallback highlighting and editor-neutral semantic token records.
+- Full-document semantic token legend and relative integer encoding.
+- Stdio lifecycle, diagnostics, definition, references, formatting,
+  prepare-rename, and rename responses described above.
+- Workspace and document-scoped diagnostics, unsaved overlays, source-casing
+  diagnostics, and selected-project isolation.
+- Navigation for workspace declarations, exact companions, handler bindings,
+  embedded standard-library exports, and admitted direct dependencies.
+- Canonical `veln-pkg:` virtual-document reads for retained package sources,
+  including private and non-exported distribution sources when publication
+  permits them.
+- VSCode activation, semantic tokens, Problems-pane diagnostics, and the
+  `veln-pkg:` content provider.
 
-Not implemented:
+The server does not implement range or delta semantic-token requests,
+completion, or hover. General dependency search, definition, and rename remain
+limited to the supported public and snapshot-bound declaration classes above.
+Unsupported symbols, invalid source modules, wrong package snapshots, comments,
+strings, field labels, and out-of-scope bindings return no selected symbol,
+range, or edits. Rename rejects identifier-class changes and predictable
+namespace or lexical conflicts with a structured failure and no workspace edit.
+Formatting returns one whole-document `TextEdit` in the response; it does not
+return a multi-file workspace edit.
 
-- LSP range and delta semantic token requests.
-- Completion and hover.
-- Dependency reference search outside the implemented direct-dependency and
-  standard-library schema composition-and-operation boundaries,
-  schema-alias composition-and-operation boundary, and
-  direct-dependency and standard-library public function, public
-  function-alias, public type-alias, public type, and public constructor
-  reference boundaries.
-- General rename and go-to-definition support outside the implemented
-  companion private-function identity, handler binding, direct path, vendor,
-  mirror, locally available direct git dependency, embedded standard-library,
-  and supported direct-dependency public type-alias definition cases.
+## References
+
+The authoritative implementations are `crates/veln-editor`, `crates/veln-lsp`,
+and `crates/veln-language-service`. Their unit and protocol checks verify
+the token legend, LSP encoding, workspace diagnostics, navigation, formatting,
+rename, and virtual-document boundaries.

@@ -1,6 +1,7 @@
 ---
 role: specification
 authority: normative
+specification-coverage: usage=#package-virtual-sources; behavior=#package-virtual-sources; limits=#package-virtual-sources
 update-when: The virtual-source URI, catalog, resolver, or executable-evidence contract changes.
 ---
 
@@ -11,6 +12,13 @@ for validated `PackageIdentity` values and immutable
 `CapturedPackageSnapshot` values. The catalog contains exactly one entry for
 each retained distribution source. Duplicate canonical entries cause catalog
 construction to fail.
+
+Construct `VirtualSourceCatalog::new` with `(PackageIdentity,
+CapturedPackageSnapshot)` pairs. Use `entries()` to list canonical URIs and
+`resolve(uri)` to retrieve retained bytes. `entry_for_source(package_index,
+source_index)` returns the entry at the supplied capture indices, or `None`
+when either index is out of range. Listing preserves the supplied package
+order and each snapshot's source order.
 
 Each entry has this canonical URI:
 
@@ -36,15 +44,7 @@ lowercase escape digits; a decoded package separator; an encoded source
 separator; an empty or dot source segment; malformed escapes or UTF-8; and a
 digest with any other length or spelling.
 
-## Executable Evidence
+## References
 
-The `veln-language-service` virtual-source unit tests are the authoritative
-executable evidence. `cargo test -p veln-language-service` checks canonical
-round trips, identity and source-segment encoding, Unicode, relocation
-independence, digest changes, exact-byte reads, identity/digest/path
-mismatches, every rejection class above, duplicate entries, and equality
-between the captured distribution set and the listable and resolvable set.
-
-A Veln source example is not present under `examples/specification/` because
-the catalog is a transport-independent Rust API. It does not add Veln source
-syntax or command behavior.
+The catalog implementation and URI boundary tests are in
+`crates/veln-language-service/src/virtual_source.rs`.

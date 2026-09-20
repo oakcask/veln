@@ -2,6 +2,7 @@
 role: specification
 authority: normative
 update-when: The `veln repair --apply` write boundary, repair application JSON output, or executable repair-application evidence changes.
+specification-coverage: usage=#usage; behavior=#current-boundary; limits=#target-gates
 ---
 
 # Repair Application
@@ -9,6 +10,13 @@ update-when: The `veln repair --apply` write boundary, repair application JSON o
 This page specifies the implemented `veln repair --apply` write boundary. Use
 [repair-candidates.md](repair-candidates.md) first when the task is about
 candidate fields, ranking, or advisory `check --json` behavior.
+
+## Usage
+
+Preview candidates with `veln repair --json PATH`. To select and apply one
+candidate, use `veln repair --apply --candidate ID PATH`. Safe candidates do
+not require confirmation. To accept a manual-review policy, add `--override
+--confirm ID`; all independent target and verification gates still apply.
 
 ## Current Boundary
 
@@ -80,18 +88,7 @@ itself roll back the edit.
 Successful JSON output records `confirmation` and, when override was used,
 `override`. Refusals do not write files and leave those records null.
 
-## Executable Evidence
+## References
 
-The applying-command boundary is covered by the executable repair case route in
-`examples/specification/repair/README.md`. Use that index for safe apply,
-confirmed override, override refusal, saved-input freshness, verification, and
-rollback evidence instead of expanding this page with every fixture.
-The apply cases keep expected post-write file contents in `case-text/`
-sidecars, so long repaired source bodies remain visible review evidence rather
-than command contract text inside the manifest.
-
-## Boundary
-
-Do not promote verification orchestration, ranking evidence, edit granularity,
-or broader application authority into this specification until the behavior is
-implemented and tested.
+The apply boundary is implemented in `crates/veln-cli/src/commands/repair.rs`.
+The machine output is specified by [repair-json.md](repair-json.md).

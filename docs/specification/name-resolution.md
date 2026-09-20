@@ -1,12 +1,34 @@
 ---
 role: specification
 authority: normative
-update-when: The Veln source name resolution contract, source identifier casing diagnostics, or executable name-resolution evidence changes.
+update-when: The Veln source name resolution contract or source identifier casing diagnostics change.
+specification-coverage: usage=#representative-usage; behavior=#resolution-rules; limits=#limits
 ---
 
 # Name Resolution
 
+## Representative usage
+
+An imported qualified path is resolved through the written module name:
+
+```veln
+use math
+
+test uses_target() -> ()
+	let value = math::increment(1)
+	()
+end
+```
+
+An exact `math.test.veln` companion may use the same explicit import to call a
+private target function. That permission is target-specific and non-transitive;
+an unrelated companion or a different target remains unresolved.
+
 This page specifies source name resolution and identifier casing behavior.
+
+## Resolution Rules
+
+### Namespaces and use roles
 
 Implemented checker namespaces are:
 
@@ -29,11 +51,11 @@ effect and operation namespaces. `handle Body with handler(...)` forms select
 the handler namespace. Ordinary value calls do not select schema, effect,
 handler, or operation declarations. Schema composition remains ambiguous when
 both a visible ordinary type and a visible schema use the same spelling because
-that position admits both namespaces. The
-`identifier-casing-namespace-use-roles` checked example covers these
-namespace-by-use-role boundaries, lower-case exact spelling collisions between
-casing-neutral declarations and value names, and the same-namespace duplicate
-boundary.
+that position admits both namespaces. Namespace selection is therefore fixed
+by the syntactic role, while same-namespace duplicates remain errors and
+unrelated namespaces may share a spelling.
+
+### Schema navigation
 
 For saved composition-and-operation reference navigation, a direct-dependency
 public schema alias is eligible when each hop resolves to exactly one public
@@ -51,23 +73,9 @@ declarations in unrelated namespaces do not affect eligibility. A finite,
 acyclic chain of public schema aliases in the same retained direct dependency
 is eligible when every hop and the terminal schema are in exported sources.
 External-package targets, ambiguous imports, and recovered imports remain
-ineligible. The executable evidence is the following language-service tests:
-
-- `direct_dependency_schema_alias_qualified_target_resolution_matrix`
-- `direct_dependency_schema_alias_target_imports_are_visible_across_module_sources`
-- `dependency_schema_alias_requires_an_exported_cross_module_target_source`
-- `dependency_schema_alias_composition_rejects_external_targets_and_recovered_leaves`
-- `dependency_schema_alias_chain_intermediate_blockers_return_empty`
-- `dependency_schema_alias_recovered_deep_terminal_does_not_hide_valid_chain`
-- `non_exported_dependency_schema_alias_blocks_exported_schema_fallback`
-- `dependency_schema_alias_shared_suffix_and_disconnected_cycle_stay_bounded`
-
-The chain index keeps its executable linear-work guard in
-`dependency_schema_alias_chains_resolve_with_bounded_index_work` and
-`dependency_schema_alias_eligibility_visits_declarations_once`. The guarded
-performance audit runs those tests for adjacent generated sizes and compares
-the declaration and eligibility visit counts; it does not publish
-machine-dependent wall-clock values as current behavior.
+ineligible. Alias chains must be finite and acyclic; a cyclic chain is
+rejected, while a finite direct-dependency chain remains eligible when every
+hop and its exported terminal satisfy the rules above.
 
 Schema-alias composition-and-operation reference lookup combines written
 imports from all owned sources with the same explicit workspace module
@@ -76,18 +84,9 @@ composition or operation leaf in another.
 A colliding workspace import and dependency import, duplicate dependency
 imports, or a syntax-recovered dependency import in that module prevents the
 qualified leaf from selecting a dependency schema alias or falling back to a
-schema imported only by the leaf's source. The
-`direct_dependency_schema_alias_imports_are_visible_across_module_sources`,
-`workspace_and_dependency_schema_alias_imports_collide_across_module_sources`,
-`dependency_alias_and_schema_imports_collide_across_module_sources`,
-`invalid_dependency_schema_alias_imports_block_across_module_sources`, and
-`direct_dependency_schema_alias_references_keep_alias_identity`
-language-service tests execute composition leaves as well as operation leaves;
-the positive cross-source case joins them in one alias identity, and the
-collision, duplicate-import, and recovered-import cases keep composition
-selection unresolved.
-The `ineligible_dependency_schema_alias_composition_leaves_stay_empty` test
-checks that direct, `Repeat`, and array-payload leaves do not select an
+schema imported only by the leaf's source. The positive cross-source path
+keeps one alias identity; collision, duplicate, and recovered-import paths
+remain unresolved. Direct, `Repeat`, and array-payload leaves do not select an
 ineligible alias or enter an eligible alias reference set.
 
 A multi-segment schema composition or operation target resolves through either
@@ -102,35 +101,18 @@ the selected name prevents a same-spelled package schema from acting as a
 fallback composition target. A `Repeat` or array payload participates in
 schema composition lookup when its count is a valid schema count expression.
 This includes member paths accepted by schema analysis. Comments and strings
-do not participate in schema composition lookup. The
-focused evidence is
-`schema_composition_resolves_workspace_import_leaf_aliases_before_collision_checks`,
-`colliding_implicit_schema_import_aliases_are_order_independent`, and
-`exact_schema_import_path_precedes_colliding_implicit_leaf_alias` for workspace
-targets, plus
-`dependency_schema_composition_respects_import_identity_boundaries`,
-`dependency_schema_composition_import_collisions_are_order_independent`, and
-`dependency_schema_imports_unify_all_leaf_roles_across_explicit_module_sources`
-for retained direct-dependency targets. Retained standard-library schema
+do not participate in schema composition lookup. These rules preserve
+workspace and direct-dependency alias identity across sources. Retained
+standard-library schema
 targets use the same full-path and unique implicit-leaf resolution, exact-path
 precedence, import-collision, repeated-count, and lexical-exclusion rules.
 Their package origin keeps them distinct from same-spelled workspace and
 direct-dependency schemas. Standard-library schema aliases remain unsupported
-selection targets and block fallback to a same-spelled schema. The
-`standard_library_schema_references_unify_supported_leaf_roles_and_isolate_origins`,
-`standard_library_schema_exact_import_precedes_workspace_alias_in_either_source_order`,
-`standard_library_schema_exact_import_conflicts_with_exact_workspace_import`,
-`standard_library_schema_origin_isolation_is_symmetric`,
-`standard_library_schema_eligibility_and_import_failures_are_empty`,
-`standard_library_schema_reference_exclusions_cover_import_module_and_alias_target_tokens`,
-and
-`standard_library_schema_invalid_casing_alias_blockers_and_recovered_leaves_are_empty`
-language-service tests cover these standard-library boundaries. The
-`dependency_schema_alias_declarations_block_composition_schema_fallback`,
-`malformed_dependency_schema_repeats_do_not_select_or_enter_reference_sets`,
-and `dependency_schema_composition_reference_sets_exclude_lexical_noise`
-language-service tests cover the remaining fallback, repeated-count, and
-lexical boundaries.
+selection targets and block fallback to a same-spelled schema. Their package
+origin stays distinct from workspace and dependency origins, and lexical
+noise, malformed repeats, and invalid casing do not enter a reference set.
+
+### Value calls and shadowing
 
 Bare names resolve to local bindings. Function calls resolve to:
 
@@ -174,6 +156,8 @@ A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
 binding.
 
+### Casing and recovery
+
 Invalid source-written type, constructor, function, public alias, and value
 binding names are quarantined from normal lookup and artifacts. A use may
 recover through one same-source invalid declaration or binding only when no
@@ -188,12 +172,9 @@ diagnostic has occurrence `declaration`, name class `module`, required initial
 `ascii_lowercase`, and the observed initial class. That invalid header does
 not supply a normal module identity for declarations or checked artifacts. A
 lowercase source-written header does not report `name.invalid_case`; it still
-uses the source `mod` unsupported-module diagnostic boundary. The
-`identifier-casing-module-header-json`,
-`identifier-casing-module-header-accepted-json`, and
-`identifier-casing-module-header-json` run examples check uppercase,
-underscore-led, accepted lowercase, exact-token range, and normal-identity
-isolation behavior.
+uses the source `mod` unsupported-module diagnostic boundary. Lowercase
+headers retain that unsupported-module diagnostic without adding a casing
+diagnostic.
 Every written import path segment is a module-class path segment. Each segment
 must start with an ASCII lowercase letter. An uppercase-led or underscore-led
 segment reports `name.invalid_case` at the exact segment token span with
@@ -213,41 +194,9 @@ selected source export proves that quarantine is the sole failure. This
 same quarantine proof suppresses derivative unknown-effect and
 unknown-handler diagnostics for public effect and handler exports. Missing
 target modules, missing exports, private targets, and wrong-kind targets
-remain independently reported.
-The
-`identifier-casing-import-path-json` and
-`identifier-casing-import-path-human` examples check multi-segment and
-single-segment import paths, uppercase and underscore initials, exact spans,
-detail fields, and the unresolved-module boundary when the selected source
-derives a different lowercase module path. The
-`identifier-casing-import-missing-module-overlap-json`,
-`identifier-casing-import-duplicate-overlap-json`, and
-`identifier-casing-import-alias-cascade-boundary-json` examples check the
-overlap with missing-module, duplicate-alias, and function alias-use
-diagnostics. The
-`identifier-casing-import-type-cascade-boundary-json`,
-`identifier-casing-import-constructor-cascade-boundary-json`,
-`identifier-casing-import-missing-type-control-json`,
-`identifier-casing-import-missing-type-export-json`, and
-`identifier-casing-import-missing-constructor-control-json` examples check
-that qualified imported types and constructors keep independently provable
-type, call-target, missing-target, and missing-export failures. The
-`identifier-casing-import-schema-cascade-boundary-json` and
-`identifier-casing-import-private-schema-boundary-json` examples check the
-same boundary for schema composition: schema targets that are missing because
-the invalid module path has no matching selected module remain independently
-reported. The
-`identifier-casing-import-effect-cascade-boundary-json` and
-`identifier-casing-import-handler-cascade-boundary-json` examples check the
-same independently provable boundary for effect and handler consumers. The
-`identifier-casing-import-order-json` example checks source-ordering between
-an invalid import path segment and a later invalid declaration. The
-`identifier-casing-import-alias-run-boundary-json` example checks the same
-invalid implicit-alias boundary for `run` reachability. The
-`identifier-casing-unselected-import-path-json` and
-`identifier-casing-unused-import-path-json` examples check that `run` does not
-promote invalid written import paths outside the selected entry closure or
-unused by that closure.
+remain independently reported. This quarantine applies consistently to value,
+type, constructor, schema, effect, handler, and reachability consumers; an
+invalid import is never promoted merely because another use mentions it.
 Valid implicit standard prelude symbols remain normal lookup candidates. A
 same-spelled application recovery record does not shadow the valid prelude
 symbol for a function call or constructor path, and does not enter
@@ -276,24 +225,9 @@ segment token span with occurrence `path_segment` and the zero-based
 `segment_index`. A call-target diagnostic whose only cause is the resolved or
 uniquely recovered invalid segment that owns that use is suppressed. Missing
 targets, private imported targets, and recovery links that would cross an
-import boundary still report `name.unresolved`. The
-`identifier-casing-qualified-use-paths-json` example checks module-only,
-nested module-only, module-and-type, and prelude-qualified expression,
-pattern, and type paths with each role invalid in turn. The
-`identifier-casing-qualified-use-paths-human` example checks the matching
-human diagnostic spans and cascade suppression. The
-`identifier-casing-qualified-use-recovery-controls-json` and
-`identifier-casing-qualified-use-recovery-controls-human` examples check that
-same-source type-qualifier recovery reports the recovered type segment and
-that a completely unresolved qualified call does not receive a guessed module
-segment diagnostic. The
-`identifier-casing-qualified-handler-boundaries-json` and
-`identifier-casing-qualified-handler-boundaries-human` examples check handler
-context parameter type paths and handler operation clause call targets. The
-`identifier-casing-declaration-type-carriers-json` and
-`identifier-casing-declaration-type-carriers-human` examples check ADT
-positional payload fields, ADT record payload fields, effect operation
-parameter and return types, and schema field carrier spans.
+import boundary still report `name.unresolved`. These role records apply to
+expression, pattern, handler, declaration, ADT, effect, and schema carriers;
+an unresolved intermediate segment receives no guessed casing role.
 Qualified constructor patterns keep constructor syntax. A qualified
 constructor pattern whose final segment starts with an ASCII lowercase letter
 reports `name.invalid_case` at that final segment with occurrence
@@ -307,22 +241,14 @@ found by changing the invalid final segment's first ASCII lowercase letter to
 uppercase and resolving the resulting path through ordinary case-sensitive
 constructor lookup. A different constructor spelling that remains unresolved
 after that initial-only repair is not treated as covered. Nested pattern
-bindings and the match-arm body are still checked. The
-`identifier-casing-qualified-constructor-pattern-json`,
-`identifier-casing-qualified-constructor-pattern-human`, and
-`identifier-casing-qualified-constructor-pattern-over-suppression-json`
-examples check the diagnostic shape, suppressed cascades, and exhaustiveness
-over-suppression boundary. The
-`identifier-casing-qualified-constructor-pattern-direct-diagnostics-json`
-example checks that nested binding patterns and the match-arm body are still
-checked while head-derived cascades are suppressed. The
-`identifier-casing-qualified-constructor-pattern-type-mismatch-json` example
-checks that an independently provable constructor-pattern type mismatch is not
-suppressed.
+bindings and the match-arm body are still checked. An independently provable
+constructor-pattern type mismatch is not suppressed by this recovery rule.
 
 Compiler-provided symbols that participate in source lookup are specified by
 [source-less-lookup.md](source-less-lookup.md). Embedded Veln prelude sources
 remain source-written and continue to use ordinary source casing diagnostics.
+
+### Duplicate declarations
 
 Current duplicate checks reject:
 
@@ -346,6 +272,8 @@ Current duplicate checks reject:
 Record type annotations also require unique field names. Duplicate record type
 fields are reported through invalid type annotation diagnostics because they are
 part of annotation parsing rather than value-name resolution.
+
+### Source-path identities
 
 For selected package-relative sources, the command analysis path derives local
 module identity from the source path before semantic checks run. Written
@@ -397,20 +325,10 @@ errors. In a direct dependency, an invalid-cased exported source path does not
 contribute a normal public module identity and does not satisfy imports or
 qualified uses through dependency recovery. Other valid sibling exports in
 the same dependency remain importable and analyzable in the same invocation.
-The checked
-`identifier-casing-source-path-json`,
-`identifier-casing-exported-source-path-json`,
-`identifier-casing-mixed-dependency-export-json`,
-`identifier-casing-source-path-human`,
-`identifier-casing-chained-companion-boundary-json`, and
-`identifier-casing-source-path-boundary` examples fix JSON, human, and LSP
-diagnostic spans and details. The checked
-`identifier-casing-source-path-import-isolation-json`,
-`identifier-casing-source-path-duplicate-isolation-json`, and
-`identifier-casing-source-path-cycle-isolation-json` examples check that an
-invalid source-path-derived identity cannot satisfy an import, cannot collide
-as a duplicate source module, and does not add a reachable module-graph edge
-while unrelated valid modules continue semantic analysis.
+The invalid identity cannot satisfy an import, duplicate module, or
+reachability edge while unrelated valid modules continue semantic analysis.
+
+### Dependencies and exports
 
 External `use path from "package"` declarations resolve `path` inside an
 already available direct `path`, `vendor`, `mirror`, or locally materialized
@@ -445,3 +363,21 @@ unique source module paths.
 
 Named holes remain repair labels, not value declarations. Reusing a hole label
 does not affect name resolution.
+
+## Limits
+
+Resolution is case-sensitive after the role-specific casing check. Recovery is
+limited to one same-source declaration or binding, never crosses an import
+boundary, and cannot override a valid candidate. Invalid module identities are
+quarantined from lookup and reachability; valid sibling sources remain usable.
+Schema alias navigation is finite and acyclic: cyclic chains are rejected,
+while finite direct-dependency chains may be eligible when every hop and its
+exported terminal satisfy the rules above. Ambiguous or recovered imports do
+not become fallback targets.
+
+## References
+
+- Name and import analysis: `crates/veln-analysis/src/surface/` and
+  `crates/veln-sema/src/name_recovery.rs`.
+- Casing and source-path diagnostics: `crates/veln-sema/src/pipeline/identifier_casing/`.
+- Source-less descriptors and lookup routes: [source-less-lookup.md](source-less-lookup.md).

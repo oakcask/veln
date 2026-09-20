@@ -1,6 +1,7 @@
 ---
 role: specification
 authority: normative
+specification-coverage: usage=#usage; behavior=#published-boundary; limits=#generation-gates
 update-when: The package documentation catalog API, canonical result bytes, digest, URI, gate, executable evidence, or veln doc command route changes.
 ---
 
@@ -12,6 +13,16 @@ the validated manifest parsed from that same capture. The catalog is not the
 `veln doc` Markdown output. `veln mcp` exposes a Markdown projection for the
 embedded `std` package-documentation result and for admitted direct-dependency
 package snapshots.
+
+## Usage
+
+Call `PackageDocResult::generate` with a validated `PackageIdentity`, a
+`CapturedPackageSnapshot`, its `ProjectManifest`, and a
+`PackageDocGeneratorContract`. Inspect `status()` for generation diagnostics
+and `catalog()` for the optional published catalog. `canonical_bytes()` and
+`doc_digest()` expose the stable result identity. Use `declaration_uri_for`
+or `declaration_uri_for_location` to obtain documentation links rather than
+constructing their identifiers.
 
 ## Read First
 
@@ -44,12 +55,7 @@ Catalog-semantic, schema, or generator-contract changes affect the
 documentation digest.
 
 The implemented gates are parse, manifest, export, documentation-reference,
-doctest, and identity. The authoritative executable evidence is
-`cargo test -p veln-language-service` plus package catalog fixtures under
-`examples/specification/doc/`. The generated Markdown fixtures keep doctest
-fences as ordered evidence between inline expected-output fragments, so
-fixture-manifest fragment placement can change without changing the
-documentation catalog contract.
+doctest, and identity.
 
 ## Result Identity
 
@@ -202,44 +208,10 @@ name-token locations resolve to the owning type declaration documentation
 URI. Adapters return the URI from these lookups instead of asking clients to
 construct resource identifiers or re-resolve by spelling.
 
-## Executable Evidence
+## References
 
-The `veln-language-service` package-documentation unit tests are the
-authoritative executable evidence. `cargo test -p veln-language-service`
-checks:
-
-- catalog selection and projection;
-- doctest analysis and metadata;
-- identity and deterministic output;
-- declaration and package navigation location lookup;
-- generation gates and status-only failure results;
-- public package documentation API imports.
-
-The tests also read fixtures under `examples/specification/doc/` to observe:
-
-- the catalog success path;
-- the manifest-gate failure path;
-- the nested declaration doctest success path with a nested expression block
-  and public member alias;
-- ADR-lite doctest exclusion from successful catalog generation;
-- the declaration doctest static-gate failure path;
-- the doctest output metadata gate failure path;
-- integration-test source exclusion from successful catalog projection;
-- the schema-reference import-gate failure path through executable
-  specification inputs;
-- the source-path casing failure path for an exported source that has a valid
-  exported sibling, and the missing-export path for an absent invalid-cased
-  export beside a valid sibling, proving the status-only package-atomic
-  boundary.
-
-The readable CLI documentation boundary remains checked by
-`examples/specification/doc/`. The transport-independent catalog itself is a
-Rust API and is not exposed by `veln doc`. MCP exposure for embedded
-standard-library and admitted direct-dependency documentation results is
-specified in [mcp.md](mcp.md) and checked by
-`examples/specification/mcp/standard-library-package-documentation-resources/`
-and
-`examples/specification/mcp/dependency-package-documentation-resources/`.
-Package-backed `definition` results that link to retained declaration
-documentation are specified in [mcp.md](mcp.md) and checked by
-`examples/specification/mcp/definition-package-navigation/`.
+The public API is in
+`crates/veln-language-service/src/package_documentation.rs`; catalog identity,
+publication, and gate tests are in its `package_documentation/tests/` modules.
+The [MCP specification](mcp.md) defines resource publication and links from
+package-backed definition results.

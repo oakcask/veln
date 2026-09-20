@@ -11,10 +11,11 @@ Prevent implemented behavior from remaining documented only as proposal text.
 When proposal work lands, the current specification and executable examples
 must become the source of truth, and proposal records must no longer describe
 completed behavior as future work.
-Executable specification evidence is primary. Natural-language pages under
-`docs/specification/` are supporting routes, summaries, or derived prose that
-must stay aligned with executable examples, checked fixtures, and executable
-grammar.
+The current specification is the authoritative explanation of implemented
+behavior. Executable examples, checked fixtures, and grammar corroborate that
+explanation. Apply the writing policy in
+`docs/reference/documentation-authoring.md`; readers must understand usage,
+behavior, and limits without reconstructing them from tests.
 
 ## Workflow
 
@@ -26,13 +27,13 @@ grammar.
 3. Treat proposal indexes, routing pages, and broad follow-up inventories as
    navigation, not implementation targets. Stop when the target is implemented,
    closed, superseded, rejected, or already covered by `docs/specification/`.
-4. Compare the implemented behavior with the matching short page under
+4. Compare the implemented behavior with the matching focused page under
    `docs/specification/`, starting from `docs/specification/topic-map.md` when
    the target page is unclear.
 5. Keep the comparison scoped to the chosen proposal page. Do not use nearby
    design-wall, broad follow-up, or implemented-history text as requirements
    unless the selected proposal page points to it.
-6. Add or update primary executable specification evidence first when the
+6. Add or update executable specification evidence first when the
    behavior can be checked mechanically. Use `examples/specification/` for
    observable source, diagnostics, command output, JSON, formatting, generated
    docs, runtime output, tests, or repair output. Use
@@ -40,8 +41,8 @@ grammar.
    fixtures for source-surface grammar behavior.
 7. Update the smallest matching `docs/specification/` prose page only after the
    executable evidence is in place or after deciding that no practical
-   executable evidence exists. Keep prose thin as a route, summary, or derived
-   explanation of the executable specification.
+   executable evidence exists. Explain usage, observable behavior, and limits; cite evidence as support,
+   without reproducing a test-case inventory.
 8. Audit `docs/proposals/README.md` and the implemented proposal page:
    completed behavior must not remain cataloged as planned or future work.
 9. For fully completed proposals, remove the proposal page and its catalog
@@ -71,9 +72,8 @@ executable evidence.
   evidence when practical, such as `examples/specification/`,
   `docs/specification/source-surface-executable.pl`, checked fixtures,
   compiler tests, or CLI harness cases.
-- Natural-language pages under `docs/specification/` summarize, route to, or
-  explain the executable evidence instead of being the only source of truth
-  when mechanical coverage is practical.
+- Current specification pages explain usage, behavior, and limits, with
+  checked evidence supporting mechanically verifiable claims.
 - `docs/proposals/README.md` no longer lists completed work as planned.
 - Completed proposal pages and bounded review-result snapshots are absent from
   `docs/`; current specification and executable evidence own implemented
@@ -94,8 +94,5 @@ executable evidence.
   specification needs a route to context.
 - Do not preserve obsolete future-tense proposal wording for behavior that is
   now implemented.
-- Do not add broad prose when a focused executable fixture or checked example
-  can carry the behavior.
-- Do not treat natural-language specification prose as the primary artifact
-  when the behavior can reasonably be expressed as executable specification
-  evidence.
+- Do not replace behavior explanations with fixture inventories or expand
+  prose into a case-by-case transcription of tests.

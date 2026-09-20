@@ -1,10 +1,38 @@
 ---
 role: specification
 authority: normative
-update-when: The Veln effect label contract, compiler-known effectful call surface, or executable effects evidence changes.
+update-when: Veln effect labels, compiler-known call signatures, nominal handlers, or effect-boundary behavior changes.
+specification-coverage: usage=#representative-usage; behavior=#effect-labels; limits=#limits
 ---
 
 # Effects
+
+## Representative usage
+
+The following handler discharges the nominal `Ask` effect for the handled body:
+
+```veln
+effect Ask
+	value() -> Int
+end
+
+handler ask(offset: Int) handles Ask
+	value() => offset + 1
+end
+
+fn compute() -> Int effects [Ask]
+	perform Ask::value()
+end
+
+test handled() -> Result<(), String>
+	let observed = handle compute() with ask(41)
+	if observed == 42
+		Ok(())
+	else
+		Err("handler returned unexpected value")
+	end
+end
+```
 
 This page specifies effect labels and compiler-known effectful calls.
 
@@ -36,10 +64,7 @@ effect set, or a row tail before a later effect entry is rejected. When a
 row-polymorphic function is called with a callback argument, the callback's
 duplicate-free concrete effect set is substituted for `E` and unioned with the
 concrete effects written beside `...E`. Public boundary diagnostics for the
-call use the concrete instantiated effects. The checked
-`effect-row-syntax-diagnostics` and `http2-service-effect-row` specification
-cases fix the syntax failures, empty substitution, non-empty substitution,
-duplicate removal, callback compatibility, and concrete handler replacement.
+call use the concrete instantiated effects.
 
 Source modules may also declare nominal operation effects with `effect Name`
 or `pub effect Name`. Each operation declares ordinary parameter types and one
@@ -61,19 +86,16 @@ targets, and missing modules remain independently reported.
 `operation` in that effect declaration. The checker validates the argument
 types against the declared operation parameter types. The expression type is
 the declared operation result type. The expression contributes the nominal
-effect to the containing function's inferred effect set. Public functions must
-declare that effect. Private functions use the existing private effect
-inference rule. Duplicate operation declarations are reported at the duplicate
+effect to the containing function's inferred effect set. A public function must
+declare each non-empty inferred effect; a pure public declaration omits its
+effect clause. Private functions use the existing private effect inference
+rule. Duplicate operation declarations are reported at the duplicate
 operation name span and include the first declaration as related context. An
 unknown operation is reported at the operation name span. An unknown performed
 effect is reported at the performed effect path. Runnable `veln run` and
 `veln test` entry boundaries reject a retained user-defined effect before JVM
 execution, including effects inferred for a private run entry. Exported
-library functions may retain user-defined effects in their signatures. The
-checked behavior is specified by
-`examples/specification/check/user-effect-operation-boundaries/`,
-`examples/specification/run/user-effect-runnable-boundary/`, and
-`examples/specification/test/user-effect-test-boundary/`.
+library functions may retain user-defined effects in their signatures.
 When a `.test.veln` companion writes an explicit `use` for its exact target,
 the same qualified target path can name a private target nominal effect in
 `perform`, declaration effect lists, function type annotation effect lists,
@@ -81,8 +103,7 @@ companion-local handler `handles` clauses, and declared handler effect lists.
 The permission is exact and
 non-transitive. Bare names, missing imports, wrong-target companions,
 `_test.veln` integration modules, and external packages do not receive this
-private effect access. The checked cases are routed from
-`source-surface.md`.
+private effect access.
 
 Lexical handlers provide all operations of one nominal effect for the dynamic
 evaluation of one `handle Body with Handler(arguments)` expression. A handler
@@ -111,10 +132,7 @@ and nested handlers for the same operation shadow outer handlers until the
 nested body finishes. Handler state is lexical to the current task. Task
 creation expressions expose their job effect rows at the call expression, so a
 lexical handler around the task creation expression can discharge a handled
-nominal job effect before the runnable entry boundary is checked. The checked
-behavior is specified by the lexical-handler and handler-operation cases under
-`examples/specification/`, including the task-boundary, early-return cleanup,
-public handler effect-declaration, and `veln test` success cases.
+nominal job effect before the runnable entry boundary is checked.
 
 The exported standard `transport` module declares this public nominal effect:
 
@@ -133,8 +151,7 @@ the existing coarse `net` effect from the handler clauses. A public function
 that performs a duplex-stream operation without a handler must declare the
 duplex-stream effect. A public function that wraps that body with the
 `net_stream` handler must declare `net` and does not retain the handled
-duplex-stream effect. The static boundary is checked by
-`examples/specification/check/http2-connection-transport-handler-effects/`.
+duplex-stream effect.
 `http2::connection::drive_server` and `http2::connection::drive_client` expose
 only `std::transport::DuplexStream`; handling either driver with `net_stream`
 therefore replaces that nominal effect with `net` and does not expose
@@ -146,9 +163,7 @@ callback. The callback type is
 effects [...E]`, and the driver requires
 `[std::transport::DuplexStream, ...E]`. Handling that driver with
 `transport::net::net_stream` removes only the duplex-stream effect and leaves
-callback effects such as `db` on the handled expression. The static boundary
-is checked by
-`examples/specification/check/http2-service-transport-effect-replacement/`.
+callback effects such as `db` on the handled expression.
 
 ## Stdio Calls
 
@@ -165,7 +180,8 @@ stdio::eprintln(text: String) -> () effects [stdio]
 Direct calls to these functions infer the `stdio` effect. Function signatures
 also carry effects inferred from their bodies, so a public function or test that
 calls a private helper whose body reaches `stdio` must declare `stdio` even when
-the helper omitted its own `effects` clause. Function-body effect inference
+the helper omitted its own `effects` clause. Pure public functions and tests
+omit the clause; an explicit empty declaration is rejected. Function-body effect inference
 follows direct bare function calls and `use` alias qualified function calls
 until a fixed point. Public function aliases carry the referenced function's
 signature and effects. Calls through a local binding with a function type infer
@@ -280,40 +296,40 @@ Direct calls to `time::timeout_ms`,
 `time::wait_until_cancellable`,
 `time::wait_until_cancellable_outcome` infer the `time` effect. A public
 function or test that calls one of them directly or through a private helper
-must declare the matching effect in its `effects [...]` list.
+must declare each matching non-empty effect in its `effects [...]` list.
 
 This boundary is intentionally narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
 chunk to the host runtime; `net::listen` returns a source-visible
 `NetListener`; `net::connect` and `net::accept` return distinct
 source-visible `NetStream` handles.
-The default runtime path remains fixture-backed: `net::connect(address)`
+The default runtime path uses the configured adapter: `net::connect(address)`
 records a client connection attempt and returns an owned stream whose peer
 endpoint text is the requested address; `net::accept_or_end`
-returns `Some(stream)` for a fixture-accepted stream and `None` when the
-fixture listener reaches a clean end; `net::accept_until`
-returns `Some(stream)` when a fixture accepts before the deadline and `None`
-when the deadline has already expired or the fixture reports deadline expiry
+returns `Some(stream)` for an accepted stream and `None` when the
+listener reaches a clean end; `net::accept_until`
+returns `Some(stream)` when an accept completes before the deadline and `None`
+when the deadline has already expired or the adapter reports deadline expiry
 before accepting; `net::read_chunk`
 reads one immutable `ByteChunk` from that stream;
-`net::read_chunk_until` returns `Some(bytes)` when the fixture stream yields
+`net::read_chunk_until` returns `Some(bytes)` when the adapter stream yields
 a chunk before the deadline and `None` when the deadline has already expired,
-the fixture reports deadline expiry before a chunk is read, or the fixture
+the adapter reports deadline expiry before a chunk is read, or the adapter
 stream reaches a clean end before a chunk is read;
 `net::read_chunk_until_cancellable` returns `ReadChunk(bytes)` when the
-fixture stream yields a chunk before the deadline and before cancellation,
+adapter stream yields a chunk before the deadline and before cancellation,
 `ReadEnd` for clean stream end, `ReadDeadlineExpired` for supplied or
-fixture-reported read deadline expiry, and `ReadCancelled` when the supplied
+adapter-reported read deadline expiry, and `ReadCancelled` when the supplied
 `CancelToken` has been cancelled;
 `net::read_chunk_or_end` returns `Some(bytes)` for a successful stream read
-and `None` when the fixture stream reaches a clean end; and `net::write_chunk`
+and `None` when the adapter stream reaches a clean end; and `net::write_chunk`
 writes one immutable `ByteChunk` to that stream.
 `net::write_chunk_until` returns `WriteCompleted` after writing one immutable
 `ByteChunk` before the deadline and `WriteDeadlineExpired` for supplied or
-fixture-reported write deadline expiry.
+adapter-reported write deadline expiry.
 `net::write_chunk_until_cancellable` returns `WriteCompleted` after writing
 one immutable `ByteChunk` before the deadline and before cancellation,
-`WriteDeadlineExpired` for supplied or fixture-reported write deadline expiry,
+`WriteDeadlineExpired` for supplied or adapter-reported write deadline expiry,
 and `WriteCancelled` when the supplied `CancelToken` has been cancelled.
 `net::write_chunks` writes a
 source-owned `List<ByteChunk>` to the same stream in list order.
@@ -326,15 +342,15 @@ returns `WriteCompleted` after every chunk is written before the deadline and
 before cancellation, returns `WriteDeadlineExpired` when deadline expiry wins
 before the list is fully written, and returns `WriteCancelled` when the
 supplied `CancelToken` wins before the list is fully written.
-`net::shutdown_write` records fixture-backed adapter-owned write-side
+`net::shutdown_write` records adapter-owned write-side
 shutdown, returns `()`, and leaves clean read end on the existing
 `net::read_chunk_or_end` path. Later writes on the same stream fail as runtime
 transport failures.
-`net::shutdown_read` records fixture-backed adapter-owned read-side shutdown,
+`net::shutdown_read` records adapter-owned read-side shutdown,
 returns `()`, and makes later optional stream reads observe clean end while
 leaving the write side owned by the same `NetStream`.
-`net::close_stream` records fixture-backed adapter-owned stream cleanup and
-returns `()`. `net::close_listener` records fixture-backed adapter-owned
+`net::close_stream` records adapter-owned stream cleanup and
+returns `()`. `net::close_listener` records adapter-owned
 listener cleanup and returns `()`; after that close, `net::accept`,
 `net::accept_or_end`, `net::accept_until`, and
 `net::accept_until_cancellable` fail as runtime transport failures instead of
@@ -346,7 +362,7 @@ write-capable, and closed status through `net::stream_can_read`,
 write, write-side shutdown, read-side shutdown, and close helpers. State
 inspection returns `Bool` values without consuming stream ownership. Forced
 connection failure remains a runtime transport failure.
-Fixture-backed listeners expose their local endpoint text through
+Configured listeners expose their local endpoint text through
 `net::listener_local_addr` before accept work without exposing host socket
 handles, closing the listener, or changing later accepted streams.
 When `VELN_NET_RUNTIME` is `production-loopback`, the same public calls own a
@@ -388,22 +404,20 @@ host sockets remain encapsulated by `NetListener` and `NetStream`; source code
 uses the existing endpoint inspection, read, write, shutdown, deadline,
 cancellation, state inspection, and close calls under the same coarse `net`,
 `time`, and `concurrency` effects. Bind and connection failures retain the
-structured transport payload and do not create fixture or in-memory handles.
-The backend external-peer integration tests check independently owned host
-clients and listeners, while the focused
-`transport-socket-external-*-failure-*` run cases check human and JSON failure
-details.
+structured transport payload and do not create source-visible handles.
+External host bind and connection failures retain the structured transport
+payload and do not create a source-visible handle.
 `net::close_listener` closes the owned production listener or in-memory
 loopback listener state without closing already accepted `NetStream` handles;
 any later accept call on that listener fails through the same runtime
 transport boundary. Production-loopback connected streams use the same
 endpoint, read, write, shutdown, and close lifecycle as accepted production
 streams.
-Adapter-owned production loopback examples can handle multiple accepted
+Adapter-owned production loopback paths can handle multiple accepted
 streams independently through ordinary `StreamInput` and response-action
 values, route them through the existing `concurrency` boundary, project only
 ordered `SendBytes` actions to `net::write_chunk`, close each stream, and
-drain the listener until clean end. A production multi-chunk routing case
+drain the listener until clean end. A production multi-chunk routing path
 keeps configured read chunk boundaries within one accepted stream, exposes
 each read as an ordinary `StreamInput.Chunk` routed through the same channel
 boundary, calls a pure handler for each chunk and clean end, and projects the
@@ -413,11 +427,11 @@ task-helper variant routes those stream events through the same channel
 boundary and an adapter-owned task helper. That helper carries adapter-owned
 route and trace metadata through `task::spawn_with<Result, Context>`,
 preserves event sequence, and calls the pure handler without exposing
-`NetStream` access. A companion per-stream handler-failure case treats a
+`NetStream` access. A companion per-stream handler-failure path treats a
 handler-returned `Err` from that task boundary as an ordinary
 adapter-owned action value, closes the accepted stream, observes clean
 listener end, and does not call `net::write_chunks` for that failed stream.
-Its matching static effect case rejects adapter entry points that omit either
+The effect boundary rejects adapter entry points that omit either
 label while leaving the public handler boundary effect-free. A forced
 production read failure on that same
 multi-chunk routing path remains a runtime transport failure after production
@@ -430,7 +444,7 @@ listener end through a following deadline-aware accept. Forced production read
 failure on the listener-drain path, and forced production accept or read
 failure through the deadline-aware paths, remain runtime transport failures.
 This production path uses the same coarse `net` and `time` effects as the
-fixture-backed deadline-aware path.
+configured deadline-aware path.
 `time::timeout_ms` waits at the runtime boundary; `time::deadline_after_ms`
 creates a relative `Deadline`; `time::deadline_at_ms` creates a `Deadline`
 from an absolute monotonic millisecond value in the same host-owned clock
@@ -474,10 +488,9 @@ expiry reported by those optional paths becomes `None` or
 path becomes `ReadCancelled`.
 These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
-The checked stream adapter cancellable routing cases use
-`time::wait_until_cancellable_outcome` before returning ordinary response
-action values from channel-routed `StreamInput` handling. The receiver-list
-cancellable channel-first case uses
+The stream adapter uses `time::wait_until_cancellable_outcome` before returning
+ordinary response action values from channel-routed `StreamInput` handling. A
+receiver-list cancellable channel-first adapter uses
 `channel::select_many_timeout_cancellable` over a
 `List<Receiver<StreamInput>>`, translating `Ok(Some(selected))`,
 `Ok(None)`, and `Err(SelectError)` into routed, timed-out, and cancelled
@@ -485,34 +498,32 @@ source outcome values before producing adapter actions. The adapter declares
 both `time` and `concurrency`; a socket-owning wrapper around the same helper
 declares `net`, `time`, and `concurrency`; and the pure handler it calls
 remains free of transport effects.
-The cancellation-owner lifecycle case uses `time::cancel_owner`,
+The cancellation-owner lifecycle uses `time::cancel_owner`,
 `time::cancel_token_from`, and `time::cancel_owned` so adapter cleanup keeps
 the cancellation owner while routing and socket code receive only the
 observer `CancelToken`. After cleanup requests cancellation through the owner,
 `time::wait_until_cancellable_outcome` returns `WaitCancelled` and
 `net::read_chunk_until_cancellable` returns `ReadCancelled` as ordinary
 adapter-observable outcome values under the same `net`, `time`, and
-`concurrency` boundary. The observer-only runtime case keeps direct
+`concurrency` boundary. The observer-only runtime path keeps direct
 `time::cancel` from taking authority through an owner-derived token.
 
-The implemented socket stream adapter routing examples compose multiple
-socket reads and ordered `net::write_chunk` calls with standard channel and
-task calls. One case uses `net::read_chunk` for byte-only reads; the clean-end
-case uses `net::read_chunk_or_end` so adapter-owned source can translate
-`None` into the standard `StreamInput.End` value for a pure handler boundary.
-The production multi-chunk routing case uses the same optional read surface to
+Socket stream adapters compose multiple reads and ordered writes with standard
+channel and task calls. `net::read_chunk_or_end` lets adapter-owned source
+translate `None` into `StreamInput.End` for a pure handler boundary. The
+optional read surface can
 turn more than one host-owned read chunk from one accepted stream into
 ordinary `StreamInput.Chunk` values before clean end, then writes only ordered
 `SendBytes` response actions through `net::write_chunks`. A companion
-multi-event adapter task-helper case sends each routed event through an
+multi-event adapter task-helper path sends each routed event through an
 adapter-owned task helper using `task::spawn_with<Result, Context>` with
 adapter-owned route and trace metadata, preserving trace identity and sequence
 across multiple events from the same accepted stream while the pure handler
 stays outside the task and channel effect boundary. A per-stream
-handler-failure companion case returns `Err` from that task-owned handler,
+handler-failure companion path returns `Err` from that task-owned handler,
 converts it to an ordinary source-visible adapter action, performs
 adapter-owned stream cleanup, and skips response-byte projection for the
-failed stream. Its matching effect case rejects adapter paths that omit either
+failed stream. The effect boundary rejects adapter paths that omit either
 `net` or `concurrency` while leaving the handler boundary effect-free. Forced
 read failure on the same
 optional-read routing path remains a runtime transport failure before any
@@ -530,15 +541,15 @@ projects only ordered `SendBytes` chunks through
 `WriteDeadlineExpired`, or `WriteCancelled` as ordinary
 `StreamWriteOutcome` values, preserves host write failures as runtime
 transport failures, and requires `net`, `time`, and `concurrency`.
-The owned-lifecycle case accepts a listener with `net::accept_or_end`, owns the
+The owned-lifecycle path accepts a listener with `net::accept_or_end`, owns the
 accepted stream through repeated optional reads, routes ordinary stream values
 through a channel, calls the plain handler without exposing socket handles, and
 projects `SendBytes` actions back into ordered `net::write_chunk` calls. The
-deadline-aware lifecycle case accepts with `net::accept_until`, owns the
+deadline-aware lifecycle path accepts with `net::accept_until`, owns the
 accepted stream through repeated `net::read_chunk_until` attempts, translates
 deadline expiry into the ordinary stream boundary value before calling the
 plain handler, and projects only `SendBytes` actions to ordered writes. The
-cancellable deadline-aware lifecycle case accepts with
+cancellable deadline-aware lifecycle path accepts with
 `net::accept_until_cancellable`, owns the accepted stream in adapter code,
 reads through `net::read_chunk_until_cancellable`, translates accept and read
 clean-end, deadline, and cancellation outcomes into adapter decisions or
@@ -621,7 +632,7 @@ channel::close(tx: Sender<T>) -> () effects [concurrency]
 ```
 
 Direct calls to these functions infer their listed effects. A public function
-or test that calls one of them must declare those effects in its
+or test that calls one of them must declare those non-empty effects in its
 `effects [...]` list. The cancellable receiver-list timeout helper is the
 only channel helper in this set that also infers `time`, because observing its
 `CancelToken` is a time-boundary operation.
@@ -671,9 +682,8 @@ shape as `channel::select_many_timeout_result`. It returns
 `Ok(None)` when the timeout elapses or all supplied receivers close before a
 value is selected, and `Err(SelectError)` when the supplied `CancelToken`
 is already cancelled or becomes cancelled before a ready receiver wins. The
-checked cancellable channel-first adapter maps that result into an ordinary
-source route outcome so cancellation is a visible adapter completion case
-instead of another fixed route-count fixture.
+cancellable channel-first adapter maps that result into an ordinary source
+route outcome so cancellation is a visible adapter completion state.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver and
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative
@@ -709,8 +719,8 @@ expression infers `concurrency` plus each job effect once. A job that handles
 `transport::DuplexStream` with `transport::net::net_stream(stream)` substitutes
 the handled expression's remaining effects plus `net`; the task creation
 expression does not retain `transport::DuplexStream` after handler
-replacement. The checked `http2-service-task-effect-row` case fixes the pure
-zero-argument, effectful zero-argument, and context-job boundaries.
+replacement. Pure, effectful, and context jobs retain these declared effect
+rows.
 
 The optional first explicit type argument fixes the task item type, and the
 optional second explicit type argument fixes the context parameter type for
@@ -742,3 +752,21 @@ records the boundary entry, the effect-causing call entry, whether the path set
 was truncated, how many frames were hidden, and how many equivalent paths were
 omitted. For the current direct-call, signature-based, and body-inferred helper
 inference, hidden frame counts are zero.
+
+## Limits
+
+Effect inference is conservative at source boundaries: compiler-known calls and
+reachable helpers contribute only the coarse labels listed above, while unknown
+or user-defined effects remain in exported signatures and are rejected at
+`veln run` or `veln test` entry points. Runtime transport, deadline,
+cancellation, channel, and task failures remain runtime outcomes; they do not
+become schema or codec diagnostics. The public effect surface does not promise
+TLS, ALPN, or an application protocol, and source-visible handles must follow
+the close and cancellation ownership rules described in the network and time
+sections.
+
+## References
+
+- Effect inference and handlers: `crates/veln-sema/src/effects.rs` and
+  `crates/veln-sema/src/effect_rows.rs`.
+- Compiler-known signatures: `crates/veln-sema/src/standard_symbols/`.

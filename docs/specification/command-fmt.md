@@ -2,53 +2,45 @@
 role: specification
 authority: normative
 update-when: The veln fmt command parsing gate, formatting behavior, source discovery behavior, or write policy changes.
+specification-coverage: usage=#format-command; behavior=#formatting-rules; limits=#limits-and-errors
 ---
 
 # Format Command
 
-`fmt` uses the same source discovery rule as `check`. It parses every selected
-file before writing any file. If any parse diagnostic is present, the whole
-format invocation exits with failure and writes nothing.
+Use `veln fmt [PATH ...]` to format selected source files. Selection follows
+`check`. The command parses every selected file before writing any file. One
+parse diagnostic makes the invocation fail and leaves every file unchanged.
 
-For parse-clean files, formatting is deterministic for the implemented syntax:
-use declarations, function signatures, contract clauses, let statements,
-tail expressions, holes with `satisfy`, records, lists, calls, literals, paths,
-prefix operators, binary operators, postfix `?`, and supported binary schema
-primitive compatibility spellings.
+## Formatting rules
 
-Canonical indentation uses one tab character per indentation level. Top-level
-imports, item signatures, and item-closing `end` lines use
-indentation level 0. Function body lines, including contract clauses, `let`
-statements, tail expressions, and standalone comments attached to those lines,
-use indentation level 1.
+The formatter deterministically formats imports, function signatures, contract
+clauses, `let` statements, tail expressions, holes with `satisfy`, records,
+lists, calls, literals, paths, prefix and binary operators, postfix `?`, and
+supported binary-schema primitive compatibility spellings. Indentation is one
+tab per level: top-level items and closing `end` lines use level zero, and
+function body lines use level one.
 
-For formatted `match` expressions, the `match` line uses the parent expression
-indentation level, each arm is one indentation level deeper than that `match`
-line, and the `match` closing `end` aligns with the `match` line.
-When a parse-clean `match` has exactly one `true` arm and one `false` arm,
-`fmt` canonicalizes it to `if` / `else`; false-arm continuations that are also
-ordinary `true` / `false` matches become `else if`. When a parse-clean boolean
-`match` compares the same scrutinee to string, integer, float, or unit literals
-through a `true` arm and a `false` continuation chain, `fmt` instead
-canonicalizes it to a direct literal `match` with a wildcard fallback.
-Commented rewritable matches are left in their lossless source form.
+A `match` line uses its parent indentation; arms use one deeper level and its
+closing `end` aligns with the `match`. A two-arm boolean match becomes
+`if`/`else`; a false continuation becomes `else if`. A boolean match
+against string, integer, float, or unit literals becomes a literal `match`
+with a wildcard fallback. Comments make a rewritable match lossless, so it is
+left unchanged.
 
-Formatting accepts multiple parse-clean input files in one invocation and
-writes each selected file only after all selected files have parsed without
-diagnostics. The implemented golden coverage includes `ensure` clauses, prefix
-and binary precedence, postfix `?`, nested records, lists, calls, and
-idempotent formatting across multiple input files. In `format binary` schemas,
-supported compatibility spellings such as `UIntN`, representable
-`ReservedBits(width, value)`, and `Repeat(count, Payload)` are formatted as
-canonical lowercase field text, including dispatch payload field text.
+Standalone comments attach to the next parsed source line and receive that
+line's indentation. Comment-only lines do not interrupt declarations. Trailing
+comments stay on their source line. Slash-prefixed comment-like text is not
+migrated.
 
-Standalone line comments attach to the next parsed source line during
-formatting. The formatter emits hash comments with the same indentation as the
-formatted import, function signature, contract clause, body line, or closing
-`end` line it documents. Comment-only lines between imports, function
-signatures, contract clauses, body lines, and closing `end` lines do not
-prevent parsing or deterministic formatting of those declarations. Trailing
-line comments after source code stay on the same formatted source line.
-`veln fmt` formats parse-clean source only; it does not migrate slash-prefixed
-comment-like text.
+## Limits and errors
 
+The parse gate applies to the complete selected set; semantic analysis is not
+a formatting gate. After that gate, files are written sequentially. A
+filesystem write error fails the command but does not roll back earlier
+successful writes.
+
+## References
+
+Implementation: `crates/veln-cli/src/commands/fmt.rs`. Formatter golden tests
+cover precedence, comments, schema spellings, multi-file atomicity, and
+idempotence.
