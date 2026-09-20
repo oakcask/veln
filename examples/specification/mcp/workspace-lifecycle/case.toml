@@ -3,15 +3,15 @@ stdin_file = "case-text/root-stdin-1.jsonl"
 exit = 0
 
 [stdout]
-contains = ["\"name\":\"rename\",\"outputSchema\""]
+contains = ["\"name\":\"rename\",\"outputSchema\"", "{\"error\":{\"code\":-32600,\"message\":\"Invalid Request\"},\"id\":null,\"jsonrpc\":\"2.0\"}", "{\"id\":7.5,\"jsonrpc\":\"2.0\",\"result\":{}}", "{\"id\":1e3,\"jsonrpc\":\"2.0\",\"result\":{}}"]
 
 [stderr]
 format = "empty"
 
 [[mcp_assert]]
 id = 0
-path = "/error/code"
-equals = -32602
+path = "/error"
+equals = {"code":-32602,"message":"Server not initialized"}
 
 [[mcp_assert]]
 id = 2
@@ -20,20 +20,35 @@ length = 8
 
 [[mcp_assert]]
 id = 3
-path = "/result/structuredContent/generation"
-equals = 0
+path = "/result/structuredContent"
+equals = {"generation":0,"roots":["alpha","beta/deep"]}
 
 [[mcp_assert]]
 id = 4
-path = "/result/structuredContent/generation"
-equals = 1
+path = "/result/structuredContent"
+equals = {"generation":1,"roots":["alpha","beta/deep"]}
 
 [[mcp_assert]]
 id = 8
-path = "/error/code"
-equals = -32602
+path = "/error"
+equals = {"code":-32602,"message":"Server already initialized"}
 
 [[mcp_assert]]
 id = 5
-path = "/error/code"
-equals = -32602
+path = "/error"
+equals = {"code":-32602,"message":"Tool input does not match its schema"}
+
+[[mcp_assert]]
+id = 6
+path = "/error"
+equals = {"code":-32602,"message":"Invalid initialize params"}
+
+[[mcp_assert]]
+id = 18446744073709551616
+path = "/result"
+equals = {}
+
+[[mcp_assert]]
+id = 18446744073709551617
+path = "/result"
+equals = {}

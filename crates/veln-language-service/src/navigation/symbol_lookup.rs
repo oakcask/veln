@@ -6,17 +6,40 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<TypeAliasSymbol> {
-        let qualifier = qualifier_for_token(tokens, token_index);
-        let qualified_modules = qualifier
-            .as_deref()
-            .map(|qualifier| self.qualified_module_candidates(file, qualifier));
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            if let Some(local) = self.first_local_type_namespace_for_bare_reference(file, name) {
+                return match local {
+                    TypeConflictCandidate::Type(_) => None,
+                    TypeConflictCandidate::Alias(symbol) if symbol.package.is_none() => {
+                        Some(symbol)
+                    }
+                    TypeConflictCandidate::Alias(_) => None,
+                };
+            }
+            if !self.visible_types_for_bare_reference(file, name).is_empty() {
+                return None;
+            }
+            let mut candidates = self.type_aliases.iter().filter(|symbol| {
+                symbol.package.is_none()
+                    && visible_imported_type_alias_for_bare_reference(file, symbol, name)
+            });
+            let candidate = candidates.next()?;
+            return candidates.next().is_none().then(|| candidate.clone());
+        };
+        let qualified_modules = self.qualified_module_candidates(file, &qualifier);
+        if self.types.iter().any(|symbol| {
+            visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
+        }) {
+            return None;
+        }
         let mut candidates = self.type_aliases.iter().filter(|symbol| {
             symbol.package.is_none()
-                && symbol.name == name
-                && match &qualified_modules {
-                    Some(modules) => modules.iter().any(|module| module == &symbol.module),
-                    None => symbol.module == file.module || file.uses.contains(&symbol.module),
-                }
+                && visible_type_alias_for_qualified_reference(
+                    file,
+                    symbol,
+                    &qualified_modules,
+                    name,
+                )
         });
         let candidate = candidates.next()?;
         candidates.next().is_none().then(|| candidate.clone())
