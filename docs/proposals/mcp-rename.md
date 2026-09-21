@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: Shared rename selection, MCP saved-workspace navigation, MCP tool schemas, or the planned rename evidence changes.
+update-when: Shared rename selection or conflict provenance, MCP saved-workspace navigation, MCP tool schemas, or the planned rename evidence changes.
 ---
 
 # MCP Saved-Workspace Rename
@@ -27,9 +27,12 @@ conflict rules.
 | Existing stable-capture, project-selection, path, and coordinate failures. | Reference pagination, cursor creation, package documentation, and package resource publication. |
 
 The shared language service remains authoritative for symbol identity,
-references, recovery linking, name class, and predictable conflicts. The MCP
-adapter owns input validation, one-based Unicode-scalar coordinates, canonical
-workspace URIs, result serialization, and saved-capture failure behavior.
+references, recovery linking, name class, predictable conflicts, and conflict
+declaration provenance. The MCP adapter owns input validation, one-based
+Unicode-scalar coordinates, canonical workspace edit URIs, result
+serialization, and saved-capture failure behavior. It must preserve package
+provenance in a conflict result without admitting the package as an MCP
+resource.
 
 ## Tool Contract
 
@@ -60,9 +63,13 @@ and `affected_scope`. A module scope is exactly
 `{kind: "module", name}`. A lexical scope is exactly
 `{kind: "lexical", file, start_offset, end_offset}`: `file` is a
 workspace-relative source path, and the offsets are zero-based UTF-8 byte
-offsets into that saved source, with an exclusive end. Locations use canonical
-`file:` URIs and one-based Unicode-scalar half-open ranges. These are MCP domain
-failures, not successful empty results, and neither failure returns edits.
+offsets into that saved source, with an exclusive end. Locations use one-based
+Unicode-scalar half-open ranges. Workspace edit and workspace conflict
+locations use canonical `file:` URIs. If the shared conflict is a direct
+dependency or standard-library declaration, its location keeps the canonical
+`veln-pkg:` URI supplied by the shared language service. Returning that URI
+does not publish or admit the package resource. These are MCP domain failures,
+not successful empty results, and neither failure returns edits.
 
 The checked result schema is a closed `oneOf`. Success is exactly an object
 with the required `edits` array. Each closed edit object requires string `uri`,
@@ -110,6 +117,17 @@ Invalid paths return `invalid_path`; out-of-range coordinates return
 failures publish no partial navigation resources. Because rename never admits
 resources, retained package capacity cannot change a rename result.
 
+## Verification Model
+
+Each acceptance row names the strongest practical evidence for its observable
+contract. Checked MCP stdio cases cover stable transport inputs and outputs.
+MCP server transition tests cover state that requires an injected capture
+change, a pre-existing cursor, or controlled resource capacity. Shared
+language-service and LSP comparisons cover adapter parity only for identities
+supported by both adapters; MCP-only type-alias behavior has direct shared
+selection and server coverage instead. Schema tests independently close the
+advertised protocol shapes.
+
 ## Acceptance Model
 
 | Case | Expected result | Planned evidence |
@@ -120,7 +138,7 @@ resources, retained package capacity cannot change a rename result.
 | Request the selected symbol's current name. | Return the same complete edit set as another valid same-class replacement. | Idempotent-name cases for top-level and lexical symbols. |
 | Supply a non-empty replacement that violates the ASCII identifier rule. | Return `rename.invalid_name` with exactly the requested name in details, no edits, and unchanged state. | Input-boundary cases for punctuation-bearing, multi-token, non-ASCII, and digit-led replacements, plus a reserved-word lexical-acceptance case. |
 | Change a type or constructor to lowercase, or a function or value binding to uppercase. | Return `rename.invalid_case` with the shared class and required-initial details and no edits. | Exact failure-schema cases paired with the shared and LSP casing matrix. |
-| Choose a validly cased name that creates a predictable module or lexical conflict. | Return `rename.conflict` with the exact conflicting location and affected scope and no edits. | Module and lexical conflict cases, including handler bindings and recovery symbols. |
+| Choose a validly cased name that creates a predictable module or lexical conflict. | Return `rename.conflict` with the exact conflicting location and affected scope and no edits. A workspace conflict uses a canonical `file:` URI; a direct-dependency or standard-library conflict keeps its canonical `veln-pkg:` URI without publishing that resource. | Exact MCP stdio cases for workspace module and lexical conflicts; server cases for handler bindings, recovery symbols, and package-backed conflicts; shared-location comparisons for both URI provenances. |
 | Select a schema, effect, handler, effect operation, module segment, package-backed occurrence, unsupported role, or ambiguous recovery occurrence in a workspace source. | Succeed with `edits: []`; do not map the selection to another class. | Supported-symbol boundary matrix over workspace declarations and workspace occurrences that resolve to direct-dependency or standard-library declarations. |
 | Use a valid source with an invalid coordinate, or an invalid source path. | Return the existing `invalid_position` or `invalid_path` failure and no edits. | Checked schema and saved-navigation path/coordinate cases, including non-BMP and CRLF boundaries. |
 | Change captured inputs throughout the bounded capture attempts. | Return `snapshot_changed`, publish no edits or resources, and leave prior state and cursors usable. | Injected capture-change transition followed by prior-resource, cursor, and valid-rename checks. |
@@ -131,9 +149,9 @@ resources, retained package capacity cannot change a rename result.
 
 ## Completion
 
-This proposal is complete when checked input and result schemas, shared
-language-service comparisons, and MCP stdio cases cover every acceptance row.
+This proposal is complete when every acceptance row has the planned evidence
+named in that row and the evidence agrees across applicable adapter boundaries.
 The MCP specification must then state the supported symbols, edit ordering,
-failure details, non-mutating behavior, capture boundary, and state-preservation
-rules. Delete this page and its Ready catalog entry after those current
-authorities cover the implemented behavior.
+conflict-location provenance, failure details, non-mutating behavior, capture
+boundary, and state-preservation rules. Delete this page and its Ready catalog
+entry after those current authorities cover the implemented behavior.
