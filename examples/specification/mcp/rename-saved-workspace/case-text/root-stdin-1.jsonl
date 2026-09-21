@@ -7,3 +7,16 @@
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"definition","arguments":{"source":"main.veln","line":2,"column":4}}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"references","arguments":{"source":"main.veln","line":2,"column":4}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"match"}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"target"}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":5,"column":4,"new_name":"target"}}}
+{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":8,"column":4,"new_name":"conflict"}}}
+{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"bad!"}}}
+{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"café"}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"2bad"}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"after"}}}
+{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4}}}
+{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":1}}}
+{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"next","extra":true}}}
+{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":""}}}
+{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":2,"column":4,"new_name":"valid"}}}

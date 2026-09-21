@@ -496,12 +496,12 @@ fn invalid_protocol_input_does_not_prevent_a_follow_up_rename() {
 }
 
 #[test]
-fn rename_accepts_long_identifiers_before_edit_construction() {
+fn rename_rejects_oversized_identifiers_before_edit_construction() {
     let workspace = TempWorkspace::new("rename-long-identifier");
     workspace.write("main.veln", "fn target() -> Int\n  target()\nend\n");
     let mut server = initialized_server(&workspace);
-    let accepted_name = "a".repeat(257);
-    let accepted = server
+    let oversized_name = "a".repeat(257);
+    let rejected = server
         .handle_request(json!({
             "jsonrpc":"2.0",
             "id":1,
@@ -512,27 +512,13 @@ fn rename_accepts_long_identifiers_before_edit_construction() {
                     "source":"main.veln",
                     "line":1,
                     "column":4,
-                    "new_name":accepted_name
+                    "new_name":oversized_name
                 }
             }
         }))
         .unwrap();
-    assert_eq!(
-        accepted["result"]["structuredContent"]["edits"]
-            .as_array()
-            .unwrap()
-            .len(),
-        2,
-        "{accepted:#}"
-    );
-    assert!(
-        accepted["result"]["structuredContent"]["edits"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|edit| edit["new_text"] == accepted_name),
-        "{accepted:#}"
-    );
+    assert_eq!(rejected["error"]["code"], -32602, "{rejected:#}");
+    assert!(rejected.get("result").is_none(), "{rejected:#}");
 
     let follow_up = server.rename_tool(&json!({
         "source":"main.veln", "line":1, "column":4, "new_name":"next"

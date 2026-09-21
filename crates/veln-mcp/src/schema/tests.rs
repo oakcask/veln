@@ -140,7 +140,7 @@ fn references_input_requires_closed_positive_coordinates() {
 }
 
 #[test]
-fn rename_input_requires_closed_coordinates_and_a_nonempty_name() {
+fn rename_input_requires_closed_coordinates_and_a_bounded_nonempty_name() {
     let tool = tool("rename").unwrap();
     assert!(tool.accepts_input(&serde_json::json!({
         "source": "main.veln",
@@ -149,14 +149,13 @@ fn rename_input_requires_closed_coordinates_and_a_nonempty_name() {
         "new_name": "next"
     })));
     assert!(tool.accepts_input(&serde_json::json!({
-        "source":"main.veln", "line":1, "column":1, "new_name":"a".repeat(257)
-    })));
-    assert!(tool.accepts_input(&serde_json::json!({
-        "source":"main.veln", "line":1, "column":1, "new_name":"😀".repeat(257)
+        "source":"main.veln", "line":1, "column":1, "new_name":"a".repeat(256)
     })));
     for value in [
         serde_json::json!({"source":"main.veln","line":1,"column":1}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":""}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":"a".repeat(257)}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":"😀".repeat(257)}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":null}),
         serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":"next","extra":true}),
         serde_json::json!({"source":"main.veln","line":0,"column":1,"new_name":"next"}),

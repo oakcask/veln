@@ -3,5 +3,7 @@ fn target(value: Int) -> Int
 end
 
 fn main() -> Int
-  target(2)
+  let conflict = 2
+  let observed = conflict
+  target(observed)
 end

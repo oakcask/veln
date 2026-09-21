@@ -1,0 +1,17 @@
+use dep from "example/dep"
+
+schema Packet
+  value: Int
+end
+
+effect Choose
+  pick() -> Int
+end
+
+handler choose() handles Choose
+  pick() => 1
+end
+
+fn main(items: Vec<Int>) -> Int
+  dep::target() + vec_len(items)
+end

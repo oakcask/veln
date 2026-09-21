@@ -1,7 +1,7 @@
 ---
 role: specification
 authority: normative
-specification-coverage: usage=#workspace-selection; behavior=#resources; limits=#selection-state
+specification-coverage: usage=#workspace-selection; behavior=#rename; limits=#selection-state
 update-when: The `veln mcp` stdio lifecycle, JSON-RPC request validation, workspace project selection, refresh transition, saved project diagnostics, saved navigation tools, MCP resources, tool schemas, or executable MCP cases change.
 ---
 
@@ -28,8 +28,9 @@ and the two analysis metadata shapes. Schema failures, unknown input fields,
 invalid-params error. The `definition` input requires one source plus positive
 JSON integer line and column coordinates. An initial `references` input uses
 the same coordinate contract; a continuation uses only its cursor. The
-`rename` input requires the same source and coordinate fields plus a non-empty
-`new_name` string.
+`rename` input requires the same source and coordinate fields plus a `new_name`
+string of 1 through 256 Unicode scalars. Names outside that size range are
+protocol-invalid and do not invoke rename.
 `refresh_workspace` reports the stable `generation_failed` domain failure as an
 MCP tool result with `isError: true`.
 
@@ -404,7 +405,8 @@ declaration. Definition exposes a recovery record's source range only, and
 ### Rename
 
 `rename` computes edits for one saved workspace symbol. It does not apply the
-edits. The replacement is one ASCII identifier: its first character is an
+edits. The replacement contains at most 256 Unicode scalars so repeated result
+text stays bounded. It is one ASCII identifier: its first character is an
 ASCII letter or `_`, and each remaining character is an ASCII letter, digit,
 or `_`. Reserved words pass this lexical check. A malformed non-empty name
 returns `rename.invalid_name` with exactly `details: {requested_name}`. An
@@ -442,9 +444,12 @@ closed details object contains `symbol_class`, `requested_name`, the
 `{kind:"module", name}`. A lexical scope is
 `{kind:"lexical", file, start_offset, end_offset}`; its offsets are zero-based
 UTF-8 byte offsets into the saved workspace source and its end is exclusive.
-Invalid paths, invalid positions, and exhausted stable capture return the
-existing `invalid_path`, `invalid_position`, and `snapshot_changed` failure
-shapes. No failure contains edits.
+A workspace conflict location uses a canonical `file:` URI. A direct-dependency
+or standard-library conflict location retains the canonical `veln-pkg:` URI
+from the shared language service without publishing that package resource.
+Invalid paths return exactly empty `details`. Invalid positions return exactly
+`details: {source,line,column}`. Exhausted stable capture returns
+`snapshot_changed` with exactly empty `details`. No failure contains edits.
 
 Rename constructs its language-service snapshot from one stable capture but
 does not admit dependency source or documentation resources. Retained package
@@ -546,4 +551,6 @@ Navigation serialization is implemented by `crates/veln-mcp/src/definition.rs`
 and `crates/veln-mcp/src/references.rs`; rename conversion is implemented by
 `crates/veln-mcp/src/rename.rs`; cursor retention is implemented by
 `crates/veln-mcp/src/reference_pagination.rs`. Protocol regression tests are in
-`crates/veln-mcp/src/server/tests/`.
+`crates/veln-mcp/src/server/tests/`. Checked rename transcripts cover saved
+workspace results, supported symbol classes, recovery identities, unsupported
+boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
