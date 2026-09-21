@@ -16,6 +16,58 @@
     }
 
     #[test]
+    fn workspace_schema_composition_lookup_work_grows_linearly() {
+        let mut token_visits_per_reference = None;
+        for count in [100, 200, 400] {
+            let mut declarations = String::from("mod model\n\n");
+            let mut fields = String::from("mod app\nuse model\n\nschema Host\n");
+            for index in 0..count {
+                declarations.push_str(&format!(
+                    "pub schema Packet{index}\n  value: Int\nend\npub schema Alias{index} = Packet{index}\n"
+                ));
+                fields.push_str(&format!("  field{index}: model::Alias{index}\n"));
+            }
+            fields.push_str("end\n");
+            let snapshot = EffectiveProjectSnapshot::new(vec![
+                source("model.veln", &declarations),
+                source("app.veln", &fields),
+            ]);
+
+            crate::navigation::reset_workspace_schema_composition_lookup_work();
+            let _ = snapshot.navigation_index();
+            let (schema_visits, alias_visits, token_visits) =
+                crate::navigation::workspace_schema_composition_lookup_work();
+            assert!(
+                schema_visits <= count + 1,
+                "workspace schema targets must use indexed lookup: {schema_visits}"
+            );
+            assert!(
+                alias_visits <= count,
+                "workspace schema aliases must use indexed lookup: {alias_visits}"
+            );
+            assert_eq!(token_visits % count, 0);
+            let visits_per_reference = token_visits / count;
+            assert_eq!(
+                *token_visits_per_reference.get_or_insert(visits_per_reference),
+                visits_per_reference,
+                "workspace composition token work must remain constant per reference"
+            );
+
+            let first = query_snapshot(&snapshot, "app.veln", 5, 18).unwrap();
+            assert_eq!(first.selected_symbol.name, "Alias0");
+            let last_field = format!("field{}", count - 1);
+            let last = query_snapshot(
+                &snapshot,
+                "app.veln",
+                count + 4,
+                last_field.len() + 12,
+            )
+            .unwrap();
+            assert_eq!(last.selected_symbol.name, format!("Alias{}", count - 1));
+        }
+    }
+
+    #[test]
     fn dependency_schema_composition_index_work_grows_linearly() {
         let mut field_token_visits_per_schema = None;
         for count in [100, 200, 400] {

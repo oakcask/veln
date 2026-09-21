@@ -14,6 +14,7 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/source_indexing.rs");
+include!("navigation/workspace_schema_composition.rs");
 include!("navigation/package_schemas.rs");
 include!("navigation/index.rs");
 include!("navigation/selection.rs");
@@ -57,6 +58,9 @@ thread_local! {
     static SCHEMA_COMPOSITION_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_COMPOSITION_PRELUDE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_COMPOSITION_BLOCKER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS: Cell<usize> = const { Cell::new(0) };
+    static WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_PRELUDE_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_BLOCKER_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_LEAF_LOOKUPS: Cell<usize> = const { Cell::new(0) };
@@ -112,6 +116,40 @@ fn record_schema_composition_prelude_lookup() {
 #[cfg(test)]
 fn record_schema_composition_blocker_lookup() {
     SCHEMA_COMPOSITION_BLOCKER_LOOKUPS.set(SCHEMA_COMPOSITION_BLOCKER_LOOKUPS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_workspace_schema_composition_schema_visit() {
+    WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS
+        .set(WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_workspace_schema_composition_alias_visit() {
+    WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS
+        .set(WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_workspace_schema_composition_token_visit() {
+    WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS
+        .set(WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_workspace_schema_composition_lookup_work() {
+    WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS.set(0);
+    WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS.set(0);
+    WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn workspace_schema_composition_lookup_work() -> (usize, usize, usize) {
+    (
+        WORKSPACE_SCHEMA_COMPOSITION_SCHEMA_VISITS.get(),
+        WORKSPACE_SCHEMA_COMPOSITION_ALIAS_VISITS.get(),
+        WORKSPACE_SCHEMA_COMPOSITION_TOKEN_VISITS.get(),
+    )
 }
 
 #[cfg(test)]

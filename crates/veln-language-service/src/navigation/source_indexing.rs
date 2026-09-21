@@ -517,62 +517,6 @@ fn append_parsed_surface_module(
     append_surface_module(merged, module);
 }
 
-fn workspace_schema_composition_references(
-    files: &[IndexedFile],
-    schemas: &[NeutralSymbol],
-    schema_aliases: &[NeutralSymbol],
-    module_imports: &BTreeMap<String, SchemaAliasModuleImports>,
-    references: Vec<veln_sema::ResolvedSchemaCompositionReference>,
-) -> Vec<SchemaCompositionReference> {
-    references
-        .into_iter()
-        .filter_map(|reference| {
-            let schema_target = schemas.iter().find(|schema| {
-                schema.package.is_none()
-                    && schema.name == reference.target_name
-                    && Some(schema.module.as_str()) == reference.target_module.as_deref()
-                    && schema.declaration.span.file == reference.target_span.file
-            })?;
-            let alias_target = reference.alias_span.as_ref().and_then(|alias_span| {
-                schema_aliases.iter().find(|alias| {
-                    alias.package.is_none()
-                        && Some(alias.name.as_str()) == reference.alias_name.as_deref()
-                        && Some(alias.module.as_str()) == reference.alias_module.as_deref()
-                        && alias.declaration.span.file == alias_span.file
-                        && alias.declaration.span.start.offset >= alias_span.start.offset
-                        && alias.declaration.span.end.offset <= alias_span.end.offset
-                })
-            });
-            let leaf = reference.path.last()?;
-            let file = files
-                .iter()
-                .find(|file| file.source.path() == &reference.field_span.file)?;
-            let (token_index, token) = file.tokens.iter().enumerate().find(|(index, token)| {
-                token.range.start >= reference.field_span.start.offset
-                    && token.range.end <= reference.field_span.end.offset
-                    && token.text == *leaf
-                    && is_schema_composition_path_leaf_token(&file.tokens, *index)
-            })?;
-            let target_module = alias_target.map_or(schema_target, |alias| alias).module.as_str();
-            if qualifier_for_token(&file.tokens, token_index).is_some_and(|qualifier| {
-                !matches!(
-                    schema_qualified_workspace_module(file, &qualifier, module_imports),
-                    QualifiedWorkspaceModule::Workspace(module) if module == target_module
-                )
-            }) {
-                return None;
-            }
-            Some(SchemaCompositionReference {
-                span: file.source.span(token.range),
-                target: alias_target.map_or_else(
-                    || SchemaReferenceTarget::Schema(schema_target.clone()),
-                    |alias| SchemaReferenceTarget::Alias(alias.clone()),
-                ),
-            })
-        })
-        .collect()
-}
-
 struct WorkspaceSchemaCompositionDeclarations<'a> {
     schemas: &'a [NeutralSymbol],
     schema_aliases: &'a [NeutralSymbol],
