@@ -3,7 +3,11 @@ use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use veln_language_service::{EffectiveProjectSnapshot, SourcePosition, navigate_for_rename};
+use veln_language_service::{
+    EffectiveProjectSnapshot, NavigationSource, RenameFailureKind, SourcePosition,
+    navigate_for_rename, validate_rename_in_snapshot,
+};
+use veln_project::PackageSnapshotSource;
 use veln_source::{SourceFile, SourcePath};
 
 use super::dependency_resources::fill_dependency_resource_capacity_completely;
@@ -32,6 +36,104 @@ fn edits(result: &Value) -> &Vec<Value> {
         .unwrap_or_else(|| panic!("rename edits missing: {result:#}"))
 }
 
+fn shared_conflicting_uri(
+    server: &mut Server,
+    source: &str,
+    line: usize,
+    column: usize,
+    requested_name: &str,
+) -> String {
+    let Ok((captured, captured_source, _)) = crate::check_project::capture_navigation_source(
+        &server.base,
+        &server.selection,
+        source,
+        &mut server.capture_cache,
+    ) else {
+        panic!("saved navigation capture failed")
+    };
+    let snapshot = server
+        .language_resources
+        .read_only_navigation_snapshot(captured.project.files, &captured.dependencies);
+    let result = navigate_for_rename(
+        &snapshot,
+        SourcePosition {
+            source: SourcePath::new(captured_source),
+            line,
+            column,
+        },
+    )
+    .unwrap();
+    let failure = validate_rename_in_snapshot(&snapshot, &result, requested_name).unwrap_err();
+    let RenameFailureKind::Conflict {
+        conflicting_declaration,
+        ..
+    } = failure.kind
+    else {
+        panic!("expected rename conflict")
+    };
+    match conflicting_declaration.source {
+        NavigationSource::Workspace => crate::definition::path_to_uri(
+            &server
+                .base
+                .path()
+                .join(conflicting_declaration.span.file.as_str()),
+        ),
+        NavigationSource::Package { uri } => uri,
+    }
+}
+
+fn assert_rename_matches_shared(
+    workspace: &TempWorkspace,
+    sources: &[(&str, &str)],
+    source: &str,
+    line: usize,
+    column: usize,
+    new_name: &str,
+) {
+    let snapshot = EffectiveProjectSnapshot::new(
+        sources
+            .iter()
+            .map(|(path, text)| SourceFile::new(*path, *text))
+            .collect(),
+    );
+    let shared = navigate_for_rename(
+        &snapshot,
+        SourcePosition {
+            source: SourcePath::new(source),
+            line,
+            column,
+        },
+    )
+    .unwrap();
+    let expected = std::iter::once(&shared.definition.span)
+        .chain(&shared.references)
+        .map(|span| {
+            (
+                crate::definition::path_to_uri(&workspace.path(span.file.as_str())),
+                span.start.line,
+                span.start.column,
+                span.end.line,
+                span.end.column,
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    let result = rename_result(workspace, source, line, column, new_name);
+    let actual = edits(&result)
+        .iter()
+        .map(|edit| {
+            (
+                edit["uri"].as_str().unwrap().to_owned(),
+                edit["range"]["start"]["line"].as_u64().unwrap() as usize,
+                edit["range"]["start"]["column"].as_u64().unwrap() as usize,
+                edit["range"]["end"]["line"].as_u64().unwrap() as usize,
+                edit["range"]["end"]["column"].as_u64().unwrap() as usize,
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(actual, expected, "{source}:{line}:{column} {result:#}");
+    assert_eq!(edits(&result).len(), actual.len(), "{result:#}");
+}
+
 #[test]
 fn rename_edit_set_matches_shared_language_service_locations() {
     let workspace = TempWorkspace::new("rename-shared-comparison");
@@ -42,48 +144,75 @@ fn rename_edit_set_matches_shared_language_service_locations() {
     workspace.write("main.veln", main);
     workspace.write("other.veln", other);
 
-    let snapshot = EffectiveProjectSnapshot::new(vec![
-        SourceFile::new("main.veln", main),
-        SourceFile::new("other.veln", other),
-    ]);
     for (line, column, new_name) in [(1, 10, "Renamed"), (4, 4, "renamed")] {
-        let shared = navigate_for_rename(
-            &snapshot,
-            SourcePosition {
-                source: SourcePath::new("main.veln"),
-                line,
-                column,
-            },
-        )
-        .unwrap();
-        let expected = std::iter::once(&shared.definition.span)
-            .chain(&shared.references)
-            .map(|span| {
-                (
-                    crate::definition::path_to_uri(&workspace.path(span.file.as_str())),
-                    span.start.line,
-                    span.start.column,
-                    span.end.line,
-                    span.end.column,
-                )
-            })
-            .collect::<BTreeSet<_>>();
+        assert_rename_matches_shared(
+            &workspace,
+            &[("main.veln", main), ("other.veln", other)],
+            "main.veln",
+            line,
+            column,
+            new_name,
+        );
+    }
+}
 
-        let actual = rename_result(&workspace, "main.veln", line, column, new_name);
-        let actual = edits(&actual)
-            .iter()
-            .map(|edit| {
-                (
-                    edit["uri"].as_str().unwrap().to_owned(),
-                    edit["range"]["start"]["line"].as_u64().unwrap() as usize,
-                    edit["range"]["start"]["column"].as_u64().unwrap() as usize,
-                    edit["range"]["end"]["line"].as_u64().unwrap() as usize,
-                    edit["range"]["end"]["column"].as_u64().unwrap() as usize,
-                )
-            })
-            .collect::<BTreeSet<_>>();
-
-        assert_eq!(actual, expected);
+#[test]
+fn rename_supported_class_locations_match_shared_language_service() {
+    let workspace = TempWorkspace::new("rename-all-class-shared-comparison");
+    workspace.write("veln.toml", "");
+    let main = concat!(
+        "type Item\n",
+        "  Value(value: Int)\n",
+        "end\n\n",
+        "fn convert(input: Item) -> Item\n",
+        "  Value(input)\n",
+        "end\n\n",
+        "test converts() -> Int\n",
+        "  convert(1)\n",
+        "end\n\n",
+        "fn qualified() -> Item\n  Item::Value(1)\nend\n",
+    );
+    let math = concat!(
+        "pub type Number\nend\n",
+        "pub type Alias = Number\n\n",
+        "fn use_alias(input: Alias) -> Alias\n  input\nend\n\n",
+        "fn increment(value: Int) -> Int\n  value + 1\nend\n",
+        "pub fn advance = increment\n",
+        "fn use_advance() -> Int\n  advance(1)\nend\n",
+    );
+    let math_test = "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n";
+    let handler = concat!(
+        "effect Choose\n  pick(value: Bool) -> Int\nend\n\n",
+        "handler choose(callback: fn(Int) -> Int) handles Choose\n",
+        "  pick(value) => callback(value)\nend\n",
+    );
+    for (path, text) in [
+        ("main.veln", main),
+        ("math.veln", math),
+        ("math.test.veln", math_test),
+        ("handler.veln", handler),
+    ] {
+        workspace.write(path, text);
+    }
+    let sources = [
+        ("main.veln", main),
+        ("math.veln", math),
+        ("math.test.veln", math_test),
+        ("handler.veln", handler),
+    ];
+    for (source, line, column, new_name) in [
+        ("main.veln", 1, 6, "Entry"),
+        ("main.veln", 2, 3, "Created"),
+        ("main.veln", 5, 4, "adapt"),
+        ("main.veln", 6, 9, "value"),
+        ("main.veln", 9, 6, "checks"),
+        ("math.veln", 5, 22, "RenamedAlias"),
+        ("math.veln", 14, 4, "move"),
+        ("math.test.veln", 4, 10, "step"),
+        ("handler.veln", 6, 19, "apply"),
+        ("handler.veln", 6, 28, "input"),
+    ] {
+        assert_rename_matches_shared(&workspace, &sources, source, line, column, new_name);
     }
 }
 
@@ -311,12 +440,21 @@ fn rename_returns_exact_identifier_case_and_conflict_failures() {
         assert!(result["structuredContent"].get("edits").is_none());
     }
 
-    let conflict = rename_result(&workspace, "main.veln", 5, 6, "Item");
+    let mut server = initialized_server(&workspace);
+    let shared_uri = shared_conflicting_uri(&mut server, "main.veln", 5, 6, "Item");
+    let conflict = server.rename_tool(&json!({
+        "source":"main.veln", "line":5, "column":6, "new_name":"Item"
+    }));
     assert_eq!(conflict["structuredContent"]["code"], "rename.conflict");
     assert_eq!(
         conflict["structuredContent"]["details"]["affected_scope"],
         json!({"kind": "module", "name": "main"})
     );
+    assert_eq!(
+        conflict["structuredContent"]["details"]["conflicting_declaration"]["uri"],
+        shared_uri
+    );
+    assert!(shared_uri.starts_with("file:"));
     assert!(conflict["structuredContent"].get("edits").is_none());
 }
 
@@ -359,6 +497,175 @@ fn rename_returns_exact_lexical_conflict_failure() {
 }
 
 #[test]
+fn rename_reports_handler_binding_and_recovery_conflicts() {
+    let workspace = TempWorkspace::new("rename-handler-recovery-conflicts");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "handler.veln",
+        concat!(
+            "effect Choose\n",
+            "  choose(target: Int) -> Int\n",
+            "end\n\n",
+            "fn source() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "handler choose() handles Choose\n",
+            "  choose(target) => source()\n",
+            "end\n",
+        ),
+    );
+    let handler = rename_result(&workspace, "handler.veln", 5, 4, "target");
+    assert_eq!(handler["structuredContent"]["code"], "rename.conflict");
+    assert_eq!(
+        handler["structuredContent"]["details"]["conflicting_declaration"]["range"],
+        json!({
+            "start":{"line":10,"column":10},
+            "end":{"line":10,"column":16}
+        })
+    );
+    assert_eq!(
+        handler["structuredContent"]["details"]["affected_scope"]["kind"],
+        "lexical"
+    );
+
+    workspace.write(
+        "handler_context.veln",
+        concat!(
+            "effect Adjust\n",
+            "  amount(value: Int) -> Int\n",
+            "end\n\n",
+            "fn origin() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "handler adjust(target: Int) handles Adjust\n",
+            "  amount(value) => origin()\n",
+            "end\n",
+        ),
+    );
+    let context = rename_result(&workspace, "handler_context.veln", 5, 4, "target");
+    assert_eq!(context["structuredContent"]["code"], "rename.conflict");
+    assert_eq!(
+        context["structuredContent"]["details"]["conflicting_declaration"]["range"],
+        json!({
+            "start":{"line":9,"column":16},
+            "end":{"line":9,"column":22}
+        })
+    );
+    assert_eq!(
+        context["structuredContent"]["details"]["affected_scope"]["kind"],
+        "lexical"
+    );
+
+    workspace.write(
+        "recovery.veln",
+        concat!(
+            "type item\n",
+            "  value(input: Int)\n",
+            "  Ready\n",
+            "end\n\n",
+            "type Entry\n",
+            "  Existing\n",
+            "end\n\n",
+            "fn Bad() -> Int\n",
+            "  Bad()\n",
+            "end\n\n",
+            "fn good() -> Int\n",
+            "  1\n",
+            "end\n\n",
+            "fn read(Input: Int, other: Int) -> Int\n",
+            "  Input\n",
+            "end\n",
+        ),
+    );
+    for (line, column, requested, conflict_line, conflict_column) in [
+        (1, 6, "Entry", 6, 6),
+        (2, 3, "Ready", 3, 3),
+        (10, 4, "good", 14, 4),
+        (18, 9, "other", 18, 21),
+    ] {
+        let result = rename_result(&workspace, "recovery.veln", line, column, requested);
+        assert_eq!(
+            result["structuredContent"]["code"], "rename.conflict",
+            "{result:#}"
+        );
+        assert_eq!(
+            result["structuredContent"]["details"]["conflicting_declaration"]["range"]["start"],
+            json!({"line":conflict_line,"column":conflict_column}),
+            "{result:#}"
+        );
+        assert!(result["structuredContent"].get("edits").is_none());
+    }
+}
+
+#[test]
+fn rename_preserves_direct_dependency_conflict_provenance() {
+    let workspace = TempWorkspace::new("rename-dependency-conflict-provenance");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use dep from \"example/dep\"\n\ntype Local\n  Value\nend\n\nfn read(input: Local) -> Local\n  input\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write("vendor/dep/dep.veln", "pub type Occupied\n  Taken\nend\n");
+    let mut server = initialized_server(&workspace);
+    let before = server.language_resources.list_result();
+    let shared_uri = shared_conflicting_uri(&mut server, "main.veln", 3, 6, "Occupied");
+    let result = server.rename_tool(&json!({
+        "source":"main.veln", "line":3, "column":6, "new_name":"Occupied"
+    }));
+    assert_eq!(
+        result["structuredContent"]["code"], "rename.conflict",
+        "{result:#}"
+    );
+    assert_eq!(
+        result["structuredContent"]["details"]["conflicting_declaration"]["uri"],
+        shared_uri
+    );
+    assert!(shared_uri.starts_with("veln-pkg:///example%2Fdep/snapshot/"));
+    assert_eq!(server.language_resources.list_result(), before);
+    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn rename_preserves_standard_library_conflict_provenance() {
+    let workspace = TempWorkspace::new("rename-standard-conflict-provenance");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "type Local\n  Value\nend\n\nfn read(input: Local) -> Local\n  input\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub type Occupied\n  Taken\nend\n",
+        )],
+    );
+    let before = server.language_resources.list_result();
+    let shared_uri = shared_conflicting_uri(&mut server, "main.veln", 1, 6, "Occupied");
+    let result = server.rename_tool(&json!({
+        "source":"main.veln", "line":1, "column":6, "new_name":"Occupied"
+    }));
+    assert_eq!(
+        result["structuredContent"]["code"], "rename.conflict",
+        "{result:#}"
+    );
+    assert_eq!(
+        result["structuredContent"]["details"]["conflicting_declaration"]["uri"],
+        shared_uri
+    );
+    assert!(shared_uri.starts_with("veln-pkg:///std/snapshot/"));
+    assert_eq!(server.language_resources.list_result(), before);
+}
+
+#[test]
 fn rename_returns_empty_for_unsupported_and_package_backed_selections() {
     let workspace = TempWorkspace::new("rename-unsupported-boundaries");
     workspace.write(
@@ -398,6 +705,34 @@ fn rename_returns_empty_for_unsupported_and_package_backed_selections() {
     }
     assert_eq!(server.language_resources.list_result(), before_resources);
     assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+}
+
+#[test]
+fn rename_returns_empty_for_an_ambiguous_recovery_occurrence() {
+    let workspace = TempWorkspace::new("rename-ambiguous-recovery");
+    workspace.write("veln.toml", "");
+    let source = concat!(
+        "fn Bad() -> Int\n  1\nend\n\n",
+        "fn Bad() -> Int\n  2\nend\n\n",
+        "fn caller() -> Int\n  Bad()\nend\n",
+    );
+    workspace.write("main.veln", source);
+
+    let snapshot = EffectiveProjectSnapshot::new(vec![SourceFile::new("main.veln", source)]);
+    assert!(
+        navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 10,
+                column: 4,
+            },
+        )
+        .is_none()
+    );
+    let result = rename_result(&workspace, "main.veln", 10, 4, "better");
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert!(edits(&result).is_empty(), "{result:#}");
 }
 
 #[test]

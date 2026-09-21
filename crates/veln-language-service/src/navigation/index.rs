@@ -153,6 +153,8 @@ impl SymbolIndex {
             &schema_aliases,
             &schema_alias_module_imports,
         ));
+        let type_indices_by_name = symbol_indices_by_name(&declarations.types);
+        let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {
@@ -169,6 +171,8 @@ impl SymbolIndex {
             types: declarations.types,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
+            type_indices_by_name,
+            type_alias_indices_by_name,
             schema_composition_references,
             schema_alias_module_imports,
             bare_schema_alias_index,
@@ -584,6 +588,33 @@ impl SymbolIndex {
             .cloned()
     }
 
+}
+
+trait NamedTypeSymbol {
+    fn name(&self) -> &str;
+}
+
+impl NamedTypeSymbol for TypeSymbol {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl NamedTypeSymbol for TypeAliasSymbol {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+fn symbol_indices_by_name<T: NamedTypeSymbol>(symbols: &[T]) -> BTreeMap<String, Vec<usize>> {
+    let mut by_name = BTreeMap::<String, Vec<usize>>::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        by_name
+            .entry(symbol.name().to_string())
+            .or_default()
+            .push(index);
+    }
+    by_name
 }
 
 fn visible_schema_from_workspace_module(file: &IndexedFile, symbol: &NeutralSymbol) -> bool {

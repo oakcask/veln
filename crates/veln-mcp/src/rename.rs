@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn edit_serialization_sorts_and_removes_overlapping_locations() {
+    fn edit_serialization_sorts_and_removes_duplicate_locations() {
         let source = SourceFile::new("main.veln", "target target\n");
         let first = source.span(TextRange::new(0, 6));
         let second = source.span(TextRange::new(7, 13));

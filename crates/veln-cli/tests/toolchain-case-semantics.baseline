@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"3a27a527aca88241ab3c47eb0752155360b4af26"
+source_git_tree	"26330e14c468f14f8aa9006602e91fcfc753edb9"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1692
@@ -21687,12 +21687,16 @@ field	expectations.mcp_assertions[8].id	10
 field	expectations.mcp_assertions[8].length	0
 field	expectations.mcp_assertions[8].operation	"length"
 field	expectations.mcp_assertions[8].path	"/result/structuredContent/edits"
+field	expectations.mcp_assertions[9].id	11
+field	expectations.mcp_assertions[9].length	0
+field	expectations.mcp_assertions[9].operation	"length"
+field	expectations.mcp_assertions[9].path	"/result/structuredContent/edits"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"mcp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1506,"sha256":"a075075363f16c2ba47ea5c4e6502bfe78e0894200056f34ca21ec221eb904b7"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1657,"sha256":"4c56ed59ee3329f8e903cd07792a1e1dbffe47070811d03747f655e66c97dd36"}
 field	source_errors	"forbidden"
-case_digest	"8d728d9643c0ba508e0a5659d6514104d2779de51e707e3a2feaf483758512e2"
+case_digest	"ac991762ec1ce9ca58519e0489d5fce1b7006adc80885f376957d11406d654bb"
 case	"examples/specification/mcp/standard-library-package-documentation-resources"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].equals	"std-documentation-index"
@@ -60797,4 +60801,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"bf920b76c54be1d0082c6aa92ad6f8871124583e26eb16b33db956dd263b1d7b"
+aggregate_digest	"7d5ba1d894c39faceb48fd453c832002010fc48f9cbb54281615f8b29fa1cd1e"

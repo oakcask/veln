@@ -49,3 +49,8 @@ length = 0
 id = 10
 path = "/result/structuredContent/edits"
 length = 0
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits"
+length = 0

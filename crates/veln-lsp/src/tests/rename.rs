@@ -325,6 +325,47 @@ fn companion_private_function_rename_edits_target_and_matching_companion_referen
         "{}",
         responses[0]
     );
+
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new(
+            "math.veln",
+            "fn increment(value: Int) -> Int\n  increment(value - 1)\nend\n",
+        ),
+        SourceFile::new(
+            "math.test.veln",
+            concat!(
+                "use math\n\n",
+                "fn increment(value: Int) -> Int\n  value\nend\n\n",
+                "test increment_test() -> Int\n  math::increment(1)\nend\n\n",
+                "test local_increment_test() -> Int\n  increment(1)\nend\n",
+            ),
+        ),
+    ]);
+    let shared = navigate(
+        &snapshot,
+        SourcePosition {
+            source: SourcePath::new("math.test.veln"),
+            line: 8,
+            column: 11,
+        },
+    )
+    .unwrap();
+    let expected = std::iter::once(&shared.definition.span)
+        .chain(&shared.references)
+        .collect::<Vec<_>>();
+    assert_eq!(expected.len(), 3);
+    for span in expected {
+        let uri = path_to_uri(&project.root.join(span.file.as_str()));
+        assert!(responses[0].contains(&escape_json(&uri)), "{}", responses[0]);
+        let range = format!(
+            r#""range":{{"start":{{"line":{},"character":{}}},"end":{{"line":{},"character":{}}}}}"#,
+            span.start.line - 1,
+            span.start.column - 1,
+            span.end.line - 1,
+            span.end.column - 1,
+        );
+        assert!(responses[0].contains(&range), "{range}: {}", responses[0]);
+    }
 }
 
 #[test]
@@ -381,7 +422,17 @@ fn rename_workspace_edit_locations_match_shared_navigation() {
         "end\n\n",
         "fn convert(input: Item) -> Item\n",
         "  Value(input)\n",
+        "end\n\n",
+        "fn increment(value: Int) -> Int\n",
+        "  value + 1\n",
         "end\n",
+        "pub fn advance = increment\n",
+        "fn use_advance() -> Int\n  advance(1)\nend\n\n",
+        "test verifies() -> Int\n  convert(1)\nend\n\n",
+        "effect Choose\n  pick(value: Bool) -> Int\nend\n\n",
+        "handler choose(callback: fn(Int) -> Int) handles Choose\n",
+        "  pick(value) => callback(value)\nend\n\n",
+        "fn qualified() -> Item\n  Item::Value(1)\nend\n",
     );
     project.write("main.veln", source);
     let root_uri = path_to_uri(&project.root);
@@ -394,6 +445,10 @@ fn rename_workspace_edit_locations_match_shared_navigation() {
         (1, 2, "Created"),
         (4, 3, "adapt"),
         (5, 8, "value"),
+        (13, 2, "move"),
+        (16, 5, "checks"),
+        (25, 18, "apply"),
+        (25, 7, "input"),
     ] {
         let shared = navigate(
             &snapshot,

@@ -15,3 +15,15 @@ end
 fn main(items: Vec<Int>) -> Int
   dep::target() + vec_len(items)
 end
+
+fn Bad() -> Int
+  1
+end
+
+fn Bad() -> Int
+  2
+end
+
+fn ambiguous() -> Int
+  Bad()
+end

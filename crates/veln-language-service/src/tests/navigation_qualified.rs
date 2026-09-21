@@ -764,3 +764,47 @@ mod navigation_qualified_and_package_tests {
         assert_location(&result.definition, "alias.veln", 1, 10);
         assert!(result.references.is_empty(), "{:#?}", result.references);
     }
+
+    #[test]
+    fn workspace_type_alias_rename_candidate_work_is_adjacent_linear() {
+        use std::fmt::Write as _;
+
+        fn measured_candidate_visits(count: usize) -> (usize, std::time::Duration) {
+            let mut text = String::from("pub type Base\nend\npub type Focus = Base\n\n");
+            for index in 0..count {
+                writeln!(text, "pub type Decoy{index}\nend").unwrap();
+                writeln!(text, "pub type Alias{index} = Decoy{index}\n").unwrap();
+                writeln!(
+                    text,
+                    "fn use{index}(input: Focus) -> Focus\n  input\nend\n"
+                )
+                .unwrap();
+            }
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+            let position = || SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 3,
+                column: 10,
+            };
+            navigate_for_rename(&snapshot, position()).unwrap();
+            crate::navigation::reset_type_namespace_candidate_visits();
+            let started = std::time::Instant::now();
+            for _ in 0..5 {
+                let result = navigate_for_rename(&snapshot, position()).unwrap();
+                assert_eq!(result.references.len(), count * 2);
+            }
+            (
+                crate::navigation::type_namespace_candidate_visits(),
+                started.elapsed(),
+            )
+        }
+
+        let (smaller_visits, smaller_elapsed) = measured_candidate_visits(250);
+        let (larger_visits, larger_elapsed) = measured_candidate_visits(500);
+        eprintln!(
+            "type-alias rename: 250={smaller_elapsed:?}/{smaller_visits} visits, 500={larger_elapsed:?}/{larger_visits} visits"
+        );
+        assert!(smaller_visits <= 250 * 30, "{smaller_visits}");
+        assert!(larger_visits <= 500 * 30, "{larger_visits}");
+        assert!(larger_visits <= smaller_visits * 2 + 30);
+    }
