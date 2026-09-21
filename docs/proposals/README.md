@@ -17,7 +17,7 @@ also states it.
 ## Ready
 
 - MCP saved-workspace rename, using the implemented shared rename selection,
-  casing, conflict, and saved-capture contracts:
+  casing, conflict provenance, and saved-capture contracts:
   [mcp-rename.md](mcp-rename.md).
 
 ## Blocked
