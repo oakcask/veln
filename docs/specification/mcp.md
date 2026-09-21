@@ -368,7 +368,7 @@ partial diagnostics, summary, or analysis metadata.
 
 ## Saved Workspace Navigation
 
-`definition` and `references` read a saved workspace-relative regular
+`definition`, `references`, and `rename` read a saved workspace-relative regular
 `.veln` source at positive JSON integer `line` and `column` coordinates.
 Decimal or exponent JSON spellings that denote an integer address the same
 position as the plain integer. A selected manifest project's captured owned
@@ -410,15 +410,20 @@ or `_`. Reserved words pass this lexical check. A malformed non-empty name
 returns `rename.invalid_name` with exactly `details: {requested_name}`. An
 empty name is rejected by the input schema.
 
-The supported symbol set contains workspace types, type aliases,
-constructors, functions, function aliases, test declarations, exact-companion
-private functions, value bindings, handler context parameters, and handler
-operation-clause parameters. It also contains the unambiguous recovery
-records for those identities. A type or constructor replacement must start
-with an ASCII uppercase letter. A function or value-binding replacement must
-start with an ASCII lowercase letter. Recovery records retain their symbol
-class. A class mismatch returns `rename.invalid_case` with exactly
-`symbol_class`, `requested_name`, and `required_initial` in `details`.
+The supported symbol set contains:
+
+- workspace types, type aliases, and constructors;
+- functions, function aliases, test declarations, and exact-companion private
+  functions;
+- value bindings, handler context parameters, and handler operation-clause
+  parameters; and
+- unambiguous recovery records for those identities.
+
+A type or constructor replacement must start with an ASCII uppercase letter.
+A function or value-binding replacement must start with an ASCII lowercase
+letter. Recovery records retain their symbol class. A class mismatch returns
+`rename.invalid_case` with exactly `symbol_class`, `requested_name`, and
+`required_initial` in `details`.
 
 A successful result is `{"edits": [...]}`. Each edit contains only a canonical
 workspace `file:` URI, a one-based Unicode-scalar half-open range, and
@@ -431,10 +436,14 @@ selected project. Anonymous capture returns edits only from the requested
 source.
 
 A valid selection that is not an unambiguous supported workspace symbol
-succeeds with an empty edit array. This includes schemas, effects, handlers,
-effect operations, module segments, package-backed occurrences, unsupported
-roles, and ambiguous recovery records. Rename does not reinterpret such a
-selection as a different symbol class.
+succeeds with an empty edit array. This boundary includes:
+
+- schemas, effects, handlers, and effect operations;
+- module segments and package-backed occurrences;
+- unsupported roles; and
+- ambiguous recovery records.
+
+Rename does not reinterpret such a selection as a different symbol class.
 
 A predictable namespace or lexical collision returns `rename.conflict`. Its
 closed details object contains `symbol_class`, `requested_name`, the
@@ -449,11 +458,17 @@ shapes. No failure contains edits.
 Rename constructs its language-service snapshot from one stable capture but
 does not admit dependency source or documentation resources. Retained package
 capacity therefore cannot change its result. Success, empty selection, and
-failure preserve filesystem bytes, workspace roots and generation, published
-diagnostics and resources, prior results, and reference cursors. Rename neither
-creates nor consumes a cursor. A later definition or references request still
-observes the unchanged saved workspace unless the client separately changes
-the files.
+failure preserve:
+
+- filesystem bytes;
+- workspace roots and generation;
+- published diagnostics and resources;
+- prior results; and
+- reference cursors.
+
+Rename neither creates nor consumes a cursor. A later definition or references
+request still observes the unchanged saved workspace unless the client
+separately changes the files.
 
 An initial `references` request requires `source`, `line`, and `column`.
 It may set boolean `include_declaration` (default `false`) and `page_size`
