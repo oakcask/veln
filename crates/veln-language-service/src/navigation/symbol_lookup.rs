@@ -818,8 +818,10 @@ impl SymbolIndex {
         }
         self.type_aliases.iter().any(|alias| {
             alias.package.is_none()
-                && type_alias_targets_constructor(alias, symbol)
-                && (qualifier == alias.module
+                && self.workspace_type_alias_targets_constructor(alias, symbol)
+                && ((qualifier == alias.name
+                    && (file.module == alias.module || file.uses.contains(&alias.module)))
+                    || qualifier == alias.module
                     || qualifier == format!("{}::{}", alias.module, alias.name))
                 && (file.uses.contains(&alias.module) || file.module == alias.module)
         })
@@ -832,7 +834,12 @@ impl SymbolIndex {
         package: Option<&String>,
     ) -> bool {
         self.type_aliases.iter().any(|alias| {
-            if !type_alias_targets_constructor(alias, symbol) {
+            let targets_constructor = if alias.package.is_none() {
+                self.workspace_type_alias_targets_constructor(alias, symbol)
+            } else {
+                type_alias_targets_constructor(alias, symbol)
+            };
+            if !targets_constructor {
                 return false;
             }
             if alias.package.as_ref() != package {

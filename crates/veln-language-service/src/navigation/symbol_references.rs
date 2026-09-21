@@ -27,23 +27,64 @@ impl SymbolIndex {
                             token.kind == TokenKind::Ident && token.text == symbol.name
                         })
                         .filter(|(token_index, _)| {
-                            next_path_segment_index(tokens, *token_index).is_some()
-                                && self
-                                    .workspace_type_alias_for_reference(
-                                        file,
-                                        tokens,
-                                        *token_index,
-                                        &symbol.name,
-                                    )
-                                    .is_some_and(|candidate| {
-                                        same_type_alias(&candidate, symbol)
-                                    })
+                            self.workspace_type_alias_for_constructor_qualifier_token(
+                                file,
+                                tokens,
+                                *token_index,
+                                &symbol.name,
+                            )
+                            .is_some_and(|candidate| same_type_alias(&candidate, symbol))
                         })
                         .map(|(_, token)| file.source.span(token.range)),
                 );
                 spans
             })
             .collect()
+    }
+
+    fn workspace_type_alias_for_constructor_qualifier_token(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let constructor_index = next_path_segment_index(tokens, token_index)?;
+        let alias = self.workspace_type_alias_for_reference(file, tokens, token_index, name)?;
+        let qualifier = qualifier_for_token(tokens, token_index)
+            .map(|prefix| format!("{prefix}::{name}"))
+            .unwrap_or_else(|| name.to_string());
+        let constructor = self.constructor_for_qualified_call(
+            file,
+            &qualifier,
+            &tokens[constructor_index].text,
+        )?;
+        self.workspace_type_alias_targets_constructor(&alias, &constructor)
+            .then_some(alias)
+    }
+
+    fn workspace_type_alias_targets_constructor(
+        &self,
+        alias: &TypeAliasSymbol,
+        constructor: &ConstructorSymbol,
+    ) -> bool {
+        if alias.package.is_some()
+            || constructor.package.is_some()
+            || alias.target_name != constructor.type_name
+        {
+            return false;
+        }
+        let Some(target_module) = alias.target_module.as_deref() else {
+            return alias.module == constructor.module;
+        };
+        self.files
+            .iter()
+            .find(|file| file.source.path() == &alias.declaration.span.file)
+            .is_some_and(|declaring_file| {
+                self.qualified_module_candidates(declaring_file, target_module)
+                    .iter()
+                    .any(|module| module == &constructor.module)
+            })
     }
 
     fn schema_alias_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {

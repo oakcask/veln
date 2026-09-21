@@ -157,6 +157,51 @@ fn rename_edit_set_matches_shared_language_service_locations() {
 }
 
 #[test]
+fn rename_type_alias_constructor_qualifiers_share_validated_identity() {
+    let workspace = TempWorkspace::new("rename-type-alias-constructor-qualifier");
+    workspace.write("veln.toml", "");
+    let model = concat!(
+        "pub type Item\n",
+        "  pub Ready(Int)\n",
+        "end\n\n",
+        "pub type Alias = Item\n",
+        "pub fn helper(value: Int) -> Int\n  value\nend\n",
+    );
+    let main = concat!(
+        "use model\n\n",
+        "fn make(input: Alias) -> Alias\n",
+        "  Alias::Ready(input)\n",
+        "  model::Alias::Ready(input)\n",
+        "end\n\n",
+        "fn missing() -> Int\n",
+        "  Alias::Missing\n",
+        "end\n",
+        "\nfn non_constructor() -> Int\n",
+        "  Alias::helper(1)\n",
+        "end\n",
+    );
+    workspace.write("model.veln", model);
+    workspace.write("main.veln", main);
+
+    assert_rename_matches_shared(
+        &workspace,
+        &[("model.veln", model), ("main.veln", main)],
+        "main.veln",
+        4,
+        3,
+        "RenamedAlias",
+    );
+    let valid = rename_result(&workspace, "main.veln", 4, 3, "RenamedAlias");
+    assert_eq!(edits(&valid).len(), 5, "{valid:#}");
+
+    for (line, name) in [(9, "unresolved"), (13, "non-constructor")] {
+        let invalid = rename_result(&workspace, "main.veln", line, 3, "RenamedAlias");
+        assert_eq!(invalid["isError"], false, "{name}: {invalid:#}");
+        assert!(edits(&invalid).is_empty(), "{name}: {invalid:#}");
+    }
+}
+
+#[test]
 fn rename_supported_class_locations_match_shared_language_service() {
     let workspace = TempWorkspace::new("rename-all-class-shared-comparison");
     workspace.write("veln.toml", "");

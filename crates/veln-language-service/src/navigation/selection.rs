@@ -15,16 +15,16 @@ impl SymbolIndex {
         let selection = file.source.span(token.range);
         let name = token.text.as_str();
         let alias = self.type_alias_declared_at(name, &selection).or_else(|| {
-            is_type_reference_token(file, name, &selection)
-                .then(|| {
-                    self.workspace_type_alias_for_reference(
-                        file,
-                        &file.tokens,
-                        token_index,
-                        name,
-                    )
-                })
-                .flatten()
+            if is_type_reference_token(file, name, &selection) {
+                self.workspace_type_alias_for_reference(file, &file.tokens, token_index, name)
+            } else {
+                self.workspace_type_alias_for_constructor_qualifier_token(
+                    file,
+                    &file.tokens,
+                    token_index,
+                    name,
+                )
+            }
         })?;
         Some((alias, selection))
     }

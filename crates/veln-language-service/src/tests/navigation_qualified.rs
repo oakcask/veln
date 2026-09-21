@@ -766,6 +766,101 @@ mod navigation_qualified_and_package_tests {
     }
 
     #[test]
+    fn workspace_type_alias_constructor_qualifiers_share_validated_rename_identity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "model.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub type Alias = Item\n",
+                    "pub fn helper(value: Int) -> Int\n  value\nend\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use model\n\n",
+                    "fn make(input: Alias) -> Alias\n",
+                    "  Alias::Ready(input)\n",
+                    "  model::Alias::Ready(input)\n",
+                    "end\n\n",
+                    "fn missing() -> Int\n",
+                    "  Alias::Missing\n",
+                    "end\n",
+                    "\nfn non_constructor() -> Int\n",
+                    "  Alias::helper(1)\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("model.veln"),
+                line: 5,
+                column: 10,
+            },
+        )
+        .unwrap();
+        let qualifier = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 3,
+            },
+        )
+        .unwrap();
+        let qualified = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column: 10,
+            },
+        )
+        .unwrap();
+
+        assert_location(&qualifier.definition, "model.veln", 5, 10);
+        assert_eq!(qualifier.references, declaration.references);
+        assert_eq!(qualified.references, declaration.references);
+        assert_eq!(
+            locations(&qualifier.references),
+            [
+                ("main.veln", 3, 16),
+                ("main.veln", 3, 26),
+                ("main.veln", 4, 3),
+                ("main.veln", 5, 10),
+            ]
+        );
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 9,
+                    column: 3,
+                },
+            )
+            .is_none()
+        );
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 13,
+                    column: 3,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
     fn workspace_type_alias_rename_candidate_work_is_adjacent_linear() {
         use std::fmt::Write as _;
 
