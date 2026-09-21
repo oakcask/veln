@@ -497,6 +497,59 @@ fn rename_workspace_edit_locations_match_shared_navigation() {
 }
 
 #[test]
+fn companion_private_rename_locations_match_shared_navigation() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-companion-shared-location-comparison");
+    let target = "fn increment(value: Int) -> Int\n  increment(value - 1)\nend\n";
+    let companion = "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n";
+    project.write("math.veln", target);
+    project.write("math.test.veln", companion);
+    let root_uri = path_to_uri(&project.root);
+    let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new("math.veln", target),
+        SourceFile::new("math.test.veln", companion),
+    ]);
+    let shared = navigate(
+        &snapshot,
+        SourcePosition {
+            source: SourcePath::new("math.test.veln"),
+            line: 4,
+            column: 11,
+        },
+    )
+    .unwrap();
+    let expected = std::iter::once(&shared.definition.span)
+        .chain(&shared.references)
+        .map(|span| {
+            (
+                path_to_uri(&project.root.join(span.file.as_str())),
+                span.start.line - 1,
+                span.start.column - 1,
+                span.end.line - 1,
+                span.end.column - 1,
+            )
+        })
+        .collect::<BTreeSet<_>>();
+
+    let response = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+    assert_eq!(
+        response[0].matches(r#""newText":"advance""#).count(),
+        expected.len(),
+        "{}",
+        response[0]
+    );
+    for (uri, start_line, start_column, end_line, end_column) in expected {
+        assert!(response[0].contains(&escape_json(&uri)), "{}", response[0]);
+        let range = format!(
+            r#""range":{{"start":{{"line":{start_line},"character":{start_column}}},"end":{{"line":{end_line},"character":{end_column}}}}}"#
+        );
+        assert!(response[0].contains(&range), "{range}: {}", response[0]);
+    }
+}
+
+#[test]
 fn workspace_type_alias_prepare_and_rename_remain_unsupported_together() {
     let mut server = Server::default();
     let project = TempProject::new("rename-workspace-type-alias-boundary");

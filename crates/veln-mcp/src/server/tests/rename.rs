@@ -479,6 +479,18 @@ fn rename_returns_exact_lexical_conflict_failure() {
     let lexical = rename_result(&workspace, "main.veln", 8, 4, "conflict");
     assert_eq!(lexical["structuredContent"]["code"], "rename.conflict");
     assert_eq!(
+        lexical["structuredContent"]["details"]["symbol_class"],
+        "function"
+    );
+    assert_eq!(
+        lexical["structuredContent"]["details"]["requested_name"],
+        "conflict"
+    );
+    assert_eq!(
+        lexical["structuredContent"]["details"]["conflicting_declaration"]["uri"],
+        crate::definition::path_to_uri(&workspace.path("main.veln"))
+    );
+    assert_eq!(
         lexical["structuredContent"]["details"]["conflicting_declaration"]["range"],
         json!({
             "start": {"line": 6, "column": 7},
@@ -486,12 +498,13 @@ fn rename_returns_exact_lexical_conflict_failure() {
         })
     );
     assert_eq!(
-        lexical["structuredContent"]["details"]["affected_scope"]["kind"],
-        "lexical"
-    );
-    assert_eq!(
-        lexical["structuredContent"]["details"]["affected_scope"]["file"],
-        "main.veln"
+        lexical["structuredContent"]["details"]["affected_scope"],
+        json!({
+            "kind": "lexical",
+            "file": "main.veln",
+            "start_offset": 71,
+            "end_offset": 139
+        })
     );
     assert!(lexical["structuredContent"].get("edits").is_none());
 }
@@ -769,6 +782,41 @@ fn rename_is_anonymous_single_file_and_non_mutating() {
             "start": {"line": 1, "column": 4},
             "end": {"line": 1, "column": 10}
         })
+    );
+}
+
+#[test]
+fn rename_is_limited_to_the_selected_manifest_project() {
+    let workspace = TempWorkspace::new("rename-manifest-project-isolation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "pub fn target(input: Int) -> Int\n  target(input)\nend\n",
+    );
+    workspace.write(
+        "helper.veln",
+        "use main\n\nfn helper(input: Int) -> Int\n  main::target(input)\nend\n",
+    );
+    workspace.write("nested/veln.toml", "");
+    workspace.write("nested/main.veln", "fn target() -> Int\n  target()\nend\n");
+
+    let result = rename_result(&workspace, "main.veln", 2, 4, "renamed");
+    assert_eq!(result["isError"], false, "{result:#}");
+    assert_eq!(edits(&result).len(), 3, "{result:#}");
+    let actual_uris = edits(&result)
+        .iter()
+        .map(|edit| edit["uri"].as_str().unwrap().to_owned())
+        .collect::<BTreeSet<_>>();
+    let expected_uris = BTreeSet::from([
+        crate::definition::path_to_uri(&workspace.path("helper.veln")),
+        crate::definition::path_to_uri(&workspace.path("main.veln")),
+    ]);
+    assert_eq!(actual_uris, expected_uris, "{result:#}");
+    assert!(
+        edits(&result)
+            .iter()
+            .all(|edit| !edit["uri"].as_str().unwrap().contains("/nested/")),
+        "{result:#}"
     );
 }
 

@@ -9,6 +9,21 @@ contains = ["\"name\":\"rename\",\"outputSchema\""]
 format = "empty"
 
 [[mcp_assert]]
+id = 2
+path = "/result/tools/5/name"
+equals = "rename"
+
+[[mcp_assert]]
+id = 2
+path = "/result/tools/5/inputSchema"
+equals_json_file = "case-text/rename-input-schema.json"
+
+[[mcp_assert]]
+id = 2
+path = "/result/tools/5/outputSchema"
+equals_json_file = "case-text/rename-result-schema.json"
+
+[[mcp_assert]]
 id = 3
 path = "/result/structuredContent/edits"
 length = 3
@@ -155,8 +170,23 @@ equals = {"start":{"line":6,"column":7},"end":{"line":6,"column":15}}
 
 [[mcp_assert]]
 id = 12
-path = "/result/structuredContent/details/affected_scope/kind"
-equals = "lexical"
+path = "/result/structuredContent/details/symbol_class"
+equals = "function"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/details/requested_name"
+equals = "conflict"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/details/conflicting_declaration/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/details/affected_scope"
+equals = {"kind":"lexical","file":"main.veln","start_offset":71,"end_offset":135}
 
 [[mcp_assert]]
 id = 12
