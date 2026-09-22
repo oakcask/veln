@@ -106,6 +106,32 @@ mod navigation_effect_operation_references_tests {
     }
 
     #[test]
+    fn workspace_effect_operation_references_reject_unresolved_paths() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "fn valid() -> Int\n",
+                "  perform Choose::pick()\n",
+                "end\n\n",
+                "fn missing_effect() -> Int\n",
+                "  perform Missing::pick()\n",
+                "end\n\n",
+                "fn missing_operation() -> Int\n",
+                "  perform Choose::missing()\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 2, 3).unwrap();
+        assert_eq!(locations(&declaration.references), [("main.veln", 6, 19)]);
+        assert!(query(sources.clone(), "main.veln", 10, 20).is_none());
+        assert!(query(sources, "main.veln", 14, 19).is_none());
+    }
+
+    #[test]
     fn effect_operation_selection_precedes_broad_schema_candidates() {
         let sources = vec![source(
             "main.veln",

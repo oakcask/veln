@@ -418,6 +418,9 @@ fn workspace_effect_operation_references_exclude_adapter_collision_matrix() {
             "end\n\n",
             "fn use() -> Int\n",
             "  perform Choose::pick() + perform Other::pick()\n",
+            "end\n\n",
+            "fn unresolved() -> Int\n",
+            "  perform Missing::pick() + perform Choose::missing()\n",
             "end\n",
         ),
     );
@@ -433,16 +436,28 @@ fn workspace_effect_operation_references_exclude_adapter_collision_matrix() {
 
     assert_eq!(
         server.handle_message(&references_request_with_declaration(
-            &main_uri, 1, 2, false,
+            &main_uri, 1, 2, true,
         )),
         [response(
             "2",
             &format!(
-                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":17,\"character\":18}},\"end\":{{\"line\":17,\"character\":22}}}}}}]",
-                main_uri
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":17,\"character\":18}},\"end\":{{\"line\":17,\"character\":22}}}}}}]"
+                ),
+                main_uri, main_uri
             ),
         )]
     );
+
+    for character in [10, 19, 44] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, 21, character, true,
+            )),
+            [response("2", "[]")]
+        );
+    }
 
     for (line, character) in [(9, 2), (13, 2)] {
         assert_eq!(
@@ -476,6 +491,58 @@ fn workspace_effect_operation_references_exclude_adapter_collision_matrix() {
             ),
         )]
     );
+}
+
+#[test]
+fn workspace_effect_operation_reference_failures_preserve_valid_results() {
+    let project = TempProject::new("workspace-effect-operation-reference-failure-state");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn use() -> Int\n",
+            "  perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let missing_uri = path_to_uri(&project.root.join("missing.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+    let request = references_request_with_declaration(&main_uri, 5, 18, true);
+    let expected = [response(
+        "2",
+        &format!(
+            concat!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}},",
+                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":18}},\"end\":{{\"line\":5,\"character\":22}}}}}}]"
+            ),
+            main_uri, main_uri
+        ),
+    )];
+
+    assert_eq!(server.handle_message(&request), expected);
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 99, 0, true,
+        )),
+        [response("2", "[]")]
+    );
+    assert_eq!(server.handle_message(&request), expected);
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &missing_uri,
+            0,
+            0,
+            true,
+        )),
+        [response("2", "[]")]
+    );
+    assert_eq!(server.handle_message(&request), expected);
 }
 
 #[test]

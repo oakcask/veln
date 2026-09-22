@@ -644,6 +644,51 @@ fn references_exclude_workspace_effect_operation_collision_matrix() {
 }
 
 #[test]
+fn references_reject_unresolved_effect_operation_paths() {
+    let workspace = TempWorkspace::new("references-workspace-effect-operation-unresolved");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn valid() -> Int\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "fn missing_effect() -> Int\n",
+            "  perform Missing::pick()\n",
+            "end\n\n",
+            "fn missing_operation() -> Int\n",
+            "  perform Choose::missing()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+
+    let declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":3,
+        "include_declaration":false
+    }));
+    assert_eq!(
+        declaration["structuredContent"]["references"],
+        json!([{
+            "uri": uri,
+            "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+        }])
+    );
+
+    for (line, column) in [(10, 20), (14, 19)] {
+        let unresolved = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(unresolved["structuredContent"]["references"], json!([]));
+    }
+}
+
+#[test]
 fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous() {
     let workspace = TempWorkspace::new("references-workspace-effect-recovered-ambiguity");
     workspace.write("veln.toml", "");
