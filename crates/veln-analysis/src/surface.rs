@@ -210,7 +210,6 @@ use manifest_validation::*;
 use source_loading::*;
 use unresolved_imports::*;
 
-pub use embedded_standard::load_embedded_standard_surface_module;
 pub(crate) use embedded_standard::load_embedded_standard_surface_module_for_names;
 pub use manifest_validation::{validate_manifest_dependencies, validate_manifest_exports};
 

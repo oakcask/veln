@@ -37,10 +37,6 @@ pub fn companion_access_target(path: &str, module_name: Option<&str>) -> Option<
     Some((companion_module, target_module))
 }
 
-pub fn is_companion_source_path(path: &str) -> bool {
-    classify_companion_source(path).is_some()
-}
-
 pub fn companion_analysis_inputs(root: &Path, inputs: &[PathBuf]) -> std::io::Result<Vec<PathBuf>> {
     let mut paths = discover_source_paths(root, inputs)?;
     for path in paths.clone() {
@@ -104,6 +100,29 @@ fn project_relative_path(root: &Path, path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn companion_classification_preserves_target_and_chain_metadata() {
+        assert_eq!(
+            classify_companion_source("net/client.test.veln"),
+            Some(CompanionSource {
+                kind: CompanionSourceKind::Test,
+                companion_path: "net/client.test.veln".to_string(),
+                target_path: "net/client.veln".to_string(),
+                chained: false,
+            })
+        );
+        assert_eq!(
+            classify_companion_source("net/client.test.test.veln"),
+            Some(CompanionSource {
+                kind: CompanionSourceKind::Test,
+                companion_path: "net/client.test.test.veln".to_string(),
+                target_path: "net/client.test.veln".to_string(),
+                chained: true,
+            })
+        );
+        assert_eq!(classify_companion_source("net/client.veln"), None);
+    }
 
     #[test]
     fn companion_access_target_uses_source_path_and_declared_module() {

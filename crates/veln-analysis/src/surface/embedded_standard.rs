@@ -18,19 +18,6 @@ pub(crate) fn load_embedded_standard_surface_module_for_names(
     parts.module
 }
 
-pub fn load_embedded_standard_surface_module() -> SurfaceModule {
-    let standard = embedded_standard_package();
-    let mut parts = SurfaceParts::new();
-    for module in standard
-        .modules
-        .values()
-        .map(EmbeddedStandardModuleEntry::module)
-    {
-        merge_surface_parts(&mut parts, &module.parts);
-    }
-    parts.module
-}
-
 pub(super) struct EmbeddedStandardPackage {
     pub(super) modules: BTreeMap<String, EmbeddedStandardModuleEntry>,
 }
