@@ -351,7 +351,8 @@ fn navigate_in_index(
     let request = index.symbol_at_position(position.source.as_str(), position)?;
     let definition = request.symbol.definition();
     let selected_symbol = request.symbol.selected_symbol(definition.clone());
-    let mut references = if request.references_supported {
+    let reference_eligible = request.symbol.reference_eligible(&request.index);
+    let mut references = if request.references_supported && reference_eligible {
         request.symbol.references(&request.index)
     } else {
         Vec::new()
@@ -363,7 +364,7 @@ fn navigate_in_index(
         classified_path_segment: request.classified_path_segment,
         definition,
         references,
-        reference_eligible: request.symbol.reference_eligible(&request.index),
+        reference_eligible,
         is_recovery: request.symbol.is_recovery(),
     })
 }

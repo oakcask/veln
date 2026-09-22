@@ -395,16 +395,36 @@ fn is_effect_list_token(tokens: &[Token], index: usize) -> bool {
             })
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
-        && line_tokens_before(tokens, index)
-            .iter()
-            .any(|token| token.kind == TokenKind::Effects)
-        && line_tokens_before(tokens, index)
-            .iter()
-            .any(|token| token.kind == TokenKind::LBracket)
-        && tokens[index + 1..]
-            .iter()
-            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-            .any(|token| token.kind == TokenKind::RBracket)
+        && enclosing_effect_list(tokens, index)
+}
+
+fn enclosing_effect_list(tokens: &[Token], index: usize) -> bool {
+    let mut closed_brackets = 0usize;
+    let mut closed_parens = 0usize;
+    let mut closed_braces = 0usize;
+    for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
+        match token.kind {
+            TokenKind::RBracket => closed_brackets += 1,
+            TokenKind::LBracket if closed_brackets > 0 => closed_brackets -= 1,
+            TokenKind::LBracket => {
+                return previous_non_layout_token(tokens, candidate_index)
+                    .is_some_and(|previous| previous.kind == TokenKind::Effects);
+            }
+            TokenKind::RParen => closed_parens += 1,
+            TokenKind::LParen if closed_parens > 0 => closed_parens -= 1,
+            TokenKind::LParen => return false,
+            TokenKind::RBrace => closed_braces += 1,
+            TokenKind::LBrace if closed_braces > 0 => closed_braces -= 1,
+            TokenKind::LBrace => return false,
+            TokenKind::Newline
+                if closed_brackets == 0 && closed_parens == 0 && closed_braces == 0 =>
+            {
+                return false;
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {

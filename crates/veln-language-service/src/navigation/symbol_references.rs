@@ -1,8 +1,5 @@
 impl SymbolIndex {
     fn effect_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
-        if !self.effect_references_supported(symbol) {
-            return Vec::new();
-        }
         self.files
             .iter()
             .filter(|file| {
@@ -19,9 +16,6 @@ impl SymbolIndex {
                             && token.text == symbol.name
                             && (is_effect_reference_token(&file.tokens, *index)
                                 || is_perform_effect_qualifier_token(&file.tokens, *index))
-                            && self
-                                .effect_for_reference(file, &token.text)
-                                .is_some_and(|candidate| candidate.declaration == symbol.declaration)
                     })
                     .map(|(_, token)| file.source.span(token.range))
             })

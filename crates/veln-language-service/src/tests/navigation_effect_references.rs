@@ -71,7 +71,7 @@ mod navigation_effect_references_tests {
                     "handler choose() handles Choose\n",
                     "  pick() => perform Choose::pick()\n",
                     "end\n\n",
-                    "fn collisions(value: Choose) -> String effects [Choose]\n",
+                    "fn collisions(callback: fn() -> Int effects [Choose], value: Choose) -> String effects [Choose]\n",
                     "  # Choose perform Choose::pick()\n",
                     "  \"Choose\"\n",
                     "end\n",
@@ -95,9 +95,14 @@ mod navigation_effect_references_tests {
             [
                 ("main.veln", 9, 26),
                 ("main.veln", 10, 21),
-                ("main.veln", 13, 49),
+                ("main.veln", 13, 46),
+                ("main.veln", 13, 89),
             ]
         );
+
+        let type_collision = query(sources.clone(), "main.veln", 13, 62).unwrap();
+        assert_eq!(type_collision.selected_symbol.kind, SymbolKind::Type);
+        assert_location(&type_collision.definition, "main.veln", 5, 6);
 
         let operation = query(sources, "main.veln", 10, 29).unwrap();
         assert_eq!(operation.selected_symbol.kind, SymbolKind::EffectOperation);
@@ -137,5 +142,77 @@ mod navigation_effect_references_tests {
 
         let recovered = "effect Choose\n  pick() -> Int\nend\n\nfn broken() -> Int effects [Choose\n  1\nend\n";
         assert!(query(vec![source("main.veln", recovered)], "main.veln", 5, 29).is_none());
+
+        let imported = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![source(
+                "main.veln",
+                concat!(
+                    "use dep from \"example/dep\"\n\n",
+                    "effect Task\n",
+                    "  local() -> Int\n",
+                    "end\n\n",
+                    "fn imported() -> Int effects [dep::Task]\n",
+                    "  1\n",
+                    "end\n",
+                ),
+            )],
+            vec![dependency_snapshot(
+                "example/dep",
+                &[("dep.veln", "pub effect Task\n  run() -> Int\nend\n")],
+                ["dep.veln"],
+            )],
+        );
+        for column in [31, 36] {
+            assert!(query_snapshot(&imported, "main.veln", 7, column).is_none());
+        }
+
+        let invalid_casing = concat!(
+            "effect choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn invalid() -> Int effects [choose]\n",
+            "  1\n",
+            "end\n",
+        );
+        let invalid_declaration = query(
+            vec![source("invalid.veln", invalid_casing)],
+            "invalid.veln",
+            1,
+            8,
+        )
+        .unwrap();
+        assert_eq!(invalid_declaration.selected_symbol.kind, SymbolKind::Effect);
+        assert!(!invalid_declaration.reference_eligible);
+        assert!(invalid_declaration.references.is_empty());
+        assert!(query(
+            vec![source("invalid.veln", invalid_casing)],
+            "invalid.veln",
+            5,
+            29,
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn workspace_effect_reference_collection_handles_many_declarations_and_occurrences() {
+        let mut declarations =
+            String::from("mod shared\n\neffect Choose\n  pick() -> Int\nend\n\n");
+        let mut uses = String::from("mod shared\n\n");
+        for index in 0..256 {
+            declarations.push_str(&format!(
+                "effect Noise{index}\n  ignore() -> Int\nend\n\n"
+            ));
+            uses.push_str(&format!(
+                "fn use_{index}() -> Int effects [Choose]\n  {index}\nend\n\n"
+            ));
+        }
+        let result = query(
+            vec![source("declarations.veln", &declarations), source("uses.veln", &uses)],
+            "declarations.veln",
+            3,
+            8,
+        )
+        .unwrap();
+        assert_eq!(result.references.len(), 256);
     }
 }

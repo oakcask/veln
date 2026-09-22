@@ -426,6 +426,9 @@ pub(crate) fn references_json(
     result: &NavigationResult,
     include_declaration: bool,
 ) -> String {
+    if result.selected_symbol.kind == SymbolKind::Effect && !result.reference_eligible {
+        return "[]".to_string();
+    }
     let package_schema_operations = result.selected_symbol.kind == SymbolKind::Schema
         && matches!(
             result.selected_symbol.package_origin,
