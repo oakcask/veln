@@ -86,8 +86,9 @@ mod navigation_handler_references_tests {
                     "type run\n",
                     "  run\n",
                     "end\n\n",
-                    "handler wrapper() handles Work\n",
+                    "handler wrapper(run: fn(Int) -> Int) handles Work\n",
                     "  go(run: Int) => run\n",
+                    "  keep(value: Int) => run(value)\n",
                     "end\n",
                 ),
             ),
@@ -129,6 +130,15 @@ mod navigation_handler_references_tests {
                     .selected_symbol
                     .kind,
                 SymbolKind::HandlerOperationClauseParameter,
+            );
+        }
+        for (line, column) in [(11, 17), (13, 23)] {
+            assert_eq!(
+                query(sources.clone(), "collisions.veln", line, column)
+                    .unwrap()
+                    .selected_symbol
+                    .kind,
+                SymbolKind::HandlerContextParameter,
             );
         }
     }
@@ -219,6 +229,53 @@ mod navigation_handler_references_tests {
         for (line, column) in [(10, 24), (14, 17), (18, 17), (22, 17)] {
             assert!(query(sources.clone(), "main.veln", line, column).is_none());
         }
+    }
+
+    #[test]
+    fn workspace_handler_references_reject_resolved_imported_workspace_paths() {
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use other\n\n",
+                    "handler stable() handles Work\n  go() => 1\nend\n\n",
+                    "fn imported() -> Int\n  handle 1 with other::run()\nend\n\n",
+                    "fn valid() -> Int\n  handle 2 with stable()\nend\n",
+                ),
+            ),
+            source(
+                "other.veln",
+                "pub handler run() handles Work\n  go() => 2\nend\n",
+            ),
+        ];
+
+        assert!(query(sources.clone(), "main.veln", 8, 23).is_none());
+        let valid = query(sources, "main.veln", 12, 17).unwrap();
+        assert_eq!(locations(&valid.references), [("main.veln", 12, 17)]);
+    }
+
+    #[test]
+    fn workspace_handler_references_reject_ambiguous_paths_without_losing_valid_selection() {
+        let sources = vec![
+            source(
+                "first.veln",
+                "mod shared\n\nhandler run() handles Work\n  go() => 1\nend\n",
+            ),
+            source(
+                "second.veln",
+                concat!(
+                    "mod shared\n\n",
+                    "handler run() handles Work\n  go() => 2\nend\n\n",
+                    "handler stable() handles Work\n  go() => 3\nend\n\n",
+                    "fn ambiguous() -> Int\n  handle 1 with run()\nend\n\n",
+                    "fn valid() -> Int\n  handle 2 with stable()\nend\n",
+                ),
+            ),
+        ];
+
+        assert!(query(sources.clone(), "second.veln", 12, 17).is_none());
+        let valid = query(sources, "second.veln", 16, 17).unwrap();
+        assert_eq!(locations(&valid.references), [("second.veln", 16, 17)]);
     }
 
     #[test]
