@@ -365,6 +365,57 @@ fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_dec
         );
     }
 
+    for (name, declaration, line, character) in [
+        (
+            "workspace-effect-reference-recovered-row-token",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "fn broken() -> Int effects [Choose @]\n",
+                "  1\n",
+                "end\n",
+            ),
+            4,
+            28,
+        ),
+        (
+            "workspace-effect-reference-recovered-handler-token",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "handler broken() handles Choose @\n",
+                "  pick() => 1\n",
+                "end\n",
+            ),
+            4,
+            25,
+        ),
+    ] {
+        let project = TempProject::new(name);
+        project.write("veln.toml", "");
+        project.write("main.veln", declaration);
+        let root = path_to_uri(&project.root);
+        let uri = path_to_uri(&project.root.join("main.veln"));
+        let mut server = Server::default();
+        server.handle_message(&initialize_request(&root));
+
+        for (query_line, query_character, include_declaration) in
+            [(line, character, true), (0, 7, false)]
+        {
+            assert_eq!(
+                server.handle_message(&references_request_with_declaration(
+                    &uri,
+                    query_line,
+                    query_character,
+                    include_declaration,
+                )),
+                [response("2", "[]")]
+            );
+        }
+    }
+
     let declaration = TempProject::new("workspace-effect-reference-recovered-declaration");
     declaration.write("veln.toml", "");
     declaration.write(

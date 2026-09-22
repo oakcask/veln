@@ -300,6 +300,55 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn workspace_effect_references_exclude_recovered_effect_rows_and_handler_targets() {
+        for (text, line, column) in [
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "end\n\n",
+                    "fn broken() -> Int effects [Choose @]\n",
+                    "  1\n",
+                    "end\n",
+                ),
+                5,
+                29,
+            ),
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "end\n\n",
+                    "handler broken() handles Choose @\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+                5,
+                26,
+            ),
+        ] {
+            let sources = vec![source("main.veln", text)];
+            let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+
+            assert!(declaration.references.is_empty());
+            assert!(query(sources, "main.veln", line, column).is_none());
+        }
+
+        let text = concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "handler broken() handles Choose effects [Choose @]\n",
+            "  pick() => 1\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert_eq!(locations(&declaration.references), [("main.veln", 5, 26)]);
+        assert!(query(sources, "main.veln", 5, 42).is_none());
+    }
+
+    #[test]
     fn workspace_effect_references_reject_recovered_declaration_closed_by_end() {
         let text = concat!(
             "effect Choose\n",

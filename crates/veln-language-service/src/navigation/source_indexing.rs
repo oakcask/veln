@@ -115,7 +115,9 @@ fn valid_effect_reference_ranges(
                 {
                     push_valid_type_region(return_type, span, &mut regions);
                 }
-                extend_optional_spans(&function.effect_spans, &mut regions);
+                if !function.effects_recovered {
+                    extend_optional_spans(&function.effect_spans, &mut regions);
+                }
                 for line in &function.body {
                     match line {
                         BodyLine::Let {
@@ -136,11 +138,15 @@ fn valid_effect_reference_ranges(
             }
             SyntaxItem::Handler(handler) => {
                 collect_parameter_type_regions(&handler.params, &mut regions);
-                regions.push((
-                    handler.effect_span.start.offset,
-                    handler.effect_span.end.offset,
-                ));
-                extend_optional_spans(&handler.effect_spans, &mut regions);
+                if !handler.effect_recovered {
+                    regions.push((
+                        handler.effect_span.start.offset,
+                        handler.effect_span.end.offset,
+                    ));
+                }
+                if !handler.effects_recovered {
+                    extend_optional_spans(&handler.effect_spans, &mut regions);
+                }
                 for clause in &handler.operation_clauses {
                     collect_parameter_type_regions(&clause.params, &mut regions);
                     collect_perform_effect_regions(&clause.body, &mut regions);

@@ -372,3 +372,37 @@ fn rejects_effect_declaration_without_operations() {
         output.diagnostics
     );
 }
+
+#[test]
+fn records_recovery_for_effect_rows_and_handled_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn broken() -> Int effects [Choose @]\n",
+            "  1\n",
+            "end\n\n",
+            "handler broken() handles Choose @\n",
+            "  pick() => 1\n",
+            "end\n\n",
+            "handler row_broken() handles Choose effects [Choose @]\n",
+            "  pick() => 1\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function");
+    };
+    let SyntaxItem::Handler(handler) = &output.tree.items[1] else {
+        panic!("expected handler");
+    };
+    let SyntaxItem::Handler(row_broken) = &output.tree.items[2] else {
+        panic!("expected handler");
+    };
+
+    assert!(function.effects_recovered);
+    assert!(handler.effect_recovered);
+    assert!(!row_broken.effect_recovered);
+    assert!(row_broken.effects_recovered);
+}

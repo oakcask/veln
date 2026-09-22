@@ -223,6 +223,7 @@ struct FunctionReturn {
     ty_paths: Vec<TypePathSegments>,
     effects: Option<Vec<String>>,
     effect_spans: Option<Vec<SourceSpan>>,
+    effects_recovered: bool,
 }
 
 struct HandlerHeader {
@@ -236,8 +237,10 @@ struct HandlerHeader {
 struct HandlerEffect {
     path: Vec<String>,
     span: SourceSpan,
+    recovered: bool,
     effects: Option<Vec<String>>,
     effect_spans: Option<Vec<SourceSpan>>,
+    effects_recovered: bool,
 }
 
 struct HandlerBody {

@@ -309,6 +309,49 @@ fn references_reject_balanced_recovery_shapes_and_recovered_declarations() {
         assert_eq!(result["structuredContent"]["references"], json!([]));
     }
 
+    for (name, source, line, column) in [
+        (
+            "references-workspace-effect-recovered-row-token",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "fn broken() -> Int effects [Choose @]\n",
+                "  1\n",
+                "end\n",
+            ),
+            5,
+            29,
+        ),
+        (
+            "references-workspace-effect-recovered-handler-token",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "handler broken() handles Choose @\n",
+                "  pick() => 1\n",
+                "end\n",
+            ),
+            5,
+            26,
+        ),
+    ] {
+        let workspace = TempWorkspace::new(name);
+        workspace.write("veln.toml", "");
+        workspace.write("main.veln", source);
+        let mut server = initialized_server(&workspace);
+
+        for (query_line, query_column, include_declaration) in [(line, column, true), (1, 8, false)]
+        {
+            let result = server.references_tool(&json!({
+                "source":"main.veln", "line":query_line, "column":query_column,
+                "include_declaration":include_declaration
+            }));
+            assert_eq!(result["structuredContent"]["references"], json!([]));
+        }
+    }
+
     let declaration = TempWorkspace::new("references-workspace-effect-recovered-declaration");
     declaration.write("veln.toml", "");
     declaration.write(
