@@ -222,6 +222,42 @@ mod navigation_effect_operation_references_tests {
     }
 
     #[test]
+    fn same_named_handlers_in_distinct_modules_keep_clause_headings() {
+        let sources = vec![
+            source(
+                "first.veln",
+                concat!(
+                    "mod first\n\n",
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "end\n\n",
+                    "handler choose() handles Choose\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "second.veln",
+                concat!(
+                    "mod second\n\n",
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "end\n\n",
+                    "handler choose() handles Choose\n",
+                    "  pick() => 2\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let first = query(sources.clone(), "first.veln", 4, 3).unwrap();
+        assert_eq!(locations(&first.references), [("first.veln", 8, 3)]);
+
+        let second = query(sources, "second.veln", 4, 3).unwrap();
+        assert_eq!(locations(&second.references), [("second.veln", 8, 3)]);
+    }
+
+    #[test]
     fn handler_clause_headings_require_a_bare_same_module_workspace_effect() {
         let sources = vec![
             source(
