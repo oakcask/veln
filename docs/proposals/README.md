@@ -16,7 +16,9 @@ also states it.
 
 ## Ready
 
-There is no ready proposal target.
+- Add same-module workspace effect references to the shared navigation result
+  and both saved-navigation adapters:
+  [workspace-effect-references.md](workspace-effect-references.md).
 
 ## Blocked
 
@@ -24,9 +26,9 @@ There is no ready proposal target.
   syntax and lookup contract:
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
 - The agent-language-services umbrella remains a planning inventory only for
-  the unimplemented transitive-dependency, recovery, casing-neutral,
-  cross-adapter conformance, agent-skill, conformance-gate, and plugin work. Do
-  not select the umbrella directly.
+  the unimplemented transitive-dependency, recovery, casing-neutral, remaining
+  symbol, cross-adapter conformance, agent-skill, conformance-gate, and plugin
+  work. Do not select the umbrella directly.
 
 ## Selection Rule
 
