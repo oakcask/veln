@@ -242,6 +242,9 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
             "use dep from \"example/dep\"\n\n",
             "fn imported() -> Int effects [dep::Task]\n",
             "  perform dep::Task::run()\n",
+            "end\n\n",
+            "handler imported_handler() handles dep::Task\n",
+            "  run() => 1\n",
             "end\n",
         ),
     );
@@ -266,6 +269,7 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
     for request in [
         references_request_with_declaration(&main_uri, 6, 35, true),
         references_request_with_declaration(&main_uri, 7, 21, true),
+        references_request_with_declaration(&main_uri, 11, 2, true),
         references_request_with_declaration(&invalid_uri, 0, 7, true),
         references_request_with_declaration(&invalid_uri, 4, 28, true),
     ] {
@@ -283,10 +287,13 @@ fn workspace_effect_references_reject_qualified_workspace_effects() {
         concat!(
             "mod local\n\n",
             "effect E\n",
-            "  local() -> Int\n",
+            "  run() -> Int\n",
             "end\n\n",
             "fn qualified() -> Int effects [foreign::E]\n",
             "  perform foreign::E::run()\n",
+            "end\n\n",
+            "handler qualified_handler() handles foreign::E\n",
+            "  run() => 1\n",
             "end\n",
         ),
     );
@@ -299,7 +306,7 @@ fn workspace_effect_references_reject_qualified_workspace_effects() {
     let mut server = Server::default();
     server.handle_message(&initialize_request(&root_uri));
 
-    for (line, character) in [(6, 39), (7, 18)] {
+    for (line, character) in [(6, 39), (7, 18), (11, 2)] {
         assert_eq!(
             server.handle_message(&references_request_with_declaration(
                 &main_uri, line, character, true,
@@ -321,6 +328,9 @@ fn workspace_effect_references_reject_unresolved_and_mismatched_occurrences() {
             "end\n\n",
             "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
             "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler missing_handler() handles Missing\n",
+            "  pick() => 1\n",
             "end\n",
         ),
     );
@@ -337,6 +347,12 @@ fn workspace_effect_references_reject_unresolved_and_mismatched_occurrences() {
             [response("2", "[]")]
         );
     }
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 9, 2, true,
+        )),
+        [response("2", "[]")]
+    );
 }
 
 #[test]
@@ -372,6 +388,9 @@ fn workspace_effect_references_reject_ambiguous_declarations() {
             "end\n\n",
             "fn choose() -> Int effects [Choose]\n",
             "  1\n",
+            "end\n\n",
+            "handler choose_handler() handles Choose\n",
+            "  first() => 1\n",
             "end\n",
         ),
     );
@@ -383,12 +402,34 @@ fn workspace_effect_references_reject_ambiguous_declarations() {
     for request in [
         references_request_with_declaration(&first_uri, 2, 7, true),
         references_request_with_declaration(&second_uri, 6, 28, true),
+        references_request_with_declaration(&second_uri, 11, 2, true),
     ] {
         assert_eq!(
             ambiguous_server.handle_message(&request),
             [response("2", "[]")]
         );
     }
+}
+
+#[test]
+fn workspace_handler_operation_clause_references_reject_standard_library_effects() {
+    let project = TempProject::new("workspace-handler-operation-clause-standard-library");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        "use transport from \"std\"\n\nhandler standard() handles transport::DuplexStream\n  read_chunk() => 1\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 3, 2, true,
+        )),
+        [response("2", "[]")]
+    );
 }
 
 #[test]

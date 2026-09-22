@@ -384,7 +384,7 @@ fn references_reject_imported_and_invalid_cased_effects() {
     );
     workspace.write(
         "main.veln",
-        "use dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  perform dep::Task::run()\nend\n",
+        "effect Task\n  run() -> Int\nend\n\nuse dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  perform dep::Task::run()\nend\n\nhandler imported_handler() handles dep::Task\n  run() => 1\nend\n",
     );
     workspace.write(
         "invalid.veln",
@@ -401,8 +401,9 @@ fn references_reject_imported_and_invalid_cased_effects() {
     let mut server = initialized_server(&workspace);
 
     for (source, line, column) in [
-        ("main.veln", 3, 36),
-        ("main.veln", 4, 22),
+        ("main.veln", 7, 36),
+        ("main.veln", 8, 22),
+        ("main.veln", 12, 3),
         ("invalid.veln", 1, 8),
         ("invalid.veln", 5, 29),
     ] {
@@ -426,6 +427,9 @@ fn references_reject_unresolved_and_mismatched_effect_occurrences() {
             "end\n\n",
             "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
             "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler missing_handler() handles Missing\n",
+            "  pick() => 1\n",
             "end\n",
         ),
     );
@@ -438,6 +442,49 @@ fn references_reject_unresolved_and_mismatched_effect_occurrences() {
         }));
         assert_eq!(result["structuredContent"]["references"], json!([]));
     }
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":10, "column":3,
+        "include_declaration":true
+    }));
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+}
+
+#[test]
+fn references_reject_qualified_workspace_handler_clause_headings() {
+    let workspace = TempWorkspace::new("references-workspace-handler-qualified-effect");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "mod local\n\neffect Task\n  run() -> Int\nend\n\nhandler qualified() handles foreign::Task\n  run() => 1\nend\n",
+    );
+    workspace.write(
+        "foreign.veln",
+        "mod foreign\n\neffect Task\n  run() -> Int\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":3,
+        "include_declaration":true
+    }));
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+}
+
+#[test]
+fn references_reject_standard_library_handler_clause_headings() {
+    let workspace = TempWorkspace::new("references-workspace-handler-standard-library-effect");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "use transport from \"std\"\n\nhandler standard() handles transport::DuplexStream\n  read_chunk() => 1\nend\n",
+    );
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":3,
+        "include_declaration":true
+    }));
+    assert_eq!(result["structuredContent"]["references"], json!([]));
 }
 
 #[test]

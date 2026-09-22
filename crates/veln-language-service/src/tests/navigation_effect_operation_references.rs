@@ -390,6 +390,51 @@ mod navigation_effect_operation_references_tests {
     }
 
     #[test]
+    fn workspace_effect_operation_clause_references_reject_duplicate_and_recovered_owners() {
+        for (text, heading_line) in [
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "  pick(value: Int) -> Int\n",
+                    "end\n\n",
+                    "handler chooser() handles Choose\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+                7,
+            ),
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() Int\n",
+                    "end\n\n",
+                    "handler chooser() handles Choose\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+                6,
+            ),
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "end\n\n",
+                    "handler chooser() handles Choose @\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+                6,
+            ),
+        ] {
+            let sources = vec![source("main.veln", text)];
+            let operation = query(sources.clone(), "main.veln", 2, 3).unwrap();
+            assert!(operation.references.is_empty());
+            assert!(query(sources, "main.veln", heading_line, 3).is_none());
+        }
+    }
+
+    #[test]
     fn workspace_effect_operation_references_reject_recovered_owning_effects() {
         let sources = vec![source(
             "main.veln",
