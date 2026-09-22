@@ -326,91 +326,105 @@ mod navigation_handler_references_tests {
         assert_location(&occurrence.definition, "declaration.veln", 3, 9);
     }
 
+    fn measure_handler_reference_index_work(
+        count: usize,
+    ) -> (usize, usize, usize, std::time::Duration) {
+        let mut body = String::from(
+            "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
+        );
+        for index in 0..count {
+            body.push_str(&format!("  let value_{index} = handle {index} with run()\n"));
+        }
+        body.push_str("  0\nend\n");
+        crate::navigation::reset_handler_reference_index_work();
+        let started = std::time::Instant::now();
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
+        let _ = snapshot.navigation_index();
+        let elapsed = started.elapsed();
+        let (token_visits, diagnostic_visits, overlap_queries) =
+            crate::navigation::handler_reference_index_work();
+        eprintln!(
+            "handler reference index: occurrences={count} token_visits={token_visits} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries} elapsed={elapsed:?}",
+        );
+        (token_visits, diagnostic_visits, overlap_queries, elapsed)
+    }
+
+    fn measure_nested_handler_reference_index_work(
+        depth: usize,
+    ) -> (usize, std::time::Duration) {
+        let mut body = String::from(
+            "handler run(value: Int) handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n  ",
+        );
+        for _ in 0..depth {
+            body.push_str("handle 0 with run(");
+        }
+        body.push('0');
+        for _ in 0..depth {
+            body.push(')');
+        }
+        body.push_str("\nend\n");
+        crate::navigation::reset_handler_reference_index_work();
+        let started = std::time::Instant::now();
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
+        let _ = snapshot.navigation_index();
+        let elapsed = started.elapsed();
+        let result = query_snapshot(&snapshot, "main.veln", 6, 17).unwrap();
+        assert_eq!(result.references.len(), depth);
+        let (token_visits, _, _) = crate::navigation::handler_reference_index_work();
+        eprintln!(
+            "nested handler reference index: depth={depth} token_visits={token_visits} elapsed={elapsed:?}",
+        );
+        (token_visits, elapsed)
+    }
+
+    fn measure_recovered_handler_reference_index_work(count: usize) -> (usize, usize) {
+        let mut body = String::from(
+            "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
+        );
+        for index in 0..count {
+            body.push_str(&format!(
+                "  let value_{index} = handle {index} with run(0x1_0)\n"
+            ));
+        }
+        body.push_str("  0\nend\n");
+        crate::navigation::reset_handler_reference_index_work();
+        let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
+        let _ = snapshot.navigation_index();
+        let (_, diagnostic_visits, overlap_queries) =
+            crate::navigation::handler_reference_index_work();
+        eprintln!(
+            "handler recovery index: occurrences={count} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries}",
+        );
+        (diagnostic_visits, overlap_queries)
+    }
+
     #[test]
     fn workspace_handler_reference_indexing_work_grows_linearly() {
-        fn measured_work(count: usize) -> (usize, usize, usize, std::time::Duration) {
-            let mut body = String::from(
-                "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
-            );
-            for index in 0..count {
-                body.push_str(&format!("  let value_{index} = handle {index} with run()\n"));
-            }
-            body.push_str("  0\nend\n");
-            crate::navigation::reset_handler_reference_index_work();
-            let started = std::time::Instant::now();
-            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
-            let _ = snapshot.navigation_index();
-            let elapsed = started.elapsed();
-            let (token_visits, diagnostic_visits, overlap_queries) =
-                crate::navigation::handler_reference_index_work();
-            eprintln!(
-                "handler reference index: occurrences={count} token_visits={token_visits} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries} elapsed={elapsed:?}",
-            );
-            (token_visits, diagnostic_visits, overlap_queries, elapsed)
-        }
-
-        let (small_tokens, small_diagnostics, small_queries, _) = measured_work(500);
-        let (large_tokens, large_diagnostics, large_queries, _) = measured_work(1_000);
+        let (small_tokens, small_diagnostics, small_queries, _) =
+            measure_handler_reference_index_work(500);
+        let (large_tokens, large_diagnostics, large_queries, _) =
+            measure_handler_reference_index_work(1_000);
         assert!(large_tokens <= small_tokens * 2 + 16);
         assert_eq!(small_diagnostics, 0);
         assert_eq!(large_diagnostics, 0);
         assert!(small_queries <= 501, "{small_queries}");
         assert!(large_queries <= 1_001, "{large_queries}");
         assert!(large_queries <= small_queries * 2 + 1);
+    }
 
-        fn measured_nested_work(depth: usize) -> (usize, std::time::Duration) {
-            let mut body = String::from(
-                "handler run(value: Int) handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n  ",
-            );
-            for _ in 0..depth {
-                body.push_str("handle 0 with run(");
-            }
-            body.push('0');
-            for _ in 0..depth {
-                body.push(')');
-            }
-            body.push_str("\nend\n");
-            crate::navigation::reset_handler_reference_index_work();
-            let started = std::time::Instant::now();
-            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
-            let _ = snapshot.navigation_index();
-            let elapsed = started.elapsed();
-            let result = query_snapshot(&snapshot, "main.veln", 6, 17).unwrap();
-            assert_eq!(result.references.len(), depth);
-            let (token_visits, _, _) = crate::navigation::handler_reference_index_work();
-            eprintln!(
-                "nested handler reference index: depth={depth} token_visits={token_visits} elapsed={elapsed:?}",
-            );
-            (token_visits, elapsed)
-        }
-
-        let (small_nested_tokens, _) = measured_nested_work(50);
-        let (large_nested_tokens, _) = measured_nested_work(100);
+    #[test]
+    fn nested_workspace_handler_reference_indexing_work_grows_linearly() {
+        let (small_nested_tokens, _) = measure_nested_handler_reference_index_work(50);
+        let (large_nested_tokens, _) = measure_nested_handler_reference_index_work(100);
         assert!(large_nested_tokens <= small_nested_tokens * 2 + 16);
+    }
 
-        fn measured_recovery_work(count: usize) -> (usize, usize) {
-            let mut body = String::from(
-                "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
-            );
-            for index in 0..count {
-                body.push_str(&format!(
-                    "  let value_{index} = handle {index} with run(0x1_0)\n"
-                ));
-            }
-            body.push_str("  0\nend\n");
-            crate::navigation::reset_handler_reference_index_work();
-            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
-            let _ = snapshot.navigation_index();
-            let (_, diagnostic_visits, overlap_queries) =
-                crate::navigation::handler_reference_index_work();
-            eprintln!(
-                "handler recovery index: occurrences={count} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries}",
-            );
-            (diagnostic_visits, overlap_queries)
-        }
-
-        let (small_diagnostics, small_queries) = measured_recovery_work(250);
-        let (large_diagnostics, large_queries) = measured_recovery_work(500);
+    #[test]
+    fn recovered_workspace_handler_reference_indexing_work_grows_linearly() {
+        let (small_diagnostics, small_queries) =
+            measure_recovered_handler_reference_index_work(250);
+        let (large_diagnostics, large_queries) =
+            measure_recovered_handler_reference_index_work(500);
         assert_eq!(small_diagnostics, 250);
         assert_eq!(large_diagnostics, 500);
         assert!(large_queries <= small_queries * 2 + 1);
