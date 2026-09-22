@@ -502,13 +502,17 @@ its separate unsupported reference identity.
 The qualifier forms include structurally complete occurrences in function
 contracts, hole `satisfy` predicates, schema field `where` predicates, and
 schema validation predicates. Recovery of another predicate token does not
-remove a structurally complete qualifier.
+remove a structurally complete qualifier. A qualifier also remains available
+when its operation path and closing `)` are present but its argument list needs
+recovery. A missing operation path, opening `(`, or closing `)` excludes that
+qualifier.
 Effect lookup requires one valid-cased, unrecovered workspace declaration for
 the module and name. Valid occurrences in a saved source remain available when
 an unrelated construct in that source has a parse error. Imported and package
 effects, generic effect parameters, duplicate declarations, invalid casing,
-unresolved names, recovered syntax, other modules, and other symbol classes do
-not enter the result.
+unresolved names, recovered effect rows, recovered handler targets, incomplete
+`perform` qualifiers, other modules, and other symbol classes do not enter the
+result.
 
 Schema
 references include direct fields, `decode`, `encode`, `Repeat`, array

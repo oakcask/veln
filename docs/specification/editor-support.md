@@ -215,15 +215,19 @@ identity and has no effect reference set.
 Structurally complete qualifiers in function contracts, hole `satisfy`
 predicates, schema field `where` predicates, and schema validation predicates
 use the same identity and reference set. Recovery of another predicate token
-does not remove a structurally complete qualifier.
+does not remove a structurally complete qualifier. A `perform` qualifier also
+remains in the set when its operation path and closing `)` are present but its
+argument list needs recovery. A missing operation path, opening `(`, or closing
+`)` excludes that qualifier.
 An unrelated parse error in the same saved source does not remove structurally
 complete effect occurrences from that shared set.
 
 Effect reference lookup requires one valid-cased workspace effect declaration
 for that name and module. It excludes qualified imported or package effects,
 generic effect-row parameters, duplicate declarations, invalid-cased or
-unresolved names, syntax-recovered occurrences, and equal spelling in another
-module or symbol class. Comments and strings do not contribute references.
+unresolved names, recovered effect rows, recovered handler targets, incomplete
+`perform` qualifiers, and equal spelling in another module or symbol class.
+Comments and strings do not contribute references.
 Effects, handlers, and effect operations remain unsupported for rename.
 
 For a selected workspace schema declaration, `textDocument/references` returns

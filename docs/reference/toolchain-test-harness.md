@@ -304,6 +304,7 @@ The `publish-diagnostics`, `semantic-tokens`,
 `identifier-casing-recovery-navigation`,
 `identifier-casing-handler-binding-navigation`, and
 `identifier-casing-rename-boundary`, and
+`references-workspace-effect`,
 `references-workspace-schema-composition` and
 `references-workspace-schema-alias`, and
 `references-dependency-schema-composition` and
@@ -335,6 +336,9 @@ The `rename-*` MCP specification cases use decoded assertions for exact edit
 locations and ordering, domain failures, empty boundary results, and
 state-preservation checks. The saved-workspace case also uses JSON sidecars to
 compare the advertised closed input and result schemas.
+The `references-workspace-effect` MCP specification case uses decoded
+assertions for exact effect reference locations, declaration inclusion,
+Unicode-scalar coordinates, deterministic ordering, and cursor pagination.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.
