@@ -26,6 +26,7 @@ impl ReachableInvalidNameSpan {
 pub(super) struct ReachableInvalidNameSelector<'a> {
     pub(super) uses: Vec<&'a UseDecl>,
     pub(super) invalid_uses: Vec<&'a UseDecl>,
+    pub(super) invalid_use_segments: Vec<(&'a UseDecl, Vec<ReachableInvalidNameSpan>)>,
     pub(super) handlers: Vec<&'a veln_ast::HandlerDecl>,
     pub(super) functions_by_name: HashMap<(Option<String>, String), Vec<&'a Function>>,
     pub(super) aliases_by_name: HashMap<(Option<String>, String), Vec<&'a veln_ast::PublicAlias>>,

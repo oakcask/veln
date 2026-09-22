@@ -289,6 +289,38 @@ fn reachable_recovery_selection_skips_unrelated_invalid_declarations() {
 }
 
 #[test]
+fn reachable_import_filter_skips_unrelated_invalid_names() {
+    fn invalid_import_candidate_scans(unrelated_count: usize) -> usize {
+        let mut source = String::from(concat!(
+            "use HTTP\n",
+            "\n",
+            "pub fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ));
+        for index in 0..unrelated_count {
+            source.push_str(&format!("\ntype unrelated_{index}\n  Other_{index}\nend\n"));
+        }
+        let module = lower(&source);
+        reachability_counters::reset();
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        assert_eq!(reachable.functions.len(), 1);
+        reachability_counters::invalid_import_candidate_scans()
+    }
+
+    let base = invalid_import_candidate_scans(0);
+    let expanded = invalid_import_candidate_scans(128);
+    assert!(
+        base > 0,
+        "the invalid import must exercise candidate matching"
+    );
+    assert_eq!(
+        expanded, base,
+        "unrelated invalid names must not add import-filter candidate scans"
+    );
+}
+
+#[test]
 fn reachable_materialization_skips_unrelated_annotated_function_bodies() {
     fn materialized_body_count(unrelated_count: usize) -> usize {
         let mut source =
