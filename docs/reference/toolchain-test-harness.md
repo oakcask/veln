@@ -338,8 +338,9 @@ locations and ordering, domain failures, empty boundary results, and
 state-preservation checks. The saved-workspace case also uses JSON sidecars to
 compare the advertised closed input and result schemas.
 The `references-workspace-effect` MCP specification case uses decoded
-assertions for exact effect reference locations, declaration inclusion,
-Unicode-scalar coordinates, deterministic ordering, and cursor pagination.
+assertions for exact effect and effect-operation reference locations,
+declaration inclusion, Unicode-scalar coordinates, deterministic ordering, and
+cursor pagination.
 The `references-workspace-handler` MCP specification case uses the same
 decoded assertion model for exact handler reference locations, declaration
 inclusion, Unicode-scalar coordinates, deterministic ordering, and cursor

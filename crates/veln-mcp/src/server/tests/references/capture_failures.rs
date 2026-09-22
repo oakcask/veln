@@ -129,12 +129,13 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
     let before = server.references_tool(&json!({
         "source":"main.veln", "line":2, "column":3
     }));
+    let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
     assert_eq!(
-        before["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
+        before["structuredContent"]["references"],
+        json!([{
+            "uri": uri,
+            "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+        }])
     );
     let seeded = server.references_tool(&json!({
         "source":"main.veln", "line":2, "column":3,
@@ -156,19 +157,30 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-    assert_live_reference_cursor(&mut server, &live_cursor);
+    let continuation = server.references_tool(&json!({"cursor":live_cursor}));
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
+    assert_eq!(
+        continuation["structuredContent"]["scope"],
+        before["structuredContent"]["scope"]
+    );
+    assert_eq!(
+        continuation["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+        }])
+    );
+    assert!(
+        continuation["structuredContent"]
+            .get("next_cursor")
+            .is_none()
+    );
 
     drop(hook);
     let after = server.references_tool(&json!({
         "source":"main.veln", "line":2, "column":3
     }));
-    assert_eq!(
-        after["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
+    assert_eq!(after, before);
 }
 
 fn install_changing_workspace_effect_hook(

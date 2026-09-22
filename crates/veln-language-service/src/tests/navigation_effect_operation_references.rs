@@ -51,6 +51,29 @@ mod navigation_effect_operation_references_tests {
         }
     }
 
+    #[test]
+    fn workspace_effect_operation_references_select_multiline_operation_leaves() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "fn use() -> Int\n",
+                "  (perform Choose::\n",
+                "    pick())\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 2, 3).unwrap();
+        let leaf = query(sources, "main.veln", 7, 5).unwrap();
+        assert_eq!(leaf.selected_symbol, declaration.selected_symbol);
+        assert_eq!(leaf.definition, declaration.definition);
+        assert_eq!(leaf.references, declaration.references);
+        assert_eq!(exact_locations(&leaf.references), [("main.veln", 7, 5, 7, 9)]);
+    }
+
     fn exact_locations(spans: &[SourceSpan]) -> Vec<(&str, usize, usize, usize, usize)> {
         spans
             .iter()
@@ -205,6 +228,66 @@ mod navigation_effect_operation_references_tests {
             assert!(declaration.references.is_empty());
             assert!(query(sources, "main.veln", 7, 19).is_none());
         }
+    }
+
+    #[test]
+    fn workspace_effect_operation_references_reject_recovered_owning_effects() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "  broken()\n",
+                "end\n\n",
+                "effect Other\n",
+                "  run() -> Int\n",
+                "end\n\n",
+                "fn use() -> Int\n",
+                "  perform Choose::pick()\n",
+                "  perform Other::run()\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 2, 3).unwrap();
+        assert!(!declaration.reference_eligible);
+        assert!(declaration.references.is_empty());
+        assert!(query(sources.clone(), "main.veln", 11, 19).is_none());
+
+        let unrelated = query(sources, "main.veln", 12, 18).unwrap();
+        assert!(unrelated.reference_eligible);
+        assert_location(&unrelated.definition, "main.veln", 7, 3);
+        assert_eq!(locations(&unrelated.references), [("main.veln", 12, 18)]);
+    }
+
+    #[test]
+    fn workspace_effect_operation_references_reject_recovered_operation_paths() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "effect Other\n",
+                "  run() -> Int\n",
+                "end\n\n",
+                "fn broken() -> Int\n",
+                "  perform Choose::pick::()\n",
+                "end\n\n",
+                "fn valid() -> Int\n",
+                "  perform Other::run()\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 2, 3).unwrap();
+        assert!(declaration.references.is_empty());
+        assert!(query(sources.clone(), "main.veln", 10, 19).is_none());
+
+        let unrelated = query(sources, "main.veln", 14, 18).unwrap();
+        assert!(unrelated.reference_eligible);
+        assert_location(&unrelated.definition, "main.veln", 6, 3);
+        assert_eq!(locations(&unrelated.references), [("main.veln", 14, 18)]);
     }
 
     #[test]

@@ -44,7 +44,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 2
 path = "/result/structuredContent/references/2/range"
-equals = {"start":{"line":7,"column":17},"end":{"line":7,"column":23}}
+equals = {"start":{"line":7,"column":18},"end":{"line":7,"column":24}}
 
 [[mcp_assert]]
 id = 3
@@ -119,7 +119,7 @@ workspace_file_uri = "main.veln"
 [[mcp_assert]]
 id = 6
 path = "/result/structuredContent/references/0/range"
-equals = {"start":{"line":7,"column":17},"end":{"line":7,"column":23}}
+equals = {"start":{"line":7,"column":18},"end":{"line":7,"column":24}}
 
 [[mcp_assert]]
 id = 6
@@ -139,7 +139,7 @@ equals = {"start":{"line":6,"column":27},"end":{"line":6,"column":31}}
 [[mcp_assert]]
 id = 7
 path = "/result/structuredContent/references/1/range"
-equals = {"start":{"line":7,"column":25},"end":{"line":7,"column":29}}
+equals = {"start":{"line":7,"column":26},"end":{"line":7,"column":30}}
 
 [[mcp_assert]]
 id = 8
@@ -164,7 +164,7 @@ contains = "."
 [[mcp_assert]]
 id = 10
 path = "/result/structuredContent/references/0/range"
-equals = {"start":{"line":7,"column":25},"end":{"line":7,"column":29}}
+equals = {"start":{"line":7,"column":26},"end":{"line":7,"column":30}}
 
 [[mcp_assert]]
 id = 10

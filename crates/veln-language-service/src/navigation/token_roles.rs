@@ -535,19 +535,6 @@ fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
         })
 }
 
-fn is_perform_operation_token(tokens: &[Token], index: usize) -> bool {
-    tokens[index].kind == TokenKind::Ident
-        && previous_non_layout_token(tokens, index)
-            .is_some_and(|previous| previous.kind == TokenKind::DoubleColon)
-        && next_non_whitespace_token(tokens, index)
-            .is_some_and(|next| next.kind == TokenKind::LParen)
-        && tokens[..index]
-            .iter()
-            .rev()
-            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-            .any(|token| token.kind == TokenKind::Perform)
-}
-
 fn is_handler_reference_token(file: &IndexedFile, index: usize) -> bool {
     let token = &file.tokens[index];
     token.kind == TokenKind::Ident

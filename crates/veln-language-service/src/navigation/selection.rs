@@ -202,14 +202,11 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
-        if is_perform_operation_token(tokens, token_index) {
-            let token = &tokens[token_index];
-            if !file
-                .effect_operation_ranges
-                .contains(&(token.range.start, token.range.end))
-            {
-                return None;
-            }
+        let token = &tokens[token_index];
+        if file
+            .effect_operation_ranges
+            .contains(&(token.range.start, token.range.end))
+        {
             let qualifier_index = previous_path_segment_index(tokens, token_index)?;
             let qualifier_token = &tokens[qualifier_index];
             if file
