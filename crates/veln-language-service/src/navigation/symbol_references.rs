@@ -6,13 +6,13 @@ impl SymbolIndex {
             .flat_map(|file| {
                 file.tokens
                     .iter()
-                    .filter_map(|token| {
-                        (token.text == symbol.name
+                    .filter(|token| {
+                        token.text == symbol.name
                             && file
                                 .handler_reference_ranges
-                                .contains(&(token.range.start, token.range.end)))
-                        .then(|| file.source.span(token.range))
+                                .contains(&(token.range.start, token.range.end))
                     })
+                    .map(|token| file.source.span(token.range))
                     .collect::<Vec<_>>()
             })
             .collect()

@@ -156,3 +156,138 @@ fn references_reject_ambiguous_recovered_and_non_bare_workspace_handlers() {
         assert_eq!(result["structuredContent"]["references"], json!([]));
     }
 }
+
+#[test]
+fn references_reject_each_invalid_handler_path_without_losing_valid_selection() {
+    let workspace = TempWorkspace::new("references-workspace-handler-invalid-paths");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "declaration.veln",
+        "mod shared\n\nhandler stable() handles Work\n  go() => 1\nend\n",
+    );
+    for (path, expression) in [
+        ("unresolved.veln", "missing()"),
+        ("incomplete.veln", "stable("),
+        ("recovered.veln", "stable(1 2)"),
+    ] {
+        workspace.write(
+            path,
+            &format!("mod shared\n\nfn use() -> Int\n  handle 1 with {expression}\nend\n"),
+        );
+    }
+    workspace.write(
+        "valid.veln",
+        "mod shared\n\nfn use() -> Int\n  handle 1 with stable()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    for source in ["unresolved.veln", "incomplete.veln", "recovered.veln"] {
+        let result = server.references_tool(&json!({
+            "source":source, "line":4, "column":17, "include_declaration":true
+        }));
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{source}: {result:#}",
+        );
+    }
+    let valid = server.references_tool(&json!({
+        "source":"valid.veln", "line":4, "column":17,
+        "include_declaration":false
+    }));
+    assert_reference_ranges(
+        &valid,
+        &[("valid.veln", 4, 17, 4, 23)],
+        "valid handler beside excluded paths",
+    );
+}
+
+#[test]
+fn references_reject_resolved_qualified_workspace_and_package_handlers() {
+    let workspace = TempWorkspace::new("references-workspace-handler-resolved-qualified");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use other\n",
+            "use dep from \"example/dep\"\n\n",
+            "handler stable() handles Work\n  go() => 1\nend\n\n",
+            "fn valid() -> Int\n  handle 1 with stable()\nend\n\n",
+            "fn workspace_import() -> Int\n  handle 2 with other::run()\nend\n\n",
+            "fn package_import() -> Int\n  handle 3 with dep::run()\nend\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        "pub handler run() handles Work\n  go() => 2\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write(
+        "vendor/dep/dep.veln",
+        "pub handler run() handles Work\n  go() => 3\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    for (line, column) in [(13, 24), (17, 22)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
+    let valid = server.references_tool(&json!({
+        "source":"main.veln", "line":9, "column":17,
+        "include_declaration":false
+    }));
+    assert_reference_ranges(
+        &valid,
+        &[("main.veln", 9, 17, 9, 23)],
+        "valid handler beside qualified handlers",
+    );
+}
+
+#[test]
+fn references_filter_other_modules_and_symbol_classes_for_workspace_handlers() {
+    let workspace = TempWorkspace::new("references-workspace-handler-collisions");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "selected.veln",
+        concat!(
+            "mod shared\n\n",
+            "handler run() handles Work\n  go() => 1\nend\n\n",
+            "fn use() -> Int\n  handle 1 with run()\nend\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        concat!(
+            "mod other\n\n",
+            "handler run() handles Work\n  go() => 2\nend\n\n",
+            "fn use() -> Int\n  handle 2 with run()\nend\n",
+        ),
+    );
+    workspace.write(
+        "symbols.veln",
+        concat!(
+            "mod shared\n\n",
+            "effect run\n  run() -> Int\nend\n\n",
+            "type run\n  run\nend\n\n",
+            "fn run() -> Int\n  1\nend\n\n",
+            "handler wrapper(run: Int) handles Work\n  run() => run\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let result = server.references_tool(&json!({
+        "source":"selected.veln", "line":3, "column":9,
+        "include_declaration":false
+    }));
+    assert_reference_ranges(
+        &result,
+        &[("selected.veln", 8, 17, 8, 20)],
+        "handler collision filtering",
+    );
+}

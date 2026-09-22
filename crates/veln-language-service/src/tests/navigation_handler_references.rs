@@ -165,6 +165,31 @@ mod navigation_handler_references_tests {
     }
 
     #[test]
+    fn workspace_handler_references_reject_declaration_with_non_handler_diagnostic_context() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "handler run() handles Work\n  go() => 0x1_0\nend\n\n",
+                "handler keep() handles Work\n  go() => 2\nend\n\n",
+                "fn use() -> Int\n  handle 1 with run()\nend\n\n",
+                "fn valid() -> Int\n  handle 2 with keep()\nend\n",
+            ),
+        )];
+        let parsed = veln_syntax::parse(&sources[0]);
+        assert!(parsed.diagnostics.iter().any(|diagnostic| {
+            diagnostic.parser_context == "integer_literal"
+                && diagnostic.id == "parse.integer_literal"
+        }));
+
+        let recovered = query(sources.clone(), "main.veln", 1, 9).unwrap();
+        assert!(!recovered.reference_eligible);
+        assert!(recovered.references.is_empty());
+        assert!(query(sources.clone(), "main.veln", 10, 17).is_none());
+        let valid = query(sources, "main.veln", 14, 17).unwrap();
+        assert_eq!(locations(&valid.references), [("main.veln", 14, 17)]);
+    }
+
+    #[test]
     fn workspace_handler_references_reject_qualified_unresolved_incomplete_and_recovered_paths() {
         let sources = vec![source(
             "main.veln",
@@ -230,5 +255,67 @@ mod navigation_handler_references_tests {
         assert_eq!(locations(&result.references), [("uses.veln", 4, 17)]);
         let occurrence = query(sources, "uses.veln", 4, 17).unwrap();
         assert_location(&occurrence.definition, "declaration.veln", 3, 9);
+    }
+
+    #[test]
+    fn workspace_handler_reference_indexing_work_grows_linearly() {
+        fn measured_work(count: usize) -> (usize, usize, usize, std::time::Duration) {
+            let mut body = String::from(
+                "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
+            );
+            for index in 0..count {
+                body.push_str(&format!("  let value_{index} = handle {index} with run()\n"));
+            }
+            body.push_str("  0\nend\n");
+            crate::navigation::reset_handler_reference_index_work();
+            let started = std::time::Instant::now();
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let (token_visits, diagnostic_visits, overlap_queries) =
+                crate::navigation::handler_reference_index_work();
+            eprintln!(
+                "handler reference index: occurrences={count} token_visits={token_visits} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries} elapsed={elapsed:?}",
+            );
+            (token_visits, diagnostic_visits, overlap_queries, elapsed)
+        }
+
+        let (small_tokens, small_diagnostics, small_queries, _) = measured_work(500);
+        let (large_tokens, large_diagnostics, large_queries, _) = measured_work(1_000);
+        assert!(small_tokens <= 500 * 3, "{small_tokens}");
+        assert!(large_tokens <= 1_000 * 3, "{large_tokens}");
+        assert!(large_tokens <= small_tokens * 2 + 3);
+        assert_eq!(small_diagnostics, 0);
+        assert_eq!(large_diagnostics, 0);
+        assert!(small_queries <= 501, "{small_queries}");
+        assert!(large_queries <= 1_001, "{large_queries}");
+        assert!(large_queries <= small_queries * 2 + 1);
+
+        fn measured_recovery_work(count: usize) -> (usize, usize) {
+            let mut body = String::from(
+                "handler run() handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n",
+            );
+            for index in 0..count {
+                body.push_str(&format!(
+                    "  let value_{index} = handle {index} with run(0x1_0)\n"
+                ));
+            }
+            body.push_str("  0\nend\n");
+            crate::navigation::reset_handler_reference_index_work();
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
+            let _ = snapshot.navigation_index();
+            let (_, diagnostic_visits, overlap_queries) =
+                crate::navigation::handler_reference_index_work();
+            eprintln!(
+                "handler recovery index: occurrences={count} diagnostic_visits={diagnostic_visits} overlap_queries={overlap_queries}",
+            );
+            (diagnostic_visits, overlap_queries)
+        }
+
+        let (small_diagnostics, small_queries) = measured_recovery_work(250);
+        let (large_diagnostics, large_queries) = measured_recovery_work(500);
+        assert_eq!(small_diagnostics, 250);
+        assert_eq!(large_diagnostics, 500);
+        assert!(large_queries <= small_queries * 2 + 1);
     }
 }
