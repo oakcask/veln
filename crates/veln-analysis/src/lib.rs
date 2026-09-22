@@ -13,8 +13,7 @@ pub use diagnostics::parse_diagnostic_to_envelope;
 pub use surface::{
     CapturedDependencyProject, derive_export_source_module_path, derive_source_module_path,
     invalid_case_rejected_visible_module_path, is_source_path_invalid_case_diagnostic,
-    load_embedded_standard_surface_module, load_surface_module, validate_manifest_dependencies,
-    validate_manifest_exports,
+    load_surface_module, validate_manifest_dependencies, validate_manifest_exports,
 };
 
 #[cfg(test)]
