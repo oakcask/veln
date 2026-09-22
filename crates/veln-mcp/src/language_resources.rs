@@ -77,6 +77,7 @@ pub(crate) struct LanguageResources {
         Vec<RetainedPackageKey>,
         Arc<EffectiveProjectSnapshot>,
     )>,
+    read_only_workspace_navigation: Option<(Value, Arc<EffectiveProjectSnapshot>)>,
     reference_pagination: ReferencePagination,
 }
 
@@ -229,6 +230,7 @@ impl LanguageResources {
             standard_library_navigation,
             dependency_navigation: None,
             workspace_navigation: None,
+            read_only_workspace_navigation: None,
             reference_pagination: ReferencePagination::new()?,
         })
     }
@@ -411,21 +413,33 @@ impl LanguageResources {
     }
 
     pub(crate) fn read_only_navigation_snapshot(
-        &self,
+        &mut self,
         files: Vec<veln_source::SourceFile>,
         captured_dependencies: &[CapturedDependencyProject],
-    ) -> EffectiveProjectSnapshot {
+        workspace_key: Value,
+    ) -> Arc<EffectiveProjectSnapshot> {
+        if let Some((cached_workspace_key, snapshot)) = &self.read_only_workspace_navigation
+            && cached_workspace_key == &workspace_key
+        {
+            return Arc::clone(snapshot);
+        }
+
         let dependencies = captured_dependencies
             .iter()
             .filter_map(captured_dependency_navigation)
             .collect::<Vec<_>>();
-        if dependencies.is_empty() {
+        let snapshot = if dependencies.is_empty() {
             self.with_standard_library_navigation(files)
         } else {
             self.standard_library_navigation
                 .with_direct_dependency_layer(dependencies)
                 .with_workspace_overlays(files)
-        }
+        };
+        #[cfg(test)]
+        WORKSPACE_NAVIGATION_BUILDS.set(WORKSPACE_NAVIGATION_BUILDS.get() + 1);
+        let snapshot = Arc::new(snapshot);
+        self.read_only_workspace_navigation = Some((workspace_key, Arc::clone(&snapshot)));
+        snapshot
     }
 
     pub(crate) fn package_documentation_uri_for(
