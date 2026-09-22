@@ -60,6 +60,72 @@ fn references_page_workspace_handlers_with_unicode_scalar_coordinates() {
 }
 
 #[test]
+fn references_include_a_workspace_handler_declaration_without_occurrences() {
+    let workspace = TempWorkspace::new("references-workspace-handler-declaration-only");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "handler run() handles Work\n  go() => 1\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+
+    let without_declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":9, "include_declaration":false
+    }));
+    assert_eq!(
+        without_declaration["structuredContent"]["references"],
+        json!([])
+    );
+
+    let with_declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":9, "include_declaration":true
+    }));
+    assert_eq!(
+        with_declaration["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {
+                "start": {"line": 1, "column": 9},
+                "end": {"line": 1, "column": 12}
+            }
+        }])
+    );
+}
+
+fn exercise_handler_reference_failures(server: &mut Server, cursor: &str) {
+    let invalid_path = server.references_tool(&json!({
+        "source":"missing.veln", "line":1, "column":1
+    }));
+    assert_eq!(invalid_path["structuredContent"]["code"], "invalid_path");
+
+    let invalid_position = server.references_tool(&json!({
+        "source":"main.veln", "line":99, "column":1
+    }));
+    assert_eq!(
+        invalid_position["structuredContent"]["code"],
+        "invalid_position"
+    );
+
+    let invalid_cursor = server.references_tool(&json!({"cursor":format!("{cursor}x")}));
+    assert_eq!(
+        invalid_cursor["structuredContent"]["code"],
+        "invalid_cursor"
+    );
+
+    let missing_resource = server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":"missing-handler-resource",
+            "method":"resources/read",
+            "params":{"uri":"veln-pkg:///missing/snapshot/main.veln"}
+        }))
+        .unwrap();
+    assert_eq!(
+        missing_resource["error"]["data"]["code"],
+        "resource_not_found"
+    );
+}
+
+#[test]
 fn workspace_handler_reference_failures_preserve_results_resources_selection_and_cursor() {
     let workspace = TempWorkspace::new("references-workspace-handler-failure-state");
     write_handler_workspace(&workspace);
@@ -77,33 +143,7 @@ fn workspace_handler_reference_failures_preserve_results_resources_selection_and
     let resources = all_resource_state(&mut server);
     let selection = server.selection_result();
 
-    let invalid_path = server.references_tool(&json!({
-        "source":"missing.veln", "line":1, "column":1
-    }));
-    assert_eq!(invalid_path["structuredContent"]["code"], "invalid_path");
-    let invalid_position = server.references_tool(&json!({
-        "source":"main.veln", "line":99, "column":1
-    }));
-    assert_eq!(
-        invalid_position["structuredContent"]["code"],
-        "invalid_position"
-    );
-    let invalid_cursor = server.references_tool(&json!({"cursor":format!("{cursor}x")}));
-    assert_eq!(
-        invalid_cursor["structuredContent"]["code"],
-        "invalid_cursor"
-    );
-    let missing_resource = server
-        .handle_request(json!({
-            "jsonrpc":"2.0", "id":"missing-handler-resource",
-            "method":"resources/read",
-            "params":{"uri":"veln-pkg:///missing/snapshot/main.veln"}
-        }))
-        .unwrap();
-    assert_eq!(
-        missing_resource["error"]["data"]["code"],
-        "resource_not_found"
-    );
+    exercise_handler_reference_failures(&mut server, &cursor);
 
     assert_eq!(all_resource_state(&mut server), resources);
     assert_eq!(server.selection_result(), selection);

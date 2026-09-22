@@ -58,6 +58,38 @@ fn workspace_handler_references_preserve_utf16_crlf_and_declaration_policy() {
 }
 
 #[test]
+fn workspace_handler_references_include_a_declaration_without_occurrences() {
+    let project = TempProject::new("workspace-handler-declaration-only-references");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        "handler run() handles Work\n  go() => 1\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    let without_declaration = server.handle_message(&references_request_with_declaration(
+        &main_uri, 0, 8, false,
+    ));
+    assert_eq!(without_declaration, [response("2", "[]")]);
+
+    let with_declaration = server.handle_message(&references_request_with_declaration(
+        &main_uri, 0, 8, true,
+    ));
+    assert_eq!(
+        with_declaration,
+        [response(
+            "2",
+            &format!(
+                "[{{\"uri\":\"{main_uri}\",\"range\":{{\"start\":{{\"line\":0,\"character\":8}},\"end\":{{\"line\":0,\"character\":11}}}}}}]"
+            ),
+        )]
+    );
+}
+
+#[test]
 fn workspace_handler_references_reject_ambiguous_recovered_and_non_bare_paths() {
     let project = TempProject::new("workspace-handler-reference-boundaries");
     project.write("veln.toml", "");
