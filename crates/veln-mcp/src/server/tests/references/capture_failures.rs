@@ -175,7 +175,11 @@ fn install_changing_workspace_effect_hook(
         attempts_for_hook.set(attempt + 1);
         let main = root.join("main.veln");
         fs::remove_file(&main).unwrap();
-        let operation = if attempt % 2 == 0 { "pick" } else { "choose" };
+        let operation = if attempt.is_multiple_of(2) {
+            "pick"
+        } else {
+            "choose"
+        };
         fs::write(
             &main,
             format!(
