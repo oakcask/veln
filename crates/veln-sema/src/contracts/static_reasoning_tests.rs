@@ -104,6 +104,17 @@ fn high_arity_exhaustive_case_splits_are_statically_true() {
 }
 
 #[test]
+fn high_arity_case_split_accepts_complementary_comparison_clauses() {
+    let predicate = exhaustive_case_split_predicate(
+        "value",
+        &["left < value.right", "a", "b", "c", "d", "e", "f"],
+    )
+    .replace("not value.left < value.right", "value.left >= value.right");
+
+    assert!(predicate_is_statically_true(&predicate));
+}
+
+#[test]
 fn boolean_formula_comparison_proves_commutative_conjunction() {
     assert_eq!(
         static_boolean_formula_comparison(
