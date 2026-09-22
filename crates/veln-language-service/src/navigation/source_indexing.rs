@@ -109,90 +109,134 @@ fn valid_effect_reference_ranges(
     for item in &syntax.items {
         match item {
             SyntaxItem::Function(function) => {
-                collect_parameter_type_regions(&function.params, &mut regions);
-                if let (Some(return_type), Some(span)) =
-                    (&function.return_type, &function.return_type_span)
-                {
-                    push_valid_type_region(return_type, span, &mut regions);
-                }
-                if !function.effects_recovered {
-                    extend_optional_spans(&function.effect_spans, &mut regions);
-                }
-                for line in &function.body {
-                    match line {
-                        BodyLine::Let {
-                            annotation, expr, span, ..
-                        } => {
-                            if let Some(annotation) = annotation
-                                && valid_type_syntax(annotation)
-                            {
-                                regions.push((span.start.offset, expr.span.start.offset));
-                            }
-                            collect_perform_effect_regions(expr, &mut regions);
-                        }
-                        BodyLine::Expr { expr, .. } => {
-                            collect_perform_effect_regions(expr, &mut regions);
-                        }
-                    }
-                }
+                collect_function_effect_reference_regions(function, &mut regions);
             }
             SyntaxItem::Handler(handler) => {
-                collect_parameter_type_regions(&handler.params, &mut regions);
-                if !handler.effect_recovered {
-                    regions.push((
-                        handler.effect_span.start.offset,
-                        handler.effect_span.end.offset,
-                    ));
-                }
-                if !handler.effects_recovered {
-                    extend_optional_spans(&handler.effect_spans, &mut regions);
-                }
-                for clause in &handler.operation_clauses {
-                    collect_parameter_type_regions(&clause.params, &mut regions);
-                    collect_perform_effect_regions(&clause.body, &mut regions);
-                }
+                collect_handler_effect_reference_regions(handler, &mut regions);
             }
             SyntaxItem::Effect(effect) => {
-                for operation in &effect.operations {
-                    collect_parameter_type_regions(&operation.params, &mut regions);
-                    if let Some(return_type) = &operation.return_type
-                        && valid_type_syntax(return_type)
-                        && let Some(start) = offset_after_token(
-                            tokens,
-                            &operation.span,
-                            TokenKind::Arrow,
-                        )
-                    {
-                        regions.push((start, operation.span.end.offset));
-                    }
-                }
+                collect_effect_declaration_reference_regions(tokens, effect, &mut regions);
             }
             SyntaxItem::Type(ty) => {
-                for field in ty.variants.iter().flat_map(|variant| &variant.fields) {
-                    if valid_type_syntax(&field.ty) {
-                        let start = offset_after_token(tokens, &field.span, TokenKind::Colon)
-                            .unwrap_or(field.span.start.offset);
-                        regions.push((start, field.span.end.offset));
-                    }
-                }
+                collect_type_declaration_reference_regions(tokens, ty, &mut regions);
             }
             SyntaxItem::Schema(schema) => {
-                for field in &schema.fields {
-                    if valid_type_syntax(&field.ty) {
-                        let start = offset_after_token(tokens, &field.span, TokenKind::Colon)
-                            .unwrap_or(field.span.start.offset);
-                        let end = field
-                            .where_clause
-                            .as_ref()
-                            .map_or(field.span.end.offset, |clause| clause.span.start.offset);
-                        regions.push((start, end));
-                    }
-                }
+                collect_schema_declaration_reference_regions(tokens, schema, &mut regions);
             }
             SyntaxItem::PublicAlias(_) => {}
         }
     }
 
+    let merged_regions = merge_regions(regions);
+    collect_effect_reference_token_ranges(tokens, effect_list_membership, &merged_regions)
+}
+
+fn collect_function_effect_reference_regions(
+    function: &veln_syntax::FunctionDecl,
+    regions: &mut Vec<(usize, usize)>,
+) {
+    collect_parameter_type_regions(&function.params, regions);
+    if let (Some(return_type), Some(span)) =
+        (&function.return_type, &function.return_type_span)
+    {
+        push_valid_type_region(return_type, span, regions);
+    }
+    if !function.effects_recovered {
+        extend_optional_spans(&function.effect_spans, regions);
+    }
+    for line in &function.body {
+        collect_body_line_effect_reference_regions(line, regions);
+    }
+}
+
+fn collect_body_line_effect_reference_regions(
+    line: &BodyLine,
+    regions: &mut Vec<(usize, usize)>,
+) {
+    match line {
+        BodyLine::Let {
+            annotation, expr, span, ..
+        } => {
+            if let Some(annotation) = annotation
+                && valid_type_syntax(annotation)
+            {
+                regions.push((span.start.offset, expr.span.start.offset));
+            }
+            collect_perform_effect_regions(expr, regions);
+        }
+        BodyLine::Expr { expr, .. } => collect_perform_effect_regions(expr, regions),
+    }
+}
+
+fn collect_handler_effect_reference_regions(
+    handler: &veln_syntax::HandlerDecl,
+    regions: &mut Vec<(usize, usize)>,
+) {
+    collect_parameter_type_regions(&handler.params, regions);
+    if !handler.effect_recovered {
+        regions.push((
+            handler.effect_span.start.offset,
+            handler.effect_span.end.offset,
+        ));
+    }
+    if !handler.effects_recovered {
+        extend_optional_spans(&handler.effect_spans, regions);
+    }
+    for clause in &handler.operation_clauses {
+        collect_parameter_type_regions(&clause.params, regions);
+        collect_perform_effect_regions(&clause.body, regions);
+    }
+}
+
+fn collect_effect_declaration_reference_regions(
+    tokens: &[Token],
+    effect: &veln_syntax::EffectDecl,
+    regions: &mut Vec<(usize, usize)>,
+) {
+    for operation in &effect.operations {
+        collect_parameter_type_regions(&operation.params, regions);
+        if let Some(return_type) = &operation.return_type
+            && valid_type_syntax(return_type)
+            && let Some(start) = offset_after_token(tokens, &operation.span, TokenKind::Arrow)
+        {
+            regions.push((start, operation.span.end.offset));
+        }
+    }
+}
+
+fn collect_type_declaration_reference_regions(
+    tokens: &[Token],
+    ty: &veln_syntax::TypeDecl,
+    regions: &mut Vec<(usize, usize)>,
+) {
+    for field in ty.variants.iter().flat_map(|variant| &variant.fields) {
+        if valid_type_syntax(&field.ty) {
+            let start = offset_after_token(tokens, &field.span, TokenKind::Colon)
+                .unwrap_or(field.span.start.offset);
+            regions.push((start, field.span.end.offset));
+        }
+    }
+}
+
+fn collect_schema_declaration_reference_regions(
+    tokens: &[Token],
+    schema: &veln_syntax::SchemaDecl,
+    regions: &mut Vec<(usize, usize)>,
+) {
+    for field in &schema.fields {
+        if valid_type_syntax(&field.ty) {
+            let start = offset_after_token(tokens, &field.span, TokenKind::Colon)
+                .unwrap_or(field.span.start.offset);
+            let end = field
+                .where_clause
+                .as_ref()
+                .map_or(field.span.end.offset, |clause| clause.span.start.offset);
+            regions.push((start, end));
+        }
+    }
+}
+
+fn merge_regions(mut regions: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     regions.sort_unstable();
     let mut merged_regions = Vec::<(usize, usize)>::new();
     for (start, end) in regions {
@@ -204,7 +248,14 @@ fn valid_effect_reference_ranges(
             merged_regions.push((start, end));
         }
     }
+    merged_regions
+}
 
+fn collect_effect_reference_token_ranges(
+    tokens: &[Token],
+    effect_list_membership: &[bool],
+    merged_regions: &[(usize, usize)],
+) -> BTreeSet<(usize, usize)> {
     let mut ranges = BTreeSet::new();
     let mut region_index = 0usize;
     for (index, token) in tokens.iter().enumerate() {

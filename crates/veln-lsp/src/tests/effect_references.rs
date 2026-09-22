@@ -240,11 +240,9 @@ fn workspace_effect_references_reject_unresolved_and_mismatched_occurrences() {
 }
 
 #[test]
-fn workspace_effect_references_reject_generic_ambiguous_and_recovered_occurrences() {
-    let generic = TempProject::new("workspace-effect-reference-generic");
-    generic.write("veln.toml", "");
-    generic.write(
-        "main.veln",
+fn workspace_effect_references_reject_generic_occurrences() {
+    assert_empty_effect_references(
+        "workspace-effect-reference-generic",
         concat!(
             "effect E\n",
             "  run() -> Int\n",
@@ -253,21 +251,12 @@ fn workspace_effect_references_reject_generic_ambiguous_and_recovered_occurrence
             "  1\n",
             "end\n",
         ),
+        &[(4, 42, true)],
     );
-    let generic_root = path_to_uri(&generic.root);
-    let generic_uri = path_to_uri(&generic.root.join("main.veln"));
-    let mut generic_server = Server::default();
-    generic_server.handle_message(&initialize_request(&generic_root));
-    assert_eq!(
-        generic_server.handle_message(&references_request_with_declaration(
-            &generic_uri,
-            4,
-            42,
-            true,
-        )),
-        [response("2", "[]")]
-    );
+}
 
+#[test]
+fn workspace_effect_references_reject_ambiguous_declarations() {
     let ambiguous = TempProject::new("workspace-effect-reference-ambiguous");
     ambiguous.write("veln.toml", "");
     ambiguous.write(
@@ -300,11 +289,12 @@ fn workspace_effect_references_reject_generic_ambiguous_and_recovered_occurrence
             [response("2", "[]")]
         );
     }
+}
 
-    let recovered = TempProject::new("workspace-effect-reference-recovery");
-    recovered.write("veln.toml", "");
-    recovered.write(
-        "main.veln",
+#[test]
+fn workspace_effect_references_reject_recovered_occurrences() {
+    assert_empty_effect_references(
+        "workspace-effect-reference-recovery",
         concat!(
             "effect Choose\n",
             "  pick() -> Int\n",
@@ -313,28 +303,14 @@ fn workspace_effect_references_reject_generic_ambiguous_and_recovered_occurrence
             "  1\n",
             "end\n",
         ),
-    );
-    let recovered_root = path_to_uri(&recovered.root);
-    let recovered_uri = path_to_uri(&recovered.root.join("main.veln"));
-    let mut recovered_server = Server::default();
-    recovered_server.handle_message(&initialize_request(&recovered_root));
-    assert_eq!(
-        recovered_server.handle_message(&references_request_with_declaration(
-            &recovered_uri,
-            4,
-            28,
-            true,
-        )),
-        [response("2", "[]")]
+        &[(4, 28, true)],
     );
 }
 
 #[test]
 fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_declarations() {
-    let recovered = TempProject::new("workspace-effect-reference-balanced-recovery");
-    recovered.write("veln.toml", "");
-    recovered.write(
-        "main.veln",
+    assert_empty_effect_references(
+        "workspace-effect-reference-balanced-recovery",
         concat!(
             "effect Choose\n",
             "  pick() -> Int\n",
@@ -348,146 +324,93 @@ fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_dec
             "  value perform Choose::pick()\n",
             "end\n",
         ),
+        &[(9, 11, true), (10, 10, true), (11, 16, true)],
     );
-    let recovered_root = path_to_uri(&recovered.root);
-    let recovered_uri = path_to_uri(&recovered.root.join("main.veln"));
-    let mut recovered_server = Server::default();
-    recovered_server.handle_message(&initialize_request(&recovered_root));
-    for (line, character) in [(9, 11), (10, 10), (11, 16)] {
+    assert_empty_effect_references(
+        "workspace-effect-reference-recovered-row-token",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn broken() -> Int effects [Choose @]\n",
+            "  1\n",
+            "end\n",
+        ),
+        &[(4, 28, true), (0, 7, false)],
+    );
+    assert_empty_effect_references(
+        "workspace-effect-reference-recovered-handler-token",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "handler broken() handles Choose @\n",
+            "  pick() => 1\n",
+            "end\n",
+        ),
+        &[(4, 25, true), (0, 7, false)],
+    );
+    assert_empty_effect_references(
+        "workspace-effect-reference-recovered-declaration",
+        "effect Choose\nend\n\nfn use() -> Int effects [Choose]\n  1\nend\n",
+        &[(0, 7, true)],
+    );
+    assert_empty_effect_references(
+        "workspace-effect-reference-recovered-perform",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn broken() -> Int\n",
+            "  perform Choose::pick(\n",
+            "end\n",
+        ),
+        &[(0, 7, false), (5, 10, true)],
+    );
+    assert_empty_effect_references(
+        "workspace-effect-reference-clean-uses-recovered-declaration",
+        concat!(
+            "effect Choose\n",
+            "end\n\n",
+            "fn use() -> Int effects [Choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler choose_handler() handles Choose\n",
+            "  pick() => perform Choose::pick()\n",
+            "end\n",
+        ),
+        &[
+            (3, 24, true),
+            (4, 10, true),
+            (7, 32, true),
+            (8, 20, true),
+        ],
+    );
+}
+
+fn assert_empty_effect_references(
+    name: &str,
+    text: &str,
+    positions: &[(usize, usize, bool)],
+) {
+    let project = TempProject::new(name);
+    project.write("veln.toml", "");
+    project.write("main.veln", text);
+    let root = path_to_uri(&project.root);
+    let uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root));
+
+    for &(line, character, include_declaration) in positions {
         assert_eq!(
-            recovered_server.handle_message(&references_request_with_declaration(
-                &recovered_uri,
+            server.handle_message(&references_request_with_declaration(
+                &uri,
                 line,
                 character,
-                true,
+                include_declaration,
             )),
             [response("2", "[]")]
         );
-    }
-
-    for (name, declaration, line, character) in [
-        (
-            "workspace-effect-reference-recovered-row-token",
-            concat!(
-                "effect Choose\n",
-                "  pick() -> Int\n",
-                "end\n\n",
-                "fn broken() -> Int effects [Choose @]\n",
-                "  1\n",
-                "end\n",
-            ),
-            4,
-            28,
-        ),
-        (
-            "workspace-effect-reference-recovered-handler-token",
-            concat!(
-                "effect Choose\n",
-                "  pick() -> Int\n",
-                "end\n\n",
-                "handler broken() handles Choose @\n",
-                "  pick() => 1\n",
-                "end\n",
-            ),
-            4,
-            25,
-        ),
-    ] {
-        let project = TempProject::new(name);
-        project.write("veln.toml", "");
-        project.write("main.veln", declaration);
-        let root = path_to_uri(&project.root);
-        let uri = path_to_uri(&project.root.join("main.veln"));
-        let mut server = Server::default();
-        server.handle_message(&initialize_request(&root));
-
-        for (query_line, query_character, include_declaration) in
-            [(line, character, true), (0, 7, false)]
-        {
-            assert_eq!(
-                server.handle_message(&references_request_with_declaration(
-                    &uri,
-                    query_line,
-                    query_character,
-                    include_declaration,
-                )),
-                [response("2", "[]")]
-            );
-        }
-    }
-
-    let declaration = TempProject::new("workspace-effect-reference-recovered-declaration");
-    declaration.write("veln.toml", "");
-    declaration.write(
-        "main.veln",
-        "effect Choose\nend\n\nfn use() -> Int effects [Choose]\n  1\nend\n",
-    );
-    let declaration_root = path_to_uri(&declaration.root);
-    let declaration_uri = path_to_uri(&declaration.root.join("main.veln"));
-    let mut declaration_server = Server::default();
-    declaration_server.handle_message(&initialize_request(&declaration_root));
-    assert_eq!(
-        declaration_server.handle_message(&references_request_with_declaration(
-            &declaration_uri,
-            0,
-            7,
-            true,
-        )),
-        [response("2", "[]")]
-    );
-
-    for (name, text, positions) in [
-        (
-            "workspace-effect-reference-recovered-perform",
-            concat!(
-                "effect Choose\n",
-                "  pick() -> Int\n",
-                "end\n\n",
-                "fn broken() -> Int\n",
-                "  perform Choose::pick(\n",
-                "end\n",
-            ),
-            vec![(0, 7, false), (5, 10, true)],
-        ),
-        (
-            "workspace-effect-reference-clean-uses-recovered-declaration",
-            concat!(
-                "effect Choose\n",
-                "end\n\n",
-                "fn use() -> Int effects [Choose]\n",
-                "  perform Choose::pick()\n",
-                "end\n\n",
-                "handler choose_handler() handles Choose\n",
-                "  pick() => perform Choose::pick()\n",
-                "end\n",
-            ),
-            vec![
-                (3, 24, true),
-                (4, 10, true),
-                (7, 32, true),
-                (8, 20, true),
-            ],
-        ),
-    ] {
-        let project = TempProject::new(name);
-        project.write("veln.toml", "");
-        project.write("main.veln", text);
-        let root = path_to_uri(&project.root);
-        let uri = path_to_uri(&project.root.join("main.veln"));
-        let mut server = Server::default();
-        server.handle_message(&initialize_request(&root));
-
-        for (line, character, include_declaration) in positions {
-            assert_eq!(
-                server.handle_message(&references_request_with_declaration(
-                    &uri,
-                    line,
-                    character,
-                    include_declaration,
-                )),
-                [response("2", "[]")]
-            );
-        }
     }
 }
 
