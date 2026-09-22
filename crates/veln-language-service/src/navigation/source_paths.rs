@@ -65,6 +65,13 @@ fn next_path_segment_index(tokens: &[Token], index: usize) -> Option<usize> {
     .then_some(segment_index)
 }
 
+fn previous_path_segment_index(tokens: &[Token], index: usize) -> Option<usize> {
+    let separator_index = previous_non_layout_index(tokens, index)?;
+    (tokens[separator_index].kind == TokenKind::DoubleColon)
+        .then(|| previous_non_layout_index(tokens, separator_index))
+        .flatten()
+}
+
 fn next_non_layout_token(tokens: &[Token], index: usize) -> Option<&Token> {
     next_non_layout_index(tokens, index).map(|index| &tokens[index])
 }

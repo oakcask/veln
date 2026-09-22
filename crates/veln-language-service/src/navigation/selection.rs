@@ -230,6 +230,20 @@ impl SymbolIndex {
             return self.effect_for_reference(file, name).map(Symbol::Effect);
         }
         if is_perform_operation_token(tokens, token_index) {
+            let token = &tokens[token_index];
+            if !file
+                .effect_operation_ranges
+                .contains(&(token.range.start, token.range.end))
+            {
+                return None;
+            }
+            let qualifier_index = previous_path_segment_index(tokens, token_index)?;
+            let qualifier_token = &tokens[qualifier_index];
+            if file
+                .generic_effect_binder_shadows(&qualifier_token.text, qualifier_token.range.start)
+            {
+                return None;
+            }
             let qualifier = qualifier_for_token(tokens, token_index)?;
             return self
                 .operation_for_qualified_perform(file, &qualifier, name)

@@ -428,7 +428,7 @@ pub(crate) fn references_json(
 ) -> String {
     if matches!(
         result.selected_symbol.kind,
-        SymbolKind::Effect | SymbolKind::Handler
+        SymbolKind::Effect | SymbolKind::EffectOperation | SymbolKind::Handler
     ) && !result.reference_eligible
     {
         return "[]".to_string();

@@ -211,7 +211,7 @@ and every `perform
 Effect::operation(...)` qualifier in saved workspace sources that declare the
 same module. The declaration and each supported occurrence select the same
 effect identity. The operation leaf remains a separate effect-operation
-identity and has no effect reference set.
+identity.
 Structurally complete qualifiers in function contracts, hole `satisfy`
 predicates, schema field `where` predicates, and schema validation predicates
 use the same identity and reference set. Recovery of another predicate token
@@ -229,6 +229,22 @@ unresolved names, recovered effect rows, recovered handler targets, incomplete
 `perform` qualifiers, and equal spelling in another module or symbol class.
 Comments and strings do not contribute references.
 Effects, handlers, and effect operations remain unsupported for rename.
+
+For a selected parse-clean workspace effect operation, references include each
+complete `perform Effect::operation(arguments)` operation-name leaf in saved
+workspace sources that declare the same module. The declaration and every
+included leaf select the same module, owning-effect, and operation identity.
+Each returned range covers only the operation name. `includeDeclaration`
+controls whether LSP adds the one workspace declaration before the sorted
+shared references.
+
+Effect-operation lookup requires one unrecovered owning effect declaration and
+one unrecovered operation declaration for the module, effect, and operation
+names. It excludes duplicate declarations and imported, package-backed,
+invalid-cased, unresolved, ambiguous, incomplete, recovered, or additionally
+qualified operation paths. Handler operation-clause headings and equal spelling in
+another effect, module, symbol class, comment, or string do not enter the
+result. The adjacent effect qualifier keeps its separate effect identity.
 
 For a selected parse-clean workspace handler declaration, references include
 each complete bare handler name in `handle Body with handler(arguments)` from
@@ -570,7 +586,8 @@ and `crates/veln-language-service`. Their unit and protocol checks verify
 the token legend, LSP encoding, workspace diagnostics, navigation, formatting,
 rename, and virtual-document boundaries.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
-demonstrates declaration policy and UTF-16 conversion for effect references.
+demonstrates declaration policy and UTF-16 conversion for effect and
+effect-operation references.
 The checked `examples/specification/lsp/references-workspace-handler/`
 transcript demonstrates the same declaration policy and UTF-16 conversion for
 workspace handler references.

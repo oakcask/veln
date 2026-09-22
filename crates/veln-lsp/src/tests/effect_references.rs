@@ -55,8 +55,11 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
         [response(
             "2",
             &format!(
-                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}}]",
-                main_uri
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":25}},\"end\":{{\"line\":5,\"character\":29}}}}}}]"
+                ),
+                main_uri, main_uri
             ),
         )]
     );
@@ -189,7 +192,7 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
             "end\n\n",
             "use dep from \"example/dep\"\n\n",
             "fn imported() -> Int effects [dep::Task]\n",
-            "  1\n",
+            "  perform dep::Task::run()\n",
             "end\n",
         ),
     );
@@ -213,6 +216,7 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
 
     for request in [
         references_request_with_declaration(&main_uri, 6, 35, true),
+        references_request_with_declaration(&main_uri, 7, 21, true),
         references_request_with_declaration(&invalid_uri, 0, 7, true),
         references_request_with_declaration(&invalid_uri, 4, 28, true),
     ] {

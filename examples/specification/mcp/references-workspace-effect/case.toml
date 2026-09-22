@@ -125,3 +125,48 @@ equals = {"start":{"line":7,"column":17},"end":{"line":7,"column":23}}
 id = 6
 path = "/result/structuredContent/next_cursor"
 missing = true
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":6,"column":27},"end":{"line":6,"column":31}}
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":7,"column":25},"end":{"line":7,"column":29}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":3},"end":{"line":2,"column":7}}
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/next_cursor"
+contains = "."
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":6,"column":27},"end":{"line":6,"column":31}}
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/next_cursor"
+contains = "."
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":7,"column":25},"end":{"line":7,"column":29}}
+
+[[mcp_assert]]
+id = 10
+path = "/result/structuredContent/next_cursor"
+missing = true

@@ -23,6 +23,9 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let effect_list_membership = effect_list_membership(&tokens);
     let effect_reference_ranges =
         valid_effect_reference_ranges(&tokens, &effect_list_membership, &parsed.tree);
+    let effect_operation_ranges =
+        valid_effect_operation_ranges(&tokens, &effect_reference_ranges);
+    let generic_effect_binders = generic_effect_binders(&parsed.tree);
     let handler_diagnostics = HandlerDiagnosticIndex::new(&parsed);
     let recovery_symbols = workspace_recovery_symbols(
         navigation_isolated,
@@ -59,6 +62,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges,
+        effect_operation_ranges,
+        generic_effect_binders,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
@@ -66,6 +71,41 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     };
     let declarations = workspace_file_declarations(&file, &parsed.tree);
     (file, declarations, parsed)
+}
+
+fn valid_effect_operation_ranges(
+    tokens: &[Token],
+    effect_reference_ranges: &BTreeSet<(usize, usize)>,
+) -> BTreeSet<(usize, usize)> {
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| {
+            effect_reference_ranges.contains(&(token.range.start, token.range.end))
+        })
+        .filter_map(|(index, _)| next_path_segment_index(tokens, index))
+        .map(|index| {
+            let range = tokens[index].range;
+            (range.start, range.end)
+        })
+        .collect()
+}
+
+fn generic_effect_binders(syntax: &SyntaxTree) -> Vec<GenericEffectBinder> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => function.effect_binder.as_ref().map(|binder| {
+                GenericEffectBinder {
+                    name: binder.name.clone(),
+                    start: function.span.start.offset,
+                    end: function.span.end.offset,
+                }
+            }),
+            _ => None,
+        })
+        .collect()
 }
 
 fn workspace_recovery_symbols(
@@ -984,6 +1024,8 @@ fn indexed_dependency_source(
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),
+        effect_operation_ranges: BTreeSet::new(),
+        generic_effect_binders: Vec::new(),
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
