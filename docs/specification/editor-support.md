@@ -325,6 +325,14 @@ Function conflict prediction checks bare call targets and bare function-value
 occurrences in modules where the renamed function would be visible after the
 complete edit.
 
+For a workspace public function alias, prepare-rename and rename select the
+alias identity at its declaration and at calls that resolve through the alias.
+Rename edits the alias declaration and those alias calls. It does not edit the
+target function declaration or direct calls to that target. Workspace type
+aliases remain unsupported by LSP prepare-rename and rename, even though the
+MCP rename tool supports their separate alias identity as specified in
+[mcp.md](mcp.md#rename).
+
 A rename request without a selected supported workspace symbol returns an empty
 workspace-edit `changes` object, and prepare-rename for the same position
 returns `null`.

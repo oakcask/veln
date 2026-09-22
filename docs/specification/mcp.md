@@ -422,6 +422,17 @@ start with an ASCII lowercase letter. Recovery records retain their symbol
 class. A class mismatch returns `rename.invalid_case` with exactly
 `symbol_class`, `requested_name`, and `required_initial` in `details`.
 
+A workspace type alias keeps a rename identity separate from its target type
+and from same-spelled type declarations. Its edits include type positions that
+resolve to that alias. They also include an alias used as the qualifier of a
+constructor that resolves through the alias, including a module-qualified
+alias. An alias qualifier followed by a missing or non-constructor member does
+not select the alias for rename. Ambiguous imports and qualified paths without
+a matching import also produce no rename selection. A workspace function alias
+similarly keeps an identity separate from its target function: its declaration
+and calls that resolve through the alias are edits, while direct target calls
+are not.
+
 A successful result is `{"edits": [...]}`. Each edit contains only a canonical
 workspace `file:` URI, a one-based Unicode-scalar half-open range, and
 `new_text`. The result contains the workspace declaration and all linked
