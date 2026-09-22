@@ -516,10 +516,14 @@ result.
 
 A workspace effect-operation result contains each complete
 `perform Effect::operation(arguments)` operation-name leaf from saved sources
-that declare the selected operation's module. The declaration and each leaf
-select the same module, owning-effect, and operation identity. Every location
-covers only the operation-name token. `include_declaration` adds the one
-workspace declaration before sorting and pagination.
+that declare the selected operation's module. It also contains each
+structurally complete matching operation-clause heading in a parse-clean
+same-module handler whose bare `handles` target resolves to the owning effect.
+The declaration, each leaf, and each included heading select the same module,
+owning-effect, and operation identity. Every location covers only the
+operation-name token. A `definition` request at any of those forms returns the
+owning effect-operation declaration. `include_declaration` adds that
+declaration before sorting and pagination.
 
 Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation
@@ -527,9 +531,13 @@ names. Duplicate declarations and imported, package-backed, unresolved,
 generic-effect-qualified, invalid-cased, ambiguous, incomplete, recovered, or
 additionally qualified operation paths return a successful empty result. An
 operation leaf whose argument list requires syntax recovery is excluded even
-when its adjacent effect qualifier remains eligible. Handler operation-clause
-headings and equal spelling in another effect, module, symbol class, comment,
-or string are excluded. The adjacent effect qualifier remains part of its
+when its adjacent effect qualifier remains eligible. A clause heading is
+excluded when its handler declaration is duplicate or recovered, its heading
+is duplicate or recovered, or its `handles` target is qualified, imported,
+package-backed, unresolved, or ambiguous. Unknown operation names and equal
+spelling in another effect, module, symbol class, comment, or string are
+excluded. Clause parameters and bodies keep their separate binding and
+navigation behavior. The adjacent effect qualifier remains part of its
 separate effect reference set. Failures preserve captured navigation state,
 retained resources, and existing cursors under the general references failure
 contract.
@@ -625,6 +633,10 @@ boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect and effect-operation references.
+The checked
+`examples/specification/mcp/references-workspace-handler-operation-clause/`
+transcript demonstrates heading selection and declaration, perform, and clause
+pagination boundaries for the shared operation identity.
 The checked `examples/specification/mcp/references-workspace-handler/`
 transcript demonstrates the same location, declaration, ordering, and
 pagination contract for workspace handler references.

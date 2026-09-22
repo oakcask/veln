@@ -211,6 +211,51 @@ fn recovered_handler_declarations(
         .collect()
 }
 
+fn valid_handler_operation_clause_references(
+    parsed: &ParseOutput,
+    recovered_handlers: &[SourceSpan],
+) -> Vec<HandlerOperationClauseReference> {
+    let mut references = Vec::new();
+    let recovered_ranges = recovered_handlers
+        .iter()
+        .map(|span| (span.start.offset, span.end.offset))
+        .collect::<BTreeSet<_>>();
+    for item in &parsed.tree.items {
+        let SyntaxItem::Handler(handler) = item else {
+            continue;
+        };
+        let (Some(handler_name), [effect_name]) =
+            (handler.name.as_ref(), handler.effect.as_slice())
+        else {
+            continue;
+        };
+        if handler.effect_recovered
+            || !handler.end_present
+            || recovered_ranges.contains(&(handler.span.start.offset, handler.span.end.offset))
+        {
+            continue;
+        }
+        let mut operation_counts = BTreeMap::<&str, usize>::new();
+        for clause in &handler.operation_clauses {
+            if let Some(operation) = clause.operation.as_deref() {
+                *operation_counts.entry(operation).or_default() += 1;
+            }
+        }
+        references.extend(handler.operation_clauses.iter().filter_map(|clause| {
+            let operation_name = clause.operation.as_ref()?;
+            (operation_counts.get(operation_name.as_str()) == Some(&1)).then(|| {
+                HandlerOperationClauseReference {
+                    handler_name: handler_name.clone(),
+                    effect_name: effect_name.clone(),
+                    operation_name: operation_name.clone(),
+                    span: clause.operation_span.clone(),
+                }
+            })
+        }));
+    }
+    references
+}
+
 fn valid_handler_reference_ranges(
     parsed: &ParseOutput,
     tokens: &[Token],
@@ -1002,6 +1047,7 @@ fn indexed_dependency_source(
             &HandlerDiagnosticIndex::new(&parsed),
         ),
         handler_reference_ranges: BTreeSet::new(),
+        handler_operation_clause_references: Vec::new(),
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),

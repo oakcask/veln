@@ -1,0 +1,15 @@
+effect Choose
+  pick() -> Int
+end
+
+fn keep(marker: String, value: Int) -> Int
+  value
+end
+
+fn choose() -> Int
+  keep("😀", perform Choose::pick())
+end
+
+handler chooser() handles Choose
+  pick() => 1
+end

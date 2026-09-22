@@ -809,6 +809,7 @@ struct IndexedFile {
     recovered_effect_declarations: Vec<SourceSpan>,
     recovered_handler_declarations: Vec<SourceSpan>,
     handler_reference_ranges: BTreeSet<(usize, usize)>,
+    handler_operation_clause_references: Vec<HandlerOperationClauseReference>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effect_reference_ranges: BTreeSet<(usize, usize)>,
@@ -818,6 +819,14 @@ struct IndexedFile {
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
+}
+
+#[derive(Clone, Debug)]
+struct HandlerOperationClauseReference {
+    handler_name: String,
+    effect_name: String,
+    operation_name: String,
+    span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]

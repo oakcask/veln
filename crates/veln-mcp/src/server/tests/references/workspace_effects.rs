@@ -70,20 +70,26 @@ fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coor
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n",
+        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n\r\nhandler chooser() handles Choose\r\n  pick() => 1\r\nend\r\n",
     );
     let mut server = initialized_server(&workspace);
     let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
 
     let without_declaration = server.references_tool(&json!({
-        "source":"main.veln", "line":6, "column":26, "include_declaration":false
+        "source":"main.veln", "line":10, "column":3, "include_declaration":false
     }));
     assert_eq!(
         without_declaration["structuredContent"]["references"],
-        json!([{
-            "uri": uri,
-            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
-        }])
+        json!([
+            {
+                "uri": uri,
+                "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+            },
+            {
+                "uri": uri,
+                "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
+            }
+        ])
     );
 
     let first = server.references_tool(&json!({
@@ -98,12 +104,23 @@ fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coor
         }])
     );
     let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let perform_page = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        perform_page["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+        }])
+    );
+    let cursor = perform_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap();
     let final_page = server.references_tool(&json!({"cursor":cursor}));
     assert_eq!(
         final_page["structuredContent"]["references"],
         json!([{
             "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
-            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+            "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
         }])
     );
     assert!(final_page["structuredContent"].get("next_cursor").is_none());
@@ -164,16 +181,17 @@ fn references_include_workspace_effect_predicate_perform_qualifiers() {
     );
 }
 
-struct WorkspaceEffectReferenceState {
+struct OperationClauseReferenceState {
     _workspace: TempWorkspace,
     server: Server,
     before: Value,
+    continuation: Value,
     resources: Value,
     selection: Value,
     cursor: String,
 }
 
-fn workspace_effect_reference_state() -> WorkspaceEffectReferenceState {
+fn operation_clause_reference_state() -> OperationClauseReferenceState {
     let workspace = TempWorkspace::new("references-workspace-effect-failure-state");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -184,22 +202,30 @@ fn workspace_effect_reference_state() -> WorkspaceEffectReferenceState {
             "end\n\n",
             "fn choose() -> Int effects [Choose]\n",
             "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler chooser() handles Choose\n",
+            "  pick() => 1\n",
             "end\n",
         ),
     );
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":3
+        "source":"main.veln", "line":10, "column":3
     }));
     let seeded = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":3,
-        "include_declaration":true, "page_size":1
+        "source":"main.veln", "line":10, "column":3,
+        "include_declaration":false, "page_size":1
     }));
     let cursor = seeded["structuredContent"]["next_cursor"]
         .as_str()
         .unwrap()
         .to_owned();
-    WorkspaceEffectReferenceState {
+    let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+    OperationClauseReferenceState {
+        continuation: json!([{
+            "uri": uri,
+            "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
+        }]),
         resources: all_resource_state(&mut server),
         selection: server.selection_result(),
         _workspace: workspace,
@@ -209,7 +235,7 @@ fn workspace_effect_reference_state() -> WorkspaceEffectReferenceState {
     }
 }
 
-fn assert_workspace_effect_reference_state_is_live(state: &mut WorkspaceEffectReferenceState) {
+fn assert_operation_clause_reference_state_is_live(state: &mut OperationClauseReferenceState) {
     assert_eq!(all_resource_state(&mut state.server), state.resources);
     assert_eq!(state.server.selection_result(), state.selection);
     let continuation = state
@@ -222,7 +248,7 @@ fn assert_workspace_effect_reference_state_is_live(state: &mut WorkspaceEffectRe
     );
     assert_eq!(
         continuation["structuredContent"]["references"],
-        state.before["structuredContent"]["references"]
+        state.continuation
     );
     assert!(
         continuation["structuredContent"]
@@ -230,14 +256,14 @@ fn assert_workspace_effect_reference_state_is_live(state: &mut WorkspaceEffectRe
             .is_none()
     );
     let after = state.server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":3
+        "source":"main.veln", "line":10, "column":3
     }));
     assert_eq!(after, state.before);
 }
 
 #[test]
-fn invalid_workspace_effect_reference_position_preserves_live_state() {
-    let mut state = workspace_effect_reference_state();
+fn invalid_workspace_effect_operation_clause_reference_position_preserves_live_state() {
+    let mut state = operation_clause_reference_state();
     let invalid_position = state.server.references_tool(&json!({
         "source":"main.veln", "line":99, "column":1
     }));
@@ -245,22 +271,22 @@ fn invalid_workspace_effect_reference_position_preserves_live_state() {
         invalid_position["structuredContent"]["code"],
         "invalid_position"
     );
-    assert_workspace_effect_reference_state_is_live(&mut state);
+    assert_operation_clause_reference_state_is_live(&mut state);
 }
 
 #[test]
-fn invalid_workspace_effect_reference_path_preserves_live_state() {
-    let mut state = workspace_effect_reference_state();
+fn invalid_workspace_effect_operation_clause_reference_path_preserves_live_state() {
+    let mut state = operation_clause_reference_state();
     let invalid_path = state.server.references_tool(&json!({
         "source":"missing.veln", "line":1, "column":1
     }));
     assert_eq!(invalid_path["structuredContent"]["code"], "invalid_path");
-    assert_workspace_effect_reference_state_is_live(&mut state);
+    assert_operation_clause_reference_state_is_live(&mut state);
 }
 
 #[test]
-fn invalid_workspace_effect_reference_cursor_preserves_live_state() {
-    let mut state = workspace_effect_reference_state();
+fn invalid_workspace_effect_operation_clause_reference_cursor_preserves_live_state() {
+    let mut state = operation_clause_reference_state();
     let invalid_continuation = state
         .server
         .references_tool(&json!({"cursor":format!("{}x", state.cursor)}));
@@ -268,12 +294,12 @@ fn invalid_workspace_effect_reference_cursor_preserves_live_state() {
         invalid_continuation["structuredContent"]["code"],
         "invalid_cursor"
     );
-    assert_workspace_effect_reference_state_is_live(&mut state);
+    assert_operation_clause_reference_state_is_live(&mut state);
 }
 
 #[test]
-fn missing_workspace_effect_resource_preserves_live_state() {
-    let mut state = workspace_effect_reference_state();
+fn missing_workspace_effect_operation_clause_resource_preserves_live_state() {
+    let mut state = operation_clause_reference_state();
     let missing_resource = state
         .server
         .handle_request(json!({
@@ -287,7 +313,7 @@ fn missing_workspace_effect_resource_preserves_live_state() {
         missing_resource["error"]["data"]["code"],
         "resource_not_found"
     );
-    assert_workspace_effect_reference_state_is_live(&mut state);
+    assert_operation_clause_reference_state_is_live(&mut state);
 }
 
 #[test]
@@ -367,7 +393,7 @@ fn references_reject_imported_and_invalid_cased_effects() {
     );
     workspace.write(
         "main.veln",
-        "use dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  perform dep::Task::run()\nend\n",
+        "effect Task\n  run() -> Int\nend\n\nuse dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  perform dep::Task::run()\nend\n\nhandler imported_handler() handles dep::Task\n  run() => 1\nend\n",
     );
     workspace.write(
         "invalid.veln",
@@ -384,8 +410,9 @@ fn references_reject_imported_and_invalid_cased_effects() {
     let mut server = initialized_server(&workspace);
 
     for (source, line, column) in [
-        ("main.veln", 3, 36),
-        ("main.veln", 4, 22),
+        ("main.veln", 7, 36),
+        ("main.veln", 8, 22),
+        ("main.veln", 12, 3),
         ("invalid.veln", 1, 8),
         ("invalid.veln", 5, 29),
     ] {
@@ -409,6 +436,9 @@ fn references_reject_unresolved_and_mismatched_effect_occurrences() {
             "end\n\n",
             "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
             "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler missing_handler() handles Missing\n",
+            "  pick() => 1\n",
             "end\n",
         ),
     );
@@ -421,6 +451,49 @@ fn references_reject_unresolved_and_mismatched_effect_occurrences() {
         }));
         assert_eq!(result["structuredContent"]["references"], json!([]));
     }
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":10, "column":3,
+        "include_declaration":true
+    }));
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+}
+
+#[test]
+fn references_reject_qualified_workspace_handler_clause_headings() {
+    let workspace = TempWorkspace::new("references-workspace-handler-qualified-effect");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "mod local\n\neffect Task\n  run() -> Int\nend\n\nhandler qualified() handles foreign::Task\n  run() => 1\nend\n",
+    );
+    workspace.write(
+        "foreign.veln",
+        "mod foreign\n\neffect Task\n  run() -> Int\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":8, "column":3,
+        "include_declaration":true
+    }));
+    assert_eq!(result["structuredContent"]["references"], json!([]));
+}
+
+#[test]
+fn references_reject_standard_library_handler_clause_headings() {
+    let workspace = TempWorkspace::new("references-workspace-handler-standard-library-effect");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "use transport from \"std\"\n\nhandler standard() handles transport::DuplexStream\n  read_chunk() => 1\nend\n",
+    );
+    let mut server = initialized_server_with_embedded_resources(&workspace);
+
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":3,
+        "include_declaration":true
+    }));
+    assert_eq!(result["structuredContent"]["references"], json!([]));
 }
 
 #[test]

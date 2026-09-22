@@ -25,6 +25,10 @@ mod navigation_effect_operation_references_tests {
                     "end\n\n",
                     "fn use() -> Int effects [Choose, Other]\n",
                     "  perform Choose::pick(false) + perform Other::pick()\n",
+                    "end\n\n",
+                    "handler chooser() handles Choose\n",
+                    "  pick(value) => value\n",
+                    "  skip() => 0\n",
                     "end\n",
                 ),
             ),
@@ -36,11 +40,13 @@ mod navigation_effect_operation_references_tests {
         let expected = [
             ("declaration.veln", 9, 19, 9, 23),
             ("uses.veln", 8, 19, 8, 23),
+            ("uses.veln", 12, 3, 12, 7),
         ];
         for (path, line, column) in [
             ("declaration.veln", 4, 3),
             ("declaration.veln", 9, 19),
             ("uses.veln", 8, 19),
+            ("uses.veln", 12, 3),
         ] {
             let result = query(operation_sources(), path, line, column).unwrap();
             assert_eq!(result.selected_symbol.kind, SymbolKind::EffectOperation);
@@ -106,6 +112,9 @@ mod navigation_effect_operation_references_tests {
                 "handler choose_handler() handles Choose\n",
                 "  pick() => 1\n",
                 "end\n\n",
+                "handler other_handler() handles Other\n",
+                "  pick() => 2\n",
+                "end\n\n",
                 "fn pick() -> String effects [Choose, Other]\n",
                 "  let pick = {pick: \"pick\"}\n",
                 "  # pick\n",
@@ -118,14 +127,164 @@ mod navigation_effect_operation_references_tests {
             "effect Choose\n  pick() -> Int\nend\n\nfn use() -> Int\n  perform Choose::pick()\nend\n",
         )];
         let selected = query(sources.clone(), "main.veln", 2, 3).unwrap();
-        assert_eq!(locations(&selected.references), [("main.veln", 20, 19)]);
-        let other = query(sources.clone(), "main.veln", 21, 18).unwrap();
+        assert_eq!(
+            locations(&selected.references),
+            [("main.veln", 14, 3), ("main.veln", 24, 19)]
+        );
+        let choose_clause = query(sources.clone(), "main.veln", 14, 3).unwrap();
+        assert_eq!(choose_clause.selected_symbol, selected.selected_symbol);
+        assert_eq!(choose_clause.references, selected.references);
+        let other = query(sources.clone(), "main.veln", 25, 18).unwrap();
         assert_eq!(other.selected_symbol.kind, SymbolKind::EffectOperation);
         assert_location(&other.definition, "main.veln", 6, 3);
-        assert_eq!(locations(&other.references), [("main.veln", 21, 18)]);
+        assert_eq!(
+            locations(&other.references),
+            [("main.veln", 18, 3), ("main.veln", 25, 18)]
+        );
+        let other_clause = query(sources.clone(), "main.veln", 18, 3).unwrap();
+        assert_eq!(other_clause.selected_symbol, other.selected_symbol);
+        assert_eq!(other_clause.references, other.references);
         let other_module = query(sources, "other.veln", 6, 19).unwrap();
         assert_location(&other_module.definition, "other.veln", 2, 3);
         assert_eq!(locations(&other_module.references), [("other.veln", 6, 19)]);
+    }
+
+    #[test]
+    fn workspace_effect_operation_clause_references_reject_invalid_handlers_and_headings() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "  keep() -> Int\n",
+                "end\n\n",
+                "handler duplicate() handles Choose\n",
+                "  pick() => 1\n",
+                "  pick() => 2\n",
+                "  keep() => 3\n",
+                "end\n\n",
+                "handler unknown() handles Choose\n",
+                "  missing() => 0\n",
+                "end\n\n",
+                "handler broken() handles Choose\n",
+                "  pick( => 0\n",
+                "end\n\n",
+                "fn use() -> Int\n",
+                "  perform Choose::pick() + perform Choose::keep()\n",
+                "end\n",
+            ),
+        )];
+
+        let pick = query(sources.clone(), "main.veln", 2, 3).unwrap();
+        assert_eq!(locations(&pick.references), [("main.veln", 21, 19)]);
+        for (line, column) in [(7, 3), (8, 3), (13, 3), (17, 3)] {
+            assert!(query(sources.clone(), "main.veln", line, column).is_none());
+        }
+        let keep = query(sources.clone(), "main.veln", 3, 3).unwrap();
+        assert_eq!(
+            locations(&keep.references),
+            [("main.veln", 9, 3), ("main.veln", 21, 44)]
+        );
+        let keep_clause = query(sources, "main.veln", 9, 3).unwrap();
+        assert_eq!(keep_clause.selected_symbol, keep.selected_symbol);
+    }
+
+    #[test]
+    fn duplicate_or_recovered_handler_declarations_exclude_clause_headings() {
+        for (sources, operation_line, heading_line) in [
+            (
+                vec![
+                source(
+                    "first.veln",
+                    "mod shared\n\neffect Choose\n  pick() -> Int\nend\n\nhandler choose() handles Choose\n  pick() => 1\nend\n",
+                ),
+                source(
+                    "second.veln",
+                    "mod shared\n\nhandler choose() handles Choose\n  pick() => 2\nend\n",
+                ),
+                ],
+                4,
+                8,
+            ),
+            (
+                vec![source(
+                    "first.veln",
+                    "effect Choose\n  pick() -> Int\nend\n\nhandler choose() handles Choose\n  pick() => 1\n",
+                )],
+                2,
+                6,
+            ),
+        ] {
+            let operation = query(sources.clone(), "first.veln", operation_line, 3).unwrap();
+            assert!(operation.references.is_empty());
+            assert!(query(sources, "first.veln", heading_line, 3).is_none());
+        }
+    }
+
+    #[test]
+    fn handler_clause_headings_require_a_bare_same_module_workspace_effect() {
+        let sources = vec![
+            source(
+                "main.veln",
+                concat!(
+                    "use foreign\n\n",
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "end\n\n",
+                    "handler qualified() handles foreign::Choose\n",
+                    "  pick() => 1\n",
+                    "end\n\n",
+                    "handler unresolved() handles Missing\n",
+                    "  pick() => 2\n",
+                    "end\n",
+                ),
+            ),
+            source(
+                "foreign.veln",
+                "mod foreign\n\neffect Choose\n  pick() -> Int\nend\n",
+            ),
+        ];
+        let operation = query(sources.clone(), "main.veln", 4, 3).unwrap();
+        assert!(operation.references.is_empty());
+        assert!(query(sources.clone(), "main.veln", 8, 3).is_none());
+        assert!(query(sources, "main.veln", 12, 3).is_none());
+    }
+
+    #[test]
+    fn handler_clause_headings_reject_package_and_standard_library_effects() {
+        let workspace_source = source(
+            "main.veln",
+            concat!(
+                "use tasks from \"example/tasks\"\n\n",
+                "handler direct() handles tasks::Task\n",
+                "  run() => 1\n",
+                "end\n",
+            ),
+        );
+        let direct = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![workspace_source.clone()],
+            vec![dependency_snapshot(
+                "example/tasks",
+                &[("tasks.veln", "pub effect Task\n  run() -> Int\nend\n")],
+                ["tasks.veln"],
+            )],
+        );
+        assert!(query_snapshot(&direct, "main.veln", 4, 3).is_none());
+
+        let standard = EffectiveProjectSnapshot::new(vec![source(
+            "main.veln",
+            concat!(
+                "use tasks from \"std\"\n\n",
+                "handler standard() handles tasks::Task\n",
+                "  run() => 1\n",
+                "end\n",
+            ),
+        )])
+        .with_standard_library(standard_library_snapshot(
+                &[("tasks.veln", "pub effect Task\n  run() -> Int\nend\n")],
+                ["tasks.veln"],
+            ));
+        assert!(query_snapshot(&standard, "main.veln", 4, 3).is_none());
     }
 
     #[test]
@@ -227,6 +386,51 @@ mod navigation_effect_operation_references_tests {
             assert!(!declaration.reference_eligible);
             assert!(declaration.references.is_empty());
             assert!(query(sources, "main.veln", 7, 19).is_none());
+        }
+    }
+
+    #[test]
+    fn workspace_effect_operation_clause_references_reject_duplicate_and_recovered_owners() {
+        for (text, heading_line) in [
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "  pick(value: Int) -> Int\n",
+                    "end\n\n",
+                    "handler chooser() handles Choose\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+                7,
+            ),
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() Int\n",
+                    "end\n\n",
+                    "handler chooser() handles Choose\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+                6,
+            ),
+            (
+                concat!(
+                    "effect Choose\n",
+                    "  pick() -> Int\n",
+                    "end\n\n",
+                    "handler chooser() handles Choose @\n",
+                    "  pick() => 1\n",
+                    "end\n",
+                ),
+                6,
+            ),
+        ] {
+            let sources = vec![source("main.veln", text)];
+            let operation = query(sources.clone(), "main.veln", 2, 3).unwrap();
+            assert!(operation.references.is_empty());
+            assert!(query(sources, "main.veln", heading_line, 3).is_none());
         }
     }
 
@@ -359,15 +563,27 @@ mod navigation_effect_operation_references_tests {
                     "fn use() -> Int\n",
                     "  perform Choose::pick()\n",
                     "  perform Other::run()\n",
+                    "end\n\n",
+                    "handler ambiguous() handles Choose\n",
+                    "  pick() => 1\n",
+                    "end\n\n",
+                    "handler other() handles Other\n",
+                    "  run() => 2\n",
                     "end\n",
                 ),
             ),
         ];
         assert!(query(sources.clone(), "second.veln", 12, 19).is_none());
-        let unrelated = query(sources, "second.veln", 13, 18).unwrap();
+        assert!(query(sources.clone(), "second.veln", 17, 3).is_none());
+        let unrelated = query(sources.clone(), "second.veln", 13, 18).unwrap();
         assert!(unrelated.reference_eligible);
         assert_location(&unrelated.definition, "second.veln", 8, 3);
-        assert_eq!(locations(&unrelated.references), [("second.veln", 13, 18)]);
+        assert_eq!(
+            locations(&unrelated.references),
+            [("second.veln", 13, 18), ("second.veln", 21, 3)]
+        );
+        let clause = query(sources, "second.veln", 21, 3).unwrap();
+        assert_eq!(clause.selected_symbol, unrelated.selected_symbol);
     }
 
     #[test]

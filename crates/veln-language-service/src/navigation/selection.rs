@@ -44,7 +44,10 @@ impl SymbolIndex {
             return Some(SelectedNavigationSymbol::bare(Symbol::Local(symbol)));
         }
         if is_handler_operation_clause_operation_name(tokens, token_index) {
-            return None;
+            return self
+                .operation_for_handler_clause(file, &tokens[token_index])
+                .map(Symbol::EffectOperation)
+                .map(SelectedNavigationSymbol::bare);
         }
         self.declaration_symbol_for_selection(file, tokens, token_index, name, selection)
             .or_else(|| self.bare_nullary_constructor_pattern_symbol(file, tokens, token_index, name))

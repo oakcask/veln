@@ -593,6 +593,33 @@ impl SymbolIndex {
             .then_some(symbol)
     }
 
+    fn operation_for_handler_clause(
+        &self,
+        file: &IndexedFile,
+        token: &Token,
+    ) -> Option<EffectOperationSymbol> {
+        let clause = file
+            .handler_operation_clause_references
+            .iter()
+            .find(|clause| {
+                clause.span.start.offset == token.range.start
+                    && clause.span.end.offset == token.range.end
+            })?;
+        self.handler_for_reference(file, &clause.handler_name)?;
+        let symbol = self
+            .operations
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && symbol.module == file.module
+                    && symbol.effect_name == clause.effect_name
+                    && symbol.name == clause.operation_name
+            })
+            .cloned()?;
+        self.effect_operation_identity_is_unambiguous(&symbol)
+            .then_some(symbol)
+    }
+
 }
 
 fn index_workspace_input(

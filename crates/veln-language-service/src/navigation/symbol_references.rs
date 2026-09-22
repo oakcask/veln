@@ -1,10 +1,28 @@
 impl SymbolIndex {
     fn effect_operation_references(&self, symbol: &EffectOperationSymbol) -> Vec<SourceSpan> {
+        let mut handler_counts = BTreeMap::<(String, String), usize>::new();
+        for handler in self.handlers.iter().filter(|handler| handler.package.is_none()) {
+            *handler_counts
+                .entry((handler.module.clone(), handler.name.clone()))
+                .or_default() += 1;
+        }
+        let eligible_handlers = self
+            .handlers
+            .iter()
+            .filter(|handler| {
+                handler.package.is_none()
+                    && handler_counts
+                        .get(&(handler.module.clone(), handler.name.clone()))
+                        == Some(&1)
+                    && self.handler_declaration_is_unrecovered(handler)
+            })
+            .map(|handler| (handler.module.clone(), handler.name.clone()))
+            .collect::<BTreeSet<_>>();
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
             .flat_map(|file| {
-                file.tokens
+                let mut references = file.tokens
                     .iter()
                     .enumerate()
                     .filter(|(index, token)| {
@@ -35,7 +53,20 @@ impl SymbolIndex {
                                 .is_some_and(|name| name == symbol.effect_name)
                     })
                     .map(|(_, token)| file.source.span(token.range))
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                references.extend(
+                    file.handler_operation_clause_references
+                        .iter()
+                        .filter(|clause| {
+                            clause.effect_name == symbol.effect_name
+                                && clause.operation_name == symbol.name
+                                && eligible_handlers
+                                    .contains(&(file.module.clone(), clause.handler_name.clone()))
+                        })
+                        .map(|clause| clause.span.clone()),
+                );
+                references.sort_by_key(|span| (span.start.offset, span.end.offset));
+                references
             })
             .collect()
     }
