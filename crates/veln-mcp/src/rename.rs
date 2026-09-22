@@ -55,10 +55,14 @@ pub(crate) fn rename(
     };
 
     let root = captured.project.root.clone();
-    let snapshot = language_resources
-        .read_only_navigation_snapshot(captured.project.files, &captured.dependencies);
+    let workspace_key = captured.key;
+    let snapshot = language_resources.read_only_navigation_snapshot(
+        captured.project.files,
+        &captured.dependencies,
+        workspace_key,
+    );
     let Some(result) = navigate_for_rename(
-        &snapshot,
+        snapshot.as_ref(),
         SourcePosition {
             source: SourcePath::new(captured_source),
             line,
@@ -72,7 +76,7 @@ pub(crate) fn rename(
         return ToolOutcome::Success(json!({"edits": []}));
     };
 
-    if let Err(failure) = validate_rename_in_snapshot(&snapshot, &result, requested_name) {
+    if let Err(failure) = validate_rename_in_snapshot(snapshot.as_ref(), &result, requested_name) {
         return rename_failure(&root, failure);
     }
 

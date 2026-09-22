@@ -51,11 +51,13 @@ fn shared_conflicting_uri(
     ) else {
         panic!("saved navigation capture failed")
     };
-    let snapshot = server
-        .language_resources
-        .read_only_navigation_snapshot(captured.project.files, &captured.dependencies);
+    let snapshot = server.language_resources.read_only_navigation_snapshot(
+        captured.project.files,
+        &captured.dependencies,
+        captured.key,
+    );
     let result = navigate_for_rename(
-        &snapshot,
+        snapshot.as_ref(),
         SourcePosition {
             source: SourcePath::new(captured_source),
             line,
@@ -63,7 +65,8 @@ fn shared_conflicting_uri(
         },
     )
     .unwrap();
-    let failure = validate_rename_in_snapshot(&snapshot, &result, requested_name).unwrap_err();
+    let failure =
+        validate_rename_in_snapshot(snapshot.as_ref(), &result, requested_name).unwrap_err();
     let RenameFailureKind::Conflict {
         conflicting_declaration,
         ..
@@ -1217,6 +1220,43 @@ fn rename_capture_exhaustion_preserves_state_and_allows_a_later_call() {
         "source":"main.veln", "line":2, "column":4, "new_name":"next"
     }));
     assert_eq!(edits(&valid).len(), 2, "{valid:#}");
+}
+
+#[test]
+fn repeated_renames_reuse_read_only_navigation() {
+    let workspace = TempWorkspace::new("rename-reused-read-only-navigation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "fn target() -> Int\n  target()\nend\n\nfn other() -> Int\n  target()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    crate::language_resources::reset_workspace_navigation_builds();
+
+    let first = server.rename_tool(&json!({
+        "source":"main.veln", "line":1, "column":4, "new_name":"first"
+    }));
+    let second = server.rename_tool(&json!({
+        "source":"main.veln", "line":6, "column":4, "new_name":"second"
+    }));
+
+    assert_eq!(edits(&first).len(), 3, "{first:#}");
+    assert_eq!(edits(&second).len(), 3, "{second:#}");
+    assert_eq!(crate::language_resources::workspace_navigation_builds(), 1);
+
+    workspace.write("main.veln", "fn target() -> Int\n  target()\nend\n");
+    server
+        .handle_request(json!({
+            "jsonrpc":"2.0", "id":"refresh-rename-workspace", "method":"tools/call",
+            "params":{"name":"refresh_workspace", "arguments":{}}
+        }))
+        .unwrap();
+    let changed = server.rename_tool(&json!({
+        "source":"main.veln", "line":1, "column":4, "new_name":"changed"
+    }));
+
+    assert_eq!(edits(&changed).len(), 2, "{changed:#}");
+    assert_eq!(crate::language_resources::workspace_navigation_builds(), 2);
 }
 
 #[test]
