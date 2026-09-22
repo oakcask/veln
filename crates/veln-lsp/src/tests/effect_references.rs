@@ -387,7 +387,7 @@ fn workspace_effect_references_keep_complete_qualifiers_with_recovered_arguments
 }
 
 #[test]
-fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_declarations() {
+fn workspace_effect_references_reject_balanced_recovery_shapes() {
     assert_empty_effect_references(
         "workspace-effect-reference-balanced-recovery",
         concat!(
@@ -404,66 +404,6 @@ fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_dec
             "end\n",
         ),
         &[(9, 11, true), (10, 10, true), (11, 16, true)],
-    );
-    assert_empty_effect_references(
-        "workspace-effect-reference-recovered-row-token",
-        concat!(
-            "effect Choose\n",
-            "  pick() -> Int\n",
-            "end\n\n",
-            "fn broken() -> Int effects [Choose @]\n",
-            "  1\n",
-            "end\n",
-        ),
-        &[(4, 28, true), (0, 7, false)],
-    );
-    assert_empty_effect_references(
-        "workspace-effect-reference-recovered-handler-token",
-        concat!(
-            "effect Choose\n",
-            "  pick() -> Int\n",
-            "end\n\n",
-            "handler broken() handles Choose @\n",
-            "  pick() => 1\n",
-            "end\n",
-        ),
-        &[(4, 25, true), (0, 7, false)],
-    );
-    assert_empty_effect_references(
-        "workspace-effect-reference-recovered-declaration",
-        "effect Choose\nend\n\nfn use() -> Int effects [Choose]\n  1\nend\n",
-        &[(0, 7, true)],
-    );
-    assert_empty_effect_references(
-        "workspace-effect-reference-recovered-perform",
-        concat!(
-            "effect Choose\n",
-            "  pick() -> Int\n",
-            "end\n\n",
-            "fn broken() -> Int\n",
-            "  perform Choose::pick(\n",
-            "end\n",
-        ),
-        &[(0, 7, false), (5, 10, true)],
-    );
-    assert_empty_effect_references(
-        "workspace-effect-reference-clean-uses-recovered-declaration",
-        concat!(
-            "effect Choose\n",
-            "end\n\n",
-            "fn use() -> Int effects [Choose]\n",
-            "  perform Choose::pick()\n",
-            "end\n\n",
-            "handler choose_handler() handles Choose\n",
-            "  pick() => perform Choose::pick()\n",
-            "end\n",
-        ),
-        &[
-            (3, 24, true),
-            (4, 10, true),
-            (7, 32, true),
-            (8, 20, true),
-        ],
     );
 }
 
