@@ -14,8 +14,7 @@ impl SymbolIndex {
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && (is_effect_reference_token(file, *index)
-                                || is_perform_effect_qualifier_token(&file.tokens, *index))
+                            && is_effect_reference_token(file, *index)
                     })
                     .map(|(_, token)| token.range)
                     .collect::<Vec<_>>();

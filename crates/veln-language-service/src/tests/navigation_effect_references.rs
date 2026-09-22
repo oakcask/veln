@@ -273,6 +273,48 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn workspace_effect_references_exclude_balanced_shapes_from_recovered_body_lines() {
+        let text = concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn valid() -> Int effects [Choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "fn broken() -> Int\n",
+            "  effects [Choose]\n",
+            "  handles Choose\n",
+            "  value perform Choose::pick()\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert_eq!(
+            locations(&declaration.references),
+            [("main.veln", 5, 28), ("main.veln", 6, 11)]
+        );
+        for (line, column) in [(10, 12), (11, 11), (12, 17)] {
+            assert!(query(sources.clone(), "main.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
+    fn workspace_effect_references_reject_recovered_declaration_closed_by_end() {
+        let text = concat!(
+            "effect Choose\n",
+            "end\n\n",
+            "fn use() -> Int effects [Choose]\n",
+            "  1\n",
+            "end\n",
+        );
+        let result = query(vec![source("main.veln", text)], "main.veln", 1, 8).unwrap();
+
+        assert!(!result.reference_eligible);
+        assert!(result.references.is_empty());
+    }
+
+    #[test]
     fn workspace_effect_references_exclude_unresolved_and_invalid_cased_occurrences() {
         let text = concat!(
             "effect Choose\n",

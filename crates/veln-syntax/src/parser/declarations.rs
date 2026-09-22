@@ -274,6 +274,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_effect_decl(&mut self) -> EffectDecl {
+        let diagnostic_start = self.diagnostics.len();
         let visibility = if self.eat(TokenKind::Pub).is_some() {
             Visibility::Public
         } else {
@@ -311,12 +312,14 @@ impl<'a> Parser<'a> {
         }
 
         let end = self.previous().map_or(start, |token| token.range);
+        let recovered = self.diagnostics.len() > diagnostic_start;
         EffectDecl {
             visibility,
             name,
             operations,
             span: self.source.span(start.cover(end)),
             end_present,
+            recovered,
         }
     }
 

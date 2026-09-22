@@ -384,19 +384,9 @@ fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
 }
 
 fn is_effect_reference_token(file: &IndexedFile, index: usize) -> bool {
-    is_effect_list_token(file, index) || is_handler_handled_effect_token(&file.tokens, index)
-}
-
-fn is_effect_list_token(file: &IndexedFile, index: usize) -> bool {
-    let tokens = &file.tokens;
-    tokens[index].kind == TokenKind::Ident
-        && previous_non_layout_token(tokens, index)
-            .is_none_or(|previous| {
-                previous.kind != TokenKind::DoubleColon && previous.kind != TokenKind::Dot
-            })
-        && next_non_layout_token(tokens, index)
-            .is_none_or(|next| next.kind != TokenKind::DoubleColon)
-        && file.effect_list_membership[index]
+    let range = file.tokens[index].range;
+    file.effect_reference_ranges
+        .contains(&(range.start, range.end))
 }
 
 fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
@@ -483,6 +473,15 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
         }
     }
     membership
+}
+
+fn is_effect_list_member_token(tokens: &[Token], membership: &[bool], index: usize) -> bool {
+    membership[index]
+        && previous_non_layout_token(tokens, index).is_none_or(|previous| {
+            previous.kind != TokenKind::DoubleColon && previous.kind != TokenKind::Dot
+        })
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon)
 }
 
 fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {

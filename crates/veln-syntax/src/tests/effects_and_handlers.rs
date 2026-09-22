@@ -84,6 +84,41 @@ fn parses_and_formats_nominal_effect_operations() {
 }
 
 #[test]
+fn records_recovery_within_effect_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Clean\n",
+            "  run() -> Int\n",
+            "end\n\n",
+            "effect Empty\n",
+            "end\n\n",
+            "effect Broken\n",
+            "  run()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let effects = output
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Effect(effect) => Some(effect),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(effects.len(), 3);
+    assert!(!effects[0].recovered);
+    assert!(effects[1].end_present);
+    assert!(effects[1].recovered);
+    assert!(effects[2].end_present);
+    assert!(effects[2].recovered);
+}
+
+#[test]
 fn parses_and_formats_effect_row_binder_and_tail() {
     let source = SourceFile::new(
         "main.veln",

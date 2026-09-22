@@ -79,6 +79,7 @@ pub struct EffectDecl {
     pub operations: Vec<EffectOperationDecl>,
     pub span: SourceSpan,
     pub end_present: bool,
+    pub recovered: bool,
 }
 
 #[derive(Clone, Debug)]

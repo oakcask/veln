@@ -328,3 +328,60 @@ fn workspace_effect_references_reject_generic_ambiguous_and_recovered_occurrence
         [response("2", "[]")]
     );
 }
+
+#[test]
+fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_declarations() {
+    let recovered = TempProject::new("workspace-effect-reference-balanced-recovery");
+    recovered.write("veln.toml", "");
+    recovered.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn valid() -> Int effects [Choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "fn broken() -> Int\n",
+            "  effects [Choose]\n",
+            "  handles Choose\n",
+            "  value perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let recovered_root = path_to_uri(&recovered.root);
+    let recovered_uri = path_to_uri(&recovered.root.join("main.veln"));
+    let mut recovered_server = Server::default();
+    recovered_server.handle_message(&initialize_request(&recovered_root));
+    for (line, character) in [(9, 11), (10, 10), (11, 16)] {
+        assert_eq!(
+            recovered_server.handle_message(&references_request_with_declaration(
+                &recovered_uri,
+                line,
+                character,
+                true,
+            )),
+            [response("2", "[]")]
+        );
+    }
+
+    let declaration = TempProject::new("workspace-effect-reference-recovered-declaration");
+    declaration.write("veln.toml", "");
+    declaration.write(
+        "main.veln",
+        "effect Choose\nend\n\nfn use() -> Int effects [Choose]\n  1\nend\n",
+    );
+    let declaration_root = path_to_uri(&declaration.root);
+    let declaration_uri = path_to_uri(&declaration.root.join("main.veln"));
+    let mut declaration_server = Server::default();
+    declaration_server.handle_message(&initialize_request(&declaration_root));
+    assert_eq!(
+        declaration_server.handle_message(&references_request_with_declaration(
+            &declaration_uri,
+            0,
+            7,
+            true,
+        )),
+        [response("2", "[]")]
+    );
+}
