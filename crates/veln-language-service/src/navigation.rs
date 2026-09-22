@@ -68,6 +68,7 @@ thread_local! {
     static SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static TYPE_NAMESPACE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_LIST_CLASSIFICATION_FRAME_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_REFERENCE_SOURCE_SCALAR_VISITS: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -77,13 +78,24 @@ fn record_effect_list_classification_token_visit() {
 }
 
 #[cfg(test)]
+fn record_effect_list_classification_frame_visit() {
+    EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.set(EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.get() + 1);
+}
+
+#[cfg(test)]
 pub(crate) fn reset_effect_list_classification_token_visits() {
     EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS.set(0);
+    EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.set(0);
 }
 
 #[cfg(test)]
 pub(crate) fn effect_list_classification_token_visits() -> usize {
     EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn effect_list_classification_frame_visits() -> usize {
+    EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.get()
 }
 
 #[cfg(test)]

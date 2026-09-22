@@ -406,6 +406,7 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
 
     let mut membership = vec![false; tokens.len()];
     let mut stack = Vec::<Frame>::new();
+    let mut open_effect_lists = 0usize;
     let mut previous_non_layout = None;
     let mut line = 0usize;
     for (index, token) in tokens.iter().enumerate() {
@@ -413,6 +414,8 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
         record_effect_list_classification_token_visit();
         if token.kind == TokenKind::Ident
             && stack.last().is_some_and(|frame| {
+                #[cfg(test)]
+                record_effect_list_classification_frame_visit();
                 frame.delimiter == Delimiter::Bracket && frame.effect_list && frame.line == line
             })
         {
@@ -420,9 +423,11 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
         }
         match token.kind {
             TokenKind::LBracket => {
+                let effect_list = previous_non_layout == Some(TokenKind::Effects);
+                open_effect_lists += usize::from(effect_list);
                 stack.push(Frame {
                     delimiter: Delimiter::Bracket,
-                    effect_list: previous_non_layout == Some(TokenKind::Effects),
+                    effect_list,
                     line,
                     pending_members: Vec::new(),
                 });
@@ -448,9 +453,14 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
                 };
                 if stack
                     .last()
-                    .is_some_and(|frame| frame.delimiter == delimiter)
+                    .is_some_and(|frame| {
+                        #[cfg(test)]
+                        record_effect_list_classification_frame_visit();
+                        frame.delimiter == delimiter
+                    })
                 {
                     let frame = stack.pop().unwrap();
+                    open_effect_lists -= usize::from(frame.effect_list);
                     if frame.effect_list && frame.line == line {
                         for member in frame.pending_members {
                             membership[member] = true;
@@ -458,11 +468,13 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
                     }
                 } else {
                     stack.clear();
+                    open_effect_lists = 0;
                 }
             }
             TokenKind::Newline => {
-                if stack.iter().any(|frame| frame.effect_list) {
+                if open_effect_lists > 0 {
                     stack.clear();
+                    open_effect_lists = 0;
                 }
                 line += 1;
             }

@@ -454,4 +454,31 @@ mod navigation_effect_references_tests {
             );
         }
     }
+
+    #[test]
+    fn workspace_effect_reference_indexing_keeps_malformed_delimiters_linear() {
+        for count in [1_000, 2_000, 4_000] {
+            let mut body = String::from("effect Choose\n  pick() -> Int\nend\n");
+            body.extend(std::iter::repeat_n('(', count));
+            body.extend(std::iter::repeat_n('\n', count));
+
+            let input = source("main.veln", &body);
+            let token_count = veln_syntax::lex(&input).tokens.len();
+            crate::navigation::reset_effect_list_classification_token_visits();
+            let started = std::time::Instant::now();
+            let snapshot = EffectiveProjectSnapshot::new(vec![input]);
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let token_visits = crate::navigation::effect_list_classification_token_visits();
+            let frame_visits = crate::navigation::effect_list_classification_frame_visits();
+            eprintln!(
+                "malformed delimiters: count={count} tokens={token_count} token_visits={token_visits} frame_visits={frame_visits} elapsed={elapsed:?}",
+            );
+            assert_eq!(token_visits, token_count);
+            assert!(
+                frame_visits <= token_count,
+                "effect-list classification must inspect at most one delimiter frame per token",
+            );
+        }
+    }
 }
