@@ -138,7 +138,7 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<TypeAliasSymbol> {
-        let qualified_modules = self.qualified_module_candidates(file, &qualifier);
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
         let unique_qualified_modules = qualified_modules.iter().collect::<BTreeSet<_>>();
         if unique_qualified_modules.iter().any(|module| {
             self.workspace_types_in_module(module, name)
