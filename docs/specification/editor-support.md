@@ -205,8 +205,9 @@ Navigation requests convert zero-based UTF-16 LSP characters to the shared
 one-based Unicode-scalar positions. Navigation responses convert shared ranges
 back to zero-based UTF-16 LSP ranges using the retained source snapshot.
 For a selected valid-cased, unrecovered workspace effect declaration,
-references include every structurally complete bare effect-row occurrence,
-handler `handles` target, and `perform
+references include every structurally complete bare effect-row occurrence on
+functions, tests, handlers, and function types, every handler `handles` target,
+and every `perform
 Effect::operation(...)` qualifier in saved workspace sources that declare the
 same module. The declaration and each supported occurrence select the same
 effect identity. The operation leaf remains a separate effect-operation

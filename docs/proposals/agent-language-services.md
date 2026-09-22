@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The remaining package-navigation, cross-adapter-conformance, client-plugin, agent-skill, or conformance-gate scope changes.
+update-when: The remaining package-navigation, workspace-symbol-reference, cross-adapter-conformance, client-plugin, agent-skill, or conformance-gate scope changes.
 ---
 
 # Agent Language Services

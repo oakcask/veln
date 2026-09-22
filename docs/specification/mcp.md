@@ -495,9 +495,10 @@ Supported reference identities are workspace effects, schemas, eligible
 workspace, direct-dependency, and standard-library schema aliases, functions,
 types, constructors, value bindings, handler context parameters, and handler
 operation-clause parameters. A workspace effect result contains bare effect
-rows, handler `handles` targets, and `perform Effect::operation(...)`
-qualifiers from every saved source that declares the selected effect's module.
-The operation leaf keeps its separate unsupported reference identity.
+rows on functions, tests, handlers, and function types, handler `handles`
+targets, and `perform Effect::operation(...)` qualifiers from every saved
+source that declares the selected effect's module. The operation leaf keeps
+its separate unsupported reference identity.
 Effect lookup requires one valid-cased, unrecovered workspace declaration for
 the module and name. Valid occurrences in a saved source remain available when
 an unrelated construct in that source has a parse error. Imported and package
