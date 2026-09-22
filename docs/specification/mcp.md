@@ -521,8 +521,9 @@ structurally complete matching operation-clause heading in a parse-clean
 same-module handler whose bare `handles` target resolves to the owning effect.
 The declaration, each leaf, and each included heading select the same module,
 owning-effect, and operation identity. Every location covers only the
-operation-name token. `include_declaration` adds the one workspace declaration
-before sorting and pagination.
+operation-name token. A `definition` request at any of those forms returns the
+owning effect-operation declaration. `include_declaration` adds that
+declaration before sorting and pagination.
 
 Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation

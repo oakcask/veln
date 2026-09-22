@@ -237,8 +237,9 @@ structurally complete matching operation-clause heading in a parse-clean
 same-module handler whose bare `handles` target resolves to the owning effect.
 The declaration, every included leaf, and every included heading select the
 same module, owning-effect, and operation identity. Each returned range covers
-only the operation name. `includeDeclaration` controls whether LSP adds the one
-workspace declaration before the sorted shared references.
+only the operation name. A definition request at any of those forms returns the
+owning effect-operation declaration. `includeDeclaration` controls whether LSP
+adds that declaration before the sorted shared references.
 
 Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation
