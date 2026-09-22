@@ -20,6 +20,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         .collect();
     let schema_composition_leaf_spans =
         valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
+    let effect_list_membership = effect_list_membership(&tokens);
     let recovery_symbols = workspace_recovery_symbols(
         navigation_isolated,
         &source,
@@ -41,6 +42,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         recovery_symbols,
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
+        effect_list_membership,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         parse_clean: parsed.diagnostics.is_empty(),
@@ -218,6 +220,7 @@ fn indexed_dependency_source(
         .collect();
     let schema_composition_leaf_spans =
         valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
+    let effect_list_membership = effect_list_membership(&tokens);
     let file = IndexedFile {
         source: source_file,
         tokens,
@@ -232,6 +235,7 @@ fn indexed_dependency_source(
         recovery_symbols: Vec::new(),
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
+        effect_list_membership,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         parse_clean: parsed.diagnostics.is_empty(),

@@ -8,16 +8,19 @@ impl SymbolIndex {
                     && file.module == symbol.module
             })
             .flat_map(|file| {
-                file.tokens
+                let ranges = file
+                    .tokens
                     .iter()
                     .enumerate()
                     .filter(|(index, token)| {
                         token.kind == TokenKind::Ident
                             && token.text == symbol.name
-                            && (is_effect_reference_token(&file.tokens, *index)
+                            && (is_effect_reference_token(file, *index)
                                 || is_perform_effect_qualifier_token(&file.tokens, *index))
                     })
-                    .map(|(_, token)| file.source.span(token.range))
+                    .map(|(_, token)| token.range)
+                    .collect::<Vec<_>>();
+                source_spans_for_sorted_ranges(&file.source, &ranges)
             })
             .collect()
     }
@@ -876,6 +879,61 @@ impl SymbolIndex {
             ),
         }
         qualifiers
+    }
+}
+
+fn source_spans_for_sorted_ranges(source: &SourceFile, ranges: &[TextRange]) -> Vec<SourceSpan> {
+    let mut cursor = 0usize;
+    let mut line = 1usize;
+    let mut column = 1usize;
+    ranges
+        .iter()
+        .map(|range| {
+            let start = advance_source_position(
+                source.text(),
+                &mut cursor,
+                &mut line,
+                &mut column,
+                range.start,
+            );
+            let end = advance_source_position(
+                source.text(),
+                &mut cursor,
+                &mut line,
+                &mut column,
+                range.end,
+            );
+            SourceSpan {
+                file: source.path().clone(),
+                start,
+                end,
+            }
+        })
+        .collect()
+}
+
+fn advance_source_position(
+    text: &str,
+    cursor: &mut usize,
+    line: &mut usize,
+    column: &mut usize,
+    target: usize,
+) -> LineCol {
+    for ch in text[*cursor..target].chars() {
+        #[cfg(test)]
+        record_effect_reference_source_scalar_visit();
+        *cursor += ch.len_utf8();
+        if ch == '\n' {
+            *line += 1;
+            *column = 1;
+        } else {
+            *column += 1;
+        }
+    }
+    LineCol {
+        line: *line,
+        column: *column,
+        offset: target,
     }
 }
 

@@ -383,11 +383,12 @@ fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
     false
 }
 
-fn is_effect_reference_token(tokens: &[Token], index: usize) -> bool {
-    is_effect_list_token(tokens, index) || is_handler_handled_effect_token(tokens, index)
+fn is_effect_reference_token(file: &IndexedFile, index: usize) -> bool {
+    is_effect_list_token(file, index) || is_handler_handled_effect_token(&file.tokens, index)
 }
 
-fn is_effect_list_token(tokens: &[Token], index: usize) -> bool {
+fn is_effect_list_token(file: &IndexedFile, index: usize) -> bool {
+    let tokens = &file.tokens;
     tokens[index].kind == TokenKind::Ident
         && previous_non_layout_token(tokens, index)
             .is_none_or(|previous| {
@@ -395,36 +396,73 @@ fn is_effect_list_token(tokens: &[Token], index: usize) -> bool {
             })
         && next_non_layout_token(tokens, index)
             .is_none_or(|next| next.kind != TokenKind::DoubleColon)
-        && enclosing_effect_list(tokens, index)
+        && file.effect_list_membership[index]
 }
 
-fn enclosing_effect_list(tokens: &[Token], index: usize) -> bool {
-    let mut closed_brackets = 0usize;
-    let mut closed_parens = 0usize;
-    let mut closed_braces = 0usize;
-    for (candidate_index, token) in tokens[..index].iter().enumerate().rev() {
+fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum Delimiter {
+        Paren,
+        Bracket,
+        Brace,
+    }
+
+    struct Frame {
+        delimiter: Delimiter,
+        effect_list: bool,
+        line: usize,
+    }
+
+    let mut membership = vec![false; tokens.len()];
+    let mut stack = Vec::<Frame>::new();
+    let mut previous_non_layout = None;
+    let mut line = 0usize;
+    let close_delimiter = |stack: &mut Vec<Frame>, delimiter: Delimiter| {
+        if stack
+            .last()
+            .is_some_and(|frame| frame.delimiter == delimiter)
+        {
+            stack.pop();
+        } else {
+            stack.clear();
+        }
+    };
+    for (index, token) in tokens.iter().enumerate() {
+        #[cfg(test)]
+        record_effect_list_classification_token_visit();
+        membership[index] = token.kind == TokenKind::Ident
+            && stack.last().is_some_and(|frame| {
+                frame.delimiter == Delimiter::Bracket && frame.effect_list && frame.line == line
+            });
         match token.kind {
-            TokenKind::RBracket => closed_brackets += 1,
-            TokenKind::LBracket if closed_brackets > 0 => closed_brackets -= 1,
             TokenKind::LBracket => {
-                return previous_non_layout_token(tokens, candidate_index)
-                    .is_some_and(|previous| previous.kind == TokenKind::Effects);
+                stack.push(Frame {
+                    delimiter: Delimiter::Bracket,
+                    effect_list: previous_non_layout == Some(TokenKind::Effects),
+                    line,
+                });
             }
-            TokenKind::RParen => closed_parens += 1,
-            TokenKind::LParen if closed_parens > 0 => closed_parens -= 1,
-            TokenKind::LParen => return false,
-            TokenKind::RBrace => closed_braces += 1,
-            TokenKind::LBrace if closed_braces > 0 => closed_braces -= 1,
-            TokenKind::LBrace => return false,
-            TokenKind::Newline
-                if closed_brackets == 0 && closed_parens == 0 && closed_braces == 0 =>
-            {
-                return false;
-            }
+            TokenKind::LParen => stack.push(Frame {
+                delimiter: Delimiter::Paren,
+                effect_list: false,
+                line,
+            }),
+            TokenKind::LBrace => stack.push(Frame {
+                delimiter: Delimiter::Brace,
+                effect_list: false,
+                line,
+            }),
+            TokenKind::RBracket => close_delimiter(&mut stack, Delimiter::Bracket),
+            TokenKind::RParen => close_delimiter(&mut stack, Delimiter::Paren),
+            TokenKind::RBrace => close_delimiter(&mut stack, Delimiter::Brace),
+            TokenKind::Newline => line += 1,
             _ => {}
         }
+        if !is_layout_token_kind(token.kind) {
+            previous_non_layout = Some(token.kind);
+        }
     }
-    false
+    membership
 }
 
 fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {

@@ -215,4 +215,50 @@ mod navigation_effect_references_tests {
         .unwrap();
         assert_eq!(result.references.len(), 256);
     }
+
+    #[test]
+    fn workspace_effect_reference_collection_keeps_long_rows_adjacent_linear() {
+        for count in [1_000, 2_000, 4_000] {
+            let mut body = String::from(
+                "effect Choose\n  pick() -> Int\nend\n\nfn consume() -> Int effects [",
+            );
+            for index in 0..count {
+                if index > 0 {
+                    body.push_str(", ");
+                }
+                body.push_str("Choose");
+            }
+            body.push_str("]\n  1\nend\n");
+
+            let input = source("main.veln", &body);
+            let token_count = veln_syntax::lex(&input).tokens.len();
+            let scalar_count = body.chars().count();
+            crate::navigation::reset_effect_list_classification_token_visits();
+            crate::navigation::reset_effect_reference_source_scalar_visits();
+            let snapshot = EffectiveProjectSnapshot::new(vec![input]);
+            let index_started = std::time::Instant::now();
+            let _ = snapshot.navigation_index();
+            let index_elapsed = index_started.elapsed();
+            let started = std::time::Instant::now();
+            let result = query_snapshot(&snapshot, "main.veln", 1, 8).unwrap();
+            let elapsed = started.elapsed();
+            let classification_visits =
+                crate::navigation::effect_list_classification_token_visits();
+            let source_scalar_visits =
+                crate::navigation::effect_reference_source_scalar_visits();
+            eprintln!(
+                "long effect row: references={count} collected={} classification_visits={classification_visits} source_scalar_visits={source_scalar_visits} index_elapsed={index_elapsed:?} query_elapsed={elapsed:?}",
+                result.references.len(),
+            );
+            assert_eq!(result.references.len(), count);
+            assert_eq!(
+                classification_visits, token_count,
+                "effect-list classification must visit every token exactly once",
+            );
+            assert!(
+                source_scalar_visits <= scalar_count,
+                "effect-reference span conversion must make at most one source pass",
+            );
+        }
+    }
 }

@@ -226,7 +226,7 @@ impl SymbolIndex {
         if is_schema_composition_path_leaf_token(tokens, token_index) {
             return self.schema_composition_symbol_at(file, &tokens[token_index]);
         }
-        if is_effect_reference_token(tokens, token_index)
+        if is_effect_reference_token(file, token_index)
             || is_perform_effect_qualifier_token(tokens, token_index)
         {
             return self.effect_for_reference(file, name).map(Symbol::Effect);

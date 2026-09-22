@@ -805,6 +805,7 @@ struct IndexedFile {
     recovery_symbols: Vec<RecoverySymbol>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
+    effect_list_membership: Vec<bool>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     parse_clean: bool,
