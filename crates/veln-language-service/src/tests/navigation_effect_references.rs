@@ -381,6 +381,28 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn workspace_effect_references_keep_complete_qualifiers_with_recovered_arguments() {
+        let text = concat!(
+            "effect Choose\n",
+            "  pick(value: Int) -> Int\n",
+            "end\n\n",
+            "fn broken() -> Int\n",
+            "  perform Choose::pick(1 2)\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert_eq!(locations(&declaration.references), [("main.veln", 6, 11)]);
+
+        let qualifier = query(sources, "main.veln", 6, 11).unwrap();
+        assert_eq!(qualifier.selected_symbol.kind, SymbolKind::Effect);
+        assert!(qualifier.reference_eligible);
+        assert_location(&qualifier.definition, "main.veln", 1, 8);
+        assert_eq!(locations(&qualifier.references), [("main.veln", 6, 11)]);
+    }
+
+    #[test]
     fn workspace_effect_references_do_not_resolve_clean_uses_to_recovered_declarations() {
         let text = concat!(
             "effect Choose\n",

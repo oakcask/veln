@@ -409,6 +409,36 @@ fn references_reject_balanced_recovery_shapes_and_recovered_declarations() {
 }
 
 #[test]
+fn references_keep_complete_effect_qualifiers_with_recovered_arguments() {
+    let workspace = TempWorkspace::new("references-workspace-effect-recovered-argument");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick(value: Int) -> Int\n",
+            "end\n\n",
+            "fn broken() -> Int\n",
+            "  perform Choose::pick(1 2)\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let expected = json!([{
+        "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+        "range": {"start":{"line":6,"column":11},"end":{"line":6,"column":17}}
+    }]);
+
+    for (line, column) in [(1, 8), (6, 11)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":false
+        }));
+        assert_eq!(result["structuredContent"]["references"], expected);
+    }
+}
+
+#[test]
 fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous() {
     let workspace = TempWorkspace::new("references-workspace-effect-recovered-ambiguity");
     workspace.write("veln.toml", "");

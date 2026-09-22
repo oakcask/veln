@@ -27,8 +27,8 @@ impl<'a> ExprParser<'a> {
 
     pub(super) fn parse_perform_primary(&mut self, token: Token) -> Expr {
         let start = token.range;
-        let diagnostic_count = self.diagnostics.len();
         self.bump();
+        let path_diagnostic_count = self.diagnostics.len();
         let effect_start = self.current().range;
         let mut path = self.parse_name_path_segments("perform_expression", "effect operation path");
         if path.len() < 2 {
@@ -53,13 +53,16 @@ impl<'a> ExprParser<'a> {
             .previous()
             .map(|token| self.source.span(token.range))
             .unwrap_or_else(|| self.source.span(start));
-        self.expect_expr_token(
-            TokenKind::LParen,
-            "parse.perform_expression",
-            "perform expression is missing `(`",
-            vec!["("],
-        );
-        let (args, end, arguments_recovered) = self.parse_parenthesized_arguments(
+        let path_recovered = self.diagnostics.len() != path_diagnostic_count;
+        let open_recovered = self
+            .expect_expr_token(
+                TokenKind::LParen,
+                "parse.perform_expression",
+                "perform expression is missing `(`",
+                vec!["("],
+            )
+            .is_none();
+        let (args, end, close_recovered) = self.parse_parenthesized_arguments(
             start,
             "parse.perform_argument",
             "perform argument is missing `,` or `)`",
@@ -71,7 +74,7 @@ impl<'a> ExprParser<'a> {
                 effect_span,
                 operation,
                 operation_span,
-                recovered: arguments_recovered || self.diagnostics.len() != diagnostic_count,
+                recovered: path_recovered || open_recovered || close_recovered,
                 args,
             },
         }
@@ -136,12 +139,12 @@ impl<'a> ExprParser<'a> {
             );
         }
         let close = self.eat(TokenKind::RParen);
-        let recovered = close.is_none();
+        let close_recovered = close.is_none();
         let end = close.map_or_else(
             || arguments.last().map_or(fallback_end, lhs_range),
             |token| token.range,
         );
-        (arguments, end, recovered)
+        (arguments, end, close_recovered)
     }
 
     pub(super) fn parse_schema_decode_primary(&mut self, token: Token) -> Expr {

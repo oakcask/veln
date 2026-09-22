@@ -110,6 +110,61 @@ fn records_recovery_for_unclosed_perform_arguments() {
 }
 
 #[test]
+fn keeps_perform_path_valid_when_only_arguments_are_recovered() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn broken() -> Int\n  perform Choose::pick(1 2)\nend\n",
+    );
+
+    let output = parse(&source);
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.perform_argument")
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Perform {
+            effect,
+            operation,
+            recovered: false,
+            args,
+            ..
+        } if effect == &["Choose"] && operation == "pick" && args.len() == 2
+    ));
+}
+
+#[test]
+fn records_recovery_for_incomplete_perform_paths_and_call_delimiters() {
+    for text in [
+        "fn broken() -> Int\n  perform Choose()\nend\n",
+        "fn broken() -> Int\n  perform Choose::pick 1)\nend\n",
+    ] {
+        let output = parse(&SourceFile::new("main.veln", text));
+        let SyntaxItem::Function(function) = &output.tree.items[0] else {
+            panic!("expected function declaration");
+        };
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected expression body");
+        };
+        assert!(matches!(
+            &expr.kind,
+            ExprKind::Perform {
+                recovered: true,
+                ..
+            }
+        ));
+    }
+}
+
+#[test]
 fn records_recovery_within_effect_declarations() {
     let source = SourceFile::new(
         "main.veln",

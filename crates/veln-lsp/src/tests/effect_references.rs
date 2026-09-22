@@ -308,6 +308,38 @@ fn workspace_effect_references_reject_recovered_occurrences() {
 }
 
 #[test]
+fn workspace_effect_references_keep_complete_qualifiers_with_recovered_arguments() {
+    let project = TempProject::new("workspace-effect-reference-recovered-argument");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick(value: Int) -> Int\n",
+            "end\n\n",
+            "fn broken() -> Int\n",
+            "  perform Choose::pick(1 2)\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+    let expected = format!(
+        "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":10}},\"end\":{{\"line\":5,\"character\":16}}}}}}]",
+        main_uri
+    );
+
+    for request in [
+        references_request_with_declaration(&main_uri, 0, 7, false),
+        references_request_with_declaration(&main_uri, 5, 10, false),
+    ] {
+        assert_eq!(server.handle_message(&request), [response("2", &expected)]);
+    }
+}
+
+#[test]
 fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_declarations() {
     assert_empty_effect_references(
         "workspace-effect-reference-balanced-recovery",

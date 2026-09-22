@@ -543,9 +543,6 @@ fn indexed_dependency_source(
         .collect();
     let schema_composition_leaf_spans =
         valid_schema_composition_leaf_spans(&source_file, &tokens, &parsed);
-    let effect_list_membership = effect_list_membership(&tokens);
-    let effect_reference_ranges =
-        valid_effect_reference_ranges(&tokens, &effect_list_membership, &parsed.tree);
     let file = IndexedFile {
         source: source_file,
         tokens,
@@ -561,7 +558,7 @@ fn indexed_dependency_source(
         recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
-        effect_reference_ranges,
+        effect_reference_ranges: BTreeSet::new(),
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
