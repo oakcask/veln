@@ -1,0 +1,11 @@
+type Item
+  Value(value: Int)
+end
+
+fn convert(input: Item) -> Item
+  Value(input)
+end
+
+test converts() -> Int
+  convert(1)
+end

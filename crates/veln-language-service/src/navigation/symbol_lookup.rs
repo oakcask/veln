@@ -1,4 +1,187 @@
 impl SymbolIndex {
+    fn types_named<'a>(&'a self, name: &str) -> impl Iterator<Item = &'a TypeSymbol> {
+        self.type_indices_by_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.types[*index]
+            })
+    }
+
+    fn type_aliases_named<'a>(
+        &'a self,
+        name: &str,
+    ) -> impl Iterator<Item = &'a TypeAliasSymbol> {
+        self.type_alias_indices_by_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.type_aliases[*index]
+            })
+    }
+
+    fn package_type_aliases_named<'a>(
+        &'a self,
+        name: &str,
+    ) -> impl Iterator<Item = &'a TypeAliasSymbol> {
+        self.package_type_alias_indices_by_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.type_aliases[*index]
+            })
+    }
+
+    fn workspace_types_in_module<'a>(
+        &'a self,
+        module: &str,
+        name: &str,
+    ) -> impl Iterator<Item = &'a TypeSymbol> {
+        self.workspace_type_indices_by_module_and_name
+            .get(&(module.to_string(), name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.types[*index]
+            })
+    }
+
+    fn workspace_type_aliases_in_module<'a>(
+        &'a self,
+        module: &str,
+        name: &str,
+    ) -> impl Iterator<Item = &'a TypeAliasSymbol> {
+        self.workspace_type_alias_indices_by_module_and_name
+            .get(&(module.to_string(), name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.type_aliases[*index]
+            })
+    }
+
+    fn package_type_aliases_in_module<'a>(
+        &'a self,
+        module: &str,
+        name: &str,
+    ) -> impl Iterator<Item = &'a TypeAliasSymbol> {
+        self.package_type_alias_indices_by_module_and_name
+            .get(&(module.to_string(), name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.type_aliases[*index]
+            })
+    }
+
+    fn workspace_type_alias_for_reference(
+        &self,
+        file: &IndexedFile,
+        tokens: &[Token],
+        token_index: usize,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
+            return self.workspace_type_alias_for_bare_reference(file, name);
+        };
+        self.workspace_type_alias_for_qualified_reference(file, &qualifier, name)
+    }
+
+    fn workspace_type_alias_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        if let Some(local) = self.first_local_type_namespace_for_bare_reference(file, name) {
+            return match local {
+                TypeConflictCandidate::Type(_) => None,
+                TypeConflictCandidate::Alias(symbol) if symbol.package.is_none() => Some(symbol),
+                TypeConflictCandidate::Alias(_) => None,
+            };
+        }
+        if file.uses.iter().any(|module| {
+            self.workspace_types_in_module(module, name)
+                .any(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
+        }) || self.types_named(name).any(|symbol| {
+            symbol.package.is_some()
+                && visible_imported_type_for_bare_reference(file, symbol, name)
+        }) {
+            return None;
+        }
+        let workspace_aliases = file.uses.iter().flat_map(|module| {
+            self.workspace_type_aliases_in_module(module, name)
+        });
+        let package_aliases = self.package_type_aliases_named(name).filter(|symbol| {
+            visible_imported_type_alias_for_bare_reference(file, symbol, name)
+        });
+        unique_workspace_type_alias(workspace_aliases.chain(package_aliases))
+    }
+
+    fn workspace_type_alias_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        let qualified_modules = self.qualified_module_candidates(file, qualifier);
+        let unique_qualified_modules = qualified_modules.iter().collect::<BTreeSet<_>>();
+        if unique_qualified_modules.iter().any(|module| {
+            self.workspace_types_in_module(module, name)
+                .any(|symbol| {
+                    visible_type_for_qualified_reference(
+                        file,
+                        symbol,
+                        &qualified_modules,
+                        name,
+                    )
+                })
+        }) || self.types_named(name).any(|symbol| {
+            symbol.package.is_some()
+                && visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
+        }) {
+            return None;
+        }
+        let candidates = unique_qualified_modules.into_iter().flat_map(|module| {
+            let workspace_aliases = self.workspace_type_aliases_in_module(module, name).filter(
+                |symbol| {
+                    visible_type_alias_for_qualified_reference(
+                        file,
+                        symbol,
+                        &qualified_modules,
+                        name,
+                    )
+                },
+            );
+            let package_aliases = self.package_type_aliases_in_module(module, name).filter(
+                |symbol| {
+                    visible_type_alias_for_qualified_reference(
+                        file,
+                        symbol,
+                        &qualified_modules,
+                        name,
+                    )
+                },
+            );
+            workspace_aliases.chain(package_aliases)
+        });
+        unique_workspace_type_alias(candidates)
+    }
+
     fn schema_alias_selection_blocks_schema_fallback(
         &self,
         file: &IndexedFile,
@@ -263,14 +446,12 @@ impl SymbolIndex {
         module: &str,
         name: &str,
     ) -> Option<TypeConflictCandidate> {
-        self.types
-            .iter()
+        self.types_named(name)
             .find(|symbol| symbol.name == name && symbol.module == module && symbol.package.is_none())
             .cloned()
             .map(TypeConflictCandidate::Type)
             .or_else(|| {
-                self.type_aliases
-                    .iter()
+                self.type_aliases_named(name)
                     .find(|symbol| {
                         symbol.name == name && symbol.module == module && symbol.package.is_none()
                     })
@@ -286,15 +467,13 @@ impl SymbolIndex {
     ) -> Option<TypeConflictCandidate> {
         self.first_local_type_namespace_for_bare_reference(file, name)
             .or_else(|| {
-                self.types
-                    .iter()
+                self.types_named(name)
                     .find(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
                     .cloned()
                     .map(TypeConflictCandidate::Type)
             })
             .or_else(|| {
-                self.type_aliases
-                    .iter()
+                self.type_aliases_named(name)
                     .find(|symbol| visible_imported_type_alias_for_bare_reference(file, symbol, name))
                     .cloned()
                     .map(TypeConflictCandidate::Alias)
@@ -306,21 +485,13 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<TypeConflictCandidate> {
-        self.types
-            .iter()
-            .find(|symbol| {
-                symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            })
+        self.workspace_types_in_module(&file.module, name)
+            .next()
             .cloned()
             .map(TypeConflictCandidate::Type)
             .or_else(|| {
-                self.type_aliases
-                    .iter()
-                    .find(|symbol| {
-                        symbol.name == name
-                            && symbol.module == file.module
-                            && symbol.package.is_none()
-                    })
+                self.workspace_type_aliases_in_module(&file.module, name)
+                    .next()
                     .cloned()
                     .map(TypeConflictCandidate::Alias)
             })
@@ -333,16 +504,14 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<TypeConflictCandidate> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        self.types
-            .iter()
+        self.types_named(name)
             .find(|symbol| {
                 visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
             })
             .cloned()
             .map(TypeConflictCandidate::Type)
             .or_else(|| {
-                self.type_aliases
-                    .iter()
+                self.type_aliases_named(name)
                     .find(|symbol| {
                         visible_type_alias_for_qualified_reference(
                             file,
@@ -375,8 +544,7 @@ impl SymbolIndex {
             return vec![symbol.clone()];
         }
 
-        self.types
-            .iter()
+        self.types_named(name)
             .filter(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
             .cloned()
             .collect()
@@ -387,7 +555,7 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<TypeAliasSymbol> {
-        let mut candidates = self.type_aliases.iter().filter(|symbol| {
+        let mut candidates = self.type_aliases_named(name).filter(|symbol| {
             visible_imported_type_alias_for_bare_reference(file, symbol, name)
         });
         let candidate = candidates.next()?;
@@ -399,7 +567,7 @@ impl SymbolIndex {
         file: &IndexedFile,
         name: &str,
     ) -> Option<&TypeSymbol> {
-        self.types.iter().find(|symbol| {
+        self.types_named(name).find(|symbol| {
             symbol.name == name && symbol.module == file.module && symbol.package.is_none()
         })
     }
@@ -422,8 +590,7 @@ impl SymbolIndex {
         name: &str,
     ) -> Vec<TypeSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        self.types
-            .iter()
+        self.types_named(name)
             .filter(|symbol| {
                 visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
             })
@@ -438,7 +605,7 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<TypeAliasSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, qualifier);
-        let mut candidates = self.type_aliases.iter().filter(|symbol| {
+        let mut candidates = self.type_aliases_named(name).filter(|symbol| {
             visible_type_alias_for_qualified_reference(file, symbol, &qualified_modules, name)
         });
         let candidate = candidates.next()?;
@@ -755,8 +922,10 @@ impl SymbolIndex {
         }
         self.type_aliases.iter().any(|alias| {
             alias.package.is_none()
-                && type_alias_targets_constructor(alias, symbol)
-                && (qualifier == alias.module
+                && self.workspace_type_alias_targets_constructor(alias, symbol)
+                && ((qualifier == alias.name
+                    && (file.module == alias.module || file.uses.contains(&alias.module)))
+                    || qualifier == alias.module
                     || qualifier == format!("{}::{}", alias.module, alias.name))
                 && (file.uses.contains(&alias.module) || file.module == alias.module)
         })
@@ -769,7 +938,12 @@ impl SymbolIndex {
         package: Option<&String>,
     ) -> bool {
         self.type_aliases.iter().any(|alias| {
-            if !type_alias_targets_constructor(alias, symbol) {
+            let targets_constructor = if alias.package.is_none() {
+                self.workspace_type_alias_targets_constructor(alias, symbol)
+            } else {
+                type_alias_targets_constructor(alias, symbol)
+            };
+            if !targets_constructor {
                 return false;
             }
             if alias.package.as_ref() != package {
@@ -1019,6 +1193,16 @@ fn unique_external_route(
 
 fn append_module_suffix(module: &str, suffix: Option<&str>) -> String {
     suffix.map_or_else(|| module.to_string(), |suffix| format!("{module}::{suffix}"))
+}
+
+fn unique_workspace_type_alias<'a>(
+    mut candidates: impl Iterator<Item = &'a TypeAliasSymbol>,
+) -> Option<TypeAliasSymbol> {
+    let candidate = candidates.next()?;
+    if candidate.package.is_some() || candidates.next().is_some() {
+        return None;
+    }
+    Some(candidate.clone())
 }
 
 enum QualifiedWorkspaceModule {

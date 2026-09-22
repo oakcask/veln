@@ -122,31 +122,61 @@ missing = true
 [[mcp_assert]]
 id = 8
 path = "/result/tools"
-length = 7
+length = 8
 
 [[mcp_assert]]
 id = 8
 path = "/result/tools/5/name"
-equals = "search_docs"
+equals = "rename"
 
 [[mcp_assert]]
 id = 8
-path = "/result/tools/5/inputSchema/properties/query/maxLength"
+path = "/result/tools/5/inputSchema/additionalProperties"
+equals = false
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/5/inputSchema/required"
+equals = ["source","line","column","new_name"]
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/5/inputSchema/properties/new_name/maxLength"
 equals = 256
 
 [[mcp_assert]]
 id = 8
-path = "/result/tools/5/inputSchema/properties/limit/maximum"
-equals = 50
+path = "/result/tools/5/outputSchema/oneOf/0/additionalProperties"
+equals = false
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/5/outputSchema/$defs/edit/additionalProperties"
+equals = false
 
 [[mcp_assert]]
 id = 8
 path = "/result/tools/6/name"
+equals = "search_docs"
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/6/inputSchema/properties/query/maxLength"
+equals = 256
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/6/inputSchema/properties/limit/maximum"
+equals = 50
+
+[[mcp_assert]]
+id = 8
+path = "/result/tools/7/name"
 equals = "read_doc"
 
 [[mcp_assert]]
 id = 8
-path = "/result/tools/6/outputSchema/$defs/failure/properties/code/const"
+path = "/result/tools/7/outputSchema/$defs/failure/properties/code/const"
 equals = "resource_not_found"
 
 [[mcp_assert]]

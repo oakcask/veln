@@ -1,0 +1,33 @@
+type item
+  value(input: Int)
+end
+
+fn Bad() -> Int
+  Bad()
+end
+
+fn read(value: item) -> item
+  value
+end
+
+fn local(input: Int) -> Int
+  let Local = input
+  Local
+end
+
+fn read_constructor() -> item
+  value(1)
+end
+
+fn read_callback(Callback: fn() -> Int) -> Int
+  Callback
+  Callback()
+end
+
+effect Adjust
+  amount(value: Int) -> Int
+end
+
+handler adjust(Callback: fn(Int) -> Int) handles Adjust
+  amount(Value) => Callback(Value)
+end

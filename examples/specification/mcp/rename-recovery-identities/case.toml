@@ -1,0 +1,46 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/edits"
+length = 4
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/edits"
+length = 3
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 8
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 8
+path = "/result/isError"
+equals = false

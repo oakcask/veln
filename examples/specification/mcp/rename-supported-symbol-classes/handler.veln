@@ -1,0 +1,7 @@
+effect Choose
+  pick(value: Bool) -> Int
+end
+
+handler choose(callback: fn(Int) -> Int) handles Choose
+  pick(value) => callback(value)
+end

@@ -649,3 +649,436 @@ mod navigation_qualified_and_package_tests {
             assert!(uri.ends_with(path), "{uri}");
         }
     }
+
+    #[test]
+    fn workspace_type_alias_rename_ignores_unimported_qualified_modules() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                "fn read(input: left::Alias) -> Int\n  input\nend\n",
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 1,
+                column: 22,
+            },
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_prefers_local_alias_over_imports() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n\n",
+                    "pub type Alias = Int\n\n",
+                    "fn read(input: Alias) -> Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column: 16,
+            },
+        )
+        .unwrap();
+
+        assert_location(&result.definition, "main.veln", 3, 10);
+        assert_eq!(
+            locations(&result.references),
+            [("main.veln", 5, 16), ("main.veln", 5, 26)]
+        );
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_rejects_ambiguous_imported_aliases() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source("right.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use left\n",
+                    "use right\n\n",
+                    "fn read(input: Alias) -> Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 16,
+            },
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_rejects_bare_standard_prelude_alias_collision() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                "use left\n\nfn read(input: Alias) -> Alias\n  input\nend\n",
+            ),
+        ])
+        .with_standard_library(standard_library_snapshot(
+            &[("prelude.veln", "pub type Alias = Int\n")],
+            ["prelude.veln"],
+        ));
+
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 3,
+                    column: 16,
+                },
+            )
+            .is_none()
+        );
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("left.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+        assert!(declaration.references.is_empty(), "{declaration:#?}");
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_rejects_exact_dependency_import_collision() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("model.veln", "pub type Alias = Int\n"),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use model\n",
+                        "use model from \"example/pkg\"\n\n",
+                        "fn read(input: model::Alias) -> model::Alias\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[("model.veln", "pub type Alias = Int\n")],
+                ["model.veln"],
+            )],
+        );
+
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 4,
+                    column: 23,
+                },
+            )
+            .is_none()
+        );
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("model.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+        assert!(declaration.references.is_empty(), "{declaration:#?}");
+    }
+
+    #[test]
+    fn workspace_type_alias_constructor_rename_requires_target_import() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "model.veln",
+                "pub type Item\n  pub Ready(Int)\nend\n",
+            ),
+            source("bridge.veln", "pub type Alias = model::Item\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use bridge\n",
+                    "use model\n\n",
+                    "fn make(input: Int) -> model::Item\n",
+                    "  Alias::Ready(input)\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 5,
+                    column: 3,
+                },
+            )
+            .is_none()
+        );
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("bridge.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+        assert!(declaration.references.is_empty(), "{declaration:#?}");
+    }
+
+    #[test]
+    fn workspace_type_alias_references_exclude_visible_type_occurrences() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("alias.veln", "pub type Alias = Int\n"),
+            source("types.veln", "pub type Alias\n  Value\nend\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use alias\n",
+                    "use types\n\n",
+                    "fn read(input: Alias) -> types::Alias\n",
+                    "  input\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let result = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("alias.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+
+        assert_location(&result.definition, "alias.veln", 1, 10);
+        assert!(result.references.is_empty(), "{:#?}", result.references);
+    }
+
+    #[test]
+    fn workspace_type_alias_constructor_qualifiers_share_validated_rename_identity() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "model.veln",
+                concat!(
+                    "pub type Item\n",
+                    "  pub Ready(Int)\n",
+                    "end\n\n",
+                    "pub type Alias = Item\n",
+                    "pub fn helper(value: Int) -> Int\n  value\nend\n",
+                ),
+            ),
+            source(
+                "main.veln",
+                concat!(
+                    "use model\n\n",
+                    "fn make(input: Alias) -> Alias\n",
+                    "  Alias::Ready(input)\n",
+                    "  model::Alias::Ready(input)\n",
+                    "end\n\n",
+                    "fn missing() -> Int\n",
+                    "  Alias::Missing\n",
+                    "end\n",
+                    "\nfn non_constructor() -> Int\n",
+                    "  Alias::helper(1)\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("model.veln"),
+                line: 5,
+                column: 10,
+            },
+        )
+        .unwrap();
+        let qualifier = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 4,
+                column: 3,
+            },
+        )
+        .unwrap();
+        let qualified = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 5,
+                column: 10,
+            },
+        )
+        .unwrap();
+
+        assert_location(&qualifier.definition, "model.veln", 5, 10);
+        assert_eq!(qualifier.references, declaration.references);
+        assert_eq!(qualified.references, declaration.references);
+        assert_eq!(
+            locations(&qualifier.references),
+            [
+                ("main.veln", 3, 16),
+                ("main.veln", 3, 26),
+                ("main.veln", 4, 3),
+                ("main.veln", 5, 10),
+            ]
+        );
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 9,
+                    column: 3,
+                },
+            )
+            .is_none()
+        );
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 13,
+                    column: 3,
+                },
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_candidate_work_is_adjacent_linear() {
+        use std::fmt::Write as _;
+
+        fn measured_candidate_visits(count: usize) -> (usize, std::time::Duration) {
+            let mut text = String::from("pub type Base\nend\npub type Focus = Base\n\n");
+            for index in 0..count {
+                writeln!(text, "pub type Decoy{index}\nend").unwrap();
+                writeln!(text, "pub type Alias{index} = Decoy{index}\n").unwrap();
+                writeln!(
+                    text,
+                    "fn use{index}(input: Focus) -> Focus\n  input\nend\n"
+                )
+                .unwrap();
+            }
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &text)]);
+            let position = || SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: 3,
+                column: 10,
+            };
+            navigate_for_rename(&snapshot, position()).unwrap();
+            crate::navigation::reset_type_namespace_candidate_visits();
+            let started = std::time::Instant::now();
+            for _ in 0..5 {
+                let result = navigate_for_rename(&snapshot, position()).unwrap();
+                assert_eq!(result.references.len(), count * 2);
+            }
+            (
+                crate::navigation::type_namespace_candidate_visits(),
+                started.elapsed(),
+            )
+        }
+
+        let (smaller_visits, smaller_elapsed) = measured_candidate_visits(250);
+        let (larger_visits, larger_elapsed) = measured_candidate_visits(500);
+        eprintln!(
+            "type-alias rename: 250={smaller_elapsed:?}/{smaller_visits} visits, 500={larger_elapsed:?}/{larger_visits} visits"
+        );
+        assert!(smaller_visits <= 250 * 30, "{smaller_visits}");
+        assert!(larger_visits <= 500 * 30, "{larger_visits}");
+        assert!(larger_visits <= smaller_visits * 2 + 30);
+    }
+
+    #[test]
+    fn same_named_workspace_type_alias_rename_candidate_work_is_adjacent_linear() {
+        use std::fmt::Write as _;
+
+        fn measured_candidate_visits(count: usize) -> (usize, std::time::Duration) {
+            let mut sources = vec![source(
+                "left.veln",
+                "pub type Base\nend\npub type Focus = Base\n",
+            )];
+            for index in 0..count {
+                sources.push(SourceFile::new(
+                    format!("decoy{index}.veln"),
+                    "pub type Base\nend\npub type Focus = Base\n",
+                ));
+            }
+            let mut consumer = String::from("use left\n\n");
+            for index in 0..count {
+                writeln!(
+                    consumer,
+                    "fn use{index}(input: left::Focus) -> left::Focus\n  input\nend\n"
+                )
+                .unwrap();
+            }
+            sources.push(SourceFile::new("main.veln", consumer));
+            let snapshot = EffectiveProjectSnapshot::new(sources);
+            let position = || SourcePosition {
+                source: SourcePath::new("left.veln"),
+                line: 3,
+                column: 10,
+            };
+            navigate_for_rename(&snapshot, position()).unwrap();
+            crate::navigation::reset_type_namespace_candidate_visits();
+            let started = std::time::Instant::now();
+            for _ in 0..5 {
+                let result = navigate_for_rename(&snapshot, position()).unwrap();
+                assert_eq!(result.references.len(), count * 2);
+            }
+            (
+                crate::navigation::type_namespace_candidate_visits(),
+                started.elapsed(),
+            )
+        }
+
+        let (smaller_visits, smaller_elapsed) = measured_candidate_visits(100);
+        let (larger_visits, larger_elapsed) = measured_candidate_visits(200);
+        eprintln!(
+            "same-named type-alias rename: 100={smaller_elapsed:?}/{smaller_visits} visits, 200={larger_elapsed:?}/{larger_visits} visits"
+        );
+        assert!(smaller_visits <= 100 * 20, "{smaller_visits}");
+        assert!(larger_visits <= 200 * 20, "{larger_visits}");
+        assert!(larger_visits <= smaller_visits * 2 + 20);
+    }

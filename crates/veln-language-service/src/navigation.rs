@@ -66,6 +66,22 @@ thread_local! {
     static SCHEMA_OPERATION_LEAF_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_QUALIFIED_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
+    static TYPE_NAMESPACE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_type_namespace_candidate_visit() {
+    TYPE_NAMESPACE_CANDIDATE_VISITS.set(TYPE_NAMESPACE_CANDIDATE_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_type_namespace_candidate_visits() {
+    TYPE_NAMESPACE_CANDIDATE_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn type_namespace_candidate_visits() -> usize {
+    TYPE_NAMESPACE_CANDIDATE_VISITS.get()
 }
 
 #[cfg(test)]

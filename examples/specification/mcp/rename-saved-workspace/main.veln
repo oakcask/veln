@@ -1,0 +1,9 @@
+fn target(value: Int) -> Int
+  target(value - 1)
+end
+
+fn main() -> Int
+  let conflict = 2
+  let observed = conflict
+  target(observed)
+end

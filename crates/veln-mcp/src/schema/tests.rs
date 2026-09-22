@@ -140,6 +140,60 @@ fn references_input_requires_closed_positive_coordinates() {
 }
 
 #[test]
+fn rename_input_requires_closed_coordinates_and_a_bounded_nonempty_name() {
+    let tool = tool("rename").unwrap();
+    assert!(tool.accepts_input(&serde_json::json!({
+        "source": "main.veln",
+        "line": 1.0,
+        "column": 1e0,
+        "new_name": "next"
+    })));
+    assert!(tool.accepts_input(&serde_json::json!({
+        "source":"main.veln", "line":1, "column":1, "new_name":"a".repeat(256)
+    })));
+    for value in [
+        serde_json::json!({"source":"main.veln","line":1,"column":1}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":""}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":"a".repeat(257)}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":"😀".repeat(257)}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":null}),
+        serde_json::json!({"source":"main.veln","line":1,"column":1,"new_name":"next","extra":true}),
+        serde_json::json!({"source":"main.veln","line":0,"column":1,"new_name":"next"}),
+    ] {
+        assert!(!tool.accepts_input(&value), "{value}");
+    }
+}
+
+#[test]
+fn rename_result_schema_closes_success_and_failure_variants() {
+    let tool = tool("rename").unwrap();
+    let range = serde_json::json!({
+        "start": {"line": 1, "column": 4},
+        "end": {"line": 1, "column": 8}
+    });
+    for result in [
+        serde_json::json!({"edits":[{"uri":"file:///workspace/main.veln","range":range,"new_text":"next"}]}),
+        serde_json::json!({"code":"rename.invalid_name","message":"failed","details":{"requested_name":"not valid"}}),
+        serde_json::json!({"code":"rename.invalid_case","message":"failed","details":{"symbol_class":"type","requested_name":"entry","required_initial":"ascii_uppercase"}}),
+        serde_json::json!({"code":"rename.conflict","message":"failed","details":{"symbol_class":"function","requested_name":"other","conflicting_declaration":{"uri":"file:///workspace/main.veln","range":{"start":{"line":1,"column":4},"end":{"line":1,"column":8}}},"affected_scope":{"kind":"module","name":"main"}}}),
+        serde_json::json!({"code":"rename.conflict","message":"failed","details":{"symbol_class":"value_binding","requested_name":"other","conflicting_declaration":{"uri":"file:///workspace/main.veln","range":{"start":{"line":1,"column":4},"end":{"line":1,"column":8}}},"affected_scope":{"kind":"lexical","file":"main.veln","start_offset":0,"end_offset":10}}}),
+        serde_json::json!({"code":"invalid_path","message":"failed","details":{}}),
+        serde_json::json!({"code":"snapshot_changed","message":"failed","details":{}}),
+        serde_json::json!({"code":"invalid_position","message":"failed","details":{"source":"main.veln","line":9,"column":1}}),
+    ] {
+        assert!(tool.accepts_result(&result), "{result:#}");
+    }
+    for result in [
+        serde_json::json!({"edits":[],"code":"snapshot_changed","message":"failed","details":{}}),
+        serde_json::json!({"code":"rename.invalid_name","message":"failed","details":{"requested_name":"bad!","extra":true}}),
+        serde_json::json!({"code":"resource_capacity","message":"failed","details":{}}),
+        serde_json::json!({"edits":[{"uri":"file:///main.veln","range":{"start":{"line":1,"column":1},"end":{"line":1,"column":2}},"new_text":"x","extra":true}]}),
+    ] {
+        assert!(!tool.accepts_result(&result), "{result:#}");
+    }
+}
+
+#[test]
 fn references_input_branches_are_closed_under_draft_2020_12_composition() {
     let schema = tool("references").unwrap().input_schema();
     assert!(matches_schema(

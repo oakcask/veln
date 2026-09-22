@@ -246,6 +246,36 @@ pub fn navigate(
     navigate_in_index(snapshot.navigation_index(), &position)
 }
 
+pub fn navigate_for_rename(
+    snapshot: &EffectiveProjectSnapshot,
+    position: SourcePosition,
+) -> Option<NavigationResult> {
+    let index = snapshot.navigation_index();
+    if let Some((alias, selection)) = index.workspace_type_alias_for_rename(&position) {
+        let definition = alias.declaration.clone();
+        let selected_symbol = Symbol::TypeAlias(alias.clone()).selected_symbol(definition.clone());
+        let mut references = index.workspace_type_alias_references(&alias);
+        sort_locations(&mut references);
+        return Some(NavigationResult {
+            selected_symbol,
+            selection,
+            classified_path_segment: None,
+            definition,
+            references,
+            reference_eligible: true,
+            is_recovery: false,
+        });
+    }
+    let mut result = navigate_in_index(Arc::clone(&index), &position)?;
+    if let Some(symbol) = index.selected_function(&result)
+        && symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
+    {
+        result.references = index.workspace_function_alias_references(&symbol);
+        sort_locations(&mut result.references);
+    }
+    Some(result)
+}
+
 fn navigation_selection_is_unsupported(
     snapshot: &EffectiveProjectSnapshot,
     position: &SourcePosition,
@@ -655,7 +685,7 @@ impl TypeConflictCandidate {
     fn is_selected_type(&self, selected: &TypeSymbol) -> bool {
         match self {
             Self::Type(symbol) => same_type(symbol, selected),
-            Self::Alias(_) => false,
+            Self::Alias(symbol) => symbol.declaration == selected.declaration,
         }
     }
 }
@@ -902,6 +932,12 @@ pub(crate) struct SymbolIndex {
     types: Vec<TypeSymbol>,
     constructors: Vec<ConstructorSymbol>,
     type_aliases: Vec<TypeAliasSymbol>,
+    type_indices_by_name: BTreeMap<String, Vec<usize>>,
+    type_alias_indices_by_name: BTreeMap<String, Vec<usize>>,
+    package_type_alias_indices_by_name: BTreeMap<String, Vec<usize>>,
+    workspace_type_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    package_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     bare_schema_alias_index: BareSchemaAliasIndex,

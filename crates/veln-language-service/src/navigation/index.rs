@@ -36,6 +36,21 @@ impl IndexedDependencies {
     }
 }
 
+struct WorkspaceIndexInput {
+    files: Vec<IndexedFile>,
+    declarations: FileDeclarations,
+    module: veln_ast::SurfaceModule,
+}
+
+struct SchemaNavigationIndex {
+    aliases: Vec<NeutralSymbol>,
+    package_schemas: BTreeMap<(PackageOrigin, String, String, String), NeutralSymbol>,
+    composition_references: Vec<SchemaCompositionReference>,
+    alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
+    bare_aliases: BareSchemaAliasIndex,
+    operation_lookup: SchemaOperationLookupIndex,
+}
+
 impl SymbolIndex {
     pub(crate) fn workspace_schema_alias_is_eligible(
         &self,
@@ -83,76 +98,34 @@ impl SymbolIndex {
         standard_library: &IndexedDependencies,
         classify_workspace_paths: bool,
     ) -> Self {
-        let mut files = Vec::new();
-        let mut declarations = FileDeclarations::default();
-        let mut workspace_module = empty_surface_module();
-        for source in sources {
-            let (file, file_declarations, parsed) = index_workspace_source(source);
-            declarations.extend(file_declarations);
-            append_parsed_surface_module(&mut workspace_module, &file, &parsed);
-            files.push(file);
-        }
-        declarations.extend(direct_dependencies.declarations.clone());
-        declarations.extend(standard_library.declarations.clone());
-        if classify_workspace_paths && workspace_needs_path_classification(&files, &workspace_module)
-        {
-            let mut module = workspace_module.clone();
-            append_surface_module(&mut module, direct_dependencies.module.clone());
-            append_surface_module(&mut module, standard_library.module.clone());
-            attach_classified_path_segments(&mut files, &workspace_module, &module);
-        }
-        let schema_alias_module_imports = index_schema_alias_module_imports(&files);
-        let schema_alias_declarations = declarations
-            .schema_aliases
-            .iter()
-            .chain(&declarations.schema_alias_blockers)
-            .cloned()
-            .collect::<Vec<_>>();
-        let package_schemas = PackageSchemaDeclarations::new(
-            &declarations.package_schema_alias_declarations,
-            &declarations.package_schema_targets,
-            &declarations.recovered_package_schema_targets,
+        let WorkspaceIndexInput {
+            mut files,
+            mut declarations,
+            module: workspace_module,
+        } = index_workspace_input(
+            sources,
+            direct_dependencies,
+            standard_library,
+            classify_workspace_paths,
         );
-        let schema_aliases = eligible_schema_aliases(
-            declarations.schema_aliases,
-            &package_schemas,
-            &declarations.resolved_package_schema_aliases,
-            veln_sema::resolved_schema_aliases(&workspace_module),
-        );
-        let bare_schema_alias_index = bare_schema_alias_index(
-            &declarations.schemas,
-            &schema_aliases,
-            &schema_alias_declarations,
-        );
-        let schema_operation_lookup_index = schema_operation_lookup_index(
-            &declarations.schemas,
-            &schema_aliases,
-            &declarations.package_schema_alias_declarations,
-        );
-        let mut schema_composition_references = workspace_schema_composition_references(
-            &files,
-            &declarations.schemas,
-            &schema_aliases,
-            &schema_alias_module_imports,
-            veln_sema::resolved_schema_composition_references(&workspace_module),
-        );
-        let package_schemas = package_schema_index(
-            &declarations.schemas,
-            &package_schemas,
-        );
-        schema_composition_references.extend(package_schema_composition_references(
-            &files,
-            WorkspaceSchemaCompositionDeclarations {
-                schemas: &declarations.schemas,
-                schema_aliases: &schema_alias_declarations,
-                types: &declarations.types,
-                type_aliases: &declarations.type_aliases,
-            },
-            &package_schemas,
-            &schema_operation_lookup_index.package_aliases,
-            &schema_aliases,
-            &schema_alias_module_imports,
-        ));
+        let SchemaNavigationIndex {
+            aliases: schema_aliases,
+            package_schemas,
+            composition_references: schema_composition_references,
+            alias_module_imports: schema_alias_module_imports,
+            bare_aliases: bare_schema_alias_index,
+            operation_lookup: schema_operation_lookup_index,
+        } = index_schema_navigation(&files, &workspace_module, &mut declarations);
+        let type_indices_by_name = symbol_indices_by_name(&declarations.types);
+        let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
+        let package_type_alias_indices_by_name =
+            package_symbol_indices_by_name(&declarations.type_aliases);
+        let workspace_type_indices_by_module_and_name =
+            workspace_symbol_indices_by_module_and_name(&declarations.types);
+        let workspace_type_alias_indices_by_module_and_name =
+            workspace_symbol_indices_by_module_and_name(&declarations.type_aliases);
+        let package_type_alias_indices_by_module_and_name =
+            package_symbol_indices_by_module_and_name(&declarations.type_aliases);
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {
@@ -169,6 +142,12 @@ impl SymbolIndex {
             types: declarations.types,
             constructors: declarations.constructors,
             type_aliases: declarations.type_aliases,
+            type_indices_by_name,
+            type_alias_indices_by_name,
+            package_type_alias_indices_by_name,
+            workspace_type_indices_by_module_and_name,
+            workspace_type_alias_indices_by_module_and_name,
+            package_type_alias_indices_by_module_and_name,
             schema_composition_references,
             schema_alias_module_imports,
             bare_schema_alias_index,
@@ -255,6 +234,23 @@ impl SymbolIndex {
                     && symbol.declaration == result.selected_symbol.declaration
             })
             .cloned()
+            .or_else(|| {
+                self.type_aliases
+                    .iter()
+                    .find(|symbol| {
+                        symbol.package.is_none()
+                            && symbol.declaration == result.selected_symbol.declaration
+                    })
+                    .map(|symbol| TypeSymbol {
+                        module: symbol.module.clone(),
+                        name: symbol.name.clone(),
+                        declaration: symbol.declaration.clone(),
+                        package: None,
+                        package_origin: None,
+                        public: true,
+                        standard_prelude: symbol.standard_prelude,
+                    })
+            })
     }
 
     fn selected_constructor(&self, result: &NavigationResult) -> Option<ConstructorSymbol> {
@@ -428,6 +424,22 @@ impl SymbolIndex {
             .cloned()
     }
 
+    fn type_alias_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<TypeAliasSymbol> {
+        self.type_aliases
+            .iter()
+            .find(|symbol| {
+                symbol.package.is_none()
+                    && declaration_matches(
+                        name,
+                        selection,
+                        &symbol.name,
+                        symbol.package.as_deref(),
+                        &symbol.declaration.span,
+                    )
+            })
+            .cloned()
+    }
+
     fn effect_declared_at(&self, name: &str, selection: &SourceSpan) -> Option<NeutralSymbol> {
         self.effects
             .iter()
@@ -551,6 +563,187 @@ impl SymbolIndex {
             .cloned()
     }
 
+}
+
+fn index_workspace_input(
+    sources: Vec<SourceFile>,
+    direct_dependencies: &IndexedDependencies,
+    standard_library: &IndexedDependencies,
+    classify_workspace_paths: bool,
+) -> WorkspaceIndexInput {
+    let mut files = Vec::new();
+    let mut declarations = FileDeclarations::default();
+    let mut module = empty_surface_module();
+    for source in sources {
+        let (file, file_declarations, parsed) = index_workspace_source(source);
+        declarations.extend(file_declarations);
+        append_parsed_surface_module(&mut module, &file, &parsed);
+        files.push(file);
+    }
+    declarations.extend(direct_dependencies.declarations.clone());
+    declarations.extend(standard_library.declarations.clone());
+    if classify_workspace_paths && workspace_needs_path_classification(&files, &module) {
+        let mut complete_module = module.clone();
+        append_surface_module(&mut complete_module, direct_dependencies.module.clone());
+        append_surface_module(&mut complete_module, standard_library.module.clone());
+        attach_classified_path_segments(&mut files, &module, &complete_module);
+    }
+    WorkspaceIndexInput {
+        files,
+        declarations,
+        module,
+    }
+}
+
+fn index_schema_navigation(
+    files: &[IndexedFile],
+    workspace_module: &veln_ast::SurfaceModule,
+    declarations: &mut FileDeclarations,
+) -> SchemaNavigationIndex {
+    let alias_module_imports = index_schema_alias_module_imports(files);
+    let alias_declarations = declarations
+        .schema_aliases
+        .iter()
+        .chain(&declarations.schema_alias_blockers)
+        .cloned()
+        .collect::<Vec<_>>();
+    let package_declarations = PackageSchemaDeclarations::new(
+        &declarations.package_schema_alias_declarations,
+        &declarations.package_schema_targets,
+        &declarations.recovered_package_schema_targets,
+    );
+    let aliases = eligible_schema_aliases(
+        std::mem::take(&mut declarations.schema_aliases),
+        &package_declarations,
+        &declarations.resolved_package_schema_aliases,
+        veln_sema::resolved_schema_aliases(workspace_module),
+    );
+    let bare_aliases =
+        bare_schema_alias_index(&declarations.schemas, &aliases, &alias_declarations);
+    let operation_lookup = schema_operation_lookup_index(
+        &declarations.schemas,
+        &aliases,
+        &declarations.package_schema_alias_declarations,
+    );
+    let mut composition_references = workspace_schema_composition_references(
+        files,
+        &declarations.schemas,
+        &aliases,
+        &alias_module_imports,
+        veln_sema::resolved_schema_composition_references(workspace_module),
+    );
+    let package_schemas = package_schema_index(&declarations.schemas, &package_declarations);
+    composition_references.extend(package_schema_composition_references(
+        files,
+        WorkspaceSchemaCompositionDeclarations {
+            schemas: &declarations.schemas,
+            schema_aliases: &alias_declarations,
+            types: &declarations.types,
+            type_aliases: &declarations.type_aliases,
+        },
+        &package_schemas,
+        &operation_lookup.package_aliases,
+        &aliases,
+        &alias_module_imports,
+    ));
+    SchemaNavigationIndex {
+        aliases,
+        package_schemas,
+        composition_references,
+        alias_module_imports,
+        bare_aliases,
+        operation_lookup,
+    }
+}
+
+trait NamedTypeSymbol {
+    fn name(&self) -> &str;
+    fn module(&self) -> &str;
+    fn is_workspace_symbol(&self) -> bool;
+}
+
+impl NamedTypeSymbol for TypeSymbol {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn module(&self) -> &str {
+        &self.module
+    }
+
+    fn is_workspace_symbol(&self) -> bool {
+        self.package.is_none()
+    }
+}
+
+impl NamedTypeSymbol for TypeAliasSymbol {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn module(&self) -> &str {
+        &self.module
+    }
+
+    fn is_workspace_symbol(&self) -> bool {
+        self.package.is_none()
+    }
+}
+
+fn symbol_indices_by_name<T: NamedTypeSymbol>(symbols: &[T]) -> BTreeMap<String, Vec<usize>> {
+    let mut by_name = BTreeMap::<String, Vec<usize>>::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        by_name
+            .entry(symbol.name().to_string())
+            .or_default()
+            .push(index);
+    }
+    by_name
+}
+
+fn package_symbol_indices_by_name<T: NamedTypeSymbol>(
+    symbols: &[T],
+) -> BTreeMap<String, Vec<usize>> {
+    let mut by_name = BTreeMap::<String, Vec<usize>>::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        if !symbol.is_workspace_symbol() {
+            by_name
+                .entry(symbol.name().to_string())
+                .or_default()
+                .push(index);
+        }
+    }
+    by_name
+}
+
+fn workspace_symbol_indices_by_module_and_name<T: NamedTypeSymbol>(
+    symbols: &[T],
+) -> BTreeMap<(String, String), Vec<usize>> {
+    let mut by_module_and_name = BTreeMap::<(String, String), Vec<usize>>::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        if symbol.is_workspace_symbol() {
+            by_module_and_name
+                .entry((symbol.module().to_string(), symbol.name().to_string()))
+                .or_default()
+                .push(index);
+        }
+    }
+    by_module_and_name
+}
+
+fn package_symbol_indices_by_module_and_name<T: NamedTypeSymbol>(
+    symbols: &[T],
+) -> BTreeMap<(String, String), Vec<usize>> {
+    let mut by_module_and_name = BTreeMap::<(String, String), Vec<usize>>::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        if !symbol.is_workspace_symbol() {
+            by_module_and_name
+                .entry((symbol.module().to_string(), symbol.name().to_string()))
+                .or_default()
+                .push(index);
+        }
+    }
+    by_module_and_name
 }
 
 fn visible_schema_from_workspace_module(file: &IndexedFile, symbol: &NeutralSymbol) -> bool {

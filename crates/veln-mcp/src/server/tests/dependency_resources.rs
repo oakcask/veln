@@ -493,6 +493,16 @@ fn fill_dependency_resource_capacity(server: &mut Server) {
         .unwrap();
 }
 
+pub(super) fn fill_dependency_resource_capacity_completely(server: &mut Server) {
+    let boundary = (0..255)
+        .map(|index| synthetic_dependency_project(&format!("example/rename-full{index}"), "body"))
+        .collect::<Vec<_>>();
+    server
+        .language_resources
+        .admit_dependencies(&boundary)
+        .unwrap();
+}
+
 fn assert_reference_capacity_failure(server: &mut Server) {
     let initial_failure = server.references_tool(&json!({
         "source":"main.veln", "line":4, "column":8, "include_declaration": true

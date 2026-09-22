@@ -331,6 +331,10 @@ escaping, equality, ordered arrays, length, missing paths, dynamic workspace
 URIs, and rejection boundaries. The `definition-workspace` MCP specification
 case uses decoded MCP assertions for response IDs 3 through 11 and keeps raw
 stdout fragments only for incidental initialization and tool discovery text.
+The `rename-*` MCP specification cases use decoded assertions for exact edit
+locations and ordering, domain failures, empty boundary results, and
+state-preservation checks. The saved-workspace case also uses JSON sidecars to
+compare the advertised closed input and result schemas.
 The `references-workspace-schema-composition` MCP specification case uses the
 same decoded assertion model for canonical reference locations, empty boundary
 results, project scope, and isolated single-file scope.

@@ -325,6 +325,47 @@ fn companion_private_function_rename_edits_target_and_matching_companion_referen
         "{}",
         responses[0]
     );
+
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new(
+            "math.veln",
+            "fn increment(value: Int) -> Int\n  increment(value - 1)\nend\n",
+        ),
+        SourceFile::new(
+            "math.test.veln",
+            concat!(
+                "use math\n\n",
+                "fn increment(value: Int) -> Int\n  value\nend\n\n",
+                "test increment_test() -> Int\n  math::increment(1)\nend\n\n",
+                "test local_increment_test() -> Int\n  increment(1)\nend\n",
+            ),
+        ),
+    ]);
+    let shared = navigate(
+        &snapshot,
+        SourcePosition {
+            source: SourcePath::new("math.test.veln"),
+            line: 8,
+            column: 11,
+        },
+    )
+    .unwrap();
+    let expected = std::iter::once(&shared.definition.span)
+        .chain(&shared.references)
+        .collect::<Vec<_>>();
+    assert_eq!(expected.len(), 3);
+    for span in expected {
+        let uri = path_to_uri(&project.root.join(span.file.as_str()));
+        assert!(responses[0].contains(&escape_json(&uri)), "{}", responses[0]);
+        let range = format!(
+            r#""range":{{"start":{{"line":{},"character":{}}},"end":{{"line":{},"character":{}}}}}"#,
+            span.start.line - 1,
+            span.start.column - 1,
+            span.end.line - 1,
+            span.end.column - 1,
+        );
+        assert!(responses[0].contains(&range), "{range}: {}", responses[0]);
+    }
 }
 
 #[test]
@@ -369,6 +410,165 @@ fn rename_accepts_same_class_replacements_for_cased_symbols() {
         1
     );
     assert_eq!(value_rename[0].matches(r#""newText":"input""#).count(), 2);
+}
+
+#[test]
+fn rename_workspace_edit_locations_match_shared_navigation() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-shared-location-comparison");
+    let source = concat!(
+        "type Item\n",
+        "  Value(value: Int)\n",
+        "end\n\n",
+        "fn convert(input: Item) -> Item\n",
+        "  Value(input)\n",
+        "end\n\n",
+        "fn increment(value: Int) -> Int\n",
+        "  value + 1\n",
+        "end\n",
+        "pub fn advance = increment\n",
+        "fn use_advance() -> Int\n  advance(1)\nend\n\n",
+        "test verifies() -> Int\n  convert(1)\nend\n\n",
+        "effect Choose\n  pick(value: Bool) -> Int\nend\n\n",
+        "handler choose(callback: fn(Int) -> Int) handles Choose\n",
+        "  pick(value) => callback(value)\nend\n\n",
+        "fn qualified() -> Item\n  Item::Value(1)\nend\n",
+    );
+    project.write("main.veln", source);
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let snapshot = EffectiveProjectSnapshot::new(vec![SourceFile::new("main.veln", source)]);
+
+    for (line, character, new_name) in [
+        (0usize, 5usize, "Entry"),
+        (1, 2, "Created"),
+        (4, 3, "adapt"),
+        (5, 8, "value"),
+        (13, 2, "move"),
+        (16, 5, "checks"),
+        (25, 18, "apply"),
+        (25, 7, "input"),
+    ] {
+        let shared = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("main.veln"),
+                line: line + 1,
+                column: character + 1,
+            },
+        )
+        .unwrap();
+        let expected = std::iter::once(&shared.definition.span)
+            .chain(&shared.references)
+            .map(|span| {
+                (
+                    path_to_uri(&project.root.join(span.file.as_str())),
+                    span.start.line - 1,
+                    span.start.column - 1,
+                    span.end.line - 1,
+                    span.end.column - 1,
+                )
+            })
+            .collect::<BTreeSet<_>>();
+        if line == 13 {
+            assert_eq!(expected.len(), 2, "function alias must include its use");
+        }
+
+        let response = server.handle_message(&rename_request(
+            &main_uri,
+            line,
+            character,
+            new_name,
+        ));
+        assert_eq!(
+            response[0]
+                .matches(&format!(r#""newText":"{new_name}""#))
+                .count(),
+            expected.len(),
+            "{line}:{character} {}",
+            response[0]
+        );
+        for (uri, start_line, start_column, end_line, end_column) in expected {
+            assert!(response[0].contains(&escape_json(&uri)), "{}", response[0]);
+            let range = format!(
+                r#""range":{{"start":{{"line":{start_line},"character":{start_column}}},"end":{{"line":{end_line},"character":{end_column}}}}}"#
+            );
+            assert!(response[0].contains(&range), "{range}: {}", response[0]);
+        }
+    }
+}
+
+#[test]
+fn companion_private_rename_locations_match_shared_navigation() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-companion-shared-location-comparison");
+    let target = "fn increment(value: Int) -> Int\n  increment(value - 1)\nend\n";
+    let companion = "use math\n\ntest companion() -> Int\n  math::increment(1)\nend\n";
+    project.write("math.veln", target);
+    project.write("math.test.veln", companion);
+    let root_uri = path_to_uri(&project.root);
+    let companion_uri = path_to_uri(&project.root.join("math.test.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+    let snapshot = EffectiveProjectSnapshot::new(vec![
+        SourceFile::new("math.veln", target),
+        SourceFile::new("math.test.veln", companion),
+    ]);
+    let shared = navigate(
+        &snapshot,
+        SourcePosition {
+            source: SourcePath::new("math.test.veln"),
+            line: 4,
+            column: 11,
+        },
+    )
+    .unwrap();
+    let expected = std::iter::once(&shared.definition.span)
+        .chain(&shared.references)
+        .map(|span| {
+            (
+                path_to_uri(&project.root.join(span.file.as_str())),
+                span.start.line - 1,
+                span.start.column - 1,
+                span.end.line - 1,
+                span.end.column - 1,
+            )
+        })
+        .collect::<BTreeSet<_>>();
+
+    let response = server.handle_message(&rename_request(&companion_uri, 3, 10, "advance"));
+    assert_eq!(
+        response[0].matches(r#""newText":"advance""#).count(),
+        expected.len(),
+        "{}",
+        response[0]
+    );
+    for (uri, start_line, start_column, end_line, end_column) in expected {
+        assert!(response[0].contains(&escape_json(&uri)), "{}", response[0]);
+        let range = format!(
+            r#""range":{{"start":{{"line":{start_line},"character":{start_column}}},"end":{{"line":{end_line},"character":{end_column}}}}}"#
+        );
+        assert!(response[0].contains(&range), "{range}: {}", response[0]);
+    }
+}
+
+#[test]
+fn workspace_type_alias_prepare_and_rename_remain_unsupported_together() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-workspace-type-alias-boundary");
+    project.write(
+        "main.veln",
+        "pub type Alias = Int\n\nfn read(input: Alias) -> Alias\n  input\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let prepared = server.handle_message(&prepare_rename_request(&main_uri, 2, 15));
+    let renamed = server.handle_message(&rename_request(&main_uri, 2, 15, "Renamed"));
+
+    assert!(prepared[0].contains(r#""result":null"#), "{}", prepared[0]);
+    assert!(renamed[0].contains(r#""changes":{}"#), "{}", renamed[0]);
 }
 
 #[test]

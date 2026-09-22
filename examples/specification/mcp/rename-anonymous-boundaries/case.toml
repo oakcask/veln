@@ -1,0 +1,44 @@
+command = ["mcp"]
+stdin_file = "case-text/root-stdin-1.jsonl"
+exit = 0
+
+[stdout]
+contains = ["\"new_text\":\"next\""]
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/edits/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/edits/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/edits"
+length = 0
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/code"
+equals = "invalid_position"
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/edits"
+missing = true
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/code"
+equals = "invalid_path"

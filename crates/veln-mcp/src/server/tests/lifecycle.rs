@@ -70,6 +70,7 @@ fn assert_implemented_tool_names(response: &Value) {
             "check_project",
             "definition",
             "references",
+            "rename",
             "search_docs",
             "read_doc"
         ]
