@@ -1,13 +1,21 @@
 impl SymbolIndex {
     fn effect_operation_references(&self, symbol: &EffectOperationSymbol) -> Vec<SourceSpan> {
+        let eligible_handlers = self.effect_operation_reference_handlers();
+        self.files
+            .iter()
+            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
+            .flat_map(|file| effect_operation_references_in_file(file, symbol, &eligible_handlers))
+            .collect()
+    }
+
+    fn effect_operation_reference_handlers(&self) -> BTreeSet<(String, String)> {
         let mut handler_counts = BTreeMap::<(String, String), usize>::new();
         for handler in self.handlers.iter().filter(|handler| handler.package.is_none()) {
             *handler_counts
                 .entry((handler.module.clone(), handler.name.clone()))
                 .or_default() += 1;
         }
-        let eligible_handlers = self
-            .handlers
+        self.handlers
             .iter()
             .filter(|handler| {
                 handler.package.is_none()
@@ -17,57 +25,6 @@ impl SymbolIndex {
                     && self.handler_declaration_is_unrecovered(handler)
             })
             .map(|handler| (handler.module.clone(), handler.name.clone()))
-            .collect::<BTreeSet<_>>();
-        self.files
-            .iter()
-            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
-            .flat_map(|file| {
-                let mut references = file.tokens
-                    .iter()
-                    .enumerate()
-                    .filter(|(index, token)| {
-                        if token.kind != TokenKind::Ident
-                            || token.text != symbol.name
-                            || !file
-                                .effect_operation_ranges
-                                .contains(&(token.range.start, token.range.end))
-                        {
-                            return false;
-                        }
-                        let Some(qualifier_index) =
-                            previous_path_segment_index(&file.tokens, *index)
-                        else {
-                            return false;
-                        };
-                        let qualifier = &file.tokens[qualifier_index];
-                        qualifier.text == symbol.effect_name
-                            && !file.generic_effect_binder_shadows(
-                                &symbol.effect_name,
-                                qualifier.range.start,
-                            )
-                            && file.effect_reference_ranges.contains(&(
-                                qualifier.range.start,
-                                qualifier.range.end,
-                            ))
-                            && qualifier_for_token(&file.tokens, *index)
-                                .is_some_and(|name| name == symbol.effect_name)
-                    })
-                    .map(|(_, token)| file.source.span(token.range))
-                    .collect::<Vec<_>>();
-                references.extend(
-                    file.handler_operation_clause_references
-                        .iter()
-                        .filter(|clause| {
-                            clause.effect_name == symbol.effect_name
-                                && clause.operation_name == symbol.name
-                                && eligible_handlers
-                                    .contains(&(file.module.clone(), clause.handler_name.clone()))
-                        })
-                        .map(|clause| clause.span.clone()),
-                );
-                references.sort_by_key(|span| (span.start.offset, span.end.offset));
-                references
-            })
             .collect()
     }
 
@@ -1047,6 +1004,59 @@ impl SymbolIndex {
         }
         qualifiers
     }
+}
+
+fn effect_operation_references_in_file(
+    file: &IndexedFile,
+    symbol: &EffectOperationSymbol,
+    eligible_handlers: &BTreeSet<(String, String)>,
+) -> Vec<SourceSpan> {
+    let mut references = file
+        .tokens
+        .iter()
+        .enumerate()
+        .filter(|(index, token)| effect_operation_token_matches(file, *index, token, symbol))
+        .map(|(_, token)| file.source.span(token.range))
+        .collect::<Vec<_>>();
+    references.extend(
+        file.handler_operation_clause_references
+            .iter()
+            .filter(|clause| {
+                clause.effect_name == symbol.effect_name
+                    && clause.operation_name == symbol.name
+                    && eligible_handlers
+                        .contains(&(file.module.clone(), clause.handler_name.clone()))
+            })
+            .map(|clause| clause.span.clone()),
+    );
+    references.sort_by_key(|span| (span.start.offset, span.end.offset));
+    references
+}
+
+fn effect_operation_token_matches(
+    file: &IndexedFile,
+    index: usize,
+    token: &Token,
+    symbol: &EffectOperationSymbol,
+) -> bool {
+    if token.kind != TokenKind::Ident
+        || token.text != symbol.name
+        || !file
+            .effect_operation_ranges
+            .contains(&(token.range.start, token.range.end))
+    {
+        return false;
+    }
+    let Some(qualifier_index) = previous_path_segment_index(&file.tokens, index) else {
+        return false;
+    };
+    let qualifier = &file.tokens[qualifier_index];
+    qualifier.text == symbol.effect_name
+        && !file.generic_effect_binder_shadows(&symbol.effect_name, qualifier.range.start)
+        && file
+            .effect_reference_ranges
+            .contains(&(qualifier.range.start, qualifier.range.end))
+        && qualifier_for_token(&file.tokens, index).is_some_and(|name| name == symbol.effect_name)
 }
 
 fn source_spans_for_sorted_ranges(source: &SourceFile, ranges: &[TextRange]) -> Vec<SourceSpan> {
