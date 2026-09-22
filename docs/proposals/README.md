@@ -16,17 +16,22 @@ also states it.
 
 ## Ready
 
-No proposals are ready.
+- Add same-module workspace effect-operation references for complete `perform`
+  expressions to the shared navigation result and both saved-navigation
+  adapters:
+  [workspace-effect-operation-references.md](workspace-effect-operation-references.md).
 
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
   syntax and lookup contract:
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
-- The agent-language-services umbrella remains a planning inventory only for
+- The [agent-language-services umbrella](agent-language-services.md) remains a
+  planning inventory only for
   the unimplemented transitive-dependency, recovery, casing-neutral, remaining
   symbol, cross-adapter conformance, agent-skill, conformance-gate, and plugin
-  work. Do not select the umbrella directly.
+  work outside the ready effect-operation slice. Do not select the umbrella
+  directly.
 
 ## Selection Rule
 
