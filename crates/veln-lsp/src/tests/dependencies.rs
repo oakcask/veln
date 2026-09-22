@@ -48,13 +48,24 @@ fn handler_context_parameter_does_not_bind_same_named_operation_heading() {
 
     assert_eq!(definition.len(), 1);
     assert!(
-        definition[0].contains(r#""result":null"#),
+        definition[0].contains(
+            r#""range":{"start":{"line":5,"character":2},"end":{"line":5,"character":10}}"#
+        ),
         "{}",
         definition[0]
     );
     assert_eq!(references.len(), 1);
     assert!(
-        references[0].contains(r#""result":[]"#),
+        references[0].contains(
+            r#""range":{"start":{"line":5,"character":2},"end":{"line":5,"character":10}}"#
+        ),
+        "{}",
+        references[0]
+    );
+    assert!(
+        references[0].contains(
+            r#""range":{"start":{"line":10,"character":2},"end":{"line":10,"character":10}}"#
+        ),
         "{}",
         references[0]
     );

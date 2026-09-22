@@ -70,20 +70,26 @@ fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coor
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n",
+        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n\r\nhandler chooser() handles Choose\r\n  pick() => 1\r\nend\r\n",
     );
     let mut server = initialized_server(&workspace);
     let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
 
     let without_declaration = server.references_tool(&json!({
-        "source":"main.veln", "line":6, "column":26, "include_declaration":false
+        "source":"main.veln", "line":10, "column":3, "include_declaration":false
     }));
     assert_eq!(
         without_declaration["structuredContent"]["references"],
-        json!([{
-            "uri": uri,
-            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
-        }])
+        json!([
+            {
+                "uri": uri,
+                "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+            },
+            {
+                "uri": uri,
+                "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
+            }
+        ])
     );
 
     let first = server.references_tool(&json!({
@@ -98,12 +104,23 @@ fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coor
         }])
     );
     let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let perform_page = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        perform_page["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+        }])
+    );
+    let cursor = perform_page["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap();
     let final_page = server.references_tool(&json!({"cursor":cursor}));
     assert_eq!(
         final_page["structuredContent"]["references"],
         json!([{
             "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
-            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+            "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
         }])
     );
     assert!(final_page["structuredContent"].get("next_cursor").is_none());

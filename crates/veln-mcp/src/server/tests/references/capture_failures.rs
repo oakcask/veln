@@ -123,23 +123,29 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
-        "effect Choose\n  pick() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::pick()\nend\n",
+        "effect Choose\n  pick() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::pick()\nend\n\nhandler chooser() handles Choose\n  pick() => 1\nend\n",
     );
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":3
+        "source":"main.veln", "line":10, "column":3
     }));
     let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
     assert_eq!(
         before["structuredContent"]["references"],
-        json!([{
-            "uri": uri,
-            "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
-        }])
+        json!([
+            {
+                "uri": uri,
+                "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+            },
+            {
+                "uri": uri,
+                "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
+            }
+        ])
     );
     let seeded = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":3,
-        "include_declaration":true, "page_size":1
+        "source":"main.veln", "line":10, "column":3,
+        "include_declaration":false, "page_size":1
     }));
     let live_cursor = seeded["structuredContent"]["next_cursor"]
         .as_str()
@@ -151,7 +157,7 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
     let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
 
     let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":3
+        "source":"main.veln", "line":10, "column":3
     }));
     assert_snapshot_changed_without_references_or_scope(&failed);
     assert_eq!(attempts.get(), 3);
@@ -167,7 +173,7 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
         continuation["structuredContent"]["references"],
         json!([{
             "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
-            "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+            "range": {"start":{"line":10,"column":3},"end":{"line":10,"column":7}}
         }])
     );
     assert!(
@@ -178,7 +184,7 @@ fn workspace_effect_operation_reference_capture_failure_preserves_state_and_late
 
     drop(hook);
     let after = server.references_tool(&json!({
-        "source":"main.veln", "line":2, "column":3
+        "source":"main.veln", "line":10, "column":3
     }));
     assert_eq!(after, before);
 }
@@ -202,7 +208,7 @@ fn install_changing_workspace_effect_hook(
         fs::write(
             &main,
             format!(
-                "effect Choose\n  {operation}() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::{operation}()\nend\n"
+                "effect Choose\n  {operation}() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::{operation}()\nend\n\nhandler chooser() handles Choose\n  {operation}() => 1\nend\n"
             ),
         )
         .unwrap();

@@ -62,6 +62,7 @@ struct WorkspaceSyntaxIndex {
     recovered_effect_declarations: Vec<SourceSpan>,
     recovered_handler_declarations: Vec<SourceSpan>,
     handler_reference_ranges: BTreeSet<(usize, usize)>,
+    handler_operation_clause_references: Vec<HandlerOperationClauseReference>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effects: WorkspaceEffectIndex,
@@ -96,6 +97,10 @@ impl WorkspaceSyntaxIndex {
             &handler_argument_delimiters,
             &handler_diagnostics,
         );
+        let handler_operation_clause_references = valid_handler_operation_clause_references(
+            parsed,
+            &recovered_handler_declarations,
+        );
         Self {
             tokens,
             invalid_declaration_names: invalid_name_spans(&invalid_names),
@@ -103,6 +108,7 @@ impl WorkspaceSyntaxIndex {
             recovered_effect_declarations,
             recovered_handler_declarations,
             handler_reference_ranges,
+            handler_operation_clause_references,
             schema_operation_leaf_ranges,
             schema_composition_leaf_spans,
             effects,
@@ -131,6 +137,7 @@ fn indexed_workspace_file(
         recovered_effect_declarations: syntax.recovered_effect_declarations,
         recovered_handler_declarations: syntax.recovered_handler_declarations,
         handler_reference_ranges: syntax.handler_reference_ranges,
+        handler_operation_clause_references: syntax.handler_operation_clause_references,
         schema_operation_leaf_ranges: syntax.schema_operation_leaf_ranges,
         schema_composition_leaf_spans: syntax.schema_composition_leaf_spans,
         effect_reference_ranges: syntax.effects.reference_ranges,

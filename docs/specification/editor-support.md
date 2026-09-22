@@ -232,11 +232,13 @@ Effects, handlers, and effect operations remain unsupported for rename.
 
 For a selected parse-clean workspace effect operation, references include each
 complete `perform Effect::operation(arguments)` operation-name leaf in saved
-workspace sources that declare the same module. The declaration and every
-included leaf select the same module, owning-effect, and operation identity.
-Each returned range covers only the operation name. `includeDeclaration`
-controls whether LSP adds the one workspace declaration before the sorted
-shared references.
+workspace sources that declare the same module. They also include each
+structurally complete matching operation-clause heading in a parse-clean
+same-module handler whose bare `handles` target resolves to the owning effect.
+The declaration, every included leaf, and every included heading select the
+same module, owning-effect, and operation identity. Each returned range covers
+only the operation name. `includeDeclaration` controls whether LSP adds the one
+workspace declaration before the sorted shared references.
 
 Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation
@@ -244,10 +246,14 @@ names. It excludes duplicate declarations and imported, package-backed,
 generic-effect-qualified, invalid-cased, unresolved, ambiguous, incomplete,
 recovered, or additionally qualified operation paths. An operation leaf is
 also excluded when its argument list requires syntax recovery, even if the
-adjacent effect qualifier remains eligible for effect references. Handler
-operation-clause headings and equal spelling in another effect, module, symbol
-class, comment, or string do not enter the result. The adjacent effect
-qualifier keeps its separate effect identity.
+adjacent effect qualifier remains eligible for effect references. A clause
+heading is excluded when its handler declaration is duplicate or recovered,
+its heading is duplicate or recovered, or its `handles` target is qualified,
+imported, package-backed, unresolved, or ambiguous. Unknown operation names
+and equal spelling in another effect, module, symbol class, comment, or string
+do not enter the result. Clause parameters and bodies keep their separate
+binding and navigation behavior. The adjacent effect qualifier keeps its
+separate effect identity.
 
 For a selected parse-clean workspace handler declaration, references include
 each complete bare handler name in `handle Body with handler(arguments)` from
@@ -591,6 +597,10 @@ rename, and virtual-document boundaries.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect and
 effect-operation references.
+The checked
+`examples/specification/lsp/references-workspace-handler-operation-clause/`
+transcript demonstrates shared operation selection from a handler clause
+heading and operation-name-only locations.
 The checked `examples/specification/lsp/references-workspace-handler/`
 transcript demonstrates the same declaration policy and UTF-16 conversion for
 workspace handler references.

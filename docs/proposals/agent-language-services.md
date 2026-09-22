@@ -28,12 +28,6 @@ Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
 
-Same-module workspace handler operation-clause headings are routed to the
-focused
-[workspace handler operation-clause references proposal](workspace-handler-operation-clause-references.md).
-That slice does not extend navigation to imported or package-backed effects or
-handlers.
-
 ## Remaining acceptance model
 
 The following rows are the umbrella's remaining planning contract. They are
