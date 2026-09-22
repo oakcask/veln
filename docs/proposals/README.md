@@ -16,9 +16,7 @@ also states it.
 
 ## Ready
 
-- Add same-module workspace handler references to the shared navigation result
-  and both saved-navigation adapters:
-  [workspace-handler-references.md](workspace-handler-references.md).
+No proposals are ready.
 
 ## Blocked
 
@@ -28,8 +26,7 @@ also states it.
 - The agent-language-services umbrella remains a planning inventory only for
   the unimplemented transitive-dependency, recovery, casing-neutral, remaining
   symbol, cross-adapter conformance, agent-skill, conformance-gate, and plugin
-  work outside the ready handler-reference slice. Do not select the umbrella
-  directly.
+  work. Do not select the umbrella directly.
 
 ## Selection Rule
 

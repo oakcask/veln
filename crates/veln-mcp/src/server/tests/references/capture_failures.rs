@@ -190,6 +190,72 @@ fn install_changing_workspace_effect_hook(
     })
 }
 
+#[test]
+fn workspace_handler_reference_capture_failure_preserves_state_and_later_results() {
+    let workspace = TempWorkspace::new("references-workspace-handler-capture-retry");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "handler run() handles Work\n  go() => 1\nend\n\n",
+            "fn first() -> Int\n  handle 1 with run()\nend\n\n",
+            "fn second() -> Int\n  handle 2 with run()\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let before = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":9
+    }));
+    assert_eq!(
+        before["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let live_cursor = live_reference_cursor(&mut server, "main.veln", 1, 9);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0usize));
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let main = root.join("main.veln");
+        fs::remove_file(&main).unwrap();
+        let value = if attempt.is_multiple_of(2) { 1 } else { 2 };
+        fs::write(
+            &main,
+            format!(
+                "handler run() handles Work\n  go() => {value}\nend\n\nfn first() -> Int\n  handle 1 with run()\nend\n\nfn second() -> Int\n  handle 2 with run()\nend\n"
+            ),
+        )
+        .unwrap();
+    });
+
+    let failed = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":9
+    }));
+    assert_snapshot_changed_without_references_or_scope(&failed);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert_live_reference_cursor(&mut server, &live_cursor);
+
+    drop(hook);
+    let after = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":9
+    }));
+    assert_eq!(
+        after["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
 fn live_reference_cursor(server: &mut Server, source: &str, line: u64, column: u64) -> String {
     server.references_tool(&json!({
         "source":source, "line":line, "column":column, "page_size":1

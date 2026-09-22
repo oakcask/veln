@@ -491,7 +491,7 @@ project_wide:false}` for anonymous source scope. The reference locations have
 start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
-Supported reference identities are workspace effects, schemas, eligible
+Supported reference identities are workspace effects, handlers, schemas, eligible
 workspace, direct-dependency, and standard-library schema aliases, functions,
 types, constructors, value bindings, handler context parameters, and handler
 operation-clause parameters. A workspace effect result contains bare effect
@@ -513,6 +513,17 @@ effects, generic effect parameters, duplicate declarations, invalid casing,
 unresolved names, recovered effect rows, recovered handler targets, incomplete
 `perform` qualifiers, other modules, and other symbol classes do not enter the
 result.
+
+A workspace handler result contains each complete bare handler name in
+`handle Body with handler(arguments)` from saved sources that declare the
+selected handler's module. The declaration and each included name select one
+identity. Each location covers only the handler-name token.
+`include_declaration` adds the one workspace declaration before pagination.
+Lookup requires one unrecovered workspace declaration for the module and
+name. Imported, package, qualified, unresolved, ambiguous, incomplete, and
+recovered handler paths are excluded, as are duplicate or recovered
+declarations and equal spelling in another module or symbol class. An
+unrelated parse error does not remove a complete parse-clean occurrence.
 
 Schema
 references include direct fields, `decode`, `encode`, `Repeat`, array
@@ -594,3 +605,6 @@ boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect references.
+The checked `examples/specification/mcp/references-workspace-handler/`
+transcript demonstrates the same location, declaration, ordering, and
+pagination contract for workspace handler references.

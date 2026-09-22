@@ -385,6 +385,7 @@ impl Symbol {
     fn reference_eligible(&self, index: &SymbolIndex) -> bool {
         match self {
             Self::Effect(symbol) => index.effect_references_supported(symbol),
+            Self::Handler(symbol) => index.handler_references_supported(symbol),
             Self::SchemaAlias(symbol) if symbol.package.is_none() => {
                 index.workspace_schema_alias_is_eligible(
                     &symbol.module,
@@ -465,7 +466,8 @@ impl Symbol {
             Self::Schema(symbol) => index.schema_references(symbol),
             Self::SchemaAlias(symbol) => index.schema_alias_references(symbol),
             Self::Effect(symbol) => index.effect_references(symbol),
-            Self::Handler(_) | Self::EffectOperation(_) => Vec::new(),
+            Self::Handler(symbol) => index.handler_references(symbol),
+            Self::EffectOperation(_) => Vec::new(),
             Self::Type(symbol) => index.type_references(symbol),
             Self::TypeAlias(symbol) => index.type_alias_references(symbol),
             Self::Function(symbol) => index.function_references(symbol),
@@ -804,6 +806,8 @@ struct IndexedFile {
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
     recovered_effect_declarations: Vec<SourceSpan>,
+    recovered_handler_declarations: Vec<SourceSpan>,
+    handler_reference_ranges: BTreeSet<(usize, usize)>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effect_reference_ranges: BTreeSet<(usize, usize)>,

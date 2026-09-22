@@ -1,6 +1,6 @@
 #[cfg(test)]
 use std::cell::Cell;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, OnceLock};
 
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
@@ -70,6 +70,40 @@ thread_local! {
     static EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_LIST_CLASSIFICATION_FRAME_VISITS: Cell<usize> = const { Cell::new(0) };
     static EFFECT_REFERENCE_SOURCE_SCALAR_VISITS: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_REFERENCE_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_DIAGNOSTIC_INDEX_VISITS: Cell<usize> = const { Cell::new(0) };
+    static HANDLER_DIAGNOSTIC_OVERLAP_QUERIES: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_handler_reference_token_visit() {
+    HANDLER_REFERENCE_TOKEN_VISITS.set(HANDLER_REFERENCE_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_handler_diagnostic_index_visit() {
+    HANDLER_DIAGNOSTIC_INDEX_VISITS.set(HANDLER_DIAGNOSTIC_INDEX_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_handler_diagnostic_overlap_query() {
+    HANDLER_DIAGNOSTIC_OVERLAP_QUERIES.set(HANDLER_DIAGNOSTIC_OVERLAP_QUERIES.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_handler_reference_index_work() {
+    HANDLER_REFERENCE_TOKEN_VISITS.set(0);
+    HANDLER_DIAGNOSTIC_INDEX_VISITS.set(0);
+    HANDLER_DIAGNOSTIC_OVERLAP_QUERIES.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn handler_reference_index_work() -> (usize, usize, usize) {
+    (
+        HANDLER_REFERENCE_TOKEN_VISITS.get(),
+        HANDLER_DIAGNOSTIC_INDEX_VISITS.get(),
+        HANDLER_DIAGNOSTIC_OVERLAP_QUERIES.get(),
+    )
 }
 
 #[cfg(test)]

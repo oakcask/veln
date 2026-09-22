@@ -15,6 +15,7 @@ mod scope_and_symbol_boundaries;
 mod standard_library_and_scope;
 mod unsupported_and_coordinates;
 mod workspace_effects;
+mod workspace_handlers;
 mod workspace_schemas;
 mod workspace_symbols;
 
