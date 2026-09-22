@@ -81,9 +81,16 @@ impl SymbolIndex {
             .iter()
             .find(|file| file.source.path() == &alias.declaration.span.file)
             .is_some_and(|declaring_file| {
-                self.qualified_module_candidates(declaring_file, target_module)
-                    .iter()
-                    .any(|module| module == &constructor.module)
+                self.visible_type_for_qualified_reference(
+                    declaring_file,
+                    target_module,
+                    &alias.target_name,
+                )
+                .is_some_and(|target| {
+                    target.package.is_none()
+                        && target.module == constructor.module
+                        && target.name == constructor.type_name
+                })
             })
     }
 

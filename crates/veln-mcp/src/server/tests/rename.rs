@@ -202,6 +202,96 @@ fn rename_type_alias_constructor_qualifiers_share_validated_identity() {
 }
 
 #[test]
+fn rename_type_alias_rejects_exact_dependency_import_collision() {
+    let workspace = TempWorkspace::new("rename-type-alias-dependency-collision");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/pkg\"]\npath = \"vendor/pkg\"\n",
+    );
+    workspace.write("model.veln", "pub type Alias = Int\n");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use model\n",
+            "use model from \"example/pkg\"\n\n",
+            "fn read(input: model::Alias) -> model::Alias\n",
+            "  input\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "vendor/pkg/veln.toml",
+        "[package]\nname = \"example/pkg\"\n\n[lib]\nexports = [\"model.veln\"]\n",
+    );
+    workspace.write("vendor/pkg/model.veln", "pub type Alias = Int\n");
+
+    let occurrence = rename_result(&workspace, "main.veln", 4, 23, "Renamed");
+    assert_eq!(occurrence["isError"], false, "{occurrence:#}");
+    assert!(edits(&occurrence).is_empty(), "{occurrence:#}");
+
+    let declaration = rename_result(&workspace, "model.veln", 1, 10, "Renamed");
+    assert_eq!(declaration["isError"], false, "{declaration:#}");
+    assert_eq!(edits(&declaration).len(), 1, "{declaration:#}");
+}
+
+#[test]
+fn rename_type_alias_rejects_bare_standard_prelude_alias_collision() {
+    let workspace = TempWorkspace::new("rename-type-alias-prelude-collision");
+    workspace.write("veln.toml", "");
+    workspace.write("left.veln", "pub type Alias = Int\n");
+    workspace.write(
+        "main.veln",
+        "use left\n\nfn read(input: Alias) -> Alias\n  input\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    server.language_resources.replace_test_standard_library(
+        "[package]\nname = \"std\"\n\n[lib]\nexports = [\"prelude.veln\"]\n",
+        [PackageSnapshotSource::new(
+            "prelude.veln",
+            b"pub type Alias = Int\n",
+        )],
+    );
+
+    let occurrence = server.rename_tool(&json!({
+        "source":"main.veln", "line":3, "column":16, "new_name":"Renamed"
+    }));
+    assert_eq!(occurrence["isError"], false, "{occurrence:#}");
+    assert!(edits(&occurrence).is_empty(), "{occurrence:#}");
+
+    let declaration = server.rename_tool(&json!({
+        "source":"left.veln", "line":1, "column":10, "new_name":"Renamed"
+    }));
+    assert_eq!(declaration["isError"], false, "{declaration:#}");
+    assert_eq!(edits(&declaration).len(), 1, "{declaration:#}");
+}
+
+#[test]
+fn rename_type_alias_constructor_qualifier_requires_target_import() {
+    let workspace = TempWorkspace::new("rename-type-alias-target-import");
+    workspace.write("veln.toml", "");
+    workspace.write("model.veln", "pub type Item\n  pub Ready(Int)\nend\n");
+    workspace.write("bridge.veln", "pub type Alias = model::Item\n");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "use bridge\n",
+            "use model\n\n",
+            "fn make(input: Int) -> model::Item\n",
+            "  Alias::Ready(input)\n",
+            "end\n",
+        ),
+    );
+
+    let occurrence = rename_result(&workspace, "main.veln", 5, 3, "Renamed");
+    assert_eq!(occurrence["isError"], false, "{occurrence:#}");
+    assert!(edits(&occurrence).is_empty(), "{occurrence:#}");
+
+    let declaration = rename_result(&workspace, "bridge.veln", 1, 10, "Renamed");
+    assert_eq!(declaration["isError"], false, "{declaration:#}");
+    assert_eq!(edits(&declaration).len(), 1, "{declaration:#}");
+}
+
+#[test]
 fn rename_supported_class_locations_match_shared_language_service() {
     let workspace = TempWorkspace::new("rename-all-class-shared-comparison");
     workspace.write("veln.toml", "");

@@ -427,11 +427,15 @@ and from same-spelled type declarations. Its edits include type positions that
 resolve to that alias. They also include an alias used as the qualifier of a
 constructor that resolves through the alias, including a module-qualified
 alias. An alias qualifier followed by a missing or non-constructor member does
-not select the alias for rename. Ambiguous imports and qualified paths without
-a matching import also produce no rename selection. A workspace function alias
-similarly keeps an identity separate from its target function: its declaration
-and calls that resolve through the alias are edits, while direct target calls
-are not.
+not select the alias for rename. The complete visible type namespace must
+contain exactly one candidate, and that candidate must be the workspace alias.
+A collision with a visible workspace, direct-dependency, or standard-library
+type or type alias produces no rename selection. A qualified alias target must
+resolve through an import in the alias declaration's source; textual agreement
+with an unimported module does not link an alias-qualified constructor. A
+workspace function alias similarly keeps an identity separate from its target
+function: its declaration and calls that resolve through the alias are edits,
+while direct target calls are not.
 
 A successful result is `{"edits": [...]}`. Each edit contains only a canonical
 workspace `file:` URI, a one-based Unicode-scalar half-open range, and

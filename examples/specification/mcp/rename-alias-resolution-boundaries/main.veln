@@ -1,0 +1,12 @@
+use model
+use model from "example/pkg"
+use bridge
+use target
+
+fn read(input: model::Alias) -> model::Alias
+  input
+end
+
+fn make(input: Int) -> target::Item
+  Ghost::Ready(input)
+end

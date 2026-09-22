@@ -26,6 +26,21 @@ impl SymbolIndex {
             })
     }
 
+    fn package_type_aliases_named<'a>(
+        &'a self,
+        name: &str,
+    ) -> impl Iterator<Item = &'a TypeAliasSymbol> {
+        self.package_type_alias_indices_by_name
+            .get(name)
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.type_aliases[*index]
+            })
+    }
+
     fn workspace_types_in_module<'a>(
         &'a self,
         module: &str,
@@ -48,6 +63,22 @@ impl SymbolIndex {
         name: &str,
     ) -> impl Iterator<Item = &'a TypeAliasSymbol> {
         self.workspace_type_alias_indices_by_module_and_name
+            .get(&(module.to_string(), name.to_string()))
+            .into_iter()
+            .flatten()
+            .map(|index| {
+                #[cfg(test)]
+                record_type_namespace_candidate_visit();
+                &self.type_aliases[*index]
+            })
+    }
+
+    fn package_type_aliases_in_module<'a>(
+        &'a self,
+        module: &str,
+        name: &str,
+    ) -> impl Iterator<Item = &'a TypeAliasSymbol> {
+        self.package_type_alias_indices_by_module_and_name
             .get(&(module.to_string(), name.to_string()))
             .into_iter()
             .flatten()
@@ -90,16 +121,33 @@ impl SymbolIndex {
                     if candidate.is_some() {
                         return None;
                     }
-                    candidate = Some(symbol.clone());
+                    candidate = Some(symbol);
                 }
             }
-            return candidate;
+            for symbol in self.package_type_aliases_named(name).filter(|symbol| {
+                visible_imported_type_alias_for_bare_reference(file, symbol, name)
+            }) {
+                if candidate.is_some() {
+                    return None;
+                }
+                candidate = Some(symbol);
+            }
+            return candidate
+                .filter(|symbol| symbol.package.is_none())
+                .cloned();
         };
         let qualified_modules = self.qualified_module_candidates(file, &qualifier);
         let unique_qualified_modules = qualified_modules.iter().collect::<BTreeSet<_>>();
         if unique_qualified_modules.iter().any(|module| {
             self.workspace_types_in_module(module, name)
-                .any(|symbol| visible_type_for_qualified_reference(file, symbol, &qualified_modules, name))
+                .any(|symbol| {
+                    visible_type_for_qualified_reference(
+                        file,
+                        symbol,
+                        &qualified_modules,
+                        name,
+                    )
+                })
         }) || self.types_named(name).any(|symbol| {
             symbol.package.is_some()
                 && visible_type_for_qualified_reference(file, symbol, &qualified_modules, name)
@@ -119,10 +167,25 @@ impl SymbolIndex {
                 if candidate.is_some() {
                     return None;
                 }
-                candidate = Some(symbol.clone());
+                candidate = Some(symbol);
+            }
+            for symbol in self.package_type_aliases_in_module(module, name).filter(|symbol| {
+                visible_type_alias_for_qualified_reference(
+                    file,
+                    symbol,
+                    &qualified_modules,
+                    name,
+                )
+            }) {
+                if candidate.is_some() {
+                    return None;
+                }
+                candidate = Some(symbol);
             }
         }
         candidate
+            .filter(|symbol| symbol.package.is_none())
+            .cloned()
     }
 
     fn schema_alias_selection_blocks_schema_fallback(

@@ -155,10 +155,14 @@ impl SymbolIndex {
         ));
         let type_indices_by_name = symbol_indices_by_name(&declarations.types);
         let type_alias_indices_by_name = symbol_indices_by_name(&declarations.type_aliases);
+        let package_type_alias_indices_by_name =
+            package_symbol_indices_by_name(&declarations.type_aliases);
         let workspace_type_indices_by_module_and_name =
             workspace_symbol_indices_by_module_and_name(&declarations.types);
         let workspace_type_alias_indices_by_module_and_name =
             workspace_symbol_indices_by_module_and_name(&declarations.type_aliases);
+        let package_type_alias_indices_by_module_and_name =
+            package_symbol_indices_by_module_and_name(&declarations.type_aliases);
         files.extend(direct_dependencies.files.clone());
         files.extend(standard_library.files.clone());
         Self {
@@ -177,8 +181,10 @@ impl SymbolIndex {
             type_aliases: declarations.type_aliases,
             type_indices_by_name,
             type_alias_indices_by_name,
+            package_type_alias_indices_by_name,
             workspace_type_indices_by_module_and_name,
             workspace_type_alias_indices_by_module_and_name,
+            package_type_alias_indices_by_module_and_name,
             schema_composition_references,
             schema_alias_module_imports,
             bare_schema_alias_index,
@@ -641,12 +647,42 @@ fn symbol_indices_by_name<T: NamedTypeSymbol>(symbols: &[T]) -> BTreeMap<String,
     by_name
 }
 
+fn package_symbol_indices_by_name<T: NamedTypeSymbol>(
+    symbols: &[T],
+) -> BTreeMap<String, Vec<usize>> {
+    let mut by_name = BTreeMap::<String, Vec<usize>>::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        if !symbol.is_workspace_symbol() {
+            by_name
+                .entry(symbol.name().to_string())
+                .or_default()
+                .push(index);
+        }
+    }
+    by_name
+}
+
 fn workspace_symbol_indices_by_module_and_name<T: NamedTypeSymbol>(
     symbols: &[T],
 ) -> BTreeMap<(String, String), Vec<usize>> {
     let mut by_module_and_name = BTreeMap::<(String, String), Vec<usize>>::new();
     for (index, symbol) in symbols.iter().enumerate() {
         if symbol.is_workspace_symbol() {
+            by_module_and_name
+                .entry((symbol.module().to_string(), symbol.name().to_string()))
+                .or_default()
+                .push(index);
+        }
+    }
+    by_module_and_name
+}
+
+fn package_symbol_indices_by_module_and_name<T: NamedTypeSymbol>(
+    symbols: &[T],
+) -> BTreeMap<(String, String), Vec<usize>> {
+    let mut by_module_and_name = BTreeMap::<(String, String), Vec<usize>>::new();
+    for (index, symbol) in symbols.iter().enumerate() {
+        if !symbol.is_workspace_symbol() {
             by_module_and_name
                 .entry((symbol.module().to_string(), symbol.name().to_string()))
                 .or_default()

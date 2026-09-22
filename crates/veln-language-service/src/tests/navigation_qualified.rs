@@ -735,6 +735,132 @@ mod navigation_qualified_and_package_tests {
     }
 
     #[test]
+    fn workspace_type_alias_rename_rejects_bare_standard_prelude_alias_collision() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source("left.veln", "pub type Alias = Int\n"),
+            source(
+                "main.veln",
+                "use left\n\nfn read(input: Alias) -> Alias\n  input\nend\n",
+            ),
+        ])
+        .with_standard_library(standard_library_snapshot(
+            &[("prelude.veln", "pub type Alias = Int\n")],
+            ["prelude.veln"],
+        ));
+
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 3,
+                    column: 16,
+                },
+            )
+            .is_none()
+        );
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("left.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+        assert!(declaration.references.is_empty(), "{declaration:#?}");
+    }
+
+    #[test]
+    fn workspace_type_alias_rename_rejects_exact_dependency_import_collision() {
+        let snapshot = EffectiveProjectSnapshot::with_direct_dependencies(
+            vec![
+                source("model.veln", "pub type Alias = Int\n"),
+                source(
+                    "main.veln",
+                    concat!(
+                        "use model\n",
+                        "use model from \"example/pkg\"\n\n",
+                        "fn read(input: model::Alias) -> model::Alias\n",
+                        "  input\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            vec![dependency_snapshot(
+                "example/pkg",
+                &[("model.veln", "pub type Alias = Int\n")],
+                ["model.veln"],
+            )],
+        );
+
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 4,
+                    column: 23,
+                },
+            )
+            .is_none()
+        );
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("model.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+        assert!(declaration.references.is_empty(), "{declaration:#?}");
+    }
+
+    #[test]
+    fn workspace_type_alias_constructor_rename_requires_target_import() {
+        let snapshot = EffectiveProjectSnapshot::new(vec![
+            source(
+                "model.veln",
+                "pub type Item\n  pub Ready(Int)\nend\n",
+            ),
+            source("bridge.veln", "pub type Alias = model::Item\n"),
+            source(
+                "main.veln",
+                concat!(
+                    "use bridge\n",
+                    "use model\n\n",
+                    "fn make(input: Int) -> model::Item\n",
+                    "  Alias::Ready(input)\n",
+                    "end\n",
+                ),
+            ),
+        ]);
+
+        assert!(
+            navigate_for_rename(
+                &snapshot,
+                SourcePosition {
+                    source: SourcePath::new("main.veln"),
+                    line: 5,
+                    column: 3,
+                },
+            )
+            .is_none()
+        );
+        let declaration = navigate_for_rename(
+            &snapshot,
+            SourcePosition {
+                source: SourcePath::new("bridge.veln"),
+                line: 1,
+                column: 10,
+            },
+        )
+        .unwrap();
+        assert!(declaration.references.is_empty(), "{declaration:#?}");
+    }
+
+    #[test]
     fn workspace_type_alias_references_exclude_visible_type_occurrences() {
         let snapshot = EffectiveProjectSnapshot::new(vec![
             source("alias.veln", "pub type Alias = Int\n"),

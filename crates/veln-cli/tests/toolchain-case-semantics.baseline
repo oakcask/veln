@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"22886c8e6de5399e62a4e56d89ba9f4ab8e33de4"
+source_git_tree	"86af45dcd6687f229aaa404e778b52e658e02f32"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1692
+case_count	1693
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -21094,6 +21094,46 @@ field	invocation.repeat	1
 field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1732,"sha256":"b2a37dff6c1d388b0fb8500d0c9e7296d9c75cdf19abe0487a946c916b4d578b"}
 field	source_errors	"forbidden"
 case_digest	"9e8c46d604cd15ae16e8b5e12b53d47ef59c56da2394b2b1d9bec26d2af1d009"
+case	"examples/specification/mcp/rename-alias-resolution-boundaries"
+field	expectations.exit	0
+field	expectations.mcp_assertions[0].id	2
+field	expectations.mcp_assertions[0].length	0
+field	expectations.mcp_assertions[0].operation	"length"
+field	expectations.mcp_assertions[0].path	"/result/structuredContent/edits"
+field	expectations.mcp_assertions[1].id	3
+field	expectations.mcp_assertions[1].length	1
+field	expectations.mcp_assertions[1].operation	"length"
+field	expectations.mcp_assertions[1].path	"/result/structuredContent/edits"
+field	expectations.mcp_assertions[2].id	3
+field	expectations.mcp_assertions[2].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[2].path	"/result/structuredContent/edits/0/uri"
+field	expectations.mcp_assertions[2].workspace_file_uri	"model.veln"
+field	expectations.mcp_assertions[3].equals	{"end":{"column":15,"line":1},"start":{"column":10,"line":1}}
+field	expectations.mcp_assertions[3].id	3
+field	expectations.mcp_assertions[3].operation	"equals"
+field	expectations.mcp_assertions[3].path	"/result/structuredContent/edits/0/range"
+field	expectations.mcp_assertions[4].id	4
+field	expectations.mcp_assertions[4].length	0
+field	expectations.mcp_assertions[4].operation	"length"
+field	expectations.mcp_assertions[4].path	"/result/structuredContent/edits"
+field	expectations.mcp_assertions[5].id	5
+field	expectations.mcp_assertions[5].length	1
+field	expectations.mcp_assertions[5].operation	"length"
+field	expectations.mcp_assertions[5].path	"/result/structuredContent/edits"
+field	expectations.mcp_assertions[6].id	5
+field	expectations.mcp_assertions[6].operation	"workspace_file_uri"
+field	expectations.mcp_assertions[6].path	"/result/structuredContent/edits/0/uri"
+field	expectations.mcp_assertions[6].workspace_file_uri	"bridge.veln"
+field	expectations.mcp_assertions[7].equals	{"end":{"column":15,"line":1},"start":{"column":10,"line":1}}
+field	expectations.mcp_assertions[7].id	5
+field	expectations.mcp_assertions[7].operation	"equals"
+field	expectations.mcp_assertions[7].path	"/result/structuredContent/edits/0/range"
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"mcp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":757,"sha256":"166a3bf783f2f1d8568cba9a6f3b71dfb07a3d72aa29ba39bfa57273917c9d35"}
+field	source_errors	"forbidden"
+case_digest	"576a363be24e8e19c49bfea78d9a6c6d321023379257f429c637758155567e69"
 case	"examples/specification/mcp/rename-anonymous-boundaries"
 field	expectations.exit	0
 field	expectations.mcp_assertions[0].id	2
@@ -60881,4 +60921,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"eab5aa51d2e374ff6428dfd056eec6eb77351a925e5510e88ec5882b10e55669"
+aggregate_digest	"66ace9e4b6058fbc43e1318d245be501b586167f94e00add7b3b7a352f3d45de"
