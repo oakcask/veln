@@ -612,7 +612,7 @@ mod navigation_effect_references_tests {
 
     #[test]
     fn workspace_effect_reference_collection_keeps_long_rows_adjacent_linear() {
-        for count in [1_000, 2_000, 4_000] {
+        for count in [1_000, 2_000, 4_000, 8_000] {
             let mut body = String::from(
                 "effect Choose\n  pick() -> Int\nend\n\nfn consume() -> Int effects [",
             );

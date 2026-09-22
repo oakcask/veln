@@ -76,6 +76,22 @@ fn maps_offsets_inside_utf8_characters_to_the_next_cursor_column() {
 }
 
 #[test]
+fn maps_dense_offsets_on_long_mixed_width_lines() {
+    let mut text = "a".repeat(4_096);
+    text.push('字');
+    text.push_str(&"b".repeat(4_096));
+    let source = SourceFile::new("main.veln", text);
+
+    for offset in 0..=4_096 {
+        assert_line_col(source.line_col(offset), 1, offset + 1, offset);
+    }
+    assert_line_col(source.line_col(4_097), 1, 4_098, 4_097);
+    assert_line_col(source.line_col(4_098), 1, 4_098, 4_098);
+    assert_line_col(source.line_col(4_099), 1, 4_098, 4_099);
+    assert_line_col(source.line_col(8_195), 1, 8_194, 8_195);
+}
+
+#[test]
 fn clamps_offsets_to_end_of_file() {
     let source = SourceFile::new("main.veln", "a\n");
 
