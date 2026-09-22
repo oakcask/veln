@@ -115,8 +115,16 @@ fn references_include_workspace_effect_predicate_perform_qualifiers() {
     );
 }
 
-#[test]
-fn workspace_effect_reference_failures_preserve_live_state() {
+struct WorkspaceEffectReferenceState {
+    _workspace: TempWorkspace,
+    server: Server,
+    before: Value,
+    resources: Value,
+    selection: Value,
+    cursor: String,
+}
+
+fn workspace_effect_reference_state() -> WorkspaceEffectReferenceState {
     let workspace = TempWorkspace::new("references-workspace-effect-failure-state");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -141,35 +149,77 @@ fn workspace_effect_reference_failures_preserve_live_state() {
         .as_str()
         .unwrap()
         .to_owned();
-    let resources = all_resource_state(&mut server);
-    let selection = server.selection_result();
+    WorkspaceEffectReferenceState {
+        resources: all_resource_state(&mut server),
+        selection: server.selection_result(),
+        _workspace: workspace,
+        server,
+        before,
+        cursor,
+    }
+}
 
-    let invalid_position = server.references_tool(&json!({
+fn assert_workspace_effect_reference_state_is_live(state: &mut WorkspaceEffectReferenceState) {
+    assert_eq!(all_resource_state(&mut state.server), state.resources);
+    assert_eq!(state.server.selection_result(), state.selection);
+    let continuation = state
+        .server
+        .references_tool(&json!({"cursor":state.cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let after = state.server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8
+    }));
+    assert_eq!(after, state.before);
+}
+
+#[test]
+fn invalid_workspace_effect_reference_position_preserves_live_state() {
+    let mut state = workspace_effect_reference_state();
+    let invalid_position = state.server.references_tool(&json!({
         "source":"main.veln", "line":99, "column":1
     }));
     assert_eq!(
         invalid_position["structuredContent"]["code"],
         "invalid_position"
     );
-    assert_eq!(all_resource_state(&mut server), resources);
-    assert_eq!(server.selection_result(), selection);
+    assert_workspace_effect_reference_state_is_live(&mut state);
+}
 
-    let invalid_path = server.references_tool(&json!({
+#[test]
+fn invalid_workspace_effect_reference_path_preserves_live_state() {
+    let mut state = workspace_effect_reference_state();
+    let invalid_path = state.server.references_tool(&json!({
         "source":"missing.veln", "line":1, "column":1
     }));
     assert_eq!(invalid_path["structuredContent"]["code"], "invalid_path");
-    assert_eq!(all_resource_state(&mut server), resources);
-    assert_eq!(server.selection_result(), selection);
+    assert_workspace_effect_reference_state_is_live(&mut state);
+}
 
-    let invalid_continuation = server.references_tool(&json!({"cursor":format!("{cursor}x")}));
+#[test]
+fn invalid_workspace_effect_reference_cursor_preserves_live_state() {
+    let mut state = workspace_effect_reference_state();
+    let invalid_continuation = state
+        .server
+        .references_tool(&json!({"cursor":format!("{}x", state.cursor)}));
     assert_eq!(
         invalid_continuation["structuredContent"]["code"],
         "invalid_cursor"
     );
-    assert_eq!(all_resource_state(&mut server), resources);
-    assert_eq!(server.selection_result(), selection);
+    assert_workspace_effect_reference_state_is_live(&mut state);
+}
 
-    let missing_resource = server
+#[test]
+fn missing_workspace_effect_resource_preserves_live_state() {
+    let mut state = workspace_effect_reference_state();
+    let missing_resource = state
+        .server
         .handle_request(json!({
             "jsonrpc":"2.0",
             "id":"missing-retained-effect-resource",
@@ -181,22 +231,7 @@ fn workspace_effect_reference_failures_preserve_live_state() {
         missing_resource["error"]["data"]["code"],
         "resource_not_found"
     );
-    assert_eq!(all_resource_state(&mut server), resources);
-    assert_eq!(server.selection_result(), selection);
-
-    let continuation = server.references_tool(&json!({"cursor":cursor}));
-    assert_eq!(continuation["isError"], false);
-    assert_eq!(
-        continuation["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
-    let after = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8
-    }));
-    assert_eq!(after, before);
+    assert_workspace_effect_reference_state_is_live(&mut state);
 }
 
 #[test]
@@ -332,7 +367,7 @@ fn references_reject_unresolved_and_mismatched_effect_occurrences() {
 }
 
 #[test]
-fn references_reject_balanced_recovery_shapes_and_recovered_declarations() {
+fn references_reject_balanced_recovery_shapes() {
     let workspace = TempWorkspace::new("references-workspace-effect-balanced-recovery");
     workspace.write("veln.toml", "");
     workspace.write(
@@ -359,7 +394,10 @@ fn references_reject_balanced_recovery_shapes_and_recovered_declarations() {
         }));
         assert_eq!(result["structuredContent"]["references"], json!([]));
     }
+}
 
+#[test]
+fn references_reject_recovered_effect_row_and_handler_tokens() {
     for (name, source, line, column) in [
         (
             "references-workspace-effect-recovered-row-token",
@@ -402,7 +440,10 @@ fn references_reject_balanced_recovery_shapes_and_recovered_declarations() {
             assert_eq!(result["structuredContent"]["references"], json!([]));
         }
     }
+}
 
+#[test]
+fn references_reject_recovered_effect_declarations() {
     let declaration = TempWorkspace::new("references-workspace-effect-recovered-declaration");
     declaration.write("veln.toml", "");
     declaration.write(
@@ -415,47 +456,42 @@ fn references_reject_balanced_recovery_shapes_and_recovered_declarations() {
         "include_declaration":true
     }));
     assert_eq!(result["structuredContent"]["references"], json!([]));
+}
 
-    for (name, source, positions) in [
-        (
-            "references-workspace-effect-recovered-perform",
-            concat!(
-                "effect Choose\n",
-                "  pick() -> Int\n",
-                "end\n\n",
-                "fn broken() -> Int\n",
-                "  perform Choose::pick(\n",
-                "end\n",
-            ),
-            vec![(1, 8, false), (6, 11, true)],
-        ),
-        (
-            "references-workspace-effect-clean-uses-recovered-declaration",
-            concat!(
-                "effect Choose\n",
-                "end\n\n",
-                "fn use() -> Int effects [Choose]\n",
-                "  perform Choose::pick()\n",
-                "end\n\n",
-                "handler choose_handler() handles Choose\n",
-                "  pick() => perform Choose::pick()\n",
-                "end\n",
-            ),
-            vec![(4, 25, true), (5, 11, true), (8, 33, true), (9, 21, true)],
-        ),
-    ] {
-        let workspace = TempWorkspace::new(name);
-        workspace.write("veln.toml", "");
-        workspace.write("main.veln", source);
-        let mut server = initialized_server(&workspace);
+#[test]
+fn references_reject_recovered_perform_qualifiers() {
+    let workspace = TempWorkspace::new("references-workspace-effect-recovered-perform");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "effect Choose\n  pick() -> Int\nend\n\nfn broken() -> Int\n  perform Choose::pick(\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    for (line, column, include_declaration) in [(1, 8, false), (6, 11, true)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":include_declaration
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
+}
 
-        for (line, column, include_declaration) in positions {
-            let result = server.references_tool(&json!({
-                "source":"main.veln", "line":line, "column":column,
-                "include_declaration":include_declaration
-            }));
-            assert_eq!(result["structuredContent"]["references"], json!([]));
-        }
+#[test]
+fn references_do_not_resolve_clean_uses_to_recovered_declarations() {
+    let workspace =
+        TempWorkspace::new("references-workspace-effect-clean-uses-recovered-declaration");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "effect Choose\nend\n\nfn use() -> Int effects [Choose]\n  perform Choose::pick()\nend\n\nhandler choose_handler() handles Choose\n  pick() => perform Choose::pick()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    for (line, column) in [(4, 25), (5, 11), (8, 33), (9, 21)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
     }
 }
 

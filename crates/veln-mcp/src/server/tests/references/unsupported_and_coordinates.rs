@@ -1,17 +1,53 @@
 use super::*;
 
+struct UnsupportedReferenceCase {
+    name: &'static str,
+    files: Vec<(&'static str, &'static str)>,
+    source: &'static str,
+    line: usize,
+    column: usize,
+}
+
+type Case = UnsupportedReferenceCase;
+
+fn assert_references_rejected(cases: impl IntoIterator<Item = UnsupportedReferenceCase>) {
+    for case in cases {
+        let workspace = TempWorkspace::new(case.name);
+        for (path, text) in case.files {
+            workspace.write(path, text);
+        }
+        let result = references_result(&workspace, case.source, case.line, case.column);
+        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
+        assert_eq!(
+            result["structuredContent"]["references"],
+            json!([]),
+            "{}: {result:#}",
+            case.name
+        );
+        let with_declaration = initialized_server(&workspace).references_tool(&json!({
+            "source": case.source,
+            "line": case.line,
+            "column": case.column,
+            "include_declaration": true
+        }));
+        assert_eq!(
+            with_declaration["isError"], false,
+            "{}: {with_declaration:#}",
+            case.name
+        );
+        assert_eq!(
+            with_declaration["structuredContent"]["references"],
+            json!([]),
+            "{}: {with_declaration:#}",
+            case.name
+        );
+    }
+}
+
 #[test]
 fn references_reject_recovery_package_and_unsupported_symbols() {
-    struct Case {
-        name: &'static str,
-        files: Vec<(&'static str, &'static str)>,
-        source: &'static str,
-        line: usize,
-        column: usize,
-    }
-
     let cases = [
-        Case {
+        UnsupportedReferenceCase {
             name: "recovery value binding",
             files: vec![
                 ("veln.toml", ""),
@@ -21,7 +57,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             line: 2,
             column: 4,
         },
-        Case {
+        UnsupportedReferenceCase {
             name: "package private type",
             files: vec![
                 (
@@ -404,37 +440,7 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
         },
     ];
 
-    for case in cases {
-        let workspace = TempWorkspace::new(case.name);
-        for (path, text) in case.files {
-            workspace.write(path, text);
-        }
-        let result = references_result(&workspace, case.source, case.line, case.column);
-        assert_eq!(result["isError"], false, "{}: {result:#}", case.name);
-        assert_eq!(
-            result["structuredContent"]["references"],
-            json!([]),
-            "{}: {result:#}",
-            case.name
-        );
-        let with_declaration = initialized_server(&workspace).references_tool(&json!({
-            "source": case.source,
-            "line": case.line,
-            "column": case.column,
-            "include_declaration": true
-        }));
-        assert_eq!(
-            with_declaration["isError"], false,
-            "{}: {with_declaration:#}",
-            case.name
-        );
-        assert_eq!(
-            with_declaration["structuredContent"]["references"],
-            json!([]),
-            "{}: {with_declaration:#}",
-            case.name
-        );
-    }
+    assert_references_rejected(cases);
 }
 
 #[test]

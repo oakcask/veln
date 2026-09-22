@@ -376,37 +376,27 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
                 collect_perform_effect_regions(&field.expr, regions);
             }
         }
-        ExprKind::Dict(entries) => {
-            for entry in entries {
-                collect_perform_effect_regions(&entry.key, regions);
-                collect_perform_effect_regions(&entry.value, regions);
-            }
-        }
+        ExprKind::Dict(entries) => collect_dict_perform_effect_regions(entries, regions),
         ExprKind::List(items) => {
             for item in items {
                 collect_perform_effect_regions(item, regions);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_perform_effect_regions(scrutinee, regions);
-            for arm in arms {
-                collect_perform_effect_regions(&arm.expr, regions);
-            }
+            collect_match_perform_effect_regions(scrutinee, arms, regions);
         }
         ExprKind::If {
             condition,
             then_branch,
             else_if_branches,
             else_branch,
-        } => {
-            collect_perform_effect_regions(condition, regions);
-            collect_perform_effect_regions(then_branch, regions);
-            for branch in else_if_branches {
-                collect_perform_effect_regions(&branch.condition, regions);
-                collect_perform_effect_regions(&branch.expr, regions);
-            }
-            collect_perform_effect_regions(else_branch, regions);
-        }
+        } => collect_if_perform_effect_regions(
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+            regions,
+        ),
         ExprKind::Binary { left, right, .. } => {
             collect_perform_effect_regions(left, regions);
             collect_perform_effect_regions(right, regions);
@@ -424,6 +414,43 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
+}
+
+fn collect_dict_perform_effect_regions(
+    entries: &[veln_syntax::DictEntry],
+    regions: &mut Vec<(usize, usize)>,
+) {
+    for entry in entries {
+        collect_perform_effect_regions(&entry.key, regions);
+        collect_perform_effect_regions(&entry.value, regions);
+    }
+}
+
+fn collect_match_perform_effect_regions(
+    scrutinee: &Expr,
+    arms: &[veln_syntax::MatchArm],
+    regions: &mut Vec<(usize, usize)>,
+) {
+    collect_perform_effect_regions(scrutinee, regions);
+    for arm in arms {
+        collect_perform_effect_regions(&arm.expr, regions);
+    }
+}
+
+fn collect_if_perform_effect_regions(
+    condition: &Expr,
+    then_branch: &Expr,
+    else_if_branches: &[veln_syntax::IfBranch],
+    else_branch: &Expr,
+    regions: &mut Vec<(usize, usize)>,
+) {
+    collect_perform_effect_regions(condition, regions);
+    collect_perform_effect_regions(then_branch, regions);
+    for branch in else_if_branches {
+        collect_perform_effect_regions(&branch.condition, regions);
+        collect_perform_effect_regions(&branch.expr, regions);
+    }
+    collect_perform_effect_regions(else_branch, regions);
 }
 
 fn module_identity_has_invalid_casing(module: &str) -> bool {

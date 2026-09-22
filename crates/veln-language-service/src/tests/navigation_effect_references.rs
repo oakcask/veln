@@ -52,7 +52,11 @@ mod navigation_effect_references_tests {
             assert_eq!(result.selected_symbol.kind, SymbolKind::Effect);
             assert!(result.reference_eligible);
             assert_location(&result.definition, "declaration.veln", 3, 8);
-            assert_eq!(locations(&result.references), expected, "{path}:{line}:{column}");
+            assert_eq!(
+                locations(&result.references),
+                expected,
+                "{path}:{line}:{column}"
+            );
         }
     }
 
@@ -122,7 +126,7 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
-    fn workspace_effect_references_reject_unsupported_origins_ambiguity_and_recovery() {
+    fn workspace_effect_references_reject_generic_and_qualified_origins() {
         let local = concat!(
             "effect E\n",
             "  run() -> Int\n",
@@ -136,15 +140,12 @@ mod navigation_effect_references_tests {
         );
         let qualified_workspace_sources = vec![
             source("main.veln", local),
-            source("foreign.veln", "mod foreign\n\neffect E\n  run() -> Int\nend\n"),
+            source(
+                "foreign.veln",
+                "mod foreign\n\neffect E\n  run() -> Int\nend\n",
+            ),
         ];
-        let local_result = query(
-            qualified_workspace_sources.clone(),
-            "main.veln",
-            1,
-            8,
-        )
-        .unwrap();
+        let local_result = query(qualified_workspace_sources.clone(), "main.veln", 1, 8).unwrap();
         assert_eq!(locations(&local_result.references), []);
         for (line, column) in [(5, 43), (9, 40), (10, 11), (10, 20)] {
             assert!(
@@ -157,9 +158,15 @@ mod navigation_effect_references_tests {
                 .is_none()
             );
         }
+    }
 
+    #[test]
+    fn workspace_effect_references_reject_ambiguous_declarations() {
         let ambiguous = vec![
-            source("first.veln", "mod shared\n\neffect Choose\n  first() -> Int\nend\n"),
+            source(
+                "first.veln",
+                "mod shared\n\neffect Choose\n  first() -> Int\nend\n",
+            ),
             source(
                 "second.veln",
                 "mod shared\n\neffect Choose\n  second() -> Int\nend\n\nfn use() -> Int effects [Choose]\n  1\nend\n",
@@ -169,15 +176,16 @@ mod navigation_effect_references_tests {
         assert!(ambiguous_declaration.references.is_empty());
         assert!(!ambiguous_declaration.reference_eligible);
         assert!(query(ambiguous, "second.veln", 7, 27).is_none());
+    }
 
-        let recovered = "effect Choose\n  pick() -> Int\nend\n\nfn broken() -> Int effects [Choose\n  1\nend\n";
+    #[test]
+    fn workspace_effect_references_reject_recovered_syntax() {
+        let recovered =
+            "effect Choose\n  pick() -> Int\nend\n\nfn broken() -> Int effects [Choose\n  1\nend\n";
         assert!(query(vec![source("main.veln", recovered)], "main.veln", 5, 29).is_none());
 
         let recovered_declaration = query(
-            vec![source(
-                "main.veln",
-                "effect Choose\n  pick() -> Int\n",
-            )],
+            vec![source("main.veln", "effect Choose\n  pick() -> Int\n")],
             "main.veln",
             1,
             8,
@@ -185,7 +193,10 @@ mod navigation_effect_references_tests {
         .unwrap();
         assert!(!recovered_declaration.reference_eligible);
         assert!(recovered_declaration.references.is_empty());
+    }
 
+    #[test]
+    fn workspace_effect_references_reject_imported_effects() {
         let imported = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(
                 "main.veln",
@@ -208,7 +219,10 @@ mod navigation_effect_references_tests {
         for column in [31, 36] {
             assert!(query_snapshot(&imported, "main.veln", 7, column).is_none());
         }
+    }
 
+    #[test]
+    fn workspace_effect_references_reject_invalid_casing() {
         let invalid_casing = concat!(
             "effect choose\n",
             "  pick() -> Int\n",
@@ -227,13 +241,15 @@ mod navigation_effect_references_tests {
         assert_eq!(invalid_declaration.selected_symbol.kind, SymbolKind::Effect);
         assert!(!invalid_declaration.reference_eligible);
         assert!(invalid_declaration.references.is_empty());
-        assert!(query(
-            vec![source("invalid.veln", invalid_casing)],
-            "invalid.veln",
-            5,
-            29,
-        )
-        .is_none());
+        assert!(
+            query(
+                vec![source("invalid.veln", invalid_casing)],
+                "invalid.veln",
+                5,
+                29,
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -540,9 +556,7 @@ mod navigation_effect_references_tests {
                 20,
             ),
         ] {
-            let text = format!(
-                "effect Choose\n  pick() -> Int\nend\n\n{predicate_source}"
-            );
+            let text = format!("effect Choose\n  pick() -> Int\nend\n\n{predicate_source}");
             let sources = vec![source("main.veln", &text)];
             let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
 
@@ -565,10 +579,7 @@ mod navigation_effect_references_tests {
         let sources = vec![source("main.veln", text)];
 
         let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
-        assert_eq!(
-            locations(&declaration.references),
-            [("main.veln", 6, 19)]
-        );
+        assert_eq!(locations(&declaration.references), [("main.veln", 6, 19)]);
         let complete = query(sources.clone(), "main.veln", 6, 19).unwrap();
         assert_eq!(complete.selected_symbol.kind, SymbolKind::Effect);
         assert_eq!(locations(&complete.references), [("main.veln", 6, 19)]);
@@ -581,15 +592,16 @@ mod navigation_effect_references_tests {
             String::from("mod shared\n\neffect Choose\n  pick() -> Int\nend\n\n");
         let mut uses = String::from("mod shared\n\n");
         for index in 0..256 {
-            declarations.push_str(&format!(
-                "effect Noise{index}\n  ignore() -> Int\nend\n\n"
-            ));
+            declarations.push_str(&format!("effect Noise{index}\n  ignore() -> Int\nend\n\n"));
             uses.push_str(&format!(
                 "fn use_{index}() -> Int effects [Choose]\n  {index}\nend\n\n"
             ));
         }
         let result = query(
-            vec![source("declarations.veln", &declarations), source("uses.veln", &uses)],
+            vec![
+                source("declarations.veln", &declarations),
+                source("uses.veln", &uses),
+            ],
             "declarations.veln",
             3,
             8,
@@ -626,8 +638,7 @@ mod navigation_effect_references_tests {
             let elapsed = started.elapsed();
             let classification_visits =
                 crate::navigation::effect_list_classification_token_visits();
-            let source_scalar_visits =
-                crate::navigation::effect_reference_source_scalar_visits();
+            let source_scalar_visits = crate::navigation::effect_reference_source_scalar_visits();
             eprintln!(
                 "long effect row: references={count} collected={} classification_visits={classification_visits} source_scalar_visits={source_scalar_visits} index_elapsed={index_elapsed:?} query_elapsed={elapsed:?}",
                 result.references.len(),

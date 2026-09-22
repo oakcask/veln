@@ -28,32 +28,8 @@ impl<'a> ExprParser<'a> {
     pub(super) fn parse_perform_primary(&mut self, token: Token) -> Expr {
         let start = token.range;
         self.bump();
-        let path_diagnostic_count = self.diagnostics.len();
-        let effect_start = self.current().range;
-        let mut path = self.parse_name_path_segments("perform_expression", "effect operation path");
-        if path.len() < 2 {
-            self.error_current(
-                "parse.perform_expression",
-                "perform expression requires `Effect::operation`",
-                vec!["effect operation path"],
-                RecoveryStrategy::InsertToken,
-                Some("("),
-            );
-        }
-        let operation = path.pop().unwrap_or_default();
-        let effect_end = if path.is_empty() {
-            effect_start
-        } else {
-            self.tokens
-                .get(self.cursor.saturating_sub(3))
-                .map_or(effect_start, |token| token.range)
-        };
-        let effect_span = self.source.span(effect_start.cover(effect_end));
-        let operation_span = self
-            .previous()
-            .map(|token| self.source.span(token.range))
-            .unwrap_or_else(|| self.source.span(start));
-        let path_recovered = self.diagnostics.len() != path_diagnostic_count;
+        let (path, effect_span, operation, operation_span, path_recovered) =
+            self.parse_perform_path(start);
         let open_recovered = self
             .expect_expr_token(
                 TokenKind::LParen,
@@ -78,6 +54,39 @@ impl<'a> ExprParser<'a> {
                 args,
             },
         }
+    }
+
+    fn parse_perform_path(
+        &mut self,
+        perform_start: TextRange,
+    ) -> (Vec<String>, SourceSpan, String, SourceSpan, bool) {
+        let path_diagnostic_count = self.diagnostics.len();
+        let effect_start = self.current().range;
+        let mut path = self.parse_name_path_segments("perform_expression", "effect operation path");
+        if path.len() < 2 {
+            self.error_current(
+                "parse.perform_expression",
+                "perform expression requires `Effect::operation`",
+                vec!["effect operation path"],
+                RecoveryStrategy::InsertToken,
+                Some("("),
+            );
+        }
+        let operation = path.pop().unwrap_or_default();
+        let effect_end = if path.is_empty() {
+            effect_start
+        } else {
+            self.tokens
+                .get(self.cursor.saturating_sub(3))
+                .map_or(effect_start, |token| token.range)
+        };
+        let effect_span = self.source.span(effect_start.cover(effect_end));
+        let operation_span = self
+            .previous()
+            .map(|token| self.source.span(token.range))
+            .unwrap_or_else(|| self.source.span(perform_start));
+        let path_recovered = self.diagnostics.len() != path_diagnostic_count;
+        (path, effect_span, operation, operation_span, path_recovered)
     }
 
     pub(super) fn parse_handle_primary(&mut self, token: Token) -> Expr {

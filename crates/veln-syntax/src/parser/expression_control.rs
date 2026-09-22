@@ -368,9 +368,34 @@ impl<'a> ExprParser<'a> {
                 TextRange::new(span.start.offset, span.end.offset)
             })
         };
+        let (parts, predicate_tokens, predicate_end) = self.collect_satisfy_predicate();
+        end = predicate_end.unwrap_or(end);
+        let predicate_output = ContractPredicateParser::new(
+            self.source,
+            "satisfy_predicate",
+            "parse.satisfy_predicate",
+            &predicate_tokens,
+        )
+        .parse();
+        self.diagnostics.extend(predicate_output.diagnostics);
+        Some(SatisfyClause {
+            candidate,
+            candidate_span,
+            predicate: normalize_collected_text(parts),
+            perform_effect_spans: if clause_recovered {
+                Vec::new()
+            } else {
+                predicate_output.perform_effect_spans
+            },
+            span: self.source.span(start.cover(end)),
+        })
+    }
+
+    fn collect_satisfy_predicate(&mut self) -> (Vec<String>, Vec<Token>, Option<TextRange>) {
         let mut parts = Vec::new();
         let mut predicate_tokens = Vec::new();
         let mut depth = 0usize;
+        let mut end = None;
         while let Some(token) = self.tokens.get(self.cursor) {
             if depth == 0
                 && matches!(
@@ -392,29 +417,11 @@ impl<'a> ExprParser<'a> {
                 _ => {}
             }
             let token = self.bump();
-            end = token.range;
+            end = Some(token.range);
             parts.push(token.text.clone());
             predicate_tokens.push(token);
         }
-        let predicate_output = ContractPredicateParser::new(
-            self.source,
-            "satisfy_predicate",
-            "parse.satisfy_predicate",
-            &predicate_tokens,
-        )
-        .parse();
-        self.diagnostics.extend(predicate_output.diagnostics);
-        Some(SatisfyClause {
-            candidate,
-            candidate_span,
-            predicate: normalize_collected_text(parts),
-            perform_effect_spans: if clause_recovered {
-                Vec::new()
-            } else {
-                predicate_output.perform_effect_spans
-            },
-            span: self.source.span(start.cover(end)),
-        })
+        (parts, predicate_tokens, end)
     }
 
     pub(super) fn parse_name_path(&mut self) -> Expr {

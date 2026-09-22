@@ -389,102 +389,121 @@ fn is_effect_reference_token(file: &IndexedFile, index: usize) -> bool {
         .contains(&(range.start, range.end))
 }
 
-fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum Delimiter {
-        Paren,
-        Bracket,
-        Brace,
-    }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EffectListDelimiter {
+    Paren,
+    Bracket,
+    Brace,
+}
 
-    struct Frame {
-        delimiter: Delimiter,
-        effect_list: bool,
-        line: usize,
-        pending_members: Vec<usize>,
-    }
+struct EffectListFrame {
+    delimiter: EffectListDelimiter,
+    effect_list: bool,
+    line: usize,
+    pending_members: Vec<usize>,
+}
 
-    let mut membership = vec![false; tokens.len()];
-    let mut stack = Vec::<Frame>::new();
-    let mut open_effect_lists = 0usize;
-    let mut previous_non_layout = None;
-    let mut line = 0usize;
-    for (index, token) in tokens.iter().enumerate() {
-        #[cfg(test)]
-        record_effect_list_classification_token_visit();
-        if token.kind == TokenKind::Ident
-            && stack.last().is_some_and(|frame| {
-                #[cfg(test)]
-                record_effect_list_classification_frame_visit();
-                frame.delimiter == Delimiter::Bracket && frame.effect_list && frame.line == line
-            })
-        {
-            stack.last_mut().unwrap().pending_members.push(index);
+struct EffectListClassifier {
+    membership: Vec<bool>,
+    stack: Vec<EffectListFrame>,
+    open_effect_lists: usize,
+    previous_non_layout: Option<TokenKind>,
+    line: usize,
+}
+
+impl EffectListClassifier {
+    fn new(token_count: usize) -> Self {
+        Self {
+            membership: vec![false; token_count],
+            stack: Vec::new(),
+            open_effect_lists: 0,
+            previous_non_layout: None,
+            line: 0,
         }
+    }
+
+    fn record_member(&mut self, index: usize, kind: TokenKind) {
+        if kind != TokenKind::Ident {
+            return;
+        }
+        let Some(frame) = self.stack.last_mut() else {
+            return;
+        };
+        #[cfg(test)]
+        record_effect_list_classification_frame_visit();
+        if frame.delimiter == EffectListDelimiter::Bracket
+            && frame.effect_list
+            && frame.line == self.line
+        {
+            frame.pending_members.push(index);
+        }
+    }
+
+    fn open(&mut self, delimiter: EffectListDelimiter) {
+        let effect_list = delimiter == EffectListDelimiter::Bracket
+            && self.previous_non_layout == Some(TokenKind::Effects);
+        self.open_effect_lists += usize::from(effect_list);
+        self.stack.push(EffectListFrame {
+            delimiter,
+            effect_list,
+            line: self.line,
+            pending_members: Vec::new(),
+        });
+    }
+
+    fn close(&mut self, delimiter: EffectListDelimiter) {
+        if !self.stack.last().is_some_and(|frame| {
+            #[cfg(test)]
+            record_effect_list_classification_frame_visit();
+            frame.delimiter == delimiter
+        }) {
+            self.stack.clear();
+            self.open_effect_lists = 0;
+            return;
+        }
+        let frame = self.stack.pop().unwrap();
+        self.open_effect_lists -= usize::from(frame.effect_list);
+        if frame.effect_list && frame.line == self.line {
+            for member in frame.pending_members {
+                self.membership[member] = true;
+            }
+        }
+    }
+
+    fn newline(&mut self) {
+        if self.open_effect_lists > 0 {
+            self.stack.clear();
+            self.open_effect_lists = 0;
+        }
+        self.line += 1;
+    }
+
+    fn visit(&mut self, index: usize, token: &Token) {
+        self.record_member(index, token.kind);
         match token.kind {
-            TokenKind::LBracket => {
-                let effect_list = previous_non_layout == Some(TokenKind::Effects);
-                open_effect_lists += usize::from(effect_list);
-                stack.push(Frame {
-                    delimiter: Delimiter::Bracket,
-                    effect_list,
-                    line,
-                    pending_members: Vec::new(),
-                });
-            }
-            TokenKind::LParen => stack.push(Frame {
-                delimiter: Delimiter::Paren,
-                effect_list: false,
-                line,
-                pending_members: Vec::new(),
-            }),
-            TokenKind::LBrace => stack.push(Frame {
-                delimiter: Delimiter::Brace,
-                effect_list: false,
-                line,
-                pending_members: Vec::new(),
-            }),
-            TokenKind::RBracket | TokenKind::RParen | TokenKind::RBrace => {
-                let delimiter = match token.kind {
-                    TokenKind::RBracket => Delimiter::Bracket,
-                    TokenKind::RParen => Delimiter::Paren,
-                    TokenKind::RBrace => Delimiter::Brace,
-                    _ => unreachable!(),
-                };
-                if stack
-                    .last()
-                    .is_some_and(|frame| {
-                        #[cfg(test)]
-                        record_effect_list_classification_frame_visit();
-                        frame.delimiter == delimiter
-                    })
-                {
-                    let frame = stack.pop().unwrap();
-                    open_effect_lists -= usize::from(frame.effect_list);
-                    if frame.effect_list && frame.line == line {
-                        for member in frame.pending_members {
-                            membership[member] = true;
-                        }
-                    }
-                } else {
-                    stack.clear();
-                    open_effect_lists = 0;
-                }
-            }
-            TokenKind::Newline => {
-                if open_effect_lists > 0 {
-                    stack.clear();
-                    open_effect_lists = 0;
-                }
-                line += 1;
-            }
+            TokenKind::LBracket => self.open(EffectListDelimiter::Bracket),
+            TokenKind::LParen => self.open(EffectListDelimiter::Paren),
+            TokenKind::LBrace => self.open(EffectListDelimiter::Brace),
+            TokenKind::RBracket => self.close(EffectListDelimiter::Bracket),
+            TokenKind::RParen => self.close(EffectListDelimiter::Paren),
+            TokenKind::RBrace => self.close(EffectListDelimiter::Brace),
+            TokenKind::Newline => self.newline(),
             _ => {}
         }
         if !is_layout_token_kind(token.kind) {
-            previous_non_layout = Some(token.kind);
+            self.previous_non_layout = Some(token.kind);
         }
     }
-    membership
+}
+
+fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
+    let mut classifier = EffectListClassifier::new(tokens.len());
+    for (index, token) in tokens.iter().enumerate() {
+        #[cfg(test)]
+        record_effect_list_classification_token_visit();
+        classifier.visit(index, token);
+    }
+    classifier.membership
 }
 
 fn is_effect_list_member_token(tokens: &[Token], membership: &[bool], index: usize) -> bool {

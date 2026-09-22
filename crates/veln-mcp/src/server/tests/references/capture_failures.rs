@@ -140,22 +140,7 @@ fn workspace_effect_reference_capture_failure_preserves_state_and_later_results(
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
-    let attempts_for_hook = attempts.clone();
-    let root = workspace.root.clone();
-    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
-        let attempt = attempts_for_hook.get();
-        attempts_for_hook.set(attempt + 1);
-        let main = root.join("main.veln");
-        fs::remove_file(&main).unwrap();
-        let operation = if attempt % 2 == 0 { "pick" } else { "choose" };
-        fs::write(
-            &main,
-            format!(
-                "effect Choose\n  {operation}() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::{operation}()\nend\n"
-            ),
-        )
-        .unwrap();
-    });
+    let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
 
     let failed = server.references_tool(&json!({
         "source":"main.veln", "line":1, "column":8
@@ -177,6 +162,28 @@ fn workspace_effect_reference_capture_failure_preserves_state_and_later_results(
             .len(),
         2
     );
+}
+
+fn install_changing_workspace_effect_hook(
+    workspace: &TempWorkspace,
+    attempts: &Rc<Cell<usize>>,
+) -> impl Drop {
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let main = root.join("main.veln");
+        fs::remove_file(&main).unwrap();
+        let operation = if attempt % 2 == 0 { "pick" } else { "choose" };
+        fs::write(
+            &main,
+            format!(
+                "effect Choose\n  {operation}() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::{operation}()\nend\n"
+            ),
+        )
+        .unwrap();
+    })
 }
 
 fn live_reference_cursor(server: &mut Server, source: &str, line: u64, column: u64) -> String {
