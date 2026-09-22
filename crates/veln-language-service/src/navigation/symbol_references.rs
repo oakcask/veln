@@ -37,20 +37,14 @@ impl SymbolIndex {
             candidate.package.is_none()
                 && candidate.module == symbol.module
                 && candidate.name == symbol.name
+                && self.effect_declaration_is_unrecovered(candidate)
         });
         let Some(candidate) = declarations.next() else {
             return false;
         };
         candidate.declaration == symbol.declaration
             && declarations.next().is_none()
-            && self.files.iter().any(|file| {
-                workspace_navigation_file(file)
-                    && file.source.path() == &symbol.declaration.span.file
-                    && !file.recovered_effect_declarations.iter().any(|span| {
-                        span.start.offset <= symbol.declaration.span.start.offset
-                            && symbol.declaration.span.end.offset <= span.end.offset
-                    })
-            })
+            && self.effect_declaration_is_unrecovered(symbol)
     }
 
     fn workspace_type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {

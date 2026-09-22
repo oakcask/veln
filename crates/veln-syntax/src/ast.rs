@@ -310,6 +310,7 @@ pub enum ExprKind {
         effect_span: SourceSpan,
         operation: String,
         operation_span: SourceSpan,
+        recovered: bool,
         args: Vec<Expr>,
     },
     Handle {

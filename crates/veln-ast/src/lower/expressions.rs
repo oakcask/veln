@@ -60,6 +60,7 @@ impl AstBuilder {
                 effect_span,
                 operation,
                 operation_span,
+                recovered: _,
                 args,
             } => Some(ExprKind::Perform {
                 effect: effect.clone(),

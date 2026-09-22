@@ -66,8 +66,11 @@ fn parses_and_formats_nominal_effect_operations() {
     };
     assert!(matches!(
         &expr.kind,
-        ExprKind::Perform { effect, operation, args, .. }
-            if effect == &vec!["Audit".to_string()] && operation == "record" && args.len() == 2
+        ExprKind::Perform { effect, operation, recovered, args, .. }
+            if effect == &vec!["Audit".to_string()]
+                && operation == "record"
+                && !recovered
+                && args.len() == 2
     ));
     assert_eq!(
         format_tree(&output.tree),
@@ -81,6 +84,29 @@ fn parses_and_formats_nominal_effect_operations() {
             "end\n",
         )
     );
+}
+
+#[test]
+fn records_recovery_for_unclosed_perform_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn broken() -> Int\n  perform Choose::pick(\nend\n",
+    );
+
+    let output = parse(&source);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Perform {
+            recovered: true,
+            ..
+        }
+    ));
 }
 
 #[test]

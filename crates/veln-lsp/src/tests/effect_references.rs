@@ -435,4 +435,58 @@ fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_dec
         )),
         [response("2", "[]")]
     );
+
+    for (name, text, positions) in [
+        (
+            "workspace-effect-reference-recovered-perform",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "fn broken() -> Int\n",
+                "  perform Choose::pick(\n",
+                "end\n",
+            ),
+            vec![(0, 7, false), (5, 10, true)],
+        ),
+        (
+            "workspace-effect-reference-clean-uses-recovered-declaration",
+            concat!(
+                "effect Choose\n",
+                "end\n\n",
+                "fn use() -> Int effects [Choose]\n",
+                "  perform Choose::pick()\n",
+                "end\n\n",
+                "handler choose_handler() handles Choose\n",
+                "  pick() => perform Choose::pick()\n",
+                "end\n",
+            ),
+            vec![
+                (3, 24, true),
+                (4, 10, true),
+                (7, 32, true),
+                (8, 20, true),
+            ],
+        ),
+    ] {
+        let project = TempProject::new(name);
+        project.write("veln.toml", "");
+        project.write("main.veln", text);
+        let root = path_to_uri(&project.root);
+        let uri = path_to_uri(&project.root.join("main.veln"));
+        let mut server = Server::default();
+        server.handle_message(&initialize_request(&root));
+
+        for (line, character, include_declaration) in positions {
+            assert_eq!(
+                server.handle_message(&references_request_with_declaration(
+                    &uri,
+                    line,
+                    character,
+                    include_declaration,
+                )),
+                [response("2", "[]")]
+            );
+        }
+    }
 }

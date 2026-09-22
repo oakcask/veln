@@ -270,9 +270,14 @@ fn extend_optional_spans(spans: &Option<Vec<SourceSpan>>, regions: &mut Vec<(usi
 fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>) {
     match &expr.kind {
         ExprKind::Perform {
-            effect_span, args, ..
+            effect_span,
+            recovered,
+            args,
+            ..
         } => {
-            regions.push((effect_span.start.offset, effect_span.end.offset));
+            if !recovered {
+                regions.push((effect_span.start.offset, effect_span.end.offset));
+            }
             for arg in args {
                 collect_perform_effect_regions(arg, regions);
             }

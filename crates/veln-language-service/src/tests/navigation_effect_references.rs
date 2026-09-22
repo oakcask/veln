@@ -364,6 +364,45 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn workspace_effect_references_exclude_recovered_perform_qualifiers() {
+        let text = concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn broken() -> Int\n",
+            "  perform Choose::pick(\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert!(declaration.references.is_empty());
+        assert!(query(sources, "main.veln", 6, 11).is_none());
+    }
+
+    #[test]
+    fn workspace_effect_references_do_not_resolve_clean_uses_to_recovered_declarations() {
+        let text = concat!(
+            "effect Choose\n",
+            "end\n\n",
+            "fn use() -> Int effects [Choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler choose_handler() handles Choose\n",
+            "  pick() => perform Choose::pick()\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert!(!declaration.reference_eligible);
+        assert!(declaration.references.is_empty());
+        for (line, column) in [(4, 25), (5, 11), (8, 33), (9, 21)] {
+            assert!(query(sources.clone(), "main.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
     fn workspace_effect_references_exclude_unresolved_and_invalid_cased_occurrences() {
         let text = concat!(
             "effect Choose\n",
