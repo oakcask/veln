@@ -548,17 +548,12 @@ fn is_perform_operation_token(tokens: &[Token], index: usize) -> bool {
             .any(|token| token.kind == TokenKind::Perform)
 }
 
-fn is_handler_reference_token(tokens: &[Token], index: usize) -> bool {
-    tokens[index].kind == TokenKind::Ident
-        && previous_non_layout_token(tokens, index)
-            .is_some_and(|previous| previous.kind == TokenKind::With)
-        && next_non_whitespace_token(tokens, index)
-            .is_some_and(|next| next.kind == TokenKind::LParen)
-        && tokens[..index]
-            .iter()
-            .rev()
-            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-            .any(|token| token.kind == TokenKind::Handle)
+fn is_handler_reference_token(file: &IndexedFile, index: usize) -> bool {
+    let token = &file.tokens[index];
+    token.kind == TokenKind::Ident
+        && file
+            .handler_reference_ranges
+            .contains(&(token.range.start, token.range.end))
 }
 
 fn is_handler_operation_clause_call_target(tokens: &[Token], index: usize) -> bool {

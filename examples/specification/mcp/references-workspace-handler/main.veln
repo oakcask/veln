@@ -1,0 +1,11 @@
+handler run() handles Work
+  go() => 1
+end
+
+fn first() -> Int
+  "😀" + handle 1 with run()
+end
+
+fn second() -> Int
+  handle 2 with run()
+end

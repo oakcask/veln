@@ -235,7 +235,7 @@ impl SymbolIndex {
                 .operation_for_qualified_perform(file, &qualifier, name)
                 .map(Symbol::EffectOperation);
         }
-        if is_handler_reference_token(tokens, token_index) {
+        if is_handler_reference_token(file, token_index) {
             return self.handler_for_reference(file, name).map(Symbol::Handler);
         }
         None

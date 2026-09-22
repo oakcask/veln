@@ -1,4 +1,40 @@
 impl SymbolIndex {
+    fn handler_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
+        self.files
+            .iter()
+            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
+            .flat_map(|file| {
+                file.tokens
+                    .iter()
+                    .filter_map(|token| {
+                        (token.text == symbol.name
+                            && file
+                                .handler_reference_ranges
+                                .contains(&(token.range.start, token.range.end)))
+                        .then(|| file.source.span(token.range))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    fn handler_references_supported(&self, symbol: &NeutralSymbol) -> bool {
+        if symbol.package.is_some() {
+            return false;
+        }
+        let mut declarations = self.handlers.iter().filter(|candidate| {
+            candidate.package.is_none()
+                && candidate.module == symbol.module
+                && candidate.name == symbol.name
+        });
+        let Some(candidate) = declarations.next() else {
+            return false;
+        };
+        candidate.declaration == symbol.declaration
+            && declarations.next().is_none()
+            && self.handler_declaration_is_unrecovered(symbol)
+    }
+
     fn effect_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()

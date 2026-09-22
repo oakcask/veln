@@ -406,19 +406,6 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 32,
         },
         Case {
-            name: "handler",
-            files: vec![
-                ("veln.toml", ""),
-                (
-                    "main.veln",
-                    "effect Task\n  run() -> Int\nend\n\nhandler task() handles Task\n  run() => 1\nend\n\nfn main() -> Int effects [Task]\n  handle perform Task::run() with task()\nend\n",
-                ),
-            ],
-            source: "main.veln",
-            line: 10,
-            column: 34,
-        },
-        Case {
             name: "casing neutral type selection",
             files: vec![
                 ("veln.toml", ""),

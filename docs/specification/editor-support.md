@@ -230,6 +230,21 @@ unresolved names, recovered effect rows, recovered handler targets, incomplete
 Comments and strings do not contribute references.
 Effects, handlers, and effect operations remain unsupported for rename.
 
+For a selected parse-clean workspace handler declaration, references include
+each complete bare handler name in `handle Body with handler(arguments)` from
+saved workspace sources that declare the same module. The declaration and
+each included handler name select one identity, and every returned range
+covers only the handler-name token. `includeDeclaration` controls whether LSP
+adds the declaration before the sorted shared references.
+
+Handler reference lookup requires one unrecovered workspace declaration for
+the module and name. It excludes duplicate or recovered declarations and
+imported, package, qualified, unresolved, ambiguous, incomplete, or recovered
+handler paths. Equal spelling in another module or symbol class, including a
+handler parameter or operation-clause binding, does not enter the result.
+Comments and strings do not contribute handler references. An unrelated parse
+error does not remove a complete parse-clean handler occurrence.
+
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, and directly resolved
 schema-composition path leaves that resolve to that schema in workspace
@@ -556,3 +571,6 @@ the token legend, LSP encoding, workspace diagnostics, navigation, formatting,
 rename, and virtual-document boundaries.
 The checked `examples/specification/lsp/references-workspace-effect/` transcript
 demonstrates declaration policy and UTF-16 conversion for effect references.
+The checked `examples/specification/lsp/references-workspace-handler/`
+transcript demonstrates the same declaration policy and UTF-16 conversion for
+workspace handler references.

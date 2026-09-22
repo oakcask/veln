@@ -31,6 +31,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         &invalid_declaration_names,
     );
     let recovered_effect_declarations = recovered_effect_declarations(&parsed.tree);
+    let recovered_handler_declarations = recovered_handler_declarations(&parsed);
+    let handler_reference_ranges = valid_handler_reference_ranges(&parsed, &tokens);
     let file = IndexedFile {
         source,
         tokens,
@@ -44,6 +46,8 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
         recovered_effect_declarations,
+        recovered_handler_declarations,
+        handler_reference_ranges,
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges,
@@ -98,6 +102,193 @@ fn recovered_effect_declarations(syntax: &SyntaxTree) -> Vec<SourceSpan> {
             _ => None,
         })
         .collect()
+}
+
+fn recovered_handler_declarations(parsed: &ParseOutput) -> Vec<SourceSpan> {
+    parsed
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Handler(handler)
+                if !handler.end_present
+                    || parsed.diagnostics.iter().any(|diagnostic| {
+                        diagnostic.parser_context.starts_with("handler_")
+                            && diagnostic.span.as_ref().is_some_and(|span| {
+                                span.file == handler.span.file
+                                    && if span.start.offset == span.end.offset {
+                                        handler.span.start.offset <= span.start.offset
+                                            && span.start.offset <= handler.span.end.offset
+                                    } else {
+                                        span.start.offset < handler.span.end.offset
+                                            && handler.span.start.offset < span.end.offset
+                                    }
+                            })
+                    }) =>
+            {
+                Some(handler.span.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn valid_handler_reference_ranges(
+    parsed: &ParseOutput,
+    tokens: &[Token],
+) -> BTreeSet<(usize, usize)> {
+    let mut ranges = BTreeSet::new();
+    for item in &parsed.tree.items {
+        match item {
+            SyntaxItem::Function(function) => {
+                for line in &function.body {
+                    let expr = match line {
+                        BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => expr,
+                    };
+                    collect_handler_reference_ranges(expr, parsed, tokens, &mut ranges);
+                }
+            }
+            SyntaxItem::Handler(handler) => {
+                for clause in &handler.operation_clauses {
+                    collect_handler_reference_ranges(&clause.body, parsed, tokens, &mut ranges);
+                }
+            }
+            _ => {}
+        }
+    }
+    ranges
+}
+
+fn collect_handler_reference_ranges(
+    expr: &Expr,
+    parsed: &ParseOutput,
+    tokens: &[Token],
+    ranges: &mut BTreeSet<(usize, usize)>,
+) {
+    if let ExprKind::Handle {
+        handler,
+        handler_span,
+        ..
+    } = &expr.kind
+        && handler.len() == 1
+        && handle_expression_is_parse_clean(expr, parsed)
+        && complete_handler_arguments_follow(handler_span, &expr.span, tokens)
+    {
+        ranges.insert((handler_span.start.offset, handler_span.end.offset));
+    }
+
+    match &expr.kind {
+        ExprKind::TypeApply { callee, .. }
+        | ExprKind::FieldAccess { base: callee, .. }
+        | ExprKind::Try(callee)
+        | ExprKind::Prefix { expr: callee, .. }
+        | ExprKind::SchemaEncode { value: callee, .. } => {
+            collect_handler_reference_ranges(callee, parsed, tokens, ranges);
+        }
+        ExprKind::Call { callee, args } | ExprKind::Handle { body: callee, args, .. } => {
+            collect_handler_reference_ranges(callee, parsed, tokens, ranges);
+            for arg in args {
+                collect_handler_reference_ranges(arg, parsed, tokens, ranges);
+            }
+        }
+        ExprKind::Perform { args, .. } | ExprKind::List(args) => {
+            for arg in args {
+                collect_handler_reference_ranges(arg, parsed, tokens, ranges);
+            }
+        }
+        ExprKind::SchemaDecode { input, base, .. }
+        | ExprKind::Binary {
+            left: input,
+            right: base,
+            ..
+        } => {
+            collect_handler_reference_ranges(input, parsed, tokens, ranges);
+            collect_handler_reference_ranges(base, parsed, tokens, ranges);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_handler_reference_ranges(&field.expr, parsed, tokens, ranges);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_handler_reference_ranges(&entry.key, parsed, tokens, ranges);
+                collect_handler_reference_ranges(&entry.value, parsed, tokens, ranges);
+            }
+        }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_handler_reference_ranges(scrutinee, parsed, tokens, ranges);
+            for arm in arms {
+                collect_handler_reference_ranges(&arm.expr, parsed, tokens, ranges);
+            }
+        }
+        ExprKind::If {
+            condition,
+            then_branch,
+            else_if_branches,
+            else_branch,
+        } => {
+            collect_handler_reference_ranges(condition, parsed, tokens, ranges);
+            collect_handler_reference_ranges(then_branch, parsed, tokens, ranges);
+            for branch in else_if_branches {
+                collect_handler_reference_ranges(&branch.condition, parsed, tokens, ranges);
+                collect_handler_reference_ranges(&branch.expr, parsed, tokens, ranges);
+            }
+            collect_handler_reference_ranges(else_branch, parsed, tokens, ranges);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath { .. }
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
+        | ExprKind::Unit => {}
+    }
+}
+
+fn handle_expression_is_parse_clean(expr: &Expr, parsed: &ParseOutput) -> bool {
+    !parsed.diagnostics.iter().any(|diagnostic| {
+        diagnostic.span.as_ref().is_some_and(|span| {
+            span.file == expr.span.file
+                && if span.start.offset == span.end.offset {
+                    expr.span.start.offset <= span.start.offset
+                        && span.start.offset <= expr.span.end.offset
+                } else {
+                    span.start.offset < expr.span.end.offset
+                        && expr.span.start.offset < span.end.offset
+                }
+        })
+    })
+}
+
+fn complete_handler_arguments_follow(
+    handler_span: &SourceSpan,
+    expr_span: &SourceSpan,
+    tokens: &[Token],
+) -> bool {
+    let Some(lparen_index) = tokens.iter().position(|token| {
+        token.range.start >= handler_span.end.offset && token.kind == TokenKind::LParen
+    }) else {
+        return false;
+    };
+    let mut depth = 0usize;
+    for token in &tokens[lparen_index..] {
+        if token.range.end > expr_span.end.offset {
+            break;
+        }
+        match token.kind {
+            TokenKind::LParen => depth += 1,
+            TokenKind::RParen => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 fn valid_effect_reference_ranges(
@@ -600,6 +791,8 @@ fn indexed_dependency_source(
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
         recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),
+        recovered_handler_declarations: recovered_handler_declarations(&parsed),
+        handler_reference_ranges: BTreeSet::new(),
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),
