@@ -525,11 +525,13 @@ Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation
 names. Duplicate declarations and imported, package-backed, unresolved,
 invalid-cased, ambiguous, incomplete, recovered, or additionally qualified
-operation paths return a successful empty result. Handler operation-clause headings and equal
+operation paths return a successful empty result. An operation leaf whose
+argument list requires syntax recovery is excluded even when its adjacent
+effect qualifier remains eligible. Handler operation-clause headings and equal
 spelling in another effect, module, symbol class, comment, or string are
 excluded. The adjacent effect qualifier remains part of its separate effect
-reference set. Failures preserve captured navigation state, retained
-resources, and existing cursors under the general references failure contract.
+reference set. Failures preserve captured navigation state, retained resources,
+and existing cursors under the general references failure contract.
 
 A workspace handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the

@@ -34,8 +34,8 @@ mod navigation_effect_operation_references_tests {
     #[test]
     fn workspace_effect_operation_references_share_identity_across_selection_forms() {
         let expected = [
-            ("declaration.veln", 9, 19),
-            ("uses.veln", 8, 19),
+            ("declaration.veln", 9, 19, 9, 23),
+            ("uses.veln", 8, 19, 8, 23),
         ];
         for (path, line, column) in [
             ("declaration.veln", 4, 3),
@@ -47,8 +47,23 @@ mod navigation_effect_operation_references_tests {
             assert_eq!(result.selected_symbol.name, "pick");
             assert!(result.reference_eligible);
             assert_location(&result.definition, "declaration.veln", 4, 3);
-            assert_eq!(locations(&result.references), expected);
+            assert_eq!(exact_locations(&result.references), expected);
         }
+    }
+
+    fn exact_locations(spans: &[SourceSpan]) -> Vec<(&str, usize, usize, usize, usize)> {
+        spans
+            .iter()
+            .map(|span| {
+                (
+                    span.file.as_str(),
+                    span.start.line,
+                    span.start.column,
+                    span.end.line,
+                    span.end.column,
+                )
+            })
+            .collect()
     }
 
     #[test]
@@ -62,6 +77,12 @@ mod navigation_effect_operation_references_tests {
                 "effect Other\n",
                 "  pick() -> Int\n",
                 "end\n\n",
+                "type Choice\n",
+                "  pick\n",
+                "end\n\n",
+                "handler choose_handler() handles Choose\n",
+                "  pick() => 1\n",
+                "end\n\n",
                 "fn pick() -> String effects [Choose, Other]\n",
                 "  let pick = {pick: \"pick\"}\n",
                 "  # pick\n",
@@ -69,13 +90,66 @@ mod navigation_effect_operation_references_tests {
                 "  perform Other::pick()\n",
                 "end\n",
             ),
+        ), source(
+            "other.veln",
+            "effect Choose\n  pick() -> Int\nend\n\nfn use() -> Int\n  perform Choose::pick()\nend\n",
         )];
         let selected = query(sources.clone(), "main.veln", 2, 3).unwrap();
-        assert_eq!(locations(&selected.references), [("main.veln", 12, 19)]);
-        let other = query(sources, "main.veln", 13, 18).unwrap();
+        assert_eq!(locations(&selected.references), [("main.veln", 20, 19)]);
+        let other = query(sources.clone(), "main.veln", 21, 18).unwrap();
         assert_eq!(other.selected_symbol.kind, SymbolKind::EffectOperation);
         assert_location(&other.definition, "main.veln", 6, 3);
-        assert_eq!(locations(&other.references), [("main.veln", 13, 18)]);
+        assert_eq!(locations(&other.references), [("main.veln", 21, 18)]);
+        let other_module = query(sources, "other.veln", 6, 19).unwrap();
+        assert_location(&other_module.definition, "other.veln", 2, 3);
+        assert_eq!(locations(&other_module.references), [("other.veln", 6, 19)]);
+    }
+
+    #[test]
+    fn effect_operation_selection_precedes_broad_schema_candidates() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick() -> Int\n",
+                "end\n\n",
+                "schema S\n",
+                "  format binary\n",
+                "end\n\n",
+                "schema T\n",
+                "  format binary\n",
+                "end\n\n",
+                "fn use(bytes: Bytes) -> Int\n",
+                "  decode S from (perform Choose::pick() + decode T from bytes)\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 2, 3).unwrap();
+        let leaf = query(sources, "main.veln", 14, 34).unwrap();
+        assert_eq!(leaf.selected_symbol.kind, SymbolKind::EffectOperation);
+        assert_eq!(leaf.selected_symbol, declaration.selected_symbol);
+        assert_eq!(leaf.references, declaration.references);
+        assert_eq!(exact_locations(&leaf.references), [("main.veln", 14, 34, 14, 38)]);
+    }
+
+    #[test]
+    fn workspace_effect_operation_references_reject_recovered_arguments() {
+        let sources = vec![source(
+            "main.veln",
+            concat!(
+                "effect Choose\n",
+                "  pick(value: Int) -> Int\n",
+                "end\n\n",
+                "fn broken() -> Int\n",
+                "  perform Choose::pick(1 2)\n",
+                "end\n",
+            ),
+        )];
+
+        let declaration = query(sources.clone(), "main.veln", 2, 3).unwrap();
+        assert!(declaration.references.is_empty());
+        assert!(query(sources, "main.veln", 6, 19).is_none());
     }
 
     #[test]

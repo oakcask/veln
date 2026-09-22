@@ -24,7 +24,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let effect_reference_ranges =
         valid_effect_reference_ranges(&tokens, &effect_list_membership, &parsed.tree);
     let effect_operation_ranges =
-        valid_effect_operation_ranges(&tokens, &effect_reference_ranges);
+        valid_effect_operation_ranges(&tokens, &effect_reference_ranges, &parsed);
     let generic_effect_binders = generic_effect_binders(&parsed.tree);
     let handler_diagnostics = HandlerDiagnosticIndex::new(&parsed);
     let recovery_symbols = workspace_recovery_symbols(
@@ -76,7 +76,15 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
 fn valid_effect_operation_ranges(
     tokens: &[Token],
     effect_reference_ranges: &BTreeSet<(usize, usize)>,
+    parsed: &ParseOutput,
 ) -> BTreeSet<(usize, usize)> {
+    let closing_parentheses = closing_parenthesis_indexes(tokens);
+    let mut diagnostic_offsets = parsed
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.offset))
+        .collect::<Vec<_>>();
+    diagnostic_offsets.sort_unstable();
     tokens
         .iter()
         .enumerate()
@@ -84,11 +92,59 @@ fn valid_effect_operation_ranges(
             effect_reference_ranges.contains(&(token.range.start, token.range.end))
         })
         .filter_map(|(index, _)| next_path_segment_index(tokens, index))
+        .filter(|index| {
+            !effect_operation_arguments_are_recovered(
+                tokens,
+                *index,
+                &closing_parentheses,
+                &diagnostic_offsets,
+            )
+        })
         .map(|index| {
             let range = tokens[index].range;
             (range.start, range.end)
         })
         .collect()
+}
+
+fn closing_parenthesis_indexes(tokens: &[Token]) -> Vec<Option<usize>> {
+    let mut closing_parentheses = vec![None; tokens.len()];
+    let mut open_parentheses = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::LParen => open_parentheses.push(index),
+            TokenKind::RParen => {
+                if let Some(open_index) = open_parentheses.pop() {
+                    closing_parentheses[open_index] = Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    closing_parentheses
+}
+
+fn effect_operation_arguments_are_recovered(
+    tokens: &[Token],
+    operation_index: usize,
+    closing_parentheses: &[Option<usize>],
+    diagnostic_offsets: &[usize],
+) -> bool {
+    let Some(open_index) = next_non_layout_index(tokens, operation_index) else {
+        return true;
+    };
+    if tokens[open_index].kind != TokenKind::LParen {
+        return true;
+    }
+    let Some(close_index) = closing_parentheses[open_index] else {
+        return true;
+    };
+    let start = tokens[operation_index].range.start;
+    let end = tokens[close_index].range.end;
+    let diagnostic_index = diagnostic_offsets.partition_point(|offset| *offset < start);
+    diagnostic_offsets
+        .get(diagnostic_index)
+        .is_some_and(|offset| *offset <= end)
 }
 
 fn generic_effect_binders(syntax: &SyntaxTree) -> Vec<GenericEffectBinder> {

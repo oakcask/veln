@@ -242,9 +242,12 @@ Effect-operation lookup requires one unrecovered owning effect declaration and
 one unrecovered operation declaration for the module, effect, and operation
 names. It excludes duplicate declarations and imported, package-backed,
 invalid-cased, unresolved, ambiguous, incomplete, recovered, or additionally
-qualified operation paths. Handler operation-clause headings and equal spelling in
-another effect, module, symbol class, comment, or string do not enter the
-result. The adjacent effect qualifier keeps its separate effect identity.
+qualified operation paths. An operation leaf is also excluded when its
+argument list requires syntax recovery, even if the adjacent effect qualifier
+remains eligible for effect references. Handler operation-clause headings and
+equal spelling in another effect, module, symbol class, comment, or string do
+not enter the result. The adjacent effect qualifier keeps its separate effect
+identity.
 
 For a selected parse-clean workspace handler declaration, references include
 each complete bare handler name in `handle Body with handler(arguments)` from

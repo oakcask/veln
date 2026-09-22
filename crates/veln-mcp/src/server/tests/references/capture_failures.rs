@@ -118,8 +118,8 @@ fn write_workspace_schema_capture_project(workspace: &TempWorkspace) {
 }
 
 #[test]
-fn workspace_effect_reference_capture_failure_preserves_state_and_later_results() {
-    let workspace = TempWorkspace::new("references-workspace-effect-capture-retry");
+fn workspace_effect_operation_reference_capture_failure_preserves_state_and_later_results() {
+    let workspace = TempWorkspace::new("references-workspace-effect-operation-capture-retry");
     workspace.write("veln.toml", "");
     workspace.write(
         "main.veln",
@@ -127,23 +127,30 @@ fn workspace_effect_reference_capture_failure_preserves_state_and_later_results(
     );
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8
+        "source":"main.veln", "line":2, "column":3
     }));
     assert_eq!(
         before["structuredContent"]["references"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        1
     );
-    let live_cursor = live_reference_cursor(&mut server, "main.veln", 1, 8);
+    let seeded = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":3,
+        "include_declaration":true, "page_size":1
+    }));
+    let live_cursor = seeded["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let before_resources = all_resource_state(&mut server);
     let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
     let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
 
     let failed = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8
+        "source":"main.veln", "line":2, "column":3
     }));
     assert_snapshot_changed_without_references_or_scope(&failed);
     assert_eq!(attempts.get(), 3);
@@ -153,14 +160,14 @@ fn workspace_effect_reference_capture_failure_preserves_state_and_later_results(
 
     drop(hook);
     let after = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8
+        "source":"main.veln", "line":2, "column":3
     }));
     assert_eq!(
         after["structuredContent"]["references"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        1
     );
 }
 

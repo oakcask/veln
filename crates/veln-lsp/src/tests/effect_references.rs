@@ -388,6 +388,94 @@ fn workspace_effect_references_keep_complete_qualifiers_with_recovered_arguments
     ] {
         assert_eq!(server.handle_message(&request), [response("2", &expected)]);
     }
+
+    for request in [
+        references_request_with_declaration(&main_uri, 1, 2, false),
+        references_request_with_declaration(&main_uri, 5, 18, true),
+    ] {
+        assert_eq!(server.handle_message(&request), [response("2", "[]")]);
+    }
+}
+
+#[test]
+fn workspace_effect_operation_references_exclude_adapter_collision_matrix() {
+    let project = TempProject::new("workspace-effect-operation-reference-collisions");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "effect Other\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "type Choice\n",
+            "  pick\n",
+            "end\n\n",
+            "handler choose() handles Choose\n",
+            "  pick() => 1\n",
+            "end\n\n",
+            "fn use() -> Int\n",
+            "  perform Choose::pick() + perform Other::pick()\n",
+            "end\n",
+        ),
+    );
+    project.write(
+        "other.veln",
+        "effect Choose\n  pick() -> Int\nend\n\nfn use() -> Int\n  perform Choose::pick()\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let other_uri = path_to_uri(&project.root.join("other.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 1, 2, false,
+        )),
+        [response(
+            "2",
+            &format!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":17,\"character\":18}},\"end\":{{\"line\":17,\"character\":22}}}}}}]",
+                main_uri
+            ),
+        )]
+    );
+
+    for (line, character) in [(9, 2), (13, 2)] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, line, character, false,
+            )),
+            [response("2", "[]")]
+        );
+    }
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 17, 44, false,
+        )),
+        [response(
+            "2",
+            &format!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":17,\"character\":42}},\"end\":{{\"line\":17,\"character\":46}}}}}}]",
+                main_uri
+            ),
+        )]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &other_uri, 5, 18, false,
+        )),
+        [response(
+            "2",
+            &format!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":18}},\"end\":{{\"line\":5,\"character\":22}}}}}}]",
+                other_uri
+            ),
+        )]
+    );
 }
 
 #[test]
