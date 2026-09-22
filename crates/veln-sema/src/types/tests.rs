@@ -440,10 +440,18 @@ fn accepts_bounded_subbyte_lowercase_reserved_dispatch_payloads() {
 fn rejects_malformed_lowercase_schema_primitives_with_focused_reasons() {
     let cases = [
         ("uint", LowercaseSchemaPrimitiveError::MissingWidth),
+        ("uintbe", LowercaseSchemaPrimitiveError::MissingWidth),
+        ("uintle", LowercaseSchemaPrimitiveError::MissingWidth),
         ("uint16ne", LowercaseSchemaPrimitiveError::UnknownEndian),
+        ("uint16bex", LowercaseSchemaPrimitiveError::UnknownEndian),
         ("uint24", LowercaseSchemaPrimitiveError::MissingEndian),
+        ("uint1le", LowercaseSchemaPrimitiveError::RedundantEndian),
         ("uint8be", LowercaseSchemaPrimitiveError::RedundantEndian),
         ("uint9", LowercaseSchemaPrimitiveError::UnsupportedWidth),
+        (
+            "uint65536be",
+            LowercaseSchemaPrimitiveError::UnsupportedWidth,
+        ),
     ];
 
     for (text, reason) in cases {

@@ -144,55 +144,75 @@ pub(crate) fn lowercase_schema_primitive(
 ) -> Option<Result<LowercaseSchemaPrimitive, LowercaseSchemaPrimitiveError>> {
     let spelling = text.trim();
     let rest = spelling.strip_prefix("uint")?;
-    let family = "uint";
-    if rest.is_empty() {
+    let (width_text, suffix) = match split_lowercase_schema_primitive(rest)? {
+        Ok(parts) => parts,
+        Err(reason) => return Some(Err(reason)),
+    };
+    let width_bits = match parse_lowercase_schema_width(width_text) {
+        Ok(width) => width,
+        Err(reason) => return Some(Err(reason)),
+    };
+    let endian = match validate_lowercase_schema_endian(width_bits, suffix) {
+        Ok(endian) => endian,
+        Err(reason) => return Some(Err(reason)),
+    };
+    Some(Ok(LowercaseSchemaPrimitive {
+        spelling: spelling.to_string(),
+        family: "uint",
+        width_bits,
+        endian,
+    }))
+}
+
+fn split_lowercase_schema_primitive(
+    rest: &str,
+) -> Option<Result<(&str, &str), LowercaseSchemaPrimitiveError>> {
+    let Some(first) = rest.chars().next() else {
         return Some(Err(LowercaseSchemaPrimitiveError::MissingWidth));
-    }
-    if !rest.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
+    };
+    if !first.is_ascii_digit() {
         return match rest {
             "be" | "le" => Some(Err(LowercaseSchemaPrimitiveError::MissingWidth)),
             _ => None,
         };
     }
-    let width_len = rest
-        .char_indices()
-        .take_while(|(_, ch)| ch.is_ascii_digit())
-        .map(|(index, ch)| index + ch.len_utf8())
-        .last()
-        .unwrap_or(0);
-    if width_len == 0 {
-        return Some(Err(LowercaseSchemaPrimitiveError::MissingWidth));
-    }
-    let width_text = &rest[..width_len];
-    let suffix = &rest[width_len..];
-    let Ok(width_bits) = width_text.parse::<u16>() else {
-        return Some(Err(LowercaseSchemaPrimitiveError::UnsupportedWidth));
+    let width_end = rest
+        .find(|ch: char| !ch.is_ascii_digit())
+        .unwrap_or(rest.len());
+    Some(Ok((&rest[..width_end], &rest[width_end..])))
+}
+
+fn parse_lowercase_schema_width(width: &str) -> Result<u16, LowercaseSchemaPrimitiveError> {
+    let Ok(width) = width.parse::<u16>() else {
+        return Err(LowercaseSchemaPrimitiveError::UnsupportedWidth);
     };
+    if matches!(
+        width,
+        1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 16 | 24 | 31 | 32 | 40 | 48 | 56 | 64
+    ) {
+        Ok(width)
+    } else {
+        Err(LowercaseSchemaPrimitiveError::UnsupportedWidth)
+    }
+}
+
+fn validate_lowercase_schema_endian(
+    width_bits: u16,
+    suffix: &str,
+) -> Result<Option<&'static str>, LowercaseSchemaPrimitiveError> {
     let endian = match suffix {
         "" => None,
         "be" => Some("be"),
         "le" => Some("le"),
-        _ => return Some(Err(LowercaseSchemaPrimitiveError::UnknownEndian)),
+        _ => return Err(LowercaseSchemaPrimitiveError::UnknownEndian),
     };
-    let supported_width = matches!(
-        width_bits,
-        1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 16 | 24 | 31 | 32 | 40 | 48 | 56 | 64
-    );
-    if !supported_width {
-        return Some(Err(LowercaseSchemaPrimitiveError::UnsupportedWidth));
-    }
     if width_bits <= 8 && endian.is_some() {
-        return Some(Err(LowercaseSchemaPrimitiveError::RedundantEndian));
+        return Err(LowercaseSchemaPrimitiveError::RedundantEndian);
     }
     if width_bits > 8 && endian.is_none() {
-        return Some(Err(LowercaseSchemaPrimitiveError::MissingEndian));
+        return Err(LowercaseSchemaPrimitiveError::MissingEndian);
     }
-    Some(Ok(LowercaseSchemaPrimitive {
-        spelling: spelling.to_string(),
-        family,
-        width_bits,
-        endian,
-    }))
+    Ok(endian)
 }
 
 pub(crate) fn lowercase_reserved_bits_schema_primitive(
