@@ -160,3 +160,29 @@ fn references_reject_imported_and_invalid_cased_effects() {
         assert_eq!(result["structuredContent"]["references"], json!([]));
     }
 }
+
+#[test]
+fn references_reject_unresolved_and_mismatched_effect_occurrences() {
+    let workspace = TempWorkspace::new("references-workspace-effect-negative-occurrences");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    for column in [41, 50] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":5, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
+}

@@ -194,6 +194,29 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn workspace_effect_references_exclude_unresolved_and_invalid_cased_occurrences() {
+        let text = concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+
+        let valid = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert_eq!(valid.selected_symbol.kind, SymbolKind::Effect);
+        assert_eq!(
+            locations(&valid.references),
+            [("main.veln", 5, 33), ("main.veln", 6, 11)]
+        );
+
+        assert!(query(sources.clone(), "main.veln", 5, 41).is_none());
+        assert!(query(sources, "main.veln", 5, 50).is_none());
+    }
+
+    #[test]
     fn workspace_effect_reference_collection_handles_many_declarations_and_occurrences() {
         let mut declarations =
             String::from("mod shared\n\neffect Choose\n  pick() -> Int\nend\n\n");

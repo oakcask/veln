@@ -141,3 +141,33 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
         assert_empty_result_array(&response[0]);
     }
 }
+
+#[test]
+fn workspace_effect_references_reject_unresolved_and_mismatched_occurrences() {
+    let project = TempProject::new("workspace-effect-reference-negative-occurrences");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn boundaries() -> Int effects [Choose, Missing, choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    for character in [40, 49] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, 4, character, true,
+            )),
+            [response("2", "[]")]
+        );
+    }
+}
