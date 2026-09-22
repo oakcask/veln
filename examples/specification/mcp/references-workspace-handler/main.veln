@@ -1,11 +1,11 @@
-handler run() handles Work
+handler run(value: Int) handles Work
   go() => 1
 end
 
 fn first() -> Int
-  "😀" + handle 1 with run()
+  "😀" + handle 1 with run((1 + 2))
 end
 
 fn second() -> Int
-  handle 2 with run()
+  handle 2 with run(2)
 end

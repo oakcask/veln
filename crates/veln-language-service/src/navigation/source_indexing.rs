@@ -34,8 +34,13 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
     let recovered_effect_declarations = recovered_effect_declarations(&parsed.tree);
     let recovered_handler_declarations =
         recovered_handler_declarations(&parsed, &handler_diagnostics);
-    let handler_reference_ranges =
-        valid_handler_reference_ranges(&parsed, &tokens, &handler_diagnostics);
+    let handler_argument_delimiters = HandlerArgumentDelimiters::new(&tokens);
+    let handler_reference_ranges = valid_handler_reference_ranges(
+        &parsed,
+        &tokens,
+        &handler_argument_delimiters,
+        &handler_diagnostics,
+    );
     let file = IndexedFile {
         source,
         tokens,
@@ -188,6 +193,7 @@ fn recovered_handler_declarations(
 fn valid_handler_reference_ranges(
     parsed: &ParseOutput,
     tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
     diagnostics: &HandlerDiagnosticIndex,
 ) -> BTreeSet<(usize, usize)> {
     let mut ranges = BTreeSet::new();
@@ -198,7 +204,13 @@ fn valid_handler_reference_ranges(
                     let expr = match line {
                         BodyLine::Let { expr, .. } | BodyLine::Expr { expr, .. } => expr,
                     };
-                    collect_handler_reference_ranges(expr, diagnostics, tokens, &mut ranges);
+                    collect_handler_reference_ranges(
+                        expr,
+                        diagnostics,
+                        tokens,
+                        argument_delimiters,
+                        &mut ranges,
+                    );
                 }
             }
             SyntaxItem::Handler(handler) => {
@@ -207,6 +219,7 @@ fn valid_handler_reference_ranges(
                         &clause.body,
                         diagnostics,
                         tokens,
+                        argument_delimiters,
                         &mut ranges,
                     );
                 }
@@ -221,6 +234,7 @@ fn collect_handler_reference_ranges(
     expr: &Expr,
     diagnostics: &HandlerDiagnosticIndex,
     tokens: &[Token],
+    argument_delimiters: &HandlerArgumentDelimiters,
     ranges: &mut BTreeSet<(usize, usize)>,
 ) {
     if let ExprKind::Handle {
@@ -230,7 +244,7 @@ fn collect_handler_reference_ranges(
     } = &expr.kind
         && handler.len() == 1
         && !diagnostics.overlaps(&expr.span)
-        && complete_handler_arguments_follow(handler_span, &expr.span, tokens)
+        && argument_delimiters.complete_arguments_follow(handler_span, &expr.span, tokens)
     {
         ranges.insert((handler_span.start.offset, handler_span.end.offset));
     }
@@ -241,17 +255,41 @@ fn collect_handler_reference_ranges(
         | ExprKind::Try(callee)
         | ExprKind::Prefix { expr: callee, .. }
         | ExprKind::SchemaEncode { value: callee, .. } => {
-            collect_handler_reference_ranges(callee, diagnostics, tokens, ranges);
+            collect_handler_reference_ranges(
+                callee,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
         }
         ExprKind::Call { callee, args } | ExprKind::Handle { body: callee, args, .. } => {
-            collect_handler_reference_ranges(callee, diagnostics, tokens, ranges);
+            collect_handler_reference_ranges(
+                callee,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
             for arg in args {
-                collect_handler_reference_ranges(arg, diagnostics, tokens, ranges);
+                collect_handler_reference_ranges(
+                    arg,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
             }
         }
         ExprKind::Perform { args, .. } | ExprKind::List(args) => {
             for arg in args {
-                collect_handler_reference_ranges(arg, diagnostics, tokens, ranges);
+                collect_handler_reference_ranges(
+                    arg,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
             }
         }
         ExprKind::SchemaDecode { input, base, .. }
@@ -260,24 +298,66 @@ fn collect_handler_reference_ranges(
             right: base,
             ..
         } => {
-            collect_handler_reference_ranges(input, diagnostics, tokens, ranges);
-            collect_handler_reference_ranges(base, diagnostics, tokens, ranges);
+            collect_handler_reference_ranges(
+                input,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
+            collect_handler_reference_ranges(
+                base,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
         }
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_handler_reference_ranges(&field.expr, diagnostics, tokens, ranges);
+                collect_handler_reference_ranges(
+                    &field.expr,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_handler_reference_ranges(&entry.key, diagnostics, tokens, ranges);
-                collect_handler_reference_ranges(&entry.value, diagnostics, tokens, ranges);
+                collect_handler_reference_ranges(
+                    &entry.key,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
+                collect_handler_reference_ranges(
+                    &entry.value,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_handler_reference_ranges(scrutinee, diagnostics, tokens, ranges);
+            collect_handler_reference_ranges(
+                scrutinee,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
             for arm in arms {
-                collect_handler_reference_ranges(&arm.expr, diagnostics, tokens, ranges);
+                collect_handler_reference_ranges(
+                    &arm.expr,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
             }
         }
         ExprKind::If {
@@ -286,13 +366,43 @@ fn collect_handler_reference_ranges(
             else_if_branches,
             else_branch,
         } => {
-            collect_handler_reference_ranges(condition, diagnostics, tokens, ranges);
-            collect_handler_reference_ranges(then_branch, diagnostics, tokens, ranges);
+            collect_handler_reference_ranges(
+                condition,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
+            collect_handler_reference_ranges(
+                then_branch,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
             for branch in else_if_branches {
-                collect_handler_reference_ranges(&branch.condition, diagnostics, tokens, ranges);
-                collect_handler_reference_ranges(&branch.expr, diagnostics, tokens, ranges);
+                collect_handler_reference_ranges(
+                    &branch.condition,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
+                collect_handler_reference_ranges(
+                    &branch.expr,
+                    diagnostics,
+                    tokens,
+                    argument_delimiters,
+                    ranges,
+                );
             }
-            collect_handler_reference_ranges(else_branch, diagnostics, tokens, ranges);
+            collect_handler_reference_ranges(
+                else_branch,
+                diagnostics,
+                tokens,
+                argument_delimiters,
+                ranges,
+            );
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -305,37 +415,65 @@ fn collect_handler_reference_ranges(
     }
 }
 
-fn complete_handler_arguments_follow(
-    handler_span: &SourceSpan,
-    expr_span: &SourceSpan,
-    tokens: &[Token],
-) -> bool {
-    let token_index = tokens.partition_point(|token| token.range.start < handler_span.end.offset);
-    let Some(relative_lparen_index) = tokens[token_index..].iter().position(|token| {
-        token.range.start < expr_span.end.offset && token.kind == TokenKind::LParen
-    }) else {
-        return false;
-    };
-    let lparen_index = token_index + relative_lparen_index;
-    let mut depth = 0usize;
-    for token in &tokens[lparen_index..] {
-        #[cfg(test)]
-        record_handler_reference_token_visit();
-        if token.range.end > expr_span.end.offset {
-            break;
-        }
-        match token.kind {
-            TokenKind::LParen => depth += 1,
-            TokenKind::RParen => {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    return true;
+struct HandlerArgumentDelimiters {
+    closing_paren_ends: Vec<Option<usize>>,
+    following_lparen_by_token_end: HashMap<usize, usize>,
+}
+
+impl HandlerArgumentDelimiters {
+    fn new(tokens: &[Token]) -> Self {
+        let mut closing_paren_ends = vec![None; tokens.len()];
+        let mut open_parens = Vec::new();
+        for (index, token) in tokens.iter().enumerate() {
+            #[cfg(test)]
+            record_handler_reference_token_visit();
+            match token.kind {
+                TokenKind::LParen => {
+                    open_parens.push(index);
                 }
+                TokenKind::RParen => {
+                    if let Some(open_index) = open_parens.pop() {
+                        closing_paren_ends[open_index] = Some(token.range.end);
+                    }
+                }
+                _ => {}
             }
-            _ => {}
+        }
+
+        let mut following_lparen_by_token_end = HashMap::with_capacity(tokens.len());
+        let mut next_lparen = None;
+        for (index, token) in tokens.iter().enumerate().rev() {
+            #[cfg(test)]
+            record_handler_reference_token_visit();
+            if let Some(lparen_index) = next_lparen {
+                following_lparen_by_token_end.insert(token.range.end, lparen_index);
+            }
+            if token.kind == TokenKind::LParen {
+                next_lparen = Some(index);
+            }
+        }
+        Self {
+            closing_paren_ends,
+            following_lparen_by_token_end,
         }
     }
-    false
+
+    fn complete_arguments_follow(
+        &self,
+        handler_span: &SourceSpan,
+        expr_span: &SourceSpan,
+        tokens: &[Token],
+    ) -> bool {
+        let Some(&lparen_index) = self
+            .following_lparen_by_token_end
+            .get(&handler_span.end.offset)
+        else {
+            return false;
+        };
+        tokens[lparen_index].range.start < expr_span.end.offset
+            && self.closing_paren_ends[lparen_index]
+                .is_some_and(|closing_end| closing_end <= expr_span.end.offset)
+    }
 }
 
 fn valid_effect_reference_ranges(

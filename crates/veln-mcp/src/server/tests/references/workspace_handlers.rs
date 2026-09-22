@@ -5,14 +5,14 @@ fn write_handler_workspace(workspace: &TempWorkspace) {
     workspace.write(
         "main.veln",
         concat!(
-            "handler run() handles Work\r\n",
+            "handler run(value: Int) handles Work\r\n",
             "  go() => 1\r\n",
             "end\r\n\r\n",
             "fn first() -> Int\r\n",
-            "  \"😀\" + handle 1 with run()\r\n",
+            "  \"😀\" + handle 1 with run((1 + 2))\r\n",
             "end\r\n\r\n",
             "fn second() -> Int\r\n",
-            "  handle 2 with run()\r\n",
+            "  handle 2 with run(2)\r\n",
             "end\r\n",
         ),
     );
@@ -277,7 +277,9 @@ fn references_filter_other_modules_and_symbol_classes_for_workspace_handlers() {
             "effect run\n  run() -> Int\nend\n\n",
             "type run\n  run\nend\n\n",
             "fn run() -> Int\n  1\nend\n\n",
-            "handler wrapper(run: Int) handles Work\n  run() => run\nend\n",
+            "handler wrapper(run: Int) handles Work\n",
+            "  go(run: Int) => run\n",
+            "end\n",
         ),
     );
     let mut server = initialized_server(&workspace);

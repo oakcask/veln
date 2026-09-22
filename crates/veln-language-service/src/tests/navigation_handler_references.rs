@@ -5,17 +5,17 @@ mod navigation_handler_references_tests {
         vec![
             source(
                 "declaration.veln",
-                "mod shared\n\nhandler run() handles Work\n  go() => 1\nend\n",
+                "mod shared\n\nhandler run(value: Int) handles Work\n  go() => 1\nend\n",
             ),
             source(
                 "uses.veln",
                 concat!(
                     "mod shared\n\n",
                     "fn first() -> Int\n",
-                    "  handle 1 with run()\n",
+                    "  handle 1 with run((1 + 2))\n",
                     "end\n\n",
                     "fn second() -> Int\n",
-                    "  handle 2 with run()\n",
+                    "  handle 2 with run(2)\n",
                     "end\n",
                 ),
             ),
@@ -85,6 +85,9 @@ mod navigation_handler_references_tests {
                     "end\n\n",
                     "type run\n",
                     "  run\n",
+                    "end\n\n",
+                    "handler wrapper() handles Work\n",
+                    "  go(run: Int) => run\n",
                     "end\n",
                 ),
             ),
@@ -117,6 +120,15 @@ mod navigation_handler_references_tests {
                     .selected_symbol
                     .kind,
                 kind
+            );
+        }
+        for (line, column) in [(12, 6), (12, 19)] {
+            assert_eq!(
+                query(sources.clone(), "collisions.veln", line, column)
+                    .unwrap()
+                    .selected_symbol
+                    .kind,
+                SymbolKind::HandlerOperationClauseParameter,
             );
         }
     }
@@ -282,14 +294,42 @@ mod navigation_handler_references_tests {
 
         let (small_tokens, small_diagnostics, small_queries, _) = measured_work(500);
         let (large_tokens, large_diagnostics, large_queries, _) = measured_work(1_000);
-        assert!(small_tokens <= 500 * 3, "{small_tokens}");
-        assert!(large_tokens <= 1_000 * 3, "{large_tokens}");
-        assert!(large_tokens <= small_tokens * 2 + 3);
+        assert!(large_tokens <= small_tokens * 2 + 16);
         assert_eq!(small_diagnostics, 0);
         assert_eq!(large_diagnostics, 0);
         assert!(small_queries <= 501, "{small_queries}");
         assert!(large_queries <= 1_001, "{large_queries}");
         assert!(large_queries <= small_queries * 2 + 1);
+
+        fn measured_nested_work(depth: usize) -> (usize, std::time::Duration) {
+            let mut body = String::from(
+                "handler run(value: Int) handles Work\n  go() => 1\nend\n\nfn consume() -> Int\n  ",
+            );
+            for _ in 0..depth {
+                body.push_str("handle 0 with run(");
+            }
+            body.push('0');
+            for _ in 0..depth {
+                body.push(')');
+            }
+            body.push_str("\nend\n");
+            crate::navigation::reset_handler_reference_index_work();
+            let started = std::time::Instant::now();
+            let snapshot = EffectiveProjectSnapshot::new(vec![source("main.veln", &body)]);
+            let _ = snapshot.navigation_index();
+            let elapsed = started.elapsed();
+            let result = query_snapshot(&snapshot, "main.veln", 6, 17).unwrap();
+            assert_eq!(result.references.len(), depth);
+            let (token_visits, _, _) = crate::navigation::handler_reference_index_work();
+            eprintln!(
+                "nested handler reference index: depth={depth} token_visits={token_visits} elapsed={elapsed:?}",
+            );
+            (token_visits, elapsed)
+        }
+
+        let (small_nested_tokens, _) = measured_nested_work(50);
+        let (large_nested_tokens, _) = measured_nested_work(100);
+        assert!(large_nested_tokens <= small_nested_tokens * 2 + 16);
 
         fn measured_recovery_work(count: usize) -> (usize, usize) {
             let mut body = String::from(

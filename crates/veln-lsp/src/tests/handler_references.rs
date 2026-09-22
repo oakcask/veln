@@ -5,14 +5,14 @@ fn workspace_handler_references_preserve_utf16_crlf_and_declaration_policy() {
     project.write(
         "main.veln",
         concat!(
-            "handler run() handles Work\r\n",
+            "handler run(value: Int) handles Work\r\n",
             "  go() => 1\r\n",
             "end\r\n\r\n",
             "fn first() -> Int\r\n",
-            "  \"😀\" + handle 1 with run()\r\n",
+            "  \"😀\" + handle 1 with run((1 + 2))\r\n",
             "end\r\n\r\n",
             "fn second() -> Int\r\n",
-            "  handle 2 with run()\r\n",
+            "  handle 2 with run(2)\r\n",
             "end\r\n",
         ),
     );
@@ -217,7 +217,9 @@ fn workspace_handler_references_filter_other_modules_and_symbol_classes_at_adapt
             "effect run\n  run() -> Int\nend\n\n",
             "type run\n  run\nend\n\n",
             "fn run() -> Int\n  1\nend\n\n",
-            "handler wrapper(run: Int) handles Work\n  run() => run\nend\n",
+            "handler wrapper(run: Int) handles Work\n",
+            "  go(run: Int) => run\n",
+            "end\n",
         ),
     );
     let root_uri = path_to_uri(&project.root);
@@ -227,9 +229,15 @@ fn workspace_handler_references_filter_other_modules_and_symbol_classes_at_adapt
     let result = server.handle_message(&references_request_with_declaration(
         &selected_uri, 2, 8, false,
     ));
-    assert_eq!(result.len(), 1);
-    assert_eq!(result[0].matches("\"uri\":").count(), 1, "{}", result[0]);
-    assert!(result[0].contains("\"line\":7,\"character\":16"));
+    assert_eq!(
+        result,
+        [response(
+            "2",
+            &format!(
+                "[{{\"uri\":\"{selected_uri}\",\"range\":{{\"start\":{{\"line\":7,\"character\":16}},\"end\":{{\"line\":7,\"character\":19}}}}}}]"
+            ),
+        )]
+    );
 }
 
 #[test]
