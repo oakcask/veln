@@ -8,3 +8,4 @@
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":6,"column":9,"new_name":"saved"}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"rename","arguments":{"source":"handler.veln","line":6,"column":19,"new_name":"apply"}}}
 {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"rename","arguments":{"source":"handler.veln","line":6,"column":28,"new_name":"input"}}}
+{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"rename","arguments":{"source":"main.veln","line":10,"column":4,"new_name":"adapt"}}}

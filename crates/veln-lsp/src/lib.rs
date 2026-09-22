@@ -15,7 +15,8 @@ use veln_diagnostics::Diagnostic;
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
 use veln_language_service::{
     DirectDependencySnapshot, EffectiveProjectSnapshot, NavigationLocation, NavigationSource,
-    SourcePosition, definition_at, navigate, validate_rename_in_snapshot,
+    SourcePosition, SymbolDeclarationKind, SymbolKind, definition_at, navigate,
+    navigate_for_rename, validate_rename_in_snapshot,
 };
 use veln_project::{
     PackageIdentity, PackageSnapshotSource, Project, ProjectManifest,
@@ -313,7 +314,7 @@ impl Server {
                 return response(&id, "{\"changes\":{}}");
             }
             let Some(request) = self
-                .symbol_at_request(message)
+                .rename_symbol_at_request(message)
                 .filter(|request| is_workspace_location(&request.result.definition))
                 .filter(|request| request.result.selected_symbol.kind.is_renamable())
             else {
@@ -486,6 +487,47 @@ impl Server {
                 column,
             },
         )?;
+        Some(NavigationRequest {
+            root: visible_root.to_path_buf(),
+            snapshot: Arc::clone(snapshot),
+            result,
+        })
+    }
+
+    fn rename_symbol_at_request(&self, message: &str) -> Option<NavigationRequest> {
+        let uri = extract_string_field(message, "uri")?;
+        let position = extract_position(message)?;
+        let document_root =
+            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)?;
+        let root = document_root.root;
+        let source_path = workspace_relative_source_path(&document_root.relative)?;
+        let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
+        let snapshot = self.overlaid_project_snapshots.get(root)?;
+        let source = SourcePath::new(source_path);
+        let column = unicode_scalar_column(snapshot, &source, position.line, position.character)?;
+        let line = position.line.checked_add(1)?;
+        let result = navigate(
+            snapshot,
+            SourcePosition {
+                source: source.clone(),
+                line,
+                column,
+            },
+        )?;
+        let result = if result.selected_symbol.kind == SymbolKind::Function
+            && result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
+        {
+            navigate_for_rename(
+                snapshot,
+                SourcePosition {
+                    source,
+                    line,
+                    column,
+                },
+            )?
+        } else {
+            result
+        };
         Some(NavigationRequest {
             root: visible_root.to_path_buf(),
             snapshot: Arc::clone(snapshot),

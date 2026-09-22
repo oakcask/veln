@@ -345,16 +345,16 @@ fn rename_supports_aliases_companion_private_functions_and_handler_bindings() {
         ),
     );
 
-    for (name, source, line, column, new_name) in [
-        ("type alias", "math.veln", 5, 22, "RenamedAlias"),
-        ("function alias", "math.veln", 14, 4, "move"),
-        ("companion private", "math.test.veln", 4, 10, "step"),
-        ("handler context", "handler.veln", 6, 19, "apply"),
-        ("handler clause", "handler.veln", 6, 28, "input"),
+    for (name, source, line, column, new_name, edit_count) in [
+        ("type alias", "math.veln", 5, 22, "RenamedAlias", 3),
+        ("function alias", "math.veln", 14, 4, "move", 2),
+        ("companion private", "math.test.veln", 4, 10, "step", 3),
+        ("handler context", "handler.veln", 6, 19, "apply", 2),
+        ("handler clause", "handler.veln", 6, 28, "input", 2),
     ] {
         let result = rename_result(&workspace, source, line, column, new_name);
         assert_eq!(result["isError"], false, "{name}: {result:#}");
-        assert!(!edits(&result).is_empty(), "{name}: {result:#}");
+        assert_eq!(edits(&result).len(), edit_count, "{name}: {result:#}");
     }
 }
 
@@ -955,6 +955,115 @@ fn rename_rejects_oversized_identifiers_before_edit_construction() {
 }
 
 #[test]
+fn rename_non_capture_results_preserve_live_reference_cursors() {
+    fn live_cursor(server: &mut Server) -> String {
+        server.references_tool(&json!({
+            "source":"main.veln", "line":2, "column":4, "page_size":1,
+            "include_declaration":true
+        }))["structuredContent"]["next_cursor"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    fn assert_continuation(server: &mut Server, cursor: String, expected_uri: &str) {
+        let continuation = server.references_tool(&json!({"cursor": cursor}));
+        assert_eq!(continuation["isError"], false, "{continuation:#}");
+        let references = continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap();
+        assert_eq!(references.len(), 1, "{continuation:#}");
+        assert_eq!(references[0]["uri"], expected_uri, "{continuation:#}");
+        assert_eq!(
+            references[0]["range"],
+            json!({"start":{"line":2,"column":3},"end":{"line":2,"column":9}}),
+            "{continuation:#}"
+        );
+        assert!(
+            continuation["structuredContent"]
+                .get("next_cursor")
+                .is_none(),
+            "{continuation:#}"
+        );
+    }
+
+    let workspace = TempWorkspace::new("rename-preserve-cursors");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn target() -> Int\n  target()\nend\n\n",
+            "fn occupied() -> Int\n  1\nend\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let expected_uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+    let cases = [
+        (
+            "success",
+            json!({"source":"main.veln","line":1,"column":4,"new_name":"next"}),
+            None,
+            Some(2usize),
+        ),
+        (
+            "empty selection",
+            json!({"source":"main.veln","line":4,"column":1,"new_name":"next"}),
+            None,
+            Some(0),
+        ),
+        (
+            "invalid name",
+            json!({"source":"main.veln","line":1,"column":4,"new_name":"two words"}),
+            Some("rename.invalid_name"),
+            None,
+        ),
+        (
+            "invalid case",
+            json!({"source":"main.veln","line":1,"column":4,"new_name":"Next"}),
+            Some("rename.invalid_case"),
+            None,
+        ),
+        (
+            "conflict",
+            json!({"source":"main.veln","line":1,"column":4,"new_name":"occupied"}),
+            Some("rename.conflict"),
+            None,
+        ),
+        (
+            "invalid path",
+            json!({"source":"missing.veln","line":1,"column":1,"new_name":"next"}),
+            Some("invalid_path"),
+            None,
+        ),
+        (
+            "invalid position",
+            json!({"source":"main.veln","line":1,"column":99,"new_name":"next"}),
+            Some("invalid_position"),
+            None,
+        ),
+    ];
+
+    for (name, arguments, expected_code, expected_edits) in cases {
+        let cursor = live_cursor(&mut server);
+        let result = server.rename_tool(&arguments);
+        match (expected_code, expected_edits) {
+            (Some(code), None) => {
+                assert_eq!(
+                    result["structuredContent"]["code"], code,
+                    "{name}: {result:#}"
+                );
+                assert!(result["structuredContent"].get("edits").is_none());
+            }
+            (None, Some(count)) => {
+                assert_eq!(edits(&result).len(), count, "{name}: {result:#}");
+            }
+            _ => unreachable!(),
+        }
+        assert_continuation(&mut server, cursor, &expected_uri);
+    }
+}
+
+#[test]
 fn rename_capture_exhaustion_preserves_state_and_allows_a_later_call() {
     let workspace = TempWorkspace::new("rename-capture-exhaustion");
     workspace.write("veln.toml", "");
@@ -997,12 +1106,19 @@ fn rename_capture_exhaustion_preserves_state_and_allows_a_later_call() {
 
     let continuation = server.references_tool(&json!({"cursor": cursor}));
     assert_eq!(continuation["isError"], false, "{continuation:#}");
+    let references = continuation["structuredContent"]["references"]
+        .as_array()
+        .unwrap();
+    assert_eq!(references.len(), 1, "{continuation:#}");
     assert_eq!(
-        continuation["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
+        references[0]["uri"],
+        crate::definition::path_to_uri(&workspace.path("main.veln")),
+        "{continuation:#}"
+    );
+    assert_eq!(
+        references[0]["range"],
+        json!({"start":{"line":2,"column":3},"end":{"line":2,"column":9}}),
+        "{continuation:#}"
     );
 
     drop(_hook);

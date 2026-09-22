@@ -293,6 +293,22 @@ impl SymbolIndex {
         if !self.function_references_supported(symbol) {
             return Vec::new();
         }
+        self.function_reference_locations(symbol)
+    }
+
+    fn workspace_function_alias_references(
+        &self,
+        symbol: &FunctionSymbol,
+    ) -> Vec<SourceSpan> {
+        if symbol.package.is_some()
+            || symbol.declaration_kind != SymbolDeclarationKind::PublicAlias
+        {
+            return Vec::new();
+        }
+        self.function_reference_locations(symbol)
+    }
+
+    fn function_reference_locations(&self, symbol: &FunctionSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
             .filter(|file| workspace_navigation_file(file))

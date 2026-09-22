@@ -903,3 +903,56 @@ mod navigation_qualified_and_package_tests {
         assert!(larger_visits <= 500 * 30, "{larger_visits}");
         assert!(larger_visits <= smaller_visits * 2 + 30);
     }
+
+    #[test]
+    fn same_named_workspace_type_alias_rename_candidate_work_is_adjacent_linear() {
+        use std::fmt::Write as _;
+
+        fn measured_candidate_visits(count: usize) -> (usize, std::time::Duration) {
+            let mut sources = vec![source(
+                "left.veln",
+                "pub type Base\nend\npub type Focus = Base\n",
+            )];
+            for index in 0..count {
+                sources.push(SourceFile::new(
+                    format!("decoy{index}.veln"),
+                    "pub type Base\nend\npub type Focus = Base\n",
+                ));
+            }
+            let mut consumer = String::from("use left\n\n");
+            for index in 0..count {
+                writeln!(
+                    consumer,
+                    "fn use{index}(input: left::Focus) -> left::Focus\n  input\nend\n"
+                )
+                .unwrap();
+            }
+            sources.push(SourceFile::new("main.veln", consumer));
+            let snapshot = EffectiveProjectSnapshot::new(sources);
+            let position = || SourcePosition {
+                source: SourcePath::new("left.veln"),
+                line: 3,
+                column: 10,
+            };
+            navigate_for_rename(&snapshot, position()).unwrap();
+            crate::navigation::reset_type_namespace_candidate_visits();
+            let started = std::time::Instant::now();
+            for _ in 0..5 {
+                let result = navigate_for_rename(&snapshot, position()).unwrap();
+                assert_eq!(result.references.len(), count * 2);
+            }
+            (
+                crate::navigation::type_namespace_candidate_visits(),
+                started.elapsed(),
+            )
+        }
+
+        let (smaller_visits, smaller_elapsed) = measured_candidate_visits(100);
+        let (larger_visits, larger_elapsed) = measured_candidate_visits(200);
+        eprintln!(
+            "same-named type-alias rename: 100={smaller_elapsed:?}/{smaller_visits} visits, 200={larger_elapsed:?}/{larger_visits} visits"
+        );
+        assert!(smaller_visits <= 100 * 20, "{smaller_visits}");
+        assert!(larger_visits <= 200 * 20, "{larger_visits}");
+        assert!(larger_visits <= smaller_visits * 2 + 20);
+    }

@@ -450,7 +450,7 @@ fn rename_workspace_edit_locations_match_shared_navigation() {
         (25, 18, "apply"),
         (25, 7, "input"),
     ] {
-        let shared = navigate(
+        let shared = navigate_for_rename(
             &snapshot,
             SourcePosition {
                 source: SourcePath::new("main.veln"),
@@ -471,6 +471,9 @@ fn rename_workspace_edit_locations_match_shared_navigation() {
                 )
             })
             .collect::<BTreeSet<_>>();
+        if line == 13 {
+            assert_eq!(expected.len(), 2, "function alias must include its use");
+        }
 
         let response = server.handle_message(&rename_request(
             &main_uri,

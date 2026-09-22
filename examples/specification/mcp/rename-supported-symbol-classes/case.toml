@@ -173,7 +173,7 @@ equals = false
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/edits"
-length = 1
+length = 2
 
 [[mcp_assert]]
 id = 5
@@ -188,6 +188,21 @@ equals = {"start":{"line":13,"column":8},"end":{"line":13,"column":15}}
 [[mcp_assert]]
 id = 5
 path = "/result/structuredContent/edits/0/new_text"
+equals = "move"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/edits/1/uri"
+workspace_file_uri = "math.veln"
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/edits/1/range"
+equals = {"start":{"line":15,"column":3},"end":{"line":15,"column":10}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/edits/1/new_text"
 equals = "move"
 
 [[mcp_assert]]
@@ -392,5 +407,45 @@ equals = "input"
 
 [[mcp_assert]]
 id = 10
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits"
+length = 2
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits/0/range"
+equals = {"start":{"line":5,"column":4},"end":{"line":5,"column":11}}
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits/0/new_text"
+equals = "adapt"
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits/1/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits/1/range"
+equals = {"start":{"line":10,"column":3},"end":{"line":10,"column":10}}
+
+[[mcp_assert]]
+id = 11
+path = "/result/structuredContent/edits/1/new_text"
+equals = "adapt"
+
+[[mcp_assert]]
+id = 11
 path = "/result/isError"
 equals = false

@@ -266,7 +266,14 @@ pub fn navigate_for_rename(
             is_recovery: false,
         });
     }
-    navigate_in_index(index, &position)
+    let mut result = navigate_in_index(Arc::clone(&index), &position)?;
+    if let Some(symbol) = index.selected_function(&result)
+        && symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
+    {
+        result.references = index.workspace_function_alias_references(&symbol);
+        sort_locations(&mut result.references);
+    }
+    Some(result)
 }
 
 fn navigation_selection_is_unsupported(
@@ -927,6 +934,8 @@ pub(crate) struct SymbolIndex {
     type_aliases: Vec<TypeAliasSymbol>,
     type_indices_by_name: BTreeMap<String, Vec<usize>>,
     type_alias_indices_by_name: BTreeMap<String, Vec<usize>>,
+    workspace_type_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
+    workspace_type_alias_indices_by_module_and_name: BTreeMap<(String, String), Vec<usize>>,
     schema_composition_references: Vec<SchemaCompositionReference>,
     schema_alias_module_imports: BTreeMap<String, SchemaAliasModuleImports>,
     bare_schema_alias_index: BareSchemaAliasIndex,
