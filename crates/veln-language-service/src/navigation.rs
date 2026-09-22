@@ -14,6 +14,7 @@ use veln_syntax::{
 
 include!("navigation/model.rs");
 include!("navigation/source_indexing.rs");
+include!("navigation/workspace_source_index.rs");
 include!("navigation/workspace_schema_composition.rs");
 include!("navigation/package_schemas.rs");
 include!("navigation/index.rs");
