@@ -490,3 +490,43 @@ fn workspace_effect_references_reject_balanced_recovery_shapes_and_recovered_dec
         }
     }
 }
+
+#[test]
+fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous() {
+    let project = TempProject::new("workspace-effect-reference-recovered-ambiguity");
+    project.write("veln.toml", "");
+    project.write(
+        "clean.veln",
+        "mod shared\n\neffect Choose\n  pick() -> Int\nend\n",
+    );
+    project.write("recovered.veln", "mod shared\n\neffect Choose\nend\n");
+    project.write(
+        "use.veln",
+        concat!(
+            "mod shared\n\n",
+            "fn use() -> Int effects [Choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler use_handler() handles Choose\n",
+            "  pick() => perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let root = path_to_uri(&project.root);
+    let clean_uri = path_to_uri(&project.root.join("clean.veln"));
+    let recovered_uri = path_to_uri(&project.root.join("recovered.veln"));
+    let use_uri = path_to_uri(&project.root.join("use.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root));
+
+    for request in [
+        references_request_with_declaration(&clean_uri, 2, 7, true),
+        references_request_with_declaration(&recovered_uri, 2, 7, true),
+        references_request_with_declaration(&use_uri, 2, 24, true),
+        references_request_with_declaration(&use_uri, 3, 10, true),
+        references_request_with_declaration(&use_uri, 6, 29, true),
+        references_request_with_declaration(&use_uri, 7, 19, true),
+    ] {
+        assert_eq!(server.handle_message(&request), [response("2", "[]")]);
+    }
+}

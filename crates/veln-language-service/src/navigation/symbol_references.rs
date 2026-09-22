@@ -37,7 +37,6 @@ impl SymbolIndex {
             candidate.package.is_none()
                 && candidate.module == symbol.module
                 && candidate.name == symbol.name
-                && self.effect_declaration_is_unrecovered(candidate)
         });
         let Some(candidate) = declarations.next() else {
             return false;

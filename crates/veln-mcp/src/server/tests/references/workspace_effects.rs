@@ -407,3 +407,42 @@ fn references_reject_balanced_recovery_shapes_and_recovered_declarations() {
         }
     }
 }
+
+#[test]
+fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous() {
+    let workspace = TempWorkspace::new("references-workspace-effect-recovered-ambiguity");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "clean.veln",
+        "mod shared\n\neffect Choose\n  pick() -> Int\nend\n",
+    );
+    workspace.write("recovered.veln", "mod shared\n\neffect Choose\nend\n");
+    workspace.write(
+        "use.veln",
+        concat!(
+            "mod shared\n\n",
+            "fn use() -> Int effects [Choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "handler use_handler() handles Choose\n",
+            "  pick() => perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    for (source, line, column) in [
+        ("clean.veln", 3, 8),
+        ("recovered.veln", 3, 8),
+        ("use.veln", 3, 25),
+        ("use.veln", 4, 11),
+        ("use.veln", 7, 30),
+        ("use.veln", 8, 20),
+    ] {
+        let result = server.references_tool(&json!({
+            "source":source, "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
+}

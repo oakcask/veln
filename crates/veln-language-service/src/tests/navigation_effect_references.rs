@@ -403,6 +403,39 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn recovered_effect_declaration_makes_a_clean_same_module_declaration_ambiguous() {
+        let sources = vec![
+            source(
+                "clean.veln",
+                "mod shared\n\neffect Choose\n  pick() -> Int\nend\n",
+            ),
+            source("recovered.veln", "mod shared\n\neffect Choose\nend\n"),
+            source(
+                "use.veln",
+                concat!(
+                    "mod shared\n\n",
+                    "fn use() -> Int effects [Choose]\n",
+                    "  perform Choose::pick()\n",
+                    "end\n\n",
+                    "handler use_handler() handles Choose\n",
+                    "  pick() => perform Choose::pick()\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let clean = query(sources.clone(), "clean.veln", 3, 8).unwrap();
+        assert!(!clean.reference_eligible);
+        assert!(clean.references.is_empty());
+        let recovered = query(sources.clone(), "recovered.veln", 3, 8).unwrap();
+        assert!(!recovered.reference_eligible);
+        assert!(recovered.references.is_empty());
+        for (line, column) in [(3, 25), (4, 11), (7, 30), (8, 20)] {
+            assert!(query(sources.clone(), "use.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
     fn workspace_effect_references_exclude_unresolved_and_invalid_cased_occurrences() {
         let text = concat!(
             "effect Choose\n",

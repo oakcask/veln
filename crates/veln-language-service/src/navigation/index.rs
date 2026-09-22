@@ -534,10 +534,10 @@ impl SymbolIndex {
             .iter()
             .filter(|symbol| {
                 symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-                    && self.effect_declaration_is_unrecovered(symbol)
             });
         let candidate = candidates.next()?.clone();
-        candidates.next().is_none().then_some(candidate)
+        (candidates.next().is_none() && self.effect_declaration_is_unrecovered(&candidate))
+            .then_some(candidate)
     }
 
     fn effect_declaration_is_unrecovered(&self, symbol: &NeutralSymbol) -> bool {
