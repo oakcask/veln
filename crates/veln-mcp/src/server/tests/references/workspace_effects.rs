@@ -65,6 +65,55 @@ fn references_page_workspace_effect_locations_with_unicode_scalar_coordinates() 
 }
 
 #[test]
+fn references_page_workspace_effect_operation_locations_with_unicode_scalar_coordinates() {
+    let workspace = TempWorkspace::new("references-workspace-effect-operation");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+
+    let without_declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":6, "column":26, "include_declaration":false
+    }));
+    assert_eq!(
+        without_declaration["structuredContent"]["references"],
+        json!([{
+            "uri": uri,
+            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+        }])
+    );
+
+    let first = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":3,
+        "include_declaration":true, "page_size":1
+    }));
+    assert_eq!(
+        first["structuredContent"]["references"],
+        json!([{
+            "uri": uri,
+            "range": {"start":{"line":2,"column":3},"end":{"line":2,"column":7}}
+        }])
+    );
+    let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let final_page = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(
+        final_page["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":6,"column":26},"end":{"line":6,"column":30}}
+        }])
+    );
+    assert!(final_page["structuredContent"].get("next_cursor").is_none());
+    assert_eq!(
+        server.references_tool(&json!({"cursor":cursor}))["structuredContent"]["code"],
+        "invalid_cursor"
+    );
+}
+
+#[test]
 fn references_include_workspace_effect_predicate_perform_qualifiers() {
     let workspace = TempWorkspace::new("references-workspace-effect-predicates");
     workspace.write("veln.toml", "");
@@ -140,10 +189,11 @@ fn workspace_effect_reference_state() -> WorkspaceEffectReferenceState {
     );
     let mut server = initialized_server(&workspace);
     let before = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8
+        "source":"main.veln", "line":2, "column":3
     }));
     let seeded = server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8, "page_size":1
+        "source":"main.veln", "line":2, "column":3,
+        "include_declaration":true, "page_size":1
     }));
     let cursor = seeded["structuredContent"]["next_cursor"]
         .as_str()
@@ -165,16 +215,22 @@ fn assert_workspace_effect_reference_state_is_live(state: &mut WorkspaceEffectRe
     let continuation = state
         .server
         .references_tool(&json!({"cursor":state.cursor}));
-    assert_eq!(continuation["isError"], false);
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
     assert_eq!(
-        continuation["structuredContent"]["references"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
+        continuation["structuredContent"]["scope"],
+        state.before["structuredContent"]["scope"]
+    );
+    assert_eq!(
+        continuation["structuredContent"]["references"],
+        state.before["structuredContent"]["references"]
+    );
+    assert!(
+        continuation["structuredContent"]
+            .get("next_cursor")
+            .is_none()
     );
     let after = state.server.references_tool(&json!({
-        "source":"main.veln", "line":1, "column":8
+        "source":"main.veln", "line":2, "column":3
     }));
     assert_eq!(after, state.before);
 }
@@ -311,7 +367,7 @@ fn references_reject_imported_and_invalid_cased_effects() {
     );
     workspace.write(
         "main.veln",
-        "use dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  1\nend\n",
+        "use dep from \"example/dep\"\n\nfn imported() -> Int effects [dep::Task]\n  perform dep::Task::run()\nend\n",
     );
     workspace.write(
         "invalid.veln",
@@ -329,6 +385,7 @@ fn references_reject_imported_and_invalid_cased_effects() {
 
     for (source, line, column) in [
         ("main.veln", 3, 36),
+        ("main.veln", 4, 22),
         ("invalid.veln", 1, 8),
         ("invalid.veln", 5, 29),
     ] {
@@ -477,6 +534,53 @@ fn references_reject_recovered_perform_qualifiers() {
 }
 
 #[test]
+fn references_reject_recovered_effect_operation_owners_and_paths() {
+    let workspace = TempWorkspace::new("references-workspace-effect-operation-recovery");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "end\n\n",
+            "effect Other\n",
+            "  run() -> Int\n",
+            "end\n\n",
+            "fn use() -> Int\n",
+            "  perform Choose::pick()\n",
+            "  perform Other::run()\n",
+            "  perform Other::run::()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let expected = json!([
+        {
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":5,"column":3},"end":{"line":5,"column":6}}
+        },
+        {
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":10,"column":18},"end":{"line":10,"column":21}}
+        }
+    ]);
+
+    for (line, column) in [(5, 3), (10, 18)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], expected);
+    }
+    for (line, column) in [(9, 19), (11, 18)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
+}
+
+#[test]
 fn references_do_not_resolve_clean_uses_to_recovered_declarations() {
     let workspace =
         TempWorkspace::new("references-workspace-effect-clean-uses-recovered-declaration");
@@ -522,6 +626,128 @@ fn references_keep_complete_effect_qualifiers_with_recovered_arguments() {
             "include_declaration":false
         }));
         assert_eq!(result["structuredContent"]["references"], expected);
+    }
+
+    for (line, column, include_declaration) in [(2, 3, false), (6, 19, true)] {
+        let result = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":include_declaration
+        }));
+        assert_eq!(result["structuredContent"]["references"], json!([]));
+    }
+}
+
+#[test]
+fn references_exclude_workspace_effect_operation_collision_matrix() {
+    let workspace = TempWorkspace::new("references-workspace-effect-operation-collisions");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "effect Other\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "type Choice\n",
+            "  pick\n",
+            "end\n\n",
+            "handler choose() handles Choose\n",
+            "  pick() => 1\n",
+            "end\n\n",
+            "fn use() -> Int\n",
+            "  perform Choose::pick() + perform Other::pick()\n",
+            "end\n",
+        ),
+    );
+    workspace.write(
+        "other.veln",
+        "effect Choose\n  pick() -> Int\nend\n\nfn use() -> Int\n  perform Choose::pick()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":3,
+        "include_declaration":false
+    }));
+    assert_eq!(
+        result["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":18,"column":19},"end":{"line":18,"column":23}}
+        }])
+    );
+
+    for (line, column) in [(10, 3), (14, 3)] {
+        let excluded = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column
+        }));
+        assert_eq!(excluded["structuredContent"]["references"], json!([]));
+    }
+    let other = server.references_tool(&json!({
+        "source":"main.veln", "line":18, "column":43
+    }));
+    assert_eq!(
+        other["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("main.veln")),
+            "range": {"start":{"line":18,"column":43},"end":{"line":18,"column":47}}
+        }])
+    );
+    let other_module = server.references_tool(&json!({
+        "source":"other.veln", "line":6, "column":19
+    }));
+    assert_eq!(
+        other_module["structuredContent"]["references"],
+        json!([{
+            "uri": crate::definition::path_to_uri(&workspace.path("other.veln")),
+            "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+        }])
+    );
+}
+
+#[test]
+fn references_reject_unresolved_effect_operation_paths() {
+    let workspace = TempWorkspace::new("references-workspace-effect-operation-unresolved");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn valid() -> Int\n",
+            "  perform Choose::pick()\n",
+            "end\n\n",
+            "fn missing_effect() -> Int\n",
+            "  perform Missing::pick()\n",
+            "end\n\n",
+            "fn missing_operation() -> Int\n",
+            "  perform Choose::missing()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+
+    let declaration = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":3,
+        "include_declaration":false
+    }));
+    assert_eq!(
+        declaration["structuredContent"]["references"],
+        json!([{
+            "uri": uri,
+            "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":23}}
+        }])
+    );
+
+    for (line, column) in [(10, 20), (14, 19)] {
+        let unresolved = server.references_tool(&json!({
+            "source":"main.veln", "line":line, "column":column,
+            "include_declaration":true
+        }));
+        assert_eq!(unresolved["structuredContent"]["references"], json!([]));
     }
 }
 

@@ -4,7 +4,7 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
     project.write("veln.toml", "");
     project.write(
         "main.veln",
-        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀\" + perform Choose::pick()\r\nend\r\n",
+        "effect Choose\r\n  pick() -> Int\r\nend\r\n\r\nfn choose() -> Int effects [Choose]\r\n  \"😀😀\" + perform Choose::pick()\r\nend\r\n",
     );
     let root_uri = path_to_uri(&project.root);
     let main_uri = path_to_uri(&project.root.join("main.veln"));
@@ -12,7 +12,7 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
     server.handle_message(&initialize_request(&root_uri));
 
     let without_declaration = server.handle_message(&references_request_with_declaration(
-        &main_uri, 5, 17, false,
+        &main_uri, 5, 19, false,
     ));
     assert_eq!(
         without_declaration,
@@ -21,7 +21,7 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
             &format!(
                 concat!(
                     "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":4,\"character\":28}},\"end\":{{\"line\":4,\"character\":34}}}}}},",
-                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":17}},\"end\":{{\"line\":5,\"character\":23}}}}}}]"
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":19}},\"end\":{{\"line\":5,\"character\":25}}}}}}]"
                 ),
                 main_uri,
                 main_uri,
@@ -40,7 +40,7 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
                 concat!(
                     "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":0,\"character\":7}},\"end\":{{\"line\":0,\"character\":13}}}}}},",
                     "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":4,\"character\":28}},\"end\":{{\"line\":4,\"character\":34}}}}}},",
-                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":17}},\"end\":{{\"line\":5,\"character\":23}}}}}}]"
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":19}},\"end\":{{\"line\":5,\"character\":25}}}}}}]"
                 ),
                 main_uri, main_uri, main_uri,
             ),
@@ -48,15 +48,18 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
     );
 
     let operation_leaf = server.handle_message(&references_request_with_declaration(
-        &main_uri, 5, 25, true,
+        &main_uri, 5, 27, true,
     ));
     assert_eq!(
         operation_leaf,
         [response(
             "2",
             &format!(
-                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}}]",
-                main_uri
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":27}},\"end\":{{\"line\":5,\"character\":31}}}}}}]"
+                ),
+                main_uri, main_uri
             ),
         )]
     );
@@ -189,7 +192,7 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
             "end\n\n",
             "use dep from \"example/dep\"\n\n",
             "fn imported() -> Int effects [dep::Task]\n",
-            "  1\n",
+            "  perform dep::Task::run()\n",
             "end\n",
         ),
     );
@@ -213,6 +216,7 @@ fn workspace_effect_references_reject_imported_and_invalid_cased_effects() {
 
     for request in [
         references_request_with_declaration(&main_uri, 6, 35, true),
+        references_request_with_declaration(&main_uri, 7, 21, true),
         references_request_with_declaration(&invalid_uri, 0, 7, true),
         references_request_with_declaration(&invalid_uri, 4, 28, true),
     ] {
@@ -383,6 +387,213 @@ fn workspace_effect_references_keep_complete_qualifiers_with_recovered_arguments
         references_request_with_declaration(&main_uri, 5, 10, false),
     ] {
         assert_eq!(server.handle_message(&request), [response("2", &expected)]);
+    }
+
+    for request in [
+        references_request_with_declaration(&main_uri, 1, 2, false),
+        references_request_with_declaration(&main_uri, 5, 18, true),
+    ] {
+        assert_eq!(server.handle_message(&request), [response("2", "[]")]);
+    }
+}
+
+#[test]
+fn workspace_effect_operation_references_exclude_adapter_collision_matrix() {
+    let project = TempProject::new("workspace-effect-operation-reference-collisions");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "effect Other\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "type Choice\n",
+            "  pick\n",
+            "end\n\n",
+            "handler choose() handles Choose\n",
+            "  pick() => 1\n",
+            "end\n\n",
+            "fn use() -> Int\n",
+            "  perform Choose::pick() + perform Other::pick()\n",
+            "end\n\n",
+            "fn unresolved() -> Int\n",
+            "  perform Missing::pick() + perform Choose::missing()\n",
+            "end\n",
+        ),
+    );
+    project.write(
+        "other.veln",
+        "effect Choose\n  pick() -> Int\nend\n\nfn use() -> Int\n  perform Choose::pick()\nend\n",
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let other_uri = path_to_uri(&project.root.join("other.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 1, 2, true,
+        )),
+        [response(
+            "2",
+            &format!(
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":17,\"character\":18}},\"end\":{{\"line\":17,\"character\":22}}}}}}]"
+                ),
+                main_uri, main_uri
+            ),
+        )]
+    );
+
+    for character in [10, 19, 44] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, 21, character, true,
+            )),
+            [response("2", "[]")]
+        );
+    }
+
+    for (line, character) in [(9, 2), (13, 2)] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, line, character, false,
+            )),
+            [response("2", "[]")]
+        );
+    }
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 17, 44, false,
+        )),
+        [response(
+            "2",
+            &format!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":17,\"character\":42}},\"end\":{{\"line\":17,\"character\":46}}}}}}]",
+                main_uri
+            ),
+        )]
+    );
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &other_uri, 5, 18, false,
+        )),
+        [response(
+            "2",
+            &format!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":18}},\"end\":{{\"line\":5,\"character\":22}}}}}}]",
+                other_uri
+            ),
+        )]
+    );
+}
+
+#[test]
+fn workspace_effect_operation_reference_failures_preserve_valid_results() {
+    let project = TempProject::new("workspace-effect-operation-reference-failure-state");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn use() -> Int\n",
+            "  perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let missing_uri = path_to_uri(&project.root.join("missing.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+    let request = references_request_with_declaration(&main_uri, 5, 18, true);
+    let expected = [response(
+        "2",
+        &format!(
+            concat!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":1,\"character\":2}},\"end\":{{\"line\":1,\"character\":6}}}}}},",
+                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":18}},\"end\":{{\"line\":5,\"character\":22}}}}}}]"
+            ),
+            main_uri, main_uri
+        ),
+    )];
+
+    assert_eq!(server.handle_message(&request), expected);
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &main_uri, 99, 0, true,
+        )),
+        [response("2", "[]")]
+    );
+    assert_eq!(server.handle_message(&request), expected);
+    assert_eq!(
+        server.handle_message(&references_request_with_declaration(
+            &missing_uri,
+            0,
+            0,
+            true,
+        )),
+        [response("2", "[]")]
+    );
+    assert_eq!(server.handle_message(&request), expected);
+}
+
+#[test]
+fn workspace_effect_operation_references_reject_recovered_owners_and_paths() {
+    let project = TempProject::new("workspace-effect-operation-reference-recovery-boundaries");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "end\n\n",
+            "effect Other\n",
+            "  run() -> Int\n",
+            "end\n\n",
+            "fn use() -> Int\n",
+            "  perform Choose::pick()\n",
+            "  perform Other::run()\n",
+            "  perform Other::run::()\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+    let expected = [response(
+        "2",
+        &format!(
+            concat!(
+                "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":4,\"character\":2}},\"end\":{{\"line\":4,\"character\":5}}}}}},",
+                "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":9,\"character\":17}},\"end\":{{\"line\":9,\"character\":20}}}}}}]"
+            ),
+            main_uri, main_uri
+        ),
+    )];
+
+    for (line, character) in [(4, 3), (9, 18)] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, line, character, true,
+            )),
+            expected
+        );
+    }
+    for (line, character) in [(8, 19), (10, 18)] {
+        assert_eq!(
+            server.handle_message(&references_request_with_declaration(
+                &main_uri, line, character, true,
+            )),
+            [response("2", "[]")]
+        );
     }
 }
 

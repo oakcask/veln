@@ -529,7 +529,15 @@ mod navigation_effect_references_tests {
 
         let operation = query(sources, "main.veln", 6, 27).unwrap();
         assert_eq!(operation.selected_symbol.kind, SymbolKind::EffectOperation);
-        assert!(operation.references.is_empty());
+        assert_eq!(
+            locations(&operation.references),
+            [
+                ("main.veln", 6, 27),
+                ("main.veln", 7, 69),
+                ("main.veln", 13, 38),
+                ("main.veln", 14, 28),
+            ]
+        );
     }
 
     #[test]

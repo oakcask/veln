@@ -202,6 +202,23 @@ impl SymbolIndex {
         token_index: usize,
         name: &str,
     ) -> Option<Symbol> {
+        let token = &tokens[token_index];
+        if file
+            .effect_operation_ranges
+            .contains(&(token.range.start, token.range.end))
+        {
+            let qualifier_index = previous_path_segment_index(tokens, token_index)?;
+            let qualifier_token = &tokens[qualifier_index];
+            if file
+                .generic_effect_binder_shadows(&qualifier_token.text, qualifier_token.range.start)
+            {
+                return None;
+            }
+            let qualifier = qualifier_for_token(tokens, token_index)?;
+            return self
+                .operation_for_qualified_perform(file, &qualifier, name)
+                .map(Symbol::EffectOperation);
+        }
         if is_schema_operation_path_leaf_candidate_token(tokens, token_index) {
             if !workspace_navigation_file(file) {
                 return None;
@@ -228,12 +245,6 @@ impl SymbolIndex {
         }
         if is_effect_reference_token(file, token_index) {
             return self.effect_for_reference(file, name).map(Symbol::Effect);
-        }
-        if is_perform_operation_token(tokens, token_index) {
-            let qualifier = qualifier_for_token(tokens, token_index)?;
-            return self
-                .operation_for_qualified_perform(file, &qualifier, name)
-                .map(Symbol::EffectOperation);
         }
         if is_handler_reference_token(file, token_index) {
             return self.handler_for_reference(file, name).map(Symbol::Handler);

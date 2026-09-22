@@ -385,6 +385,7 @@ impl Symbol {
     fn reference_eligible(&self, index: &SymbolIndex) -> bool {
         match self {
             Self::Effect(symbol) => index.effect_references_supported(symbol),
+            Self::EffectOperation(symbol) => index.effect_operation_references_supported(symbol),
             Self::Handler(symbol) => index.handler_references_supported(symbol),
             Self::SchemaAlias(symbol) if symbol.package.is_none() => {
                 index.workspace_schema_alias_is_eligible(
@@ -467,7 +468,7 @@ impl Symbol {
             Self::SchemaAlias(symbol) => index.schema_alias_references(symbol),
             Self::Effect(symbol) => index.effect_references(symbol),
             Self::Handler(symbol) => index.handler_references(symbol),
-            Self::EffectOperation(_) => Vec::new(),
+            Self::EffectOperation(symbol) => index.effect_operation_references(symbol),
             Self::Type(symbol) => index.type_references(symbol),
             Self::TypeAlias(symbol) => index.type_alias_references(symbol),
             Self::Function(symbol) => index.function_references(symbol),
@@ -811,10 +812,31 @@ struct IndexedFile {
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effect_reference_ranges: BTreeSet<(usize, usize)>,
+    effect_operation_ranges: BTreeSet<(usize, usize)>,
+    generic_effect_binders: Vec<GenericEffectBinder>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,
     origin: IndexedOrigin,
+}
+
+#[derive(Clone, Debug)]
+struct GenericEffectBinder {
+    name: String,
+    start: usize,
+    end: usize,
+}
+
+impl IndexedFile {
+    fn generic_effect_binder_shadows(&self, name: &str, offset: usize) -> bool {
+        let index = self
+            .generic_effect_binders
+            .partition_point(|binder| binder.start <= offset);
+        index.checked_sub(1).is_some_and(|index| {
+            let binder = &self.generic_effect_binders[index];
+            offset < binder.end && binder.name == name
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

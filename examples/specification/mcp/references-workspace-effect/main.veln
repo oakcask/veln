@@ -4,5 +4,5 @@ end
 
 fn choose() -> Int effects [Choose]
   require perform Choose::pick() >= 0
-  "😀" + perform Choose::pick()
+  "😀😀" + perform Choose::pick()
 end

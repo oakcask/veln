@@ -491,14 +491,14 @@ project_wide:false}` for anonymous source scope. The reference locations have
 start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
-Supported reference identities are workspace effects, handlers, schemas, eligible
-workspace, direct-dependency, and standard-library schema aliases, functions,
-types, constructors, value bindings, handler context parameters, and handler
-operation-clause parameters. A workspace effect result contains bare effect
+Supported reference identities are workspace effects, effect operations,
+handlers, schemas, eligible workspace, direct-dependency, and standard-library
+schema aliases, functions, types, constructors, value bindings, handler
+context parameters, and handler operation-clause parameters. A workspace effect result contains bare effect
 rows on functions, tests, handlers, and function types, handler `handles`
 targets, and `perform Effect::operation(...)` qualifiers from every saved
 source that declares the selected effect's module. The operation leaf keeps
-its separate unsupported reference identity.
+its separate effect-operation identity.
 The qualifier forms include structurally complete occurrences in function
 contracts, hole `satisfy` predicates, schema field `where` predicates, and
 schema validation predicates. Recovery of another predicate token does not
@@ -513,6 +513,26 @@ effects, generic effect parameters, duplicate declarations, invalid casing,
 unresolved names, recovered effect rows, recovered handler targets, incomplete
 `perform` qualifiers, other modules, and other symbol classes do not enter the
 result.
+
+A workspace effect-operation result contains each complete
+`perform Effect::operation(arguments)` operation-name leaf from saved sources
+that declare the selected operation's module. The declaration and each leaf
+select the same module, owning-effect, and operation identity. Every location
+covers only the operation-name token. `include_declaration` adds the one
+workspace declaration before sorting and pagination.
+
+Effect-operation lookup requires one unrecovered owning effect declaration and
+one unrecovered operation declaration for the module, effect, and operation
+names. Duplicate declarations and imported, package-backed, unresolved,
+generic-effect-qualified, invalid-cased, ambiguous, incomplete, recovered, or
+additionally qualified operation paths return a successful empty result. An
+operation leaf whose argument list requires syntax recovery is excluded even
+when its adjacent effect qualifier remains eligible. Handler operation-clause
+headings and equal spelling in another effect, module, symbol class, comment,
+or string are excluded. The adjacent effect qualifier remains part of its
+separate effect reference set. Failures preserve captured navigation state,
+retained resources, and existing cursors under the general references failure
+contract.
 
 A workspace handler result contains each complete bare handler name in
 `handle Body with handler(arguments)` from saved sources that declare the
@@ -604,7 +624,7 @@ workspace results, supported symbol classes, recovery identities, unsupported
 boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
-pagination for workspace effect references.
+pagination for workspace effect and effect-operation references.
 The checked `examples/specification/mcp/references-workspace-handler/`
 transcript demonstrates the same location, declaration, ordering, and
 pagination contract for workspace handler references.

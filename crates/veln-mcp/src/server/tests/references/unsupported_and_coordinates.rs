@@ -313,19 +313,6 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 15,
         },
         Case {
-            name: "effect operation",
-            files: vec![
-                ("veln.toml", ""),
-                (
-                    "main.veln",
-                    "effect Task\n  run() -> Int\nend\n\nfn main() -> Int effects [Task]\n  perform Task::run()\nend\n",
-                ),
-            ],
-            source: "main.veln",
-            line: 6,
-            column: 17,
-        },
-        Case {
             name: "generic effect row parameter",
             files: vec![
                 ("veln.toml", ""),

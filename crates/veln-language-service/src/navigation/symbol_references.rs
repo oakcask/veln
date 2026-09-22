@@ -1,4 +1,110 @@
 impl SymbolIndex {
+    fn effect_operation_references(&self, symbol: &EffectOperationSymbol) -> Vec<SourceSpan> {
+        self.files
+            .iter()
+            .filter(|file| workspace_navigation_file(file) && file.module == symbol.module)
+            .flat_map(|file| {
+                file.tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        if token.kind != TokenKind::Ident
+                            || token.text != symbol.name
+                            || !file
+                                .effect_operation_ranges
+                                .contains(&(token.range.start, token.range.end))
+                        {
+                            return false;
+                        }
+                        let Some(qualifier_index) =
+                            previous_path_segment_index(&file.tokens, *index)
+                        else {
+                            return false;
+                        };
+                        let qualifier = &file.tokens[qualifier_index];
+                        qualifier.text == symbol.effect_name
+                            && !file.generic_effect_binder_shadows(
+                                &symbol.effect_name,
+                                qualifier.range.start,
+                            )
+                            && file.effect_reference_ranges.contains(&(
+                                qualifier.range.start,
+                                qualifier.range.end,
+                            ))
+                            && qualifier_for_token(&file.tokens, *index)
+                                .is_some_and(|name| name == symbol.effect_name)
+                    })
+                    .map(|(_, token)| file.source.span(token.range))
+                    .collect::<Vec<_>>()
+            })
+            .collect()
+    }
+
+    fn effect_operation_references_supported(&self, symbol: &EffectOperationSymbol) -> bool {
+        if symbol.package.is_some()
+            || !symbol
+                .effect_name
+                .chars()
+                .next()
+                .is_some_and(|initial| initial.is_ascii_uppercase())
+            || !symbol
+                .name
+                .chars()
+                .next()
+                .is_some_and(|initial| initial.is_ascii_lowercase())
+        {
+            return false;
+        }
+        self.effect_operation_identity_is_unambiguous(symbol)
+    }
+
+    fn effect_operation_identity_is_unambiguous(&self, symbol: &EffectOperationSymbol) -> bool {
+        if symbol.package.is_some() {
+            return false;
+        }
+        let mut effects = self.effects.iter().filter(|candidate| {
+            candidate.package.is_none()
+                && candidate.module == symbol.module
+                && candidate.name == symbol.effect_name
+        });
+        let Some(effect) = effects.next() else {
+            return false;
+        };
+        if effects.next().is_some() || !self.effect_declaration_is_unrecovered(effect) {
+            return false;
+        }
+        let mut operations = self.operations.iter().filter(|candidate| {
+            candidate.package.is_none()
+                && candidate.module == symbol.module
+                && candidate.effect_name == symbol.effect_name
+                && candidate.name == symbol.name
+        });
+        let Some(candidate) = operations.next() else {
+            return false;
+        };
+        candidate.declaration == symbol.declaration
+            && operations.next().is_none()
+            && self.effect_operation_declaration_is_unrecovered(symbol)
+    }
+
+    fn effect_operation_declaration_is_unrecovered(
+        &self,
+        symbol: &EffectOperationSymbol,
+    ) -> bool {
+        self.files.iter().any(|file| {
+            workspace_navigation_file(file)
+                && file.source.path() == &symbol.declaration.span.file
+                && !file.invalid_declaration_names.iter().any(|span| {
+                    span.start.offset == symbol.declaration.span.start.offset
+                        && span.end.offset == symbol.declaration.span.end.offset
+                })
+                && !file.recovered_effect_declarations.iter().any(|span| {
+                    span.start.offset <= symbol.declaration.span.start.offset
+                        && symbol.declaration.span.end.offset <= span.end.offset
+                })
+        })
+    }
+
     fn handler_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()

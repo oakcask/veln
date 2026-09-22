@@ -580,7 +580,7 @@ impl SymbolIndex {
         qualifier: &str,
         name: &str,
     ) -> Option<EffectOperationSymbol> {
-        self.operations
+        let symbol = self.operations
             .iter()
             .find(|symbol| {
                 symbol.name == name
@@ -588,7 +588,9 @@ impl SymbolIndex {
                     && symbol.module == file.module
                     && symbol.package.is_none()
             })
-            .cloned()
+            .cloned()?;
+        self.effect_operation_identity_is_unambiguous(&symbol)
+            .then_some(symbol)
     }
 
 }

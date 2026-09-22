@@ -1,71 +1,92 @@
-fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations, ParseOutput) {
-    let path = source.path().as_str().to_string();
-    let companion_target_module = classify_companion_source(&path)
-        .and_then(|companion| module_name_from_path(&companion.target_path));
-    let path_module = module_name_from_path(&path);
-    let navigation_isolated = path_module_invalid_for_navigation(path_module.as_deref());
-    let module = explicit_module_name(source.text())
-        .or(path_module)
-        .unwrap_or_default();
-    #[cfg(test)]
-    record_workspace_source_parse();
-    let parsed = parse(&source);
-    let (uses, external_uses, import_aliases, external_import_aliases) = use_modules(source.text());
-    let schema_alias_external_imports = schema_alias_external_imports(&parsed);
-    let invalid_declaration_names = invalid_declaration_names(&parsed);
-    let tokens = lex(&source).tokens;
-    let schema_operation_leaf_ranges = valid_schema_operation_leaf_spans(&parsed.tree)
-        .into_iter()
-        .map(|span| (span.start.offset, span.end.offset))
-        .collect();
-    let schema_composition_leaf_spans =
-        valid_schema_composition_leaf_spans(&source, &tokens, &parsed);
-    let effect_list_membership = effect_list_membership(&tokens);
-    let effect_reference_ranges =
-        valid_effect_reference_ranges(&tokens, &effect_list_membership, &parsed.tree);
-    let handler_diagnostics = HandlerDiagnosticIndex::new(&parsed);
-    let recovery_symbols = workspace_recovery_symbols(
-        navigation_isolated,
-        &source,
-        &tokens,
-        &parsed.tree,
-        &invalid_declaration_names,
-    );
-    let recovered_effect_declarations = recovered_effect_declarations(&parsed.tree);
-    let recovered_handler_declarations =
-        recovered_handler_declarations(&parsed, &handler_diagnostics);
-    let handler_argument_delimiters = HandlerArgumentDelimiters::new(&tokens);
-    let handler_reference_ranges = valid_handler_reference_ranges(
-        &parsed,
-        &tokens,
-        &handler_argument_delimiters,
-        &handler_diagnostics,
-    );
-    let file = IndexedFile {
-        source,
-        tokens,
-        module,
-        companion_target_module,
-        uses,
-        external_uses,
-        import_aliases,
-        external_import_aliases,
-        schema_alias_external_imports,
-        invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
-        recovery_symbols,
-        recovered_effect_declarations,
-        recovered_handler_declarations,
-        handler_reference_ranges,
-        schema_operation_leaf_ranges,
-        schema_composition_leaf_spans,
-        effect_reference_ranges,
-        classified_path_segments: Vec::new(),
-        type_reference_locations: OnceLock::new(),
-        navigation_isolated,
-        origin: IndexedOrigin::Workspace,
+fn valid_effect_operation_ranges(
+    tokens: &[Token],
+    effect_reference_ranges: &BTreeSet<(usize, usize)>,
+    parsed: &ParseOutput,
+) -> BTreeSet<(usize, usize)> {
+    let closing_parentheses = closing_parenthesis_indexes(tokens);
+    let mut diagnostic_offsets = parsed
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| diagnostic.span.as_ref().map(|span| span.start.offset))
+        .collect::<Vec<_>>();
+    diagnostic_offsets.sort_unstable();
+    tokens
+        .iter()
+        .enumerate()
+        .filter(|(_, token)| {
+            effect_reference_ranges.contains(&(token.range.start, token.range.end))
+        })
+        .filter_map(|(index, _)| next_path_segment_index(tokens, index))
+        .filter(|index| {
+            !effect_operation_arguments_are_recovered(
+                tokens,
+                *index,
+                &closing_parentheses,
+                &diagnostic_offsets,
+            )
+        })
+        .map(|index| {
+            let range = tokens[index].range;
+            (range.start, range.end)
+        })
+        .collect()
+}
+
+fn closing_parenthesis_indexes(tokens: &[Token]) -> Vec<Option<usize>> {
+    let mut closing_parentheses = vec![None; tokens.len()];
+    let mut open_parentheses = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        match token.kind {
+            TokenKind::LParen => open_parentheses.push(index),
+            TokenKind::RParen => {
+                if let Some(open_index) = open_parentheses.pop() {
+                    closing_parentheses[open_index] = Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    closing_parentheses
+}
+
+fn effect_operation_arguments_are_recovered(
+    tokens: &[Token],
+    operation_index: usize,
+    closing_parentheses: &[Option<usize>],
+    diagnostic_offsets: &[usize],
+) -> bool {
+    let Some(open_index) = next_non_layout_index(tokens, operation_index) else {
+        return true;
     };
-    let declarations = workspace_file_declarations(&file, &parsed.tree);
-    (file, declarations, parsed)
+    if tokens[open_index].kind != TokenKind::LParen {
+        return true;
+    }
+    let Some(close_index) = closing_parentheses[open_index] else {
+        return true;
+    };
+    let start = tokens[operation_index].range.start;
+    let end = tokens[close_index].range.end;
+    let diagnostic_index = diagnostic_offsets.partition_point(|offset| *offset < start);
+    diagnostic_offsets
+        .get(diagnostic_index)
+        .is_some_and(|offset| *offset <= end)
+}
+
+fn generic_effect_binders(syntax: &SyntaxTree) -> Vec<GenericEffectBinder> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Function(function) => function.effect_binder.as_ref().map(|binder| {
+                GenericEffectBinder {
+                    name: binder.name.clone(),
+                    start: function.span.start.offset,
+                    end: function.span.end.offset,
+                }
+            }),
+            _ => None,
+        })
+        .collect()
 }
 
 fn workspace_recovery_symbols(
@@ -984,6 +1005,8 @@ fn indexed_dependency_source(
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_reference_ranges: BTreeSet::new(),
+        effect_operation_ranges: BTreeSet::new(),
+        generic_effect_binders: Vec::new(),
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
         navigation_isolated,
