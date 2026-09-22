@@ -43,6 +43,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
+        parse_clean: parsed.diagnostics.is_empty(),
         navigation_isolated,
         origin: IndexedOrigin::Workspace,
     };
@@ -233,6 +234,7 @@ fn indexed_dependency_source(
         schema_composition_leaf_spans,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
+        parse_clean: parsed.diagnostics.is_empty(),
         navigation_isolated,
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),

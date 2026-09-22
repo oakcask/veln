@@ -290,16 +290,83 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 17,
         },
         Case {
-            name: "effect",
+            name: "generic effect row parameter",
             files: vec![
                 ("veln.toml", ""),
                 (
                     "main.veln",
-                    "effect Task\n  run() -> Int\nend\n\nfn main() -> Int effects [Task]\n  1\nend\n",
+                    "effect E\n  run() -> Int\nend\n\nfn main<effect E>() -> Int effects [...E]\n  1\nend\n",
                 ),
             ],
             source: "main.veln",
             line: 5,
+            column: 40,
+        },
+        Case {
+            name: "qualified workspace effect",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    "effect Task\n  run() -> Int\nend\n\nfn main() -> Int effects [foreign::Task]\n  1\nend\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 5,
+            column: 36,
+        },
+        Case {
+            name: "syntax recovered effect row",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "main.veln",
+                    "effect Task\n  run() -> Int\nend\n\nfn main() -> Int effects [Task\n  1\nend\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 5,
+            column: 29,
+        },
+        Case {
+            name: "ambiguous same module effect",
+            files: vec![
+                ("veln.toml", ""),
+                (
+                    "first.veln",
+                    "mod shared\n\neffect Task\n  first() -> Int\nend\n",
+                ),
+                (
+                    "second.veln",
+                    "mod shared\n\neffect Task\n  second() -> Int\nend\n\nfn main() -> Int effects [Task]\n  1\nend\n",
+                ),
+            ],
+            source: "second.veln",
+            line: 7,
+            column: 27,
+        },
+        Case {
+            name: "direct dependency effect",
+            files: vec![
+                (
+                    "veln.toml",
+                    "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+                ),
+                (
+                    "main.veln",
+                    "use dep from \"example/dep\"\n\nfn main() -> Int effects [dep::Task]\n  1\nend\n",
+                ),
+                (
+                    "vendor/dep/veln.toml",
+                    "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+                ),
+                (
+                    "vendor/dep/dep.veln",
+                    "pub effect Task\n  run() -> Int\nend\n",
+                ),
+            ],
+            source: "main.veln",
+            line: 3,
             column: 32,
         },
         Case {

@@ -529,12 +529,17 @@ impl SymbolIndex {
     }
 
     fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
-        self.effects
+        if !file.parse_clean {
+            return None;
+        }
+        let mut candidates = self
+            .effects
             .iter()
-            .find(|symbol| {
+            .filter(|symbol| {
                 symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            })
-            .cloned()
+            });
+        let candidate = candidates.next()?.clone();
+        candidates.next().is_none().then_some(candidate)
     }
 
     fn handler_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {

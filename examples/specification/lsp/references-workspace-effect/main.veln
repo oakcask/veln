@@ -1,0 +1,7 @@
+effect Choose
+  pick() -> Int
+end
+
+fn choose() -> Int effects [Choose]
+  "😀" + perform Choose::pick()
+end

@@ -10,19 +10,15 @@ services. The implemented workspace, direct-dependency, and standard-library
 navigation behavior is specified by [Editor Support](../specification/editor-support.md)
 and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
 
-The ready [Workspace Effect References](workspace-effect-references.md) slice
-owns same-module reference collection for workspace effect identities. It is
-independent of the remaining package, recovery, conformance, and client work.
-
 ## Remaining scope
 
-After extracting that ready slice, the following work remains planned:
+The following work remains planned:
 
 - transitive-dependency navigation;
 - recovery and casing-neutral reference navigation;
 - remaining package definition and reference symbol classes;
 - handler, effect-operation, imported-effect, and other workspace symbol
-  reference classes outside the extracted same-module effect boundary;
+  reference classes outside the implemented same-module effect boundary;
 - cross-adapter conformance evidence for saved navigation;
 - Codex and Claude Code plugin packaging and client-native installation flows;
 - shared agent-skill routing and the conformance gate.

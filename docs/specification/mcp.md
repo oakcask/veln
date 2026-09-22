@@ -491,10 +491,19 @@ project_wide:false}` for anonymous source scope. The reference locations have
 start line, start column, end line, and end column. A nonfinal page contains
 exactly `page_size` locations and `next_cursor`; the final page omits it.
 
-Supported reference identities are schemas, eligible workspace,
-direct-dependency, and standard-library schema aliases, functions, types,
-constructors, value bindings, handler context parameters, and handler
-operation-clause parameters. Schema
+Supported reference identities are workspace effects, schemas, eligible
+workspace, direct-dependency, and standard-library schema aliases, functions,
+types, constructors, value bindings, handler context parameters, and handler
+operation-clause parameters. A workspace effect result contains bare effect
+rows, handler `handles` targets, and `perform Effect::operation(...)`
+qualifiers from every saved source that declares the selected effect's module.
+The operation leaf keeps its separate unsupported reference identity.
+Effect lookup requires one parse-clean, valid-cased workspace declaration for
+the module and name. Imported and package effects, generic effect parameters,
+duplicate declarations, invalid casing, unresolved names, recovered syntax,
+other modules, and other symbol classes do not enter the result.
+
+Schema
 references include direct fields, `decode`, `encode`, `Repeat`, array
 payloads, and resolved composition leaves. Workspace aliases have a separate
 identity from their target and are eligible only when the direct target is a
@@ -571,3 +580,6 @@ and `crates/veln-mcp/src/references.rs`; rename conversion is implemented by
 `crates/veln-mcp/src/server/tests/`. Checked rename transcripts cover saved
 workspace results, supported symbol classes, recovery identities, unsupported
 boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
+The checked `examples/specification/mcp/references-workspace-effect/` transcript
+demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
+pagination for workspace effect references.

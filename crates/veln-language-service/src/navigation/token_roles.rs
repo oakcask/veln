@@ -389,6 +389,12 @@ fn is_effect_reference_token(tokens: &[Token], index: usize) -> bool {
 
 fn is_effect_list_token(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
+        && previous_non_layout_token(tokens, index)
+            .is_none_or(|previous| {
+                previous.kind != TokenKind::DoubleColon && previous.kind != TokenKind::Dot
+            })
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon)
         && line_tokens_before(tokens, index)
             .iter()
             .any(|token| token.kind == TokenKind::Effects)
@@ -405,6 +411,8 @@ fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
         && previous_non_layout_token(tokens, index)
             .is_some_and(|previous| previous.kind == TokenKind::Handles)
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon)
 }
 
 fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
@@ -413,6 +421,10 @@ fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
             .is_some_and(|previous| previous.kind == TokenKind::Perform)
         && next_non_layout_token(tokens, index)
             .is_some_and(|next| next.kind == TokenKind::DoubleColon)
+        && next_path_segment_index(tokens, index).is_some_and(|operation_index| {
+            next_non_whitespace_token(tokens, operation_index)
+                .is_some_and(|next| next.kind == TokenKind::LParen)
+        })
 }
 
 fn is_perform_operation_token(tokens: &[Token], index: usize) -> bool {

@@ -204,6 +204,20 @@ rename-supported symbol classes.
 Navigation requests convert zero-based UTF-16 LSP characters to the shared
 one-based Unicode-scalar positions. Navigation responses convert shared ranges
 back to zero-based UTF-16 LSP ranges using the retained source snapshot.
+For a selected parse-clean workspace effect, references include every bare
+effect-row occurrence, handler `handles` target, and `perform
+Effect::operation(...)` qualifier in saved workspace sources that declare the
+same module. The declaration and each supported occurrence select the same
+effect identity. The operation leaf remains a separate effect-operation
+identity and has no effect reference set.
+
+Effect reference lookup requires one valid-cased workspace effect declaration
+for that name and module. It excludes qualified imported or package effects,
+generic effect-row parameters, duplicate declarations, invalid-cased or
+unresolved names, syntax-recovered occurrences, and equal spelling in another
+module or symbol class. Comments and strings do not contribute references.
+Effects, handlers, and effect operations remain unsupported for rename.
+
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, and directly resolved
 schema-composition path leaves that resolve to that schema in workspace
@@ -528,3 +542,5 @@ The authoritative implementations are `crates/veln-editor`, `crates/veln-lsp`,
 and `crates/veln-language-service`. Their unit and protocol checks verify
 the token legend, LSP encoding, workspace diagnostics, navigation, formatting,
 rename, and virtual-document boundaries.
+The checked `examples/specification/lsp/references-workspace-effect/` transcript
+demonstrates declaration policy and UTF-16 conversion for effect references.

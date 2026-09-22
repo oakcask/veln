@@ -1,4 +1,60 @@
 impl SymbolIndex {
+    fn effect_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
+        if !self.effect_references_supported(symbol) {
+            return Vec::new();
+        }
+        self.files
+            .iter()
+            .filter(|file| {
+                workspace_navigation_file(file)
+                    && file.parse_clean
+                    && file.module == symbol.module
+            })
+            .flat_map(|file| {
+                file.tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        token.kind == TokenKind::Ident
+                            && token.text == symbol.name
+                            && (is_effect_reference_token(&file.tokens, *index)
+                                || is_perform_effect_qualifier_token(&file.tokens, *index))
+                            && self
+                                .effect_for_reference(file, &token.text)
+                                .is_some_and(|candidate| candidate.declaration == symbol.declaration)
+                    })
+                    .map(|(_, token)| file.source.span(token.range))
+            })
+            .collect()
+    }
+
+    fn effect_references_supported(&self, symbol: &NeutralSymbol) -> bool {
+        if symbol.package.is_some()
+            || !symbol
+                .name
+                .chars()
+                .next()
+                .is_some_and(|initial| initial.is_ascii_uppercase())
+        {
+            return false;
+        }
+        let mut declarations = self.effects.iter().filter(|candidate| {
+            candidate.package.is_none()
+                && candidate.module == symbol.module
+                && candidate.name == symbol.name
+        });
+        let Some(candidate) = declarations.next() else {
+            return false;
+        };
+        candidate.declaration == symbol.declaration
+            && declarations.next().is_none()
+            && self.files.iter().any(|file| {
+                workspace_navigation_file(file)
+                    && file.parse_clean
+                    && file.source.path() == &symbol.declaration.span.file
+            })
+    }
+
     fn workspace_type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
