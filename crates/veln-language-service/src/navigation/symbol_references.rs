@@ -4,7 +4,6 @@ impl SymbolIndex {
             .iter()
             .filter(|file| {
                 workspace_navigation_file(file)
-                    && file.parse_clean
                     && file.module == symbol.module
             })
             .flat_map(|file| {
@@ -47,8 +46,11 @@ impl SymbolIndex {
             && declarations.next().is_none()
             && self.files.iter().any(|file| {
                 workspace_navigation_file(file)
-                    && file.parse_clean
                     && file.source.path() == &symbol.declaration.span.file
+                    && !file.recovered_effect_declarations.iter().any(|span| {
+                        span.start.offset <= symbol.declaration.span.start.offset
+                            && symbol.declaration.span.end.offset <= span.end.offset
+                    })
             })
     }
 

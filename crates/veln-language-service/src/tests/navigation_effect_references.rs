@@ -63,17 +63,23 @@ mod navigation_effect_references_tests {
                 "main.veln",
                 concat!(
                     "effect Choose\n",
+                    "  Choose() -> Int\n",
                     "  pick() -> Int\n",
                     "end\n\n",
                     "type Choose\n",
                     "  Choose\n",
                     "end\n\n",
-                    "handler choose() handles Choose\n",
-                    "  pick() => perform Choose::pick()\n",
+                    "handler Choose() handles Choose\n",
+                    "  Choose() => perform Choose::Choose()\n",
+                    "end\n\n",
+                    "fn Choose() -> Int\n",
+                    "  1\n",
                     "end\n\n",
                     "fn collisions(callback: fn() -> Int effects [Choose], value: Choose) -> String effects [Choose]\n",
                     "  # Choose perform Choose::pick()\n",
                     "  \"Choose\"\n",
+                    "  let record = {Choose: 1}\n",
+                    "  record.Choose\n",
                     "end\n",
                 ),
             ),
@@ -93,18 +99,24 @@ mod navigation_effect_references_tests {
         assert_eq!(
             locations(&result.references),
             [
-                ("main.veln", 9, 26),
-                ("main.veln", 10, 21),
-                ("main.veln", 13, 46),
-                ("main.veln", 13, 89),
+                ("main.veln", 10, 26),
+                ("main.veln", 11, 23),
+                ("main.veln", 18, 46),
+                ("main.veln", 18, 89),
             ]
         );
 
-        let type_collision = query(sources.clone(), "main.veln", 13, 62).unwrap();
+        let type_collision = query(sources.clone(), "main.veln", 18, 62).unwrap();
         assert_eq!(type_collision.selected_symbol.kind, SymbolKind::Type);
-        assert_location(&type_collision.definition, "main.veln", 5, 6);
+        assert_location(&type_collision.definition, "main.veln", 6, 6);
 
-        let operation = query(sources, "main.veln", 10, 29).unwrap();
+        let handler = query(sources.clone(), "main.veln", 10, 9).unwrap();
+        assert_eq!(handler.selected_symbol.kind, SymbolKind::Handler);
+
+        assert!(query(sources.clone(), "main.veln", 21, 17).is_none());
+        assert!(query(sources.clone(), "main.veln", 22, 10).is_none());
+
+        let operation = query(sources, "main.veln", 11, 31).unwrap();
         assert_eq!(operation.selected_symbol.kind, SymbolKind::EffectOperation);
         assert!(operation.references.is_empty());
     }
@@ -122,10 +134,28 @@ mod navigation_effect_references_tests {
             "  perform foreign::E::run()\n",
             "end\n",
         );
-        let local_result = query(vec![source("main.veln", local)], "main.veln", 1, 8).unwrap();
+        let qualified_workspace_sources = vec![
+            source("main.veln", local),
+            source("foreign.veln", "mod foreign\n\neffect E\n  run() -> Int\nend\n"),
+        ];
+        let local_result = query(
+            qualified_workspace_sources.clone(),
+            "main.veln",
+            1,
+            8,
+        )
+        .unwrap();
         assert_eq!(locations(&local_result.references), []);
         for (line, column) in [(5, 43), (9, 40), (10, 11), (10, 20)] {
-            assert!(query(vec![source("main.veln", local)], "main.veln", line, column).is_none());
+            assert!(
+                query(
+                    qualified_workspace_sources.clone(),
+                    "main.veln",
+                    line,
+                    column,
+                )
+                .is_none()
+            );
         }
 
         let ambiguous = vec![
@@ -142,6 +172,19 @@ mod navigation_effect_references_tests {
 
         let recovered = "effect Choose\n  pick() -> Int\nend\n\nfn broken() -> Int effects [Choose\n  1\nend\n";
         assert!(query(vec![source("main.veln", recovered)], "main.veln", 5, 29).is_none());
+
+        let recovered_declaration = query(
+            vec![source(
+                "main.veln",
+                "effect Choose\n  pick() -> Int\n",
+            )],
+            "main.veln",
+            1,
+            8,
+        )
+        .unwrap();
+        assert!(!recovered_declaration.reference_eligible);
+        assert!(recovered_declaration.references.is_empty());
 
         let imported = EffectiveProjectSnapshot::with_direct_dependencies(
             vec![source(
@@ -191,6 +234,42 @@ mod navigation_effect_references_tests {
             29,
         )
         .is_none());
+    }
+
+    #[test]
+    fn workspace_effect_references_keep_valid_occurrences_beside_unrelated_parse_errors() {
+        let sources = vec![
+            source(
+                "declaration.veln",
+                "mod shared\n\neffect Choose\n  pick() -> Int\nend\n",
+            ),
+            source(
+                "uses.veln",
+                concat!(
+                    "mod shared\n\n",
+                    "fn choose() -> Int effects [Choose]\n",
+                    "  perform Choose::pick()\n",
+                    "end\n\n",
+                    "fn broken() -> Int\n",
+                    "  @\n",
+                    "end\n",
+                ),
+            ),
+        ];
+
+        let declaration = query(sources.clone(), "declaration.veln", 3, 8).unwrap();
+        assert_eq!(
+            locations(&declaration.references),
+            [("uses.veln", 3, 29), ("uses.veln", 4, 11)]
+        );
+
+        let occurrence = query(sources, "uses.veln", 4, 11).unwrap();
+        assert_eq!(occurrence.selected_symbol.kind, SymbolKind::Effect);
+        assert_eq!(occurrence.definition.span.file.as_str(), "declaration.veln");
+        assert_eq!(
+            locations(&occurrence.references),
+            [("uses.veln", 3, 29), ("uses.veln", 4, 11)]
+        );
     }
 
     #[test]

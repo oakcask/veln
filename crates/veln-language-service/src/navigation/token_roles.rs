@@ -411,51 +411,71 @@ fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
         delimiter: Delimiter,
         effect_list: bool,
         line: usize,
+        pending_members: Vec<usize>,
     }
 
     let mut membership = vec![false; tokens.len()];
     let mut stack = Vec::<Frame>::new();
     let mut previous_non_layout = None;
     let mut line = 0usize;
-    let close_delimiter = |stack: &mut Vec<Frame>, delimiter: Delimiter| {
-        if stack
-            .last()
-            .is_some_and(|frame| frame.delimiter == delimiter)
-        {
-            stack.pop();
-        } else {
-            stack.clear();
-        }
-    };
     for (index, token) in tokens.iter().enumerate() {
         #[cfg(test)]
         record_effect_list_classification_token_visit();
-        membership[index] = token.kind == TokenKind::Ident
+        if token.kind == TokenKind::Ident
             && stack.last().is_some_and(|frame| {
                 frame.delimiter == Delimiter::Bracket && frame.effect_list && frame.line == line
-            });
+            })
+        {
+            stack.last_mut().unwrap().pending_members.push(index);
+        }
         match token.kind {
             TokenKind::LBracket => {
                 stack.push(Frame {
                     delimiter: Delimiter::Bracket,
                     effect_list: previous_non_layout == Some(TokenKind::Effects),
                     line,
+                    pending_members: Vec::new(),
                 });
             }
             TokenKind::LParen => stack.push(Frame {
                 delimiter: Delimiter::Paren,
                 effect_list: false,
                 line,
+                pending_members: Vec::new(),
             }),
             TokenKind::LBrace => stack.push(Frame {
                 delimiter: Delimiter::Brace,
                 effect_list: false,
                 line,
+                pending_members: Vec::new(),
             }),
-            TokenKind::RBracket => close_delimiter(&mut stack, Delimiter::Bracket),
-            TokenKind::RParen => close_delimiter(&mut stack, Delimiter::Paren),
-            TokenKind::RBrace => close_delimiter(&mut stack, Delimiter::Brace),
-            TokenKind::Newline => line += 1,
+            TokenKind::RBracket | TokenKind::RParen | TokenKind::RBrace => {
+                let delimiter = match token.kind {
+                    TokenKind::RBracket => Delimiter::Bracket,
+                    TokenKind::RParen => Delimiter::Paren,
+                    TokenKind::RBrace => Delimiter::Brace,
+                    _ => unreachable!(),
+                };
+                if stack
+                    .last()
+                    .is_some_and(|frame| frame.delimiter == delimiter)
+                {
+                    let frame = stack.pop().unwrap();
+                    if frame.effect_list && frame.line == line {
+                        for member in frame.pending_members {
+                            membership[member] = true;
+                        }
+                    }
+                } else {
+                    stack.clear();
+                }
+            }
+            TokenKind::Newline => {
+                if stack.iter().any(|frame| frame.effect_list) {
+                    stack.clear();
+                }
+                line += 1;
+            }
             _ => {}
         }
         if !is_layout_token_kind(token.kind) {

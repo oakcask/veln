@@ -498,10 +498,12 @@ operation-clause parameters. A workspace effect result contains bare effect
 rows, handler `handles` targets, and `perform Effect::operation(...)`
 qualifiers from every saved source that declares the selected effect's module.
 The operation leaf keeps its separate unsupported reference identity.
-Effect lookup requires one parse-clean, valid-cased workspace declaration for
-the module and name. Imported and package effects, generic effect parameters,
-duplicate declarations, invalid casing, unresolved names, recovered syntax,
-other modules, and other symbol classes do not enter the result.
+Effect lookup requires one valid-cased, unrecovered workspace declaration for
+the module and name. Valid occurrences in a saved source remain available when
+an unrelated construct in that source has a parse error. Imported and package
+effects, generic effect parameters, duplicate declarations, invalid casing,
+unresolved names, recovered syntax, other modules, and other symbol classes do
+not enter the result.
 
 Schema
 references include direct fields, `decode`, `encode`, `Repeat`, array

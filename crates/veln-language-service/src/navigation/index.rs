@@ -529,9 +529,6 @@ impl SymbolIndex {
     }
 
     fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
-        if !file.parse_clean {
-            return None;
-        }
         let mut candidates = self
             .effects
             .iter()

@@ -28,6 +28,7 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         &parsed.tree,
         &invalid_declaration_names,
     );
+    let recovered_effect_declarations = recovered_effect_declarations(&parsed.tree);
     let file = IndexedFile {
         source,
         tokens,
@@ -40,12 +41,12 @@ fn index_workspace_source(source: SourceFile) -> (IndexedFile, FileDeclarations,
         schema_alias_external_imports,
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols,
+        recovered_effect_declarations,
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_list_membership,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
-        parse_clean: parsed.diagnostics.is_empty(),
         navigation_isolated,
         origin: IndexedOrigin::Workspace,
     };
@@ -83,6 +84,17 @@ fn invalid_name_spans(invalid_names: &[InvalidName]) -> Vec<SourceSpan> {
     invalid_names
         .iter()
         .map(|invalid| invalid.span.clone())
+        .collect()
+}
+
+fn recovered_effect_declarations(syntax: &SyntaxTree) -> Vec<SourceSpan> {
+    syntax
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Effect(effect) if !effect.end_present => Some(effect.span.clone()),
+            _ => None,
+        })
         .collect()
 }
 
@@ -233,12 +245,12 @@ fn indexed_dependency_source(
         schema_alias_external_imports: Vec::new(),
         invalid_declaration_names: invalid_name_spans(&invalid_declaration_names),
         recovery_symbols: Vec::new(),
+        recovered_effect_declarations: recovered_effect_declarations(&parsed.tree),
         schema_operation_leaf_ranges,
         schema_composition_leaf_spans,
         effect_list_membership,
         classified_path_segments: Vec::new(),
         type_reference_locations: OnceLock::new(),
-        parse_clean: parsed.diagnostics.is_empty(),
         navigation_isolated,
         origin: IndexedOrigin::Package {
             identity: dependency.identity.as_str().to_string(),

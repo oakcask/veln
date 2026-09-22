@@ -803,12 +803,12 @@ struct IndexedFile {
     schema_alias_external_imports: Vec<ExternalImport>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
+    recovered_effect_declarations: Vec<SourceSpan>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
     effect_list_membership: Vec<bool>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
-    parse_clean: bool,
     navigation_isolated: bool,
     origin: IndexedOrigin,
 }

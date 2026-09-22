@@ -29,30 +29,123 @@ fn references_page_workspace_effect_locations_with_unicode_scalar_coordinates() 
 
     let first = server.references_tool(&json!({
         "source":"main.veln", "line":1, "column":8,
-        "include_declaration":true, "page_size":2
+        "include_declaration":true, "page_size":1
     }));
     assert_eq!(
         first["structuredContent"]["references"]
             .as_array()
             .unwrap()
             .len(),
-        2
+        1
     );
     assert_eq!(
         first["structuredContent"]["references"][0]["range"],
         json!({"start":{"line":1,"column":8},"end":{"line":1,"column":14}})
     );
+    let first_cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
+    let second = server.references_tool(&json!({"cursor":first_cursor}));
     assert_eq!(
-        first["structuredContent"]["references"][1]["range"],
+        second["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        second["structuredContent"]["references"][0]["range"],
         json!({"start":{"line":5,"column":29},"end":{"line":5,"column":35}})
     );
-    let cursor = first["structuredContent"]["next_cursor"].as_str().unwrap();
-    let final_page = server.references_tool(&json!({"cursor":cursor}));
+    let second_cursor = second["structuredContent"]["next_cursor"].as_str().unwrap();
+    let final_page = server.references_tool(&json!({"cursor":second_cursor}));
     assert_eq!(
         final_page["structuredContent"]["references"][0]["range"],
         json!({"start":{"line":6,"column":17},"end":{"line":6,"column":23}})
     );
     assert!(final_page["structuredContent"].get("next_cursor").is_none());
+}
+
+#[test]
+fn workspace_effect_reference_failures_preserve_live_state() {
+    let workspace = TempWorkspace::new("references-workspace-effect-failure-state");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick() -> Int\n",
+            "end\n\n",
+            "fn choose() -> Int effects [Choose]\n",
+            "  perform Choose::pick()\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+    let before = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8
+    }));
+    let seeded = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8, "page_size":1
+    }));
+    let cursor = seeded["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let resources = all_resource_state(&mut server);
+    let selection = server.selection_result();
+
+    let invalid_position = server.references_tool(&json!({
+        "source":"main.veln", "line":99, "column":1
+    }));
+    assert_eq!(
+        invalid_position["structuredContent"]["code"],
+        "invalid_position"
+    );
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(server.selection_result(), selection);
+
+    let invalid_path = server.references_tool(&json!({
+        "source":"missing.veln", "line":1, "column":1
+    }));
+    assert_eq!(invalid_path["structuredContent"]["code"], "invalid_path");
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(server.selection_result(), selection);
+
+    let invalid_continuation = server.references_tool(&json!({"cursor":format!("{cursor}x")}));
+    assert_eq!(
+        invalid_continuation["structuredContent"]["code"],
+        "invalid_cursor"
+    );
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(server.selection_result(), selection);
+
+    let missing_resource = server
+        .handle_request(json!({
+            "jsonrpc":"2.0",
+            "id":"missing-retained-effect-resource",
+            "method":"resources/read",
+            "params":{"uri":"veln-pkg:///missing/snapshot/main.veln"}
+        }))
+        .unwrap();
+    assert_eq!(
+        missing_resource["error"]["data"]["code"],
+        "resource_not_found"
+    );
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(server.selection_result(), selection);
+
+    let continuation = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(continuation["isError"], false);
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    let after = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8
+    }));
+    assert_eq!(after, before);
 }
 
 #[test]
