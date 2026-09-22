@@ -97,45 +97,47 @@ impl SymbolIndex {
         name: &str,
     ) -> Option<TypeAliasSymbol> {
         let Some(qualifier) = qualifier_for_token(tokens, token_index) else {
-            if let Some(local) = self.first_local_type_namespace_for_bare_reference(file, name) {
-                return match local {
-                    TypeConflictCandidate::Type(_) => None,
-                    TypeConflictCandidate::Alias(symbol) if symbol.package.is_none() => {
-                        Some(symbol)
-                    }
-                    TypeConflictCandidate::Alias(_) => None,
-                };
-            }
-            if file.uses.iter().any(|module| {
-                self.workspace_types_in_module(module, name)
-                    .any(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
-            }) || self.types_named(name).any(|symbol| {
-                symbol.package.is_some()
-                    && visible_imported_type_for_bare_reference(file, symbol, name)
-            }) {
-                return None;
-            }
-            let mut candidate = None;
-            for module in &file.uses {
-                for symbol in self.workspace_type_aliases_in_module(module, name) {
-                    if candidate.is_some() {
-                        return None;
-                    }
-                    candidate = Some(symbol);
-                }
-            }
-            for symbol in self.package_type_aliases_named(name).filter(|symbol| {
-                visible_imported_type_alias_for_bare_reference(file, symbol, name)
-            }) {
-                if candidate.is_some() {
-                    return None;
-                }
-                candidate = Some(symbol);
-            }
-            return candidate
-                .filter(|symbol| symbol.package.is_none())
-                .cloned();
+            return self.workspace_type_alias_for_bare_reference(file, name);
         };
+        self.workspace_type_alias_for_qualified_reference(file, &qualifier, name)
+    }
+
+    fn workspace_type_alias_for_bare_reference(
+        &self,
+        file: &IndexedFile,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
+        if let Some(local) = self.first_local_type_namespace_for_bare_reference(file, name) {
+            return match local {
+                TypeConflictCandidate::Type(_) => None,
+                TypeConflictCandidate::Alias(symbol) if symbol.package.is_none() => Some(symbol),
+                TypeConflictCandidate::Alias(_) => None,
+            };
+        }
+        if file.uses.iter().any(|module| {
+            self.workspace_types_in_module(module, name)
+                .any(|symbol| visible_imported_type_for_bare_reference(file, symbol, name))
+        }) || self.types_named(name).any(|symbol| {
+            symbol.package.is_some()
+                && visible_imported_type_for_bare_reference(file, symbol, name)
+        }) {
+            return None;
+        }
+        let workspace_aliases = file.uses.iter().flat_map(|module| {
+            self.workspace_type_aliases_in_module(module, name)
+        });
+        let package_aliases = self.package_type_aliases_named(name).filter(|symbol| {
+            visible_imported_type_alias_for_bare_reference(file, symbol, name)
+        });
+        unique_workspace_type_alias(workspace_aliases.chain(package_aliases))
+    }
+
+    fn workspace_type_alias_for_qualified_reference(
+        &self,
+        file: &IndexedFile,
+        qualifier: &str,
+        name: &str,
+    ) -> Option<TypeAliasSymbol> {
         let qualified_modules = self.qualified_module_candidates(file, &qualifier);
         let unique_qualified_modules = qualified_modules.iter().collect::<BTreeSet<_>>();
         if unique_qualified_modules.iter().any(|module| {
@@ -154,38 +156,30 @@ impl SymbolIndex {
         }) {
             return None;
         }
-        let mut candidate = None;
-        for module in unique_qualified_modules {
-            for symbol in self.workspace_type_aliases_in_module(module, name).filter(|symbol| {
-                visible_type_alias_for_qualified_reference(
-                    file,
-                    symbol,
-                    &qualified_modules,
-                    name,
-                )
-            }) {
-                if candidate.is_some() {
-                    return None;
-                }
-                candidate = Some(symbol);
-            }
-            for symbol in self.package_type_aliases_in_module(module, name).filter(|symbol| {
-                visible_type_alias_for_qualified_reference(
-                    file,
-                    symbol,
-                    &qualified_modules,
-                    name,
-                )
-            }) {
-                if candidate.is_some() {
-                    return None;
-                }
-                candidate = Some(symbol);
-            }
-        }
-        candidate
-            .filter(|symbol| symbol.package.is_none())
-            .cloned()
+        let candidates = unique_qualified_modules.into_iter().flat_map(|module| {
+            let workspace_aliases = self.workspace_type_aliases_in_module(module, name).filter(
+                |symbol| {
+                    visible_type_alias_for_qualified_reference(
+                        file,
+                        symbol,
+                        &qualified_modules,
+                        name,
+                    )
+                },
+            );
+            let package_aliases = self.package_type_aliases_in_module(module, name).filter(
+                |symbol| {
+                    visible_type_alias_for_qualified_reference(
+                        file,
+                        symbol,
+                        &qualified_modules,
+                        name,
+                    )
+                },
+            );
+            workspace_aliases.chain(package_aliases)
+        });
+        unique_workspace_type_alias(candidates)
     }
 
     fn schema_alias_selection_blocks_schema_fallback(
@@ -1199,6 +1193,16 @@ fn unique_external_route(
 
 fn append_module_suffix(module: &str, suffix: Option<&str>) -> String {
     suffix.map_or_else(|| module.to_string(), |suffix| format!("{module}::{suffix}"))
+}
+
+fn unique_workspace_type_alias<'a>(
+    mut candidates: impl Iterator<Item = &'a TypeAliasSymbol>,
+) -> Option<TypeAliasSymbol> {
+    let candidate = candidates.next()?;
+    if candidate.package.is_some() || candidates.next().is_some() {
+        return None;
+    }
+    Some(candidate.clone())
 }
 
 enum QualifiedWorkspaceModule {
