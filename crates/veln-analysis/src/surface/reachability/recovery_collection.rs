@@ -11,20 +11,27 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         let aliases_by_name = index_aliases_by_name(&aliases);
         let types_by_name = index_types_by_name(&types);
         let constructors_by_name = index_constructors_by_name(&types);
-        let invalid_names = inputs.invalid_names().collect::<Vec<_>>();
         Self {
             uses: inputs.uses(),
-            invalid_uses: inputs
-                .all_uses()
-                .into_iter()
-                .filter(|use_decl| use_decl_has_invalid_module_segment(use_decl, &invalid_names))
+            invalid_uses: inputs.invalid_uses().collect(),
+            invalid_use_segments: inputs
+                .invalid_uses_with_segments()
+                .map(|(use_decl, invalid_segments)| {
+                    (
+                        use_decl,
+                        invalid_segments
+                            .iter()
+                            .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
+                            .collect(),
+                    )
+                })
                 .collect(),
             handlers,
             functions_by_name,
             aliases_by_name,
             types_by_name,
             constructors_by_name,
-            invalid_names,
+            invalid_names: inputs.invalid_names().collect(),
             companion_access_targets,
         }
     }
@@ -414,10 +421,13 @@ impl<'a> ReachableInvalidNameSelector<'a> {
         ) else {
             return false;
         };
-        spans.extend(invalid_import_path_segment_spans(
-            use_decl,
-            &self.invalid_names,
-        ));
+        spans.extend(
+            self.invalid_use_segments
+                .iter()
+                .find(|(invalid_use, _)| std::ptr::eq(*invalid_use, use_decl))
+                .into_iter()
+                .flat_map(|(_, invalid_spans)| invalid_spans.iter().cloned()),
+        );
         true
     }
 

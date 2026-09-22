@@ -60,10 +60,10 @@ impl ReachabilityIndex {
     }
 }
 
-#[derive(Clone, Copy)]
 pub(super) struct ReachabilityInputs<'a> {
     pub(super) standard: Option<&'a SurfaceModule>,
     pub(super) application: &'a SurfaceModule,
+    use_index: UseIndex<'a>,
 }
 
 impl<'a> ReachabilityInputs<'a> {
@@ -72,6 +72,7 @@ impl<'a> ReachabilityInputs<'a> {
         Self {
             standard: None,
             application: module,
+            use_index: UseIndex::new(None, module),
         }
     }
 
@@ -79,6 +80,7 @@ impl<'a> ReachabilityInputs<'a> {
         Self {
             standard: Some(standard),
             application,
+            use_index: UseIndex::new(Some(standard), application),
         }
     }
 
@@ -135,20 +137,24 @@ impl<'a> ReachabilityInputs<'a> {
         }
     }
 
-    pub(super) fn all_uses(&self) -> Vec<&'a UseDecl> {
-        self.standard
-            .into_iter()
-            .flat_map(|module| module.uses.iter())
-            .chain(self.application.uses.iter())
-            .collect()
+    pub(super) fn uses(&self) -> Vec<&'a UseDecl> {
+        self.use_index.valid.clone()
     }
 
-    pub(super) fn uses(&self) -> Vec<&'a UseDecl> {
-        let invalid_names = self.invalid_names().collect::<Vec<_>>();
-        self.all_uses()
-            .into_iter()
-            .filter(|use_decl| !use_decl_has_invalid_module_segment(use_decl, &invalid_names))
-            .collect()
+    pub(super) fn invalid_uses(&self) -> impl Iterator<Item = &'a UseDecl> + '_ {
+        self.use_index
+            .invalid
+            .iter()
+            .map(|invalid| invalid.declaration)
+    }
+
+    pub(super) fn invalid_uses_with_segments(
+        &self,
+    ) -> impl Iterator<Item = (&'a UseDecl, &[&'a veln_ast::InvalidName])> + '_ {
+        self.use_index
+            .invalid
+            .iter()
+            .map(|invalid| (invalid.declaration, invalid.module_path_segments.as_slice()))
     }
 
     pub(super) fn aliases(&self) -> impl Iterator<Item = &'a veln_ast::PublicAlias> + '_ {
@@ -179,6 +185,72 @@ impl<'a> ReachabilityInputs<'a> {
             .flat_map(|module| module.invalid_names.iter())
             .chain(self.application.invalid_names.iter())
     }
+}
+
+struct UseIndex<'a> {
+    valid: Vec<&'a UseDecl>,
+    invalid: Vec<InvalidUse<'a>>,
+}
+
+struct InvalidUse<'a> {
+    declaration: &'a UseDecl,
+    module_path_segments: Vec<&'a veln_ast::InvalidName>,
+}
+
+impl<'a> UseIndex<'a> {
+    fn new(standard: Option<&'a SurfaceModule>, application: &'a SurfaceModule) -> Self {
+        let modules = standard.into_iter().chain(std::iter::once(application));
+        let mut invalid_segments_by_file =
+            HashMap::<veln_source::SourcePath, Vec<&veln_ast::InvalidName>>::new();
+        for invalid in modules.clone().flat_map(|module| &module.invalid_names) {
+            if invalid.class == veln_ast::NameClass::Module
+                && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
+            {
+                invalid_segments_by_file
+                    .entry(invalid.span.file.clone())
+                    .or_default()
+                    .push(invalid);
+            }
+        }
+        for invalid_segments in invalid_segments_by_file.values_mut() {
+            invalid_segments.sort_by_key(|invalid| invalid.span.start.offset);
+        }
+
+        let mut valid = Vec::new();
+        let mut invalid = Vec::new();
+        for declaration in modules.flat_map(|module| &module.uses) {
+            let module_path_segments = invalid_segments_by_file
+                .get(&declaration.span.file)
+                .map(|candidates| invalid_segments_in_span(candidates, &declaration.span))
+                .unwrap_or_default();
+            if module_path_segments.is_empty() {
+                valid.push(declaration);
+            } else {
+                invalid.push(InvalidUse {
+                    declaration,
+                    module_path_segments,
+                });
+            }
+        }
+        Self { valid, invalid }
+    }
+}
+
+fn invalid_segments_in_span<'a>(
+    candidates: &[&'a veln_ast::InvalidName],
+    span: &SourceSpan,
+) -> Vec<&'a veln_ast::InvalidName> {
+    let start = candidates.partition_point(|invalid| invalid.span.start.offset < span.start.offset);
+    let end = candidates.partition_point(|invalid| invalid.span.start.offset <= span.end.offset);
+    candidates[start..end]
+        .iter()
+        .copied()
+        .filter(|invalid| {
+            #[cfg(test)]
+            reachability_counters::record_invalid_import_candidate_scan();
+            span_contains(span, &invalid.span)
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy)]

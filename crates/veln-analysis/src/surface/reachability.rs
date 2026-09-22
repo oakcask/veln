@@ -294,34 +294,6 @@ fn invalid_name_is_reachable(
     })
 }
 
-fn invalid_import_path_segment_spans(
-    use_decl: &UseDecl,
-    invalid_names: &[&veln_ast::InvalidName],
-) -> Vec<ReachableInvalidNameSpan> {
-    invalid_names
-        .iter()
-        .copied()
-        .filter(move |invalid| invalid_module_segment_in_use_decl(use_decl, invalid))
-        .map(|invalid| ReachableInvalidNameSpan::Name(invalid.span.clone()))
-        .collect()
-}
-
-fn use_decl_has_invalid_module_segment(
-    use_decl: &UseDecl,
-    invalid_names: &[&veln_ast::InvalidName],
-) -> bool {
-    invalid_names
-        .iter()
-        .copied()
-        .any(|invalid| invalid_module_segment_in_use_decl(use_decl, invalid))
-}
-
-fn invalid_module_segment_in_use_decl(use_decl: &UseDecl, invalid: &veln_ast::InvalidName) -> bool {
-    invalid.class == veln_ast::NameClass::Module
-        && invalid.occurrence == veln_ast::NameOccurrence::PathSegment
-        && span_contains(&use_decl.span, &invalid.span)
-}
-
 fn reachable_invalid_name_spans(
     inputs: &ReachabilityInputs<'_>,
     functions: &[Function],
@@ -390,21 +362,17 @@ fn materialize_quarantined_import_proof_functions(
     reachable_functions: &[Function],
     reachable_invalid_name_spans: &[ReachableInvalidNameSpan],
 ) -> Vec<Function> {
-    let invalid_names = inputs.invalid_names().collect::<Vec<_>>();
     let quarantined_modules = inputs
-        .all_uses()
-        .into_iter()
-        .filter(|use_decl| use_decl_has_invalid_module_segment(use_decl, &invalid_names))
-        .filter(|use_decl| {
-            invalid_import_path_segment_spans(use_decl, &invalid_names)
-                .iter()
-                .any(|span| {
-                    reachable_invalid_name_spans
-                        .iter()
-                        .any(|reachable| reachable == span)
-                })
+        .invalid_uses_with_segments()
+        .filter(|(_, invalid_segments)| {
+            invalid_segments.iter().any(|invalid| {
+                let span = ReachableInvalidNameSpan::Name(invalid.span.clone());
+                reachable_invalid_name_spans
+                    .iter()
+                    .any(|reachable| reachable == &span)
+            })
         })
-        .map(|use_decl| use_decl.name.as_str())
+        .map(|(use_decl, _)| use_decl.name.as_str())
         .collect::<HashSet<_>>();
     if quarantined_modules.is_empty() {
         return Vec::new();
@@ -458,6 +426,7 @@ pub(crate) mod reachability_counters {
         static MATERIALIZED_FUNCTION_BODIES: Cell<usize> = const { Cell::new(0) };
         static RECOVERY_SELECTOR_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
         static CALLEE_CONTEXT_PREPARATIONS: Cell<usize> = const { Cell::new(0) };
+        static INVALID_IMPORT_CANDIDATE_SCANS: Cell<usize> = const { Cell::new(0) };
     }
 
     pub(crate) fn reset() {
@@ -466,6 +435,7 @@ pub(crate) mod reachability_counters {
         MATERIALIZED_FUNCTION_BODIES.set(0);
         RECOVERY_SELECTOR_CANDIDATE_SCANS.set(0);
         CALLEE_CONTEXT_PREPARATIONS.set(0);
+        INVALID_IMPORT_CANDIDATE_SCANS.set(0);
     }
 
     pub(crate) fn record_function_lookup_scan() {
@@ -488,8 +458,16 @@ pub(crate) mod reachability_counters {
         CALLEE_CONTEXT_PREPARATIONS.set(CALLEE_CONTEXT_PREPARATIONS.get() + 1);
     }
 
+    pub(crate) fn record_invalid_import_candidate_scan() {
+        INVALID_IMPORT_CANDIDATE_SCANS.set(INVALID_IMPORT_CANDIDATE_SCANS.get() + 1);
+    }
+
     pub(crate) fn callee_context_preparations() -> usize {
         CALLEE_CONTEXT_PREPARATIONS.get()
+    }
+
+    pub(crate) fn invalid_import_candidate_scans() -> usize {
+        INVALID_IMPORT_CANDIDATE_SCANS.get()
     }
 
     pub(crate) fn snapshot() -> (usize, usize, usize, usize) {
