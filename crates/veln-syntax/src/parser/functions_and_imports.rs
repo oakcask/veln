@@ -381,18 +381,18 @@ impl<'a> Parser<'a> {
             _ => ContractKind::Invariant,
         };
         let (text, predicate_tokens, end) = self.collect_until_newline();
-        self.diagnostics.extend(
-            ContractPredicateParser::new(
-                self.source,
-                "contract_predicate",
-                "parse.contract_predicate",
-                &predicate_tokens,
-            )
-            .parse(),
-        );
+        let predicate_output = ContractPredicateParser::new(
+            self.source,
+            "contract_predicate",
+            "parse.contract_predicate",
+            &predicate_tokens,
+        )
+        .parse();
+        self.diagnostics.extend(predicate_output.diagnostics);
         ContractClause {
             kind,
             text,
+            perform_effect_spans: predicate_output.perform_effect_spans,
             span: self.source.span(start_token.range.cover(end)),
         }
     }

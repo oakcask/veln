@@ -9,7 +9,7 @@ format = "empty"
 [[lsp_assert]]
 id = 2
 path = "/result"
-length = 2
+length = 3
 
 [[lsp_assert]]
 id = 2
@@ -29,12 +29,22 @@ workspace_file_uri = "main.veln"
 [[lsp_assert]]
 id = 2
 path = "/result/1/range"
-equals = {"start":{"line":5,"character":17},"end":{"line":5,"character":23}}
+equals = {"start":{"line":5,"character":18},"end":{"line":5,"character":24}}
+
+[[lsp_assert]]
+id = 2
+path = "/result/2/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 2
+path = "/result/2/range"
+equals = {"start":{"line":6,"character":17},"end":{"line":6,"character":23}}
 
 [[lsp_assert]]
 id = 3
 path = "/result"
-length = 3
+length = 4
 
 [[lsp_assert]]
 id = 3
@@ -64,4 +74,14 @@ workspace_file_uri = "main.veln"
 [[lsp_assert]]
 id = 3
 path = "/result/2/range"
-equals = {"start":{"line":5,"character":17},"end":{"line":5,"character":23}}
+equals = {"start":{"line":5,"character":18},"end":{"line":5,"character":24}}
+
+[[lsp_assert]]
+id = 3
+path = "/result/3/uri"
+workspace_file_uri = "main.veln"
+
+[[lsp_assert]]
+id = 3
+path = "/result/3/range"
+equals = {"start":{"line":6,"character":17},"end":{"line":6,"character":23}}

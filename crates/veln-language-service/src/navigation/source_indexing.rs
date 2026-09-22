@@ -144,6 +144,9 @@ fn collect_function_effect_reference_regions(
     if !function.effects_recovered {
         extend_optional_spans(&function.effect_spans, regions);
     }
+    for contract in &function.contracts {
+        extend_spans(&contract.perform_effect_spans, regions);
+    }
     for line in &function.body {
         collect_body_line_effect_reference_regions(line, regions);
     }
@@ -233,6 +236,12 @@ fn collect_schema_declaration_reference_regions(
                 .map_or(field.span.end.offset, |clause| clause.span.start.offset);
             regions.push((start, end));
         }
+        if let Some(clause) = &field.where_clause {
+            extend_spans(&clause.perform_effect_spans, regions);
+        }
+    }
+    for validation in &schema.validations {
+        extend_spans(&validation.perform_effect_spans, regions);
     }
 }
 
@@ -310,12 +319,16 @@ fn offset_after_token(tokens: &[Token], span: &SourceSpan, kind: TokenKind) -> O
 
 fn extend_optional_spans(spans: &Option<Vec<SourceSpan>>, regions: &mut Vec<(usize, usize)>) {
     if let Some(spans) = spans {
-        regions.extend(
-            spans
-                .iter()
-                .map(|span| (span.start.offset, span.end.offset)),
-        );
+        extend_spans(spans, regions);
     }
+}
+
+fn extend_spans(spans: &[SourceSpan], regions: &mut Vec<(usize, usize)>) {
+    regions.extend(
+        spans
+            .iter()
+            .map(|span| (span.start.offset, span.end.offset)),
+    );
 }
 
 fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>) {
@@ -398,8 +411,12 @@ fn collect_perform_effect_regions(expr: &Expr, regions: &mut Vec<(usize, usize)>
             collect_perform_effect_regions(left, regions);
             collect_perform_effect_regions(right, regions);
         }
+        ExprKind::Hole { satisfy, .. } => {
+            if let Some(clause) = satisfy {
+                extend_spans(&clause.perform_effect_spans, regions);
+            }
+        }
         ExprKind::Missing
-        | ExprKind::Hole { .. }
         | ExprKind::NamePath { .. }
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)

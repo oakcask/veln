@@ -499,6 +499,10 @@ rows on functions, tests, handlers, and function types, handler `handles`
 targets, and `perform Effect::operation(...)` qualifiers from every saved
 source that declares the selected effect's module. The operation leaf keeps
 its separate unsupported reference identity.
+The qualifier forms include structurally complete occurrences in function
+contracts, hole `satisfy` predicates, schema field `where` predicates, and
+schema validation predicates. Recovery of another predicate token does not
+remove a structurally complete qualifier.
 Effect lookup requires one valid-cased, unrecovered workspace declaration for
 the module and name. Valid occurrences in a saved source remain available when
 an unrelated construct in that source has a parse error. Imported and package

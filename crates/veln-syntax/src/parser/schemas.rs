@@ -196,7 +196,7 @@ impl<'a> Parser<'a> {
     ) -> SchemaFieldWhereClause {
         let start = where_token.range;
         let (parts, predicate_tokens, _, end) = self.collect_line_parts_and_tokens();
-        if predicate_tokens.is_empty() {
+        let perform_effect_spans = if predicate_tokens.is_empty() {
             self.error_current(
                 "parse.schema_field_where",
                 "expected schema field where predicate",
@@ -205,22 +205,26 @@ impl<'a> Parser<'a> {
                 RecoveryStrategy::InsertToken,
                 Some("newline"),
             );
+            Vec::new()
         } else {
             let predicate_text = normalize_collected_text(parts.clone());
             if !is_byte_view_multiple_predicate_text(&predicate_text) {
-                self.diagnostics.extend(
-                    ContractPredicateParser::new(
-                        self.source,
-                        "schema_field_where",
-                        "parse.schema_field_where",
-                        &predicate_tokens,
-                    )
-                    .parse(),
-                );
+                let predicate_output = ContractPredicateParser::new(
+                    self.source,
+                    "schema_field_where",
+                    "parse.schema_field_where",
+                    &predicate_tokens,
+                )
+                .parse();
+                self.diagnostics.extend(predicate_output.diagnostics);
+                predicate_output.perform_effect_spans
+            } else {
+                Vec::new()
             }
-        }
+        };
         SchemaFieldWhereClause {
             predicate: normalize_collected_text(parts),
+            perform_effect_spans,
             span: self.source.span(start.cover(end)),
         }
     }
@@ -243,6 +247,7 @@ impl<'a> Parser<'a> {
             );
         }
         let (parts, predicate_tokens, _, end) = self.collect_line_parts_and_tokens();
+        let mut perform_effect_spans = Vec::new();
         if predicate_tokens.is_empty() {
             self.error_current(
                 "parse.schema_validation",
@@ -253,19 +258,24 @@ impl<'a> Parser<'a> {
                 Some("newline"),
             );
         } else {
-            self.diagnostics.extend(
-                ContractPredicateParser::new(
-                    self.source,
-                    "schema_validation",
-                    "parse.schema_validation",
-                    &predicate_tokens,
-                )
-                .parse(),
-            );
+            let predicate_output = ContractPredicateParser::new(
+                self.source,
+                "schema_validation",
+                "parse.schema_validation",
+                &predicate_tokens,
+            )
+            .parse();
+            self.diagnostics.extend(predicate_output.diagnostics);
+            perform_effect_spans = predicate_output.perform_effect_spans;
         }
         let end = self.expect_newline("schema_validation").range.cover(end);
         SchemaValidationClause {
             predicate: normalize_collected_text(parts),
+            perform_effect_spans: if has_format {
+                perform_effect_spans
+            } else {
+                Vec::new()
+            },
             span: self.source.span(start.cover(end)),
         }
     }

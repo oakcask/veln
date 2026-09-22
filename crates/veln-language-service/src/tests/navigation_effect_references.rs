@@ -481,6 +481,101 @@ mod navigation_effect_references_tests {
     }
 
     #[test]
+    fn workspace_effect_references_include_parse_clean_predicate_qualifiers() {
+        let text = concat!(
+            "effect Choose\n",
+            "  pick(value: Int) -> Int\n",
+            "end\n\n",
+            "fn guarded(value: Int) -> Int\n",
+            "  require perform Choose::pick(value) > 0\n",
+            "  let constrained = _candidate satisfy candidate => perform Choose::pick(candidate) > 0\n",
+            "  constrained\n",
+            "end\n\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8 where perform Choose::pick(value) > 0\n",
+            "  validate perform Choose::pick(value) > 0\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+        let expected = [
+            ("main.veln", 6, 19),
+            ("main.veln", 7, 61),
+            ("main.veln", 13, 30),
+            ("main.veln", 14, 20),
+        ];
+
+        for (line, column) in [(1, 8), (6, 19), (7, 61), (13, 30), (14, 20)] {
+            let result = query(sources.clone(), "main.veln", line, column).unwrap();
+            assert_eq!(result.selected_symbol.kind, SymbolKind::Effect);
+            assert_eq!(locations(&result.references), expected);
+        }
+
+        let operation = query(sources, "main.veln", 6, 27).unwrap();
+        assert_eq!(operation.selected_symbol.kind, SymbolKind::EffectOperation);
+        assert!(operation.references.is_empty());
+    }
+
+    #[test]
+    fn workspace_effect_references_exclude_recovered_predicate_qualifiers() {
+        for (predicate_source, line, column) in [
+            (
+                "fn guarded() -> Int\n  require perform Choose::pick(\n  1\nend\n",
+                6,
+                19,
+            ),
+            (
+                "fn guarded() -> Int\n  _value satisfy candidate => perform Choose::pick(\nend\n",
+                6,
+                39,
+            ),
+            (
+                "schema Packet\n  format binary\n  value: UInt8 where perform Choose::pick(\nend\n",
+                7,
+                30,
+            ),
+            (
+                "schema Packet\n  format binary\n  validate perform Choose::pick(\nend\n",
+                7,
+                20,
+            ),
+        ] {
+            let text = format!(
+                "effect Choose\n  pick() -> Int\nend\n\n{predicate_source}"
+            );
+            let sources = vec![source("main.veln", &text)];
+            let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+
+            assert!(declaration.references.is_empty());
+            assert!(query(sources, "main.veln", line, column).is_none());
+        }
+    }
+
+    #[test]
+    fn workspace_effect_references_keep_complete_predicate_qualifiers_beside_recovery() {
+        let text = concat!(
+            "effect Choose\n",
+            "  pick(value: Int) -> Int\n",
+            "end\n\n",
+            "fn guarded() -> Int\n",
+            "  require perform Choose::pick(1 2) + perform Choose::pick(\n",
+            "  1\n",
+            "end\n",
+        );
+        let sources = vec![source("main.veln", text)];
+
+        let declaration = query(sources.clone(), "main.veln", 1, 8).unwrap();
+        assert_eq!(
+            locations(&declaration.references),
+            [("main.veln", 6, 19)]
+        );
+        let complete = query(sources.clone(), "main.veln", 6, 19).unwrap();
+        assert_eq!(complete.selected_symbol.kind, SymbolKind::Effect);
+        assert_eq!(locations(&complete.references), [("main.veln", 6, 19)]);
+        assert!(query(sources, "main.veln", 6, 48).is_none());
+    }
+
+    #[test]
     fn workspace_effect_reference_collection_handles_many_declarations_and_occurrences() {
         let mut declarations =
             String::from("mod shared\n\neffect Choose\n  pick() -> Int\nend\n\n");

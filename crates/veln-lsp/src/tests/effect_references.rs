@@ -63,6 +63,53 @@ fn workspace_effect_references_preserve_utf16_crlf_and_declaration_policy() {
 }
 
 #[test]
+fn workspace_effect_references_include_predicate_perform_qualifiers() {
+    let project = TempProject::new("workspace-effect-reference-predicates");
+    project.write("veln.toml", "");
+    project.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick(value: Int) -> Int\n",
+            "end\n\n",
+            "fn guarded(value: Int) -> Int\n",
+            "  require perform Choose::pick(value) > 0\n",
+            "  let constrained = _candidate satisfy candidate => perform Choose::pick(candidate) > 0\n",
+            "  constrained\n",
+            "end\n\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8 where perform Choose::pick(value) > 0\n",
+            "  validate perform Choose::pick(value) > 0\n",
+            "end\n",
+        ),
+    );
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    let mut server = Server::default();
+    server.handle_message(&initialize_request(&root_uri));
+
+    let result = server.handle_message(&references_request_with_declaration(
+        &main_uri, 5, 18, false,
+    ));
+    assert_eq!(
+        result,
+        [response(
+            "2",
+            &format!(
+                concat!(
+                    "[{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":5,\"character\":18}},\"end\":{{\"line\":5,\"character\":24}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":6,\"character\":60}},\"end\":{{\"line\":6,\"character\":66}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":12,\"character\":29}},\"end\":{{\"line\":12,\"character\":35}}}}}},",
+                    "{{\"uri\":\"{}\",\"range\":{{\"start\":{{\"line\":13,\"character\":19}},\"end\":{{\"line\":13,\"character\":25}}}}}}]"
+                ),
+                main_uri, main_uri, main_uri, main_uri,
+            ),
+        )]
+    );
+}
+
+#[test]
 fn workspace_effect_references_cover_same_module_sources_and_exclude_collisions() {
     let project = TempProject::new("workspace-effect-reference-collisions");
     project.write("veln.toml", "");

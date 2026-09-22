@@ -65,6 +65,57 @@ fn references_page_workspace_effect_locations_with_unicode_scalar_coordinates() 
 }
 
 #[test]
+fn references_include_workspace_effect_predicate_perform_qualifiers() {
+    let workspace = TempWorkspace::new("references-workspace-effect-predicates");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "effect Choose\n",
+            "  pick(value: Int) -> Int\n",
+            "end\n\n",
+            "fn guarded(value: Int) -> Int\n",
+            "  require perform Choose::pick(value) > 0\n",
+            "  let constrained = _candidate satisfy candidate => perform Choose::pick(candidate) > 0\n",
+            "  constrained\n",
+            "end\n\n",
+            "schema Packet\n",
+            "  format binary\n",
+            "  value: UInt8 where perform Choose::pick(value) > 0\n",
+            "  validate perform Choose::pick(value) > 0\n",
+            "end\n",
+        ),
+    );
+    let mut server = initialized_server(&workspace);
+
+    let result = server.references_tool(&json!({
+        "source":"main.veln", "line":14, "column":20, "include_declaration":false
+    }));
+    let uri = crate::definition::path_to_uri(&workspace.path("main.veln"));
+    assert_eq!(
+        result["structuredContent"]["references"],
+        json!([
+            {
+                "uri": uri,
+                "range": {"start":{"line":6,"column":19},"end":{"line":6,"column":25}}
+            },
+            {
+                "uri": uri,
+                "range": {"start":{"line":7,"column":61},"end":{"line":7,"column":67}}
+            },
+            {
+                "uri": uri,
+                "range": {"start":{"line":13,"column":30},"end":{"line":13,"column":36}}
+            },
+            {
+                "uri": uri,
+                "range": {"start":{"line":14,"column":20},"end":{"line":14,"column":26}}
+            }
+        ])
+    );
+}
+
+#[test]
 fn workspace_effect_reference_failures_preserve_live_state() {
     let workspace = TempWorkspace::new("references-workspace-effect-failure-state");
     workspace.write("veln.toml", "");

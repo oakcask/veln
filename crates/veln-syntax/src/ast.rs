@@ -175,12 +175,14 @@ pub struct SchemaField {
 #[derive(Clone, Debug)]
 pub struct SchemaFieldWhereClause {
     pub predicate: String,
+    pub perform_effect_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]
 pub struct SchemaValidationClause {
     pub predicate: String,
+    pub perform_effect_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 
@@ -244,6 +246,7 @@ pub struct ResultBinding {
 pub struct ContractClause {
     pub kind: ContractKind,
     pub text: String,
+    pub perform_effect_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 
@@ -367,6 +370,7 @@ pub struct SatisfyClause {
     pub candidate: Option<String>,
     pub candidate_span: Option<SourceSpan>,
     pub predicate: String,
+    pub perform_effect_spans: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 

@@ -212,6 +212,10 @@ Effect::operation(...)` qualifier in saved workspace sources that declare the
 same module. The declaration and each supported occurrence select the same
 effect identity. The operation leaf remains a separate effect-operation
 identity and has no effect reference set.
+Structurally complete qualifiers in function contracts, hole `satisfy`
+predicates, schema field `where` predicates, and schema validation predicates
+use the same identity and reference set. Recovery of another predicate token
+does not remove a structurally complete qualifier.
 An unrelated parse error in the same saved source does not remove structurally
 complete effect occurrences from that shared set.
 

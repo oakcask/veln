@@ -383,6 +383,12 @@ struct ContractPredicateParser<'a> {
     tokens: &'a [Token],
     cursor: usize,
     diagnostics: Vec<ParseDiagnostic>,
+    perform_effect_spans: Vec<SourceSpan>,
+}
+
+struct ContractPredicateOutput {
+    diagnostics: Vec<ParseDiagnostic>,
+    perform_effect_spans: Vec<SourceSpan>,
 }
 
 trait TokenCursor {
