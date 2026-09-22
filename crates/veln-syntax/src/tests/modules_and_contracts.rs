@@ -187,6 +187,28 @@ fn rejects_non_predicate_contract_syntax() {
 }
 
 #[test]
+fn records_only_structurally_complete_perform_qualifiers_in_contracts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn guarded() -> Int\n",
+            "require perform Choose::pick(1 2) + perform Choose::pick(\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let function = first_function(&output);
+    assert_eq!(function.contracts[0].perform_effect_spans.len(), 1);
+    assert_eq!(function.contracts[0].perform_effect_spans[0].start.line, 2);
+    assert_eq!(
+        function.contracts[0].perform_effect_spans[0].start.column,
+        17
+    );
+}
+
+#[test]
 fn formats_unit_type_with_empty_tuple_spelling() {
     let source = SourceFile::new(
         "main.veln",

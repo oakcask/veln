@@ -351,7 +351,8 @@ fn navigate_in_index(
     let request = index.symbol_at_position(position.source.as_str(), position)?;
     let definition = request.symbol.definition();
     let selected_symbol = request.symbol.selected_symbol(definition.clone());
-    let mut references = if request.references_supported {
+    let reference_eligible = request.symbol.reference_eligible(&request.index);
+    let mut references = if request.references_supported && reference_eligible {
         request.symbol.references(&request.index)
     } else {
         Vec::new()
@@ -363,7 +364,7 @@ fn navigate_in_index(
         classified_path_segment: request.classified_path_segment,
         definition,
         references,
-        reference_eligible: request.symbol.reference_eligible(&request.index),
+        reference_eligible,
         is_recovery: request.symbol.is_recovery(),
     })
 }
@@ -383,6 +384,7 @@ pub fn definition_at(
 impl Symbol {
     fn reference_eligible(&self, index: &SymbolIndex) -> bool {
         match self {
+            Self::Effect(symbol) => index.effect_references_supported(symbol),
             Self::SchemaAlias(symbol) if symbol.package.is_none() => {
                 index.workspace_schema_alias_is_eligible(
                     &symbol.module,
@@ -462,7 +464,8 @@ impl Symbol {
         match self {
             Self::Schema(symbol) => index.schema_references(symbol),
             Self::SchemaAlias(symbol) => index.schema_alias_references(symbol),
-            Self::Effect(_) | Self::Handler(_) | Self::EffectOperation(_) => Vec::new(),
+            Self::Effect(symbol) => index.effect_references(symbol),
+            Self::Handler(_) | Self::EffectOperation(_) => Vec::new(),
             Self::Type(symbol) => index.type_references(symbol),
             Self::TypeAlias(symbol) => index.type_alias_references(symbol),
             Self::Function(symbol) => index.function_references(symbol),
@@ -800,8 +803,10 @@ struct IndexedFile {
     schema_alias_external_imports: Vec<ExternalImport>,
     invalid_declaration_names: Vec<SourceSpan>,
     recovery_symbols: Vec<RecoverySymbol>,
+    recovered_effect_declarations: Vec<SourceSpan>,
     schema_operation_leaf_ranges: BTreeSet<(usize, usize)>,
     schema_composition_leaf_spans: Vec<SourceSpan>,
+    effect_reference_ranges: BTreeSet<(usize, usize)>,
     classified_path_segments: Vec<QualifiedPathSegment>,
     type_reference_locations: OnceLock<TypeReferenceLocations>,
     navigation_isolated: bool,

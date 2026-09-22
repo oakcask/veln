@@ -38,8 +38,12 @@ impl<'a> Parser<'a> {
     pub(super) fn parse_function_like(&mut self, kind: FunctionKind) -> FunctionDecl {
         let start = self.current().range;
         let header = self.parse_function_header(kind);
-        let return_decl = self.parse_function_return_and_effects(kind);
+        let mut return_decl = self.parse_function_return_and_effects(kind);
+        let diagnostic_count = self.diagnostics.len();
         self.expect_newline(Self::function_context(kind));
+        if return_decl.effects.is_some() && self.diagnostics.len() > diagnostic_count {
+            return_decl.effects_recovered = true;
+        }
 
         let contracts = self.parse_contracts();
         let (body, end_present) = self.parse_function_body();
@@ -62,6 +66,7 @@ impl<'a> Parser<'a> {
             return_type_paths: return_decl.ty_paths,
             effects: return_decl.effects,
             effect_spans: return_decl.effect_spans,
+            effects_recovered: return_decl.effects_recovered,
             contracts,
             body,
             span: self.source.span(start.cover(end)),
@@ -180,12 +185,17 @@ impl<'a> Parser<'a> {
         } else {
             (None, None, None, Vec::new())
         };
-        let (effects, effect_spans) = if self.eat(TokenKind::Effects).is_some() {
+        let (effects, effect_spans, effects_recovered) = if self.eat(TokenKind::Effects).is_some() {
+            let diagnostic_count = self.diagnostics.len();
             let labels = self.parse_effect_list();
             let (effects, spans): (Vec<_>, Vec<_>) = labels.into_iter().unzip();
-            (Some(effects), Some(spans))
+            (
+                Some(effects),
+                Some(spans),
+                self.diagnostics.len() > diagnostic_count,
+            )
         } else {
-            (None, None)
+            (None, None, false)
         };
         FunctionReturn {
             binding,
@@ -194,6 +204,7 @@ impl<'a> Parser<'a> {
             ty_paths,
             effects,
             effect_spans,
+            effects_recovered,
         }
     }
 
@@ -370,18 +381,18 @@ impl<'a> Parser<'a> {
             _ => ContractKind::Invariant,
         };
         let (text, predicate_tokens, end) = self.collect_until_newline();
-        self.diagnostics.extend(
-            ContractPredicateParser::new(
-                self.source,
-                "contract_predicate",
-                "parse.contract_predicate",
-                &predicate_tokens,
-            )
-            .parse(),
-        );
+        let predicate_output = ContractPredicateParser::new(
+            self.source,
+            "contract_predicate",
+            "parse.contract_predicate",
+            &predicate_tokens,
+        )
+        .parse();
+        self.diagnostics.extend(predicate_output.diagnostics);
         ContractClause {
             kind,
             text,
+            perform_effect_spans: predicate_output.perform_effect_spans,
             span: self.source.span(start_token.range.cover(end)),
         }
     }

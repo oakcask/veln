@@ -204,6 +204,32 @@ rename-supported symbol classes.
 Navigation requests convert zero-based UTF-16 LSP characters to the shared
 one-based Unicode-scalar positions. Navigation responses convert shared ranges
 back to zero-based UTF-16 LSP ranges using the retained source snapshot.
+For a selected valid-cased, unrecovered workspace effect declaration,
+references include every structurally complete bare effect-row occurrence on
+functions, tests, handlers, and function types, every handler `handles` target,
+and every `perform
+Effect::operation(...)` qualifier in saved workspace sources that declare the
+same module. The declaration and each supported occurrence select the same
+effect identity. The operation leaf remains a separate effect-operation
+identity and has no effect reference set.
+Structurally complete qualifiers in function contracts, hole `satisfy`
+predicates, schema field `where` predicates, and schema validation predicates
+use the same identity and reference set. Recovery of another predicate token
+does not remove a structurally complete qualifier. A `perform` qualifier also
+remains in the set when its operation path and closing `)` are present but its
+argument list needs recovery. A missing operation path, opening `(`, or closing
+`)` excludes that qualifier.
+An unrelated parse error in the same saved source does not remove structurally
+complete effect occurrences from that shared set.
+
+Effect reference lookup requires one valid-cased workspace effect declaration
+for that name and module. It excludes qualified imported or package effects,
+generic effect-row parameters, duplicate declarations, invalid-cased or
+unresolved names, recovered effect rows, recovered handler targets, incomplete
+`perform` qualifiers, and equal spelling in another module or symbol class.
+Comments and strings do not contribute references.
+Effects, handlers, and effect operations remain unsupported for rename.
+
 For a selected workspace schema declaration, `textDocument/references` returns
 the declaration when requested plus `decode`, `encode`, and directly resolved
 schema-composition path leaves that resolve to that schema in workspace
@@ -528,3 +554,5 @@ The authoritative implementations are `crates/veln-editor`, `crates/veln-lsp`,
 and `crates/veln-language-service`. Their unit and protocol checks verify
 the token legend, LSP encoding, workspace diagnostics, navigation, formatting,
 rename, and virtual-document boundaries.
+The checked `examples/specification/lsp/references-workspace-effect/` transcript
+demonstrates declaration policy and UTF-16 conversion for effect references.

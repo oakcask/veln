@@ -529,12 +529,26 @@ impl SymbolIndex {
     }
 
     fn effect_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {
-        self.effects
+        let mut candidates = self
+            .effects
             .iter()
-            .find(|symbol| {
+            .filter(|symbol| {
                 symbol.name == name && symbol.module == file.module && symbol.package.is_none()
-            })
-            .cloned()
+            });
+        let candidate = candidates.next()?.clone();
+        (candidates.next().is_none() && self.effect_declaration_is_unrecovered(&candidate))
+            .then_some(candidate)
+    }
+
+    fn effect_declaration_is_unrecovered(&self, symbol: &NeutralSymbol) -> bool {
+        self.files.iter().any(|file| {
+            workspace_navigation_file(file)
+                && file.source.path() == &symbol.declaration.span.file
+                && !file.recovered_effect_declarations.iter().any(|span| {
+                    span.start.offset <= symbol.declaration.span.start.offset
+                        && symbol.declaration.span.end.offset <= span.end.offset
+                })
+        })
     }
 
     fn handler_for_reference(&self, file: &IndexedFile, name: &str) -> Option<NeutralSymbol> {

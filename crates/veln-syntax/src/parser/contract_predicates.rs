@@ -14,10 +14,11 @@ impl<'a> ContractPredicateParser<'a> {
             tokens,
             cursor: 0,
             diagnostics: Vec::new(),
+            perform_effect_spans: Vec::new(),
         }
     }
 
-    pub(super) fn parse(mut self) -> Vec<ParseDiagnostic> {
+    pub(super) fn parse(mut self) -> ContractPredicateOutput {
         if self.tokens.is_empty() {
             self.error_current(
                 "contract predicate is empty",
@@ -25,7 +26,10 @@ impl<'a> ContractPredicateParser<'a> {
                 RecoveryStrategy::InsertToken,
                 None,
             );
-            return self.diagnostics;
+            return ContractPredicateOutput {
+                diagnostics: self.diagnostics,
+                perform_effect_spans: self.perform_effect_spans,
+            };
         }
 
         self.parse_predicate(0);
@@ -46,7 +50,10 @@ impl<'a> ContractPredicateParser<'a> {
                 );
             }
         }
-        self.diagnostics
+        ContractPredicateOutput {
+            diagnostics: self.diagnostics,
+            perform_effect_spans: self.perform_effect_spans,
+        }
     }
 
     pub(super) fn parse_predicate(&mut self, min_bp: u8) {
@@ -251,11 +258,43 @@ impl<'a> ContractPredicateParser<'a> {
     }
 
     pub(super) fn parse_perform_contract_primary(&mut self) {
+        if let Some(span) = self.complete_perform_effect_span() {
+            self.perform_effect_spans.push(span);
+        }
         self.bump();
         self.parse_name_path_or_literal();
         if self.at(TokenKind::LParen) {
             self.parse_call_args();
         }
+    }
+
+    fn complete_perform_effect_span(&self) -> Option<SourceSpan> {
+        let effect = self.tokens.get(self.cursor + 1)?;
+        let separator = self.tokens.get(self.cursor + 2)?;
+        let operation = self.tokens.get(self.cursor + 3)?;
+        let open = self.tokens.get(self.cursor + 4)?;
+        if effect.kind != TokenKind::Ident
+            || separator.kind != TokenKind::DoubleColon
+            || operation.kind != TokenKind::Ident
+            || open.kind != TokenKind::LParen
+        {
+            return None;
+        }
+
+        let mut depth = 0usize;
+        for token in &self.tokens[self.cursor + 4..] {
+            match token.kind {
+                TokenKind::LParen => depth += 1,
+                TokenKind::RParen => {
+                    depth = depth.checked_sub(1)?;
+                    if depth == 0 {
+                        return Some(self.source.span(effect.range));
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     pub(super) fn current_binary_op(&self) -> Option<(BinaryOp, u8, u8)> {

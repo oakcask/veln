@@ -335,6 +335,7 @@ impl<'a> ExprParser<'a> {
         if !self.at_ident_text("satisfy") {
             return None;
         }
+        let mut clause_recovered = false;
         let start = self.bump().range;
         let (candidate, candidate_span) =
             if matches!(self.current().kind, TokenKind::Ident | TokenKind::Hole) {
@@ -342,6 +343,7 @@ impl<'a> ExprParser<'a> {
                 let span = self.source.span(token.range);
                 (Some(token.text), Some(span))
             } else {
+                clause_recovered = true;
                 self.error_current(
                     "parse.satisfy_candidate",
                     "satisfy clause is missing a candidate binding",
@@ -354,6 +356,7 @@ impl<'a> ExprParser<'a> {
         let mut end = if let Some(token) = self.eat(TokenKind::FatArrow) {
             token.range
         } else {
+            clause_recovered = true;
             self.error_current(
                 "parse.satisfy_arrow",
                 "satisfy clause is missing `=>`",
@@ -365,9 +368,34 @@ impl<'a> ExprParser<'a> {
                 TextRange::new(span.start.offset, span.end.offset)
             })
         };
+        let (parts, predicate_tokens, predicate_end) = self.collect_satisfy_predicate();
+        end = predicate_end.unwrap_or(end);
+        let predicate_output = ContractPredicateParser::new(
+            self.source,
+            "satisfy_predicate",
+            "parse.satisfy_predicate",
+            &predicate_tokens,
+        )
+        .parse();
+        self.diagnostics.extend(predicate_output.diagnostics);
+        Some(SatisfyClause {
+            candidate,
+            candidate_span,
+            predicate: normalize_collected_text(parts),
+            perform_effect_spans: if clause_recovered {
+                Vec::new()
+            } else {
+                predicate_output.perform_effect_spans
+            },
+            span: self.source.span(start.cover(end)),
+        })
+    }
+
+    fn collect_satisfy_predicate(&mut self) -> (Vec<String>, Vec<Token>, Option<TextRange>) {
         let mut parts = Vec::new();
         let mut predicate_tokens = Vec::new();
         let mut depth = 0usize;
+        let mut end = None;
         while let Some(token) = self.tokens.get(self.cursor) {
             if depth == 0
                 && matches!(
@@ -389,25 +417,11 @@ impl<'a> ExprParser<'a> {
                 _ => {}
             }
             let token = self.bump();
-            end = token.range;
+            end = Some(token.range);
             parts.push(token.text.clone());
             predicate_tokens.push(token);
         }
-        self.diagnostics.extend(
-            ContractPredicateParser::new(
-                self.source,
-                "satisfy_predicate",
-                "parse.satisfy_predicate",
-                &predicate_tokens,
-            )
-            .parse(),
-        );
-        Some(SatisfyClause {
-            candidate,
-            candidate_span,
-            predicate: normalize_collected_text(parts),
-            span: self.source.span(start.cover(end)),
-        })
+        (parts, predicate_tokens, end)
     }
 
     pub(super) fn parse_name_path(&mut self) -> Expr {

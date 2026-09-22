@@ -16,10 +16,6 @@ also states it.
 
 ## Ready
 
-- Add same-module workspace effect references to the shared navigation result
-  and both saved-navigation adapters:
-  [workspace-effect-references.md](workspace-effect-references.md).
-
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the

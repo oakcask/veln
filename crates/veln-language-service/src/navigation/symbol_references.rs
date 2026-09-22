@@ -1,4 +1,51 @@
 impl SymbolIndex {
+    fn effect_references(&self, symbol: &NeutralSymbol) -> Vec<SourceSpan> {
+        self.files
+            .iter()
+            .filter(|file| {
+                workspace_navigation_file(file)
+                    && file.module == symbol.module
+            })
+            .flat_map(|file| {
+                let ranges = file
+                    .tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, token)| {
+                        token.kind == TokenKind::Ident
+                            && token.text == symbol.name
+                            && is_effect_reference_token(file, *index)
+                    })
+                    .map(|(_, token)| token.range)
+                    .collect::<Vec<_>>();
+                source_spans_for_sorted_ranges(&file.source, &ranges)
+            })
+            .collect()
+    }
+
+    fn effect_references_supported(&self, symbol: &NeutralSymbol) -> bool {
+        if symbol.package.is_some()
+            || !symbol
+                .name
+                .chars()
+                .next()
+                .is_some_and(|initial| initial.is_ascii_uppercase())
+        {
+            return false;
+        }
+        let mut declarations = self.effects.iter().filter(|candidate| {
+            candidate.package.is_none()
+                && candidate.module == symbol.module
+                && candidate.name == symbol.name
+        });
+        let Some(candidate) = declarations.next() else {
+            return false;
+        };
+        candidate.declaration == symbol.declaration
+            && declarations.next().is_none()
+            && self.effect_declaration_is_unrecovered(symbol)
+    }
+
     fn workspace_type_alias_references(&self, symbol: &TypeAliasSymbol) -> Vec<SourceSpan> {
         self.files
             .iter()
@@ -826,6 +873,61 @@ impl SymbolIndex {
             ),
         }
         qualifiers
+    }
+}
+
+fn source_spans_for_sorted_ranges(source: &SourceFile, ranges: &[TextRange]) -> Vec<SourceSpan> {
+    let mut cursor = 0usize;
+    let mut line = 1usize;
+    let mut column = 1usize;
+    ranges
+        .iter()
+        .map(|range| {
+            let start = advance_source_position(
+                source.text(),
+                &mut cursor,
+                &mut line,
+                &mut column,
+                range.start,
+            );
+            let end = advance_source_position(
+                source.text(),
+                &mut cursor,
+                &mut line,
+                &mut column,
+                range.end,
+            );
+            SourceSpan {
+                file: source.path().clone(),
+                start,
+                end,
+            }
+        })
+        .collect()
+}
+
+fn advance_source_position(
+    text: &str,
+    cursor: &mut usize,
+    line: &mut usize,
+    column: &mut usize,
+    target: usize,
+) -> LineCol {
+    for ch in text[*cursor..target].chars() {
+        #[cfg(test)]
+        record_effect_reference_source_scalar_visit();
+        *cursor += ch.len_utf8();
+        if ch == '\n' {
+            *line += 1;
+            *column = 1;
+        } else {
+            *column += 1;
+        }
+    }
+    LineCol {
+        line: *line,
+        column: *column,
+        offset: target,
     }
 }
 

@@ -1,5 +1,6 @@
 include!("tests/support.rs");
 include!("tests/workspace.rs");
+include!("tests/effect_references.rs");
 include!("tests/rename.rs");
 include!("tests/rename_recovery.rs");
 include!("tests/handler_bindings.rs");

@@ -117,6 +117,79 @@ fn write_workspace_schema_capture_project(workspace: &TempWorkspace) {
     );
 }
 
+#[test]
+fn workspace_effect_reference_capture_failure_preserves_state_and_later_results() {
+    let workspace = TempWorkspace::new("references-workspace-effect-capture-retry");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        "effect Choose\n  pick() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::pick()\nend\n",
+    );
+    let mut server = initialized_server(&workspace);
+    let before = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8
+    }));
+    assert_eq!(
+        before["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let live_cursor = live_reference_cursor(&mut server, "main.veln", 1, 8);
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
+    let attempts = Rc::new(Cell::new(0));
+    let hook = install_changing_workspace_effect_hook(&workspace, &attempts);
+
+    let failed = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8
+    }));
+    assert_snapshot_changed_without_references_or_scope(&failed);
+    assert_eq!(attempts.get(), 3);
+    assert_eq!(all_resource_state(&mut server), before_resources);
+    assert_eq!(server.selection_result(), before_selection);
+    assert_live_reference_cursor(&mut server, &live_cursor);
+
+    drop(hook);
+    let after = server.references_tool(&json!({
+        "source":"main.veln", "line":1, "column":8
+    }));
+    assert_eq!(
+        after["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+fn install_changing_workspace_effect_hook(
+    workspace: &TempWorkspace,
+    attempts: &Rc<Cell<usize>>,
+) -> impl Drop {
+    let attempts_for_hook = attempts.clone();
+    let root = workspace.root.clone();
+    crate::check_project::set_after_first_stable_capture_hook(move || {
+        let attempt = attempts_for_hook.get();
+        attempts_for_hook.set(attempt + 1);
+        let main = root.join("main.veln");
+        fs::remove_file(&main).unwrap();
+        let operation = if attempt.is_multiple_of(2) {
+            "pick"
+        } else {
+            "choose"
+        };
+        fs::write(
+            &main,
+            format!(
+                "effect Choose\n  {operation}() -> Int\nend\n\nfn choose() -> Int effects [Choose]\n  perform Choose::{operation}()\nend\n"
+            ),
+        )
+        .unwrap();
+    })
+}
+
 fn live_reference_cursor(server: &mut Server, source: &str, line: u64, column: u64) -> String {
     server.references_tool(&json!({
         "source":source, "line":line, "column":column, "page_size":1

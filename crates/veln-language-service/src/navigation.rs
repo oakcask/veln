@@ -6,7 +6,7 @@ use std::sync::{Arc, OnceLock};
 use crate::{DirectDependencySnapshot, EffectiveProjectSnapshot};
 use veln_ast::{InvalidName, NameClass, QualifiedPathSegment};
 use veln_project::classify_companion_source;
-use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
+use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{
     BodyLine, Expr, ExprKind, FunctionDecl, ParseOutput, PublicAliasKind, SyntaxItem, SyntaxTree,
     Token, TokenKind, TypeVariantDecl, Visibility, lex, parse,
@@ -67,6 +67,50 @@ thread_local! {
     static SCHEMA_OPERATION_QUALIFIED_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
     static SCHEMA_OPERATION_QUALIFIED_TARGET_LOOKUPS: Cell<usize> = const { Cell::new(0) };
     static TYPE_NAMESPACE_CANDIDATE_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_LIST_CLASSIFICATION_FRAME_VISITS: Cell<usize> = const { Cell::new(0) };
+    static EFFECT_REFERENCE_SOURCE_SCALAR_VISITS: Cell<usize> = const { Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_effect_list_classification_token_visit() {
+    EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS.set(EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+fn record_effect_list_classification_frame_visit() {
+    EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.set(EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_effect_list_classification_token_visits() {
+    EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS.set(0);
+    EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn effect_list_classification_token_visits() -> usize {
+    EFFECT_LIST_CLASSIFICATION_TOKEN_VISITS.get()
+}
+
+#[cfg(test)]
+pub(crate) fn effect_list_classification_frame_visits() -> usize {
+    EFFECT_LIST_CLASSIFICATION_FRAME_VISITS.get()
+}
+
+#[cfg(test)]
+fn record_effect_reference_source_scalar_visit() {
+    EFFECT_REFERENCE_SOURCE_SCALAR_VISITS.set(EFFECT_REFERENCE_SOURCE_SCALAR_VISITS.get() + 1);
+}
+
+#[cfg(test)]
+pub(crate) fn reset_effect_reference_source_scalar_visits() {
+    EFFECT_REFERENCE_SOURCE_SCALAR_VISITS.set(0);
+}
+
+#[cfg(test)]
+pub(crate) fn effect_reference_source_scalar_visits() -> usize {
+    EFFECT_REFERENCE_SOURCE_SCALAR_VISITS.get()
 }
 
 #[cfg(test)]

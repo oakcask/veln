@@ -192,6 +192,7 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
     matches!(
         result.selected_symbol.kind,
         SymbolKind::Schema
+            | SymbolKind::Effect
             | SymbolKind::Type
             | SymbolKind::Function
             | SymbolKind::Constructor
@@ -203,6 +204,7 @@ fn supports_workspace_references(result: &NavigationResult) -> bool {
         SymbolDeclarationKind::PublicAlias
     ) || (result.selected_symbol.kind == SymbolKind::Schema && result.reference_eligible)
         || (result.selected_symbol.kind != SymbolKind::Schema && !result.references.is_empty()))
+        && (result.selected_symbol.kind != SymbolKind::Effect || result.reference_eligible)
 }
 
 fn supports_package_references(result: &NavigationResult) -> bool {

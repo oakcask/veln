@@ -383,28 +383,144 @@ fn inside_schema_declaration(tokens: &[Token], index: usize) -> bool {
     false
 }
 
-fn is_effect_reference_token(tokens: &[Token], index: usize) -> bool {
-    is_effect_list_token(tokens, index) || is_handler_handled_effect_token(tokens, index)
+fn is_effect_reference_token(file: &IndexedFile, index: usize) -> bool {
+    let range = file.tokens[index].range;
+    file.effect_reference_ranges
+        .contains(&(range.start, range.end))
 }
 
-fn is_effect_list_token(tokens: &[Token], index: usize) -> bool {
-    tokens[index].kind == TokenKind::Ident
-        && line_tokens_before(tokens, index)
-            .iter()
-            .any(|token| token.kind == TokenKind::Effects)
-        && line_tokens_before(tokens, index)
-            .iter()
-            .any(|token| token.kind == TokenKind::LBracket)
-        && tokens[index + 1..]
-            .iter()
-            .take_while(|token| token.kind != TokenKind::Newline && token.kind != TokenKind::Eof)
-            .any(|token| token.kind == TokenKind::RBracket)
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EffectListDelimiter {
+    Paren,
+    Bracket,
+    Brace,
+}
+
+struct EffectListFrame {
+    delimiter: EffectListDelimiter,
+    effect_list: bool,
+    line: usize,
+    pending_members: Vec<usize>,
+}
+
+struct EffectListClassifier {
+    membership: Vec<bool>,
+    stack: Vec<EffectListFrame>,
+    open_effect_lists: usize,
+    previous_non_layout: Option<TokenKind>,
+    line: usize,
+}
+
+impl EffectListClassifier {
+    fn new(token_count: usize) -> Self {
+        Self {
+            membership: vec![false; token_count],
+            stack: Vec::new(),
+            open_effect_lists: 0,
+            previous_non_layout: None,
+            line: 0,
+        }
+    }
+
+    fn record_member(&mut self, index: usize, kind: TokenKind) {
+        if kind != TokenKind::Ident {
+            return;
+        }
+        let Some(frame) = self.stack.last_mut() else {
+            return;
+        };
+        #[cfg(test)]
+        record_effect_list_classification_frame_visit();
+        if frame.delimiter == EffectListDelimiter::Bracket
+            && frame.effect_list
+            && frame.line == self.line
+        {
+            frame.pending_members.push(index);
+        }
+    }
+
+    fn open(&mut self, delimiter: EffectListDelimiter) {
+        let effect_list = delimiter == EffectListDelimiter::Bracket
+            && self.previous_non_layout == Some(TokenKind::Effects);
+        self.open_effect_lists += usize::from(effect_list);
+        self.stack.push(EffectListFrame {
+            delimiter,
+            effect_list,
+            line: self.line,
+            pending_members: Vec::new(),
+        });
+    }
+
+    fn close(&mut self, delimiter: EffectListDelimiter) {
+        if !self.stack.last().is_some_and(|frame| {
+            #[cfg(test)]
+            record_effect_list_classification_frame_visit();
+            frame.delimiter == delimiter
+        }) {
+            self.stack.clear();
+            self.open_effect_lists = 0;
+            return;
+        }
+        let frame = self.stack.pop().unwrap();
+        self.open_effect_lists -= usize::from(frame.effect_list);
+        if frame.effect_list && frame.line == self.line {
+            for member in frame.pending_members {
+                self.membership[member] = true;
+            }
+        }
+    }
+
+    fn newline(&mut self) {
+        if self.open_effect_lists > 0 {
+            self.stack.clear();
+            self.open_effect_lists = 0;
+        }
+        self.line += 1;
+    }
+
+    fn visit(&mut self, index: usize, token: &Token) {
+        self.record_member(index, token.kind);
+        match token.kind {
+            TokenKind::LBracket => self.open(EffectListDelimiter::Bracket),
+            TokenKind::LParen => self.open(EffectListDelimiter::Paren),
+            TokenKind::LBrace => self.open(EffectListDelimiter::Brace),
+            TokenKind::RBracket => self.close(EffectListDelimiter::Bracket),
+            TokenKind::RParen => self.close(EffectListDelimiter::Paren),
+            TokenKind::RBrace => self.close(EffectListDelimiter::Brace),
+            TokenKind::Newline => self.newline(),
+            _ => {}
+        }
+        if !is_layout_token_kind(token.kind) {
+            self.previous_non_layout = Some(token.kind);
+        }
+    }
+}
+
+fn effect_list_membership(tokens: &[Token]) -> Vec<bool> {
+    let mut classifier = EffectListClassifier::new(tokens.len());
+    for (index, token) in tokens.iter().enumerate() {
+        #[cfg(test)]
+        record_effect_list_classification_token_visit();
+        classifier.visit(index, token);
+    }
+    classifier.membership
+}
+
+fn is_effect_list_member_token(tokens: &[Token], membership: &[bool], index: usize) -> bool {
+    membership[index]
+        && previous_non_layout_token(tokens, index).is_none_or(|previous| {
+            previous.kind != TokenKind::DoubleColon && previous.kind != TokenKind::Dot
+        })
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon)
 }
 
 fn is_handler_handled_effect_token(tokens: &[Token], index: usize) -> bool {
     tokens[index].kind == TokenKind::Ident
         && previous_non_layout_token(tokens, index)
             .is_some_and(|previous| previous.kind == TokenKind::Handles)
+        && next_non_layout_token(tokens, index)
+            .is_none_or(|next| next.kind != TokenKind::DoubleColon)
 }
 
 fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
@@ -413,6 +529,10 @@ fn is_perform_effect_qualifier_token(tokens: &[Token], index: usize) -> bool {
             .is_some_and(|previous| previous.kind == TokenKind::Perform)
         && next_non_layout_token(tokens, index)
             .is_some_and(|next| next.kind == TokenKind::DoubleColon)
+        && next_path_segment_index(tokens, index).is_some_and(|operation_index| {
+            next_non_whitespace_token(tokens, operation_index)
+                .is_some_and(|next| next.kind == TokenKind::LParen)
+        })
 }
 
 fn is_perform_operation_token(tokens: &[Token], index: usize) -> bool {

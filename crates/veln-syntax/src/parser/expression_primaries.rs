@@ -28,6 +28,39 @@ impl<'a> ExprParser<'a> {
     pub(super) fn parse_perform_primary(&mut self, token: Token) -> Expr {
         let start = token.range;
         self.bump();
+        let (path, effect_span, operation, operation_span, path_recovered) =
+            self.parse_perform_path(start);
+        let open_recovered = self
+            .expect_expr_token(
+                TokenKind::LParen,
+                "parse.perform_expression",
+                "perform expression is missing `(`",
+                vec!["("],
+            )
+            .is_none();
+        let (args, end, close_recovered) = self.parse_parenthesized_arguments(
+            start,
+            "parse.perform_argument",
+            "perform argument is missing `,` or `)`",
+        );
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::Perform {
+                effect: path,
+                effect_span,
+                operation,
+                operation_span,
+                recovered: path_recovered || open_recovered || close_recovered,
+                args,
+            },
+        }
+    }
+
+    fn parse_perform_path(
+        &mut self,
+        perform_start: TextRange,
+    ) -> (Vec<String>, SourceSpan, String, SourceSpan, bool) {
+        let path_diagnostic_count = self.diagnostics.len();
         let effect_start = self.current().range;
         let mut path = self.parse_name_path_segments("perform_expression", "effect operation path");
         if path.len() < 2 {
@@ -51,28 +84,9 @@ impl<'a> ExprParser<'a> {
         let operation_span = self
             .previous()
             .map(|token| self.source.span(token.range))
-            .unwrap_or_else(|| self.source.span(start));
-        self.expect_expr_token(
-            TokenKind::LParen,
-            "parse.perform_expression",
-            "perform expression is missing `(`",
-            vec!["("],
-        );
-        let (args, end) = self.parse_parenthesized_arguments(
-            start,
-            "parse.perform_argument",
-            "perform argument is missing `,` or `)`",
-        );
-        Expr {
-            span: self.source.span(start.cover(end)),
-            kind: ExprKind::Perform {
-                effect: path,
-                effect_span,
-                operation,
-                operation_span,
-                args,
-            },
-        }
+            .unwrap_or_else(|| self.source.span(perform_start));
+        let path_recovered = self.diagnostics.len() != path_diagnostic_count;
+        (path, effect_span, operation, operation_span, path_recovered)
     }
 
     pub(super) fn parse_handle_primary(&mut self, token: Token) -> Expr {
@@ -94,7 +108,7 @@ impl<'a> ExprParser<'a> {
             "handle expression is missing handler context arguments",
             vec!["("],
         );
-        let (args, end) = self.parse_parenthesized_arguments(
+        let (args, end, _) = self.parse_parenthesized_arguments(
             handler_end,
             "parse.handle_argument",
             "handler context argument is missing `,` or `)`",
@@ -115,7 +129,7 @@ impl<'a> ExprParser<'a> {
         fallback_end: TextRange,
         diagnostic_id: &'static str,
         missing_separator_message: &'static str,
-    ) -> (Vec<Expr>, TextRange) {
+    ) -> (Vec<Expr>, TextRange, bool) {
         let mut arguments = Vec::new();
         while !self.at(TokenKind::RParen) && !self.is_at_end() {
             arguments.push(self.parse_expr(0));
@@ -133,11 +147,13 @@ impl<'a> ExprParser<'a> {
                 Some(","),
             );
         }
-        let end = self.eat(TokenKind::RParen).map_or_else(
+        let close = self.eat(TokenKind::RParen);
+        let close_recovered = close.is_none();
+        let end = close.map_or_else(
             || arguments.last().map_or(fallback_end, lhs_range),
             |token| token.range,
         );
-        (arguments, end)
+        (arguments, end, close_recovered)
     }
 
     pub(super) fn parse_schema_decode_primary(&mut self, token: Token) -> Expr {

@@ -274,6 +274,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(super) fn parse_effect_decl(&mut self) -> EffectDecl {
+        let diagnostic_start = self.diagnostics.len();
         let visibility = if self.eat(TokenKind::Pub).is_some() {
             Visibility::Public
         } else {
@@ -311,12 +312,14 @@ impl<'a> Parser<'a> {
         }
 
         let end = self.previous().map_or(start, |token| token.range);
+        let recovered = self.diagnostics.len() > diagnostic_start;
         EffectDecl {
             visibility,
             name,
             operations,
             span: self.source.span(start.cover(end)),
             end_present,
+            recovered,
         }
     }
 
@@ -364,8 +367,10 @@ impl<'a> Parser<'a> {
             params: header.params,
             effect: header.effect.path,
             effect_span: header.effect.span,
+            effect_recovered: header.effect.recovered,
             effects: header.effect.effects,
             effect_spans: header.effect.effect_spans,
+            effects_recovered: header.effect.effects_recovered,
             operation_clauses: body.operation_clauses,
             span: self.source.span(header.start.cover(body.end)),
             end_present: body.end_present,
@@ -386,8 +391,16 @@ impl<'a> Parser<'a> {
         let params = self.parse_params_in_context("handler_parameters", true);
         self.expect(TokenKind::RParen, "handler_parameters", vec![")"]);
         self.expect(TokenKind::Handles, "handler_declaration", vec!["handles"]);
-        let effect = self.parse_handler_effect();
+        let mut effect = self.parse_handler_effect();
+        let diagnostic_count = self.diagnostics.len();
         self.expect_newline("handler_declaration");
+        if self.diagnostics.len() > diagnostic_count {
+            if effect.effects.is_some() {
+                effect.effects_recovered = true;
+            } else {
+                effect.recovered = true;
+            }
+        }
         HandlerHeader {
             visibility,
             start,
@@ -399,21 +412,30 @@ impl<'a> Parser<'a> {
 
     pub(super) fn parse_handler_effect(&mut self) -> HandlerEffect {
         let effect_start = self.current().range;
+        let diagnostic_count = self.diagnostics.len();
         let path = self.parse_name_path_segments("handler_declaration", "handled effect");
+        let recovered = self.diagnostics.len() > diagnostic_count;
         let effect_end = self.previous().map_or(effect_start, |token| token.range);
         let span = self.source.span(effect_start.cover(effect_end));
-        let (effects, effect_spans) = if self.eat(TokenKind::Effects).is_some() {
+        let (effects, effect_spans, effects_recovered) = if self.eat(TokenKind::Effects).is_some() {
+            let diagnostic_count = self.diagnostics.len();
             let labels = self.parse_effect_list();
             let (effects, spans): (Vec<_>, Vec<_>) = labels.into_iter().unzip();
-            (Some(effects), Some(spans))
+            (
+                Some(effects),
+                Some(spans),
+                self.diagnostics.len() > diagnostic_count,
+            )
         } else {
-            (None, None)
+            (None, None, false)
         };
         HandlerEffect {
             path,
             span,
+            recovered,
             effects,
             effect_spans,
+            effects_recovered,
         }
     }
 

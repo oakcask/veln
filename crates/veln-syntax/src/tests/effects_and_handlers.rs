@@ -66,8 +66,11 @@ fn parses_and_formats_nominal_effect_operations() {
     };
     assert!(matches!(
         &expr.kind,
-        ExprKind::Perform { effect, operation, args, .. }
-            if effect == &vec!["Audit".to_string()] && operation == "record" && args.len() == 2
+        ExprKind::Perform { effect, operation, recovered, args, .. }
+            if effect == &vec!["Audit".to_string()]
+                && operation == "record"
+                && !recovered
+                && args.len() == 2
     ));
     assert_eq!(
         format_tree(&output.tree),
@@ -81,6 +84,119 @@ fn parses_and_formats_nominal_effect_operations() {
             "end\n",
         )
     );
+}
+
+#[test]
+fn records_recovery_for_unclosed_perform_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn broken() -> Int\n  perform Choose::pick(\nend\n",
+    );
+
+    let output = parse(&source);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Perform {
+            recovered: true,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn keeps_perform_path_valid_when_only_arguments_are_recovered() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn broken() -> Int\n  perform Choose::pick(1 2)\nend\n",
+    );
+
+    let output = parse(&source);
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.perform_argument")
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression body");
+    };
+    assert!(matches!(
+        &expr.kind,
+        ExprKind::Perform {
+            effect,
+            operation,
+            recovered: false,
+            args,
+            ..
+        } if effect == &["Choose"] && operation == "pick" && args.len() == 2
+    ));
+}
+
+#[test]
+fn records_recovery_for_incomplete_perform_paths_and_call_delimiters() {
+    for text in [
+        "fn broken() -> Int\n  perform Choose()\nend\n",
+        "fn broken() -> Int\n  perform Choose::pick 1)\nend\n",
+    ] {
+        let output = parse(&SourceFile::new("main.veln", text));
+        let SyntaxItem::Function(function) = &output.tree.items[0] else {
+            panic!("expected function declaration");
+        };
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected expression body");
+        };
+        assert!(matches!(
+            &expr.kind,
+            ExprKind::Perform {
+                recovered: true,
+                ..
+            }
+        ));
+    }
+}
+
+#[test]
+fn records_recovery_within_effect_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "effect Clean\n",
+            "  run() -> Int\n",
+            "end\n\n",
+            "effect Empty\n",
+            "end\n\n",
+            "effect Broken\n",
+            "  run()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let effects = output
+        .tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::Effect(effect) => Some(effect),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(effects.len(), 3);
+    assert!(!effects[0].recovered);
+    assert!(effects[1].end_present);
+    assert!(effects[1].recovered);
+    assert!(effects[2].end_present);
+    assert!(effects[2].recovered);
 }
 
 #[test]
@@ -336,4 +452,38 @@ fn rejects_effect_declaration_without_operations() {
         "{:#?}",
         output.diagnostics
     );
+}
+
+#[test]
+fn records_recovery_for_effect_rows_and_handled_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn broken() -> Int effects [Choose @]\n",
+            "  1\n",
+            "end\n\n",
+            "handler broken() handles Choose @\n",
+            "  pick() => 1\n",
+            "end\n\n",
+            "handler row_broken() handles Choose effects [Choose @]\n",
+            "  pick() => 1\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+    let SyntaxItem::Function(function) = &output.tree.items[0] else {
+        panic!("expected function");
+    };
+    let SyntaxItem::Handler(handler) = &output.tree.items[1] else {
+        panic!("expected handler");
+    };
+    let SyntaxItem::Handler(row_broken) = &output.tree.items[2] else {
+        panic!("expected handler");
+    };
+
+    assert!(function.effects_recovered);
+    assert!(handler.effect_recovered);
+    assert!(!row_broken.effect_recovered);
+    assert!(row_broken.effects_recovered);
 }

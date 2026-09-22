@@ -3,6 +3,7 @@ include!("tests/navigation.rs");
 include!("tests/navigation_selection_boundaries.rs");
 include!("tests/navigation_type_references.rs");
 include!("tests/navigation_schema_references.rs");
+include!("tests/navigation_effect_references.rs");
 include!("tests/dependencies_schema_references.rs");
 include!("tests/navigation_rename_conflicts.rs");
 include!("tests/navigation_recovery_rename_conflicts.rs");
