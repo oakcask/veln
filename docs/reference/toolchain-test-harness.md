@@ -327,6 +327,10 @@ and conflict errors, edit-free rename failures, and shutdown responses. Raw
 LSP cases remain only where protocol framing or an as-yet-unmigrated
 representation is still part of the fixture.
 
+The `references-workspace-effect` LSP specification case uses decoded
+assertions for exact effect and effect-operation reference locations,
+declaration inclusion, and UTF-16 coordinates.
+
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer
 escaping, equality, ordered arrays, length, missing paths, dynamic workspace
