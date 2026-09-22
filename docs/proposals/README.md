@@ -16,7 +16,10 @@ also states it.
 
 ## Ready
 
-There is no ready proposal.
+- Link same-module workspace handler operation-clause headings to their effect
+  operations in the shared navigation result and both saved-navigation
+  adapters:
+  [workspace-handler-operation-clause-references.md](workspace-handler-operation-clause-references.md).
 
 ## Blocked
 
@@ -27,8 +30,8 @@ There is no ready proposal.
   planning inventory only for
   the unimplemented transitive-dependency, recovery, casing-neutral, remaining
   symbol, cross-adapter conformance, agent-skill, conformance-gate, and plugin
-  work. Do not select the umbrella
-  directly.
+  work outside the ready handler operation-clause slice. Do not select the
+  umbrella directly.
 
 ## Selection Rule
 
