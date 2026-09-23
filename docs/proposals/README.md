@@ -16,6 +16,11 @@ also states it.
 
 ## Ready
 
+- Add paired evidence that saved LSP and MCP navigation preserve the shared
+  language-service result after their protocol-specific coordinate and
+  pagination conversions:
+  [saved-navigation-cross-adapter-conformance.md](saved-navigation-cross-adapter-conformance.md).
+
 ## Blocked
 
 - Explicit import-alias casing is blocked until an owning proposal defines the
@@ -23,9 +28,8 @@ also states it.
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  recovery, casing-neutral, remaining symbol, cross-adapter conformance,
-  agent-skill, conformance-gate, and plugin work. Do not select the umbrella
-  directly.
+  recovery, casing-neutral, remaining symbol, agent-skill, conformance-gate,
+  and plugin work. Do not select the umbrella directly.
 
 ## Selection Rule
 
