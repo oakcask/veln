@@ -1,0 +1,77 @@
+command = ["mcp"]
+stdin_file = "requests.jsonl"
+source_errors = "expected"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[mcp_assert]]
+id = 2
+path = "/result/isError"
+equals = false
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references"
+length = 2
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":3},"end":{"line":2,"column":6}}
+
+[[mcp_assert]]
+id = 2
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":2,"column":14},"end":{"line":2,"column":17}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":1,"column":4},"end":{"line":1,"column":7}}
+
+[[mcp_assert]]
+id = 3
+path = "/result/structuredContent/next_cursor"
+contains = "."
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":3},"end":{"line":2,"column":6}}
+
+[[mcp_assert]]
+id = 4
+path = "/result/structuredContent/next_cursor"
+contains = "."
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":2,"column":14},"end":{"line":2,"column":17}}
+
+[[mcp_assert]]
+id = 5
+path = "/result/structuredContent/next_cursor"
+missing = true
+
+[[mcp_assert]]
+id = 6
+path = "/result/structuredContent/references"
+length = 0
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references"
+length = 1
+
+[[mcp_assert]]
+id = 7
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":5,"column":4},"end":{"line":5,"column":9}}

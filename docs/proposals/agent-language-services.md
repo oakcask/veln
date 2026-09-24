@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The remaining package-navigation, workspace-symbol-reference, client-plugin, agent-skill, or conformance-gate scope changes.
+update-when: The remaining package-navigation, workspace-symbol-reference, recovery-identity, casing-neutral lookup, client-plugin, agent-skill, or conformance-gate scope changes.
 ---
 
 # Agent Language Services
@@ -9,12 +9,6 @@ This umbrella records only the unimplemented follow-up work for language
 services. The implemented workspace, direct-dependency, and standard-library
 navigation behavior is specified by [Editor Support](../specification/editor-support.md)
 and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
-
-The ready
-[MCP Recovery References](mcp-recovery-references.md) slice owns MCP reference
-results for the recovery identities already selected by the shared language
-service and exposed by LSP. It is independent of new symbol resolution,
-package graphs, client packaging, and agent integration.
 
 ## Remaining scope
 
@@ -32,11 +26,6 @@ Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
 
-The ready MCP recovery-reference slice does not define new recovery records or
-change recovery selection, reference linking, or LSP behavior. Those contracts
-already belong to the shared language service and current editor
-specification.
-
 ## Remaining acceptance model
 
 The following rows are the umbrella's remaining planning contract. They are
@@ -50,11 +39,13 @@ its evidence is added to the named current specification and checked route.
 | Conformance gate | Every requirement has one stable identifier and passing evidence, every evidence route maps to a requirement, and stale or undeclared capabilities fail the gate. | Versioned conformance manifest tests for missing rows, duplicate IDs, orphaned evidence, missing matrix cells, stale artifacts, undeclared capabilities, malformed requests, and plugin mismatches. |
 
 The remainder also includes broader definition navigation, unsupported package
-symbol classes, transitive dependencies, recovery and casing-neutral lookup,
-and any package-reference boundary not listed as implemented above. These rows
-must retain explicit negative and
-state-preservation cases: rejected requests do not mutate saved snapshots,
-published resources, cursors, or prior successful results.
+symbol classes, transitive dependencies, recovery identities and symbol
+classes outside the shared recovery set specified by Editor Support and MCP,
+casing-neutral lookup outside current specified behavior, and any
+package-reference boundary not listed as implemented above. These rows must
+retain explicit negative and state-preservation cases: rejected requests do
+not mutate saved snapshots, published resources, cursors, or prior successful
+results.
 
 An implementation slice may be removed from this inventory only after its
 current specification page names the executable authority, the evidence

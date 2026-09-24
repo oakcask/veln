@@ -633,4 +633,6 @@ drives LSP and MCP from one unchanged workspace, converts both adapters to
 retained source identities and one-based Unicode-scalar half-open ranges, and
 compares complete definitions and reference sets across coordinate,
 declaration, continuation, empty-result, failure, and preserved-state
-boundaries.
+boundaries. The comparison includes the retained declaration and linked
+references for one shared invalid-cased recovery identity, with declaration
+exclusion and inclusion.

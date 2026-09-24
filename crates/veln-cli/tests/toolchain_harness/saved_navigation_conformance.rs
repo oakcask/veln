@@ -42,6 +42,13 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
     )
     .expect("MCP output should decode");
 
+    assert_definition_conformance(&workspace, &lsp, &mcp);
+    assert_reference_conformance(&workspace, &lsp, &mcp);
+    assert_failure_conformance(&workspace, &lsp, &mcp);
+    assert_recovery_conformance(&workspace, &lsp, &mcp);
+}
+
+fn assert_definition_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
     let expected_workspace_definition = NormalizedLocation {
         source: "main.veln".to_string(),
         range: NormalizedRange {
@@ -52,22 +59,22 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
             },
         },
     };
-    let workspace_definition = normalize_lsp_definition(&workspace, response(&lsp, 2));
+    let workspace_definition = normalize_lsp_definition(workspace, response(lsp, 2));
     assert_eq!(
         workspace_definition,
         Some(expected_workspace_definition.clone()),
         "LSP workspace definition should retain the expected declaration"
     );
     assert_eq!(
-        normalize_mcp_definition(&workspace, response(&mcp, 2)),
+        normalize_mcp_definition(workspace, response(mcp, 2)),
         Some(expected_workspace_definition.clone()),
         "MCP workspace definition should retain the expected declaration"
     );
 
-    let package_definition = normalize_lsp_definition(&workspace, response(&lsp, 3));
+    let package_definition = normalize_lsp_definition(workspace, response(lsp, 3));
     assert_eq!(
         package_definition,
-        normalize_mcp_definition(&workspace, response(&mcp, 3))
+        normalize_mcp_definition(workspace, response(mcp, 3))
     );
     assert!(
         package_definition
@@ -78,35 +85,37 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
     let coordinate_pairs = [(4, 4), (6, 6), (7, 7)];
     for (lsp_id, mcp_id) in coordinate_pairs {
         assert_eq!(
-            normalize_lsp_definition(&workspace, response(&lsp, lsp_id)),
+            normalize_lsp_definition(workspace, response(lsp, lsp_id)),
             Some(expected_workspace_definition.clone()),
             "LSP coordinate case {lsp_id} changed the definition"
         );
         assert_eq!(
-            normalize_mcp_definition(&workspace, response(&mcp, mcp_id)),
+            normalize_mcp_definition(workspace, response(mcp, mcp_id)),
             Some(expected_workspace_definition.clone()),
             "MCP coordinate case {mcp_id} changed the definition"
         );
     }
     assert_eq!(
-        normalize_lsp_definition(&workspace, response(&lsp, 5)),
+        normalize_lsp_definition(workspace, response(lsp, 5)),
         None,
         "a half-open token-end LSP position should be empty"
     );
     assert_eq!(
-        normalize_mcp_definition(&workspace, response(&mcp, 5)),
+        normalize_mcp_definition(workspace, response(mcp, 5)),
         None,
         "a half-open token-end MCP position should be empty"
     );
+}
 
-    let lsp_without_declaration = normalize_lsp_references(&workspace, response(&lsp, 8));
-    let mcp_without_declaration = normalize_mcp_reference_pages(&workspace, &[response(&mcp, 8)]);
+fn assert_reference_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
+    let lsp_without_declaration = normalize_lsp_references(workspace, response(lsp, 8));
+    let mcp_without_declaration = normalize_mcp_reference_pages(workspace, &[response(mcp, 8)]);
     assert_eq!(lsp_without_declaration, mcp_without_declaration);
     assert_eq!(lsp_without_declaration.len(), 3);
 
-    let lsp_with_declaration = normalize_lsp_references(&workspace, response(&lsp, 9));
+    let lsp_with_declaration = normalize_lsp_references(workspace, response(lsp, 9));
     let mcp_with_declaration =
-        normalize_mcp_reference_pages(&workspace, &[response(&mcp, 9), response(&mcp, 11)]);
+        normalize_mcp_reference_pages(workspace, &[response(mcp, 9), response(mcp, 11)]);
     assert_eq!(lsp_with_declaration, mcp_with_declaration);
     assert_eq!(lsp_with_declaration.len(), 4);
     let without_declaration = lsp_without_declaration.iter().collect::<BTreeSet<_>>();
@@ -136,53 +145,84 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
         "declaration inclusion should retain every non-declaration reference"
     );
     assert!(
-        structured_content(response(&mcp, 9))
+        structured_content(response(mcp, 9))
             .object_field("next_cursor")
             .is_some(),
         "MCP reference evidence must require continuation"
     );
     assert!(
-        structured_content(response(&mcp, 11))
+        structured_content(response(mcp, 11))
             .object_field("next_cursor")
             .is_none(),
         "the collected MCP reference page should be terminal"
     );
+}
 
-    assert_eq!(
-        normalize_lsp_definition(&workspace, response(&lsp, 10)),
-        None
-    );
-    assert!(normalize_lsp_references(&workspace, response(&lsp, 11)).is_empty());
-    assert_eq!(
-        normalize_mcp_definition(&workspace, response(&mcp, 12)),
-        None
-    );
-    assert!(normalize_mcp_reference_pages(&workspace, &[response(&mcp, 13)]).is_empty());
+fn assert_failure_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
+    assert_eq!(normalize_lsp_definition(workspace, response(lsp, 10)), None);
+    assert!(normalize_lsp_references(workspace, response(lsp, 11)).is_empty());
+    assert_eq!(normalize_mcp_definition(workspace, response(mcp, 12)), None);
+    assert!(normalize_mcp_reference_pages(workspace, &[response(mcp, 13)]).is_empty());
 
-    assert_lsp_invalid_position(response(&lsp, 12));
-    assert_lsp_invalid_position(response(&lsp, 13));
+    assert_lsp_invalid_position(response(lsp, 12));
+    assert_lsp_invalid_position(response(lsp, 13));
     for id in 16..=30 {
-        assert_lsp_invalid_position(response(&lsp, id));
+        assert_lsp_invalid_position(response(lsp, id));
     }
-    assert_mcp_invalid_position(response(&mcp, 10));
+    assert_mcp_invalid_position(response(mcp, 10));
     assert!(
-        structured_content(response(&mcp, 10))
+        structured_content(response(mcp, 10))
             .object_field("next_cursor")
             .is_none(),
         "an invalid MCP selection must not create a continuation cursor"
     );
 
+    let workspace_definition = normalize_lsp_definition(workspace, response(lsp, 2));
     assert_eq!(
         workspace_definition,
-        normalize_lsp_definition(&workspace, response(&lsp, 14))
+        normalize_lsp_definition(workspace, response(lsp, 14))
     );
     assert_eq!(
         workspace_definition,
-        normalize_mcp_definition(&workspace, response(&mcp, 14))
+        normalize_mcp_definition(workspace, response(mcp, 14))
     );
 
-    assert!(normalize_lsp_references(&workspace, response(&lsp, 15)).is_empty());
-    assert!(normalize_mcp_reference_pages(&workspace, &[response(&mcp, 15)]).is_empty());
+    assert!(normalize_lsp_references(workspace, response(lsp, 15)).is_empty());
+    assert!(normalize_mcp_reference_pages(workspace, &[response(mcp, 15)]).is_empty());
+}
+
+fn assert_recovery_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
+    let recovery_definition = normalize_lsp_definition(workspace, response(lsp, 32));
+    assert_eq!(
+        recovery_definition,
+        normalize_mcp_definition(workspace, response(mcp, 16)),
+        "LSP and MCP should retain the same recovery declaration"
+    );
+    assert_eq!(
+        recovery_definition,
+        Some(NormalizedLocation {
+            source: "main.veln".to_string(),
+            range: NormalizedRange {
+                start: NormalizedPosition {
+                    line: 23,
+                    column: 4,
+                },
+                end: NormalizedPosition {
+                    line: 23,
+                    column: 7,
+                },
+            },
+        })
+    );
+    let lsp_recovery_without = normalize_lsp_references(workspace, response(lsp, 33));
+    let mcp_recovery_without = normalize_mcp_reference_pages(workspace, &[response(mcp, 17)]);
+    assert_eq!(lsp_recovery_without, mcp_recovery_without);
+    assert_eq!(lsp_recovery_without.len(), 2);
+    let lsp_recovery_with = normalize_lsp_references(workspace, response(lsp, 34));
+    let mcp_recovery_with =
+        normalize_mcp_reference_pages(workspace, &[response(mcp, 18), response(mcp, 19)]);
+    assert_eq!(lsp_recovery_with, mcp_recovery_with);
+    assert_eq!(lsp_recovery_with.len(), 3);
 }
 
 fn saved_workspace() -> SavedWorkspace {
@@ -201,16 +241,7 @@ fn saved_workspace() -> SavedWorkspace {
 
     let main_uri = workspace_file_uri(&project.root, "main.veln").unwrap();
     let other_uri = workspace_file_uri(&project.root, "other.veln").unwrap();
-    let mut source_text = BTreeMap::new();
-    source_text.insert(main_uri.clone(), main_crlf);
-    source_text.insert(
-        other_uri.clone(),
-        fs::read_to_string(project.root.join("other.veln")).unwrap(),
-    );
-    source_text.insert(
-        "model.veln".to_string(),
-        fs::read_to_string(project.root.join("vendor/model/model.veln")).unwrap(),
-    );
+    let source_text = saved_source_text(&project, &main_uri, &other_uri, main_crlf);
     SavedWorkspace {
         project,
         main_uri,
@@ -219,12 +250,44 @@ fn saved_workspace() -> SavedWorkspace {
     }
 }
 
+fn saved_source_text(
+    project: &TestProject,
+    main_uri: &str,
+    other_uri: &str,
+    main_crlf: String,
+) -> BTreeMap<String, String> {
+    let mut source_text = BTreeMap::new();
+    source_text.insert(main_uri.to_string(), main_crlf);
+    source_text.insert(
+        other_uri.to_string(),
+        fs::read_to_string(project.root.join("other.veln")).unwrap(),
+    );
+    source_text.insert(
+        "model.veln".to_string(),
+        fs::read_to_string(project.root.join("vendor/model/model.veln")).unwrap(),
+    );
+    source_text
+}
+
 fn run_lsp(workspace: &SavedWorkspace) -> Output {
+    let mut requests = lsp_success_requests(workspace);
+    requests.extend(lsp_invalid_shape_requests(workspace));
+    requests.extend(lsp_recovery_requests(workspace));
+    let stdin = requests
+        .iter()
+        .map(|request| lsp_frame(request))
+        .collect::<String>();
+    workspace
+        .project
+        .veln_with_artifact(&["lsp".to_string()], None, &[], Some(&stdin), None)
+}
+
+fn lsp_success_requests(workspace: &SavedWorkspace) -> Vec<String> {
     let root_uri = workspace
         .main_uri
         .strip_suffix("/main.veln")
         .expect("main URI should end with its source path");
-    let requests = [
+    vec![
         format!(
             r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
         ),
@@ -242,6 +305,11 @@ fn run_lsp(workspace: &SavedWorkspace) -> Output {
         lsp_references(13, &workspace.main_uri, 7, 99, true),
         lsp_definition(14, &workspace.main_uri, 7, 2),
         lsp_references(15, &workspace.main_uri, 15, 16, true),
+    ]
+}
+
+fn lsp_invalid_shape_requests(workspace: &SavedWorkspace) -> Vec<String> {
+    vec![
         lsp_navigation_with_position(
             16,
             "textDocument/definition",
@@ -320,16 +388,17 @@ fn run_lsp(workspace: &SavedWorkspace) -> Output {
             r#"{{"jsonrpc":"2.0","id":30,"method":"textDocument/prepareRename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":7,"character":2}},"position":{{"line":7,"character":3}}}}}}"#,
             workspace.main_uri
         ),
+    ]
+}
+
+fn lsp_recovery_requests(workspace: &SavedWorkspace) -> Vec<String> {
+    vec![
+        lsp_definition(32, &workspace.main_uri, 23, 14),
+        lsp_references(33, &workspace.main_uri, 23, 14, false),
+        lsp_references(34, &workspace.main_uri, 23, 14, true),
         r#"{"jsonrpc":"2.0","id":31,"method":"shutdown","params":null}"#.to_string(),
         r#"{"jsonrpc":"2.0","method":"exit","params":null}"#.to_string(),
-    ];
-    let stdin = requests
-        .iter()
-        .map(|request| lsp_frame(request))
-        .collect::<String>();
-    workspace
-        .project
-        .veln_with_artifact(&["lsp".to_string()], None, &[], Some(&stdin), None)
+    ]
 }
 
 fn run_mcp(workspace: &SavedWorkspace) -> Output {
@@ -349,6 +418,10 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(13, "references", r#"{"source":"main.veln","line":2,"column":1,"include_declaration":true}"#),
         mcp_call(14, "definition", r#"{"source":"main.veln","line":8,"column":3}"#),
         mcp_call(15, "references", r#"{"source":"main.veln","line":16,"column":17,"include_declaration":true}"#),
+        mcp_call(16, "definition", r#"{"source":"main.veln","line":24,"column":15}"#),
+        mcp_call(17, "references", r#"{"source":"main.veln","line":24,"column":15,"include_declaration":false}"#),
+        mcp_call(18, "references", r#"{"source":"main.veln","line":24,"column":15,"include_declaration":true,"page_size":2}"#),
+        mcp_call(19, "references", r#"{"cursor":"$mcp_cursor:18"}"#),
     ];
     workspace.project.veln_with_interactive_mcp(
         &["mcp".to_string()],

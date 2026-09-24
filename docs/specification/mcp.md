@@ -402,8 +402,7 @@ dependency. Invalid-cased package records, private or non-exported package
 declarations, mismatched imports, unsupported symbols, and package module
 segments return an empty definition. A public constructor selected through a
 visible type alias returns the constructor declaration, not the alias
-declaration. Definition exposes a recovery record's source range only, and
-`references` excludes recovery records.
+declaration. Definition exposes a recovery record's retained source range.
 
 ### Rename
 
@@ -497,7 +496,39 @@ exactly `page_size` locations and `next_cursor`; the final page omits it.
 Supported reference identities are workspace effects, effect operations,
 handlers, schemas, eligible workspace, direct-dependency, and standard-library
 schema aliases, functions, types, constructors, value bindings, handler
-context parameters, and handler operation-clause parameters. A workspace effect result contains bare effect
+context parameters, and handler operation-clause parameters.
+
+### Recovery References
+
+When a position selects one unique class-compatible invalid-cased workspace
+identity, `references` returns the linked workspace locations retained by the
+shared language service. The supported recovery identities are:
+
+- types and constructors;
+- functions and tests;
+- function parameters and result bindings;
+- local bindings, pattern bindings, and `satisfy` candidate bindings;
+- handler context parameters and handler operation-clause parameters.
+
+Selecting the retained invalid declaration or any linked reference returns the
+same reference set. The locations stay inside the captured project or anonymous
+single-file scope. They use canonical saved-workspace `file:` URIs and
+one-based Unicode-scalar half-open ranges. `include_declaration: false` omits
+the retained declaration, including when that leaves an empty successful
+result. `include_declaration: true` adds it exactly once before the ordinary
+sort and pagination steps.
+
+Ambiguous, class-incompatible, shadowed, qualified, initializer-local, and
+out-of-scope recovery candidates remain unsupported selections. Text-only and
+unrelated occurrences do not enter a valid recovery identity's result. An
+invalid module identity, package record, or symbol class without a shared
+recovery identity also remains unsupported. These cases return the ordinary
+successful empty result and do not reinterpret the selection as another
+identity. Capture, position, path, cursor, refresh, and resource-capacity
+failures retain the general state-preservation and failure-atomicity rules of
+saved workspace navigation.
+
+A workspace effect result contains bare effect
 rows on functions, tests, handlers, and function types, handler `handles`
 targets, and `perform Effect::operation(...)` qualifiers from every saved
 source that declares the selected effect's module. The operation leaf keeps
@@ -633,6 +664,11 @@ and `crates/veln-mcp/src/references.rs`; rename conversion is implemented by
 `crates/veln-mcp/src/server/tests/`. Checked rename transcripts cover saved
 workspace results, supported symbol classes, recovery identities, unsupported
 boundaries, and anonymous boundaries under `examples/specification/mcp/rename-*`.
+The checked
+`examples/specification/mcp/references-recovery-navigation/` transcript covers
+recovery selection from a declaration and reference, declaration exclusion and
+inclusion, an empty linked-reference set, saved coordinates, sorting, and
+pagination.
 The checked `examples/specification/mcp/references-workspace-effect/` transcript
 demonstrates Unicode-scalar locations, declaration inclusion, sorting, and
 pagination for workspace effect and effect-operation references.
@@ -651,4 +687,5 @@ identities and one-based Unicode-scalar half-open ranges, and compares the
 complete definition and reference outcomes. Its matrix covers LF and CRLF
 sources, UTF-16 conversion around non-BMP scalars, token ends, empty and
 invalid selections, package identities, declaration policy, and state after a
-failed request.
+failed request. It also compares the recovery definition and complete recovery
+reference set with declaration exclusion and inclusion.

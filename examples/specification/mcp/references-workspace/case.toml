@@ -125,7 +125,27 @@ missing = true
 [[mcp_assert]]
 id = 9
 path = "/result/structuredContent/references"
-equals = []
+length = 2
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":43,"column":3},"end":{"line":43,"column":6}}
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "main.veln"
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references/1/range"
+equals = {"start":{"line":47,"column":3},"end":{"line":47,"column":6}}
+
+[[mcp_assert]]
+id = 9
+path = "/result/structuredContent/references/1/uri"
+workspace_file_uri = "main.veln"
 
 [[mcp_assert]]
 id = 9

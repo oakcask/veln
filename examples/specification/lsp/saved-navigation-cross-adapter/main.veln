@@ -19,3 +19,7 @@ end
 fn choose(label: String, value: Int) -> Int
   value
 end
+
+fn Bad(label: String) -> Int
+  Bad("🙂") + Bad(label)
+end

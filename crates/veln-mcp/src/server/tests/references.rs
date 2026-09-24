@@ -11,6 +11,7 @@ mod dependency_functions_and_types;
 mod dependency_schemas;
 mod dependency_types_and_aliases;
 mod local_bindings;
+mod recovery_references;
 mod scope_and_symbol_boundaries;
 mod standard_library_and_scope;
 mod unsupported_and_coordinates;

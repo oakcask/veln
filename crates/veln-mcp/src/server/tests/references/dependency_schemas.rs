@@ -490,7 +490,6 @@ fn assert_ineligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
         ("other-package alias chain target", "main.veln", 32, 18),
         ("cycle alias", "main.veln", 33, 18),
         ("module qualifier", "main.veln", 12, 10),
-        ("recovery", "recovery.veln", 4, 10),
     ] {
         let result = references_result(workspace, source, line, column);
         assert_eq!(result["isError"], false, "{name}: {result:#}");
@@ -518,6 +517,13 @@ fn assert_ineligible_dependency_schema_boundaries(workspace: &TempWorkspace) {
             "{name}: {result:#}"
         );
     }
+
+    let recovery_binding = references_result(workspace, "recovery.veln", 4, 10);
+    assert_reference_ranges(
+        &recovery_binding,
+        &[("recovery.veln", 4, 10, 4, 16)],
+        "recovery binding is not reinterpreted as a dependency schema",
+    );
 }
 
 fn assert_ineligible_schema_declaration_is_excluded(workspace: &TempWorkspace) {

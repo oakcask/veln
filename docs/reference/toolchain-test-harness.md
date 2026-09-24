@@ -350,6 +350,10 @@ The `references-workspace-effect` MCP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, Unicode-scalar coordinates, deterministic ordering, and
 cursor pagination.
+The `references-recovery-navigation` MCP specification case uses decoded
+assertions for selection from a retained invalid declaration and a linked
+reference, declaration exclusion and inclusion, saved Unicode-scalar ranges,
+an empty linked-reference set, deterministic ordering, and cursor pagination.
 The `references-workspace-handler` MCP specification case uses the same
 decoded assertion model for exact handler reference locations, declaration
 inclusion, Unicode-scalar coordinates, deterministic ordering, and cursor

@@ -104,7 +104,17 @@ equals = []
 [[mcp_assert]]
 id = 12
 path = "/result/structuredContent/references"
-equals = []
+length = 1
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/0/range"
+equals = {"start":{"line":4,"column":10},"end":{"line":4,"column":16}}
+
+[[mcp_assert]]
+id = 12
+path = "/result/structuredContent/references/0/uri"
+workspace_file_uri = "recovery.veln"
 
 [[mcp_assert]]
 id = 13
