@@ -1,6 +1,70 @@
 use super::*;
 
 #[test]
+fn value_result_failure_diagnostic_routes_supported_encode_failures() {
+    let cases = [
+        (
+            "schema.encode_value_unrepresentable",
+            "encode value is unrepresentable",
+        ),
+        (
+            "codec.encode_value_unrepresentable",
+            "encode value is unrepresentable",
+        ),
+        (
+            "schema.dispatch_unknown_tag",
+            "unknown dispatch tag in encode value",
+        ),
+        (
+            "codec.dispatch_unknown_tag",
+            "unknown dispatch tag in encode value",
+        ),
+        (
+            "schema.dispatch_length_mismatch",
+            "dispatch payload length mismatch",
+        ),
+        (
+            "codec.dispatch_length_mismatch",
+            "dispatch payload length mismatch",
+        ),
+        (
+            "schema.dispatch_mismatch",
+            "dispatch tag and payload mismatch",
+        ),
+        (
+            "codec.dispatch_mismatch",
+            "dispatch tag and payload mismatch",
+        ),
+    ];
+
+    for (id, expected_message) in cases {
+        let failure = TestFailure {
+            kind: "result".to_string(),
+            message: format!("runtime result failure: Err(EncodeError({id}, reason))"),
+            details: JsonValue::object([
+                ("kind", JsonValue::string("result")),
+                ("phase", JsonValue::string("runtime")),
+                ("value", JsonValue::string("EncodeError")),
+                (
+                    "value_diagnostic",
+                    JsonValue::object([
+                        ("kind", JsonValue::string("value_diagnostic")),
+                        ("id", JsonValue::string(id)),
+                        ("reason", JsonValue::string("reason")),
+                    ]),
+                ),
+            ]),
+        };
+
+        let diagnostic = value_result_failure_diagnostic(&failure)
+            .unwrap_or_else(|| panic!("{id} should project as an encode diagnostic"));
+
+        assert_eq!(diagnostic.id, id);
+        assert_eq!(diagnostic.message, expected_message);
+    }
+}
+
+#[test]
 fn value_result_failure_diagnostic_projects_byte_write_context() {
     let value_diagnostic = JsonValue::object([
         ("kind", JsonValue::string("value_diagnostic")),

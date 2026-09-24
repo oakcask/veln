@@ -8,56 +8,16 @@ pub(super) fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<D
 
     match id.as_str() {
         "schema.validation_failed" => {
-            let predicate = json_string(value_entries, "predicate")?;
-            let supplied_values = json_string(value_entries, "supplied_values")?;
-            let result_value = result_failure_value(failure)?;
-            let encode_result = result_value.starts_with("EncodeError(schema.validation_failed,");
-            let mut diagnostic = Diagnostic::new(
-                id,
-                Severity::Error,
-                DiagnosticKind::Runtime,
-                if encode_result {
-                    "schema encode validation failed".to_string()
-                } else {
-                    result_value.clone()
-                },
-                None,
-                value_diagnostic.clone(),
-            );
-            if let Some(field_value) = json_number(value_entries, "field_value") {
-                diagnostic.related.push(note_json(format!(
-                    "Predicate `{predicate}` failed for supplied field value {field_value}."
-                )));
-            } else {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Schema predicate `{predicate}` failed.")));
-            }
-            diagnostic
-                .related
-                .push(note_json(format!("Supplied values: {supplied_values}.")));
-            if let Some(field_path) = field_path_text(value_entries) {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Field path: {field_path}.")));
-            }
-            if encode_result {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Result value: {result_value}.")));
-            }
-            Some(diagnostic)
+            schema_validation_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
-        "schema.encode_value_unrepresentable" | "codec.encode_value_unrepresentable" => {
-            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
-        }
-        "schema.dispatch_unknown_tag" | "codec.dispatch_unknown_tag" => {
-            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
-        }
-        "schema.dispatch_length_mismatch" | "codec.dispatch_length_mismatch" => {
-            encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
-        }
-        "schema.dispatch_mismatch" | "codec.dispatch_mismatch" => {
+        "schema.encode_value_unrepresentable"
+        | "codec.encode_value_unrepresentable"
+        | "schema.dispatch_unknown_tag"
+        | "codec.dispatch_unknown_tag"
+        | "schema.dispatch_length_mismatch"
+        | "codec.dispatch_length_mismatch"
+        | "schema.dispatch_mismatch"
+        | "codec.dispatch_mismatch" => {
             encode_result_failure_diagnostic(failure, value_diagnostic, value_entries)
         }
         "codec.byte_write_value_unrepresentable" => {
@@ -65,6 +25,54 @@ pub(super) fn value_result_failure_diagnostic(failure: &TestFailure) -> Option<D
         }
         _ => None,
     }
+}
+
+fn schema_validation_failure_diagnostic(
+    failure: &TestFailure,
+    value_diagnostic: &JsonValue,
+    value_entries: &[(String, JsonValue)],
+) -> Option<Diagnostic> {
+    let id = json_string(value_entries, "id")?;
+    let predicate = json_string(value_entries, "predicate")?;
+    let supplied_values = json_string(value_entries, "supplied_values")?;
+    let result_value = result_failure_value(failure)?;
+    let encode_result = result_value.starts_with("EncodeError(schema.validation_failed,");
+    let message = if encode_result {
+        "schema encode validation failed".to_string()
+    } else {
+        result_value.clone()
+    };
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        message,
+        None,
+        value_diagnostic.clone(),
+    );
+    if let Some(field_value) = json_number(value_entries, "field_value") {
+        diagnostic.related.push(note_json(format!(
+            "Predicate `{predicate}` failed for supplied field value {field_value}."
+        )));
+    } else {
+        diagnostic
+            .related
+            .push(note_json(format!("Schema predicate `{predicate}` failed.")));
+    }
+    diagnostic
+        .related
+        .push(note_json(format!("Supplied values: {supplied_values}.")));
+    if let Some(field_path) = field_path_text(value_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    if encode_result {
+        diagnostic
+            .related
+            .push(note_json(format!("Result value: {result_value}.")));
+    }
+    Some(diagnostic)
 }
 
 fn byte_write_result_failure_diagnostic(
