@@ -111,7 +111,7 @@ fn collect_references(
             column,
         },
     )
-    .filter(|result| supported_reference_symbol(result) && !result.is_recovery)
+    .filter(supported_reference_symbol)
     .map(|result| {
         let mut locations = result
             .references

@@ -1,0 +1,7 @@
+fn Bad(label: String) -> Int
+  Bad("🙂") + Bad(label)
+end
+
+fn Empty() -> Int
+  0
+end

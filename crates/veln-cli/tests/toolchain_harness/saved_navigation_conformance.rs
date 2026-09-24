@@ -183,6 +183,38 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
 
     assert!(normalize_lsp_references(&workspace, response(&lsp, 15)).is_empty());
     assert!(normalize_mcp_reference_pages(&workspace, &[response(&mcp, 15)]).is_empty());
+
+    let recovery_definition = normalize_lsp_definition(&workspace, response(&lsp, 32));
+    assert_eq!(
+        recovery_definition,
+        normalize_mcp_definition(&workspace, response(&mcp, 16)),
+        "LSP and MCP should retain the same recovery declaration"
+    );
+    assert_eq!(
+        recovery_definition,
+        Some(NormalizedLocation {
+            source: "main.veln".to_string(),
+            range: NormalizedRange {
+                start: NormalizedPosition {
+                    line: 23,
+                    column: 4,
+                },
+                end: NormalizedPosition {
+                    line: 23,
+                    column: 7,
+                },
+            },
+        })
+    );
+    let lsp_recovery_without = normalize_lsp_references(&workspace, response(&lsp, 33));
+    let mcp_recovery_without = normalize_mcp_reference_pages(&workspace, &[response(&mcp, 17)]);
+    assert_eq!(lsp_recovery_without, mcp_recovery_without);
+    assert_eq!(lsp_recovery_without.len(), 2);
+    let lsp_recovery_with = normalize_lsp_references(&workspace, response(&lsp, 34));
+    let mcp_recovery_with =
+        normalize_mcp_reference_pages(&workspace, &[response(&mcp, 18), response(&mcp, 19)]);
+    assert_eq!(lsp_recovery_with, mcp_recovery_with);
+    assert_eq!(lsp_recovery_with.len(), 3);
 }
 
 fn saved_workspace() -> SavedWorkspace {
@@ -320,6 +352,9 @@ fn run_lsp(workspace: &SavedWorkspace) -> Output {
             r#"{{"jsonrpc":"2.0","id":30,"method":"textDocument/prepareRename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":7,"character":2}},"position":{{"line":7,"character":3}}}}}}"#,
             workspace.main_uri
         ),
+        lsp_definition(32, &workspace.main_uri, 23, 14),
+        lsp_references(33, &workspace.main_uri, 23, 14, false),
+        lsp_references(34, &workspace.main_uri, 23, 14, true),
         r#"{"jsonrpc":"2.0","id":31,"method":"shutdown","params":null}"#.to_string(),
         r#"{"jsonrpc":"2.0","method":"exit","params":null}"#.to_string(),
     ];
@@ -349,6 +384,10 @@ fn run_mcp(workspace: &SavedWorkspace) -> Output {
         mcp_call(13, "references", r#"{"source":"main.veln","line":2,"column":1,"include_declaration":true}"#),
         mcp_call(14, "definition", r#"{"source":"main.veln","line":8,"column":3}"#),
         mcp_call(15, "references", r#"{"source":"main.veln","line":16,"column":17,"include_declaration":true}"#),
+        mcp_call(16, "definition", r#"{"source":"main.veln","line":24,"column":15}"#),
+        mcp_call(17, "references", r#"{"source":"main.veln","line":24,"column":15,"include_declaration":false}"#),
+        mcp_call(18, "references", r#"{"source":"main.veln","line":24,"column":15,"include_declaration":true,"page_size":2}"#),
+        mcp_call(19, "references", r#"{"cursor":"$mcp_cursor:18"}"#),
     ];
     workspace.project.veln_with_interactive_mcp(
         &["mcp".to_string()],

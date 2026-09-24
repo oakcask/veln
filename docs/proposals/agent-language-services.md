@@ -10,12 +10,6 @@ services. The implemented workspace, direct-dependency, and standard-library
 navigation behavior is specified by [Editor Support](../specification/editor-support.md)
 and [MCP Workspace Projects, Resources, And Navigation](../specification/mcp.md).
 
-The ready
-[MCP Recovery References](mcp-recovery-references.md) slice owns MCP reference
-results for the recovery identities already selected by the shared language
-service and exposed by LSP. It is independent of new symbol resolution,
-package graphs, client packaging, and agent integration.
-
 ## Remaining scope
 
 The following work remains planned:
@@ -31,11 +25,6 @@ The following work remains planned:
 Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
 specification page and remove its completed scope from this inventory.
-
-The ready MCP recovery-reference slice does not define new recovery records or
-change recovery selection, reference linking, or LSP behavior. Those contracts
-already belong to the shared language service and current editor
-specification.
 
 ## Remaining acceptance model
 

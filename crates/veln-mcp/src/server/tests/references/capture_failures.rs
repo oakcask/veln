@@ -9,15 +9,19 @@ fn references_project_capture_exhausts_retries_after_owned_source_changes() {
     let workspace = TempWorkspace::new("references-project-capture-retry");
     write_workspace_with_dependency_and_sources(
         &workspace,
-        "fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  1\nend\n",
+        "fn Bad() -> Int\n  Bad()\nend\n",
         Some("fn helper() -> Int\n  1\nend\n"),
     );
-    let (mut server, before_resources, before_selection) =
-        initialized_server_with_captured_state(&workspace);
+    let mut server = initialized_server(&workspace);
+    let before = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":4, "include_declaration":true
+    }));
+    let before_resources = all_resource_state(&mut server);
+    let before_selection = server.selection_result();
     let attempts = Rc::new(Cell::new(0));
     let attempts_for_hook = attempts.clone();
     let root = workspace.root.clone();
-    let _hook = crate::check_project::set_after_first_stable_capture_hook(move || {
+    let hook = crate::check_project::set_after_first_stable_capture_hook(move || {
         let attempt = attempts_for_hook.get();
         attempts_for_hook.set(attempt + 1);
         rewrite_owned_sources(&root, attempt);
@@ -34,34 +38,24 @@ fn references_project_capture_exhausts_retries_after_owned_source_changes() {
     assert_eq!(attempts.get(), 3);
     assert_eq!(all_resource_state(&mut server), before_resources);
     assert_eq!(server.selection_result(), before_selection);
-    assert!(!dependency_resource_is_listed(&mut server, "example/dep"));
+    assert!(dependency_resource_is_listed(&mut server, "example/dep"));
+    drop(hook);
+    let after = server.references_tool(&json!({
+        "source":"main.veln", "line":2, "column":4, "include_declaration":true
+    }));
+    assert_eq!(after, before);
 }
 
 fn rewrite_owned_sources(root: &Path, attempt: usize) {
     let main = root.join("main.veln");
     fs::remove_file(&main).unwrap();
     if attempt.is_multiple_of(2) {
-        fs::write(
-            &main,
-            "fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  2\nend\n",
-        )
-        .unwrap();
+        fs::write(&main, "fn Bad() -> Int\n  Bad()\nend\n").unwrap();
         fs::remove_file(root.join("helper.veln")).unwrap();
     } else {
-        fs::write(
-            &main,
-            "fn main() -> Int\n  value()\nend\n\nfn value() -> Int\n  1\nend\n",
-        )
-        .unwrap();
+        fs::write(&main, "fn Bad() -> Int\n  Bad()\nend\n").unwrap();
         fs::write(root.join("helper.veln"), "fn helper() -> Int\n  1\nend\n").unwrap();
     }
-}
-
-fn initialized_server_with_captured_state(workspace: &TempWorkspace) -> (Server, Value, Value) {
-    let mut server = initialized_server(workspace);
-    let resources = all_resource_state(&mut server);
-    let selection = server.selection_result();
-    (server, resources, selection)
 }
 
 #[test]

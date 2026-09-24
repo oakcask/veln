@@ -48,16 +48,6 @@ fn assert_references_rejected(cases: impl IntoIterator<Item = UnsupportedReferen
 fn references_reject_recovery_package_and_unsupported_symbols() {
     let cases = [
         UnsupportedReferenceCase {
-            name: "recovery value binding",
-            files: vec![
-                ("veln.toml", ""),
-                ("main.veln", "fn main(Bad: Int) -> Int\n  Bad\nend\n"),
-            ],
-            source: "main.veln",
-            line: 2,
-            column: 4,
-        },
-        UnsupportedReferenceCase {
             name: "package private type",
             files: vec![
                 (
@@ -393,19 +383,6 @@ fn references_reject_recovery_package_and_unsupported_symbols() {
             column: 32,
         },
         Case {
-            name: "casing neutral type selection",
-            files: vec![
-                ("veln.toml", ""),
-                (
-                    "main.veln",
-                    "type item\n  Value\nend\n\nfn read(input: item) -> item\n  input\nend\n",
-                ),
-            ],
-            source: "main.veln",
-            line: 5,
-            column: 17,
-        },
-        Case {
             name: "no symbol",
             files: vec![("main.veln", "fn main() -> Int\n  1\nend\n")],
             source: "main.veln",
@@ -477,28 +454,6 @@ fn references_use_single_file_scope_for_sources_outside_selected_projects() {
         references[0]["range"],
         json!({"start": {"line": 2, "column": 3}, "end": {"line": 2, "column": 9}})
     );
-}
-
-#[test]
-fn references_do_not_expose_function_shaped_recovery_records() {
-    let workspace = TempWorkspace::new("references-recovery-boundary");
-    workspace.write("veln.toml", "");
-    workspace.write(
-        "main.veln",
-        concat!(
-            "test Bad() -> Int\n",
-            "  Bad()\n",
-            "end\n\n",
-            "fn read() -> Int\n",
-            "  Bad()\n",
-            "end\n",
-        ),
-    );
-
-    let result = references_result(&workspace, "main.veln", 6, 4);
-    assert_eq!(result["isError"], false, "{result:#}");
-    assert_eq!(result["structuredContent"]["references"], json!([]));
-    assert_eq!(result["structuredContent"]["scope"]["project_wide"], true);
 }
 
 #[test]
