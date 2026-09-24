@@ -147,100 +147,116 @@ struct ProtocolFrameRef {
     stream_ref: String,
 }
 
-fn protocol_header_list_message(
+const HEADER_LIST_FIXED_FACT_DETAILS: &[(&str, &str)] = &[
+    (
+        "protocol_on_non_connect_request",
+        "contains :protocol on a non-CONNECT request",
+    ),
+    (
+        "duplicate_protocol_pseudo_header",
+        "contains duplicate :protocol",
+    ),
+    ("protocol_value_empty", "contains empty :protocol"),
+    (
+        "extended_connect_scheme_missing",
+        "is missing required extended CONNECT :scheme",
+    ),
+    (
+        "extended_connect_path_missing",
+        "is missing required extended CONNECT :path",
+    ),
+    (
+        "extended_connect_authority_missing",
+        "is missing required extended CONNECT :authority",
+    ),
+    (
+        "extended_connect_not_negotiated",
+        "uses extended CONNECT before negotiation",
+    ),
+    (
+        "connect_authority_missing",
+        "is missing required CONNECT :authority",
+    ),
+    (
+        "connect_authority_empty",
+        "contains empty CONNECT :authority",
+    ),
+    (
+        "connect_scheme_present",
+        "contains forbidden CONNECT :scheme",
+    ),
+    ("connect_path_present", "contains forbidden CONNECT :path"),
+    (
+        "te_header_value_not_trailers",
+        "contains te value other than trailers",
+    ),
+    ("method_value_empty", "contains empty :method"),
+    (
+        "scheme_value_not_http_or_https",
+        "contains :scheme value other than http or https",
+    ),
+    ("path_value_empty", "contains empty :path"),
+    ("authority_value_invalid", "contains invalid :authority"),
+    ("content_length_invalid", "contains invalid content-length"),
+    (
+        "content_length_mismatch",
+        "contains mismatched content-length values",
+    ),
+    (
+        "switching_protocols_status_forbidden",
+        "uses switching protocols status",
+    ),
+];
+
+const HEADER_LIST_NAMED_FACT_DETAILS: &[(&str, &str, &str)] = &[
+    ("missing_required_pseudo_header", "is missing ", ""),
+    ("response_only_pseudo_header", "contains response-only ", ""),
+    ("request_only_pseudo_header", "contains request-only ", ""),
+    ("duplicate_pseudo_header", "contains duplicate ", ""),
+    ("trailer_pseudo_header", "contains pseudo-header ", ""),
+    (
+        "pseudo_header_after_regular_header",
+        "places ",
+        " after a regular header",
+    ),
+    (
+        "ordinary_header_name_not_lowercase",
+        "contains uppercase ordinary header ",
+        "",
+    ),
+    (
+        "ordinary_header_name_invalid_token",
+        "contains invalid ordinary header name ",
+        "",
+    ),
+    (
+        "connection_specific_header",
+        "contains connection-specific header ",
+        "",
+    ),
+];
+
+pub(super) fn protocol_header_list_message(
     subject: &str,
     failed_fact: &str,
     header_name: &str,
     byte_offset: i64,
 ) -> String {
-    match failed_fact {
-        "protocol_on_non_connect_request" => format!(
-            "{subject} contains :protocol on a non-CONNECT request at byte offset {byte_offset}"
-        ),
-        "duplicate_protocol_pseudo_header" => {
-            format!("{subject} contains duplicate :protocol at byte offset {byte_offset}")
-        }
-        "protocol_value_empty" => {
-            format!("{subject} contains empty :protocol at byte offset {byte_offset}")
-        }
-        "extended_connect_scheme_missing" => format!(
-            "{subject} is missing required extended CONNECT :scheme at byte offset {byte_offset}"
-        ),
-        "extended_connect_path_missing" => format!(
-            "{subject} is missing required extended CONNECT :path at byte offset {byte_offset}"
-        ),
-        "extended_connect_authority_missing" => format!(
-            "{subject} is missing required extended CONNECT :authority at byte offset {byte_offset}"
-        ),
-        "extended_connect_not_negotiated" => format!(
-            "{subject} uses extended CONNECT before negotiation at byte offset {byte_offset}"
-        ),
-        "connect_authority_missing" => {
-            format!("{subject} is missing required CONNECT :authority at byte offset {byte_offset}")
-        }
-        "connect_authority_empty" => {
-            format!("{subject} contains empty CONNECT :authority at byte offset {byte_offset}")
-        }
-        "connect_scheme_present" => {
-            format!("{subject} contains forbidden CONNECT :scheme at byte offset {byte_offset}")
-        }
-        "connect_path_present" => {
-            format!("{subject} contains forbidden CONNECT :path at byte offset {byte_offset}")
-        }
-        "missing_required_pseudo_header" => {
-            format!("{subject} is missing {header_name} at byte offset {byte_offset}")
-        }
-        "response_only_pseudo_header" => {
-            format!("{subject} contains response-only {header_name} at byte offset {byte_offset}")
-        }
-        "request_only_pseudo_header" => {
-            format!("{subject} contains request-only {header_name} at byte offset {byte_offset}")
-        }
-        "duplicate_pseudo_header" => {
-            format!("{subject} contains duplicate {header_name} at byte offset {byte_offset}")
-        }
-        "trailer_pseudo_header" => {
-            format!("{subject} contains pseudo-header {header_name} at byte offset {byte_offset}")
-        }
-        "pseudo_header_after_regular_header" => format!(
-            "{subject} places {header_name} after a regular header at byte offset {byte_offset}"
-        ),
-        "ordinary_header_name_not_lowercase" => format!(
-            "{subject} contains uppercase ordinary header {header_name} at byte offset {byte_offset}"
-        ),
-        "ordinary_header_name_invalid_token" => format!(
-            "{subject} contains invalid ordinary header name {header_name} at byte offset {byte_offset}"
-        ),
-        "connection_specific_header" => format!(
-            "{subject} contains connection-specific header {header_name} at byte offset {byte_offset}"
-        ),
-        "te_header_value_not_trailers" => {
-            format!("{subject} contains te value other than trailers at byte offset {byte_offset}")
-        }
-        "method_value_empty" => {
-            format!("{subject} contains empty :method at byte offset {byte_offset}")
-        }
-        "scheme_value_not_http_or_https" => format!(
-            "{subject} contains :scheme value other than http or https at byte offset {byte_offset}"
-        ),
-        "path_value_empty" => {
-            format!("{subject} contains empty :path at byte offset {byte_offset}")
-        }
-        "authority_value_invalid" => {
-            format!("{subject} contains invalid :authority at byte offset {byte_offset}")
-        }
-        "content_length_invalid" => {
-            format!("{subject} contains invalid content-length at byte offset {byte_offset}")
-        }
-        "content_length_mismatch" => format!(
-            "{subject} contains mismatched content-length values at byte offset {byte_offset}"
-        ),
-        "switching_protocols_status_forbidden" => {
-            format!("{subject} uses switching protocols status at byte offset {byte_offset}")
-        }
-        "informational_response_end_stream" => {
-            format!("informational response ended the stream at byte offset {byte_offset}")
-        }
-        _ => format!("invalid {subject} at byte offset {byte_offset}"),
+    if failed_fact == "informational_response_end_stream" {
+        return format!("informational response ended the stream at byte offset {byte_offset}");
     }
+
+    if let Some(detail) = HEADER_LIST_FIXED_FACT_DETAILS
+        .iter()
+        .find_map(|(fact, detail)| (*fact == failed_fact).then_some(*detail))
+    {
+        return format!("{subject} {detail} at byte offset {byte_offset}");
+    }
+    if let Some((prefix, suffix)) = HEADER_LIST_NAMED_FACT_DETAILS
+        .iter()
+        .find_map(|(fact, prefix, suffix)| (*fact == failed_fact).then_some((*prefix, *suffix)))
+    {
+        return format!("{subject} {prefix}{header_name}{suffix} at byte offset {byte_offset}");
+    }
+    format!("invalid {subject} at byte offset {byte_offset}")
 }
