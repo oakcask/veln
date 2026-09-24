@@ -1,4 +1,5 @@
 use super::*;
+use crate::server::tests::dependency_resources::fill_dependency_resource_capacity_completely;
 
 struct RecoveryCase {
     name: &'static str,
@@ -191,6 +192,151 @@ fn recovery_reference_declaration_policy_and_pagination_keep_existing_contract()
         "recovery final page",
     );
     assert!(third["structuredContent"].get("next_cursor").is_none());
+}
+
+#[test]
+fn recovery_reference_failures_preserve_results_resources_selection_and_live_cursors() {
+    let workspace = TempWorkspace::new("recovery-reference-failure-atomicity");
+    workspace.write(
+        "veln.toml",
+        "[dependencies.\"example/dep\"]\npath = \"vendor/dep\"\n",
+    );
+    workspace.write(
+        "main.veln",
+        "use dep from \"example/dep\"\n\nfn main() -> Int\n  dep::value()\nend\n",
+    );
+    workspace.write(
+        "recovery.veln",
+        "fn Bad() -> Int\n  Bad()\nend\n\nfn read() -> Int\n  Bad()\nend\n",
+    );
+    workspace.write(
+        "vendor/dep/veln.toml",
+        "[package]\nname = \"example/dep\"\n\n[lib]\nexports = [\"dep.veln\"]\n",
+    );
+    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  1\nend\n");
+    let mut server = initialized_server(&workspace);
+    let expected = recovery_reference_result(&mut server);
+
+    assert_recovery_failure_preserves_state(&mut server, &expected, "invalid_position", |server| {
+        server.references_tool(&json!({
+            "source":"recovery.veln", "line":99, "column":1,
+            "include_declaration":true
+        }))
+    });
+    assert_recovery_failure_preserves_state(&mut server, &expected, "invalid_path", |server| {
+        server.references_tool(&json!({
+            "source":"missing.veln", "line":1, "column":1,
+            "include_declaration":true
+        }))
+    });
+    assert_recovery_failure_preserves_state(&mut server, &expected, "invalid_cursor", |server| {
+        server.references_tool(&json!({"cursor":"not-a-reference-cursor"}))
+    });
+    assert_recovery_failure_preserves_state(
+        &mut server,
+        &expected,
+        "generation_failed",
+        |server| {
+            server.refresh_workspace_tool(|selection| {
+                selection.refresh_with(|| Err(std::io::Error::other("injected failure")))
+            })
+        },
+    );
+
+    let dependency = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":8,
+        "include_declaration":true
+    }));
+    assert_eq!(dependency["isError"], false, "{dependency:#}");
+    fill_dependency_resource_capacity_completely(&mut server);
+    let first = server.references_tool(&json!({
+        "source":"recovery.veln", "line":6, "column":4,
+        "include_declaration":true, "page_size":1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let resources = all_resource_state(&mut server);
+    let selection = server.selection_result();
+    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  2\nend\n");
+    let failure = server.references_tool(&json!({
+        "source":"main.veln", "line":4, "column":8,
+        "include_declaration":true
+    }));
+    assert_eq!(failure["isError"], true, "{failure:#}");
+    assert_eq!(
+        failure["structuredContent"]["code"], "resource_capacity",
+        "{failure:#}"
+    );
+    assert!(failure["structuredContent"].get("references").is_none());
+    assert!(failure["structuredContent"].get("scope").is_none());
+    assert_eq!(all_resource_state(&mut server), resources);
+    assert_eq!(server.selection_result(), selection);
+    let continuation = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(continuation["isError"], false, "{continuation:#}");
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "{continuation:#}"
+    );
+    workspace.write("vendor/dep/dep.veln", "pub fn value() -> Int\n  1\nend\n");
+    assert_eq!(recovery_reference_result(&mut server), expected);
+}
+
+fn recovery_reference_result(server: &mut Server) -> Value {
+    server.references_tool(&json!({
+        "source":"recovery.veln", "line":6, "column":4,
+        "include_declaration":true
+    }))
+}
+
+fn assert_recovery_failure_preserves_state(
+    server: &mut Server,
+    expected: &Value,
+    code: &str,
+    fail: impl FnOnce(&mut Server) -> Value,
+) {
+    let first = server.references_tool(&json!({
+        "source":"recovery.veln", "line":6, "column":4,
+        "include_declaration":true, "page_size":1
+    }));
+    let cursor = first["structuredContent"]["next_cursor"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let resources = all_resource_state(server);
+    let selection = server.selection_result();
+
+    let failure = fail(server);
+
+    assert_eq!(failure["isError"], true, "{code}: {failure:#}");
+    assert_eq!(failure["structuredContent"]["code"], code, "{failure:#}");
+    assert!(
+        failure["structuredContent"].get("references").is_none(),
+        "{failure:#}"
+    );
+    assert!(
+        failure["structuredContent"].get("scope").is_none(),
+        "{failure:#}"
+    );
+    assert_eq!(all_resource_state(server), resources, "{code}");
+    assert_eq!(server.selection_result(), selection, "{code}");
+
+    let continuation = server.references_tool(&json!({"cursor":cursor}));
+    assert_eq!(continuation["isError"], false, "{code}: {continuation:#}");
+    assert_eq!(
+        continuation["structuredContent"]["references"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "{code}: {continuation:#}"
+    );
+    assert_eq!(recovery_reference_result(server), *expected, "{code}");
 }
 
 #[test]

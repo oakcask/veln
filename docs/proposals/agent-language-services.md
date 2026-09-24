@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The remaining package-navigation, workspace-symbol-reference, client-plugin, agent-skill, or conformance-gate scope changes.
+update-when: The remaining package-navigation, workspace-symbol-reference, recovery-identity, casing-neutral lookup, client-plugin, agent-skill, or conformance-gate scope changes.
 ---
 
 # Agent Language Services
@@ -39,11 +39,13 @@ its evidence is added to the named current specification and checked route.
 | Conformance gate | Every requirement has one stable identifier and passing evidence, every evidence route maps to a requirement, and stale or undeclared capabilities fail the gate. | Versioned conformance manifest tests for missing rows, duplicate IDs, orphaned evidence, missing matrix cells, stale artifacts, undeclared capabilities, malformed requests, and plugin mismatches. |
 
 The remainder also includes broader definition navigation, unsupported package
-symbol classes, transitive dependencies, recovery and casing-neutral lookup,
-and any package-reference boundary not listed as implemented above. These rows
-must retain explicit negative and
-state-preservation cases: rejected requests do not mutate saved snapshots,
-published resources, cursors, or prior successful results.
+symbol classes, transitive dependencies, recovery identities and symbol
+classes outside the shared recovery set specified by Editor Support and MCP,
+casing-neutral lookup outside current specified behavior, and any
+package-reference boundary not listed as implemented above. These rows must
+retain explicit negative and state-preservation cases: rejected requests do
+not mutate saved snapshots, published resources, cursors, or prior successful
+results.
 
 An implementation slice may be removed from this inventory only after its
 current specification page names the executable authority, the evidence
