@@ -507,7 +507,9 @@ impl Server {
         let Some(uri) = extract_string_field(message, "uri") else {
             return Ok(None);
         };
-        let Some(position) = extract_position(message) else {
+        let Some(position) = extract_position(message)
+            .map_err(|InvalidPosition| NavigationRequestFailure::InvalidPosition)?
+        else {
             return Ok(None);
         };
         let Some(document_root) =

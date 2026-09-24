@@ -405,6 +405,9 @@ pub(crate) struct Position {
     pub(crate) character: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct InvalidPosition;
+
 #[derive(Debug)]
 pub(crate) struct NavigationRequest {
     pub(crate) root: PathBuf,
@@ -649,16 +652,17 @@ pub(crate) fn extract_id(message: &str) -> Option<String> {
     }
 }
 
-pub(crate) fn extract_position(message: &str) -> Option<Position> {
-    let position_index = message.find("\"position\"")?;
+pub(crate) fn extract_position(message: &str) -> Result<Option<Position>, InvalidPosition> {
+    let Some(position_index) = message.find("\"position\"") else {
+        return Ok(None);
+    };
     let position = &message[position_index..];
-    Some(Position {
-        line: extract_usize_field(position, "line")?,
-        character: extract_usize_field(position, "character")?,
-    })
+    let line = extract_usize_field(position, "line").ok_or(InvalidPosition)?;
+    let character = extract_usize_field(position, "character").ok_or(InvalidPosition)?;
+    Ok(Some(Position { line, character }))
 }
 
-pub(crate) fn extract_usize_field(message: &str, field: &str) -> Option<usize> {
+fn extract_usize_field(message: &str, field: &str) -> Option<usize> {
     let key = format!("\"{field}\"");
     let index = message.find(&key)?;
     let after_key = &message[index + key.len()..];
@@ -666,6 +670,13 @@ pub(crate) fn extract_usize_field(message: &str, field: &str) -> Option<usize> {
     let end = after_colon
         .find(|ch: char| !ch.is_ascii_digit())
         .unwrap_or(after_colon.len());
+    if end == 0 {
+        return None;
+    }
+    let remainder = after_colon[end..].trim_start();
+    if !matches!(remainder.as_bytes().first(), Some(b',' | b'}')) {
+        return None;
+    }
     after_colon[..end].parse().ok()
 }
 

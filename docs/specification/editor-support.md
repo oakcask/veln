@@ -205,10 +205,12 @@ Navigation requests convert zero-based UTF-16 LSP characters to the shared
 one-based Unicode-scalar positions. Navigation responses convert shared ranges
 back to zero-based UTF-16 LSP ranges using the retained source snapshot.
 The character position at the end of a line is valid and preserves half-open
-selection behavior. A position beyond the retained line or outside the
-retained source returns the JSON-RPC Invalid Params error. It does not become
-a successful `null` definition or empty reference result. A valid position
-that selects no supported symbol still succeeds with `null` or an empty list.
+selection behavior. A present `line` or `character` that is negative,
+non-integral, too large for the server's coordinate type, beyond the retained
+line, or outside the retained source returns the JSON-RPC Invalid Params
+error. It does not become a successful `null` definition or empty reference
+result. A valid position that selects no supported symbol still succeeds with
+`null` or an empty list.
 An invalid request does not change the retained snapshot or a later result for
 the same valid saved selection.
 For a selected valid-cased, unrecovered workspace effect declaration,

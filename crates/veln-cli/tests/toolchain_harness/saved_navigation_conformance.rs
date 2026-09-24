@@ -42,10 +42,26 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
     )
     .expect("MCP output should decode");
 
+    let expected_workspace_definition = NormalizedLocation {
+        source: "main.veln".to_string(),
+        range: NormalizedRange {
+            start: NormalizedPosition { line: 3, column: 8 },
+            end: NormalizedPosition {
+                line: 3,
+                column: 14,
+            },
+        },
+    };
     let workspace_definition = normalize_lsp_definition(&workspace, response(&lsp, 2));
     assert_eq!(
         workspace_definition,
-        normalize_mcp_definition(&workspace, response(&mcp, 2))
+        Some(expected_workspace_definition.clone()),
+        "LSP workspace definition should retain the expected declaration"
+    );
+    assert_eq!(
+        normalize_mcp_definition(&workspace, response(&mcp, 2)),
+        Some(expected_workspace_definition.clone()),
+        "MCP workspace definition should retain the expected declaration"
     );
 
     let package_definition = normalize_lsp_definition(&workspace, response(&lsp, 3));
@@ -62,13 +78,13 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
     let coordinate_pairs = [(4, 4), (6, 6), (7, 7)];
     for (lsp_id, mcp_id) in coordinate_pairs {
         assert_eq!(
-            workspace_definition,
             normalize_lsp_definition(&workspace, response(&lsp, lsp_id)),
+            Some(expected_workspace_definition.clone()),
             "LSP coordinate case {lsp_id} changed the definition"
         );
         assert_eq!(
-            workspace_definition,
             normalize_mcp_definition(&workspace, response(&mcp, mcp_id)),
+            Some(expected_workspace_definition.clone()),
             "MCP coordinate case {mcp_id} changed the definition"
         );
     }
@@ -145,6 +161,9 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
 
     assert_lsp_invalid_position(response(&lsp, 12));
     assert_lsp_invalid_position(response(&lsp, 13));
+    for id in 16..=21 {
+        assert_lsp_invalid_position(response(&lsp, id));
+    }
     assert_mcp_invalid_position(response(&mcp, 10));
     assert!(
         structured_content(response(&mcp, 10))
@@ -223,7 +242,49 @@ fn run_lsp(workspace: &SavedWorkspace) -> Output {
         lsp_references(13, &workspace.main_uri, 7, 99, true),
         lsp_definition(14, &workspace.main_uri, 7, 2),
         lsp_references(15, &workspace.main_uri, 15, 16, true),
-        r#"{"jsonrpc":"2.0","id":16,"method":"shutdown","params":null}"#.to_string(),
+        lsp_navigation_with_position(
+            16,
+            "textDocument/definition",
+            &workspace.main_uri,
+            "-1",
+            "0",
+        ),
+        lsp_navigation_with_position(
+            17,
+            "textDocument/references",
+            &workspace.main_uri,
+            "7",
+            "-1",
+        ),
+        lsp_navigation_with_position(
+            18,
+            "textDocument/definition",
+            &workspace.main_uri,
+            "7.5",
+            "0",
+        ),
+        lsp_navigation_with_position(
+            19,
+            "textDocument/references",
+            &workspace.main_uri,
+            "7",
+            "2.5",
+        ),
+        lsp_navigation_with_position(
+            20,
+            "textDocument/definition",
+            &workspace.main_uri,
+            "184467440737095516160",
+            "0",
+        ),
+        lsp_navigation_with_position(
+            21,
+            "textDocument/references",
+            &workspace.main_uri,
+            "7",
+            "184467440737095516160",
+        ),
+        r#"{"jsonrpc":"2.0","id":22,"method":"shutdown","params":null}"#.to_string(),
         r#"{"jsonrpc":"2.0","method":"exit","params":null}"#.to_string(),
     ];
     let stdin = requests
@@ -277,6 +338,23 @@ fn lsp_references(
 ) -> String {
     format!(
         r#"{{"jsonrpc":"2.0","id":{id},"method":"textDocument/references","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}},"context":{{"includeDeclaration":{include_declaration}}}}}}}"#
+    )
+}
+
+fn lsp_navigation_with_position(
+    id: i64,
+    method: &str,
+    uri: &str,
+    line: &str,
+    character: &str,
+) -> String {
+    let context = if method == "textDocument/references" {
+        r#","context":{"includeDeclaration":true}"#
+    } else {
+        ""
+    };
+    format!(
+        r#"{{"jsonrpc":"2.0","id":{id},"method":"{method}","params":{{"textDocument":{{"uri":"{uri}"}},"position":{{"line":{line},"character":{character}}}{context}}}}}"#
     )
 }
 
