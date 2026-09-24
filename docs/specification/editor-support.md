@@ -205,16 +205,16 @@ Navigation requests convert zero-based UTF-16 LSP characters to the shared
 one-based Unicode-scalar positions. Navigation responses convert shared ranges
 back to zero-based UTF-16 LSP ranges using the retained source snapshot.
 The character position at the end of a line is valid and preserves half-open
-selection behavior. The request must contain exactly one direct
-`params.position` object. That object must directly contain both `line` and
-`character`; a missing or duplicate `position`, a position outside `params`,
-a missing member, or a member nested in another object is invalid. A
-coordinate that is negative, non-integral, too large for the
-server's coordinate type, beyond the retained line, or outside the retained
-source returns the JSON-RPC Invalid Params error. It does not become a
-successful `null` definition or empty reference result, a successful `null`
-prepare-rename result, or an empty rename edit. For rename, this position error
-also takes precedence when `newName` is missing or is not an identifier. A
+selection behavior. After `params.textDocument.uri` selects a retained source,
+the request must contain exactly one direct `params.position` object. That
+object must directly contain both `line` and `character`; a missing or duplicate
+`position`, a position outside `params`, a missing member, or a member nested in
+another object is invalid. A coordinate that is negative, non-integral, too
+large for the server's coordinate type, beyond the retained line, or outside
+the retained source returns the JSON-RPC Invalid Params error. It does not
+become a successful `null` definition or empty reference result, a successful
+`null` prepare-rename result, or an empty rename edit. For rename, this position
+error also takes precedence when `newName` is missing or is not an identifier. A
 valid retained-source position with a missing or invalid direct
 `params.newName` returns an empty edit without selecting a symbol or collecting
 references. A valid position that selects no supported symbol still succeeds
