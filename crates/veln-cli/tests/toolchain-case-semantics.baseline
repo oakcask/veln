@@ -1,8 +1,8 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"91e3ca97c724739a129321ba9fca279671dc7ac3"
+source_git_tree	"a9533f9e6d2ba81947b3e6e381249c3247d40c7f"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
-case_count	1699
+case_count	1700
 case	"crates/veln-cli/tests/toolchain_cases/check/discover-nested-json"
 field	expectations.exit	0
 field	expectations.json_assertions[0].equals	"ok"
@@ -16471,6 +16471,37 @@ field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":994,"sh
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"expected"
 case_digest	"2d3496d0df1a1cbb2c6fdb495c0ca2854cdfaa0a1ea00890890307777dfb4fb9"
+case	"examples/specification/lsp/saved-navigation-cross-adapter"
+field	expectations.exit	0
+field	expectations.lsp_assertions[0].equals	{"end":{"character":13,"line":2},"start":{"character":7,"line":2}}
+field	expectations.lsp_assertions[0].id	2
+field	expectations.lsp_assertions[0].operation	"equals"
+field	expectations.lsp_assertions[0].path	"/result/range"
+field	expectations.lsp_assertions[1].equals	-32602
+field	expectations.lsp_assertions[1].id	3
+field	expectations.lsp_assertions[1].operation	"equals"
+field	expectations.lsp_assertions[1].path	"/error/code"
+field	expectations.lsp_assertions[2].id	3
+field	expectations.lsp_assertions[2].operation	"missing"
+field	expectations.lsp_assertions[2].path	"/result"
+field	expectations.lsp_assertions[3].equals	-32602
+field	expectations.lsp_assertions[3].id	4
+field	expectations.lsp_assertions[3].operation	"equals"
+field	expectations.lsp_assertions[3].path	"/error/code"
+field	expectations.lsp_assertions[4].id	4
+field	expectations.lsp_assertions[4].operation	"missing"
+field	expectations.lsp_assertions[4].path	"/result"
+field	expectations.lsp_assertions[5].equals	{"end":{"character":13,"line":2},"start":{"character":7,"line":2}}
+field	expectations.lsp_assertions[5].id	5
+field	expectations.lsp_assertions[5].operation	"equals"
+field	expectations.lsp_assertions[5].path	"/result/range"
+field	expectations.stderr.format	"empty"
+field	invocation.command[0]	"lsp"
+field	invocation.repeat	1
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":1109,"sha256":"23ed3073d7886c4d282bbc0e2669a85331fa4095c2d08e3825f5610db29078e0"}
+field	invocation.stdin_jsonrpc_file	"requests.json"
+field	source_errors	"forbidden"
+case_digest	"a28b03d844cad0578e0cc5baa391841ce2c60404454fe8aac1a980d41aeb054d"
 case	"examples/specification/lsp/schema-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -61320,4 +61351,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"11c373e2d557d7bd7db7ddde9c6a2d6356446b8d8e05104919fee4dc39bc927e"
+aggregate_digest	"d2f622fa4e467d19922c66fc11e7dcd178c691c3528007b1681bef118fbf9ce5"

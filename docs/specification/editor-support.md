@@ -204,6 +204,13 @@ rename-supported symbol classes.
 Navigation requests convert zero-based UTF-16 LSP characters to the shared
 one-based Unicode-scalar positions. Navigation responses convert shared ranges
 back to zero-based UTF-16 LSP ranges using the retained source snapshot.
+The character position at the end of a line is valid and preserves half-open
+selection behavior. A position beyond the retained line or outside the
+retained source returns the JSON-RPC Invalid Params error. It does not become
+a successful `null` definition or empty reference result. A valid position
+that selects no supported symbol still succeeds with `null` or an empty list.
+An invalid request does not change the retained snapshot or a later result for
+the same valid saved selection.
 For a selected valid-cased, unrecovered workspace effect declaration,
 references include every structurally complete bare effect-row occurrence on
 functions, tests, handlers, and function types, every handler `handles` target,
@@ -605,3 +612,13 @@ heading and operation-name-only locations.
 The checked `examples/specification/lsp/references-workspace-handler/`
 transcript demonstrates the same declaration policy and UTF-16 conversion for
 workspace handler references.
+The checked
+`examples/specification/lsp/saved-navigation-cross-adapter/` transcript covers
+the invalid-position protocol boundary and a repeated saved definition. The
+paired harness in
+[`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
+drives LSP and MCP from one unchanged workspace, converts both adapters to
+retained source identities and one-based Unicode-scalar half-open ranges, and
+compares complete definitions and reference sets across coordinate,
+declaration, continuation, empty-result, failure, and preserved-state
+boundaries.

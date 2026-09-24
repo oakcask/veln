@@ -1,0 +1,9 @@
+[
+  {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":"file://."}},
+  {"jsonrpc":"2.0","id":2,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":4}}},
+  {"jsonrpc":"2.0","id":3,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":99,"character":0}}},
+  {"jsonrpc":"2.0","id":4,"method":"textDocument/references","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":99},"context":{"includeDeclaration":true}}},
+  {"jsonrpc":"2.0","id":5,"method":"textDocument/definition","params":{"textDocument":{"uri":{"$workspace_file_uri":"main.veln"}},"position":{"line":7,"character":4}}},
+  {"jsonrpc":"2.0","id":6,"method":"shutdown","params":null},
+  {"jsonrpc":"2.0","method":"exit","params":null}
+]

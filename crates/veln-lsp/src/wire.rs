@@ -130,7 +130,7 @@ pub(crate) fn unicode_scalar_column(
     utf16_character: usize,
 ) -> Option<usize> {
     let text = snapshot.workspace_source(source)?.text();
-    let line = text.lines().nth(line)?;
+    let line = lsp_line(text, line)?;
     let mut utf16_offset = 0usize;
     let mut scalar_column = 1usize;
     for ch in line.chars() {
@@ -144,6 +144,18 @@ pub(crate) fn unicode_scalar_column(
         scalar_column += 1;
     }
     (utf16_offset == utf16_character).then_some(scalar_column)
+}
+
+fn lsp_line(text: &str, line: usize) -> Option<&str> {
+    let mut start = 0usize;
+    for _ in 0..line {
+        start = start.checked_add(text.get(start..)?.find('\n')? + 1)?;
+    }
+    let rest = text.get(start..)?;
+    match rest.find('\n') {
+        Some(end) => rest[..end].strip_suffix('\r').or(Some(&rest[..end])),
+        None => Some(rest),
+    }
 }
 
 pub(crate) fn full_document_range_json(text: &str) -> String {

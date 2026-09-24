@@ -1,0 +1,5 @@
+[package]
+name = "navigation-app"
+
+[dependencies."example/model"]
+path = "vendor/model"

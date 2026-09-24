@@ -1,0 +1,36 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":2,"character":7},"end":{"line":2,"character":13}}
+
+[[lsp_assert]]
+id = 3
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 4
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 5
+path = "/result/range"
+equals = {"start":{"line":2,"character":7},"end":{"line":2,"character":13}}

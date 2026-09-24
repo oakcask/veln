@@ -387,6 +387,9 @@ Invalid paths return `invalid_path`; invalid coordinates return
 capacity exhaustion returns `resource_capacity`. These failures include
 `code`, `message`, and object `details`. Unsupported or valid-but-empty
 selections succeed with `definition: null`.
+The invalid-coordinate failure creates no reference cursor and does not consume
+an existing cursor. A later request for an earlier valid saved selection reads
+the same retained snapshot and produces the same navigation result.
 
 The supported definition set includes workspace functions, types,
 constructors, handler context and operation-clause parameters, exact
@@ -640,3 +643,12 @@ pagination boundaries for the shared operation identity.
 The checked `examples/specification/mcp/references-workspace-handler/`
 transcript demonstrates the same location, declaration, ordering, and
 pagination contract for workspace handler references.
+The paired harness in
+[`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
+drives MCP and LSP from one unchanged saved workspace. It collects MCP
+continuation pages, normalizes both protocol results to retained source
+identities and one-based Unicode-scalar half-open ranges, and compares the
+complete definition and reference outcomes. Its matrix covers LF and CRLF
+sources, UTF-16 conversion around non-BMP scalars, token ends, empty and
+invalid selections, package identities, declaration policy, and state after a
+failed request.
