@@ -1,5 +1,5 @@
 schema	"veln-toolchain-case-semantics/v0"
-source_git_tree	"654cd94ca7760c5ad02febdd10b8c1749445b984"
+source_git_tree	"d7c91780aaaef955d13b273ca383a0a41fec1d6e"
 root	"crates/veln-cli/tests/toolchain_cases"
 root	"examples/specification"
 case_count	1700
@@ -16547,9 +16547,51 @@ field	expectations.lsp_assertions[27].equals	[{"newText":"assist","range":{"end"
 field	expectations.lsp_assertions[27].id	17
 field	expectations.lsp_assertions[27].operation	"equals"
 field	expectations.lsp_assertions[27].path	"/result/changes/$workspace_file_uri:other.veln"
+field	expectations.lsp_assertions[28].equals	-32602
+field	expectations.lsp_assertions[28].id	18
+field	expectations.lsp_assertions[28].operation	"equals"
+field	expectations.lsp_assertions[28].path	"/error/code"
+field	expectations.lsp_assertions[29].id	18
+field	expectations.lsp_assertions[29].operation	"missing"
+field	expectations.lsp_assertions[29].path	"/result"
 field	expectations.lsp_assertions[2].id	3
 field	expectations.lsp_assertions[2].operation	"missing"
 field	expectations.lsp_assertions[2].path	"/result"
+field	expectations.lsp_assertions[30].equals	-32602
+field	expectations.lsp_assertions[30].id	19
+field	expectations.lsp_assertions[30].operation	"equals"
+field	expectations.lsp_assertions[30].path	"/error/code"
+field	expectations.lsp_assertions[31].id	19
+field	expectations.lsp_assertions[31].operation	"missing"
+field	expectations.lsp_assertions[31].path	"/result"
+field	expectations.lsp_assertions[32].equals	-32602
+field	expectations.lsp_assertions[32].id	20
+field	expectations.lsp_assertions[32].operation	"equals"
+field	expectations.lsp_assertions[32].path	"/error/code"
+field	expectations.lsp_assertions[33].id	20
+field	expectations.lsp_assertions[33].operation	"missing"
+field	expectations.lsp_assertions[33].path	"/result"
+field	expectations.lsp_assertions[34].equals	-32602
+field	expectations.lsp_assertions[34].id	21
+field	expectations.lsp_assertions[34].operation	"equals"
+field	expectations.lsp_assertions[34].path	"/error/code"
+field	expectations.lsp_assertions[35].id	21
+field	expectations.lsp_assertions[35].operation	"missing"
+field	expectations.lsp_assertions[35].path	"/result"
+field	expectations.lsp_assertions[36].equals	-32602
+field	expectations.lsp_assertions[36].id	22
+field	expectations.lsp_assertions[36].operation	"equals"
+field	expectations.lsp_assertions[36].path	"/error/code"
+field	expectations.lsp_assertions[37].id	22
+field	expectations.lsp_assertions[37].operation	"missing"
+field	expectations.lsp_assertions[37].path	"/result"
+field	expectations.lsp_assertions[38].equals	-32602
+field	expectations.lsp_assertions[38].id	23
+field	expectations.lsp_assertions[38].operation	"equals"
+field	expectations.lsp_assertions[38].path	"/error/code"
+field	expectations.lsp_assertions[39].id	23
+field	expectations.lsp_assertions[39].operation	"missing"
+field	expectations.lsp_assertions[39].path	"/result"
 field	expectations.lsp_assertions[3].equals	-32602
 field	expectations.lsp_assertions[3].id	4
 field	expectations.lsp_assertions[3].operation	"equals"
@@ -16578,10 +16620,10 @@ field	expectations.lsp_assertions[9].path	"/result"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":3794,"sha256":"ac1108c9024d7f48846e359a7a7a53b96937c9fd3333c664c414fc34a350c490"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5158,"sha256":"c3cbdea7802b1b57240858c028e7c33747a641ac26bed3f12ff1bd5d919ca067"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"dcf454c4b0622e784846a14aed2906e906a2d6efbcdd2a7a306acc9f1237681d"
+case_digest	"7be7c29d008cc2fce7ddd059eeb329f0b24c5e39970d7ba0ba767fdd6ce5c188"
 case	"examples/specification/lsp/schema-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -61431,4 +61473,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"1c8dcc279d59fd549560b952de9467f74fc01e8bcae7a09cbc4c529f34515c57"
+aggregate_digest	"e4c73cea84c88b017d5dc61e3ba18ea97e2cc457a2cbd3744f4c5d6ebffc8d2d"

@@ -156,3 +156,63 @@ path = "/result/changes/$workspace_file_uri:other.veln"
 equals = [
   {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}},"newText":"assist"}
 ]
+
+[[lsp_assert]]
+id = 18
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 19
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 19
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 20
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 21
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 22
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 23
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 23
+path = "/result"
+missing = true

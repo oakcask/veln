@@ -161,7 +161,7 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
 
     assert_lsp_invalid_position(response(&lsp, 12));
     assert_lsp_invalid_position(response(&lsp, 13));
-    for id in 16..=21 {
+    for id in 16..=27 {
         assert_lsp_invalid_position(response(&lsp, id));
     }
     assert_mcp_invalid_position(response(&mcp, 10));
@@ -284,7 +284,31 @@ fn run_lsp(workspace: &SavedWorkspace) -> Output {
             "7",
             "184467440737095516160",
         ),
-        r#"{"jsonrpc":"2.0","id":22,"method":"shutdown","params":null}"#.to_string(),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":22,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":99,"character":0}}}}}}"#,
+            workspace.main_uri
+        ),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":23,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":99,"character":0}},"newName":"not valid"}}}}"#,
+            workspace.main_uri
+        ),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":24,"method":"textDocument/definition","params":{{"textDocument":{{"uri":"{}"}},"position":{{"character":2}},"extension":{{"line":7}}}}}}"#,
+            workspace.main_uri
+        ),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":25,"method":"textDocument/references","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":7}},"extension":{{"character":2}},"context":{{"includeDeclaration":true}}}}}}"#,
+            workspace.main_uri
+        ),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":26,"method":"textDocument/prepareRename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"extension":{{"line":7}},"character":2}}}}}}"#,
+            workspace.main_uri
+        ),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":27,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":7,"extension":{{"character":2}}}},"newName":"assist"}}}}"#,
+            workspace.main_uri
+        ),
+        r#"{"jsonrpc":"2.0","id":28,"method":"shutdown","params":null}"#.to_string(),
         r#"{"jsonrpc":"2.0","method":"exit","params":null}"#.to_string(),
     ];
     let stdin = requests

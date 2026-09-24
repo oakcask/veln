@@ -314,12 +314,6 @@ impl Server {
 
     fn handle_rename(&self, message: &str, id: Option<String>) -> Vec<String> {
         id.map(|id| {
-            let Some(new_name) = extract_string_field(message, "newName") else {
-                return response(&id, "{\"changes\":{}}");
-            };
-            if !is_identifier(&new_name) {
-                return response(&id, "{\"changes\":{}}");
-            }
             let request = match self.rename_symbol_at_request(message) {
                 Ok(Some(request))
                     if is_workspace_location(&request.result.definition)
@@ -332,6 +326,12 @@ impl Server {
                     return invalid_navigation_position_response(&id);
                 }
             };
+            let Some(new_name) = extract_string_field(message, "newName") else {
+                return response(&id, "{\"changes\":{}}");
+            };
+            if !is_identifier(&new_name) {
+                return response(&id, "{\"changes\":{}}");
+            }
             match validate_rename_in_snapshot(&request.snapshot, &request.result, &new_name) {
                 Ok(()) => response(
                     &id,
