@@ -130,7 +130,7 @@ pub(crate) fn unicode_scalar_column(
     utf16_character: usize,
 ) -> Option<usize> {
     let text = snapshot.workspace_source(source)?.text();
-    let line = text.lines().nth(line)?;
+    let line = lsp_line(text, line)?;
     let mut utf16_offset = 0usize;
     let mut scalar_column = 1usize;
     for ch in line.chars() {
@@ -144,6 +144,18 @@ pub(crate) fn unicode_scalar_column(
         scalar_column += 1;
     }
     (utf16_offset == utf16_character).then_some(scalar_column)
+}
+
+fn lsp_line(text: &str, line: usize) -> Option<&str> {
+    let mut start = 0usize;
+    for _ in 0..line {
+        start = start.checked_add(text.get(start..)?.find('\n')? + 1)?;
+    }
+    let rest = text.get(start..)?;
+    match rest.find('\n') {
+        Some(end) => rest[..end].strip_suffix('\r').or(Some(&rest[..end])),
+        None => Some(rest),
+    }
 }
 
 pub(crate) fn full_document_range_json(text: &str) -> String {
@@ -393,6 +405,9 @@ pub(crate) struct Position {
     pub(crate) character: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct InvalidPosition;
+
 #[derive(Debug)]
 pub(crate) struct NavigationRequest {
     pub(crate) root: PathBuf,
@@ -637,24 +652,182 @@ pub(crate) fn extract_id(message: &str) -> Option<String> {
     }
 }
 
-pub(crate) fn extract_position(message: &str) -> Option<Position> {
-    let position_index = message.find("\"position\"")?;
-    let position = &message[position_index..];
-    Some(Position {
-        line: extract_usize_field(position, "line")?,
-        character: extract_usize_field(position, "character")?,
-    })
+pub(crate) fn extract_position(message: &str) -> Result<Position, InvalidPosition> {
+    let params = extract_direct_object_field(message, "params")?.ok_or(InvalidPosition)?;
+    let value = extract_direct_field_value(params, "position")?.ok_or(InvalidPosition)?;
+    let position = extract_json_object(value).ok_or(InvalidPosition)?;
+    let line = extract_direct_usize_field(position, "line").ok_or(InvalidPosition)?;
+    let character = extract_direct_usize_field(position, "character").ok_or(InvalidPosition)?;
+    Ok(Position { line, character })
 }
 
-pub(crate) fn extract_usize_field(message: &str, field: &str) -> Option<usize> {
-    let key = format!("\"{field}\"");
-    let index = message.find(&key)?;
-    let after_key = &message[index + key.len()..];
-    let after_colon = after_key[after_key.find(':')? + 1..].trim_start();
-    let end = after_colon
+pub(crate) fn extract_params_string_field(message: &str, field: &str) -> Option<String> {
+    let params = extract_direct_object_field(message, "params").ok()??;
+    let value = extract_direct_field_value(params, field).ok()??;
+    parse_json_string(value)
+}
+
+fn extract_direct_object_field<'a>(
+    object: &'a str,
+    field: &str,
+) -> Result<Option<&'a str>, InvalidPosition> {
+    let Some(value) = extract_direct_field_value(object.trim_start(), field)? else {
+        return Ok(None);
+    };
+    extract_json_object(value).map(Some).ok_or(InvalidPosition)
+}
+
+fn extract_direct_field_value<'a>(
+    object: &'a str,
+    field: &str,
+) -> Result<Option<&'a str>, InvalidPosition> {
+    let bytes = object.as_bytes();
+    if bytes.first() != Some(&b'{') {
+        return Err(InvalidPosition);
+    }
+    let mut depth = 0usize;
+    let mut index = 0usize;
+    let mut found = None;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'{' | b'[' => {
+                depth = depth.checked_add(1).ok_or(InvalidPosition)?;
+                index += 1;
+            }
+            b'}' | b']' => {
+                depth = depth.checked_sub(1).ok_or(InvalidPosition)?;
+                index += 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            b'"' => {
+                let key_start = index + 1;
+                index = key_start;
+                let mut escaped = false;
+                while index < bytes.len() {
+                    if escaped {
+                        escaped = false;
+                    } else if bytes[index] == b'\\' {
+                        escaped = true;
+                    } else if bytes[index] == b'"' {
+                        break;
+                    }
+                    index += 1;
+                }
+                if index == bytes.len() {
+                    return Err(InvalidPosition);
+                }
+                let key_end = index;
+                index += 1;
+                if depth != 1 || &object[key_start..key_end] != field {
+                    continue;
+                }
+                let after_key = object[index..].trim_start();
+                let Some(after_colon) = after_key.strip_prefix(':') else {
+                    continue;
+                };
+                if found.is_some() {
+                    return Err(InvalidPosition);
+                }
+                found = Some(after_colon.trim_start());
+            }
+            _ => index += 1,
+        }
+    }
+    Ok(found)
+}
+
+fn extract_json_object(input: &str) -> Option<&str> {
+    if input.as_bytes().first() != Some(&b'{') {
+        return None;
+    }
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, byte) in input.bytes().enumerate() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match byte {
+            b'"' => in_string = true,
+            b'{' => depth = depth.checked_add(1)?,
+            b'}' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(&input[..=index]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn extract_direct_usize_field(object: &str, field: &str) -> Option<usize> {
+    let bytes = object.as_bytes();
+    let mut depth = 0usize;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'{' | b'[' => {
+                depth = depth.checked_add(1)?;
+                index += 1;
+            }
+            b'}' | b']' => {
+                depth = depth.checked_sub(1)?;
+                index += 1;
+            }
+            b'"' => {
+                let key_start = index + 1;
+                index = key_start;
+                let mut escaped = false;
+                while index < bytes.len() {
+                    if escaped {
+                        escaped = false;
+                    } else if bytes[index] == b'\\' {
+                        escaped = true;
+                    } else if bytes[index] == b'"' {
+                        break;
+                    }
+                    index += 1;
+                }
+                if index == bytes.len() {
+                    return None;
+                }
+                let is_field = depth == 1 && &object[key_start..index] == field;
+                index += 1;
+                if is_field {
+                    let after_key = object[index..].trim_start();
+                    let after_colon = after_key.strip_prefix(':')?.trim_start();
+                    return extract_usize_value(after_colon);
+                }
+            }
+            _ => index += 1,
+        }
+    }
+    None
+}
+
+fn extract_usize_value(value: &str) -> Option<usize> {
+    let end = value
         .find(|ch: char| !ch.is_ascii_digit())
-        .unwrap_or(after_colon.len());
-    after_colon[..end].parse().ok()
+        .unwrap_or(value.len());
+    if end == 0 {
+        return None;
+    }
+    let remainder = value[end..].trim_start();
+    if !matches!(remainder.as_bytes().first(), Some(b',' | b'}')) {
+        return None;
+    }
+    value[..end].parse().ok()
 }
 
 pub(crate) fn extract_bool_field(message: &str, field: &str) -> Option<bool> {

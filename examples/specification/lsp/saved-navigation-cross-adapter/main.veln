@@ -1,0 +1,21 @@
+use model from "example/model"
+
+pub fn helper(value: Int) -> Int
+  value
+end
+
+fn first() -> Int
+  helper(1)
+end
+
+fn unicode() -> Int
+  choose("🙂", helper(2))
+end
+
+fn package_alias() -> model::Alias
+  model::Alias::Ready(1)
+end
+
+fn choose(label: String, value: Int) -> Int
+  value
+end

@@ -1,0 +1,5 @@
+pub type Item
+  pub Ready(Int)
+end
+
+pub type Alias = Item

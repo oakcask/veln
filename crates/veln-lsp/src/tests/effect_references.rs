@@ -528,7 +528,7 @@ fn workspace_effect_operation_reference_failures_preserve_valid_results() {
         server.handle_message(&references_request_with_declaration(
             &main_uri, 99, 0, true,
         )),
-        [response("2", "[]")]
+        [invalid_navigation_position_response("2")]
     );
     assert_eq!(server.handle_message(&request), expected);
     assert_eq!(

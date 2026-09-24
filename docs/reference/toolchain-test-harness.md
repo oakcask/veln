@@ -299,7 +299,8 @@ path, operation, and operand so migrated cases stay reviewable. The
 selector, pointer, operation, independence, and aggregation boundaries.
 
 The `publish-diagnostics`, `semantic-tokens`,
-`semantic-tokens-unsaved-change`, `identifier-casing-snapshot-boundary`,
+`semantic-tokens-unsaved-change`, `saved-navigation-cross-adapter`,
+`identifier-casing-snapshot-boundary`,
 `identifier-casing-overlay-boundary`, and
 `identifier-casing-recovery-navigation`,
 `identifier-casing-handler-binding-navigation`, and
@@ -330,6 +331,10 @@ representation is still part of the fixture.
 The `references-workspace-effect` LSP specification case uses decoded
 assertions for exact effect and effect-operation reference locations,
 declaration inclusion, and UTF-16 coordinates.
+The `saved-navigation-cross-adapter` LSP specification case uses decoded
+assertions for direct `params.position` validation, invalid-coordinate errors,
+empty rename edits for invalid names, and successful navigation repeated after
+failed requests.
 
 The `decoded_mcp_jsonl_*` and `manifest_mcp_assertions_*` tests in
 `toolchain_harness.rs` cover MCP JSONL decoding, ID selection, pointer

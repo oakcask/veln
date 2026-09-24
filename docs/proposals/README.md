@@ -16,10 +16,7 @@ also states it.
 
 ## Ready
 
-- Add paired evidence that saved LSP and MCP navigation preserve the shared
-  language-service result after their protocol-specific coordinate and
-  pagination conversions:
-  [saved-navigation-cross-adapter-conformance.md](saved-navigation-cross-adapter-conformance.md).
+No proposal is currently ready for implementation.
 
 ## Blocked
 

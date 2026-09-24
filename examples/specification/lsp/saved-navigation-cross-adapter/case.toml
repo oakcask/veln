@@ -1,0 +1,258 @@
+command = ["lsp"]
+stdin_jsonrpc_file = "requests.json"
+exit = 0
+
+[stderr]
+format = "empty"
+
+[[lsp_assert]]
+id = 2
+path = "/result/range"
+equals = {"start":{"line":2,"character":7},"end":{"line":2,"character":13}}
+
+[[lsp_assert]]
+id = 3
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 3
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 4
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 4
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 5
+path = "/result/range"
+equals = {"start":{"line":2,"character":7},"end":{"line":2,"character":13}}
+
+[[lsp_assert]]
+id = 6
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 6
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 7
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 7
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 8
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 8
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 9
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 9
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 10
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 10
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 11
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 11
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+equals = {"start":{"line":7,"character":2},"end":{"line":7,"character":8}}
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}},"newText":"assist"},
+  {"range":{"start":{"line":7,"character":2},"end":{"line":7,"character":8}},"newText":"assist"},
+  {"range":{"start":{"line":11,"character":15},"end":{"line":11,"character":21}},"newText":"assist"}
+]
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:other.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}},"newText":"assist"}
+]
+
+[[lsp_assert]]
+id = 14
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 15
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 15
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+equals = {"start":{"line":7,"character":2},"end":{"line":7,"character":8}}
+
+[[lsp_assert]]
+id = 17
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}},"newText":"assist"},
+  {"range":{"start":{"line":7,"character":2},"end":{"line":7,"character":8}},"newText":"assist"},
+  {"range":{"start":{"line":11,"character":15},"end":{"line":11,"character":21}},"newText":"assist"}
+]
+
+[[lsp_assert]]
+id = 17
+path = "/result/changes/$workspace_file_uri:other.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}},"newText":"assist"}
+]
+
+[[lsp_assert]]
+id = 18
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 18
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 19
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 19
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 20
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 20
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 21
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 21
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 22
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 22
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 23
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 23
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 24
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 24
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 25
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 25
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 26
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 26
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 27
+path = "/result"
+equals = {"changes":{}}
+
+[[lsp_assert]]
+id = 28
+path = "/result"
+equals = {"changes":{}}

@@ -98,6 +98,8 @@ mod protocol_file_equality;
 mod runtime_inventory;
 #[path = "toolchain_harness/runtime_result_shapes.rs"]
 mod runtime_result_shapes;
+#[path = "toolchain_harness/saved_navigation_conformance.rs"]
+mod saved_navigation_conformance;
 #[path = "toolchain_harness/sidecar_resources.rs"]
 mod sidecar_resources;
 #[path = "toolchain_harness/source_error_guards.rs"]

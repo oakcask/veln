@@ -72,6 +72,57 @@ fn server_initializes_with_semantic_token_capability() {
 }
 
 #[test]
+fn navigation_reads_only_the_direct_params_position() {
+    let mut server = Server::default();
+    let project = TempProject::new("navigation-direct-params-position");
+    project.write("main.veln", "pub fn assist() -> Int\n  1\nend\n");
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let preceding_nested = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/definition","extension":{{"position":{{"line":0,"character":7}}}},"params":{{"textDocument":{{"uri":"{main_uri}"}},"position":{{"line":99,"character":0}}}}}}"#
+    ));
+    let missing = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":3,"method":"textDocument/references","params":{{"textDocument":{{"uri":"{main_uri}"}},"context":{{"includeDeclaration":true}}}}}}"#
+    ));
+    let ambiguous = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":4,"method":"textDocument/prepareRename","params":{{"textDocument":{{"uri":"{main_uri}"}},"position":{{"line":0,"character":7}},"position":{{"line":0,"character":8}}}}}}"#
+    ));
+
+    for response in [preceding_nested, missing, ambiguous] {
+        assert_eq!(response.len(), 1);
+        assert!(response[0].contains(r#""code":-32602"#), "{}", response[0]);
+        assert!(!response[0].contains(r#""result""#), "{}", response[0]);
+    }
+}
+
+#[test]
+fn rename_rejects_invalid_names_before_symbol_navigation() {
+    let mut server = Server::default();
+    let project = TempProject::new("rename-request-shape-before-navigation");
+    project.write("main.veln", "pub fn assist() -> Int\n  assist()\nend\n");
+    let root_uri = path_to_uri(&project.root);
+    let main_uri = path_to_uri(&project.root.join("main.veln"));
+    server.handle_message(&initialize_request(&root_uri));
+
+    let missing_name = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{main_uri}"}},"position":{{"line":0,"character":7}}}}}}"#
+    ));
+    let invalid_name = server.handle_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":3,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{main_uri}"}},"position":{{"line":0,"character":7}},"newName":"not valid"}}}}"#
+    ));
+
+    assert!(missing_name[0].contains(r#""changes":{}"#));
+    assert!(invalid_name[0].contains(r#""changes":{}"#));
+    assert_eq!(server.test_rename_navigations.get(), 0);
+
+    let valid_name = server.handle_message(&rename_request(&main_uri, 0, 7, "helper"));
+    assert!(valid_name[0].contains(r#""newText":"helper""#));
+    assert_eq!(server.test_rename_navigations.get(), 1);
+}
+
+#[test]
 fn server_uses_anonymous_workspace_root_when_no_manifest_exists() {
     let mut server = Server::default();
     let project = TempProject::new("initialize-workspace-folder");

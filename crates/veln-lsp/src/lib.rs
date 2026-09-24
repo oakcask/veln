@@ -1,5 +1,7 @@
 //! LSP-facing semantic token helpers for Veln editors.
 
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, BufReader, Read, Write};
@@ -104,6 +106,8 @@ struct Server {
     should_exit: bool,
     #[cfg(test)]
     test_standard_library: Option<DirectDependencySnapshot>,
+    #[cfg(test)]
+    test_rename_navigations: Cell<usize>,
 }
 
 impl Server {
@@ -218,12 +222,14 @@ impl Server {
     }
 
     fn handle_definition(&self, message: &str, id: Option<String>) -> Vec<String> {
-        id.map(|id| {
-            let result = self
-                .definition_at_request(message)
-                .map(|(root, snapshot, definition)| location_json(&snapshot, &root, &definition))
-                .unwrap_or_else(|| "null".to_string());
-            response(&id, &result)
+        id.map(|id| match self.definition_at_request(message) {
+            Ok(Some((root, snapshot, definition))) => {
+                response(&id, &location_json(&snapshot, &root, &definition))
+            }
+            Ok(None) => response(&id, "null"),
+            Err(NavigationRequestFailure::InvalidPosition) => {
+                invalid_navigation_position_response(&id)
+            }
         })
         .into_iter()
         .collect()
@@ -258,19 +264,20 @@ impl Server {
     }
 
     fn handle_references(&self, message: &str, id: Option<String>) -> Vec<String> {
-        id.map(|id| {
-            let result = self
-                .symbol_at_request(message)
-                .map(|request| {
-                    references_json(
-                        &request.snapshot,
-                        &request.root,
-                        &request.result,
-                        extract_bool_field(message, "includeDeclaration").unwrap_or(false),
-                    )
-                })
-                .unwrap_or_else(|| "[]".to_string());
-            response(&id, &result)
+        id.map(|id| match self.symbol_at_request(message) {
+            Ok(Some(request)) => response(
+                &id,
+                &references_json(
+                    &request.snapshot,
+                    &request.root,
+                    &request.result,
+                    extract_bool_field(message, "includeDeclaration").unwrap_or(false),
+                ),
+            ),
+            Ok(None) => response(&id, "[]"),
+            Err(NavigationRequestFailure::InvalidPosition) => {
+                invalid_navigation_position_response(&id)
+            }
         })
         .into_iter()
         .collect()
@@ -286,20 +293,24 @@ impl Server {
     }
 
     fn handle_prepare_rename(&self, message: &str, id: Option<String>) -> Vec<String> {
-        id.map(|id| {
-            let result = self
-                .symbol_at_request(message)
-                .filter(|request| is_workspace_location(&request.result.definition))
-                .filter(|request| request.result.selected_symbol.kind.is_renamable())
-                .map(|request| {
-                    navigation_range_json(
+        id.map(|id| match self.symbol_at_request(message) {
+            Ok(Some(request))
+                if is_workspace_location(&request.result.definition)
+                    && request.result.selected_symbol.kind.is_renamable() =>
+            {
+                response(
+                    &id,
+                    &navigation_range_json(
                         &request.snapshot,
                         &NavigationSource::Workspace,
                         &request.result.selection,
-                    )
-                })
-                .unwrap_or_else(|| "null".to_string());
-            response(&id, &result)
+                    ),
+                )
+            }
+            Ok(_) => response(&id, "null"),
+            Err(NavigationRequestFailure::InvalidPosition) => {
+                invalid_navigation_position_response(&id)
+            }
         })
         .into_iter()
         .collect()
@@ -307,19 +318,27 @@ impl Server {
 
     fn handle_rename(&self, message: &str, id: Option<String>) -> Vec<String> {
         id.map(|id| {
-            let Some(new_name) = extract_string_field(message, "newName") else {
+            let (root, snapshot, position) = match self.navigation_position_at_request(message) {
+                Ok(Some(position)) => position,
+                Ok(None) => return response(&id, "{\"changes\":{}}"),
+                Err(NavigationRequestFailure::InvalidPosition) => {
+                    return invalid_navigation_position_response(&id);
+                }
+            };
+            let Some(new_name) = extract_params_string_field(message, "newName") else {
                 return response(&id, "{\"changes\":{}}");
             };
             if !is_identifier(&new_name) {
                 return response(&id, "{\"changes\":{}}");
             }
-            let Some(request) = self
-                .rename_symbol_at_request(message)
-                .filter(|request| is_workspace_location(&request.result.definition))
-                .filter(|request| request.result.selected_symbol.kind.is_renamable())
-            else {
+            let Some(request) = self.rename_symbol_at_position(root, snapshot, position) else {
                 return response(&id, "{\"changes\":{}}");
             };
+            if !is_workspace_location(&request.result.definition)
+                || !request.result.selected_symbol.kind.is_renamable()
+            {
+                return response(&id, "{\"changes\":{}}");
+            }
             match validate_rename_in_snapshot(&request.snapshot, &request.result, &new_name) {
                 Ok(()) => response(
                     &id,
@@ -468,69 +487,94 @@ impl Server {
             .insert(root.to_path_buf(), snapshot);
     }
 
-    fn symbol_at_request(&self, message: &str) -> Option<NavigationRequest> {
-        let uri = extract_string_field(message, "uri")?;
-        let position = extract_position(message)?;
-        let document_root =
-            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)?;
-        let root = document_root.root;
-        let source_path = workspace_relative_source_path(&document_root.relative)?;
-        let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
-        let snapshot = self.overlaid_project_snapshots.get(root)?;
-        let source = SourcePath::new(source_path);
-        let column = unicode_scalar_column(snapshot, &source, position.line, position.character)?;
-        let result = navigate(
+    fn symbol_at_request(
+        &self,
+        message: &str,
+    ) -> Result<Option<NavigationRequest>, NavigationRequestFailure> {
+        let Some((root, snapshot, position)) = self.navigation_position_at_request(message)? else {
+            return Ok(None);
+        };
+        let Some(result) = navigate(&snapshot, position) else {
+            return Ok(None);
+        };
+        Ok(Some(NavigationRequest {
+            root,
             snapshot,
-            SourcePosition {
-                source,
-                line: position.line.checked_add(1)?,
-                column,
-            },
-        )?;
-        Some(NavigationRequest {
-            root: visible_root.to_path_buf(),
-            snapshot: Arc::clone(snapshot),
             result,
-        })
+        }))
     }
 
-    fn rename_symbol_at_request(&self, message: &str) -> Option<NavigationRequest> {
-        let uri = extract_string_field(message, "uri")?;
-        let position = extract_position(message)?;
-        let document_root =
-            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)?;
+    fn navigation_position_at_request(
+        &self,
+        message: &str,
+    ) -> Result<
+        Option<(PathBuf, Arc<EffectiveProjectSnapshot>, SourcePosition)>,
+        NavigationRequestFailure,
+    > {
+        let Some(uri) = extract_string_field(message, "uri") else {
+            return Ok(None);
+        };
+        let position = extract_position(message)
+            .map_err(|InvalidPosition| NavigationRequestFailure::InvalidPosition)?;
+        let Some(document_root) =
+            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)
+        else {
+            return Ok(None);
+        };
         let root = document_root.root;
-        let source_path = workspace_relative_source_path(&document_root.relative)?;
+        let Some(source_path) = workspace_relative_source_path(&document_root.relative) else {
+            return Ok(None);
+        };
         let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
-        let snapshot = self.overlaid_project_snapshots.get(root)?;
+        let Some(snapshot) = self.overlaid_project_snapshots.get(root) else {
+            return Ok(None);
+        };
         let source = SourcePath::new(source_path);
-        let column = unicode_scalar_column(snapshot, &source, position.line, position.character)?;
-        let line = position.line.checked_add(1)?;
-        let result = navigate(
-            snapshot,
+        if snapshot.workspace_source(&source).is_none() {
+            return Ok(None);
+        }
+        let column = unicode_scalar_column(snapshot, &source, position.line, position.character)
+            .ok_or(NavigationRequestFailure::InvalidPosition)?;
+        let line = position
+            .line
+            .checked_add(1)
+            .ok_or(NavigationRequestFailure::InvalidPosition)?;
+        Ok(Some((
+            visible_root.to_path_buf(),
+            Arc::clone(snapshot),
             SourcePosition {
-                source: source.clone(),
+                source,
                 line,
                 column,
             },
-        )?;
+        )))
+    }
+
+    fn rename_symbol_at_position(
+        &self,
+        root: PathBuf,
+        snapshot: Arc<EffectiveProjectSnapshot>,
+        position: SourcePosition,
+    ) -> Option<NavigationRequest> {
+        #[cfg(test)]
+        self.test_rename_navigations
+            .set(self.test_rename_navigations.get() + 1);
+        let rename_position = SourcePosition {
+            source: position.source.clone(),
+            line: position.line,
+            column: position.column,
+        };
+        let result = navigate(&snapshot, position)?;
         let result = if result.selected_symbol.kind == SymbolKind::Function
             && result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
         {
-            navigate_for_rename(
-                snapshot,
-                SourcePosition {
-                    source,
-                    line,
-                    column,
-                },
-            )?
+            navigate_for_rename(&snapshot, rename_position)?
         } else {
             result
         };
         Some(NavigationRequest {
-            root: visible_root.to_path_buf(),
-            snapshot: Arc::clone(snapshot),
+            root,
+            snapshot,
             result,
         })
     }
@@ -538,27 +582,28 @@ impl Server {
     fn definition_at_request(
         &self,
         message: &str,
-    ) -> Option<(PathBuf, Arc<EffectiveProjectSnapshot>, NavigationLocation)> {
-        let uri = extract_string_field(message, "uri")?;
-        let position = extract_position(message)?;
-        let document_root =
-            workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)?;
-        let root = document_root.root;
-        let source_path = workspace_relative_source_path(&document_root.relative)?;
-        let visible_root = visible_workspace_root(root, &self.workspace_root_aliases);
-        let snapshot = self.overlaid_project_snapshots.get(root)?;
-        let source = SourcePath::new(source_path);
-        let column = unicode_scalar_column(snapshot, &source, position.line, position.character)?;
-        let definition = definition_at(
-            snapshot,
-            SourcePosition {
-                source,
-                line: position.line.checked_add(1)?,
-                column,
-            },
-        )?;
-        Some((visible_root.to_path_buf(), Arc::clone(snapshot), definition))
+    ) -> Result<
+        Option<(PathBuf, Arc<EffectiveProjectSnapshot>, NavigationLocation)>,
+        NavigationRequestFailure,
+    > {
+        let Some((root, snapshot, position)) = self.navigation_position_at_request(message)? else {
+            return Ok(None);
+        };
+        Ok(definition_at(&snapshot, position).map(|definition| (root, snapshot, definition)))
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NavigationRequestFailure {
+    InvalidPosition,
+}
+
+fn invalid_navigation_position_response(id: &str) -> String {
+    error_response(
+        id,
+        -32602,
+        "navigation position is outside the retained source",
+    )
 }
 
 fn retained_project_snapshot(
