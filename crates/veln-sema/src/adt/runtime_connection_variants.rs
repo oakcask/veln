@@ -1,373 +1,124 @@
-use veln_ast::Visibility;
-
-use crate::semantic_model::Type;
-use crate::source_less_names::SourceLessNameClass;
-
-use super::descriptors::{AdtPayloadField, AdtPayloadType, AdtVariantDescriptor, AdtVariantKind};
+use super::descriptors::AdtVariantDescriptor;
+use super::runtime_variant_builders::{
+    int_field, named_field, runtime_diagnostic_variant, string_field,
+};
 
 pub(super) fn runtime_connection_variants() -> Vec<AdtVariantDescriptor> {
     vec![
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolClosedWithPendingDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "pending_count".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "active_continuation".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "expected_stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "started_frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "started_byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "accumulated_header_block_bytes".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolClosedWithPendingDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("pending_count"),
+                string_field("active_continuation"),
+                int_field("expected_stream_id"),
+                int_field("started_frame_kind"),
+                int_field("started_byte_offset"),
+                int_field("accumulated_header_block_bytes"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolClosedWithPendingDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolPartialPrefaceDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "pending_count".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "expected_count".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "active_state".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolPartialPrefaceDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("pending_count"),
+                int_field("expected_count"),
+                string_field("active_state"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolPartialPrefaceDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "expected_byte".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "actual_byte".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "matched_prefix_count".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "expected_count".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "active_state".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("expected_byte"),
+                int_field("actual_byte"),
+                int_field("matched_prefix_count"),
+                int_field("expected_count"),
+                string_field("active_state"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolInvalidPrefaceDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "actual_frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "actual_flags".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "endpoint_role".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "active_state".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("actual_frame_kind"),
+                int_field("actual_flags"),
+                int_field("stream_id"),
+                string_field("endpoint_role"),
+                string_field("active_state"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolInitialPeerSettingsRequiredDiagnostic(_)"
-                .to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolContinuationExpectedDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "actual_frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "actual_stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "expected_stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "started_frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "started_byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "active_continuation".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "accumulated_header_block_bytes".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolContinuationExpectedDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("actual_frame_kind"),
+                int_field("actual_stream_id"),
+                int_field("expected_stream_id"),
+                int_field("started_frame_kind"),
+                int_field("started_byte_offset"),
+                string_field("active_continuation"),
+                int_field("accumulated_header_block_bytes"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolContinuationExpectedDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "actual_frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "expected_frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "active_state".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("actual_frame_kind"),
+                int_field("stream_id"),
+                int_field("expected_frame_kind"),
+                string_field("active_state"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolInvalidFrameKindDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "required_stream_id_domain".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "endpoint_role".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "active_state".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("frame_kind"),
+                int_field("stream_id"),
+                string_field("required_stream_id_domain"),
+                string_field("endpoint_role"),
+                string_field("active_state"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolInvalidStreamIdDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "previous_peer_stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "endpoint_role".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "active_state".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "rule_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("stream_id"),
+                int_field("previous_peer_stream_id"),
+                string_field("endpoint_role"),
+                string_field("active_state"),
+                string_field("rule_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2ProtocolPeerStreamIdNotIncreasingDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
-        AdtVariantDescriptor {
-            name: "RuntimeHttp2PeerLimitFrameSizeDiagnostic".to_string(),
-            name_class: SourceLessNameClass::Constructor,
-            kind: AdtVariantKind::Source,
-            payload_fields: vec![
-                AdtPayloadField {
-                    name: "byte_offset".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "observed_payload_length".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "allowed_max_frame_size".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "frame_kind".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "stream_id".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::int()),
-                },
-                AdtPayloadField {
-                    name: "receive_limit_provenance".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::string()),
-                },
-                AdtPayloadField {
-                    name: "preview".to_string(),
-                    ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
-                },
+        ),
+        runtime_diagnostic_variant(
+            "RuntimeHttp2PeerLimitFrameSizeDiagnostic",
+            vec![
+                int_field("byte_offset"),
+                int_field("observed_payload_length"),
+                int_field("allowed_max_frame_size"),
+                int_field("frame_kind"),
+                int_field("stream_id"),
+                string_field("receive_limit_provenance"),
+                named_field("preview", "ByteChunk"),
             ],
-            coverage_case: "RuntimeHttp2PeerLimitFrameSizeDiagnostic(_)".to_string(),
-            visibility: Visibility::Public,
-        },
+        ),
     ]
 }

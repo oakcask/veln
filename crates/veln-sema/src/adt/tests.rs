@@ -9,6 +9,11 @@ use crate::standard_symbols::{
 use super::descriptors::{AdtDescriptor, AdtVariantDescriptor, AdtVariantKind};
 use super::lookup_validation::validate_adt_lookup_descriptors;
 use super::registry::{AdtRegistry, ConstructorLookup, constructor_lookup_counters};
+use super::runtime_base_variants::runtime_base_variants;
+use super::runtime_connection_variants::runtime_connection_variants;
+use super::runtime_hpack_variants::runtime_hpack_variants;
+use super::runtime_peer_limit_variants::runtime_peer_limit_variants;
+use super::runtime_protocol_variants::runtime_protocol_variants;
 use super::type_operations::{raw_builtin_descriptors_for_test, validate_builtin_adt_descriptors};
 
 const INVALID_STANDARD_SYMBOLS: &[StandardSymbolDescriptor] = &[StandardSymbolDescriptor {
@@ -44,6 +49,23 @@ fn empty_module() -> SurfaceModule {
         schemas: Vec::new(),
         functions: Vec::new(),
         invalid_names: Vec::new(),
+    }
+}
+
+#[test]
+fn runtime_diagnostic_variants_share_source_metadata() {
+    let variants = runtime_base_variants()
+        .into_iter()
+        .chain(runtime_hpack_variants())
+        .chain(runtime_connection_variants())
+        .chain(runtime_peer_limit_variants())
+        .chain(runtime_protocol_variants());
+
+    for variant in variants {
+        assert_eq!(variant.name_class, SourceLessNameClass::Constructor);
+        assert_eq!(variant.kind, AdtVariantKind::Source);
+        assert_eq!(variant.coverage_case, format!("{}(_)", variant.name));
+        assert_eq!(variant.visibility, Visibility::Public);
     }
 }
 

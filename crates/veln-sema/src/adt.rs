@@ -12,6 +12,7 @@ mod runtime_peer_limit_variants;
 mod runtime_protocol_variants;
 mod runtime_root_descriptors;
 mod runtime_support_descriptors;
+mod runtime_variant_builders;
 pub(crate) mod type_operations;
 pub(crate) mod unification;
 
