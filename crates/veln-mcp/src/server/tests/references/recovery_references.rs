@@ -245,6 +245,18 @@ fn recovery_references_keep_shared_unsupported_selection_boundaries() {
             7,
             4,
         ),
+        (
+            "class-incompatible recovery occurrence",
+            "type item\nend\n\nfn read() -> Int\n  item()\nend\n",
+            5,
+            4,
+        ),
+        (
+            "symbol class without recovery identity",
+            "effect choose\n  pick() -> Int\nend\n",
+            1,
+            8,
+        ),
     ];
 
     for (name, source, line, column) in cases {
@@ -258,6 +270,35 @@ fn recovery_references_keep_shared_unsupported_selection_boundaries() {
         assert_eq!(result["isError"], false, "{name}: {result:#}");
         assert_reference_ranges(&result, &[], name);
     }
+}
+
+#[test]
+fn recovery_references_exclude_text_only_and_unrelated_same_spelled_occurrences() {
+    let workspace = TempWorkspace::new("recovery-reference-occurrence-boundaries");
+    workspace.write("veln.toml", "");
+    workspace.write(
+        "main.veln",
+        concat!(
+            "fn Bad() -> Int\n",
+            "  Bad()\n",
+            "end\n\n",
+            "fn scoped(Bad: Int) -> Int\n",
+            "  # Bad() is only a comment.\n",
+            "  let label = \"Bad\"\n",
+            "  Bad\n",
+            "end\n\n",
+            "fn caller() -> Int\n",
+            "  Bad()\n",
+            "end\n",
+        ),
+    );
+
+    let function = references_result(&workspace, "main.veln", 12, 4);
+    assert_reference_ranges(
+        &function,
+        &[("main.veln", 2, 3, 2, 6), ("main.veln", 12, 3, 12, 6)],
+        "function recovery excludes text-only and unrelated occurrences",
+    );
 }
 
 #[test]
