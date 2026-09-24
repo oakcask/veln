@@ -59,22 +59,22 @@ fn assert_definition_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], 
             },
         },
     };
-    let workspace_definition = normalize_lsp_definition(&workspace, response(&lsp, 2));
+    let workspace_definition = normalize_lsp_definition(workspace, response(lsp, 2));
     assert_eq!(
         workspace_definition,
         Some(expected_workspace_definition.clone()),
         "LSP workspace definition should retain the expected declaration"
     );
     assert_eq!(
-        normalize_mcp_definition(&workspace, response(&mcp, 2)),
+        normalize_mcp_definition(workspace, response(mcp, 2)),
         Some(expected_workspace_definition.clone()),
         "MCP workspace definition should retain the expected declaration"
     );
 
-    let package_definition = normalize_lsp_definition(&workspace, response(&lsp, 3));
+    let package_definition = normalize_lsp_definition(workspace, response(lsp, 3));
     assert_eq!(
         package_definition,
-        normalize_mcp_definition(&workspace, response(&mcp, 3))
+        normalize_mcp_definition(workspace, response(mcp, 3))
     );
     assert!(
         package_definition
@@ -85,37 +85,37 @@ fn assert_definition_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], 
     let coordinate_pairs = [(4, 4), (6, 6), (7, 7)];
     for (lsp_id, mcp_id) in coordinate_pairs {
         assert_eq!(
-            normalize_lsp_definition(&workspace, response(&lsp, lsp_id)),
+            normalize_lsp_definition(workspace, response(lsp, lsp_id)),
             Some(expected_workspace_definition.clone()),
             "LSP coordinate case {lsp_id} changed the definition"
         );
         assert_eq!(
-            normalize_mcp_definition(&workspace, response(&mcp, mcp_id)),
+            normalize_mcp_definition(workspace, response(mcp, mcp_id)),
             Some(expected_workspace_definition.clone()),
             "MCP coordinate case {mcp_id} changed the definition"
         );
     }
     assert_eq!(
-        normalize_lsp_definition(&workspace, response(&lsp, 5)),
+        normalize_lsp_definition(workspace, response(lsp, 5)),
         None,
         "a half-open token-end LSP position should be empty"
     );
     assert_eq!(
-        normalize_mcp_definition(&workspace, response(&mcp, 5)),
+        normalize_mcp_definition(workspace, response(mcp, 5)),
         None,
         "a half-open token-end MCP position should be empty"
     );
 }
 
 fn assert_reference_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
-    let lsp_without_declaration = normalize_lsp_references(&workspace, response(&lsp, 8));
-    let mcp_without_declaration = normalize_mcp_reference_pages(&workspace, &[response(&mcp, 8)]);
+    let lsp_without_declaration = normalize_lsp_references(workspace, response(lsp, 8));
+    let mcp_without_declaration = normalize_mcp_reference_pages(workspace, &[response(mcp, 8)]);
     assert_eq!(lsp_without_declaration, mcp_without_declaration);
     assert_eq!(lsp_without_declaration.len(), 3);
 
-    let lsp_with_declaration = normalize_lsp_references(&workspace, response(&lsp, 9));
+    let lsp_with_declaration = normalize_lsp_references(workspace, response(lsp, 9));
     let mcp_with_declaration =
-        normalize_mcp_reference_pages(&workspace, &[response(&mcp, 9), response(&mcp, 11)]);
+        normalize_mcp_reference_pages(workspace, &[response(mcp, 9), response(mcp, 11)]);
     assert_eq!(lsp_with_declaration, mcp_with_declaration);
     assert_eq!(lsp_with_declaration.len(), 4);
     let without_declaration = lsp_without_declaration.iter().collect::<BTreeSet<_>>();
@@ -145,13 +145,13 @@ fn assert_reference_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], m
         "declaration inclusion should retain every non-declaration reference"
     );
     assert!(
-        structured_content(response(&mcp, 9))
+        structured_content(response(mcp, 9))
             .object_field("next_cursor")
             .is_some(),
         "MCP reference evidence must require continuation"
     );
     assert!(
-        structured_content(response(&mcp, 11))
+        structured_content(response(mcp, 11))
             .object_field("next_cursor")
             .is_none(),
         "the collected MCP reference page should be terminal"
@@ -159,25 +159,19 @@ fn assert_reference_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], m
 }
 
 fn assert_failure_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
-    assert_eq!(
-        normalize_lsp_definition(&workspace, response(&lsp, 10)),
-        None
-    );
-    assert!(normalize_lsp_references(&workspace, response(&lsp, 11)).is_empty());
-    assert_eq!(
-        normalize_mcp_definition(&workspace, response(&mcp, 12)),
-        None
-    );
-    assert!(normalize_mcp_reference_pages(&workspace, &[response(&mcp, 13)]).is_empty());
+    assert_eq!(normalize_lsp_definition(workspace, response(lsp, 10)), None);
+    assert!(normalize_lsp_references(workspace, response(lsp, 11)).is_empty());
+    assert_eq!(normalize_mcp_definition(workspace, response(mcp, 12)), None);
+    assert!(normalize_mcp_reference_pages(workspace, &[response(mcp, 13)]).is_empty());
 
-    assert_lsp_invalid_position(response(&lsp, 12));
-    assert_lsp_invalid_position(response(&lsp, 13));
+    assert_lsp_invalid_position(response(lsp, 12));
+    assert_lsp_invalid_position(response(lsp, 13));
     for id in 16..=30 {
-        assert_lsp_invalid_position(response(&lsp, id));
+        assert_lsp_invalid_position(response(lsp, id));
     }
-    assert_mcp_invalid_position(response(&mcp, 10));
+    assert_mcp_invalid_position(response(mcp, 10));
     assert!(
-        structured_content(response(&mcp, 10))
+        structured_content(response(mcp, 10))
             .object_field("next_cursor")
             .is_none(),
         "an invalid MCP selection must not create a continuation cursor"
@@ -186,22 +180,22 @@ fn assert_failure_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp
     let workspace_definition = normalize_lsp_definition(workspace, response(lsp, 2));
     assert_eq!(
         workspace_definition,
-        normalize_lsp_definition(&workspace, response(&lsp, 14))
+        normalize_lsp_definition(workspace, response(lsp, 14))
     );
     assert_eq!(
         workspace_definition,
-        normalize_mcp_definition(&workspace, response(&mcp, 14))
+        normalize_mcp_definition(workspace, response(mcp, 14))
     );
 
-    assert!(normalize_lsp_references(&workspace, response(&lsp, 15)).is_empty());
-    assert!(normalize_mcp_reference_pages(&workspace, &[response(&mcp, 15)]).is_empty());
+    assert!(normalize_lsp_references(workspace, response(lsp, 15)).is_empty());
+    assert!(normalize_mcp_reference_pages(workspace, &[response(mcp, 15)]).is_empty());
 }
 
 fn assert_recovery_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mcp: &[JsonValue]) {
-    let recovery_definition = normalize_lsp_definition(&workspace, response(&lsp, 32));
+    let recovery_definition = normalize_lsp_definition(workspace, response(lsp, 32));
     assert_eq!(
         recovery_definition,
-        normalize_mcp_definition(&workspace, response(&mcp, 16)),
+        normalize_mcp_definition(workspace, response(mcp, 16)),
         "LSP and MCP should retain the same recovery declaration"
     );
     assert_eq!(
@@ -220,13 +214,13 @@ fn assert_recovery_conformance(workspace: &SavedWorkspace, lsp: &[JsonValue], mc
             },
         })
     );
-    let lsp_recovery_without = normalize_lsp_references(&workspace, response(&lsp, 33));
-    let mcp_recovery_without = normalize_mcp_reference_pages(&workspace, &[response(&mcp, 17)]);
+    let lsp_recovery_without = normalize_lsp_references(workspace, response(lsp, 33));
+    let mcp_recovery_without = normalize_mcp_reference_pages(workspace, &[response(mcp, 17)]);
     assert_eq!(lsp_recovery_without, mcp_recovery_without);
     assert_eq!(lsp_recovery_without.len(), 2);
-    let lsp_recovery_with = normalize_lsp_references(&workspace, response(&lsp, 34));
+    let lsp_recovery_with = normalize_lsp_references(workspace, response(lsp, 34));
     let mcp_recovery_with =
-        normalize_mcp_reference_pages(&workspace, &[response(&mcp, 18), response(&mcp, 19)]);
+        normalize_mcp_reference_pages(workspace, &[response(mcp, 18), response(mcp, 19)]);
     assert_eq!(lsp_recovery_with, mcp_recovery_with);
     assert_eq!(lsp_recovery_with.len(), 3);
 }
