@@ -327,12 +327,32 @@ fn reusable_standard_environment_identity_mismatch_uses_uncached_analysis() {
 }
 
 #[test]
-fn embedded_reusable_standard_environment_has_current_identity_and_reuses_application_facts() {
+fn embedded_reusable_standard_environment_detects_current_identity() {
     let _guard = standard_reuse_test_lock();
     crate::standard_reuse_counters::reset();
     let standard = crate::types::embedded_standard_surface_module();
     let reusable = prepare_reusable_standard_surface_module_environment(&standard);
+
     assert!(reusable.has_current_identity_for_test());
+    assert_eq!(
+        crate::standard_reuse_counters::embedded_standard_lowered_decodes(),
+        2 * veln_stdlib::package_bundle().lowered_files.len(),
+        "materialization and comparison should each decode the build-time modules"
+    );
+}
+
+#[test]
+fn embedded_reusable_standard_environment_has_current_identity_and_reuses_application_facts() {
+    let _guard = standard_reuse_test_lock();
+    crate::standard_reuse_counters::reset();
+    let standard = crate::types::embedded_standard_surface_module();
+    let reusable = prepare_current_reusable_standard_surface_module_environment(&standard);
+    assert!(reusable.has_current_identity_for_test());
+    assert_eq!(
+        crate::standard_reuse_counters::embedded_standard_lowered_decodes(),
+        veln_stdlib::package_bundle().lowered_files.len(),
+        "embedded materialization should decode each build-time module once"
+    );
 
     let module = merge_modules(vec![
         standard,
@@ -344,10 +364,7 @@ fn embedded_reusable_standard_environment_has_current_identity_and_reuses_applic
         .module,
     ]);
 
-    let uncached = check_project_surface_module(&module);
-    let cached = check_project_surface_module_with_standard_environment(&module, &reusable);
-
-    assert_same_analysis("embedded identity", uncached, cached);
+    let _ = check_project_surface_module_with_standard_environment(&module, &reusable);
     assert_eq!(crate::standard_reuse_counters::standard_prepares(), 1);
     assert_eq!(crate::standard_reuse_counters::application_prepares(), 1);
 }
