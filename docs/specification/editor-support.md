@@ -209,8 +209,9 @@ selection behavior. A present `line` or `character` that is negative,
 non-integral, too large for the server's coordinate type, beyond the retained
 line, or outside the retained source returns the JSON-RPC Invalid Params
 error. It does not become a successful `null` definition or empty reference
-result. A valid position that selects no supported symbol still succeeds with
-`null` or an empty list.
+result, a successful `null` prepare-rename result, or an empty rename edit. A
+valid position that selects no supported symbol still succeeds with `null`, an
+empty list, or an empty rename edit as appropriate for the request.
 An invalid request does not change the retained snapshot or a later result for
 the same valid saved selection.
 For a selected valid-cased, unrecovered workspace effect declaration,
@@ -616,7 +617,8 @@ transcript demonstrates the same declaration policy and UTF-16 conversion for
 workspace handler references.
 The checked
 `examples/specification/lsp/saved-navigation-cross-adapter/` transcript covers
-the invalid-position protocol boundary and a repeated saved definition. The
+the invalid-position protocol boundary and repeats successful saved definition,
+prepare-rename, and rename requests after failures. The
 paired harness in
 [`saved_navigation_conformance.rs`](../../crates/veln-cli/tests/toolchain_harness/saved_navigation_conformance.rs)
 drives LSP and MCP from one unchanged workspace, converts both adapters to

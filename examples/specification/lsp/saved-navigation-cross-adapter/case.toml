@@ -94,3 +94,65 @@ equals = -32602
 id = 11
 path = "/result"
 missing = true
+
+[[lsp_assert]]
+id = 12
+path = "/result"
+equals = {"start":{"line":7,"character":2},"end":{"line":7,"character":8}}
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}},"newText":"assist"},
+  {"range":{"start":{"line":7,"character":2},"end":{"line":7,"character":8}},"newText":"assist"},
+  {"range":{"start":{"line":11,"character":15},"end":{"line":11,"character":21}},"newText":"assist"}
+]
+
+[[lsp_assert]]
+id = 13
+path = "/result/changes/$workspace_file_uri:other.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}},"newText":"assist"}
+]
+
+[[lsp_assert]]
+id = 14
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 14
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 15
+path = "/error/code"
+equals = -32602
+
+[[lsp_assert]]
+id = 15
+path = "/result"
+missing = true
+
+[[lsp_assert]]
+id = 16
+path = "/result"
+equals = {"start":{"line":7,"character":2},"end":{"line":7,"character":8}}
+
+[[lsp_assert]]
+id = 17
+path = "/result/changes/$workspace_file_uri:main.veln"
+equals = [
+  {"range":{"start":{"line":2,"character":7},"end":{"line":2,"character":13}},"newText":"assist"},
+  {"range":{"start":{"line":7,"character":2},"end":{"line":7,"character":8}},"newText":"assist"},
+  {"range":{"start":{"line":11,"character":15},"end":{"line":11,"character":21}},"newText":"assist"}
+]
+
+[[lsp_assert]]
+id = 17
+path = "/result/changes/$workspace_file_uri:other.veln"
+equals = [
+  {"range":{"start":{"line":3,"character":8},"end":{"line":3,"character":14}},"newText":"assist"}
+]
