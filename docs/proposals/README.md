@@ -16,7 +16,9 @@ also states it.
 
 ## Ready
 
-No proposal is currently ready for implementation.
+- [Agent language-reference skill routing](agent-language-reference-skill.md)
+  defines a client-neutral skill that answers language questions from the
+  published reference and routes repository changes to repository authority.
 
 ## Blocked
 
@@ -25,7 +27,7 @@ No proposal is currently ready for implementation.
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  remaining symbol, agent-skill, conformance-gate, and plugin work. Do not
+  remaining symbol, conformance-gate, and plugin work. Do not
   select the umbrella directly.
 
 ## Selection Rule

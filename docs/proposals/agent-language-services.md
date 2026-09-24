@@ -1,6 +1,6 @@
 ---
 role: proposal
-update-when: The remaining package-navigation, workspace-symbol-reference, recovery-identity, casing-neutral lookup, client-plugin, agent-skill, or conformance-gate scope changes.
+update-when: The remaining package-navigation, workspace-symbol-reference, recovery-identity, casing-neutral lookup, client-plugin, or conformance-gate scope changes.
 ---
 
 # Agent Language Services
@@ -20,7 +20,7 @@ The following work remains planned:
   workspace symbol reference classes outside the implemented same-module
   effect, effect-operation, and handler boundaries;
 - Codex and Claude Code plugin packaging and client-native installation flows;
-- shared agent-skill routing and the conformance gate.
+- the conformance gate.
 
 Each follow-up must define its own observable acceptance cases and executable
 evidence before implementation. It must update the matching current
@@ -35,7 +35,6 @@ its evidence is added to the named current specification and checked route.
 | Requirement | Observable acceptance | Required evidence |
 | --- | --- | --- |
 | Client plugins | Codex and Claude Code plugin manifests bind the active workspace, start the supported MCP contract, and isolate unknown files; the Claude route also completes its LSP lifecycle. Invalid manifests, unavailable servers, failed startup, and unknown-file inputs produce bounded client-visible failures without MCP stdout corruption. | Pinned native-client smoke cases, manifest/schema validation, startup-failure, MCP-failure, Claude-LSP-failure, and unknown-file isolation cases. |
-| Skill routing | The shared agent skill searches and reads the published reference for language questions, routes implementation work to the repository authority, and reports unavailable or stale reference artifacts without inventing behavior. | Skill routing cases for known topics, unknown topics, stale catalogs, unavailable resources, and client-specific configuration. |
 | Conformance gate | Every requirement has one stable identifier and passing evidence, every evidence route maps to a requirement, and stale or undeclared capabilities fail the gate. | Versioned conformance manifest tests for missing rows, duplicate IDs, orphaned evidence, missing matrix cells, stale artifacts, undeclared capabilities, malformed requests, and plugin mismatches. |
 
 The remainder also includes broader definition navigation, unsupported package
