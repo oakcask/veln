@@ -83,16 +83,42 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
         "a half-open token-end MCP position should be empty"
     );
 
-    assert_eq!(
-        normalize_lsp_references(&workspace, response(&lsp, 8)),
-        normalize_mcp_reference_pages(&workspace, &[response(&mcp, 8)])
-    );
+    let lsp_without_declaration = normalize_lsp_references(&workspace, response(&lsp, 8));
+    let mcp_without_declaration = normalize_mcp_reference_pages(&workspace, &[response(&mcp, 8)]);
+    assert_eq!(lsp_without_declaration, mcp_without_declaration);
+    assert_eq!(lsp_without_declaration.len(), 3);
 
     let lsp_with_declaration = normalize_lsp_references(&workspace, response(&lsp, 9));
     let mcp_with_declaration =
         normalize_mcp_reference_pages(&workspace, &[response(&mcp, 9), response(&mcp, 11)]);
     assert_eq!(lsp_with_declaration, mcp_with_declaration);
     assert_eq!(lsp_with_declaration.len(), 4);
+    let without_declaration = lsp_without_declaration.iter().collect::<BTreeSet<_>>();
+    let with_declaration = lsp_with_declaration.iter().collect::<BTreeSet<_>>();
+    assert_eq!(
+        with_declaration
+            .difference(&without_declaration)
+            .copied()
+            .collect::<Vec<_>>(),
+        vec![&NormalizedLocation {
+            source: "main.veln".to_string(),
+            range: NormalizedRange {
+                start: NormalizedPosition { line: 3, column: 8 },
+                end: NormalizedPosition {
+                    line: 3,
+                    column: 14,
+                },
+            },
+        }],
+        "declaration inclusion should add exactly the workspace declaration"
+    );
+    assert!(
+        without_declaration
+            .difference(&with_declaration)
+            .next()
+            .is_none(),
+        "declaration inclusion should retain every non-declaration reference"
+    );
     assert!(
         structured_content(response(&mcp, 9))
             .object_field("next_cursor")
