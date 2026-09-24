@@ -16,7 +16,8 @@ also states it.
 
 ## Ready
 
-No proposal is currently ready for implementation.
+- Expose the shared recovery-reference set through the MCP `references` tool:
+  [mcp-recovery-references.md](mcp-recovery-references.md).
 
 ## Blocked
 
@@ -25,8 +26,8 @@ No proposal is currently ready for implementation.
   [identifier-casing-explicit-import-aliases.md](identifier-casing-explicit-import-aliases.md).
 - The [agent-language-services umbrella](agent-language-services.md) remains a
   planning inventory only for the unimplemented transitive-dependency,
-  recovery, casing-neutral, remaining symbol, agent-skill, conformance-gate,
-  and plugin work. Do not select the umbrella directly.
+  remaining symbol, agent-skill, conformance-gate, and plugin work outside the
+  ready MCP recovery-reference slice. Do not select the umbrella directly.
 
 ## Selection Rule
 
