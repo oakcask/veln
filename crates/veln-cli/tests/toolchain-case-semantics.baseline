@@ -16596,6 +16596,35 @@ field	expectations.lsp_assertions[3].equals	-32602
 field	expectations.lsp_assertions[3].id	4
 field	expectations.lsp_assertions[3].operation	"equals"
 field	expectations.lsp_assertions[3].path	"/error/code"
+field	expectations.lsp_assertions[40].equals	-32602
+field	expectations.lsp_assertions[40].id	24
+field	expectations.lsp_assertions[40].operation	"equals"
+field	expectations.lsp_assertions[40].path	"/error/code"
+field	expectations.lsp_assertions[41].id	24
+field	expectations.lsp_assertions[41].operation	"missing"
+field	expectations.lsp_assertions[41].path	"/result"
+field	expectations.lsp_assertions[42].equals	-32602
+field	expectations.lsp_assertions[42].id	25
+field	expectations.lsp_assertions[42].operation	"equals"
+field	expectations.lsp_assertions[42].path	"/error/code"
+field	expectations.lsp_assertions[43].id	25
+field	expectations.lsp_assertions[43].operation	"missing"
+field	expectations.lsp_assertions[43].path	"/result"
+field	expectations.lsp_assertions[44].equals	-32602
+field	expectations.lsp_assertions[44].id	26
+field	expectations.lsp_assertions[44].operation	"equals"
+field	expectations.lsp_assertions[44].path	"/error/code"
+field	expectations.lsp_assertions[45].id	26
+field	expectations.lsp_assertions[45].operation	"missing"
+field	expectations.lsp_assertions[45].path	"/result"
+field	expectations.lsp_assertions[46].equals	{"changes":{}}
+field	expectations.lsp_assertions[46].id	27
+field	expectations.lsp_assertions[46].operation	"equals"
+field	expectations.lsp_assertions[46].path	"/result"
+field	expectations.lsp_assertions[47].equals	{"changes":{}}
+field	expectations.lsp_assertions[47].id	28
+field	expectations.lsp_assertions[47].operation	"equals"
+field	expectations.lsp_assertions[47].path	"/result"
 field	expectations.lsp_assertions[4].id	4
 field	expectations.lsp_assertions[4].operation	"missing"
 field	expectations.lsp_assertions[4].path	"/result"
@@ -16620,10 +16649,10 @@ field	expectations.lsp_assertions[9].path	"/result"
 field	expectations.stderr.format	"empty"
 field	invocation.command[0]	"lsp"
 field	invocation.repeat	1
-field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":5158,"sha256":"c3cbdea7802b1b57240858c028e7c33747a641ac26bed3f12ff1bd5d919ca067"}
+field	invocation.stdin	{"logical_field":"invocation.stdin","byte_length":6294,"sha256":"4f8a295f931d58d1c145b246f73f77a9b19a49da9a1a06040b1e9efaf804bd23"}
 field	invocation.stdin_jsonrpc_file	"requests.json"
 field	source_errors	"forbidden"
-case_digest	"7be7c29d008cc2fce7ddd059eeb329f0b24c5e39970d7ba0ba767fdd6ce5c188"
+case_digest	"c2642ab314814d53367ad368b19758885547f6109e7a201b1dc150514384bbdb"
 case	"examples/specification/lsp/schema-semantic-tokens"
 field	expectations.exit	0
 field	expectations.stderr.format	"empty"
@@ -61473,4 +61502,4 @@ field	invocation.command[2]	"main_test.veln"
 field	invocation.repeat	1
 field	source_errors	"forbidden"
 case_digest	"f01e93060b7259c13fdc37c9e6c43b7f1601c4666a997157eca5f384ad8b8064"
-aggregate_digest	"e4c73cea84c88b017d5dc61e3ba18ea97e2cc457a2cbd3744f4c5d6ebffc8d2d"
+aggregate_digest	"2822c895e1e86e95a36cbfc3837d32c0cadcd112aff3c340877388585b50616e"

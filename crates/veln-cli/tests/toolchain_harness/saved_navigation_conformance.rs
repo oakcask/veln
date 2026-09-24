@@ -161,7 +161,7 @@ fn saved_navigation_matches_across_lsp_and_mcp_adapters() {
 
     assert_lsp_invalid_position(response(&lsp, 12));
     assert_lsp_invalid_position(response(&lsp, 13));
-    for id in 16..=27 {
+    for id in 16..=30 {
         assert_lsp_invalid_position(response(&lsp, id));
     }
     assert_mcp_invalid_position(response(&mcp, 10));
@@ -308,7 +308,19 @@ fn run_lsp(workspace: &SavedWorkspace) -> Output {
             r#"{{"jsonrpc":"2.0","id":27,"method":"textDocument/rename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":7,"extension":{{"character":2}}}},"newName":"assist"}}}}"#,
             workspace.main_uri
         ),
-        r#"{"jsonrpc":"2.0","id":28,"method":"shutdown","params":null}"#.to_string(),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":28,"method":"textDocument/definition","extension":{{"position":{{"line":7,"character":2}}}},"params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":99,"character":0}}}}}}"#,
+            workspace.main_uri
+        ),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":29,"method":"textDocument/references","params":{{"textDocument":{{"uri":"{}"}},"context":{{"includeDeclaration":true}}}}}}"#,
+            workspace.main_uri
+        ),
+        format!(
+            r#"{{"jsonrpc":"2.0","id":30,"method":"textDocument/prepareRename","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":7,"character":2}},"position":{{"line":7,"character":3}}}}}}"#,
+            workspace.main_uri
+        ),
+        r#"{"jsonrpc":"2.0","id":31,"method":"shutdown","params":null}"#.to_string(),
         r#"{"jsonrpc":"2.0","method":"exit","params":null}"#.to_string(),
     ];
     let stdin = requests

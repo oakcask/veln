@@ -1,5 +1,7 @@
 //! LSP-facing semantic token helpers for Veln editors.
 
+#[cfg(test)]
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, BufReader, Read, Write};
@@ -104,6 +106,8 @@ struct Server {
     should_exit: bool,
     #[cfg(test)]
     test_standard_library: Option<DirectDependencySnapshot>,
+    #[cfg(test)]
+    test_rename_navigations: Cell<usize>,
 }
 
 impl Server {
@@ -314,22 +318,25 @@ impl Server {
 
     fn handle_rename(&self, message: &str, id: Option<String>) -> Vec<String> {
         id.map(|id| {
-            let request = match self.rename_symbol_at_request(message) {
-                Ok(Some(request))
-                    if is_workspace_location(&request.result.definition)
-                        && request.result.selected_symbol.kind.is_renamable() =>
-                {
-                    request
-                }
-                Ok(_) => return response(&id, "{\"changes\":{}}"),
+            let (root, snapshot, position) = match self.navigation_position_at_request(message) {
+                Ok(Some(position)) => position,
+                Ok(None) => return response(&id, "{\"changes\":{}}"),
                 Err(NavigationRequestFailure::InvalidPosition) => {
                     return invalid_navigation_position_response(&id);
                 }
             };
-            let Some(new_name) = extract_string_field(message, "newName") else {
+            let Some(new_name) = extract_params_string_field(message, "newName") else {
                 return response(&id, "{\"changes\":{}}");
             };
             if !is_identifier(&new_name) {
+                return response(&id, "{\"changes\":{}}");
+            }
+            let Some(request) = self.rename_symbol_at_position(root, snapshot, position) else {
+                return response(&id, "{\"changes\":{}}");
+            };
+            if !is_workspace_location(&request.result.definition)
+                || !request.result.selected_symbol.kind.is_renamable()
+            {
                 return response(&id, "{\"changes\":{}}");
             }
             match validate_rename_in_snapshot(&request.snapshot, &request.result, &new_name) {
@@ -507,11 +514,8 @@ impl Server {
         let Some(uri) = extract_string_field(message, "uri") else {
             return Ok(None);
         };
-        let Some(position) = extract_position(message)
-            .map_err(|InvalidPosition| NavigationRequestFailure::InvalidPosition)?
-        else {
-            return Ok(None);
-        };
+        let position = extract_position(message)
+            .map_err(|InvalidPosition| NavigationRequestFailure::InvalidPosition)?;
         let Some(document_root) =
             workspace_root_for_uri(&self.workspace_roots, &self.workspace_root_aliases, &uri)
         else {
@@ -546,36 +550,33 @@ impl Server {
         )))
     }
 
-    fn rename_symbol_at_request(
+    fn rename_symbol_at_position(
         &self,
-        message: &str,
-    ) -> Result<Option<NavigationRequest>, NavigationRequestFailure> {
-        let Some((root, snapshot, position)) = self.navigation_position_at_request(message)? else {
-            return Ok(None);
-        };
+        root: PathBuf,
+        snapshot: Arc<EffectiveProjectSnapshot>,
+        position: SourcePosition,
+    ) -> Option<NavigationRequest> {
+        #[cfg(test)]
+        self.test_rename_navigations
+            .set(self.test_rename_navigations.get() + 1);
         let rename_position = SourcePosition {
             source: position.source.clone(),
             line: position.line,
             column: position.column,
         };
-        let Some(result) = navigate(&snapshot, position) else {
-            return Ok(None);
-        };
+        let result = navigate(&snapshot, position)?;
         let result = if result.selected_symbol.kind == SymbolKind::Function
             && result.selected_symbol.declaration_kind == SymbolDeclarationKind::PublicAlias
         {
-            let Some(result) = navigate_for_rename(&snapshot, rename_position) else {
-                return Ok(None);
-            };
-            result
+            navigate_for_rename(&snapshot, rename_position)?
         } else {
             result
         };
-        Ok(Some(NavigationRequest {
+        Some(NavigationRequest {
             root,
             snapshot,
             result,
-        }))
+        })
     }
 
     fn definition_at_request(

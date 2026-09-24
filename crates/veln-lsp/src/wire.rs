@@ -652,20 +652,90 @@ pub(crate) fn extract_id(message: &str) -> Option<String> {
     }
 }
 
-pub(crate) fn extract_position(message: &str) -> Result<Option<Position>, InvalidPosition> {
-    let key = "\"position\"";
-    let Some(position_index) = message.find(key) else {
-        return Ok(None);
-    };
-    let after_key = message[position_index + key.len()..].trim_start();
-    let value = after_key
-        .strip_prefix(':')
-        .ok_or(InvalidPosition)?
-        .trim_start();
+pub(crate) fn extract_position(message: &str) -> Result<Position, InvalidPosition> {
+    let params = extract_direct_object_field(message, "params")?.ok_or(InvalidPosition)?;
+    let value = extract_direct_field_value(params, "position")?.ok_or(InvalidPosition)?;
     let position = extract_json_object(value).ok_or(InvalidPosition)?;
     let line = extract_direct_usize_field(position, "line").ok_or(InvalidPosition)?;
     let character = extract_direct_usize_field(position, "character").ok_or(InvalidPosition)?;
-    Ok(Some(Position { line, character }))
+    Ok(Position { line, character })
+}
+
+pub(crate) fn extract_params_string_field(message: &str, field: &str) -> Option<String> {
+    let params = extract_direct_object_field(message, "params").ok()??;
+    let value = extract_direct_field_value(params, field).ok()??;
+    parse_json_string(value)
+}
+
+fn extract_direct_object_field<'a>(
+    object: &'a str,
+    field: &str,
+) -> Result<Option<&'a str>, InvalidPosition> {
+    let Some(value) = extract_direct_field_value(object.trim_start(), field)? else {
+        return Ok(None);
+    };
+    extract_json_object(value).map(Some).ok_or(InvalidPosition)
+}
+
+fn extract_direct_field_value<'a>(
+    object: &'a str,
+    field: &str,
+) -> Result<Option<&'a str>, InvalidPosition> {
+    let bytes = object.as_bytes();
+    if bytes.first() != Some(&b'{') {
+        return Err(InvalidPosition);
+    }
+    let mut depth = 0usize;
+    let mut index = 0usize;
+    let mut found = None;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'{' | b'[' => {
+                depth = depth.checked_add(1).ok_or(InvalidPosition)?;
+                index += 1;
+            }
+            b'}' | b']' => {
+                depth = depth.checked_sub(1).ok_or(InvalidPosition)?;
+                index += 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            b'"' => {
+                let key_start = index + 1;
+                index = key_start;
+                let mut escaped = false;
+                while index < bytes.len() {
+                    if escaped {
+                        escaped = false;
+                    } else if bytes[index] == b'\\' {
+                        escaped = true;
+                    } else if bytes[index] == b'"' {
+                        break;
+                    }
+                    index += 1;
+                }
+                if index == bytes.len() {
+                    return Err(InvalidPosition);
+                }
+                let key_end = index;
+                index += 1;
+                if depth != 1 || &object[key_start..key_end] != field {
+                    continue;
+                }
+                let after_key = object[index..].trim_start();
+                let Some(after_colon) = after_key.strip_prefix(':') else {
+                    continue;
+                };
+                if found.is_some() {
+                    return Err(InvalidPosition);
+                }
+                found = Some(after_colon.trim_start());
+            }
+            _ => index += 1,
+        }
+    }
+    Ok(found)
 }
 
 fn extract_json_object(input: &str) -> Option<&str> {
