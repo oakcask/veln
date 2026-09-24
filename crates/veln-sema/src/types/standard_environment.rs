@@ -77,11 +77,13 @@ pub mod standard_reuse_counters {
     static STANDARD_PREPARES: AtomicUsize = AtomicUsize::new(0);
     static STANDARD_ENVIRONMENT_BUILDS: AtomicUsize = AtomicUsize::new(0);
     static APPLICATION_PREPARES: AtomicUsize = AtomicUsize::new(0);
+    static EMBEDDED_STANDARD_LOWERED_DECODES: AtomicUsize = AtomicUsize::new(0);
 
     pub fn reset() {
         STANDARD_PREPARES.store(0, Ordering::SeqCst);
         STANDARD_ENVIRONMENT_BUILDS.store(0, Ordering::SeqCst);
         APPLICATION_PREPARES.store(0, Ordering::SeqCst);
+        EMBEDDED_STANDARD_LOWERED_DECODES.store(0, Ordering::SeqCst);
     }
 
     pub fn standard_prepares() -> usize {
@@ -96,6 +98,10 @@ pub mod standard_reuse_counters {
         APPLICATION_PREPARES.load(Ordering::SeqCst)
     }
 
+    pub fn embedded_standard_lowered_decodes() -> usize {
+        EMBEDDED_STANDARD_LOWERED_DECODES.load(Ordering::SeqCst)
+    }
+
     pub(super) fn record_standard_prepare() {
         STANDARD_PREPARES.fetch_add(1, Ordering::SeqCst);
     }
@@ -107,10 +113,21 @@ pub mod standard_reuse_counters {
     pub(crate) fn record_application_prepare() {
         APPLICATION_PREPARES.fetch_add(1, Ordering::SeqCst);
     }
+
+    pub(super) fn record_embedded_standard_lowered_decode() {
+        EMBEDDED_STANDARD_LOWERED_DECODES.fetch_add(1, Ordering::SeqCst);
+    }
 }
 
 pub fn prepare_reusable_standard_environment(
     module: &SurfaceModule,
+) -> ReusableStandardEnvironment {
+    prepare_standard_environment(module, prepared_standard_semantic_identity)
+}
+
+fn prepare_standard_environment(
+    module: &SurfaceModule,
+    identity: impl FnOnce(&SurfaceModule, &BTreeSet<String>) -> StandardSemanticIdentity,
 ) -> ReusableStandardEnvironment {
     #[cfg(test)]
     standard_reuse_counters::record_standard_prepare();
@@ -120,7 +137,7 @@ pub fn prepare_reusable_standard_environment(
     standard_reuse_counters::record_standard_environment_build();
     let environment = TypeEnvironment::from_module(&standard_module);
     ReusableStandardEnvironment {
-        identity: prepared_standard_semantic_identity(&standard_module, &module_names),
+        identity: identity(&standard_module, &module_names),
         module_names,
         declaration_counts: standard_declaration_counts(&standard_module),
         environment: Arc::new(environment),
@@ -130,9 +147,7 @@ pub fn prepare_reusable_standard_environment(
 pub fn prepare_current_reusable_standard_environment(
     module: &SurfaceModule,
 ) -> ReusableStandardEnvironment {
-    let mut environment = prepare_reusable_standard_environment(module);
-    environment.identity = standard_semantic_identity();
-    environment
+    prepare_standard_environment(module, |_, _| standard_semantic_identity())
 }
 
 pub fn standard_semantic_identity() -> StandardSemanticIdentity {
@@ -287,7 +302,7 @@ fn embedded_standard_module_fingerprint() -> u64 {
 
 fn semantic_module_fingerprint(module: &SurfaceModule) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    format!("{module:?}").hash(&mut hasher);
+    hasher.write(&veln_ast::encode_surface_module(module));
     hasher.finish()
 }
 
@@ -303,38 +318,18 @@ pub(crate) fn embedded_standard_surface_module() -> SurfaceModule {
         functions: Vec::new(),
         invalid_names: Vec::new(),
     };
-    let mut modules = veln_stdlib::package_bundle()
-        .files
-        .iter()
-        .filter_map(|file| {
-            standard_module_name_from_bundle_path(file.path).map(|name| (name, file))
-        })
-        .collect::<Vec<_>>();
-    modules.sort_by(|left, right| left.0.cmp(&right.0));
-    for (module_name, file) in modules {
-        let source = SourceFile::new(file.path, file.text);
-        let parsed = veln_syntax::parse(&source);
-        if !parsed.diagnostics.is_empty() {
-            continue;
-        }
-        let mut module = lower_surface_ast_with_module_identity(
-            &parsed.tree,
-            module_name,
-            source.span(TextRange::new(0, 0)),
-        );
-        rewrite_standard_bundle_import_targets(&mut module.uses);
+    for file in veln_stdlib::package_bundle().lowered_files {
+        #[cfg(test)]
+        standard_reuse_counters::record_embedded_standard_lowered_decode();
+        let module = veln_ast::decode_surface_module(file.module).unwrap_or_else(|message| {
+            panic!(
+                "embedded standard library lowered module `{}` should decode: {message}",
+                file.path
+            )
+        });
         merge_standard_surface_module(&mut merged, module);
     }
     merged
-}
-
-fn rewrite_standard_bundle_import_targets(uses: &mut [UseDecl]) {
-    for use_decl in uses {
-        if use_decl.package.is_some() || use_decl.name.starts_with("std::") {
-            continue;
-        }
-        use_decl.name = format!("std::{}", use_decl.name);
-    }
 }
 
 fn merge_standard_surface_module(merged: &mut SurfaceModule, module: SurfaceModule) {
