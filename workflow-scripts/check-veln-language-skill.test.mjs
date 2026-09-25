@@ -544,6 +544,18 @@ test("rejects a read before language search", () => {
   assert.throws(() => validateScenarioDocument(document, options), /language route must search first/);
 });
 
+test("rejects a fallback field on a language search call", () => {
+  const document = fixture();
+  matchingTurn(document).events[0].fallback = "model-memory";
+  assert.throws(() => validateScenarioDocument(document, options), /search call event: fields must match the closed shape/);
+});
+
+test("rejects an unknown field on a language read call", () => {
+  const document = fixture();
+  matchingTurn(document).events[2].retry = false;
+  assert.throws(() => validateScenarioDocument(document, options), /read call event: fields must match the closed shape/);
+});
+
 test("rejects a noncanonical snapshot URI", () => {
   const document = fixture();
   const event = matchingTurn(document).events[1];
