@@ -6,6 +6,7 @@
       "covers": "language-match",
       "turns": [{
         "request": { "text": "How do Veln schemas work?" },
+        "expected": { "search_arguments": { "query": "Veln schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields."] },
         "events": [
           { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
           { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
@@ -20,6 +21,7 @@
       "covers": "language-no-match",
       "turns": [{
         "request": { "text": "Does Veln have a borrow checker?" },
+        "expected": { "search_arguments": { "query": "borrow checker", "scope": "language" }, "answer_claims": [] },
         "events": [
           { "type": "call", "tool": "search_docs", "arguments": { "query": "borrow checker", "scope": "language" } },
           { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [] } },
@@ -33,6 +35,7 @@
       "turns": [
         {
           "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "Veln schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields."] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
             { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
@@ -43,6 +46,7 @@
         },
         {
           "request": { "text": "How do Veln effects work?" },
+          "expected": { "search_arguments": { "query": "Veln effects", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln effects", "scope": "language" } },
             { "type": "result", "tool": "search_docs", "error": { "code": "tool_unavailable" } },
@@ -57,6 +61,7 @@
       "turns": [
         {
           "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "Veln schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields."] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
             { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
@@ -67,6 +72,7 @@
         },
         {
           "request": { "text": "How do Veln schemas encode values?" },
+          "expected": { "search_arguments": { "query": "schema encode", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "schema encode", "scope": "language" } },
             { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Explicit encode and decode expressions apply a schema.", "prefix_truncated": false, "suffix_truncated": false }] } },
@@ -83,6 +89,7 @@
       "turns": [
         {
           "request": { "text": "How do Veln schemas work?" },
+          "expected": { "search_arguments": { "query": "Veln schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields."] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
             { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
@@ -93,6 +100,7 @@
         },
         {
           "request": { "text": "How do Veln modules work?" },
+          "expected": { "search_arguments": { "query": "Veln modules", "scope": "language" }, "answer_claims": [] },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln modules", "scope": "language" } },
             { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/0000000000000000000000000000000000000000000000000000000000000000/topic/modules-imports-packages", "title": "Modules, imports, and packages", "summary": "Modules organize source and imports.", "excerpt": "Modules organize source and imports.", "prefix_truncated": false, "suffix_truncated": false }] } },
