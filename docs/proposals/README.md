@@ -16,7 +16,9 @@ also states it.
 
 ## Ready
 
-No proposal is ready for implementation.
+- Align the canonical skill contract with the implemented and checked routing
+  rules:
+  [agent-language-reference-skill.md](agent-language-reference-skill.md).
 
 ## Blocked
 
