@@ -45,6 +45,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
     "intent_verbs": ["add", "change", "debug", "fix", "implement", "inspect", "modify", "refactor", "remove", "review", "select", "test", "update"],
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
+    "location_question_endings": ["defined", "handled", "implemented", "located"],
     "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "editors/", "examples/", "scripts/", "tools/", "workflow-scripts/"]
   },
   "failure": {
@@ -149,7 +150,14 @@ test("routes an ordinary compiler change request without an incidental routing k
 test("routes a polite repository change request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
-    "Could you fix Veln parser recovery?";
+    "Could you please fix Veln parser recovery?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes an interrogative repository location request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Where is Veln parser recovery implemented?";
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 

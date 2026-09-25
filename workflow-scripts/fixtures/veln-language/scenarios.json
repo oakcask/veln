@@ -127,7 +127,7 @@
       "id": "repository-change-request",
       "covers": "repository-change",
       "turns": [{
-        "request": { "text": "Modify the Veln compiler parser." },
+        "request": { "text": "Could you please fix Veln parser recovery?" },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
           { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },

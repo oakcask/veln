@@ -118,6 +118,12 @@ function parseSkillContract(skillText) {
     "whether",
     "why",
   ], "skill must preserve language questions phrased with an inspection verb");
+  assert.deepEqual(contract.repository?.location_question_endings, [
+    "defined",
+    "handled",
+    "implemented",
+    "located",
+  ], "skill must recognize repository-location questions");
   assert.deepEqual(contract.repository?.path_prefixes, [
     ".agents/",
     ".github/",
@@ -161,15 +167,22 @@ function routeRequest(text, contract, context) {
   };
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
+  const requestLead = "(?:(?:can|could|would) you\\s+)?(?:please\\s+)?";
   const intent = contract.repository.intent_verbs.find((verb) => new RegExp(
-    `^(?:please\\s+|can you\\s+|could you\\s+|would you\\s+)?${verb}\\b`,
+    `^${requestLead}${verb}\\b`,
     "u",
   ).test(lower.trim()));
   const languageComplement = intent !== undefined && contract.repository.language_complements.some((term) => new RegExp(
-    `^(?:please\\s+|can you\\s+|could you\\s+|would you\\s+)?${intent}\\s+${term}\\b`,
+    `^${requestLead}${intent}\\s+${term}\\b`,
     "u",
   ).test(lower.trim()));
-  const repository = repositoryPath || explicitTarget || (intent !== undefined && !languageComplement);
+  const locationQuestion = /^where\s+(?:is|are|was|were)\b/u.test(lower.trim())
+    && contract.repository.location_question_endings.some((ending) => new RegExp(
+      `\\b${ending}\\b[?.!]*$`,
+      "u",
+    ).test(lower.trim()));
+  const repository = repositoryPath || explicitTarget || locationQuestion
+    || (intent !== undefined && !languageComplement);
   return repository ? "repository" : "language";
 }
 
