@@ -383,7 +383,7 @@ function routeRequest(text, contract, context) {
       new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
     ].some((pattern) => pattern.test(lower.trim()));
   const languageBehaviorQuestion = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
-    && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+(?!you\b)[^.!?]*\bveln\b/u
+    && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+(?!(?:i|we|you)\b)[^.!?]*\bveln\b/u
       .test(lower.trim());
   const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
   const locationForms = contract.repository.location_question_forms

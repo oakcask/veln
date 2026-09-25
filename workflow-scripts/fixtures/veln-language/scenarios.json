@@ -139,7 +139,7 @@
       "id": "repository-change-request",
       "covers": "repository-change",
       "turns": [{
-        "request": { "text": "Fix the Veln lexer bug." },
+        "request": { "text": "Can I fix the Veln lexer bug?" },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
           { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },

@@ -235,13 +235,20 @@ test("routes a change request for an unlisted repository component", () => {
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
+test("routes an auxiliary-led change request for an unlisted repository component", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Can I fix the Veln lexer bug?";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
 test("canonical repository scenarios cover inspection and change requests", () => {
   const document = fixture();
   assert.match(
     scenario(document, "repository-current").turns[0].request.text,
     /^After reviewing the context, inspect\b/u,
   );
-  assert.match(scenario(document, "repository-change").turns[0].request.text, /^Fix\b/u);
+  assert.match(scenario(document, "repository-change").turns[0].request.text, /^Can I fix\b/u);
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
