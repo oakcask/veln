@@ -961,12 +961,16 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     statSync(absolute).size <= fixtureLimits.repositoryDocumentBytes,
     `${sourcePath}: repository document exceeds the byte limit`,
   );
-  const source = readFileSync(absolute, "utf8");
+  const source = navigationalMarkdown(readFileSync(absolute, "utf8"));
   const links = [];
   let cursor = 0;
   while (cursor < source.length) {
     const labelStart = source.indexOf("[", cursor);
     if (labelStart === -1) break;
+    if (labelStart > 0 && source[labelStart - 1] === "!") {
+      cursor = labelStart + 1;
+      continue;
+    }
     const labelEnd = source.indexOf("](", labelStart + 1);
     if (labelEnd === -1) break;
     const targetEnd = source.indexOf(")", labelEnd + 2);
@@ -980,6 +984,79 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
     if (joined.startsWith("docs/")) links.push(joined);
   }
   return links;
+}
+
+function navigationalMarkdown(source) {
+  const masked = source.split("");
+  const mask = (start, end) => {
+    for (let index = start; index < end; index += 1) {
+      if (masked[index] !== "\n" && masked[index] !== "\r") masked[index] = " ";
+    }
+  };
+  const findVisible = (token, start) => {
+    let index = source.indexOf(token, start);
+    while (index !== -1) {
+      let visible = true;
+      for (let offset = 0; offset < token.length; offset += 1) {
+        if (masked[index + offset] !== token[offset]) {
+          visible = false;
+          break;
+        }
+      }
+      if (visible) return index;
+      index = source.indexOf(token, index + 1);
+    }
+    return -1;
+  };
+
+  let fence;
+  let lineStart = 0;
+  while (lineStart < source.length) {
+    const newline = source.indexOf("\n", lineStart);
+    const lineEnd = newline === -1 ? source.length : newline + 1;
+    const line = source.slice(lineStart, lineEnd).replace(/[\r\n]+$/, "");
+    if (fence === undefined) {
+      const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      if (opening !== null) {
+        fence = { character: opening[1][0], length: opening[1].length };
+        mask(lineStart, lineEnd);
+      }
+    } else {
+      const closing = new RegExp(`^ {0,3}\\${fence.character}{${fence.length},}[ \\t]*$`);
+      mask(lineStart, lineEnd);
+      if (closing.test(line)) fence = undefined;
+    }
+    lineStart = lineEnd;
+  }
+
+  let cursor = 0;
+  while (cursor < source.length) {
+    const commentStart = findVisible("<!--", cursor);
+    const tickStart = findVisible("`", cursor);
+    const start = commentStart === -1
+      ? tickStart
+      : tickStart === -1 ? commentStart : Math.min(commentStart, tickStart);
+    if (start === -1) break;
+    if (start === commentStart) {
+      const marker = findVisible("-->", start + 4);
+      const end = marker === -1 ? source.length : marker + 3;
+      mask(start, end);
+      cursor = end;
+      continue;
+    }
+    let runEnd = start + 1;
+    while (masked[runEnd] === "`") runEnd += 1;
+    const delimiter = source.slice(start, runEnd);
+    const endStart = findVisible(delimiter, runEnd);
+    if (endStart === -1) {
+      cursor = runEnd;
+      continue;
+    }
+    const end = endStart + delimiter.length;
+    mask(start, end);
+    cursor = end;
+  }
+  return masked.join("");
 }
 
 export function shortestDocumentationRoute(
@@ -1158,9 +1235,13 @@ export function validateScenarioDocument(document, options = {}) {
     semanticCoverage.add(`${selection.action}:${selection.subject}:${selection.route}`);
   }
   const requestSelectionOracle = loadRequestSelectionOracle();
+  assert.deepEqual(
+    [...requestSelectionIds].sort(),
+    [...requestSelectionOracle.keys()].sort(),
+    "update request-selection IDs to exactly match the canonical corpus; complete membership prevents incomplete or fabricated routing evidence",
+  );
   for (const selection of document.request_selection) {
     const expected = requestSelectionOracle.get(selection.id);
-    if (expected === undefined) continue;
     assert.deepEqual(
       requestSelectionRecord(selection),
       expected,
