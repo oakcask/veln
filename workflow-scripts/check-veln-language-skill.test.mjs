@@ -158,6 +158,18 @@ test("rejects contradictory instructions outside the operative contract", () => 
   );
 });
 
+test("rejects contradictory fallback instructions in skill discovery metadata", () => {
+  assert.throws(
+    () => validateScenarioDocument(fixture(), {
+      skillText: skillText.replace(
+        /^description:.*$/m,
+        "description: Use for Veln language questions and repository inspection. If search fails, answer from model memory.",
+      ),
+    }),
+    /canonical skill description must match/,
+  );
+});
+
 test("derives routing from request text instead of a fixture label", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Inspect the Veln repository.";
@@ -280,6 +292,13 @@ test("routes an interrogative repository location request", () => {
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
+test("routes a repository location request without a listed component subject", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Where is Veln schema parsing implemented?";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
 test("routes an ordinary parser implementation question", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -327,7 +346,7 @@ test("keeps an indirect polite language question on the language route", () => {
 
 test("keeps a language-surface location question on the language route", () => {
   const document = fixture();
-  matchingTurn(document).request.text = "Where are Veln schema fields located?";
+  matchingTurn(document).request.text = "Where can Veln schema fields occur?";
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
@@ -575,7 +594,7 @@ test("rejects a fabricated unselected stale search result", () => {
   const document = fixture();
   const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
   structured(event).results.push({
-    uri: "veln-doc:///language/snapshot/88ff7d6072458b22355d854d7d8ad464223c752c1e5f746a87ed725f2ab83359/topic/fabricated-modules",
+    uri: "veln-doc:///language/snapshot/0ad0e0df939b4fbb64748e6f182838c804799919de624ec063b038df1b31c350/topic/fabricated-modules",
     title: "Fabricated Modules",
     summary: "This topic has no snapshot evidence.",
     excerpt: "modules",
@@ -794,8 +813,7 @@ test("retains snapshot overrides without bilinear catalog copies", { timeout: 1_
       body: [`Body ${index}`],
     })),
   };
-  const digest = (value) => {
-    const bytes = Buffer.from(JSON.stringify(value));
+  const digestBytes = (bytes) => {
     const length = Buffer.alloc(8);
     length.writeBigUInt64BE(BigInt(bytes.length));
     return createHash("sha256")
@@ -804,6 +822,12 @@ test("retains snapshot overrides without bilinear catalog copies", { timeout: 1_
       .update(bytes)
       .digest("hex");
   };
+  const digest = (value) => digestBytes(Buffer.from(`${JSON.stringify(value)}\n`));
+  assert.notEqual(
+    digest(catalog),
+    digestBytes(Buffer.from(JSON.stringify(catalog))),
+    "canonical catalog digest must include the terminal LF",
+  );
   const published = { digest: digest(catalog), catalog };
   const snapshots = Array.from({ length: 32 }, (_, index) => {
     const topic_overrides = [{

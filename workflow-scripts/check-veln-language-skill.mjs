@@ -53,6 +53,7 @@ const acceptance = new Map([
 
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const markdownMimeType = "text/markdown; charset=utf-8";
+const canonicalSkillDescription = "Use for Veln language questions and for inspecting or changing the Veln repository through its documentation authority.";
 const fixtureLimits = {
   scenarios: acceptance.size,
   turnsPerScenario: 2,
@@ -100,7 +101,7 @@ export function loadSnapshotEvidence(repositoryRoot, published) {
     assert.match(snapshot.digest, /^[0-9a-f]{64}$/, `${context}: digest must be canonical`);
     assert.ok(Array.isArray(snapshot.topic_overrides), `${context}: topic overrides must be an array`);
     const catalog = materializeSnapshotCatalog(published, snapshot, context);
-    const bytes = Buffer.from(JSON.stringify(catalog));
+    const bytes = Buffer.from(`${JSON.stringify(catalog)}\n`);
     assert.equal(catalogDigest(bytes), snapshot.digest, `${context}: catalog digest does not match evidence`);
     assert.equal(snapshots.has(snapshot.digest), false, `${context}: duplicate snapshot digest`);
     snapshots.set(snapshot.digest, snapshot);
@@ -240,6 +241,11 @@ function parseSkillContract(skillText) {
     description,
     /\brepositor(?:y|ies)\b.*\b(?:inspect(?:ion|ing)?|chang(?:e|es|ing))\b|\b(?:inspect(?:ion|ing)?|chang(?:e|es|ing))\b.*\brepositor(?:y|ies)\b/i,
     "skill description must select repository inspection or change requests",
+  );
+  assert.equal(
+    description,
+    canonicalSkillDescription,
+    "canonical skill description must match the checked discovery contract",
   );
   const match = skillText.match(
     /<!-- veln-language-contract:start -->\s*```json\s*([\s\S]*?)\s*```\s*<!-- veln-language-contract:end -->/,
@@ -391,7 +397,7 @@ function routeRequest(text, contract, context) {
     .map((form) => form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
   const locationAuxiliary = "(?:is|are|was|were)";
-  const locationQuestion = repositorySubject && new RegExp(
+  const locationQuestion = new RegExp(
     `^${requestLead}(?:where\\s+${locationAuxiliary}\\b|(?:${locationForms})\\b.*\\b${locationAuxiliary}\\b)`,
     "u",
   ).test(lower.trim())
@@ -399,7 +405,7 @@ function routeRequest(text, contract, context) {
       `\\b${ending}\\b[?.!]*$`,
       "u",
     ).test(lower.trim()));
-  const implementationQuestion = repositorySubject && new RegExp(
+  const implementationQuestion = new RegExp(
     `^${requestLead}how\\s+${locationAuxiliary}\\b`,
     "u",
   ).test(lower.trim())
@@ -447,7 +453,7 @@ function expectedSelection(text, route, context) {
     return { authority: "docs/specification/mcp.md" };
   }
   if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser|parser implemented|parser implementation)\b/u.test(lower)
-    || /\bschema parsing\b.*\bcompiler\b/u.test(lower)
+    || /\bschema parsing\b/u.test(lower)
     || lower.includes("crates/veln-mcp/")) {
     return {
       authority: "docs/specification/source-surface.md",
