@@ -850,16 +850,31 @@ export function readScenarioDocument(path) {
   if (document.recordings === undefined) return document;
   assertExactKeys(document, ["schema_version", "recordings", "scenarios"], "scenario document");
   assertExactKeys(document.recordings, ["schemas-binary-search", "schemas-read"], "scenario recordings");
+  assert.ok(Array.isArray(document.scenarios), "scenarios must be an array");
+  assert.ok(document.scenarios.length <= fixtureLimits.scenarios, "scenario document exceeds the scenario limit");
+  const referencedEvents = [];
   for (const scenario of document.scenarios) {
+    assertExactKeys(scenario, ["id", "covers", "turns"], "scenario");
+    assert.ok(Array.isArray(scenario.turns) && scenario.turns.length > 0, `${scenario.id}: turns are required`);
+    assert.ok(scenario.turns.length <= fixtureLimits.turnsPerScenario, `${scenario.id}: scenario exceeds the turn limit`);
     for (const turn of scenario.turns) {
+      const turnKeys = Object.hasOwn(turn, "expected")
+        ? ["request", "expected", "events"]
+        : ["request", "events"];
+      assertExactKeys(turn, turnKeys, `${scenario.id}: turn`);
+      assert.ok(Array.isArray(turn.events), `${scenario.id}: events are required`);
+      assert.ok(turn.events.length <= fixtureLimits.eventsPerTurn, `${scenario.id}: turn exceeds the event limit`);
       for (const event of turn.events) {
         if (event.value_ref === undefined) continue;
         assert.ok(Object.hasOwn(document.recordings, event.value_ref), `unknown scenario recording ${event.value_ref}`);
         assertExactKeys(event, ["type", "tool", "value_ref"], "recorded result reference");
-        event.value = structuredClone(document.recordings[event.value_ref]);
-        delete event.value_ref;
+        referencedEvents.push(event);
       }
     }
+  }
+  for (const event of referencedEvents) {
+    event.value = structuredClone(document.recordings[event.value_ref]);
+    delete event.value_ref;
   }
   delete document.recordings;
   return document;

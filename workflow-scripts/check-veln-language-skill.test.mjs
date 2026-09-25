@@ -557,3 +557,68 @@ test("rejects a scenario file before reading beyond the byte limit", (context) =
   writeFileSync(path, `{${" ".repeat(999_999)}}`);
   assert.throws(() => readScenarioDocument(path), /scenario fixture exceeds the byte limit/);
 });
+
+test("checks every recording reference bound before expanding recordings", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const referenceEvent = () => ({
+    type: "result",
+    tool: "search_docs",
+    value_ref: "schemas-binary-search",
+  });
+  const turn = () => ({
+    request: { text: "How do Veln schemas work?" },
+    events: [referenceEvent()],
+  });
+  const scenario = () => ({
+    id: "reference-amplification",
+    covers: "language-match",
+    turns: [turn()],
+  });
+  const cases = [
+    {
+      name: "scenarios",
+      message: /scenario document exceeds the scenario limit/,
+      mutate: (document) => document.scenarios.push(scenario()),
+    },
+    {
+      name: "turns",
+      message: /scenario exceeds the turn limit/,
+      mutate: (document) => document.scenarios[0].turns.push(turn()),
+    },
+    {
+      name: "events",
+      message: /turn exceeds the event limit/,
+      mutate: (document) => document.scenarios[0].turns[0].events.push(referenceEvent()),
+    },
+  ];
+  for (const fixtureCase of cases) {
+    const document = {
+      schema_version: 1,
+      recordings: {
+        "schemas-binary-search": { content: "x".repeat(100_000) },
+        "schemas-read": {},
+      },
+      scenarios: Array.from({ length: 9 }, scenario),
+    };
+    if (fixtureCase.name === "turns") document.scenarios[0].turns.push(turn());
+    if (fixtureCase.name === "events") {
+      document.scenarios[0].turns[0].events = Array.from({ length: 5 }, referenceEvent);
+    }
+    fixtureCase.mutate(document);
+    const path = join(root, `${fixtureCase.name}.json`);
+    writeFileSync(path, JSON.stringify(document));
+    const originalStructuredClone = globalThis.structuredClone;
+    let cloneCalls = 0;
+    globalThis.structuredClone = (...arguments_) => {
+      cloneCalls += 1;
+      return originalStructuredClone(...arguments_);
+    };
+    try {
+      assert.throws(() => readScenarioDocument(path), fixtureCase.message);
+      assert.equal(cloneCalls, 0, `${fixtureCase.name} limit must precede recording expansion`);
+    } finally {
+      globalThis.structuredClone = originalStructuredClone;
+    }
+  }
+});
