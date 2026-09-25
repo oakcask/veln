@@ -499,11 +499,19 @@ function routeRequest(text, contract, context) {
     .map((target) => target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
   const explicitTargetSubject = `(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})`;
-  const explicitRepositorySubject = [
+  const explicitTargetDefinition = new RegExp(
+    `\\b(?:define|explain)\\s+(?:the\\s+)?(?:term|word)\\s+${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
+    "u",
+  ).test(lower.trim());
+  const explicitTargetAtEnd = new RegExp(
+    `\\b${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
+    "u",
+  ).test(lower.trim());
+  const explicitRepositorySubject = !explicitTargetDefinition && (explicitTargetAtEnd || [
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:is|are)\\s+(?:in\\s+)?${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:in\\s+)?${explicitTargetSubject}\\s+(?:is|are)\\b`,
     `^${requestLead}(?:is|are|was|were)\\s+${explicitTargetSubject}\\s+`,
-  ].some((pattern) => new RegExp(pattern, "u").test(lower.trim()));
+  ].some((pattern) => new RegExp(pattern, "u").test(lower.trim())));
   const intentPattern = contract.repository.intent_verbs.join("|");
   const directRequest = new RegExp(
     `(?:^|[.!?;:,]\\s*)${requestLead}(?<intent>${intentPattern})\\b`,
@@ -533,8 +541,17 @@ function routeRequest(text, contract, context) {
     `\\b(?:your|my|our|the) (?:assignment|goal|job|request|task) (?:is|will be) to\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
+  const nominalRequest = new RegExp(
+    `\\b(?:the|my|our|your)\\s+(?:thing|work|assignment|goal|job|request|task)\\b[^.!?]{0,80}\\b(?:need|want|is|will be)\\b[^.!?]{0,80}\\bto\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
+  const communicatedRequest = new RegExp(
+    `\\b(?:ask|direct|request|require|urge)\\s+(?:[\\p{L}'’.-]+\\s+){0,8}that\\s+(?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
   const intentRequest = directRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
-    ?? interrogativeRequest ?? embeddedInterrogativeRequest ?? assignedRequest;
+    ?? interrogativeRequest ?? embeddedInterrogativeRequest ?? assignedRequest ?? nominalRequest
+    ?? communicatedRequest;
   const intentObject = intentRequest == null
     ? ""
     : lower.trim().slice(intentRequest.index + intentRequest[0].length);
@@ -1198,8 +1215,14 @@ export function validateScenarioDocument(document, options = {}) {
     ["I’d like you to inspect the Veln parser implementation.", "repository"],
     ["Could you take a moment to inspect the Veln parser implementation?", "repository"],
     ["Your task is to inspect the Veln parser implementation.", "repository"],
+    ["The thing I need from you is to inspect the parser.", "repository"],
+    ["I ask that you inspect the Veln parser.", "repository"],
+    ["For this task, I ask that you test the Veln parser.", "repository"],
+    ["I ask what inspect means in Veln schemas.", "language"],
+    ["I ask that you explain what inspect means in Veln schemas.", "language"],
     ["Where in the Veln source code is schema parsing implemented?", "repository"],
     ["Is the Veln repository organized by crates?", "repository"],
+    ["Tell me about the Veln repository.", "repository"],
     ["What is the repository schema in Veln?", "language"],
     ["Please update me on how Veln schemas work.", "language"],
   ]) {
