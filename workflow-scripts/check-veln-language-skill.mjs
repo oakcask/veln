@@ -39,6 +39,11 @@ const acceptance = new Map([
     finalStatus: "repository_routed",
     authority: "docs/proposals/README.md",
   }],
+  ["repository-reference", {
+    route: "repository",
+    finalStatus: "repository_routed",
+    authority: "docs/reference/documentation-authoring.md",
+  }],
   ["repository-unknown", {
     route: "repository",
     finalStatus: "repository_no_route",
@@ -378,7 +383,7 @@ function routeRequest(text, contract, context) {
       new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
     ].some((pattern) => pattern.test(lower.trim()));
   const languageBehaviorQuestion = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
-    && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+veln\b/u
+    && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+(?!you\b)[^.!?]*\bveln\b/u
       .test(lower.trim());
   const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
   const locationForms = contract.repository.location_question_forms
@@ -450,6 +455,9 @@ function expectedSelection(text, route, context) {
   }
   if (/\b(?:next ready|proposal state)\b/u.test(lower)) {
     return { authority: "docs/proposals/README.md" };
+  }
+  if (/\bdocumentation authoring policy\b/u.test(lower)) {
+    return { authority: "docs/reference/documentation-authoring.md" };
   }
   if (/\bundocumented deployment service\b/u.test(lower)) {
     return { paths: ["docs/README.md", "docs/navigation.md", "docs/navigation-full.md"] };
@@ -894,13 +902,13 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
         true,
         `${context}: repository route must be a path or an explicit terminal null`,
       );
-    } else if (requirement.authority.startsWith("docs/specification/")) {
-      assertExactKeys(read.value, ["authority"], `${context}: repository specification result`);
-      assert.equal(read.value.authority, requirement.authority, `${context}: terminal read named the wrong repository authority`);
-    } else {
+    } else if (requirement.authority === "docs/proposals/README.md") {
       assertExactKeys(read.value, ["authority", "selection"], `${context}: repository proposal result`);
       assert.equal(read.value.authority, requirement.authority, `${context}: terminal read named the wrong repository authority`);
       assert.equal(read.value.selection, "ready-only", `${context}: proposal selection must be Ready-only`);
+    } else {
+      assertExactKeys(read.value, ["authority"], `${context}: repository authority result`);
+      assert.equal(read.value.authority, requirement.authority, `${context}: terminal read named the wrong repository authority`);
     }
     if (index > 0) {
       assert.equal(read.path, reads[index - 1].value?.route, `${context}: selected docs route was not followed`);
@@ -934,10 +942,13 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
   assertExactKeys(answer, ["type", "status", "claims", "source_uris", "repository_authority"], `${context}: repository answer`);
   assert.equal(answer.repository_authority, requirement.authority, `${context}: answer named the wrong authority`);
   const role = frontmatterRole(checkedRepositoryPath(repositoryRoot, requirement.authority, context));
-  if (requirement.authority.startsWith("docs/specification/")) {
-    assert.equal(role, "specification", `${context}: implemented behavior must use specification authority`);
-  } else {
+  if (requirement.authority === "docs/proposals/README.md") {
     assert.equal(role, "routing", `${context}: proposal selection must use the proposal catalog route`);
+  } else {
+    assert.ok(
+      ["specification", "proposal", "reference"].includes(role),
+      `${context}: terminal repository authority must be current specification, proposal, or reference`,
+    );
   }
   return previousResult;
 }

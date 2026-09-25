@@ -17,7 +17,7 @@
       "id": "language-topic-match",
       "covers": "language-match",
       "turns": [{
-        "request": { "text": "How do Veln schemas and contracts interact?" },
+        "request": { "text": "Can schemas update values in Veln?" },
         "expected": { "search_arguments": { "query": "schemas", "scope": "language" }, "answer_claims": ["Schemas describe format-neutral and binary fields, primitives, repeat forms, codec operations, and validation predicates."] },
         "events": [
           { "type": "call", "tool": "search_docs", "arguments": { "query": "schemas", "scope": "language" } },
@@ -157,6 +157,18 @@
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/proposals/README.md" } },
           { "type": "read", "path": "docs/proposals/README.md", "value": { "authority": "docs/proposals/README.md", "selection": "ready-only" } },
           { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/proposals/README.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-reference-policy",
+      "covers": "repository-reference",
+      "turns": [{
+        "request": { "text": "Review the repository documentation authoring policy." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/reference/documentation-authoring.md" } },
+          { "type": "read", "path": "docs/reference/documentation-authoring.md", "value": { "authority": "docs/reference/documentation-authoring.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/reference/documentation-authoring.md" }
         ]
       }]
     },

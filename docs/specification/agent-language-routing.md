@@ -29,15 +29,17 @@ claims from that resource and reports that exact URI as its source.
 
 For repository inspection, changes, and proposal selection, the skill starts
 at `docs/README.md`. It follows the smallest linked repository documentation
-route for the request. A current specification or the proposal catalog is the
-repository authority; the published language reference is not repository
-implementation authority. An explicit repository documentation path takes
-precedence over a general subject phrase in the same request.
+route for the request. The selected specification, proposal, or reference page
+is the repository authority according to that route; the published language
+reference is not repository implementation authority. An explicit repository
+documentation path takes precedence over a general subject phrase in the same
+request.
 
 An inspection or change request uses the repository route even when the intent
 verb does not start the request. A passive question that asks how a compiler or
 parser implementation is implemented also uses the repository route. Questions
-about how Veln language features behave remain on the language route.
+about how Veln language features behave remain on the language route whether
+the Veln subject appears before or after the feature named in the question.
 
 ## Limits and failures
 
