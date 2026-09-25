@@ -75,10 +75,16 @@ const fixtureLimits = {
   repositoryDiscoveryDocuments: 64,
 };
 
-function loadPublishedLanguageReference(repositoryRoot) {
+export function loadPublishedLanguageReference(repositoryRoot) {
   const digest = readFileSync(join(repositoryRoot, digestPath), "utf8").trim();
   assert.match(digest, /^[0-9a-f]{64}$/, "checked language-reference digest must be canonical");
-  const catalog = JSON.parse(readFileSync(join(repositoryRoot, catalogPath), "utf8"));
+  const catalogBytes = readFileSync(join(repositoryRoot, catalogPath));
+  assert.equal(
+    catalogDigest(catalogBytes),
+    digest,
+    "checked language-reference catalog digest must match its sidecar",
+  );
+  const catalog = JSON.parse(catalogBytes.toString("utf8"));
   assert.ok(Array.isArray(catalog.topics), "checked language-reference catalog must contain topics");
   return { digest, catalog, caseFoldMappings: loadCaseFoldMappings(repositoryRoot) };
 }
@@ -493,8 +499,11 @@ function routeRequest(text, contract, context) {
     ?? collectiveRequest?.groups.intent ?? interrogativeRequest?.groups.intent
     ?? embeddedInterrogativeRequest?.groups.intent;
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
+  const requestedMutation = intent !== undefined
+    && /^(?:add|change|fix|implement|modify|refactor|remove|update)$/u.test(intent);
   const languageComplements = contract.repository.language_complements.join("|");
-  const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
+  const languageComplement = intent !== undefined && !requestedMutation
+    && /\bveln\b/u.test(lower) && !repositorySubject
     && [
       new RegExp(`\\b(?:${languageComplements})\\b[^.!?]*\\bveln\\b`, "u"),
       new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
@@ -525,7 +534,6 @@ function routeRequest(text, contract, context) {
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || explicitRepositorySubject || locationQuestion || implementationQuestion
-    || interrogativeRequest !== null
     || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !languageSemantics)
     || (intent !== undefined && repositorySubject);
   return repository ? "repository" : "language";
@@ -567,6 +575,7 @@ function expectedSelection(text, route, context) {
   }
   if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser|parser implemented|parser implementation)\b/u.test(lower)
     || /\bschema parsing\b/u.test(lower)
+    || /\bchange how veln schemas work\b/u.test(lower)
     || lower.includes("crates/veln-mcp/")) {
     return {
       authority: "docs/specification/source-surface.md",

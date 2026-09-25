@@ -29,11 +29,11 @@ claims from that resource and reports that exact URI as its source.
 
 For repository inspection, changes, and proposal selection, the skill starts
 at `docs/README.md`. It follows the smallest linked repository documentation
-route for the request. The selected specification, proposal, or reference page
-is the repository authority according to that route; the published language
-reference is not repository implementation authority. An explicit repository
-documentation path takes precedence over a general subject phrase in the same
-request.
+route for the request. A selected specification, proposal, or reference page
+owns its subject. The proposal catalog is the terminal authority for proposal
+availability and Ready-only selection. The published language reference is not
+repository implementation authority. An explicit repository documentation
+path takes precedence over a general subject phrase in the same request.
 
 An inspection or change request uses the repository route even when the intent
 verb does not start the request. A passive question that asks how a compiler or
@@ -65,6 +65,8 @@ repository results for the acceptance model. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 closed result shapes, provenance, bounded failures, preserved results, routing,
-and input limits. Stale search recordings are checked in full against archived
+and input limits. Stress cases run in workers that the parent test terminates at
+their time bound. Stale search recordings are checked in full against archived
 catalog evidence whose snapshot digest is recalculated with the published
-catalog digest contract.
+catalog digest contract. The current published catalog bytes must also match
+their digest sidecar before the harness parses them.

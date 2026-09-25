@@ -5,12 +5,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { Worker } from "node:worker_threads";
 
 import {
   expectedPublishedSearch,
-  linkedDocumentationPaths,
   loadCaseFoldMappings,
-  loadSnapshotEvidence,
+  loadPublishedLanguageReference,
   readScenarioDocument,
   shortestDocumentationRoute,
   validateScenarioDocument,
@@ -82,6 +82,37 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
 \`\`\`
 <!-- veln-language-contract:end -->`;
 const options = { skillText };
+const stressWorkerPath = new URL("./check-veln-language-skill.stress-worker.mjs", import.meta.url);
+
+function runStressTarget(target, data, timeout = 1_000) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const worker = new Worker(stressWorkerPath, { workerData: { target, data } });
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(value);
+    };
+    const timer = setTimeout(() => {
+      void worker.terminate();
+      finish(rejectPromise, new Error(`stress target ${target} exceeded ${timeout} ms`));
+    }, timeout);
+    worker.once("message", (message) => {
+      if (message.ok) {
+        finish(resolvePromise, message.value);
+      } else {
+        const error = new Error(message.message);
+        error.name = message.name;
+        finish(rejectPromise, error);
+      }
+    });
+    worker.once("error", (error) => finish(rejectPromise, error));
+    worker.once("exit", (code) => {
+      if (code !== 0) finish(rejectPromise, new Error(`stress target ${target} exited with code ${code}`));
+    });
+  });
+}
 
 function fixture() {
   return readScenarioDocument(fixturePath);
@@ -105,6 +136,19 @@ function syncEnvelope(event) {
 
 test("canonical veln-language skill replays every acceptance scenario", () => {
   assert.equal(validateScenarioDocument(fixture()), 11);
+});
+
+test("rejects a published catalog whose bytes do not match its digest sidecar", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-published-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const generated = join(root, "tools", "veln-repo-language-reference", "generated");
+  mkdirSync(generated, { recursive: true });
+  writeFileSync(join(generated, "language-reference-catalog-v1.json"), "{\"topics\":[]}\n");
+  writeFileSync(join(generated, "language-reference-catalog-v1.sha256"), `${"0".repeat(64)}\n`);
+  assert.throws(
+    () => loadPublishedLanguageReference(root),
+    /catalog digest must match its sidecar/,
+  );
 });
 
 test("synthetic contract replays every veln-language acceptance scenario", () => {
@@ -181,6 +225,19 @@ test("derives routing from request text instead of a fixture label", () => {
 test("keeps a language question containing change on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "How do Veln schemas change?";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("keeps an interrogative test request about Veln schemas on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "What can I test in Veln schemas?";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes an imperative change with a how complement to the repository", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Change how Veln schemas work.";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -262,7 +319,11 @@ test("canonical repository scenarios cover inspection and change requests", () =
     scenario(document, "repository-current").turns[0].request.text,
     /^Examine\b/u,
   );
-  assert.match(scenario(document, "repository-change").turns[0].request.text, /^Can I fix\b/u);
+  assert.equal(
+    scenario(document, "repository-change").turns[0].request.text,
+    "Change how Veln schemas work.",
+  );
+  assert.equal(matchingTurn(document).request.text, "What can I test in Veln schemas?");
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -859,7 +920,14 @@ test("derives the shortest repository route from current documentation links", (
   );
 });
 
-test("deduplicates wide alias cycles by resolved documentation identity", { timeout: 1_000 }, (context) => {
+test("terminates a nonresponsive stress worker at the external time bound", async () => {
+  await assert.rejects(
+    runStressTarget("nontermination", {}, 100),
+    /exceeded 100 ms/,
+  );
+});
+
+test("deduplicates wide alias cycles by resolved documentation identity", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-route-aliases-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "docs", "shared"), { recursive: true });
@@ -878,12 +946,14 @@ test("deduplicates wide alias cycles by resolved documentation identity", { time
   writeFileSync(join(root, "docs", "shared", "route.md"), cycleLinks.join("\n"));
 
   assert.deepEqual(
-    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3),
+    await runStressTarget("shortest-route", {
+      entry: "docs/README.md", authority: "docs/authority.md", root, maximumReads: 3,
+    }),
     ["docs/README.md", "docs/alias-0/route.md", "docs/authority.md"],
   );
 });
 
-test("bounds discovery across wide distinct documentation graphs", { timeout: 1_000 }, (context) => {
+test("bounds discovery across wide distinct documentation graphs", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-route-width-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "docs"));
@@ -897,13 +967,15 @@ test("bounds discovery across wide distinct documentation graphs", { timeout: 1_
   }
   writeFileSync(join(root, "docs", "README.md"), links.join("\n"));
 
-  assert.throws(
-    () => shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3, 16),
+  await assert.rejects(
+    runStressTarget("shortest-route", {
+      entry: "docs/README.md", authority: "docs/authority.md", root, maximumReads: 3, discoveryBound: 16,
+    }),
     /exceeded the 16-document bound/,
   );
 });
 
-test("returns an authority found before unrelated wide siblings exceed the discovery bound", { timeout: 1_000 }, (context) => {
+test("returns an authority found before unrelated wide siblings exceed the discovery bound", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-route-authority-first-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "docs"));
@@ -918,7 +990,9 @@ test("returns an authority found before unrelated wide siblings exceed the disco
   writeFileSync(join(root, "docs", "README.md"), links.join("\n"));
 
   assert.deepEqual(
-    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3, 2),
+    await runStressTarget("shortest-route", {
+      entry: "docs/README.md", authority: "docs/authority.md", root, maximumReads: 3, discoveryBound: 2,
+    }),
     ["docs/README.md", "docs/authority.md"],
   );
 });
@@ -945,15 +1019,15 @@ test("rejects a repository route beyond the read bound", () => {
   assert.throws(() => validateScenarioDocument(document, options), /exceeded its read bound/);
 });
 
-test("discovers links in linear progress on malformed adjacent-size input", { timeout: 1_000 }, (context) => {
+test("discovers links in linear progress on malformed adjacent-size input", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-links-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, "docs"));
   writeFileSync(join(root, "docs", "README.md"), "[".repeat(262_144));
-  assert.deepEqual(linkedDocumentationPaths("docs/README.md", root), []);
+  assert.deepEqual(await runStressTarget("linked-paths", { path: "docs/README.md", root }), []);
 });
 
-test("retains snapshot overrides without bilinear catalog copies", { timeout: 1_000 }, (context) => {
+test("retains snapshot overrides without bilinear catalog copies", async (context) => {
   const root = mkdtempSync(join(tmpdir(), "veln-language-snapshots-"));
   context.after(() => rmSync(root, { recursive: true, force: true }));
   const evidenceDirectory = join(root, "workflow-scripts", "fixtures", "veln-language");
@@ -1007,25 +1081,14 @@ test("retains snapshot overrides without bilinear catalog copies", { timeout: 1_
     JSON.stringify({ schema_version: 1, snapshots }),
   );
 
-  const originalStructuredClone = globalThis.structuredClone;
-  let cloneCalls = 0;
-  globalThis.structuredClone = (...arguments_) => {
-    cloneCalls += 1;
-    return originalStructuredClone(...arguments_);
-  };
-  let loaded;
-  try {
-    loaded = loadSnapshotEvidence(root, published);
-  } finally {
-    globalThis.structuredClone = originalStructuredClone;
-  }
-  assert.equal(cloneCalls, 0);
+  const loaded = await runStressTarget("snapshot-evidence", { root, published });
+  assert.equal(loaded.cloneCalls, 0);
   assert.equal(loaded.size, snapshots.length);
-  for (const snapshot of loaded.values()) {
-    assert.deepEqual(Object.keys(snapshot).sort(), ["base_digest", "digest", "topic_overrides"]);
-    assert.equal(Object.hasOwn(snapshot, "catalog"), false);
-  }
-  assert.ok(JSON.stringify([...loaded.values()]).length < JSON.stringify(catalog).length * 2);
+  assert.ok(loaded.keys.every((keys) => (
+    JSON.stringify(keys) === JSON.stringify(["base_digest", "digest", "topic_overrides"])
+  )));
+  assert.ok(loaded.hasCatalog.every((value) => value === false));
+  assert.ok(loaded.serializedLength < JSON.stringify(catalog).length * 2);
 });
 
 test("accepts a scenario file exactly at the byte limit", (context) => {
