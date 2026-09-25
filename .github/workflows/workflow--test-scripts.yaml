@@ -14,6 +14,8 @@ on:
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
+      - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.json
+      - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
       - workflow-scripts/**/*.mjs
   pull_request:
@@ -27,6 +29,8 @@ on:
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
+      - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.json
+      - tools/veln-repo-language-reference/generated/language-reference-catalog-v1.sha256
       - workflow-scripts/fixtures/veln-language/**
       - workflow-scripts/**/*.mjs
 
