@@ -42,8 +42,10 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "maximum_reads": 3,
     "repeat_paths": "forbidden",
     "published_reference_is_authority": false,
-    "routing_terms": ["repository", "implementation", "implemented", "proposal"],
-    "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "workflow-scripts/"]
+    "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
+    "intent_verbs": ["add", "change", "debug", "fix", "implement", "inspect", "modify", "refactor", "remove", "review", "select", "test", "update"],
+    "language_complements": ["how", "what", "when", "where", "whether", "why"],
+    "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "editors/", "examples/", "scripts/", "tools/", "workflow-scripts/"]
   },
   "failure": {
     "fallback": "forbidden",
@@ -128,6 +130,26 @@ test("keeps a language question containing change on the language route", () => 
 test("keeps a language question containing inspect on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Inspect how Veln schemas work.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("keeps a language question about implementation on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "How does Veln implement schemas?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes an ordinary compiler change request without an incidental routing keyword", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Modify the Veln compiler parser.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes a polite repository change request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Could you fix Veln parser recovery?";
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 

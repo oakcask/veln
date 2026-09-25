@@ -23,7 +23,7 @@ const acceptance = new Map([
   ["repository-change", {
     route: "repository",
     finalStatus: "repository_routed",
-    authority: "docs/specification/mcp.md",
+    authority: "docs/specification/source-surface.md",
   }],
   ["repository-proposal", {
     route: "repository",
@@ -89,15 +89,44 @@ function parseSkillContract(skillText) {
   assert.equal(contract.repository?.maximum_reads, 3, "skill must bound repository documentation reads");
   assert.equal(contract.repository?.repeat_paths, "forbidden", "skill must reject repository documentation cycles");
   assert.equal(contract.repository?.published_reference_is_authority, false, "skill must reject published-reference repository authority");
-  assert.ok(
-    Array.isArray(contract.repository?.routing_terms) && contract.repository.routing_terms.length > 0,
-    "skill must define recorded-request repository routing terms",
-  );
+  assert.deepEqual(contract.repository?.explicit_targets, [
+    "repository",
+    "codebase",
+    "source code",
+    "proposal state",
+  ], "skill must define explicit repository targets");
+  assert.deepEqual(contract.repository?.intent_verbs, [
+    "add",
+    "change",
+    "debug",
+    "fix",
+    "implement",
+    "inspect",
+    "modify",
+    "refactor",
+    "remove",
+    "review",
+    "select",
+    "test",
+    "update",
+  ], "skill must define repository inspection and change intents");
+  assert.deepEqual(contract.repository?.language_complements, [
+    "how",
+    "what",
+    "when",
+    "where",
+    "whether",
+    "why",
+  ], "skill must preserve language questions phrased with an inspection verb");
   assert.deepEqual(contract.repository?.path_prefixes, [
     ".agents/",
     ".github/",
     "crates/",
     "docs/",
+    "editors/",
+    "examples/",
+    "scripts/",
+    "tools/",
     "workflow-scripts/",
   ], "skill must recognize repository paths without relying on generic action words");
   assert.deepEqual(contract.failure, {
@@ -126,10 +155,21 @@ function routeRequest(text, contract, context) {
   assert.equal(typeof text, "string", `${context}: request text is required`);
   assert.ok(text.trim().length > 0, `${context}: request text must not be empty`);
   const lower = text.toLocaleLowerCase("en-US");
-  const repository = contract.repository.routing_terms.some((term) => {
+  const containsTerm = (term) => {
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${escaped}\\b`, "u").test(lower);
-  }) || contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
+  };
+  const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
+  const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
+  const intent = contract.repository.intent_verbs.find((verb) => new RegExp(
+    `^(?:please\\s+|can you\\s+|could you\\s+|would you\\s+)?${verb}\\b`,
+    "u",
+  ).test(lower.trim()));
+  const languageComplement = intent !== undefined && contract.repository.language_complements.some((term) => new RegExp(
+    `^(?:please\\s+|can you\\s+|could you\\s+|would you\\s+)?${intent}\\s+${term}\\b`,
+    "u",
+  ).test(lower.trim()));
+  const repository = repositoryPath || explicitTarget || (intent !== undefined && !languageComplement);
   return repository ? "repository" : "language";
 }
 
