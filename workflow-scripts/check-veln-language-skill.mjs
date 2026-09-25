@@ -511,6 +511,10 @@ function routeRequest(text, contract, context) {
     `\\b(?:i|we)(?: (?:need|want|would like)|['’]d like)(?: you)? to\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
+  const indirectInfinitiveRequest = new RegExp(
+    `^(?:can|could|would) you\\s+(?:please\\s+)?(?!(?:define|describe|explain)\\b)(?:[\\p{L}'’.-]+\\s+){1,8}to\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
   const collectiveRequest = new RegExp(
     `\\b(?:i|we) (?:should|must|can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
     "u",
@@ -523,7 +527,7 @@ function routeRequest(text, contract, context) {
     `\\b(?:if|whether) you (?:can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
-  const intentRequest = directRequest ?? framedRequest ?? collectiveRequest
+  const intentRequest = directRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
     ?? interrogativeRequest ?? embeddedInterrogativeRequest;
   const intentObject = intentRequest == null
     ? ""
@@ -1035,9 +1039,16 @@ export function shortestDocumentationRoute(
   assert.fail(`repository authority is not reachable within the read bound: ${authority}`);
 }
 
-function frontmatterRole(path) {
+export function currentRepositoryAuthority(path, context = "repository authority") {
   const match = readFileSync(path, "utf8").match(/^---\n([\s\S]*?)\n---/);
-  return match?.[1].match(/^role:\s*(\S+)\s*$/m)?.[1];
+  const role = match?.[1].match(/^role:\s*(\S+)\s*$/m)?.[1];
+  const status = match?.[1].match(/^status:\s*(\S+)\s*$/m)?.[1];
+  assert.equal(
+    status,
+    undefined,
+    `${context}: terminal repository authority must be current, not lifecycle status ${status}`,
+  );
+  return role;
 }
 
 function validateRepositoryTurn(turn, previousResult, requirement, contract, repositoryRoot, context) {
@@ -1103,7 +1114,10 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
   assert.equal(answer.status, "repository_routed", `${context}: wrong repository status`);
   assertExactKeys(answer, ["type", "status", "claims", "source_uris", "repository_authority"], `${context}: repository answer`);
   assert.equal(answer.repository_authority, requirement.authority, `${context}: answer named the wrong authority`);
-  const role = frontmatterRole(checkedRepositoryPath(repositoryRoot, requirement.authority, context));
+  const role = currentRepositoryAuthority(
+    checkedRepositoryPath(repositoryRoot, requirement.authority, context),
+    context,
+  );
   if (requirement.authority === "docs/proposals/README.md") {
     assert.equal(role, "routing", `${context}: proposal request must use the proposal catalog route`);
   } else {
@@ -1176,6 +1190,7 @@ export function validateScenarioDocument(document, options = {}) {
     ["Test how Veln schemas work.", "repository"],
     ["Change Veln schema semantics.", "repository"],
     ["I’d like you to inspect the Veln parser implementation.", "repository"],
+    ["Could you take a moment to inspect the Veln parser implementation?", "repository"],
     ["Where in the Veln source code is schema parsing implemented?", "repository"],
     ["Please update me on how Veln schemas work.", "language"],
   ]) {

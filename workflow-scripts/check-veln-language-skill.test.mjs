@@ -8,6 +8,7 @@ import test from "node:test";
 import { Worker } from "node:worker_threads";
 
 import {
+  currentRepositoryAuthority,
   expectedPublishedSearch,
   loadCaseFoldMappings,
   loadPublishedLanguageReference,
@@ -406,6 +407,20 @@ test("routes a repository inspection intent that does not lead the request", () 
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "I would like you to inspect the Veln parser implementation.";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes a polite repository request with intervening words", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Could you take a moment to inspect the Veln parser implementation?";
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes a varied indirect infinitive repository request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Would you find a convenient time to inspect the Veln parser implementation?";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -987,6 +1002,19 @@ test("rejects published-reference authority in a terminal repository read", () =
   const document = fixture();
   scenario(document, "repository-current").turns[0].events[1].value.authority = "published-language-reference";
   assert.throws(() => validateScenarioDocument(document, options), /terminal read named the wrong repository authority/);
+});
+
+test("rejects closed and superseded terminal repository authorities", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-authority-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const authority = join(root, "authority.md");
+  for (const status of ["closed", "superseded"]) {
+    writeFileSync(authority, `---\nrole: reference\nauthority: supporting\nstatus: ${status}\n---\n`);
+    assert.throws(
+      () => currentRepositoryAuthority(authority),
+      new RegExp(`terminal repository authority must be current, not lifecycle status ${status}`),
+    );
+  }
 });
 
 test("rejects extra fields in a terminal repository read", () => {

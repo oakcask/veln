@@ -66,6 +66,8 @@ unchanged.
 
 Repository routing reads at most three distinct documentation files. It stops
 when the selected route ends and reports when no route covers the request.
+A terminal repository authority must be current. The skill rejects a terminal
+document whose lifecycle status marks it as closed or superseded.
 
 ## Verification
 
