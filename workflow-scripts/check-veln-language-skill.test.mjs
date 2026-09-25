@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,6 +8,7 @@ import test from "node:test";
 
 import {
   linkedDocumentationPaths,
+  loadSnapshotEvidence,
   readScenarioDocument,
   shortestDocumentationRoute,
   validateScenarioDocument,
@@ -276,6 +278,12 @@ test("routes a passive implementation question whose implementation term is not 
 test("keeps a non-leading inspection request about language behavior on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "I would like you to inspect how Veln schemas work.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("keeps a framed language-behavior question on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Review this question: how do Veln schemas work?";
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
@@ -750,6 +758,76 @@ test("discovers links in linear progress on malformed adjacent-size input", { ti
   mkdirSync(join(root, "docs"));
   writeFileSync(join(root, "docs", "README.md"), "[".repeat(262_144));
   assert.deepEqual(linkedDocumentationPaths("docs/README.md", root), []);
+});
+
+test("retains snapshot overrides without bilinear catalog copies", { timeout: 1_000 }, (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-snapshots-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const evidenceDirectory = join(root, "workflow-scripts", "fixtures", "veln-language");
+  mkdirSync(evidenceDirectory, { recursive: true });
+  const catalog = {
+    topics: Array.from({ length: 128 }, (_, index) => ({
+      id: `topic-${index}`,
+      title: `Topic ${index}`,
+      summary: `Summary ${index}`,
+      keywords: ["topic"],
+      body: [`Body ${index}`],
+    })),
+  };
+  const digest = (value) => {
+    const bytes = Buffer.from(JSON.stringify(value));
+    const length = Buffer.alloc(8);
+    length.writeBigUInt64BE(BigInt(bytes.length));
+    return createHash("sha256")
+      .update(Buffer.from("veln-language-reference/v1\0"))
+      .update(length)
+      .update(bytes)
+      .digest("hex");
+  };
+  const published = { digest: digest(catalog), catalog };
+  const snapshots = Array.from({ length: 32 }, (_, index) => {
+    const topic_overrides = [{
+      topic_id: "topic-0",
+      id: `archived-topic-${index}`,
+      title: `Archived Topic ${index}`,
+      summary: `Archived summary ${index}`,
+      keywords: ["archived"],
+      body: [`Archived body ${index}`],
+    }];
+    const archived = structuredClone(catalog);
+    archived.topics[0] = { ...archived.topics[0], ...topic_overrides[0] };
+    delete archived.topics[0].topic_id;
+    archived.topics.sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
+    return {
+      base_digest: published.digest,
+      digest: digest(archived),
+      topic_overrides,
+    };
+  });
+  writeFileSync(
+    join(evidenceDirectory, "snapshot-catalogs.json"),
+    JSON.stringify({ schema_version: 1, snapshots }),
+  );
+
+  const originalStructuredClone = globalThis.structuredClone;
+  let cloneCalls = 0;
+  globalThis.structuredClone = (...arguments_) => {
+    cloneCalls += 1;
+    return originalStructuredClone(...arguments_);
+  };
+  let loaded;
+  try {
+    loaded = loadSnapshotEvidence(root, published);
+  } finally {
+    globalThis.structuredClone = originalStructuredClone;
+  }
+  assert.equal(cloneCalls, 0);
+  assert.equal(loaded.size, snapshots.length);
+  for (const snapshot of loaded.values()) {
+    assert.deepEqual(Object.keys(snapshot).sort(), ["base_digest", "digest", "topic_overrides"]);
+    assert.equal(Object.hasOwn(snapshot, "catalog"), false);
+  }
+  assert.ok(JSON.stringify([...loaded.values()]).length < JSON.stringify(catalog).length * 2);
 });
 
 test("accepts a scenario file exactly at the byte limit", (context) => {
