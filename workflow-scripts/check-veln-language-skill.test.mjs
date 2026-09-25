@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   linkedDocumentationPaths,
   readScenarioDocument,
+  shortestDocumentationRoute,
   validateScenarioDocument,
 } from "./check-veln-language-skill.mjs";
 
@@ -36,6 +37,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "read_tool": "read_doc",
     "maximum_calls": 2,
     "call_order": ["search_docs", "read_doc"],
+    "selection": "first_search_result",
     "read_exact_search_result_uri": true,
     "fallback": "forbidden",
     "answer_source": "selected_resource_uri",
@@ -48,7 +50,10 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "maximum_reads": 3,
     "repeat_paths": "forbidden",
     "published_reference_is_authority": false,
+    "authority_selection": "smallest_current_linked_authority",
+    "no_route": "Stop and report that no repository documentation route covers the request.",
     "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
+    "intent_targets": ["compiler", "implementation", "implemented", "parser", "proposal"],
     "intent_verbs": ["add", "change", "debug", "fix", "implement", "inspect", "modify", "refactor", "remove", "review", "select", "test", "update"],
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
     "location_question_endings": ["defined", "handled", "implemented", "located"],
@@ -169,6 +174,19 @@ test("keeps a language question containing inspect on the language route", () =>
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("keeps a language topic review on the language route", () => {
+  const document = fixture();
+  const turn = scenario(document, "search-unavailable").turns[1];
+  turn.request.text = "Review Veln effects semantics.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("keeps a language topic inspection on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Inspect Veln schema semantics.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("keeps a language question about implementation on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "How does Veln implement schemas?";
@@ -248,10 +266,16 @@ test("rejects a search query unrelated to the scenario expectation", () => {
   assert.throws(() => validateScenarioDocument(document, options), /search request must match request-selected evidence/);
 });
 
-test("rejects a schema trace replayed for an ambiguous multi-topic question", () => {
+test("accepts a deterministic selection for a multi-topic language question", () => {
   const document = fixture();
-  matchingTurn(document).request.text = "How do Veln schemas differ from effects?";
-  assert.throws(() => validateScenarioDocument(document, options), /ambiguous language subjects/);
+  assert.match(matchingTurn(document).request.text, /\bschemas\b.*\bcontracts\b/u);
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("rejects a non-first topic from a multi-result language search", () => {
+  const document = fixture();
+  matchingTurn(document).events[2].arguments.uri = structured(matchingTurn(document).events[1]).results[1].uri;
+  assert.throws(() => validateScenarioDocument(document, options), /deterministically select the first search result/);
 });
 
 test("gives an explicit repository path precedence over a competing MCP subject", () => {
@@ -512,6 +536,37 @@ test("rejects a longer repository route when a direct route exists", () => {
   assert.throws(() => validateScenarioDocument(document, options), /smallest task-appropriate documentation path/);
 });
 
+test("derives the shortest repository route from current documentation links", () => {
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/specification/mcp.md", join(dirname(fixturePath), "../../.."), 3),
+    ["docs/README.md", "docs/specification/mcp.md"],
+  );
+});
+
+test("deduplicates wide alias cycles by resolved documentation identity", { timeout: 1_000 }, (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-route-aliases-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs", "shared"), { recursive: true });
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+
+  const width = 1_000;
+  const entryLinks = [];
+  const cycleLinks = ["[authority](../authority.md)"];
+  for (let index = 0; index < width; index += 1) {
+    entryLinks.push(`[alias ${index}](alias-${index}/route.md)`);
+    cycleLinks.push(`[cycle ${index}](cycle-${index}.md)`);
+    symlinkSync("route.md", join(root, "docs", "shared", `cycle-${index}.md`));
+    symlinkSync("shared", join(root, "docs", `alias-${index}`));
+  }
+  writeFileSync(join(root, "docs", "README.md"), entryLinks.join("\n"));
+  writeFileSync(join(root, "docs", "shared", "route.md"), cycleLinks.join("\n"));
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3),
+    ["docs/README.md", "docs/alias-0/route.md", "docs/authority.md"],
+  );
+});
+
 test("rejects a repeated repository path", () => {
   const document = fixture();
   const turn = scenario(document, "repository-unknown").turns[0];
@@ -564,7 +619,7 @@ test("checks every recording reference bound before expanding recordings", (cont
   const referenceEvent = () => ({
     type: "result",
     tool: "search_docs",
-    value_ref: "schemas-binary-search",
+    value_ref: "schemas-search",
   });
   const turn = () => ({
     request: { text: "How do Veln schemas work?" },
@@ -596,7 +651,7 @@ test("checks every recording reference bound before expanding recordings", (cont
     const document = {
       schema_version: 1,
       recordings: {
-        "schemas-binary-search": { content: "x".repeat(100_000) },
+        "schemas-search": { content: "x".repeat(100_000) },
         "schemas-read": {},
       },
       scenarios: Array.from({ length: 9 }, scenario),
