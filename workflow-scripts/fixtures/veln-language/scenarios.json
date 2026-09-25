@@ -127,11 +127,12 @@
       "id": "repository-change-request",
       "covers": "repository-change",
       "turns": [{
-        "request": { "text": "Change the implemented Veln MCP documentation search." },
+        "request": { "text": "Modify the Veln compiler parser." },
         "events": [
-          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/mcp.md" } },
-          { "type": "read", "path": "docs/specification/mcp.md", "value": { "authority": "current" } },
-          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/mcp.md" }
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/topic-map.md" } },
+          { "type": "read", "path": "docs/specification/topic-map.md", "value": { "route": "docs/specification/source-surface.md" } },
+          { "type": "read", "path": "docs/specification/source-surface.md", "value": { "authority": "current" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/source-surface.md" }
         ]
       }]
     },
