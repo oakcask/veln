@@ -40,6 +40,9 @@ verb does not start the request. A passive question that asks how a compiler or
 parser implementation is implemented also uses the repository route. Questions
 about how Veln language features behave remain on the language route whether
 the Veln subject appears before or after the feature named in the question.
+Routing treats an intent as repository work only when it is the requested
+action. Merely mentioning an intent word or a repository term in a language
+question does not select the repository route.
 
 ## Limits and failures
 

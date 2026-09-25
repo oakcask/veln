@@ -278,6 +278,19 @@ test("routes a repository inspection intent that does not lead the request", () 
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
+test("routes an embedded repository inspection request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "I need you to inspect the Veln lexer bug.";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
+test("keeps an embedded language inspection request on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "I need you to inspect how Veln schemas work.";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
 test("routes a repository intent after an unrestricted context clause", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -331,6 +344,12 @@ test("does not treat a mentioned intent verb as a repository request", () => {
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
+test("does not treat a repository term in a language question as repository intent", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Does Veln have a repository schema?";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
 test("keeps language terminology containing an intent word on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Explain Veln schema update expressions.";
@@ -341,6 +360,13 @@ test("routes an ordinary repository inspection synonym", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Examine the Veln parser recovery implementation.";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
+test("routes every checked repository inspection synonym", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Investigate the Veln parser recovery implementation.";
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 

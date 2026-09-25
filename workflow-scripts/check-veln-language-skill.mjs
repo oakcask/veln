@@ -388,7 +388,7 @@ function routeRequest(text, contract, context) {
     "u",
   ).exec(lower.trim());
   const framedRequest = new RegExp(
-    `^i (?:would|'d) like you to\\s+(?<intent>${intentPattern})\\b`,
+    `\\bi (?:need|want|would like|'d like) you to\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
   const intent = directRequest?.groups.intent ?? framedRequest?.groups.intent;
@@ -399,7 +399,7 @@ function routeRequest(text, contract, context) {
       new RegExp(`\\b(?:${languageComplements})\\b[^.!?]*\\bveln\\b`, "u"),
       new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
     ].some((pattern) => pattern.test(lower.trim()));
-  const languageBehaviorQuestion = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
+  const languageBehaviorQuestion = /\bveln\b/u.test(lower)
     && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+(?!(?:i|we|you)\b)[^.!?]*\bveln\b/u
       .test(lower.trim());
   const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
@@ -424,8 +424,9 @@ function routeRequest(text, contract, context) {
       `\\b${ending}\\b`,
       "u",
     ).test(lower.trim()));
-  const repository = repositoryPath || explicitTarget || locationQuestion || implementationQuestion
-    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !languageSemantics);
+  const repository = repositoryPath || locationQuestion || implementationQuestion
+    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !languageSemantics)
+    || (explicitTarget && !languageBehaviorQuestion);
   return repository ? "repository" : "language";
 }
 
