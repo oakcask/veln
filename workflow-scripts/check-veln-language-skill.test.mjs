@@ -245,6 +245,46 @@ test("keeps an indirect language-information request independently of fixture la
   assert.equal(selectRequestRoute("Can you review contracts in Veln?", options), "repository");
 });
 
+test("classifies requested actions without relying on recorded sentence frames", () => {
+  for (const request of [
+    "Make sure to inspect the Veln parser.",
+    "Go ahead and inspect the Veln parser.",
+    "Before answering, I need you, if possible, to inspect the Veln parser.",
+  ]) {
+    assert.equal(selectRequestRoute(request, options), "repository", request);
+  }
+});
+
+test("keeps language how-to questions outside repository action routing", () => {
+  for (const request of [
+    "Tell me how I can test Veln schemas.",
+    "Explain how you can review contracts in Veln.",
+    "I want to know how Veln schemas change.",
+  ]) {
+    assert.equal(selectRequestRoute(request, options), "language", request);
+  }
+});
+
+test("distinguishes repository subjects from incidental compounds independently", () => {
+  for (const request of [
+    "Give me an overview of the Veln repository.",
+    "Outline the Veln codebase architecture.",
+    "I have a question about the Veln proposal state.",
+    "Tell me about the repository.",
+  ]) {
+    assert.equal(selectRequestRoute(request, options), "repository", request);
+  }
+  for (const request of [
+    "Why is the repository schema useful in Veln?",
+    "Does the repository schema in Veln support defaults?",
+    "Describe the repository schema in Veln.",
+    "How broad is the proposal state type in Veln?",
+    "Can Veln schemas encode a path in source code text?",
+  ]) {
+    assert.equal(selectRequestRoute(request, options), "language", request);
+  }
+});
+
 test("rejects a skill without the canonical name", () => {
   assert.throws(
     () => validateScenarioDocument(fixture(), { skillText: skillText.replace("name: veln-language", "name: other") }),
@@ -1020,6 +1060,15 @@ test("rejects a read result with both error and value", () => {
   scenario(document, "topic-unreadable").turns[1].events[3].value =
     matchingTurn(document).events[3].value;
   assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
+});
+
+test("rejects resource_not_found as a generic unreadable-topic transport failure", () => {
+  const document = fixture();
+  scenario(document, "topic-unreadable").turns[1].events[3].error.code = "resource_not_found";
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /resource_not_found must use the checked stale-snapshot result path/,
+  );
 });
 
 test("rejects a selected resource beyond the published byte limit", () => {
