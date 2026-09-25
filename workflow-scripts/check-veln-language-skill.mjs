@@ -88,7 +88,7 @@ const recordedRequestSemantics = new Map([
   ["Inspect repository authority for an undocumented deployment service.", { action: "repository_action", subject: "repository_material" }],
 ]);
 
-const requestSelectionCorpusDigest = "0ac872159d614ac989d9e71c9f18241569f743fcdf0e188eb452833fad382ffb";
+const requestSelectionCorpusDigest = "150e8cf6a744f70f678fcb1940316a0ca763cd81d644e20c49cc9cab7a97f89c";
 
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const markdownMimeType = "text/markdown; charset=utf-8";
