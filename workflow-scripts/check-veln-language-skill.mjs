@@ -39,6 +39,12 @@ const acceptance = new Map([
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/proposals/README.md",
+    readyOnly: true,
+  }],
+  ["repository-explicit-target", {
+    route: "repository",
+    finalStatus: "repository_routed",
+    authority: "docs/proposals/README.md",
   }],
   ["repository-reference", {
     route: "repository",
@@ -455,6 +461,13 @@ function routeRequest(text, contract, context) {
   const lower = text.toLocaleLowerCase("en-US");
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   const requestLead = "(?:(?:can|could|would) (?:i|you)\\s+)?(?:please\\s+)?";
+  const explicitTargetPattern = contract.repository.explicit_targets
+    .map((target) => target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const explicitRepositorySubject = new RegExp(
+    `^${requestLead}(?:what|where)\\s+(?:is|are)\\s+(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\b`,
+    "u",
+  ).test(lower.trim());
   const intentPattern = contract.repository.intent_verbs.join("|");
   const directRequest = new RegExp(
     `(?:^|[.!?;:,]\\s*)${requestLead}(?<intent>${intentPattern})\\b`,
@@ -506,7 +519,7 @@ function routeRequest(text, contract, context) {
       `\\b${ending}\\b`,
       "u",
     ).test(lower.trim()));
-  const repository = repositoryPath || locationQuestion || implementationQuestion
+  const repository = repositoryPath || explicitRepositorySubject || locationQuestion || implementationQuestion
     || interrogativeRequest !== null
     || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !languageSemantics)
     || (intent !== undefined && repositorySubject);
@@ -1004,7 +1017,7 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
         true,
         `${context}: repository route must be a path or an explicit terminal null`,
       );
-    } else if (requirement.authority === "docs/proposals/README.md") {
+    } else if (requirement.readyOnly) {
       assertExactKeys(read.value, ["authority", "selection"], `${context}: repository proposal result`);
       assert.equal(read.value.authority, requirement.authority, `${context}: terminal read named the wrong repository authority`);
       assert.equal(read.value.selection, "ready-only", `${context}: proposal selection must be Ready-only`);
@@ -1045,7 +1058,7 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
   assert.equal(answer.repository_authority, requirement.authority, `${context}: answer named the wrong authority`);
   const role = frontmatterRole(checkedRepositoryPath(repositoryRoot, requirement.authority, context));
   if (requirement.authority === "docs/proposals/README.md") {
-    assert.equal(role, "routing", `${context}: proposal selection must use the proposal catalog route`);
+    assert.equal(role, "routing", `${context}: proposal request must use the proposal catalog route`);
   } else {
     assert.ok(
       ["specification", "proposal", "reference"].includes(role),
