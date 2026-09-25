@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
+      - .agents/skills/veln-language/**
       - .github/actions/**/action.yaml
       - .github/workflows/*.yaml
       - AGENTS.md
@@ -16,6 +17,7 @@ on:
   pull_request:
     paths:
       - .agents/skills/docs-progressive-disclosure/SKILL.md
+      - .agents/skills/veln-language/**
       - .github/actions/**/action.yaml
       - .github/workflows/*.yaml
       - AGENTS.md
