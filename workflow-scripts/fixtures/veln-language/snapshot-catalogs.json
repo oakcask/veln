@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "snapshots": [
+    {
+      "base_digest": "4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9",
+      "digest": "88ff7d6072458b22355d854d7d8ad464223c752c1e5f746a87ed725f2ab83359",
+      "topic_overrides": [
+        {
+          "topic_id": "modules-imports-packages",
+          "id": "modules-legacy-layout",
+          "title": "Modules Legacy Layout",
+          "summary": "The archived snapshot described a module layout that was later renamed.",
+          "keywords": ["exports", "imports", "modules", "packages", "visibility"],
+          "body": ["The archived topic selected grammar for the earlier module layout."]
+        },
+        {
+          "topic_id": "lexical-structure",
+          "id": "legacy-module-lexicon",
+          "title": "Legacy Module Lexicon",
+          "summary": "The archived snapshot included a module lexicon topic that was later removed.",
+          "keywords": ["modules"],
+          "body": ["The archived topic preserved the earlier module terminology."]
+        }
+      ]
+    }
+  ]
+}
