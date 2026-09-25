@@ -161,6 +161,18 @@
       }]
     },
     {
+      "id": "repository-explicit-target-subject",
+      "covers": "repository-explicit-target",
+      "turns": [{
+        "request": { "text": "What is the Veln proposal state?" },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/proposals/README.md" } },
+          { "type": "read", "path": "docs/proposals/README.md", "value": { "authority": "docs/proposals/README.md" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/proposals/README.md" }
+        ]
+      }]
+    },
+    {
       "id": "repository-reference-policy",
       "covers": "repository-reference",
       "turns": [{

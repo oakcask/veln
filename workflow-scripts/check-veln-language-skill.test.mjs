@@ -104,11 +104,11 @@ function syncEnvelope(event) {
 }
 
 test("canonical veln-language skill replays every acceptance scenario", () => {
-  assert.equal(validateScenarioDocument(fixture()), 10);
+  assert.equal(validateScenarioDocument(fixture()), 11);
 });
 
 test("synthetic contract replays every veln-language acceptance scenario", () => {
-  assert.equal(validateScenarioDocument(fixture(), options), 10);
+  assert.equal(validateScenarioDocument(fixture(), options), 11);
 });
 
 test("rejects a skill without the canonical name", () => {
@@ -181,79 +181,79 @@ test("derives routing from request text instead of a fixture label", () => {
 test("keeps a language question containing change on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "How do Veln schemas change?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps an auxiliary-led language behavior question on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Does Veln update schemas automatically?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a language behavior question with a trailing Veln subject on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Can schemas update values in Veln?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a language question containing inspect on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Inspect how Veln schemas work.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an interrogative repository inspection without a language subject", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Review why the compiler crashes.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an interrogative repository inspection with a Veln implementation subject", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Review why the Veln compiler crashes.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a language topic review on the language route", () => {
   const document = fixture();
   const turn = scenario(document, "search-unavailable").turns[1];
   turn.request.text = "Review Veln effects semantics.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a language topic inspection on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Inspect Veln schema semantics.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a language question about implementation on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "How does Veln implement schemas?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an ordinary compiler change request without an incidental routing keyword", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Modify the Veln compiler parser.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a change request for an unlisted repository component", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Fix the Veln lexer bug.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an auxiliary-led change request for an unlisted repository component", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Can I fix the Veln lexer bug?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("canonical repository scenarios cover inspection and change requests", () => {
@@ -263,172 +263,181 @@ test("canonical repository scenarios cover inspection and change requests", () =
     /^Examine\b/u,
   );
   assert.match(scenario(document, "repository-change").turns[0].request.text, /^Can I fix\b/u);
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a polite repository change request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Could you please fix Veln parser recovery?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a repository inspection intent that does not lead the request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "I would like you to inspect the Veln parser implementation.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an embedded repository inspection request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "I need you to inspect the Veln lexer bug.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a repository inspection request without an indirect object", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "I need to inspect the Veln lexer bug.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a collective repository inspection request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "We should investigate the Veln parser recovery implementation.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps an embedded language inspection request on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "I need you to inspect how Veln schemas work.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a repository intent after an unrestricted context clause", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "After reviewing the context, inspect the Veln compiler parser.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an interrogative repository location request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Where is Veln parser recovery implemented?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a repository location request without a listed component subject", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Where is Veln schema parsing implemented?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an ordinary parser implementation question", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "How is the Veln parser implemented?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a passive implementation question whose implementation term is not final", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "How is schema parsing implemented in the compiler?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a non-leading inspection request about language behavior on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "I would like you to inspect how Veln schemas work.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a framed language-behavior question on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Review this question: how do Veln schemas work?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("does not treat a mentioned intent verb as a repository request", () => {
   const document = fixture();
   matchingTurn(document).request.text = "What does inspect mean for Veln schemas?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("does not treat a repository term in a language question as repository intent", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Does Veln have a repository schema?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a repository-target term definition on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "What does source code mean in Veln schemas?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes an explicit repository target used as the requested subject", () => {
+  const document = fixture();
+  assert.equal(
+    scenario(document, "repository-explicit-target").turns[0].request.text,
+    "What is the Veln proposal state?",
+  );
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a question that requests a repository change", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "What should we change in Veln schema parsing?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("does not treat an explained intent word as a requested action", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Explain the word inspect in Veln schemas.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps language terminology containing an intent word on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Explain Veln schema update expressions.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an ordinary repository inspection synonym", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Examine the Veln parser recovery implementation.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes every checked repository inspection synonym", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Investigate the Veln parser recovery implementation.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes an indirect polite repository location request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Can you tell me where Veln parser recovery is implemented?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps an indirect polite language question on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Can you tell me how Veln schemas work?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("keeps a language-surface location question on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Where can Veln schema fields occur?";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("routes a repository path request without a generic repository keyword", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Change crates/veln-mcp/src/server.rs.";
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("binds every acceptance row to its final outcome", () => {
@@ -506,7 +515,7 @@ test("accepts a deterministic selection for a multi-topic language question", ()
   const document = fixture();
   matchingTurn(document).request.text = "How do Veln schemas and contracts interact?";
   assert.match(matchingTurn(document).request.text, /\bschemas\b.*\bcontracts\b/u);
-  assert.equal(validateScenarioDocument(document, options), 10);
+  assert.equal(validateScenarioDocument(document, options), 11);
 });
 
 test("rejects a non-first topic from a multi-result language search", () => {
@@ -1030,7 +1039,7 @@ test("shares recordings at the largest accepted reference boundary", (context) =
       "schemas-search": { content: "" },
       "schemas-read": {},
     },
-    scenarios: Array.from({ length: 10 }, (_, index) => ({
+    scenarios: Array.from({ length: 11 }, (_, index) => ({
       id: `reference-boundary-${index}`,
       covers: "language-match",
       turns: Array.from({ length: 2 }, () => ({
@@ -1062,7 +1071,7 @@ test("shares recordings at the largest accepted reference boundary", (context) =
   const values = loaded.scenarios.flatMap((scenario) => scenario.turns)
     .flatMap((turn) => turn.events)
     .map((event) => event.value);
-  assert.equal(values.length, 100);
+  assert.equal(values.length, 110);
   assert.equal(cloneCalls, 0);
   assert.ok(values.every((value) => value === values[0]));
 });
@@ -1108,7 +1117,7 @@ test("checks every recording reference bound before expanding recordings", (cont
         "schemas-search": { content: "x".repeat(100_000) },
         "schemas-read": {},
       },
-      scenarios: Array.from({ length: 10 }, scenario),
+      scenarios: Array.from({ length: 11 }, scenario),
     };
     if (fixtureCase.name === "turns") document.scenarios[0].turns.push(turn());
     if (fixtureCase.name === "events") {
