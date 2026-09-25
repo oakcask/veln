@@ -55,7 +55,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "authority_selection": "smallest_current_linked_authority",
     "no_route": "Stop and report that no repository documentation route covers the request.",
     "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
-    "intent_verbs": ["add", "change", "debug", "fix", "implement", "inspect", "modify", "refactor", "remove", "review", "select", "test", "update"],
+    "intent_verbs": ["add", "change", "debug", "examine", "fix", "implement", "inspect", "investigate", "modify", "refactor", "remove", "review", "select", "test", "update"],
     "intent_selection": "An inspection or change intent selects repository work regardless of its position unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
     "location_question_endings": ["defined", "handled", "implemented", "located"],
@@ -258,7 +258,7 @@ test("canonical repository scenarios cover inspection and change requests", () =
   const document = fixture();
   assert.match(
     scenario(document, "repository-current").turns[0].request.text,
-    /^After reviewing the context, inspect\b/u,
+    /^Examine\b/u,
   );
   assert.match(scenario(document, "repository-change").turns[0].request.text, /^Can I fix\b/u);
   assert.equal(validateScenarioDocument(document, options), 10);
@@ -328,6 +328,19 @@ test("keeps a framed language-behavior question on the language route", () => {
 test("does not treat a mentioned intent verb as a repository request", () => {
   const document = fixture();
   matchingTurn(document).request.text = "What does inspect mean for Veln schemas?";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
+test("keeps language terminology containing an intent word on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Explain Veln schema update expressions.";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
+test("routes an ordinary repository inspection synonym", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Examine the Veln parser recovery implementation.";
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
