@@ -46,6 +46,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "intent_verbs": ["add", "change", "debug", "fix", "implement", "inspect", "modify", "refactor", "remove", "review", "select", "test", "update"],
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
     "location_question_endings": ["defined", "handled", "implemented", "located"],
+    "location_question_forms": ["where", "tell me where", "show me where"],
     "path_prefixes": [".agents/", ".github/", "crates/", "docs/", "editors/", "examples/", "scripts/", "tools/", "workflow-scripts/"]
   },
   "failure": {
@@ -158,6 +159,19 @@ test("routes an interrogative repository location request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Where is Veln parser recovery implemented?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes an indirect polite repository location request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Can you tell me where Veln parser recovery is implemented?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("keeps an indirect polite language question on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Can you tell me how Veln schemas work?";
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
@@ -348,6 +362,18 @@ test("rejects an authority not selected by the routing page", () => {
   current.events[1].path = "docs/specification/types.md";
   current.events[2].repository_authority = "docs/specification/types.md";
   assert.throws(() => validateScenarioDocument(document, options), /routing page does not select/);
+});
+
+test("rejects a longer repository route when a direct route exists", () => {
+  const document = fixture();
+  const current = scenario(document, "repository-current").turns[0];
+  current.events[0].value.route = "docs/specification/README.md";
+  current.events.splice(1, 0, {
+    type: "read",
+    path: "docs/specification/README.md",
+    value: { route: "docs/specification/mcp.md" },
+  });
+  assert.throws(() => validateScenarioDocument(document, options), /smallest task-appropriate documentation path/);
 });
 
 test("rejects a repeated repository path", () => {

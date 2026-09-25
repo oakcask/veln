@@ -19,18 +19,29 @@ const acceptance = new Map([
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/specification/mcp.md",
+    paths: ["docs/README.md", "docs/specification/mcp.md"],
   }],
   ["repository-change", {
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/specification/source-surface.md",
+    paths: [
+      "docs/README.md",
+      "docs/specification/topic-map.md",
+      "docs/specification/source-surface.md",
+    ],
   }],
   ["repository-proposal", {
     route: "repository",
     finalStatus: "repository_routed",
     authority: "docs/proposals/README.md",
+    paths: ["docs/README.md", "docs/proposals/README.md"],
   }],
-  ["repository-unknown", { route: "repository", finalStatus: "repository_no_route" }],
+  ["repository-unknown", {
+    route: "repository",
+    finalStatus: "repository_no_route",
+    paths: ["docs/README.md", "docs/navigation.md", "docs/navigation-full.md"],
+  }],
 ]);
 
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -124,6 +135,11 @@ function parseSkillContract(skillText) {
     "implemented",
     "located",
   ], "skill must recognize repository-location questions");
+  assert.deepEqual(contract.repository?.location_question_forms, [
+    "where",
+    "tell me where",
+    "show me where",
+  ], "skill must recognize direct and indirect repository-location questions");
   assert.deepEqual(contract.repository?.path_prefixes, [
     ".agents/",
     ".github/",
@@ -176,7 +192,15 @@ function routeRequest(text, contract, context) {
     `^${requestLead}${intent}\\s+${term}\\b`,
     "u",
   ).test(lower.trim()));
-  const locationQuestion = /^where\s+(?:is|are|was|were)\b/u.test(lower.trim())
+  const locationForms = contract.repository.location_question_forms
+    .filter((form) => form !== "where")
+    .map((form) => form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const locationAuxiliary = "(?:is|are|was|were)";
+  const locationQuestion = new RegExp(
+    `^${requestLead}(?:where\\s+${locationAuxiliary}\\b|(?:${locationForms})\\b.*\\b${locationAuxiliary}\\b)`,
+    "u",
+  ).test(lower.trim())
     && contract.repository.location_question_endings.some((ending) => new RegExp(
       `\\b${ending}\\b[?.!]*$`,
       "u",
@@ -471,6 +495,11 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
       assert.ok(linkedDocumentationPaths(reads[index - 1].path, repositoryRoot).includes(read.path), `${context}: repository routing page does not select ${read.path}`);
     }
   }
+  assert.deepEqual(
+    reads.map((read) => read.path),
+    requirement.paths,
+    `${context}: repository route must use the smallest task-appropriate documentation path`,
+  );
   const answer = finalAnswer(events, context);
   validateClaims(answer, undefined, undefined, context);
 
