@@ -71,7 +71,7 @@ const fixtureLimits = {
   resourceTextBytes: 262_144,
   repositoryDocumentBytes: 262_144,
   fixtureBytes: 1_000_000,
-  requestSelectionCases: 64,
+  requestSelectionCases: 70,
   skillDescriptionCharacters: 300,
   repositoryDiscoveryDocuments: 64,
 };
@@ -523,15 +523,21 @@ function routeRequest(text, contract, context) {
     `^(?:do|does|did|can|could|will|would|has|have)\\s+${explicitTargetSubject}\\b`,
     "u",
   ).test(lower.trim());
+  const explicitTargetWhichSubject = new RegExp(
+    `^which\\s+[^.!?]{1,80}\\s+(?:is|are|was|were)\\s+(?:in\\s+)?${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
+    "u",
+  ).test(lower.trim());
   const explicitRepositorySubject = !explicitTargetDefinition && (explicitTargetDescription
-    || explicitTargetAttributeQuestion || explicitTargetAbout || explicitTargetAuxiliarySubject || [
+    || explicitTargetAttributeQuestion || explicitTargetAbout || explicitTargetAuxiliarySubject
+    || explicitTargetWhichSubject || [
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:is|are)\\s+(?:in\\s+)?${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:in\\s+)?${explicitTargetSubject}\\s+(?:is|are)\\b`,
     `^${requestLead}(?:is|are|was|were)\\s+${explicitTargetSubject}\\s+`,
   ].some((pattern) => new RegExp(pattern, "u").test(lower.trim())) || explicitTargetWhySubject);
   const intentPattern = contract.repository.intent_verbs.join("|");
+  const actionModifier = "(?:[\\p{L}'’.-]+ly\\s+)*";
   const directRequest = new RegExp(
-    `(?:^|[.!?;:,]\\s*)${requestLead}(?<intent>${intentPattern})\\b`,
+    `(?:^|[.!?;:,]\\s*)${requestLead}${actionModifier}(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
   const assistedRequest = new RegExp(
@@ -575,7 +581,7 @@ function routeRequest(text, contract, context) {
     "u",
   ).exec(lower.trim());
   const communicatedInfinitiveRequest = new RegExp(
-    `\\b(?:ask|direct|request|require|urge)\\s+(?:me|us|you)\\s+to\\s+(?<intent>${intentPattern})\\b`,
+    `\\b(?:ask|direct|request|require|urge)\\s+(?:me|us|you)\\s+to\\s+(?:please\\s+)?${actionModifier}(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
   const intentRequest = directRequest ?? assistedRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
@@ -1269,6 +1275,9 @@ export function validateScenarioDocument(document, options = {}) {
     ["The purpose here is to inspect the Veln parser.", "repository"],
     ["I ask that you inspect the Veln parser.", "repository"],
     ["I ask you to inspect the Veln parser.", "repository"],
+    ["I ask you to please inspect the Veln parser.", "repository"],
+    ["I ask you to please explain what inspect means in Veln schemas.", "language"],
+    ["Please thoroughly inspect the Veln parser.", "repository"],
     ["Will you inspect Veln schemas?", "repository"],
     ["For this task, I ask that you test the Veln parser.", "repository"],
     ["I ask what inspect means in Veln schemas.", "language"],
@@ -1282,9 +1291,12 @@ export function validateScenarioDocument(document, options = {}) {
     ["Tell me about the Veln repository.", "repository"],
     ["Why is the Veln repository so large?", "repository"],
     ["Describe the Veln repository architecture.", "repository"],
+    ["Which crates are in the Veln repository?", "repository"],
     ["How broad is the Veln proposal state today?", "repository"],
     ["Can Veln schemas encode source code?", "language"],
     ["What is the repository schema in Veln?", "language"],
+    ["Which repository schema does Veln use?", "language"],
+    ["Please explain what inspect means in Veln schemas.", "language"],
     ["Please update me on how Veln schemas work.", "language"],
   ]) {
     assert.equal(

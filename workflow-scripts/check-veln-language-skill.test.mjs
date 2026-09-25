@@ -211,6 +211,10 @@ test("routes ordinary modal and communicated repository actions", () => {
   const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
   assert.equal(selections.get("Will you inspect Veln schemas?"), "repository");
   assert.equal(selections.get("I ask you to inspect the Veln parser."), "repository");
+  assert.equal(selections.get("I ask you to please inspect the Veln parser."), "repository");
+  assert.equal(selections.get("I ask you to please explain what inspect means in Veln schemas."), "language");
+  assert.equal(selections.get("Please thoroughly inspect the Veln parser."), "repository");
+  assert.equal(selections.get("Please explain what inspect means in Veln schemas."), "language");
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -226,6 +230,11 @@ test("distinguishes described subjects from incidental target objects", () => {
 test("routes an auxiliary-led explicit repository subject independently of fixture labels", () => {
   assert.equal(selectRequestRoute("Does the Veln repository use crates?", options), "repository");
   assert.equal(selectRequestRoute("Does Veln have a repository schema?", options), "language");
+});
+
+test("routes which questions by their explicit repository subject", () => {
+  assert.equal(selectRequestRoute("Which crates are in the Veln repository?", options), "repository");
+  assert.equal(selectRequestRoute("Which repository schema does Veln use?", options), "language");
 });
 
 test("keeps an indirect language-information request independently of fixture labels", () => {
