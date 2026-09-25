@@ -223,7 +223,10 @@ test("routes a change request for an unlisted repository component", () => {
 
 test("canonical repository scenarios cover inspection and change requests", () => {
   const document = fixture();
-  assert.match(scenario(document, "repository-current").turns[0].request.text, /^Inspect\b/u);
+  assert.match(
+    scenario(document, "repository-current").turns[0].request.text,
+    /^After reviewing the context, inspect\b/u,
+  );
   assert.match(scenario(document, "repository-change").turns[0].request.text, /^Fix\b/u);
   assert.equal(validateScenarioDocument(document, options), 9);
 });
@@ -239,6 +242,13 @@ test("routes a repository inspection intent that does not lead the request", () 
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "I would like you to inspect the Veln parser implementation.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes a repository intent after an unrestricted context clause", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "After reviewing the context, inspect the Veln compiler parser.";
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 

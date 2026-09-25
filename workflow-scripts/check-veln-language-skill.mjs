@@ -363,17 +363,14 @@ function routeRequest(text, contract, context) {
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
   const requestLead = "(?:(?:can|could|would) you\\s+)?(?:please\\s+)?";
-  const intent = contract.repository.intent_verbs.find((verb) => [
-    new RegExp(`^${requestLead}${verb}\\b`, "u"),
-    new RegExp(`\\b(?:i would like|i'd like|i want) you to ${verb}\\b`, "u"),
-    new RegExp(`\\bcould i ask you to ${verb}\\b`, "u"),
-  ].some((pattern) => pattern.test(lower.trim())));
+  const intent = contract.repository.intent_verbs.find((verb) => new RegExp(`\\b${verb}\\b`, "u").test(lower));
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
+  const languageComplements = contract.repository.language_complements.join("|");
   const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
-    && contract.repository.language_complements.some((term) => new RegExp(
-      `\\b${intent}\\s+${term}\\b`,
-      "u",
-    ).test(lower));
+    && [
+      new RegExp(`^${requestLead}(?:(?:tell|show) me\\s+)?(?:${languageComplements})\\b`, "u"),
+      new RegExp(`\\b${intent}\\s+(?:${languageComplements})\\b`, "u"),
+    ].some((pattern) => pattern.test(lower.trim()));
   const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
   const locationForms = contract.repository.location_question_forms
     .filter((form) => form !== "where")
