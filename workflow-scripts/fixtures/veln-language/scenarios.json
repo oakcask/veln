@@ -4,53 +4,49 @@
     {
       "id": "language-topic-match",
       "covers": "language-match",
-      "turns": [
-        {
-          "request": { "route": "language", "text": "How do Veln schemas work?" },
-          "events": [
-            { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations." }] } },
-            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "text": "Schemas describe format-neutral and binary fields. Explicit encode and decode expressions apply a schema." } },
-            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/recorded-digest/topic/schemas"] }
-          ]
-        }
-      ]
+      "turns": [{
+        "request": { "text": "How do Veln schemas work?" },
+        "events": [
+          { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
+          { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
+          { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+          { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "name": "schemas", "title": "Schemas", "description": "Schemas describe fields and codec operations.", "mimeType": "text/markdown; charset=utf-8", "text": "Schemas describe format-neutral and binary fields. Explicit encode and decode expressions apply a schema." } },
+          { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
+        ]
+      }]
     },
     {
       "id": "language-topic-no-match",
       "covers": "language-no-match",
-      "turns": [
-        {
-          "request": { "route": "language", "text": "Does Veln have a borrow checker?" },
-          "events": [
-            { "type": "call", "tool": "search_docs", "arguments": { "query": "borrow checker", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [] } },
-            { "type": "answer", "status": "no_match", "claims": [], "source_uris": [], "message": "The published Veln language reference has no matching topic." }
-          ]
-        }
-      ]
+      "turns": [{
+        "request": { "text": "Does Veln have a borrow checker?" },
+        "events": [
+          { "type": "call", "tool": "search_docs", "arguments": { "query": "borrow checker", "scope": "language" } },
+          { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [] } },
+          { "type": "answer", "status": "no_match", "claims": [], "source_uris": [], "message": "The published Veln language reference has no matching topic." }
+        ]
+      }]
     },
     {
       "id": "language-search-unavailable-preserves-result",
       "covers": "search-unavailable",
       "turns": [
         {
-          "request": { "route": "language", "text": "How do Veln schemas work?" },
+          "request": { "text": "How do Veln schemas work?" },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "title": "Schemas" }] } },
-            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "text": "Schemas describe format-neutral and binary fields." } },
-            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/recorded-digest/topic/schemas"] }
+            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "name": "schemas", "title": "Schemas", "mimeType": "text/markdown; charset=utf-8", "text": "Schemas describe format-neutral and binary fields." } },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
           ]
         },
         {
-          "request": { "route": "language", "text": "How do Veln effects work?" },
+          "request": { "text": "How do Veln effects work?" },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln effects", "scope": "language" } },
             { "type": "result", "tool": "search_docs", "error": { "code": "tool_unavailable" } },
-            { "type": "answer", "status": "search_unavailable", "claims": [], "source_uris": [], "message": "Published language-reference search is unavailable.", "retained_result": { "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/recorded-digest/topic/schemas"] } }
+            { "type": "answer", "status": "search_unavailable", "claims": [], "source_uris": [], "failure": { "operation": "search_docs", "artifact_uri": null }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
           ]
         }
       ]
@@ -60,49 +56,49 @@
       "covers": "topic-unreadable",
       "turns": [
         {
-          "request": { "route": "language", "text": "How do Veln schemas work?" },
+          "request": { "text": "How do Veln schemas work?" },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "title": "Schemas" }] } },
-            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "text": "Schemas describe format-neutral and binary fields." } },
-            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/recorded-digest/topic/schemas"] }
+            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "name": "schemas", "title": "Schemas", "mimeType": "text/markdown; charset=utf-8", "text": "Schemas describe format-neutral and binary fields." } },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
           ]
         },
         {
-          "request": { "route": "language", "text": "How do Veln schemas work?" },
+          "request": { "text": "How do Veln schemas encode values?" },
           "events": [
-            { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "title": "Schemas" }] } },
-            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas" } },
+            { "type": "call", "tool": "search_docs", "arguments": { "query": "schema encode", "scope": "language" } },
+            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Explicit encode and decode expressions apply a schema.", "prefix_truncated": false, "suffix_truncated": false }] } },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
             { "type": "result", "tool": "read_doc", "error": { "code": "transport_unavailable" } },
-            { "type": "answer", "status": "topic_unavailable", "claims": [], "source_uris": [], "message": "The selected published topic is unavailable.", "retained_result": { "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/recorded-digest/topic/schemas"] } }
+            { "type": "answer", "status": "topic_unavailable", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
           ]
         }
       ]
     },
     {
-      "id": "language-stale-uri-preserves-result",
+      "id": "language-stale-snapshot-preserves-result",
       "covers": "stale-snapshot-uri",
       "turns": [
         {
-          "request": { "route": "language", "text": "How do Veln schemas work?" },
+          "request": { "text": "How do Veln schemas work?" },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln schemas", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "title": "Schemas" }] } },
-            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas" } },
-            { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/recorded-digest/topic/schemas", "text": "Schemas describe format-neutral and binary fields." } },
-            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/recorded-digest/topic/schemas"] }
+            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "title": "Schemas", "summary": "Schemas describe fields and codec operations.", "excerpt": "Schemas describe format-neutral and binary fields.", "prefix_truncated": false, "suffix_truncated": false }] } },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas" } },
+            { "type": "result", "tool": "read_doc", "value": { "uri": "veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas", "name": "schemas", "title": "Schemas", "mimeType": "text/markdown; charset=utf-8", "text": "Schemas describe format-neutral and binary fields." } },
+            { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] }
           ]
         },
         {
-          "request": { "route": "language", "text": "How do Veln modules work?" },
+          "request": { "text": "How do Veln modules work?" },
           "events": [
             { "type": "call", "tool": "search_docs", "arguments": { "query": "Veln modules", "scope": "language" } },
-            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/old-digest/topic/modules-imports-packages", "title": "Modules" }] } },
-            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/old-digest/topic/modules-imports-packages" } },
-            { "type": "result", "tool": "read_doc", "value": { "isError": true, "structuredContent": { "code": "resource_not_found", "details": { "uri": "veln-doc:///language/snapshot/old-digest/topic/modules-imports-packages" } } } },
-            { "type": "answer", "status": "stale_snapshot", "claims": [], "source_uris": [], "message": "The selected published snapshot URI is stale.", "retained_result": { "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/recorded-digest/topic/schemas"] } }
+            { "type": "result", "tool": "search_docs", "value": { "scope": "language", "results": [{ "uri": "veln-doc:///language/snapshot/0000000000000000000000000000000000000000000000000000000000000000/topic/modules-imports-packages", "title": "Modules, imports, and packages", "summary": "Modules organize source and imports.", "excerpt": "Modules organize source and imports.", "prefix_truncated": false, "suffix_truncated": false }] } },
+            { "type": "call", "tool": "read_doc", "arguments": { "uri": "veln-doc:///language/snapshot/0000000000000000000000000000000000000000000000000000000000000000/topic/modules-imports-packages" } },
+            { "type": "result", "tool": "read_doc", "value": { "isError": true, "structuredContent": { "code": "resource_not_found", "message": "language reference resource not found", "details": { "uri": "veln-doc:///language/snapshot/0000000000000000000000000000000000000000000000000000000000000000/topic/modules-imports-packages" } } } },
+            { "type": "answer", "status": "stale_snapshot", "claims": [], "source_uris": [], "failure": { "operation": "read_doc", "artifact_uri": "veln-doc:///language/snapshot/0000000000000000000000000000000000000000000000000000000000000000/topic/modules-imports-packages" }, "retained_result": { "type": "answer", "status": "answered", "claims": ["Schemas describe format-neutral and binary fields."], "source_uris": ["veln-doc:///language/snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/topic/schemas"] } }
           ]
         }
       ]
@@ -110,43 +106,51 @@
     {
       "id": "repository-current-behavior",
       "covers": "repository-current",
-      "turns": [
-        {
-          "request": { "route": "repository", "text": "Inspect the implemented Veln MCP documentation search." },
-          "events": [
-            { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/mcp.md" } },
-            { "type": "read", "path": "docs/specification/mcp.md", "value": { "authority": "current" } },
-            { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/mcp.md" }
-          ]
-        }
-      ]
+      "turns": [{
+        "request": { "text": "Inspect the implemented Veln MCP documentation search." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/mcp.md" } },
+          { "type": "read", "path": "docs/specification/mcp.md", "value": { "authority": "current" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/mcp.md" }
+        ]
+      }]
+    },
+    {
+      "id": "repository-change-request",
+      "covers": "repository-change",
+      "turns": [{
+        "request": { "text": "Change the implemented Veln MCP documentation search." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/mcp.md" } },
+          { "type": "read", "path": "docs/specification/mcp.md", "value": { "authority": "current" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/specification/mcp.md" }
+        ]
+      }]
     },
     {
       "id": "repository-proposal-selection",
       "covers": "repository-proposal",
-      "turns": [
-        {
-          "request": { "route": "repository", "text": "Select the next ready Veln language proposal." },
-          "events": [
-            { "type": "read", "path": "docs/README.md", "value": { "route": "docs/proposals/README.md" } },
-            { "type": "read", "path": "docs/proposals/README.md", "value": { "authority": "proposal-catalog", "selection": "ready-only" } },
-            { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/proposals/README.md" }
-          ]
-        }
-      ]
+      "turns": [{
+        "request": { "text": "Select the next ready Veln language proposal." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/proposals/README.md" } },
+          { "type": "read", "path": "docs/proposals/README.md", "value": { "authority": "proposal-catalog", "selection": "ready-only" } },
+          { "type": "answer", "status": "repository_routed", "claims": [], "source_uris": [], "repository_authority": "docs/proposals/README.md" }
+        ]
+      }]
     },
     {
       "id": "repository-unknown-topic",
       "covers": "repository-unknown",
-      "turns": [
-        {
-          "request": { "route": "repository", "text": "Find repository authority for an undocumented deployment service." },
-          "events": [
-            { "type": "read", "path": "docs/README.md", "value": { "route": null } },
-            { "type": "answer", "status": "repository_no_route", "claims": [], "source_uris": [], "message": "No repository documentation route covers this topic." }
-          ]
-        }
-      ]
+      "turns": [{
+        "request": { "text": "Inspect repository authority for an undocumented deployment service." },
+        "events": [
+          { "type": "read", "path": "docs/README.md", "value": { "route": "docs/navigation.md" } },
+          { "type": "read", "path": "docs/navigation.md", "value": { "route": "docs/navigation-full.md" } },
+          { "type": "read", "path": "docs/navigation-full.md", "value": { "route": null } },
+          { "type": "answer", "status": "repository_no_route", "claims": [], "source_uris": [], "message": "No repository documentation route covers this topic." }
+        ]
+      }]
     }
   ]
 }
