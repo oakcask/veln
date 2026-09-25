@@ -1,14 +1,20 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { readScenarioDocument, validateScenarioDocument } from "./check-veln-language-skill.mjs";
+import {
+  linkedDocumentationPaths,
+  readScenarioDocument,
+  validateScenarioDocument,
+} from "./check-veln-language-skill.mjs";
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "veln-language", "scenarios.json");
 const skillText = `---
 name: veln-language
-description: Test contract.
+description: Use for Veln language questions and for inspecting or changing the Veln repository through its documentation authority.
 ---
 
 # Veln Language Routing
@@ -103,6 +109,34 @@ test("rejects a skill without the canonical name", () => {
   );
 });
 
+test("rejects missing skill discovery metadata", () => {
+  assert.throws(
+    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*\n/m, "") }),
+    /one description/,
+  );
+});
+
+test("rejects empty skill discovery metadata", () => {
+  assert.throws(
+    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*$/m, "description:") }),
+    /must not be empty/,
+  );
+});
+
+test("rejects unrelated skill discovery metadata", () => {
+  assert.throws(
+    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*$/m, "description: Format JSON files.") }),
+    /select Veln language questions/,
+  );
+});
+
+test("rejects oversized skill discovery metadata", () => {
+  assert.throws(
+    () => validateScenarioDocument(fixture(), { skillText: skillText.replace(/^description:.*$/m, `description: Use for Veln language questions and repository inspection. ${"x".repeat(300)}`) }),
+    /discovery limit/,
+  );
+});
+
 test("rejects an inconsistent skill contract", () => {
   assert.throws(
     () => validateScenarioDocument(fixture(), { skillText: skillText.replace('"maximum_calls": 2', '"maximum_calls": 3') }),
@@ -175,6 +209,12 @@ test("keeps an indirect polite language question on the language route", () => {
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("keeps a language-surface location question on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Where are Veln schema fields located?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("routes a repository path request without a generic repository keyword", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -198,7 +238,20 @@ test("rejects a language search without explicit language scope", () => {
 test("rejects a search query unrelated to the scenario expectation", () => {
   const document = fixture();
   matchingTurn(document).events[0].arguments.query = "Veln effects";
-  assert.throws(() => validateScenarioDocument(document, options), /search request must match the scenario expectation/);
+  assert.throws(() => validateScenarioDocument(document, options), /search request must match request-selected evidence/);
+});
+
+test("rejects a schema trace replayed for an ambiguous multi-topic question", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "How do Veln schemas differ from effects?";
+  assert.throws(() => validateScenarioDocument(document, options), /ambiguous language subjects/);
+});
+
+test("gives an explicit repository path precedence over a competing MCP subject", () => {
+  const document = fixture();
+  scenario(document, "repository-current").turns[0].request.text =
+    "Inspect MCP documentation search in docs/specification/types.md.";
+  assert.throws(() => validateScenarioDocument(document, options), /acceptance label does not match request-selected repository/);
 });
 
 test("rejects a read before language search", () => {
@@ -311,6 +364,39 @@ test("rejects a successful envelope marked as an error", () => {
   assert.throws(() => validateScenarioDocument(document, options), /wrong error state/);
 });
 
+test("rejects a search result with both error and value", () => {
+  const document = fixture();
+  scenario(document, "search-unavailable").turns[1].events[1].value =
+    structured(matchingTurn(document).events[1]);
+  assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
+});
+
+test("rejects a read result with both error and value", () => {
+  const document = fixture();
+  scenario(document, "topic-unreadable").turns[1].events[3].value =
+    matchingTurn(document).events[3].value;
+  assert.throws(() => validateScenarioDocument(document, options), /exactly one of error or value/);
+});
+
+test("rejects a selected resource beyond the published byte limit", () => {
+  const document = fixture();
+  const event = matchingTurn(document).events[3];
+  structured(event).text = "Sentence. ".repeat(30_000);
+  syncEnvelope(event);
+  assert.throws(() => validateScenarioDocument(document, options), /published byte limit/);
+});
+
+test("accepts many claims in linear evidence membership time", () => {
+  const document = fixture();
+  const turn = matchingTurn(document);
+  const statements = Array.from({ length: 16 }, (_, index) => `Schema evidence ${index}.`);
+  structured(turn.events[3]).text = statements.join(" ");
+  syncEnvelope(turn.events[3]);
+  turn.expected.answer_claims = statements;
+  turn.events[4].claims = statements;
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("rejects incomplete failure provenance", () => {
   const document = fixture();
   delete scenario(document, "topic-unreadable").turns[1].events[4].failure.artifact_uri;
@@ -364,6 +450,24 @@ test("rejects an authority not selected by the routing page", () => {
   assert.throws(() => validateScenarioDocument(document, options), /routing page does not select/);
 });
 
+test("rejects fallback fields in repository read results", () => {
+  const document = fixture();
+  scenario(document, "repository-current").turns[0].events[0].value.fallback = "published-reference";
+  assert.throws(() => validateScenarioDocument(document, options), /fields must match the closed shape/);
+});
+
+test("rejects published-reference authority in a terminal repository read", () => {
+  const document = fixture();
+  scenario(document, "repository-current").turns[0].events[1].value.authority = "published-language-reference";
+  assert.throws(() => validateScenarioDocument(document, options), /terminal read named the wrong repository authority/);
+});
+
+test("rejects extra fields in a terminal repository read", () => {
+  const document = fixture();
+  scenario(document, "repository-current").turns[0].events[1].value.fallback = true;
+  assert.throws(() => validateScenarioDocument(document, options), /fields must match the closed shape/);
+});
+
 test("rejects a longer repository route when a direct route exists", () => {
   const document = fixture();
   const current = scenario(document, "repository-current").turns[0];
@@ -396,4 +500,28 @@ test("rejects a repository route beyond the read bound", () => {
     value: { route: null },
   });
   assert.throws(() => validateScenarioDocument(document, options), /exceeded its read bound/);
+});
+
+test("discovers links in linear progress on malformed adjacent-size input", { timeout: 1_000 }, (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-links-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "README.md"), "[".repeat(262_144));
+  assert.deepEqual(linkedDocumentationPaths("docs/README.md", root), []);
+});
+
+test("accepts a scenario file exactly at the byte limit", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, "limit.json");
+  writeFileSync(path, `{${" ".repeat(999_998)}}`);
+  assert.deepEqual(readScenarioDocument(path), {});
+});
+
+test("rejects a scenario file before reading beyond the byte limit", (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-fixture-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, "oversized.json");
+  writeFileSync(path, `{${" ".repeat(999_999)}}`);
+  assert.throws(() => readScenarioDocument(path), /scenario fixture exceeds the byte limit/);
 });

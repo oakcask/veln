@@ -46,6 +46,18 @@ const acceptance = new Map([
 
 const snapshotTopicUri = /^veln-doc:\/\/\/language\/snapshot\/[0-9a-f]{64}\/topic\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const markdownMimeType = "text/markdown; charset=utf-8";
+const fixtureLimits = {
+  scenarios: acceptance.size,
+  turnsPerScenario: 2,
+  eventsPerTurn: 5,
+  claimsPerAnswer: 16,
+  searchResults: 50,
+  requestCharacters: 1_000,
+  resourceTextBytes: 262_144,
+  repositoryDocumentBytes: 262_144,
+  fixtureBytes: 1_000_000,
+  skillDescriptionCharacters: 300,
+};
 const operativePrefix = `
 
 # Veln Language Routing
@@ -67,6 +79,20 @@ function assertExactKeys(value, keys, context) {
 function parseSkillContract(skillText) {
   const frontmatter = skillText.match(/^---\n([\s\S]*?)\n---/);
   assert.match(frontmatter?.[1] ?? "", /^name:\s*veln-language\s*$/m, "canonical skill name must be veln-language");
+  const descriptions = [...(frontmatter?.[1] ?? "").matchAll(/^description:\s*(.*?)\s*$/gm)];
+  assert.equal(descriptions.length, 1, "canonical skill must have one description");
+  const description = descriptions[0][1];
+  assert.ok(description.length > 0, "canonical skill description must not be empty");
+  assert.ok(
+    [...description].length <= fixtureLimits.skillDescriptionCharacters,
+    "canonical skill description exceeds the discovery limit",
+  );
+  assert.match(description, /\bVeln\b.*\blanguage questions?\b/i, "skill description must select Veln language questions");
+  assert.match(
+    description,
+    /\brepositor(?:y|ies)\b.*\b(?:inspect(?:ion|ing)?|chang(?:e|es|ing))\b|\b(?:inspect(?:ion|ing)?|chang(?:e|es|ing))\b.*\brepositor(?:y|ies)\b/i,
+    "skill description must select repository inspection or change requests",
+  );
   const match = skillText.match(
     /<!-- veln-language-contract:start -->\s*```json\s*([\s\S]*?)\s*```\s*<!-- veln-language-contract:end -->/,
   );
@@ -197,7 +223,8 @@ function routeRequest(text, contract, context) {
     .map((form) => form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
   const locationAuxiliary = "(?:is|are|was|were)";
-  const locationQuestion = new RegExp(
+  const repositoryLocationSubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
+  const locationQuestion = repositoryLocationSubject && new RegExp(
     `^${requestLead}(?:where\\s+${locationAuxiliary}\\b|(?:${locationForms})\\b.*\\b${locationAuxiliary}\\b)`,
     "u",
   ).test(lower.trim())
@@ -208,6 +235,58 @@ function routeRequest(text, contract, context) {
   const repository = repositoryPath || explicitTarget || locationQuestion
     || (intent !== undefined && !languageComplement);
   return repository ? "repository" : "language";
+}
+
+function expectedSelection(text, route, context) {
+  const lower = text.toLocaleLowerCase("en-US");
+  if (route === "language") {
+    const subjects = [
+      { matches: /\bschemas?\b/u.test(lower), topic: "schemas" },
+      { matches: /\beffects?\b/u.test(lower), topic: "effects-handlers" },
+      { matches: /\bmodules?\b/u.test(lower), topic: "modules-imports-packages" },
+      { matches: /\bborrow checker\b/u.test(lower), topic: undefined },
+    ].filter((subject) => subject.matches);
+    assert.ok(subjects.length <= 1, `${context}: request contains ambiguous language subjects`);
+    if (subjects[0]?.topic === "schemas") {
+      return {
+        searchArguments: { query: /\bencode\b/u.test(lower) ? "schema encode" : "Veln schemas", scope: "language" },
+        topic: "schemas",
+      };
+    }
+    if (subjects[0]?.topic === "effects-handlers") {
+      return { searchArguments: { query: "Veln effects", scope: "language" }, topic: "effects-handlers" };
+    }
+    if (subjects[0]?.topic === "modules-imports-packages") {
+      return { searchArguments: { query: "Veln modules", scope: "language" }, topic: "modules-imports-packages" };
+    }
+    if (subjects.length === 1) {
+      return { searchArguments: { query: "borrow checker", scope: "language" }, topic: undefined };
+    }
+    assert.fail(`${context}: request has no independent language evidence selection rule`);
+  }
+
+  if (lower.includes("docs/specification/types.md")) {
+    return {
+      authority: "docs/specification/types.md",
+      paths: ["docs/README.md", "docs/specification/topic-map.md", "docs/specification/types.md"],
+    };
+  }
+  if (/\bmcp\b.*\bdocumentation search\b/u.test(lower)) {
+    return { authority: "docs/specification/mcp.md", paths: ["docs/README.md", "docs/specification/mcp.md"] };
+  }
+  if (/\b(?:parser recovery|compiler parser)\b/u.test(lower) || lower.includes("crates/veln-mcp/")) {
+    return {
+      authority: "docs/specification/source-surface.md",
+      paths: ["docs/README.md", "docs/specification/topic-map.md", "docs/specification/source-surface.md"],
+    };
+  }
+  if (/\b(?:next ready|proposal state)\b/u.test(lower)) {
+    return { authority: "docs/proposals/README.md", paths: ["docs/README.md", "docs/proposals/README.md"] };
+  }
+  if (/\bundocumented deployment service\b/u.test(lower)) {
+    return { paths: ["docs/README.md", "docs/navigation.md", "docs/navigation-full.md"] };
+  }
+  assert.fail(`${context}: request has no independent repository authority selection rule`);
 }
 
 function finalAnswer(events, context) {
@@ -229,15 +308,17 @@ function validateClaims(answer, expectedSource, resourceText, context) {
     return;
   }
   assert.ok(answer.claims.length > 0, `${context}: successful answer must contain a claim`);
+  assert.ok(answer.claims.length <= fixtureLimits.claimsPerAnswer, `${context}: answer exceeds the claim limit`);
   assert.deepEqual(answer.source_uris, [expectedSource], `${context}: answer must report only the exact selected URI`);
-  const evidence = resourceText
+  assert.ok(Buffer.byteLength(resourceText, "utf8") <= fixtureLimits.resourceTextBytes, `${context}: selected resource exceeds the published byte limit`);
+  const evidence = new Set(resourceText
     .split(/(?<=[.!?])(?:\s+|$)|\n+/u)
     .map((statement) => statement.trim())
-    .filter(Boolean);
+    .filter(Boolean));
   for (const claim of answer.claims) {
     assert.equal(typeof claim, "string", `${context}: every claim must be text`);
     assert.ok(claim.trim().length > 0, `${context}: claims must not be empty`);
-    assert.ok(evidence.includes(claim), `${context}: claim must match unambiguous selected-resource evidence`);
+    assert.ok(evidence.has(claim), `${context}: claim must match unambiguous selected-resource evidence`);
   }
 }
 
@@ -271,6 +352,8 @@ function validateSchema(value, schema, root, context) {
     }
   } else if (schema.type === "array") {
     assert.ok(Array.isArray(value), `${context}: expected schema array`);
+    if (schema.minItems !== undefined) assert.ok(value.length >= schema.minItems, `${context}: array is shorter than schema minimum`);
+    if (schema.maxItems !== undefined) assert.ok(value.length <= schema.maxItems, `${context}: array is longer than schema maximum`);
     for (const [index, item] of value.entries()) validateSchema(item, schema.items, root, `${context}[${index}]`);
   } else if (schema.type === "string") {
     assert.equal(typeof value, "string", `${context}: expected schema string`);
@@ -299,6 +382,7 @@ function loadToolSchemas(repositoryRoot) {
 function validateSearchResult(result, context) {
   assert.equal(result.scope, "language", `${context}: result scope must remain language`);
   assert.ok(Array.isArray(result.results), `${context}: search results must be an array`);
+  assert.ok(result.results.length <= fixtureLimits.searchResults, `${context}: search result count exceeds the fixture limit`);
   for (const candidate of result.results) {
     assert.match(candidate.uri ?? "", snapshotTopicUri, `${context}: search URI must use a canonical snapshot digest`);
     for (const field of ["title", "summary", "excerpt"]) {
@@ -347,25 +431,33 @@ function validateFailure(answer, operation, artifactUri, previousResult, context
 
 function validateLanguageTurn(turn, previousResult, contract, schemas, context) {
   const { events } = turn;
+  assert.ok(turn.request.text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the fixture text limit`);
   for (const event of events) {
     assert.ok(["call", "result", "answer"].includes(event.type), `${context}: language route contains forbidden fallback event ${event.type}`);
   }
   const calls = events.filter((event) => event.type === "call");
+  assert.ok(events.length <= fixtureLimits.eventsPerTurn, `${context}: turn exceeds the event limit`);
   assert.ok(calls.length <= contract.language.maximum_calls, `${context}: language route exceeded its call bound`);
   assert.equal(events[0]?.type, "call", `${context}: language route must start with a call`);
   assert.equal(events[0]?.tool, contract.language.search_tool, `${context}: language route must search first`);
   validateSchema(events[0]?.arguments, schemas.searchInput, schemas.searchInput, `${context}: search_docs input`);
   assert.equal(events[0]?.arguments?.scope, contract.language.search_scope, `${context}: search scope must be language`);
   assertExactKeys(turn.expected, ["search_arguments", "answer_claims"], `${context}: language expectation`);
+  const selection = expectedSelection(turn.request.text, "language", context);
+  assert.deepEqual(turn.expected.search_arguments, selection.searchArguments, `${context}: fixture expectation does not follow the request`);
   assert.deepEqual(
     events[0]?.arguments,
-    turn.expected.search_arguments,
-    `${context}: search request must match the scenario expectation`,
+    selection.searchArguments,
+    `${context}: search request must match request-selected evidence`,
   );
   assert.equal(events[1]?.type, "result", `${context}: search result must follow search call`);
   assert.equal(events[1]?.tool, contract.language.search_tool, `${context}: expected recorded search result`);
   const answer = finalAnswer(events, context);
   const searchResult = events[1];
+  assert.equal(Object.hasOwn(searchResult, "error") !== Object.hasOwn(searchResult, "value"), true, `${context}: result event must contain exactly one of error or value`);
+  assertExactKeys(searchResult, searchResult.error === undefined
+    ? ["type", "tool", "value"]
+    : ["type", "tool", "error"], `${context}: search result event`);
   assert.ok(Array.isArray(turn.expected.answer_claims), `${context}: expected answer claims must be an array`);
   if (answer.status !== "answered") {
     assert.deepEqual(turn.expected.answer_claims, [], `${context}: bounded outcome must not expect language claims`);
@@ -373,7 +465,9 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
 
   if (searchResult.error !== undefined) {
     assert.equal(events.length, 3, `${context}: unavailable search must stop without retry or read`);
+    assertExactKeys(searchResult.error, ["code"], `${context}: search transport error`);
     assert.equal(typeof searchResult.error.code, "string", `${context}: search error code is required`);
+    assert.ok(searchResult.error.code.length > 0, `${context}: search error code must not be empty`);
     assert.equal(answer.status, "search_unavailable", `${context}: wrong unavailable-search status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: search failure answer`);
     validateFailure(answer, "search_docs", null, previousResult, context);
@@ -387,6 +481,11 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
     `${context}: search_docs result`,
   );
   const results = validateSearchResult(searchStructured, context);
+  if (selection.topic === undefined) {
+    assert.equal(results.length, 0, `${context}: request-selected topic absence must not replay a match`);
+  } else if (results.length > 0) {
+    assert.ok(results.some((result) => result.uri.endsWith(`/topic/${selection.topic}`)), `${context}: search results do not contain the request-selected topic`);
+  }
   if (results.length === 0) {
     assert.equal(events.length, 3, `${context}: no match must stop without retry or read`);
     assert.equal(answer.status, "no_match", `${context}: wrong no-match status`);
@@ -409,9 +508,16 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
   assert.equal(events[3]?.type, "result", `${context}: topic result must follow read call`);
   assert.equal(events[3]?.tool, contract.language.read_tool, `${context}: expected recorded read result`);
   const readResult = events[3];
+  assert.equal(Object.hasOwn(readResult, "error") !== Object.hasOwn(readResult, "value"), true, `${context}: result event must contain exactly one of error or value`);
+  assertExactKeys(readResult, readResult.error === undefined
+    ? ["type", "tool", "value"]
+    : ["type", "tool", "error"], `${context}: read result event`);
+  assert.ok(selectedUri.endsWith(`/topic/${selection.topic}`), `${context}: read_doc did not select the request-selected topic`);
 
   if (readResult.error !== undefined) {
+    assertExactKeys(readResult.error, ["code"], `${context}: read transport error`);
     assert.equal(typeof readResult.error.code, "string", `${context}: read error code is required`);
+    assert.ok(readResult.error.code.length > 0, `${context}: read error code must not be empty`);
     assert.equal(answer.status, "topic_unavailable", `${context}: wrong unreadable-topic status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
     validateFailure(answer, "read_doc", selectedUri, previousResult, context);
@@ -462,11 +568,26 @@ function checkedRepositoryPath(repositoryRoot, path, context) {
   return absolute;
 }
 
-function linkedDocumentationPaths(sourcePath, repositoryRoot) {
-  const source = readFileSync(resolve(repositoryRoot, sourcePath), "utf8");
+export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
+  const absolute = resolve(repositoryRoot, sourcePath);
+  assert.ok(
+    statSync(absolute).size <= fixtureLimits.repositoryDocumentBytes,
+    `${sourcePath}: repository document exceeds the byte limit`,
+  );
+  const source = readFileSync(absolute, "utf8");
   const links = [];
-  for (const match of source.matchAll(/\[[^\]]+\]\(([^)#]+)(?:#[^)]+)?\)/g)) {
-    const target = match[1];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const labelStart = source.indexOf("[", cursor);
+    if (labelStart === -1) break;
+    const labelEnd = source.indexOf("](", labelStart + 1);
+    if (labelEnd === -1) break;
+    const targetEnd = source.indexOf(")", labelEnd + 2);
+    if (targetEnd === -1) break;
+    const destination = source.slice(labelEnd + 2, targetEnd);
+    const target = destination.split("#", 1)[0];
+    cursor = targetEnd + 1;
+    if (target.length === 0 || target.includes("(") || target.includes("[")) continue;
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue;
     const joined = posix.normalize(posix.join(posix.dirname(sourcePath), target));
     if (joined.startsWith("docs/")) links.push(joined);
@@ -481,15 +602,37 @@ function frontmatterRole(path) {
 
 function validateRepositoryTurn(turn, previousResult, requirement, contract, repositoryRoot, context) {
   const { events } = turn;
+  assert.ok(turn.request.text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the fixture text limit`);
   for (const event of events) {
     assert.ok(["read", "answer"].includes(event.type), `${context}: repository route contains published-reference or fallback event ${event.type}`);
   }
   const reads = events.filter((event) => event.type === "read");
+  assert.ok(events.length <= fixtureLimits.eventsPerTurn, `${context}: turn exceeds the event limit`);
+  const selection = expectedSelection(turn.request.text, "repository", context);
+  assert.deepEqual(requirement.paths, selection.paths, `${context}: acceptance label does not match request-selected repository route`);
+  assert.equal(requirement.authority, selection.authority, `${context}: acceptance label does not match request-selected repository authority`);
   assert.equal(reads[0]?.path, contract.repository.entry, `${context}: repository route must start at docs/README.md`);
   assert.equal(new Set(reads.map((read) => read.path)).size, reads.length, `${context}: repository route repeated a path`);
   assert.ok(reads.length <= contract.repository.maximum_reads, `${context}: repository route exceeded its read bound`);
   for (const [index, read] of reads.entries()) {
+    assertExactKeys(read, ["type", "path", "value"], `${context}: repository read`);
     checkedRepositoryPath(repositoryRoot, read.path, context);
+    const terminal = index === reads.length - 1;
+    if (!terminal || requirement.authority === undefined) {
+      assertExactKeys(read.value, ["route"], `${context}: repository routing result`);
+      assert.equal(
+        typeof read.value.route === "string" || (terminal && read.value.route === null),
+        true,
+        `${context}: repository route must be a path or an explicit terminal null`,
+      );
+    } else if (requirement.authority.startsWith("docs/specification/")) {
+      assertExactKeys(read.value, ["authority"], `${context}: repository specification result`);
+      assert.equal(read.value.authority, requirement.authority, `${context}: terminal read named the wrong repository authority`);
+    } else {
+      assertExactKeys(read.value, ["authority", "selection"], `${context}: repository proposal result`);
+      assert.equal(read.value.authority, requirement.authority, `${context}: terminal read named the wrong repository authority`);
+      assert.equal(read.value.selection, "ready-only", `${context}: proposal selection must be Ready-only`);
+    }
     if (index > 0) {
       assert.equal(read.path, reads[index - 1].value?.route, `${context}: selected docs route was not followed`);
       assert.ok(linkedDocumentationPaths(reads[index - 1].path, repositoryRoot).includes(read.path), `${context}: repository routing page does not select ${read.path}`);
@@ -521,7 +664,6 @@ function validateRepositoryTurn(turn, previousResult, requirement, contract, rep
     assert.equal(role, "specification", `${context}: implemented behavior must use specification authority`);
   } else {
     assert.equal(role, "routing", `${context}: proposal selection must use the proposal catalog route`);
-    assert.equal(reads.at(-1).value?.selection, "ready-only", `${context}: proposal selection must be Ready-only`);
   }
   return previousResult;
 }
@@ -535,6 +677,7 @@ export function validateScenarioDocument(document, options = {}) {
   }
   assert.equal(document.schema_version, 1, "unsupported veln-language scenario schema");
   assert.ok(Array.isArray(document.scenarios), "scenarios must be an array");
+  assert.ok(document.scenarios.length <= fixtureLimits.scenarios, "scenario document exceeds the scenario limit");
   const coverage = new Set(document.scenarios.map((scenario) => scenario.covers));
   assert.deepEqual(coverage, new Set(acceptance.keys()), "scenario coverage does not match the acceptance model");
   assert.equal(coverage.size, document.scenarios.length, "scenario coverage entries must be unique");
@@ -543,6 +686,7 @@ export function validateScenarioDocument(document, options = {}) {
     const requirement = acceptance.get(scenario.covers);
     assert.ok(requirement, `${scenario.id}: unknown acceptance row`);
     assert.ok(Array.isArray(scenario.turns) && scenario.turns.length > 0, `${scenario.id}: turns are required`);
+    assert.ok(scenario.turns.length <= fixtureLimits.turnsPerScenario, `${scenario.id}: scenario exceeds the turn limit`);
     assert.equal(scenario.turns.at(-1).events.at(-1).status, requirement.finalStatus, `${scenario.id}: acceptance row has the wrong final outcome`);
     let lastSuccessfulResult;
     for (const [index, turn] of scenario.turns.entries()) {
@@ -563,7 +707,9 @@ export function validateScenarioDocument(document, options = {}) {
 }
 
 export function readScenarioDocument(path) {
-  return JSON.parse(readFileSync(path, "utf8"));
+  assert.ok(statSync(path).size <= fixtureLimits.fixtureBytes, "scenario fixture exceeds the byte limit");
+  const bytes = readFileSync(path);
+  return JSON.parse(bytes.toString("utf8"));
 }
 
 if (process.argv[1] === scriptPath) {
