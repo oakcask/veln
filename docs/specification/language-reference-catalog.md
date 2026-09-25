@@ -105,6 +105,16 @@ maintenance commands, timestamps, build paths, or compiler binary versions.
 The catalog and renderer tests are in
 `tools/veln-repo-language-reference/src/tests.rs`.
 
+The checked agent-language scenario harness loads the current catalog and
+digest sidecar before replaying recorded `search_docs` and `read_doc` results.
+It rejects search metadata, snapshot URIs, or rendered topic text that differs
+from the checked artifact. For stale-snapshot scenarios, it recalculates each
+archived catalog digest and rejects recordings that mix snapshots or lack
+matching archived evidence. Run
+`node workflow-scripts/check-veln-language-skill.mjs` to check this evidence;
+[Agent Language Routing](agent-language-routing.md#verification) specifies the
+scenario contract.
+
 Run `cargo run -p veln-repo-language-reference -- . check-fresh` to execute
 the source grammar and reject artifact, catalog digest, rendered-resource
 digest, or size-limit drift. The
