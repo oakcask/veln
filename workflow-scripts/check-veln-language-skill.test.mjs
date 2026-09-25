@@ -159,9 +159,8 @@ test("rejects missing or contradictory request semantics", () => {
 
 test("requires semantic evidence for every replayed request", () => {
   const document = fixture();
-  document.request_selection = document.request_selection.filter(
-    (entry) => entry.text !== scenario(document, "language-match").turns[0].request.text,
-  );
+  scenario(document, "language-match").turns[0].request.text =
+    "What can I test in Veln schema fields?";
   assert.throws(() => validateScenarioDocument(document, candidateOptions), /no independent semantic annotation/);
 });
 
@@ -430,13 +429,6 @@ test("rejects a search query unrelated to the scenario expectation", () => {
 test("accepts a deterministic selection for a multi-topic language question", () => {
   const document = fixture();
   matchingTurn(document).request.text = "How do Veln schemas and contracts interact?";
-  document.request_selection.push({
-    id: "schemas-contracts-information",
-    action: "information",
-    subject: "language_behavior",
-    text: matchingTurn(document).request.text,
-    route: "language",
-  });
   assert.match(matchingTurn(document).request.text, /\bschemas\b.*\bcontracts\b/u);
   assert.equal(validateScenarioDocument(document, options), 12);
 });
@@ -451,13 +443,6 @@ test("gives an explicit repository path precedence over a competing MCP subject"
   const document = fixture();
   scenario(document, "repository-current").turns[0].request.text =
     "Inspect MCP documentation search in docs/specification/types.md.";
-  document.request_selection.push({
-    id: "explicit-path-inspection",
-    action: "repository_action",
-    subject: "implementation",
-    text: scenario(document, "repository-current").turns[0].request.text,
-    route: "repository",
-  });
   assert.throws(() => validateScenarioDocument(document, options), /acceptance label does not match request-selected repository/);
 });
 
