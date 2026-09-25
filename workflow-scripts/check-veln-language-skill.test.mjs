@@ -445,6 +445,48 @@ test("routes an assigned repository inspection request", () => {
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
+test("routes repository actions requested through subordinate clauses", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("I ask that you inspect the Veln parser."), "repository");
+  assert.equal(
+    selections.get("For this task, I ask that you test the Veln parser."),
+    "repository",
+  );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes a repository action requested through an ordinary nominal frame", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(
+    selections.get("The thing I need from you is to inspect the parser."),
+    "repository",
+  );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("keeps an explained intent in a nominal information request on the language route", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(
+    selections.get("What I need is an explanation of what inspect means in Veln schemas."),
+    "language",
+  );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("keeps explained intent words inside subordinate clauses on the language route", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("I ask what inspect means in Veln schemas."), "language");
+  assert.equal(
+    selections.get("I ask that you explain what inspect means in Veln schemas."),
+    "language",
+  );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
 test("routes a repository inspection request without an indirect object", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -566,6 +608,20 @@ test("routes an explicit repository target as a copula question subject", () => 
       route: "repository",
     },
   );
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("routes an explicit repository target requested with about", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("Tell me about the Veln repository."), "repository");
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("keeps an explicit repository target term definition on the language route", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("Explain the word repository."), "language");
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
