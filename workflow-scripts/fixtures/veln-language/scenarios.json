@@ -127,7 +127,7 @@
       "id": "repository-current-behavior",
       "covers": "repository-current",
       "turns": [{
-        "request": { "text": "Inspect the implemented Veln MCP documentation search." },
+        "request": { "text": "After reviewing the context, inspect the implemented Veln MCP documentation search." },
         "events": [
           { "type": "read", "path": "docs/README.md", "value": { "route": "docs/specification/mcp.md" } },
           { "type": "read", "path": "docs/specification/mcp.md", "value": { "authority": "docs/specification/mcp.md" } },
