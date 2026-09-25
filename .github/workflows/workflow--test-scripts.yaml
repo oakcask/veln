@@ -11,6 +11,7 @@ on:
       - .github/workflows/*.yaml
       - AGENTS.md
       - crates/veln-mcp/schemas/mcp/v1/*.json
+      - crates/veln-project/testdata/case_folding_17_c_f.txt
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run
@@ -26,6 +27,7 @@ on:
       - .github/workflows/*.yaml
       - AGENTS.md
       - crates/veln-mcp/schemas/mcp/v1/*.json
+      - crates/veln-project/testdata/case_folding_17_c_f.txt
       - docs/**/*.md
       - scripts/agent-test
       - scripts/ci-run

@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
+  expectedPublishedSearch,
   linkedDocumentationPaths,
+  loadCaseFoldMappings,
   loadSnapshotEvidence,
   readScenarioDocument,
   shortestDocumentationRoute,
@@ -285,6 +287,20 @@ test("routes an embedded repository inspection request", () => {
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
+test("routes a repository inspection request without an indirect object", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "I need to inspect the Veln lexer bug.";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
+test("routes a collective repository inspection request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "We should investigate the Veln parser recovery implementation.";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
 test("keeps an embedded language inspection request on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "I need you to inspect how Veln schemas work.";
@@ -350,6 +366,25 @@ test("does not treat a repository term in a language question as repository inte
   assert.equal(validateScenarioDocument(document, options), 10);
 });
 
+test("keeps a repository-target term definition on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "What does source code mean in Veln schemas?";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
+test("routes a question that requests a repository change", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "What should we change in Veln schema parsing?";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
+test("does not treat an explained intent word as a requested action", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Explain the word inspect in Veln schemas.";
+  assert.equal(validateScenarioDocument(document, options), 10);
+});
+
 test("keeps language terminology containing an intent word on the language route", () => {
   const document = fixture();
   matchingTurn(document).request.text = "Explain Veln schema update expressions.";
@@ -407,6 +442,58 @@ test("rejects a language search without explicit language scope", () => {
   const document = fixture();
   delete matchingTurn(document).events[0].arguments.scope;
   assert.throws(() => validateScenarioDocument(document, options), /search scope must be language/);
+});
+
+function syntheticPublished(topic) {
+  return {
+    digest: "1".repeat(64),
+    caseFoldMappings: loadCaseFoldMappings(),
+    catalog: { topics: [topic] },
+  };
+}
+
+function syntheticTopic(overrides = {}) {
+  return {
+    id: "unicode-search",
+    title: "Unicode Search",
+    summary: "No matching summary text.",
+    keywords: [],
+    body: ["No matching body text."],
+    ...overrides,
+  };
+}
+
+test("replays NFC and full default case folding without compatibility normalization", () => {
+  const folded = expectedPublishedSearch(
+    { query: "STRASSE", scope: "language" },
+    syntheticPublished(syntheticTopic({ title: "Straße" })),
+  );
+  assert.equal(folded.results.length, 1);
+  assert.equal(folded.results[0].excerpt, "Straße");
+
+  const canonical = expectedPublishedSearch(
+    { query: "Café", scope: "language" },
+    syntheticPublished(syntheticTopic({ title: "Cafe\u0301" })),
+  );
+  assert.equal(canonical.results.length, 1);
+
+  const compatibility = expectedPublishedSearch(
+    { query: "1 schema", scope: "language" },
+    syntheticPublished(syntheticTopic({ title: "① schema" })),
+  );
+  assert.deepEqual(compatibility.results, []);
+});
+
+test("replays a long excerpt from the first matching source scalar", () => {
+  const body = `${"😀".repeat(180)}needle${"z".repeat(180)}`;
+  const result = expectedPublishedSearch(
+    { query: "needle", scope: "language" },
+    syntheticPublished(syntheticTopic({ body: [body] })),
+  ).results[0];
+  assert.equal([...result.excerpt].length, 160);
+  assert.equal(result.excerpt.startsWith("needle"), true);
+  assert.equal(result.prefix_truncated, true);
+  assert.equal(result.suffix_truncated, true);
 });
 
 test("rejects a search query unrelated to the scenario expectation", () => {

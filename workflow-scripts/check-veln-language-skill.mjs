@@ -11,6 +11,7 @@ const defaultRepositoryRoot = dirname(dirname(scriptPath));
 const defaultSkillPath = join(defaultRepositoryRoot, ".agents", "skills", "veln-language", "SKILL.md");
 const catalogPath = join("tools", "veln-repo-language-reference", "generated", "language-reference-catalog-v1.json");
 const digestPath = join("tools", "veln-repo-language-reference", "generated", "language-reference-catalog-v1.sha256");
+const caseFoldingPath = join("crates", "veln-project", "testdata", "case_folding_17_c_f.txt");
 const snapshotEvidencePath = join(
   "workflow-scripts",
   "fixtures",
@@ -73,7 +74,26 @@ function loadPublishedLanguageReference(repositoryRoot) {
   assert.match(digest, /^[0-9a-f]{64}$/, "checked language-reference digest must be canonical");
   const catalog = JSON.parse(readFileSync(join(repositoryRoot, catalogPath), "utf8"));
   assert.ok(Array.isArray(catalog.topics), "checked language-reference catalog must contain topics");
-  return { digest, catalog };
+  return { digest, catalog, caseFoldMappings: loadCaseFoldMappings(repositoryRoot) };
+}
+
+export function loadCaseFoldMappings(repositoryRoot = defaultRepositoryRoot) {
+  const mappings = new Map();
+  const rows = readFileSync(join(repositoryRoot, caseFoldingPath), "utf8").split("\n");
+  for (const [index, row] of rows.entries()) {
+    if (row.length === 0 || row.startsWith("#")) continue;
+    const match = /^([0-9A-F]+);([0-9A-F]+(?: [0-9A-F]+)*)$/u.exec(row);
+    assert.ok(match, `case-folding row ${index + 1} is invalid`);
+    const source = String.fromCodePoint(Number.parseInt(match[1], 16));
+    const replacement = match[2]
+      .split(" ")
+      .map((codePoint) => String.fromCodePoint(Number.parseInt(codePoint, 16)))
+      .join("");
+    assert.equal(mappings.has(source), false, `case-folding row ${index + 1} is duplicated`);
+    mappings.set(source, replacement);
+  }
+  assert.ok(mappings.size > 0, "case-folding data must contain mappings");
+  return mappings;
 }
 
 function catalogDigest(bytes) {
@@ -156,22 +176,82 @@ function renderTopic(topic, digest) {
   return text;
 }
 
-function normalizeSearchText(text) {
-  return text.normalize("NFKC").toLocaleLowerCase("en-US").trim();
+function trimUnicodeWhitespace(text) {
+  return text.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
 }
 
-function excerpt(field) {
+function normalizeSearchText(text, caseFoldMappings) {
+  const folded = [...text.normalize("NFC")]
+    .map((character) => caseFoldMappings.get(character) ?? character)
+    .join("");
+  return trimUnicodeWhitespace(folded);
+}
+
+function foldedScalarSpans(field, caseFoldMappings) {
+  const chunks = [];
+  const spans = [];
+  let byteOffset = 0;
+  for (const character of field) {
+    const folded = normalizeSearchText(character, caseFoldMappings);
+    const start = byteOffset;
+    byteOffset += Buffer.byteLength(folded);
+    chunks.push(folded);
+    spans.push({ start, end: byteOffset });
+  }
+  return { bytes: Buffer.from(chunks.join("")), spans };
+}
+
+function firstTokenSpan(field, tokens, caseFoldMappings) {
+  const folded = foldedScalarSpans(field, caseFoldMappings);
+  const candidates = [];
+  for (const token of tokens) {
+    const start = folded.bytes.indexOf(Buffer.from(token));
+    if (start < 0) continue;
+    const end = start + Buffer.byteLength(token);
+    const first = folded.spans.findIndex((span) => span.end > start);
+    let last = -1;
+    for (let index = folded.spans.length - 1; index >= 0; index -= 1) {
+      if (folded.spans[index].start < end) {
+        last = index;
+        break;
+      }
+    }
+    if (first >= 0 && last >= first) candidates.push({ start: first, end: last + 1 });
+  }
+  candidates.sort((left, right) => left.start - right.start);
+  return candidates[0];
+}
+
+function excerpt(field, matchedScalars) {
   const scalars = [...field];
+  if (scalars.length <= 160) {
+    return { excerpt: field, prefix_truncated: false, suffix_truncated: false };
+  }
+  const matchLength = matchedScalars.end - matchedScalars.start;
+  const start = matchLength <= 160
+    ? Math.min(matchedScalars.start, scalars.length - 160)
+    : matchedScalars.start;
+  const end = Math.min(start + 160, scalars.length);
   return {
-    excerpt: scalars.slice(0, 160).join(""),
-    prefix_truncated: false,
-    suffix_truncated: scalars.length > 160,
+    excerpt: scalars.slice(start, end).join(""),
+    prefix_truncated: start > 0,
+    suffix_truncated: end < scalars.length,
   };
 }
 
-function expectedPublishedSearch(arguments_, published) {
-  const query = normalizeSearchText(arguments_.query);
-  const tokens = query.split(/\s+/u);
+function firstExcerpt(fields, tokens, caseFoldMappings) {
+  for (const field of fields) {
+    const span = firstTokenSpan(field, tokens, caseFoldMappings);
+    if (span !== undefined) return excerpt(field, span);
+  }
+  return excerpt(fields[0], { start: 0, end: 0 });
+}
+
+export function expectedPublishedSearch(arguments_, published) {
+  const { caseFoldMappings } = published;
+  assert.ok(caseFoldMappings instanceof Map, "published search evidence requires case-folding mappings");
+  const query = normalizeSearchText(arguments_.query, caseFoldMappings);
+  const tokens = query.split(/\p{White_Space}+/u);
   const matches = [];
   for (const topic of published.catalog.topics) {
     const tiers = [
@@ -182,21 +262,19 @@ function expectedPublishedSearch(arguments_, published) {
       [topic.body.join("\n\n")],
     ];
     for (const [index, fields] of tiers.entries()) {
-      const normalized = fields.map(normalizeSearchText);
+      const normalized = fields.map((field) => normalizeSearchText(field, caseFoldMappings));
       const matched = index === 0
         ? normalized.some((field) => field === query)
         : index === 1
           ? normalized.some((field) => field.startsWith(query))
           : tokens.every((token) => normalized.some((field) => field.includes(token)));
       if (!matched) continue;
-      const excerptField = fields.find((field) => tokens.some((token) => normalizeSearchText(field).includes(token)))
-        ?? fields[0];
       matches.push({
         rank: index + 1,
         uri: topicUri(published.digest, topic.id),
         title: topic.title,
         summary: topic.summary,
-        ...excerpt(excerptField),
+        ...firstExcerpt(fields, tokens, caseFoldMappings),
       });
       break;
     }
@@ -375,12 +453,7 @@ function routeRequest(text, contract, context) {
   assert.equal(typeof text, "string", `${context}: request text is required`);
   assert.ok(text.trim().length > 0, `${context}: request text must not be empty`);
   const lower = text.toLocaleLowerCase("en-US");
-  const containsTerm = (term) => {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`\\b${escaped}\\b`, "u").test(lower);
-  };
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
-  const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
   const requestLead = "(?:(?:can|could|would) (?:i|you)\\s+)?(?:please\\s+)?";
   const intentPattern = contract.repository.intent_verbs.join("|");
   const directRequest = new RegExp(
@@ -388,10 +461,19 @@ function routeRequest(text, contract, context) {
     "u",
   ).exec(lower.trim());
   const framedRequest = new RegExp(
-    `\\bi (?:need|want|would like|'d like) you to\\s+(?<intent>${intentPattern})\\b`,
+    `\\b(?:i|we) (?:need|want|would like|'d like)(?: you)? to\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
-  const intent = directRequest?.groups.intent ?? framedRequest?.groups.intent;
+  const collectiveRequest = new RegExp(
+    `\\b(?:i|we) (?:should|must|can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
+  const interrogativeRequest = new RegExp(
+    `\\b(?:how|what|when|where|why) (?:can|could|should|would|will|must) (?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
+  const intent = directRequest?.groups.intent ?? framedRequest?.groups.intent
+    ?? collectiveRequest?.groups.intent ?? interrogativeRequest?.groups.intent;
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
   const languageComplements = contract.repository.language_complements.join("|");
   const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
@@ -425,8 +507,9 @@ function routeRequest(text, contract, context) {
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || locationQuestion || implementationQuestion
+    || interrogativeRequest !== null
     || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !languageSemantics)
-    || (explicitTarget && !languageBehaviorQuestion);
+    || (intent !== undefined && repositorySubject);
   return repository ? "repository" : "language";
 }
 
@@ -692,6 +775,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     : {
       digest: resultDigest,
       catalog: materializeSnapshotCatalog(published, snapshotEvidence, `${context}: checked snapshot`),
+      caseFoldMappings: published.caseFoldMappings,
     };
   assert.deepEqual(
     searchStructured,
