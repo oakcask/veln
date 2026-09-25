@@ -205,6 +205,23 @@ test("routes ordinary embedded actions and explicit repository subjects", () => 
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
+test("routes ordinary modal and communicated repository actions", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("Will you inspect Veln schemas?"), "repository");
+  assert.equal(selections.get("I ask you to inspect the Veln parser."), "repository");
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
+test("distinguishes described subjects from incidental target objects", () => {
+  const document = fixture();
+  const selections = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selections.get("Describe the Veln repository architecture."), "repository");
+  assert.equal(selections.get("How broad is the Veln proposal state today?"), "repository");
+  assert.equal(selections.get("Can Veln schemas encode source code?"), "language");
+  assert.equal(validateScenarioDocument(document, options), 11);
+});
+
 test("rejects a skill without the canonical name", () => {
   assert.throws(
     () => validateScenarioDocument(fixture(), { skillText: skillText.replace("name: veln-language", "name: other") }),

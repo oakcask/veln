@@ -34,6 +34,8 @@
     { "id": "inspect-nominal-action", "intent": "inspect", "text": "The thing I need from you is to inspect the parser.", "route": "repository" },
     { "id": "inspect-nominal-definition", "intent": "inspect", "text": "What I need is an explanation of what inspect means in Veln schemas.", "route": "language" },
     { "id": "inspect-communicated-action", "intent": "inspect", "text": "I ask that you inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-communicated-infinitive", "intent": "inspect", "text": "I ask you to inspect the Veln parser.", "route": "repository" },
+    { "id": "inspect-modal-question", "intent": "inspect", "text": "Will you inspect Veln schemas?", "route": "repository" },
     { "id": "inspect-communicated-definition", "intent": "inspect", "text": "I ask what inspect means in Veln schemas.", "route": "language" },
     { "id": "inspect-communicated-explanation", "intent": "inspect", "text": "I ask that you explain what inspect means in Veln schemas.", "route": "language" },
     { "id": "inspect-language", "intent": "inspect", "text": "What does inspect mean in Veln schemas?", "route": "language" },
@@ -60,6 +62,7 @@
     { "id": "repository-copula-subject", "target": "repository", "text": "Is the Veln repository organized by crates?", "route": "repository" },
     { "id": "repository-about-subject", "target": "repository", "text": "Tell me about the Veln repository.", "route": "repository" },
     { "id": "repository-why-subject", "target": "repository", "text": "Why is the Veln repository so large?", "route": "repository" },
+    { "id": "repository-described-subject", "target": "repository", "text": "Describe the Veln repository architecture.", "route": "repository" },
     { "id": "repository-word-definition", "target": "repository", "text": "Explain the word repository.", "route": "language" },
     { "id": "repository-incidental", "target": "repository", "text": "Does Veln have a repository schema?", "route": "language" },
     { "id": "repository-compound-incidental", "target": "repository", "text": "What is the repository schema in Veln?", "route": "language" },
@@ -68,7 +71,9 @@
     { "id": "source-code-subject", "target": "source code", "text": "Can you tell me what is in the Veln source code?", "route": "repository" },
     { "id": "source-code-where-subject", "target": "source code", "text": "Where in the Veln source code is schema parsing implemented?", "route": "repository" },
     { "id": "source-code-incidental", "target": "source code", "text": "Can Veln schemas encode source code text?", "route": "language" },
+    { "id": "source-code-object-incidental", "target": "source code", "text": "Can Veln schemas encode source code?", "route": "language" },
     { "id": "proposal-state-subject", "target": "proposal state", "text": "Can you tell me what the Veln proposal state is?", "route": "repository" },
+    { "id": "proposal-state-attribute-subject", "target": "proposal state", "text": "How broad is the Veln proposal state today?", "route": "repository" },
     { "id": "proposal-state-incidental", "target": "proposal state", "text": "Can Veln schemas record proposal state values?", "route": "language" }
   ],
   "scenarios": [

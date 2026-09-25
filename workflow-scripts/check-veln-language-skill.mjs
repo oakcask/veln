@@ -494,7 +494,7 @@ function routeRequest(text, contract, context) {
   assert.ok(text.trim().length > 0, `${context}: request text must not be empty`);
   const lower = text.toLocaleLowerCase("en-US");
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
-  const requestLead = "(?:(?:can|could|would) (?:i|you)\\s+)?(?:please\\s+)?";
+  const requestLead = "(?:(?:can|could|should|will|would|must) (?:i|we|you)\\s+)?(?:please\\s+)?";
   const explicitTargetPattern = contract.repository.explicit_targets
     .map((target) => target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
@@ -503,15 +503,24 @@ function routeRequest(text, contract, context) {
     `\\b(?:define|explain)\\s+(?:the\\s+)?(?:term|word)\\s+${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
     "u",
   ).test(lower.trim());
-  const explicitTargetAtEnd = new RegExp(
-    `\\b${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
+  const explicitTargetDescription = new RegExp(
+    `^${requestLead}(?:describe|summarize)\\s+${explicitTargetSubject}\\b`,
+    "u",
+  ).test(lower.trim());
+  const explicitTargetAttributeQuestion = new RegExp(
+    `^${requestLead}how\\s+[\\p{L}'’.-]+\\s+(?:is|are|was|were)\\s+${explicitTargetSubject}\\b`,
+    "u",
+  ).test(lower.trim());
+  const explicitTargetAbout = new RegExp(
+    `^${requestLead}(?:tell|show) me\\s+about\\s+${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
     "u",
   ).test(lower.trim());
   const explicitTargetWhySubject = new RegExp(
     `\\bwhy\\s+(?:is|are|was|were)\\s+${explicitTargetSubject}\\b`,
     "u",
   ).test(lower.trim());
-  const explicitRepositorySubject = !explicitTargetDefinition && (explicitTargetAtEnd || [
+  const explicitRepositorySubject = !explicitTargetDefinition && (explicitTargetDescription
+    || explicitTargetAttributeQuestion || explicitTargetAbout || [
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:is|are)\\s+(?:in\\s+)?${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
     `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:in\\s+)?${explicitTargetSubject}\\s+(?:is|are)\\b`,
     `^${requestLead}(?:is|are|was|were)\\s+${explicitTargetSubject}\\s+`,
@@ -561,9 +570,13 @@ function routeRequest(text, contract, context) {
     `\\b(?:ask|direct|request|require|urge)\\s+(?:[\\p{L}'’.-]+\\s+){0,8}that\\s+(?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
+  const communicatedInfinitiveRequest = new RegExp(
+    `\\b(?:ask|direct|request|require|urge)\\s+(?:me|us|you)\\s+to\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
   const intentRequest = directRequest ?? assistedRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
     ?? interrogativeRequest ?? actorModalRequest ?? embeddedInterrogativeRequest ?? assignedRequest ?? nominalRequest
-    ?? communicatedRequest;
+    ?? communicatedRequest ?? communicatedInfinitiveRequest;
   const intentObject = intentRequest == null
     ? ""
     : lower.trim().slice(intentRequest.index + intentRequest[0].length);
@@ -1235,6 +1248,8 @@ export function validateScenarioDocument(document, options = {}) {
     ["Your task is to inspect the Veln parser implementation.", "repository"],
     ["The thing I need from you is to inspect the parser.", "repository"],
     ["I ask that you inspect the Veln parser.", "repository"],
+    ["I ask you to inspect the Veln parser.", "repository"],
+    ["Will you inspect Veln schemas?", "repository"],
     ["For this task, I ask that you test the Veln parser.", "repository"],
     ["I ask what inspect means in Veln schemas.", "language"],
     ["I ask that you explain what inspect means in Veln schemas.", "language"],
@@ -1243,6 +1258,9 @@ export function validateScenarioDocument(document, options = {}) {
     ["Is the Veln repository organized by crates?", "repository"],
     ["Tell me about the Veln repository.", "repository"],
     ["Why is the Veln repository so large?", "repository"],
+    ["Describe the Veln repository architecture.", "repository"],
+    ["How broad is the Veln proposal state today?", "repository"],
+    ["Can Veln schemas encode source code?", "language"],
     ["What is the repository schema in Veln?", "language"],
     ["Please update me on how Veln schemas work.", "language"],
   ]) {
