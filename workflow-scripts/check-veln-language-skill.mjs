@@ -388,6 +388,11 @@ function parseSkillContract(skillText) {
     "source code",
     "proposal state",
   ], "skill must define explicit repository targets");
+  assert.equal(
+    contract.repository?.explicit_target_selection,
+    "An explicit repository target selects repository work only when it is the requested subject, including direct or indirect what or where questions. A term definition or incidental mention does not select repository work.",
+    "skill must define explicit repository subject selection",
+  );
   assert.deepEqual(contract.repository?.intent_verbs, [
     "add",
     "change",
@@ -407,7 +412,7 @@ function parseSkillContract(skillText) {
   ], "skill must define repository inspection and change intents");
   assert.equal(
     contract.repository?.intent_selection,
-    "An inspection or change intent selects repository work regardless of its position unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
+    "A requested inspection, test, or change action selects repository work regardless of its position. A word that names such an action does not select repository work when the request instead asks a language question or asks what the word means.",
     "skill must route repository intent without a closed component vocabulary",
   );
   assert.deepEqual(contract.repository?.language_complements, [
@@ -472,7 +477,7 @@ function routeRequest(text, contract, context) {
     .map((target) => target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
   const explicitRepositorySubject = new RegExp(
-    `^${requestLead}(?:what|where)\\s+(?:is|are)\\s+(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\b`,
+    `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:(?:is|are)\\s+(?:in\\s+)?(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\b|(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})\\s+(?:is|are)\\b)`,
     "u",
   ).test(lower.trim());
   const intentPattern = contract.repository.intent_verbs.join("|");
@@ -1105,18 +1110,26 @@ export function validateScenarioDocument(document, options = {}) {
   );
   const requestSelectionIds = new Set();
   const requestSelectionCoverage = new Set();
+  const explicitTargetCoverage = new Set();
   for (const selection of document.request_selection) {
-    assertExactKeys(selection, ["id", "intent", "text", "route"], "request-selection case");
+    const selector = Object.hasOwn(selection, "intent") ? "intent" : "target";
+    assertExactKeys(selection, ["id", selector, "text", "route"], "request-selection case");
     assert.equal(typeof selection.id, "string", "request-selection case id must be a string");
     assert.ok(selection.id.length > 0, "request-selection case id must not be empty");
     assert.equal(requestSelectionIds.has(selection.id), false, `duplicate request-selection case ${selection.id}`);
     requestSelectionIds.add(selection.id);
-    assert.ok(contract.repository.intent_verbs.includes(selection.intent), `${selection.id}: unknown intent verb`);
-    assert.match(selection.text.toLocaleLowerCase("en-US"), new RegExp(`\\b${selection.intent}\\b`, "u"), `${selection.id}: request must contain its intent verb`);
+    if (selector === "intent") {
+      assert.ok(contract.repository.intent_verbs.includes(selection.intent), `${selection.id}: unknown intent verb`);
+      assert.match(selection.text.toLocaleLowerCase("en-US"), new RegExp(`\\b${selection.intent}\\b`, "u"), `${selection.id}: request must contain its intent verb`);
+      requestSelectionCoverage.add(`${selection.intent}:${selection.route}`);
+    } else {
+      assert.ok(contract.repository.explicit_targets.includes(selection.target), `${selection.id}: unknown explicit target`);
+      assert.match(selection.text.toLocaleLowerCase("en-US"), new RegExp(`\\b${selection.target}\\b`, "u"), `${selection.id}: request must contain its explicit target`);
+      explicitTargetCoverage.add(`${selection.target}:${selection.route}`);
+    }
     assert.ok(["language", "repository"].includes(selection.route), `${selection.id}: invalid expected route`);
     assert.ok(selection.text.length <= fixtureLimits.requestCharacters, `${selection.id}: request exceeds the fixture text limit`);
     assert.equal(routeRequest(selection.text, contract, selection.id), selection.route, `${selection.id}: request selected the wrong route`);
-    requestSelectionCoverage.add(`${selection.intent}:${selection.route}`);
   }
   assert.deepEqual(
     requestSelectionCoverage,
@@ -1125,6 +1138,14 @@ export function validateScenarioDocument(document, options = {}) {
       `${intent}:repository`,
     ])),
     "request-selection evidence must cover both routes for every intent verb",
+  );
+  assert.deepEqual(
+    explicitTargetCoverage,
+    new Set(contract.repository.explicit_targets.flatMap((target) => [
+      `${target}:language`,
+      `${target}:repository`,
+    ])),
+    "request-selection evidence must cover subject and incidental uses for every explicit target",
   );
   const requestSelectionByText = new Map(
     document.request_selection.map((selection) => [selection.text, selection.route]),
