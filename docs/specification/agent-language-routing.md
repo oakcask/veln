@@ -34,9 +34,10 @@ repository authority; the published language reference is not repository
 implementation authority. An explicit repository documentation path takes
 precedence over a general subject phrase in the same request.
 
-A passive question that asks how a compiler or parser implementation is
-implemented uses the repository route. Questions about how Veln language
-features behave remain on the language route.
+An inspection or change request uses the repository route even when the intent
+verb does not start the request. A passive question that asks how a compiler or
+parser implementation is implemented also uses the repository route. Questions
+about how Veln language features behave remain on the language route.
 
 ## Limits and failures
 
@@ -57,4 +58,6 @@ repository results for the acceptance model. Run
 `node workflow-scripts/check-veln-language-skill.mjs` to replay it against the
 canonical skill. The workflow-script test suite checks the replay oracle,
 closed result shapes, provenance, bounded failures, preserved results, routing,
-and input limits.
+and input limits. Stale search recordings are checked in full against archived
+catalog evidence whose snapshot digest is recalculated with the published
+catalog digest contract.

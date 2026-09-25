@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, posix, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,12 @@ const defaultRepositoryRoot = dirname(dirname(scriptPath));
 const defaultSkillPath = join(defaultRepositoryRoot, ".agents", "skills", "veln-language", "SKILL.md");
 const catalogPath = join("tools", "veln-repo-language-reference", "generated", "language-reference-catalog-v1.json");
 const digestPath = join("tools", "veln-repo-language-reference", "generated", "language-reference-catalog-v1.sha256");
+const snapshotEvidencePath = join(
+  "workflow-scripts",
+  "fixtures",
+  "veln-language",
+  "snapshot-catalogs.json",
+);
 
 const acceptance = new Map([
   ["language-match", { route: "language", finalStatus: "answered" }],
@@ -61,6 +68,55 @@ function loadPublishedLanguageReference(repositoryRoot) {
   const catalog = JSON.parse(readFileSync(join(repositoryRoot, catalogPath), "utf8"));
   assert.ok(Array.isArray(catalog.topics), "checked language-reference catalog must contain topics");
   return { digest, catalog };
+}
+
+function catalogDigest(bytes) {
+  const length = Buffer.alloc(8);
+  length.writeBigUInt64BE(BigInt(bytes.length));
+  return createHash("sha256")
+    .update(Buffer.from("veln-language-reference/v1\0"))
+    .update(length)
+    .update(bytes)
+    .digest("hex");
+}
+
+function loadSnapshotEvidence(repositoryRoot, published) {
+  const path = join(repositoryRoot, snapshotEvidencePath);
+  assert.ok(statSync(path).size <= fixtureLimits.fixtureBytes, "snapshot evidence exceeds the fixture byte limit");
+  const document = JSON.parse(readFileSync(path, "utf8"));
+  assertExactKeys(document, ["schema_version", "snapshots"], "snapshot evidence");
+  assert.equal(document.schema_version, 1, "unsupported snapshot-evidence schema");
+  assert.ok(Array.isArray(document.snapshots), "snapshot evidence must contain snapshots");
+  const snapshots = new Map();
+  for (const [index, snapshot] of document.snapshots.entries()) {
+    const context = `snapshot evidence ${index + 1}`;
+    assertExactKeys(snapshot, ["base_digest", "digest", "topic_overrides"], context);
+    assert.equal(snapshot.base_digest, published.digest, `${context}: base snapshot digest changed`);
+    assert.match(snapshot.digest, /^[0-9a-f]{64}$/, `${context}: digest must be canonical`);
+    assert.ok(Array.isArray(snapshot.topic_overrides), `${context}: topic overrides must be an array`);
+    const catalog = structuredClone(published.catalog);
+    const replaced = new Set();
+    for (const [overrideIndex, override] of snapshot.topic_overrides.entries()) {
+      const overrideContext = `${context} override ${overrideIndex + 1}`;
+      assertExactKeys(
+        override,
+        ["topic_id", "id", "title", "summary", "keywords", "body"],
+        overrideContext,
+      );
+      assert.equal(replaced.has(override.topic_id), false, `${overrideContext}: duplicate topic override`);
+      const topicIndex = catalog.topics.findIndex((topic) => topic.id === override.topic_id);
+      assert.notEqual(topicIndex, -1, `${overrideContext}: base topic does not exist`);
+      const { topic_id: _topicId, ...replacement } = override;
+      catalog.topics[topicIndex] = { ...catalog.topics[topicIndex], ...replacement };
+      replaced.add(override.topic_id);
+    }
+    catalog.topics.sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
+    const bytes = Buffer.from(JSON.stringify(catalog));
+    assert.equal(catalogDigest(bytes), snapshot.digest, `${context}: catalog digest does not match evidence`);
+    assert.equal(snapshots.has(snapshot.digest), false, `${context}: duplicate snapshot digest`);
+    snapshots.set(snapshot.digest, { digest: snapshot.digest, catalog });
+  }
+  return snapshots;
 }
 
 function topicUri(digest, topicId) {
@@ -241,7 +297,7 @@ function parseSkillContract(skillText) {
   ], "skill must define repository inspection and change intents");
   assert.equal(
     contract.repository?.intent_selection,
-    "A leading inspection or change intent selects repository work unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
+    "An inspection or change intent selects repository work regardless of its position unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
     "skill must route repository intent without a closed component vocabulary",
   );
   assert.deepEqual(contract.repository?.language_complements, [
@@ -307,16 +363,17 @@ function routeRequest(text, contract, context) {
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
   const requestLead = "(?:(?:can|could|would) you\\s+)?(?:please\\s+)?";
-  const intent = contract.repository.intent_verbs.find((verb) => new RegExp(
-    `^${requestLead}${verb}\\b`,
-    "u",
-  ).test(lower.trim()));
+  const intent = contract.repository.intent_verbs.find((verb) => [
+    new RegExp(`^${requestLead}${verb}\\b`, "u"),
+    new RegExp(`\\b(?:i would like|i'd like|i want) you to ${verb}\\b`, "u"),
+    new RegExp(`\\bcould i ask you to ${verb}\\b`, "u"),
+  ].some((pattern) => pattern.test(lower.trim())));
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
   const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
     && contract.repository.language_complements.some((term) => new RegExp(
-      `^${requestLead}${intent}\\s+${term}\\b`,
+      `\\b${intent}\\s+${term}\\b`,
       "u",
-    ).test(lower.trim()));
+    ).test(lower));
   const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
   const locationForms = contract.repository.location_question_forms
     .filter((form) => form !== "where")
@@ -336,7 +393,7 @@ function routeRequest(text, contract, context) {
     "u",
   ).test(lower.trim())
     && contract.repository.location_question_endings.some((ending) => new RegExp(
-      `\\b${ending}\\b[?.!]*$`,
+      `\\b${ending}\\b`,
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || explicitTarget || locationQuestion || implementationQuestion
@@ -378,7 +435,9 @@ function expectedSelection(text, route, context) {
   if (/\bmcp\b.*\bdocumentation search\b/u.test(lower)) {
     return { authority: "docs/specification/mcp.md" };
   }
-  if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser|parser implemented)\b/u.test(lower) || lower.includes("crates/veln-mcp/")) {
+  if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser|parser implemented|parser implementation)\b/u.test(lower)
+    || /\bschema parsing\b.*\bcompiler\b/u.test(lower)
+    || lower.includes("crates/veln-mcp/")) {
     return {
       authority: "docs/specification/source-surface.md",
     };
@@ -538,7 +597,7 @@ function validateFailure(answer, operation, artifactUri, previousResult, context
   assert.deepEqual(answer.retained_result, previousResult, `${context}: earlier result changed`);
 }
 
-function validateLanguageTurn(turn, previousResult, contract, schemas, published, context) {
+function validateLanguageTurn(turn, previousResult, contract, schemas, published, snapshots, context) {
   const { events } = turn;
   assert.ok(turn.request.text.length <= fixtureLimits.requestCharacters, `${context}: request exceeds the fixture text limit`);
   for (const event of events) {
@@ -590,17 +649,19 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     `${context}: search_docs result`,
   );
   const results = validateSearchResult(searchStructured, context);
-  const currentSearch = results.every((result) => snapshotDigest(result.uri, context) === published.digest);
-  if (currentSearch) {
-    assert.deepEqual(
-      searchStructured,
-      expectedPublishedSearch(events[0].arguments, published),
-      `${context}: recorded search_docs result differs from the checked language-reference artifact`,
-    );
-  }
+  const resultDigests = new Set(results.map((result) => snapshotDigest(result.uri, context)));
+  assert.ok(resultDigests.size <= 1, `${context}: search results must belong to one snapshot`);
+  const resultDigest = resultDigests.values().next().value ?? published.digest;
+  const searchEvidence = resultDigest === published.digest ? published : snapshots.get(resultDigest);
+  assert.ok(searchEvidence, `${context}: search results have no checked snapshot evidence`);
+  assert.deepEqual(
+    searchStructured,
+    expectedPublishedSearch(events[0].arguments, searchEvidence),
+    `${context}: recorded search_docs result differs from the checked snapshot artifact`,
+  );
   if (selection.topic === undefined) {
     assert.equal(results.length, 0, `${context}: request-selected topic absence must not replay a match`);
-  } else if (results.length > 0) {
+  } else if (results.length > 0 && resultDigest === published.digest) {
     assert.ok(results.some((result) => result.uri.endsWith(`/topic/${selection.topic}`)), `${context}: search results do not contain the request-selected topic`);
   }
   if (results.length === 0) {
@@ -630,7 +691,9 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
   assertExactKeys(readResult, readResult.error === undefined
     ? ["type", "tool", "value"]
     : ["type", "tool", "error"], `${context}: read result event`);
-  assert.ok(selectedUri.endsWith(`/topic/${selection.topic}`), `${context}: read_doc did not select the request-selected topic`);
+  if (resultDigest === published.digest) {
+    assert.ok(selectedUri.endsWith(`/topic/${selection.topic}`), `${context}: read_doc did not select the request-selected topic`);
+  }
 
   if (readResult.error !== undefined) {
     assertExactKeys(readResult.error, ["code"], `${context}: read transport error`);
@@ -657,15 +720,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
       published.digest,
       `${context}: stale snapshot URI must differ from the checked published snapshot digest`,
     );
-    const currentResult = expectedPublishedSearch(events[0].arguments, published).results.find(
-      (result) => result.uri.endsWith(`/topic/${selection.topic}`),
-    );
-    assert.ok(currentResult, `${context}: stale topic is absent from the checked language-reference artifact`);
-    assert.deepEqual(
-      results.find((result) => result.uri === selectedUri),
-      { ...currentResult, uri: topicUri(staleDigest, selection.topic) },
-      `${context}: stale search recording differs from the checked topic contract`,
-    );
+    assert.ok(snapshots.has(staleDigest), `${context}: stale snapshot has no checked catalog evidence`);
     assert.equal(answer.status, "stale_snapshot", `${context}: wrong stale-snapshot status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: stale-snapshot answer`);
     validateFailure(answer, "read_doc", selectedUri, previousResult, context);
@@ -879,6 +934,7 @@ export function validateScenarioDocument(document, options = {}) {
   const repositoryRoot = options.repositoryRoot ?? defaultRepositoryRoot;
   const schemas = loadToolSchemas(repositoryRoot);
   const published = loadPublishedLanguageReference(repositoryRoot);
+  const snapshots = loadSnapshotEvidence(repositoryRoot, published);
   for (const path of contract.maintenance) {
     checkedRepositoryPath(repositoryRoot, path, "veln-language maintenance contract");
   }
@@ -901,7 +957,7 @@ export function validateScenarioDocument(document, options = {}) {
       const route = routeRequest(turn.request?.text, contract, context);
       assert.equal(route, requirement.route, `${context}: request text selected the wrong route for ${scenario.covers}`);
       lastSuccessfulResult = route === "language"
-        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, context)
+        ? validateLanguageTurn(turn, lastSuccessfulResult, contract, schemas, published, snapshots, context)
         : validateRepositoryTurn(turn, lastSuccessfulResult, requirement, contract, repositoryRoot, context);
     }
     if (requirement.failure) {

@@ -54,7 +54,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "no_route": "Stop and report that no repository documentation route covers the request.",
     "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
     "intent_verbs": ["add", "change", "debug", "fix", "implement", "inspect", "modify", "refactor", "remove", "review", "select", "test", "update"],
-    "intent_selection": "A leading inspection or change intent selects repository work unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
+    "intent_selection": "An inspection or change intent selects repository work regardless of its position unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
     "location_question_endings": ["defined", "handled", "implemented", "located"],
     "location_question_forms": ["where", "tell me where", "show me where"],
@@ -235,6 +235,13 @@ test("routes a polite repository change request", () => {
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("routes a repository inspection intent that does not lead the request", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "I would like you to inspect the Veln parser implementation.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("routes an interrogative repository location request", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
@@ -246,6 +253,25 @@ test("routes an ordinary parser implementation question", () => {
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "How is the Veln parser implemented?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes a passive implementation question whose implementation term is not final", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "How is schema parsing implemented in the compiler?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("keeps a non-leading inspection request about language behavior on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "I would like you to inspect how Veln schemas work.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("does not treat a mentioned intent verb as a repository request", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "What does inspect mean for Veln schemas?";
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
@@ -340,7 +366,7 @@ test("rejects search metadata that drifts from the checked language-reference ar
   const event = matchingTurn(document).events[1];
   structured(event).results[0].summary = "A shortened recording.";
   syncEnvelope(event);
-  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked language-reference artifact/);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked snapshot artifact/);
 });
 
 test("rejects incomplete read metadata", () => {
@@ -487,12 +513,63 @@ test("rejects a stale-snapshot row that uses the current published digest", () =
     "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/",
   );
   structured(turn.events[1]).results[0].uri = currentUri;
+  structured(turn.events[1]).results.splice(1);
   syncEnvelope(turn.events[1]);
   turn.events[2].arguments.uri = currentUri;
   structured(turn.events[3]).details.uri = currentUri;
   syncEnvelope(turn.events[3]);
   turn.events[4].failure.artifact_uri = currentUri;
-  assert.throws(() => validateScenarioDocument(document, options), /stale snapshot URI must differ/);
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /differs from the checked snapshot artifact|stale snapshot URI must differ/,
+  );
+});
+
+test("rejects mutation of an unselected stale search result", () => {
+  const document = fixture();
+  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  structured(event).results[1].summary = "Fabricated historical summary.";
+  syncEnvelope(event);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked snapshot artifact/);
+});
+
+test("rejects a fabricated unselected stale search result", () => {
+  const document = fixture();
+  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  structured(event).results.push({
+    uri: "veln-doc:///language/snapshot/88ff7d6072458b22355d854d7d8ad464223c752c1e5f746a87ed725f2ab83359/topic/fabricated-modules",
+    title: "Fabricated Modules",
+    summary: "This topic has no snapshot evidence.",
+    excerpt: "modules",
+    prefix_truncated: false,
+    suffix_truncated: false,
+  });
+  syncEnvelope(event);
+  assert.throws(() => validateScenarioDocument(document, options), /differs from the checked snapshot artifact/);
+});
+
+test("rejects stale search results from mixed snapshots", () => {
+  const document = fixture();
+  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  structured(event).results[1].uri = structured(event).results[1].uri.replace(
+    /snapshot\/[0-9a-f]{64}\//u,
+    "snapshot/4fc5858d00e37d7e88faedcef4bb2c02175fa0dcac4c54a7caa395309d776ed9/",
+  );
+  syncEnvelope(event);
+  assert.throws(() => validateScenarioDocument(document, options), /must belong to one snapshot/);
+});
+
+test("rejects stale search results without snapshot evidence", () => {
+  const document = fixture();
+  const event = scenario(document, "stale-snapshot-uri").turns[1].events[1];
+  for (const result of structured(event).results) {
+    result.uri = result.uri.replace(
+      /snapshot\/[0-9a-f]{64}\//u,
+      "snapshot/1111111111111111111111111111111111111111111111111111111111111111/",
+    );
+  }
+  syncEnvelope(event);
+  assert.throws(() => validateScenarioDocument(document, options), /no checked snapshot evidence/);
 });
 
 test("rejects mutation of the earlier result after failure", () => {
