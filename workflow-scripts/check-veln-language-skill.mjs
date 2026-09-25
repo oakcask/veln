@@ -567,7 +567,7 @@ function routeRequest(text, contract, context) {
     "u",
   ).exec(lower.trim());
   const nominalRequest = new RegExp(
-    `\\b(?:the|my|our|your)\\s+(?:thing|work|assignment|goal|job|request|task)\\b[^.!?]{0,80}\\b(?:need|want|is|will be)\\b[^.!?]{0,80}\\bto\\s+(?<intent>${intentPattern})\\b`,
+    `\\b(?:the|my|our|your)\\s+(?:thing|work|assignment|goal|job|purpose|request|task)\\b[^.!?]{0,80}\\b(?:need|want|is|will be)\\b[^.!?]{0,80}\\bto\\s+(?<intent>${intentPattern})\\b`,
     "u",
   ).exec(lower.trim());
   const communicatedRequest = new RegExp(
@@ -594,11 +594,14 @@ function routeRequest(text, contract, context) {
     ).test(lower.trim())
     && /\bveln\b/u.test(lower)
     && !repositorySubject;
+  const intentWordMeaning = intentRequest === directRequest
+    && new RegExp(`^\\s+means?\\s+(?:${languageComplements})\\b`, "u").test(intentObject)
+    && /\bveln\b/u.test(lower);
   const informationalRequest = intentRequest === directRequest && (
     (intentRequest?.groups.intent === "update"
       && /^\s+(?:me|us)\s+(?:about|on)\b/u.test(intentObject))
     || /^(?:\s+(?:this|the)\s+question\s*:)/u.test(intentObject)
-  ) || indirectLanguageInformation;
+  ) || indirectLanguageInformation || intentWordMeaning;
   const intent = informationalRequest ? undefined : intentRequest?.groups.intent;
   const reviewedLanguageQuestion = intent === "review"
     && /^\s+(?:how|what|when|where|whether|why)\b/u.test(intentObject)
@@ -1263,13 +1266,14 @@ export function validateScenarioDocument(document, options = {}) {
     ["Could you take a moment to inspect the Veln parser implementation?", "repository"],
     ["Do you think you could inspect the parser?", "repository"],
     ["Your task is to inspect the Veln parser implementation.", "repository"],
-    ["The thing I need from you is to inspect the parser.", "repository"],
+    ["The purpose here is to inspect the Veln parser.", "repository"],
     ["I ask that you inspect the Veln parser.", "repository"],
     ["I ask you to inspect the Veln parser.", "repository"],
     ["Will you inspect Veln schemas?", "repository"],
     ["For this task, I ask that you test the Veln parser.", "repository"],
     ["I ask what inspect means in Veln schemas.", "language"],
     ["I ask that you explain what inspect means in Veln schemas.", "language"],
+    ["In Veln terminology: inspect means what?", "language"],
     ["Can you review what contracts mean in Veln?", "language"],
     ["Can you show me how to review contracts in Veln?", "language"],
     ["Where in the Veln source code is schema parsing implemented?", "repository"],
