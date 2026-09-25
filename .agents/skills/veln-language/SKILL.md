@@ -13,7 +13,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
 {
   "schema_version": 1,
   "request_selection": {
-    "repository_when": "The request asks to inspect or change the Veln repository, its implementation, or its proposal state.",
+    "repository_when": "The request asks to inspect, test, or change the Veln repository or makes the repository, codebase, source code, or proposal state its subject.",
     "language_otherwise": true
   },
   "language": {
@@ -38,8 +38,9 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "authority_selection": "smallest_current_linked_authority",
     "no_route": "Stop and report that no repository documentation route covers the request.",
     "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
+    "explicit_target_selection": "An explicit repository target selects repository work only when it is the requested subject, including direct or indirect what or where questions. A term definition or incidental mention does not select repository work.",
     "intent_verbs": ["add", "change", "debug", "examine", "fix", "implement", "inspect", "investigate", "modify", "refactor", "remove", "review", "select", "test", "update"],
-    "intent_selection": "An inspection or change intent selects repository work regardless of its position unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
+    "intent_selection": "A requested inspection, test, or change action selects repository work regardless of its position. A word that names such an action does not select repository work when the request instead asks a language question or asks what the word means.",
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
     "location_question_endings": ["defined", "handled", "implemented", "located"],
     "location_question_forms": ["where", "tell me where", "show me where"],
