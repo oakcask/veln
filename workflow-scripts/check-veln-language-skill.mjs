@@ -52,6 +52,7 @@ const fixtureLimits = {
   repositoryDocumentBytes: 262_144,
   fixtureBytes: 1_000_000,
   skillDescriptionCharacters: 300,
+  repositoryDiscoveryDocuments: 64,
 };
 
 function loadPublishedLanguageReference(repositoryRoot) {
@@ -223,13 +224,6 @@ function parseSkillContract(skillText) {
     "source code",
     "proposal state",
   ], "skill must define explicit repository targets");
-  assert.deepEqual(contract.repository?.intent_targets, [
-    "compiler",
-    "implementation",
-    "implemented",
-    "parser",
-    "proposal",
-  ], "skill must define repository targets that qualify intent verbs");
   assert.deepEqual(contract.repository?.intent_verbs, [
     "add",
     "change",
@@ -245,6 +239,11 @@ function parseSkillContract(skillText) {
     "test",
     "update",
   ], "skill must define repository inspection and change intents");
+  assert.equal(
+    contract.repository?.intent_selection,
+    "A leading inspection or change intent selects repository work unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
+    "skill must route repository intent without a closed component vocabulary",
+  );
   assert.deepEqual(contract.repository?.language_complements, [
     "how",
     "what",
@@ -307,23 +306,24 @@ function routeRequest(text, contract, context) {
   };
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
-  const intentTarget = contract.repository.intent_targets.some(containsTerm);
   const requestLead = "(?:(?:can|could|would) you\\s+)?(?:please\\s+)?";
   const intent = contract.repository.intent_verbs.find((verb) => new RegExp(
     `^${requestLead}${verb}\\b`,
     "u",
   ).test(lower.trim()));
-  const languageComplement = intent !== undefined && contract.repository.language_complements.some((term) => new RegExp(
-    `^${requestLead}${intent}\\s+${term}\\b`,
-    "u",
-  ).test(lower.trim()));
+  const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
+  const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
+    && contract.repository.language_complements.some((term) => new RegExp(
+      `^${requestLead}${intent}\\s+${term}\\b`,
+      "u",
+    ).test(lower.trim()));
+  const languageSemantics = intent !== undefined && /\b(?:language\s+)?semantics\b/u.test(lower);
   const locationForms = contract.repository.location_question_forms
     .filter((form) => form !== "where")
     .map((form) => form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
   const locationAuxiliary = "(?:is|are|was|were)";
-  const repositoryLocationSubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
-  const locationQuestion = repositoryLocationSubject && new RegExp(
+  const locationQuestion = repositorySubject && new RegExp(
     `^${requestLead}(?:where\\s+${locationAuxiliary}\\b|(?:${locationForms})\\b.*\\b${locationAuxiliary}\\b)`,
     "u",
   ).test(lower.trim())
@@ -332,7 +332,7 @@ function routeRequest(text, contract, context) {
       "u",
     ).test(lower.trim()));
   const repository = repositoryPath || explicitTarget || locationQuestion
-    || (intent !== undefined && intentTarget && !languageComplement);
+    || (intent !== undefined && !languageComplement && !languageSemantics);
   return repository ? "repository" : "language";
 }
 
@@ -370,7 +370,7 @@ function expectedSelection(text, route, context) {
   if (/\bmcp\b.*\bdocumentation search\b/u.test(lower)) {
     return { authority: "docs/specification/mcp.md" };
   }
-  if (/\b(?:parser recovery|compiler parser)\b/u.test(lower) || lower.includes("crates/veln-mcp/")) {
+  if (/\b(?:compiler crashes|lexer bug|parser recovery|compiler parser)\b/u.test(lower) || lower.includes("crates/veln-mcp/")) {
     return {
       authority: "docs/specification/source-surface.md",
     };
@@ -740,7 +740,17 @@ export function linkedDocumentationPaths(sourcePath, repositoryRoot) {
   return links;
 }
 
-export function shortestDocumentationRoute(entry, authority, repositoryRoot, maximumReads) {
+export function shortestDocumentationRoute(
+  entry,
+  authority,
+  repositoryRoot,
+  maximumReads,
+  maximumDiscoveryDocuments = fixtureLimits.repositoryDiscoveryDocuments,
+) {
+  assert.ok(
+    Number.isSafeInteger(maximumDiscoveryDocuments) && maximumDiscoveryDocuments > 0,
+    "repository route discovery bound must be a positive integer",
+  );
   const entryIdentity = realpathSync(checkedRepositoryPath(
     repositoryRoot,
     entry,
@@ -753,8 +763,10 @@ export function shortestDocumentationRoute(entry, authority, repositoryRoot, max
   ));
   const queue = [{ paths: [entry], identity: entryIdentity }];
   const visited = new Set([entryIdentity]);
-  while (queue.length > 0) {
-    const { paths, identity } = queue.shift();
+  let queueIndex = 0;
+  while (queueIndex < queue.length) {
+    const { paths, identity } = queue[queueIndex];
+    queueIndex += 1;
     const current = paths.at(-1);
     if (identity === authorityIdentity) return paths;
     if (paths.length >= maximumReads) continue;
@@ -765,7 +777,12 @@ export function shortestDocumentationRoute(entry, authority, repositoryRoot, max
         "repository route discovery",
       ));
       if (visited.has(linkedIdentity)) continue;
+      assert.ok(
+        visited.size < maximumDiscoveryDocuments,
+        `repository route discovery exceeded the ${maximumDiscoveryDocuments}-document bound`,
+      );
       visited.add(linkedIdentity);
+      if (linkedIdentity === authorityIdentity) return [...paths, linked];
       queue.push({ paths: [...paths, linked], identity: linkedIdentity });
     }
   }

@@ -53,8 +53,8 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "authority_selection": "smallest_current_linked_authority",
     "no_route": "Stop and report that no repository documentation route covers the request.",
     "explicit_targets": ["repository", "codebase", "source code", "proposal state"],
-    "intent_targets": ["compiler", "implementation", "implemented", "parser", "proposal"],
     "intent_verbs": ["add", "change", "debug", "fix", "implement", "inspect", "modify", "refactor", "remove", "review", "select", "test", "update"],
+    "intent_selection": "A leading inspection or change intent selects repository work unless the request asks how, what, when, where, whether, or why the Veln language behaves, or explicitly asks about language semantics.",
     "language_complements": ["how", "what", "when", "where", "whether", "why"],
     "location_question_endings": ["defined", "handled", "implemented", "located"],
     "location_question_forms": ["where", "tell me where", "show me where"],
@@ -174,6 +174,20 @@ test("keeps a language question containing inspect on the language route", () =>
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
+test("routes an interrogative repository inspection without a language subject", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Review why the compiler crashes.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes an interrogative repository inspection with a Veln implementation subject", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Review why the Veln compiler crashes.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("keeps a language topic review on the language route", () => {
   const document = fixture();
   const turn = scenario(document, "search-unavailable").turns[1];
@@ -197,6 +211,13 @@ test("routes an ordinary compiler change request without an incidental routing k
   const document = fixture();
   scenario(document, "repository-change").turns[0].request.text =
     "Modify the Veln compiler parser.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("routes a change request for an unlisted repository component", () => {
+  const document = fixture();
+  scenario(document, "repository-change").turns[0].request.text =
+    "Fix the Veln lexer bug.";
   assert.equal(validateScenarioDocument(document, options), 9);
 });
 
@@ -564,6 +585,46 @@ test("deduplicates wide alias cycles by resolved documentation identity", { time
   assert.deepEqual(
     shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3),
     ["docs/README.md", "docs/alias-0/route.md", "docs/authority.md"],
+  );
+});
+
+test("bounds discovery across wide distinct documentation graphs", { timeout: 1_000 }, (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-route-width-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+
+  const links = [];
+  for (let index = 0; index < 100; index += 1) {
+    const name = `branch-${index}.md`;
+    links.push(`[branch ${index}](${name})`);
+    writeFileSync(join(root, "docs", name), "# Branch\n");
+  }
+  writeFileSync(join(root, "docs", "README.md"), links.join("\n"));
+
+  assert.throws(
+    () => shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3, 16),
+    /exceeded the 16-document bound/,
+  );
+});
+
+test("returns an authority found before unrelated wide siblings exceed the discovery bound", { timeout: 1_000 }, (context) => {
+  const root = mkdtempSync(join(tmpdir(), "veln-language-route-authority-first-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "docs"));
+  writeFileSync(join(root, "docs", "authority.md"), "# Authority\n");
+
+  const links = ["[authority](authority.md)"];
+  for (let index = 0; index < 100; index += 1) {
+    const name = `branch-${index}.md`;
+    links.push(`[branch ${index}](${name})`);
+    writeFileSync(join(root, "docs", name), "# Branch\n");
+  }
+  writeFileSync(join(root, "docs", "README.md"), links.join("\n"));
+
+  assert.deepEqual(
+    shortestDocumentationRoute("docs/README.md", "docs/authority.md", root, 3, 2),
+    ["docs/README.md", "docs/authority.md"],
   );
 });
 
