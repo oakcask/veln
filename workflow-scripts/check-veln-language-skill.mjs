@@ -489,163 +489,124 @@ function loadSkillContract(options) {
   return parseSkillContract(skillText);
 }
 
+function findPhrase(words, phrase) {
+  const phraseWords = phrase.split(" ");
+  const positions = [];
+  for (let index = 0; index <= words.length - phraseWords.length; index += 1) {
+    if (phraseWords.every((word, offset) => words[index + offset] === word)) positions.push(index);
+  }
+  return positions.map((start) => ({ start, end: start + phraseWords.length }));
+}
+
+function isTermDefinition(words, start, end) {
+  const before = words.slice(Math.max(0, start - 8), start);
+  const after = words.slice(end, end + 8);
+  return before.some((word) => ["term", "terminology", "word"].includes(word))
+    || (before.includes("what") && after.some((word) => word === "mean" || word === "means"))
+    || (before.some((word) => word === "define" || word === "explain")
+      && after.some((word) => word === "mean" || word === "means"))
+    || (after[0] === "mean" || after[0] === "means");
+}
+
+function hasExplicitRepositorySubject(words, explicitTargets) {
+  const subjectPrepositions = new Set(["about", "across", "in", "inside", "of", "throughout", "within"]);
+  const subjectPredicates = new Set([
+    "are", "contains", "contain", "did", "does", "has", "have", "includes", "include", "is",
+    "looks", "look", "organized", "uses", "use", "was", "were",
+  ]);
+  for (const target of explicitTargets) {
+    for (const occurrence of findPhrase(words, target)) {
+      if (isTermDefinition(words, occurrence.start, occurrence.end)) continue;
+      const before = words.slice(0, occurrence.start);
+      const after = words.slice(occurrence.end);
+      const precedingHead = before.findLast((word) => !["a", "an", "the"].includes(word));
+      const anchoredToVeln = precedingHead === "veln";
+      if (anchoredToVeln) return true;
+      if (subjectPrepositions.has(precedingHead)
+        && (after.length === 0 || subjectPredicates.has(after[0]) || ["currently", "today"].includes(after[0]))) {
+        return true;
+      }
+      if (subjectPredicates.has(after[0])) return true;
+    }
+  }
+  return false;
+}
+
+function isInformationIntent(words, index, intent, languageComplements, repositorySubject) {
+  if (isTermDefinition(words, index, index + 1)) return true;
+  const before = words.slice(Math.max(0, index - 12), index);
+  const after = words.slice(index + 1, index + 10);
+  const complementIndex = before.findLastIndex((word) => languageComplements.includes(word));
+  const howTo = complementIndex >= 0 && before[complementIndex] === "how" && (
+    before.slice(complementIndex + 1).includes("to")
+    || before.slice(complementIndex + 1).some((word) => ["can", "could", "may", "might", "should", "would"].includes(word))
+  );
+  if (howTo && !repositorySubject) return true;
+  const wrappedInformation = complementIndex >= 0
+    && before.some((word) => ["explain", "explanation", "know", "question", "show", "tell", "understand"].includes(word));
+  if (wrappedInformation && !repositorySubject) return true;
+  if (intent === "update" && ["me", "us"].includes(after[0]) && ["about", "on"].includes(after[1])) return true;
+  if (intent === "review" && languageComplements.includes(after[0]) && !repositorySubject) return true;
+  if (after[0] === "this" && after[1] === "question") return true;
+  const firstComplement = words.findIndex((word) => languageComplements.includes(word));
+  const modalQuestion = firstComplement >= 0 && firstComplement < index
+    && before.some((word) => ["can", "could", "should", "would", "will", "must"].includes(word))
+    && before.some((word) => ["i", "we", "you"].includes(word));
+  const mutation = ["add", "change", "fix", "implement", "modify", "refactor", "remove", "update"].includes(intent);
+  return modalQuestion && !mutation && !repositorySubject;
+}
+
+function hasRequestedRepositoryAction(lower, intentVerbs, languageComplements, repositorySubject) {
+  const modals = new Set(["can", "could", "may", "might", "must", "should", "will", "would"]);
+  const requestCues = new Set([
+    "ask", "assignment", "direct", "goal", "job", "like", "need", "purpose", "request", "require",
+    "task", "urge", "want",
+  ]);
+  const actors = new Set(["i", "me", "us", "we", "you"]);
+  for (const clause of lower.split(/[.!?;]/u)) {
+    const words = clause.match(/\p{L}+(?:['’]\p{L}+)?/gu) ?? [];
+    for (const intent of intentVerbs) {
+      for (const occurrence of findPhrase(words, intent)) {
+        const index = occurrence.start;
+        if (isInformationIntent(words, index, intent, languageComplements, repositorySubject)) continue;
+        const before = words.slice(Math.max(0, index - 16), index);
+        const escapedIntent = intent.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const imperative = new RegExp(
+          `(?:^|[:,]\\s*)(?:please\\s+)?(?:(?:go ahead and|make sure to)\\s+)?`
+            + `(?:\\p{L}+ly\\s+)*${escapedIntent}\\b`,
+          "u",
+        ).test(clause.trim());
+        if (imperative) return true;
+        const hasActor = before.some((word) => actors.has(word));
+        const hasRequestCue = before.some((word) => modals.has(word) || requestCues.has(word));
+        if (hasRequestCue && (hasActor || before.includes("to"))) return true;
+        if (before.includes("help") && before.some((word) => word === "me" || word === "us")) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function routeRequest(text, contract, context) {
   assert.equal(typeof text, "string", `${context}: request text is required`);
   assert.ok(text.trim().length > 0, `${context}: request text must not be empty`);
   const lower = text.toLocaleLowerCase("en-US");
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
-  const requestLead = "(?:(?:can|could|should|will|would|must) (?:i|we|you)\\s+)?(?:please\\s+)?";
-  const explicitTargetPattern = contract.repository.explicit_targets
-    .map((target) => target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|");
-  const explicitTargetSubject = `(?:the\\s+)?(?:veln\\s+)?(?:${explicitTargetPattern})`;
-  const explicitTargetDefinition = new RegExp(
-    `\\b(?:define|explain)\\s+(?:the\\s+)?(?:term|word)\\s+${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
-    "u",
-  ).test(lower.trim());
-  const explicitTargetDescription = new RegExp(
-    `^${requestLead}(?:describe|summarize)\\s+${explicitTargetSubject}\\b`,
-    "u",
-  ).test(lower.trim());
-  const explicitTargetAttributeQuestion = new RegExp(
-    `^${requestLead}how\\s+[\\p{L}'’.-]+\\s+(?:is|are|was|were)\\s+${explicitTargetSubject}\\b`,
-    "u",
-  ).test(lower.trim());
-  const explicitTargetAbout = new RegExp(
-    `^${requestLead}(?:tell|show) me\\s+about\\s+${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
-    "u",
-  ).test(lower.trim());
-  const explicitTargetWhySubject = new RegExp(
-    `\\bwhy\\s+(?:is|are|was|were)\\s+${explicitTargetSubject}\\b`,
-    "u",
-  ).test(lower.trim());
-  const explicitTargetAuxiliarySubject = new RegExp(
-    `^(?:do|does|did|can|could|will|would|has|have)\\s+${explicitTargetSubject}\\b`,
-    "u",
-  ).test(lower.trim());
-  const explicitTargetWhichSubject = new RegExp(
-    `^which\\s+[^.!?]{1,80}\\s+(?:is|are|was|were)\\s+(?:in\\s+)?${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
-    "u",
-  ).test(lower.trim());
-  const explicitRepositorySubject = !explicitTargetDefinition && (explicitTargetDescription
-    || explicitTargetAttributeQuestion || explicitTargetAbout || explicitTargetAuxiliarySubject
-    || explicitTargetWhichSubject || [
-    `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:is|are)\\s+(?:in\\s+)?${explicitTargetSubject}(?=\\s*(?:[?.!]|$))`,
-    `^${requestLead}(?:(?:tell|show) me\\s+)?(?:what|where)\\s+(?:in\\s+)?${explicitTargetSubject}\\s+(?:is|are)\\b`,
-    `^${requestLead}(?:is|are|was|were)\\s+${explicitTargetSubject}\\s+`,
-  ].some((pattern) => new RegExp(pattern, "u").test(lower.trim())) || explicitTargetWhySubject);
-  const intentPattern = contract.repository.intent_verbs.join("|");
-  const actionModifier = "(?:[\\p{L}'’.-]+ly\\s+)*";
-  const directRequest = new RegExp(
-    `(?:^|[.!?;:,]\\s*)${requestLead}${actionModifier}(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const assistedRequest = new RegExp(
-    `(?:^|[.!?;:,]\\s*)${requestLead}help (?:me|us)(?: to)?\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const framedRequest = new RegExp(
-    `\\b(?:i|we)(?: (?:need|want|would like)|['’]d like)(?: you)? to\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const indirectInfinitiveRequest = new RegExp(
-    `^(?:can|could|would) you\\s+(?:please\\s+)?(?!(?:define|describe|explain)\\b)(?:[\\p{L}'’.-]+\\s+){1,8}to\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const collectiveRequest = new RegExp(
-    `\\b(?:i|we) (?:should|must|can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const interrogativeRequest = new RegExp(
-    `\\b(?:how|what|when|where|why) (?:can|could|should|would|will|must) (?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const actorModalRequest = new RegExp(
-    `\\b(?:i|we|you)\\s+(?:can|could|should|would|will|must)\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const embeddedInterrogativeRequest = new RegExp(
-    `\\b(?:if|whether) you (?:can|could|will|would)\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const assignedRequest = new RegExp(
-    `\\b(?:your|my|our|the) (?:assignment|goal|job|request|task) (?:is|will be) to\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const nominalRequest = new RegExp(
-    `\\b(?:the|my|our|your)\\s+(?:thing|work|assignment|goal|job|purpose|request|task)\\b[^.!?]{0,80}\\b(?:need|want|is|will be)\\b[^.!?]{0,80}\\bto\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const communicatedRequest = new RegExp(
-    `\\b(?:ask|direct|request|require|urge)\\s+(?:[\\p{L}'’.-]+\\s+){0,8}that\\s+(?:i|we|you)\\s+(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const communicatedInfinitiveRequest = new RegExp(
-    `\\b(?:ask|direct|request|require|urge)\\s+(?:me|us|you)\\s+to\\s+(?:please\\s+)?${actionModifier}(?<intent>${intentPattern})\\b`,
-    "u",
-  ).exec(lower.trim());
-  const intentRequest = directRequest ?? assistedRequest ?? framedRequest ?? indirectInfinitiveRequest ?? collectiveRequest
-    ?? interrogativeRequest ?? actorModalRequest ?? embeddedInterrogativeRequest ?? assignedRequest ?? nominalRequest
-    ?? communicatedRequest ?? communicatedInfinitiveRequest;
-  const intentObject = intentRequest == null
-    ? ""
-    : lower.trim().slice(intentRequest.index + intentRequest[0].length);
-  const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
-  const languageComplements = contract.repository.language_complements.join("|");
-  const indirectLanguageInformation = intentRequest === indirectInfinitiveRequest
-    && new RegExp(
-      `^(?:can|could|would) you\\s+(?:please\\s+)?(?:show|tell)\\s+(?:me|us)\\s+`
-        + `(?:${languageComplements})\\s+to\\s+(?:${intentPattern})\\b`,
-      "u",
-    ).test(lower.trim())
-    && /\bveln\b/u.test(lower)
-    && !repositorySubject;
-  const intentWordMeaning = intentRequest === directRequest
-    && new RegExp(`^\\s+means?\\s+(?:${languageComplements})\\b`, "u").test(intentObject)
-    && /\bveln\b/u.test(lower);
-  const informationalRequest = intentRequest === directRequest && (
-    (intentRequest?.groups.intent === "update"
-      && /^\s+(?:me|us)\s+(?:about|on)\b/u.test(intentObject))
-    || /^(?:\s+(?:this|the)\s+question\s*:)/u.test(intentObject)
-  ) || indirectLanguageInformation || intentWordMeaning;
-  const intent = informationalRequest ? undefined : intentRequest?.groups.intent;
-  const reviewedLanguageQuestion = intent === "review"
-    && /^\s+(?:how|what|when|where|whether|why)\b/u.test(intentObject)
-    && /\bveln\b/u.test(intentObject)
-    && !repositorySubject;
-  const requestedMutation = intent !== undefined
-    && /^(?:add|change|fix|implement|modify|refactor|remove|update)$/u.test(intent);
-  const languageComplement = intent !== undefined && !requestedMutation
-    && interrogativeRequest !== null && intentRequest === interrogativeRequest
-    && /\bveln\b/u.test(lower) && !repositorySubject;
-  const languageBehaviorQuestion = /\bveln\b/u.test(lower)
-    && /(?:^|[.!?]\s*)\b(?:do|does|did|can|could|will|would|is|are|was|were|has|have)\s+(?!(?:i|we|you)\b)[^.!?]*\bveln\b/u
-      .test(lower.trim());
-  const locationForms = contract.repository.location_question_forms
-    .filter((form) => form !== "where")
-    .map((form) => form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|");
-  const locationAuxiliary = "(?:is|are|was|were)";
-  const locationQuestion = new RegExp(
-    `^${requestLead}(?:where\\s+${locationAuxiliary}\\b|(?:${locationForms})\\b.*\\b${locationAuxiliary}\\b)`,
-    "u",
-  ).test(lower.trim())
-    && contract.repository.location_question_endings.some((ending) => new RegExp(
-      `\\b${ending}\\b[?.!]*$`,
-      "u",
-    ).test(lower.trim()));
-  const implementationQuestion = new RegExp(
-    `^${requestLead}how\\s+${locationAuxiliary}\\b`,
-    "u",
-  ).test(lower.trim())
-    && contract.repository.location_question_endings.some((ending) => new RegExp(
-      `\\b${ending}\\b`,
-      "u",
-    ).test(lower.trim()));
-  const repository = repositoryPath || explicitRepositorySubject || locationQuestion || implementationQuestion
-    || (intent !== undefined && !languageComplement && !languageBehaviorQuestion && !reviewedLanguageQuestion)
-    || (intent !== undefined && repositorySubject);
-  return repository ? "repository" : "language";
+  const words = lower.match(/\p{L}+(?:['’]\p{L}+)?/gu) ?? [];
+  const explicitRepositorySubject = hasExplicitRepositorySubject(words, contract.repository.explicit_targets);
+  const repositorySubject = explicitRepositorySubject
+    || words.some((word) => ["compiler", "implementation", "parser"].includes(word));
+  const requestedAction = hasRequestedRepositoryAction(
+    lower,
+    contract.repository.intent_verbs,
+    contract.repository.language_complements,
+    repositorySubject,
+  );
+  const passiveLocation = contract.repository.location_question_endings.some((ending) => words.includes(ending))
+    && (contract.repository.location_question_forms.some((form) => lower.includes(form))
+      || words[0] === "how");
+  if (repositoryPath || explicitRepositorySubject || passiveLocation || requestedAction) return "repository";
+  return "language";
 }
 
 export function selectRequestRoute(text, options = {}) {
@@ -964,6 +925,11 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, published
     assertExactKeys(readResult.error, ["code"], `${context}: read transport error`);
     assert.equal(typeof readResult.error.code, "string", `${context}: read error code is required`);
     assert.ok(readResult.error.code.length > 0, `${context}: read error code must not be empty`);
+    assert.notEqual(
+      readResult.error.code,
+      "resource_not_found",
+      `${context}: resource_not_found must use the checked stale-snapshot result path`,
+    );
     assert.equal(answer.status, "topic_unavailable", `${context}: wrong unreadable-topic status`);
     assertExactKeys(answer, ["type", "status", "claims", "source_uris", "failure", "retained_result"], `${context}: topic failure answer`);
     validateFailure(answer, "read_doc", selectedUri, previousResult, context);
