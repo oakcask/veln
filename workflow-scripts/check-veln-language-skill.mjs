@@ -301,9 +301,11 @@ function parseSkillContract(skillText) {
     "add",
     "change",
     "debug",
+    "examine",
     "fix",
     "implement",
     "inspect",
+    "investigate",
     "modify",
     "refactor",
     "remove",
@@ -379,8 +381,17 @@ function routeRequest(text, contract, context) {
   };
   const repositoryPath = contract.repository.path_prefixes.some((prefix) => lower.includes(prefix));
   const explicitTarget = contract.repository.explicit_targets.some(containsTerm);
-  const requestLead = "(?:(?:can|could|would) you\\s+)?(?:please\\s+)?";
-  const intent = contract.repository.intent_verbs.find((verb) => new RegExp(`\\b${verb}\\b`, "u").test(lower));
+  const requestLead = "(?:(?:can|could|would) (?:i|you)\\s+)?(?:please\\s+)?";
+  const intentPattern = contract.repository.intent_verbs.join("|");
+  const directRequest = new RegExp(
+    `(?:^|[.!?;:,]\\s*)${requestLead}(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
+  const framedRequest = new RegExp(
+    `^i (?:would|'d) like you to\\s+(?<intent>${intentPattern})\\b`,
+    "u",
+  ).exec(lower.trim());
+  const intent = directRequest?.groups.intent ?? framedRequest?.groups.intent;
   const repositorySubject = /\b(?:compiler|parser|repository|codebase|source code|implementation)\b/u.test(lower);
   const languageComplements = contract.repository.language_complements.join("|");
   const languageComplement = intent !== undefined && /\bveln\b/u.test(lower) && !repositorySubject
