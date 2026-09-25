@@ -42,7 +42,7 @@ skill. Apply it exactly. Do not add a fallback from other instructions.
     "maximum_reads": 3,
     "repeat_paths": "forbidden",
     "published_reference_is_authority": false,
-    "routing_terms": ["repository", "implementation", "implemented", "proposal", "change", "inspect"]
+    "routing_terms": ["repository", "implementation", "implemented", "proposal"]
   },
   "failure": {
     "fallback": "forbidden",
@@ -110,6 +110,18 @@ test("derives routing from request text instead of a fixture label", () => {
   assert.throws(() => validateScenarioDocument(document, options), /request text selected the wrong route/);
 });
 
+test("keeps a language question containing change on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "How do Veln schemas change?";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
+test("keeps a language question containing inspect on the language route", () => {
+  const document = fixture();
+  matchingTurn(document).request.text = "Inspect how Veln schemas work.";
+  assert.equal(validateScenarioDocument(document, options), 9);
+});
+
 test("binds every acceptance row to its final outcome", () => {
   const document = fixture();
   scenario(document, "language-no-match").covers = "language-match";
@@ -121,6 +133,12 @@ test("rejects a language search without explicit language scope", () => {
   const document = fixture();
   delete matchingTurn(document).events[0].arguments.scope;
   assert.throws(() => validateScenarioDocument(document, options), /search scope must be language/);
+});
+
+test("rejects a search query unrelated to the scenario expectation", () => {
+  const document = fixture();
+  matchingTurn(document).events[0].arguments.query = "Veln effects";
+  assert.throws(() => validateScenarioDocument(document, options), /search request must match the scenario expectation/);
 });
 
 test("rejects a read before language search", () => {
@@ -169,7 +187,14 @@ test("rejects an empty supported claim", () => {
 test("rejects a claim absent from the selected topic", () => {
   const document = fixture();
   matchingTurn(document).events[4].claims[0] = "Schemas implicitly generate network clients.";
-  assert.throws(() => validateScenarioDocument(document, options), /claim must be supported/);
+  assert.throws(() => validateScenarioDocument(document, options), /unambiguous selected-resource evidence/);
+});
+
+test("rejects a claim that appears only inside a negated statement", () => {
+  const document = fixture();
+  matchingTurn(document).events[3].value.text =
+    "The reference does not establish this claim: Schemas describe format-neutral and binary fields.";
+  assert.throws(() => validateScenarioDocument(document, options), /unambiguous selected-resource evidence/);
 });
 
 test("rejects unsupported content in a successful answer", () => {

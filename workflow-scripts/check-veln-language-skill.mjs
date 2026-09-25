@@ -146,10 +146,14 @@ function validateClaims(answer, expectedSource, resourceText, context) {
   }
   assert.ok(answer.claims.length > 0, `${context}: successful answer must contain a claim`);
   assert.deepEqual(answer.source_uris, [expectedSource], `${context}: answer must report only the exact selected URI`);
+  const evidence = resourceText
+    .split(/(?<=[.!?])(?:\s+|$)|\n+/u)
+    .map((statement) => statement.trim())
+    .filter(Boolean);
   for (const claim of answer.claims) {
     assert.equal(typeof claim, "string", `${context}: every claim must be text`);
     assert.ok(claim.trim().length > 0, `${context}: claims must not be empty`);
-    assert.ok(resourceText.includes(claim), `${context}: claim must be supported by the selected resource text`);
+    assert.ok(evidence.includes(claim), `${context}: claim must match unambiguous selected-resource evidence`);
   }
 }
 
@@ -251,10 +255,20 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
   assert.equal(events[0]?.tool, contract.language.search_tool, `${context}: language route must search first`);
   validateSchema(events[0]?.arguments, schemas.searchInput, schemas.searchInput, `${context}: search_docs input`);
   assert.equal(events[0]?.arguments?.scope, contract.language.search_scope, `${context}: search scope must be language`);
+  assertExactKeys(turn.expected, ["search_arguments", "answer_claims"], `${context}: language expectation`);
+  assert.deepEqual(
+    events[0]?.arguments,
+    turn.expected.search_arguments,
+    `${context}: search request must match the scenario expectation`,
+  );
   assert.equal(events[1]?.type, "result", `${context}: search result must follow search call`);
   assert.equal(events[1]?.tool, contract.language.search_tool, `${context}: expected recorded search result`);
   const answer = finalAnswer(events, context);
   const searchResult = events[1];
+  assert.ok(Array.isArray(turn.expected.answer_claims), `${context}: expected answer claims must be an array`);
+  if (answer.status !== "answered") {
+    assert.deepEqual(turn.expected.answer_claims, [], `${context}: bounded outcome must not expect language claims`);
+  }
 
   if (searchResult.error !== undefined) {
     assert.equal(events.length, 3, `${context}: unavailable search must stop without retry or read`);
@@ -309,6 +323,7 @@ function validateLanguageTurn(turn, previousResult, contract, schemas, context) 
   assert.equal(answer.status, "answered", `${context}: wrong successful status`);
   assertExactKeys(answer, ["type", "status", "claims", "source_uris"], `${context}: successful answer`);
   validateClaims(answer, selectedUri, readResult.value.text, context);
+  assert.deepEqual(answer.claims, turn.expected.answer_claims, `${context}: answer claims must match the scenario expectation`);
   return retainedResult(answer);
 }
 
