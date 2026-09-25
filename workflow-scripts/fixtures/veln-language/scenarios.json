@@ -12,6 +12,38 @@
       "isError": false
     }
   },
+  "request_selection": [
+    { "id": "add-action", "intent": "add", "text": "Add a rule to the Veln compiler parser.", "route": "repository" },
+    { "id": "add-language", "intent": "add", "text": "What does add mean in Veln schemas?", "route": "language" },
+    { "id": "change-action", "intent": "change", "text": "Change Veln schema semantics.", "route": "repository" },
+    { "id": "change-language", "intent": "change", "text": "How do Veln schemas change?", "route": "language" },
+    { "id": "debug-action", "intent": "debug", "text": "Debug the Veln compiler parser.", "route": "repository" },
+    { "id": "debug-language", "intent": "debug", "text": "What does debug mean in Veln schemas?", "route": "language" },
+    { "id": "examine-action", "intent": "examine", "text": "Examine the Veln compiler parser.", "route": "repository" },
+    { "id": "examine-language", "intent": "examine", "text": "What does examine mean in Veln schemas?", "route": "language" },
+    { "id": "fix-action", "intent": "fix", "text": "Could you please fix the Veln compiler parser?", "route": "repository" },
+    { "id": "fix-language", "intent": "fix", "text": "What does fix mean in Veln schemas?", "route": "language" },
+    { "id": "implement-action", "intent": "implement", "text": "Implement the Veln compiler parser change.", "route": "repository" },
+    { "id": "implement-language", "intent": "implement", "text": "How does Veln implement schemas?", "route": "language" },
+    { "id": "inspect-action", "intent": "inspect", "text": "I need you to inspect how Veln schemas work.", "route": "repository" },
+    { "id": "inspect-language", "intent": "inspect", "text": "What does inspect mean in Veln schemas?", "route": "language" },
+    { "id": "investigate-action", "intent": "investigate", "text": "We should investigate the Veln compiler parser.", "route": "repository" },
+    { "id": "investigate-language", "intent": "investigate", "text": "What does investigate mean in Veln schemas?", "route": "language" },
+    { "id": "modify-action", "intent": "modify", "text": "Modify the Veln compiler parser.", "route": "repository" },
+    { "id": "modify-language", "intent": "modify", "text": "What does modify mean in Veln schemas?", "route": "language" },
+    { "id": "refactor-action", "intent": "refactor", "text": "Refactor the Veln compiler parser.", "route": "repository" },
+    { "id": "refactor-language", "intent": "refactor", "text": "What does refactor mean in Veln schemas?", "route": "language" },
+    { "id": "remove-action", "intent": "remove", "text": "Remove a rule from the Veln compiler parser.", "route": "repository" },
+    { "id": "remove-language", "intent": "remove", "text": "What does remove mean in Veln schemas?", "route": "language" },
+    { "id": "review-action", "intent": "review", "text": "Tell me whether you can review the Veln compiler parser.", "route": "repository" },
+    { "id": "review-language", "intent": "review", "text": "Review this question: how do Veln schemas work?", "route": "language" },
+    { "id": "select-action", "intent": "select", "text": "Select the next ready Veln language proposal.", "route": "repository" },
+    { "id": "select-language", "intent": "select", "text": "What does select mean in Veln schemas?", "route": "language" },
+    { "id": "test-action", "intent": "test", "text": "Test how Veln schemas work.", "route": "repository" },
+    { "id": "test-language", "intent": "test", "text": "What can I test in Veln schemas?", "route": "language" },
+    { "id": "update-action", "intent": "update", "text": "Update the Veln compiler parser.", "route": "repository" },
+    { "id": "update-language", "intent": "update", "text": "Please update me on how Veln schemas work.", "route": "language" }
+  ],
   "scenarios": [
     {
       "id": "language-topic-match",

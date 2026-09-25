@@ -155,6 +155,25 @@ test("synthetic contract replays every veln-language acceptance scenario", () =>
   assert.equal(validateScenarioDocument(fixture(), options), 11);
 });
 
+test("requires both routes for every checked intent verb", () => {
+  const document = fixture();
+  document.request_selection = document.request_selection.filter((entry) => entry.id !== "add-language");
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /must cover both routes for every intent verb/,
+  );
+});
+
+test("requires the canonical action-binding regressions", () => {
+  const document = fixture();
+  document.request_selection.find((entry) => entry.id === "test-action").text =
+    "Test the Veln compiler parser.";
+  assert.throws(
+    () => validateScenarioDocument(document, options),
+    /must include "Test how Veln schemas work\."/,
+  );
+});
+
 test("rejects a skill without the canonical name", () => {
   assert.throws(
     () => validateScenarioDocument(fixture(), { skillText: skillText.replace("name: veln-language", "name: other") }),
@@ -253,9 +272,10 @@ test("keeps a language behavior question with a trailing Veln subject on the lan
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
-test("keeps a language question containing inspect on the language route", () => {
+test("routes an imperative inspection of language behavior to the repository", () => {
   const document = fixture();
-  matchingTurn(document).request.text = "Inspect how Veln schemas work.";
+  scenario(document, "repository-change").turns[0].request.text =
+    "Inspect how Veln schemas work.";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -273,16 +293,17 @@ test("routes an interrogative repository inspection with a Veln implementation s
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
-test("keeps a language topic review on the language route", () => {
+test("routes an imperative language-semantics review to the repository", () => {
   const document = fixture();
-  const turn = scenario(document, "search-unavailable").turns[1];
-  turn.request.text = "Review Veln effects semantics.";
+  scenario(document, "repository-change").turns[0].request.text =
+    "Review Veln schema semantics.";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
-test("keeps a language topic inspection on the language route", () => {
+test("routes an imperative language-semantics inspection to the repository", () => {
   const document = fixture();
-  matchingTurn(document).request.text = "Inspect Veln schema semantics.";
+  scenario(document, "repository-change").turns[0].request.text =
+    "Inspect Veln schema semantics.";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -324,6 +345,10 @@ test("canonical repository scenarios cover inspection and change requests", () =
     "Change how Veln schemas work.",
   );
   assert.equal(matchingTurn(document).request.text, "What can I test in Veln schemas?");
+  const selection = new Map(document.request_selection.map((entry) => [entry.text, entry.route]));
+  assert.equal(selection.get("Test how Veln schemas work."), "repository");
+  assert.equal(selection.get("Change Veln schema semantics."), "repository");
+  assert.equal(selection.get("Please update me on how Veln schemas work."), "language");
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -369,9 +394,10 @@ test("routes a non-leading repository inspection request", () => {
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
-test("keeps an embedded language inspection request on the language route", () => {
+test("routes an embedded imperative language inspection to the repository", () => {
   const document = fixture();
-  matchingTurn(document).request.text = "I need you to inspect how Veln schemas work.";
+  scenario(document, "repository-change").turns[0].request.text =
+    "I need you to inspect how Veln schemas work.";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -410,9 +436,10 @@ test("routes a passive implementation question whose implementation term is not 
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
-test("keeps a non-leading inspection request about language behavior on the language route", () => {
+test("routes a non-leading inspection request about language behavior to the repository", () => {
   const document = fixture();
-  matchingTurn(document).request.text = "I would like you to inspect how Veln schemas work.";
+  scenario(document, "repository-change").turns[0].request.text =
+    "I would like you to inspect how Veln schemas work.";
   assert.equal(validateScenarioDocument(document, options), 11);
 });
 
@@ -1121,6 +1148,7 @@ test("shares recordings at the largest accepted reference boundary", (context) =
       "schemas-search": { content: "" },
       "schemas-read": {},
     },
+    request_selection: [],
     scenarios: Array.from({ length: 11 }, (_, index) => ({
       id: `reference-boundary-${index}`,
       covers: "language-match",
@@ -1199,6 +1227,7 @@ test("checks every recording reference bound before expanding recordings", (cont
         "schemas-search": { content: "x".repeat(100_000) },
         "schemas-read": {},
       },
+      request_selection: [],
       scenarios: Array.from({ length: 11 }, scenario),
     };
     if (fixtureCase.name === "turns") document.scenarios[0].turns.push(turn());
